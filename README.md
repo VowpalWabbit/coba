@@ -9,11 +9,9 @@ Round
   > Contextual Features [CF]
   > Action Features [AF]
   > Action Rewards [AR]
-
  
 Game
   > Rounds
-
    
 ContextualBandit [CB]
   > Choose(CF, AF)
