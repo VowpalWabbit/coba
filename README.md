@@ -12,9 +12,11 @@ The following high-level interfaces are leveraged:
  * Game
    * Rounds
 
+```
     ContextualBandit (CB)
       Choose(CF, AF)
       Learn(CF, AF, AR)   
    
     Benchmarker
       Evaluate(CB)
+```
