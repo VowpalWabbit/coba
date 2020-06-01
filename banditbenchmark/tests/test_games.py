@@ -1,5 +1,5 @@
 import unittest as ut
-from ..bandit_games import BanditRound, ContextualBanditRound
+import games as bg
 
 class Test_BanditRound(ut.TestCase):
 
