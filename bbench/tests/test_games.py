@@ -80,7 +80,6 @@ class Test_ContextGame_Factories(unittest.TestCase):
             self.assertEqual(r.context, expected_context)
             self.assertCountEqual(r.actions, expected_actions)
             self.assertSequenceEqual(r.rewards, expected_rewards)
-
         
 
 if __name__ == '__main__':
