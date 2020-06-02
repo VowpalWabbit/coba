@@ -1,7 +1,7 @@
 import unittest as ut
 import bbench.games as bg
 
-class Test_Round(ut.TestCase):
+class Test_Round_Instance(ut.TestCase):
 
     def setUp(self):
         self.round = bg.Round([[1],[2],[3]], [1, 0, 1])
@@ -29,7 +29,7 @@ class Test_Round(ut.TestCase):
 
         self.assertRaises(AttributeError, assign_action_rewards)
 
-class Test_ContextRound(Test_Round):
+class Test_ContextRound_Instance(Test_Round_Instance):
     def setUp(self):
         self.round = bg.ContextRound([1, 1, 1], [[1],[2],[3]], [1, 0, 1])
 
@@ -42,7 +42,7 @@ class Test_ContextRound(Test_Round):
 
         self.assertRaises(AttributeError, assign_context_features)
 
-class Test_Game(ut.TestCase):
+class Test_Game_Instance(ut.TestCase):
     def setUp(self):
         self.rounds = [bg.Round([[1],[2],[3]], [1, 0, 1]), bg.Round([[1],[2],[3]], [1, 0, 1])]
         self.game = bg.Game(self.rounds)
@@ -52,6 +52,11 @@ class Test_Game(ut.TestCase):
 
     def test_rounds_correct(self):
         self.assertIs(self.rounds, self.game.rounds)    
+
+class Test_ContextGame_Instance(Test_Game_Instance):
+    def setUp(self):
+        self.rounds = [bg.ContextRound([1], [[1],[2],[3]], [1, 0, 1])]
+        self.game = bg.ContextGame(self.rounds)
 
 if __name__ == '__main__':
     ut.main()

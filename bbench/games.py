@@ -75,5 +75,6 @@ class ContextGame(Game):
         #MyPy doesn't infer type correctly when overriding so explicit type is necessary
         self._rounds: Iterable[ContextRound] = rounds 
 
+    @property
     def rounds(self) -> Iterable[ContextRound]:
         return self._rounds
