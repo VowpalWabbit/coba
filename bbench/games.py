@@ -6,20 +6,20 @@
         > ...
 """
 
-from typing import Iterable, List, Generic, TypeVar, Any
+from typing import Iterable, List, Generic, TypeVar, Any, Union
 
-CF = List[Any]
-AF = List[List[Any]]
+CF = List[Union[str,float]]
+AF = List[Union[str,float]]
 AR = List[float]
 T = TypeVar('T', bound=BanditRound) # pylint: disable=used-before-assignment
 
 class BanditRound:
-    def __init__(self, action_features: AF, action_rewards: List[float]) -> None:
+    def __init__(self, action_features: List[AF], action_rewards: AR) -> None:
         self._action_features = action_features
         self._action_rewards = action_rewards
 
     @property
-    def action_features(self) -> AF:
+    def action_features(self) -> List[AF]:
         return self._action_features
 
     @property
@@ -27,7 +27,7 @@ class BanditRound:
         return self._action_rewards
 
 class ContextualBanditRound(BanditRound):
-    def __init__(self, context_features: CF, action_features: AF, action_rewards: AR):
+    def __init__(self, context_features: CF, action_features: List[AF], action_rewards: AR):
         super().__init__(action_features, action_rewards)
         self._context_features = context_features
 
@@ -38,7 +38,7 @@ class ContextualBanditRound(BanditRound):
 class BanditGame(Generic[T]):
 
     @staticmethod
-    def from_classifier_data(features: List[List[Any]], labels: List[Any]) -> BanditGame: # pylint: disable=undefined-variable
+    def from_classifier_data(features: List[CF], labels: List[Union[str,float]]) -> BanditGame: # pylint: disable=undefined-variable
         rounds  = []
         actions = [ [a] for a in list(set(labels)) ]
 
@@ -48,7 +48,7 @@ class BanditGame(Generic[T]):
         return BanditGame(rounds)
 
     @staticmethod
-    def from_csv_reader(csv_reader: Iterable[List[str]], label_col: str) -> BanditGame: # pylint: disable=undefined-variable
+    def from_csv_reader(csv_reader: Iterable[List[Union[str,float]]], label_col: str) -> BanditGame: # pylint: disable=undefined-variable
         features = []
         labels = []
 
