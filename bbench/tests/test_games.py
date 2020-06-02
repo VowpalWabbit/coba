@@ -1,10 +1,10 @@
 import unittest as ut
-import games as bg
+from bbench.games import Round, ContextRound, Game, ContextGame
 
-class Test_BanditRound(ut.TestCase):
+class Test_Round(ut.TestCase):
 
     def setUp(self):
-        self.round = bg.BanditRound([[1],[2],[3]], [1, 0, 1])
+        self.round = Round([[1],[2],[3]], [1, 0, 1])
 
     def test_setUp(self):
         pass
@@ -29,9 +29,9 @@ class Test_BanditRound(ut.TestCase):
 
         self.assertRaises(AttributeError, assign_action_rewards)
 
-class Test_ContextualBanditRound(Test_BanditRound):
+class Test_ContextRound(Test_Round):
     def setUp(self):
-        self.round = bg.ContextualBanditRound([1, 1, 1], [[1],[2],[3]], [1, 0, 1])
+        self.round = ContextRound([1, 1, 1], [[1],[2],[3]], [1, 0, 1])
 
     def test_context_features_correct(self):
         self.assertEqual([1, 1, 1], self.round.context_features)
@@ -41,6 +41,17 @@ class Test_ContextualBanditRound(Test_BanditRound):
             self.round.context_features = [2, 0, 1]
 
         self.assertRaises(AttributeError, assign_context_features)
+
+class Test_Game(ut.TestCase):
+    def setUp(self):
+        self.rounds = [Round([[1],[2],[3]], [1, 0, 1]), Round([[1],[2],[3]], [1, 0, 1])]
+        self.game = Game(self.rounds)
+
+    def test_setUp(self):
+        pass
+
+    def test_rounds_correct(self):
+        self.assertEqual(self.rounds, self.game.rounds())    
 
 if __name__ == '__main__':
     ut.main()
