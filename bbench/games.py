@@ -10,31 +10,31 @@ from typing import Iterable, Sequence, List, Generic, TypeVar, Any, Union, cast
 
 #reward type
 R  = float
-#feature type (in theory we chould probably be more specific than Any but using unions with base types is a huge headache)
-#scratch what I say above, implicit type conversion works with union when F is used inside of a "Sequence" rather than a "List"
+
+#feature type
 F = Union[str,float,Sequence[Union[str,float]]]
 
 class Round:
-    def __init__(self, action_features: Sequence[F], action_rewards: Sequence[R]) -> None:
-        self._action_features = action_features
-        self._action_rewards = action_rewards
+    def __init__(self, actions: Sequence[F], rewards: Sequence[R]) -> None:
+        self._actions = actions
+        self._rewards = rewards
 
     @property
-    def action_features(self) -> Sequence[F]:
-        return self._action_features
+    def actions(self) -> Sequence[F]:
+        return self._actions
 
     @property
-    def action_rewards(self) -> Sequence[R]:
-        return self._action_rewards
+    def rewards(self) -> Sequence[R]:
+        return self._rewards
 
 class ContextRound(Round):
-    def __init__(self, context_features: F, action_features: Sequence[F], action_rewards: Sequence[R]):
-        super().__init__(action_features, action_rewards)
-        self._context_features = context_features
+    def __init__(self, context: F, actions: Sequence[F], rewards: Sequence[R]):
+        super().__init__(actions, rewards)
+        self._context = context
 
     @property
-    def context_features(self) -> F:
-        return self._context_features
+    def context(self) -> F:
+        return self._context
 
 class Game:
     def __init__(self, rounds: Iterable[Round]) -> None:
