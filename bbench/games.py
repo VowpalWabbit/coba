@@ -14,9 +14,6 @@ R  = float
 #scratch what I say above, implicit type conversion works with union when F is used inside of a "Sequence" rather than a "List"
 F = Union[str,float,Sequence[Union[str,float]]]
 
-#game round
-T = TypeVar('T', bound=Round) # pylint: disable=used-before-assignment
-
 class Round:
     def __init__(self, action_features: Sequence[F], action_rewards: Sequence[R]) -> None:
         self._action_features = action_features
@@ -40,7 +37,6 @@ class ContextRound(Round):
         return self._context_features
 
 class Game:
-
     def __init__(self, rounds: Iterable[Round]) -> None:
         self._rounds = rounds
 
@@ -50,7 +46,7 @@ class Game:
 
 class ContextGame(Game):
     @staticmethod
-    def from_classifier_data(features: Sequence[F], labels: Sequence[Union[str,float]]) -> ContextGame: # pylint: disable=undefined-variable
+    def from_classifier_data(features: Sequence[F], labels: Sequence[Union[str,float]]) -> 'ContextGame':
         rounds  = []
         actions = list(set(labels))
 
@@ -60,7 +56,7 @@ class ContextGame(Game):
         return ContextGame(rounds)
 
     @staticmethod
-    def from_csv_reader(csv_reader: Iterable[List[str]], label_col: str) -> ContextGame: # pylint: disable=undefined-variable
+    def from_csv_reader(csv_reader: Iterable[List[str]], label_col: str) -> 'ContextGame':
         features: List[Sequence[str]] = []
         labels  : List[str]           = []
 
