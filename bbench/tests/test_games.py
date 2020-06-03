@@ -91,5 +91,8 @@ class Test_ContextGame_Factories(unittest.TestCase):
     def test_from_classifier_data_with_short_labels(self):
         self.assertRaises(AssertionError, lambda: bg.ContextGame.from_classifier_data([1,1], [1]))
 
+    def test_from_classifier_data_with_list_labels(self):
+        self.assertRaises(TypeError, lambda: bg.ContextGame.from_classifier_data([1,1], [[1,1],[1,2]]))
+
 if __name__ == '__main__':
     unittest.main()
