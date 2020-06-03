@@ -5,8 +5,8 @@ from random import randint
 
 class Solver:
 
-    def Choose(self, state, actions) -> int:
+    def choose(self, state, actions) -> int:
         return randint(0,len(actions)-1)
 
-    def Learn(self, state, action, reward) -> None:
+    def learn(self, state, action, reward) -> None:
         pass
