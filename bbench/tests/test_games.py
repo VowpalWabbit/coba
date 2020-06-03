@@ -62,25 +62,34 @@ class Test_ContextGame_Instance(Test_Game_Instance):
 
 class Test_ContextGame_Factories(unittest.TestCase):
 
-    def test_from_classifier_data_with_flat_numeric_features_and_labels(self):
+    @staticmethod
+    def good_features_and_labels_to_test():
+        yield ([1,2,3,4], [1,1,0,0])
+        yield (["a","b"], ["good", "bad"])
+        yield ([[1,2],[3,4]], ["good", "bad"])
 
-        features = [1,2,3,4]
-        labels = [1,1,0,0,1]
+    def test_from_classifier_data_with_good_features_and_labels(self):
 
-        game = bg.ContextGame.from_classifier_data(features, labels)
-        
-        self.assertEqual(len(game.rounds), len(features))
-        
-        for i,r in enumerate(game.rounds):
+        for features, labels in self.__class__.good_features_and_labels_to_test():
+            game = bg.ContextGame.from_classifier_data(features, labels)
 
-            expected_context = features[i]
-            expected_actions = [1,0]
-            expected_rewards = [int(a == labels[i]) for a in r.actions]
+            self.assertEqual(len(game.rounds), len(features))
 
-            self.assertEqual(r.context, expected_context)
-            self.assertCountEqual(r.actions, expected_actions)
-            self.assertSequenceEqual(r.rewards, expected_rewards)
-        
+            for f,l,r in zip(features, labels, game.rounds):
+
+                expected_context = f
+                expected_actions = list(set(labels))
+                expected_rewards = [int(a == l) for a in r.actions]
+
+                self.assertEqual(r.context, expected_context)            
+                self.assertEqual(r.actions, expected_actions)
+                self.assertSequenceEqual(r.rewards, expected_rewards)
+
+    def test_from_classifier_data_with_short_features(self):
+        self.assertRaises(AssertionError, lambda: bg.ContextGame.from_classifier_data([1], [1,1]))
+    
+    def test_from_classifier_data_with_short_labels(self):
+        self.assertRaises(AssertionError, lambda: bg.ContextGame.from_classifier_data([1,1], [1]))
 
 if __name__ == '__main__':
     unittest.main()

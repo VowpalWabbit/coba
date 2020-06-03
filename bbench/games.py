@@ -47,8 +47,11 @@ class Game:
 class ContextGame(Game):
     @staticmethod
     def from_classifier_data(features: Sequence[F], labels: Sequence[Union[str,float]]) -> 'ContextGame':
+        
+        assert len(features) == len(labels), "Mismatched lengths of features and labels"
+
         rounds  = []
-        actions = list(set(labels))
+        actions = list(set(labels)) #todo: make this also work for labels that are lists of features        
 
         for context_features, rewarded_action in zip(features, labels):
             rounds.append(ContextRound(context_features, actions, [int(rewarded_action==a) for a in actions] ))
