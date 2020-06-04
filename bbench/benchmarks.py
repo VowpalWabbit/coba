@@ -3,12 +3,11 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Sequence, List, Callable, Optional, Tuple, cast
+from typing import Union, Iterable, Sequence, List, Callable, Optional, Tuple, cast
 from itertools import islice
 
 from bbench.games import Game, Round
 from bbench.solvers import Solver
-
 
 class Result:
 
@@ -32,19 +31,31 @@ class Result:
         var = cast(float,Result.var(vals))
         return (var/len(vals))**(1/2)
 
-    def __init__(self, samples_by_x: Sequence[Sequence[float]]) -> None:
-        averages = list(map(Result.avg, samples_by_x))
+    @staticmethod
+    def ensure_list(vals:Union[float,Sequence[float]]) -> Sequence[float]:
+        if isinstance(vals, (float,int)):
+            return [vals]
+        else:
+            return vals
 
-        self._points   = list(enumerate(averages,1))
-        self._errors   = list(map(Result.sem,samples_by_x))
+    def __init__(self, samples_by_x: Sequence[Union[float,Sequence[float]]]) -> None:
+
+        sequence_by_x = list(map(Result.ensure_list, samples_by_x))
+
+        self._values = list(map(Result.avg, sequence_by_x))
+        self._errors = list(map(Result.sem, sequence_by_x))
 
     @property
-    def points(self) -> Sequence[Tuple[float,float]]:
-        return self._points
+    def points(self) -> Sequence[Tuple[int,float]]:
+        return list(enumerate(self._values,1))
+    
+    @property
+    def errors(self) -> Sequence[Optional[float]]:
+        return self._errors
 
     def print(self) -> 'Result':
         return self
-    
+
     def plot(self) -> 'Result':
         return self
 
