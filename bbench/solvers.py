@@ -26,7 +26,7 @@ class RandomSolver(Solver):
 class LambdaSolver(Solver):
     def __init__(self, 
                  chooser: Callable[[Optional[State],Sequence[Action]],int], 
-                 learner: Callable[[Optional[State],Action,Reward],None]) -> None:
+                 learner: Optional[Callable[[Optional[State],Action,Reward],None]] = None) -> None:
         self._chooser = chooser
         self._learner = learner
 
@@ -34,4 +34,7 @@ class LambdaSolver(Solver):
         return self._chooser(state, actions)
 
     def learn(self, state: Optional[State], action: Action, reward: Reward) -> None:
-        self._learner(state,action,reward)
+        if self._learner is None:
+            pass
+        else:
+            self._learner(state,action,reward)

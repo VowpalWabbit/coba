@@ -6,6 +6,7 @@
         > ...
 """
 
+from itertools import repeat
 from typing import Optional, Iterable, Sequence, List, Union, Callable
 
 #state, action, reward types
@@ -65,9 +66,16 @@ class Game:
         return Game.from_classifier_data(features, labels)
 
     @staticmethod
-    def from_generator(S: Iterable[State], 
-                       A: Callable[[State],Sequence[Action]], 
-                       R: Callable[[State,Action],float]) -> 'Game':
+    def from_callable(S: Callable[[],State], 
+                      A: Callable[[State],Sequence[Action]], 
+                      R: Callable[[State,Action],float]) -> 'Game':
+
+        return Game.from_iterable((S() for _ in repeat(1)), A, R)
+    
+    @staticmethod
+    def from_iterable(S: Iterable[State], 
+                      A: Callable[[State],Sequence[Action]], 
+                      R: Callable[[State,Action],float]) -> 'Game':
 
         def round_generator() -> Iterable[Round]:
             for s in S: yield Round(s, A(s), [R(s,a) for a in A(s)])

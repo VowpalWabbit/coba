@@ -62,15 +62,15 @@ class Result:
 class Benchmark(ABC):
 
     @abstractmethod
-    def evaluate(self, solver: Solver) -> Result:
+    def evaluate(self, solver_factory: Callable[[],Solver]) -> Result:
         ...
 
 class ProgressiveBenchmark(Benchmark):
-    def __init__(self, games: Iterable[Game], n_rounds: int) -> None:
+    def __init__(self, games: Iterable[Game], n_rounds: int = 30) -> None:
         self._games = games
         self._n_rounds = n_rounds
 
-    def evalute(self, solver_factory: Callable[[],Solver]):
+    def evaluate(self, solver_factory: Callable[[],Solver]):
         round_pvrs: List[List[float]] = [ [] for i in range(self._n_rounds) ]
 
         for game in self._games:
@@ -86,7 +86,7 @@ class ProgressiveBenchmark(Benchmark):
 
                 solver.learn(state, action, reward)
 
-                progressive_reward = 1/(n+1) * reward + (n/n+1) * reward
+                progressive_reward = 1/(n+1) * reward + n/(n+1) * progressive_reward
 
                 round_pvrs[n].append(progressive_reward)
 

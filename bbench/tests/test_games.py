@@ -97,12 +97,12 @@ class Test_Game_Factories(unittest.TestCase):
         bad_lambda = lambda: Game.from_classifier_data([1], [[1,1]]) #type: ignore
         self.assertRaises(TypeError, bad_lambda)
 
-    def test_from_generator(self) -> None:
+    def test_from_iterable(self) -> None:
         S = [[1,2,3,4],[5,6,7,8],[2,4,6,8],[1,3,5,7]]
         A = lambda s: list(range(1,s[0]+1))
         R = lambda s,a: s[1]/a
         
-        game = Game.from_generator(S,A,R)
+        game = Game.from_iterable(S,A,R)
 
         for s,r in zip(S,game.rounds):
             self.assertEqual(r.state  , s)
