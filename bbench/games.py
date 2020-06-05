@@ -6,16 +6,15 @@
         > ...
 """
 from abc import ABC
-from typing import Optional, Generic, Iterable, Sequence, List, TypeVar, Any, Union, cast
+from typing import Optional, Iterable, Sequence, List, Union, Callable
 
-#reward type
-R  = float
-
-#feature type
-F = Union[str,float,Sequence[Union[str,float]]]
+#state, action, reward types
+S = Union[str,float,Sequence[Union[str,float]]]
+A = Union[str,float,Sequence[Union[str,float]]]
+R = float
 
 class Round:
-    def __init__(self, state: Optional[F], actions: Sequence[F], rewards: Sequence[R]):
+    def __init__(self, state: Optional[S], actions: Sequence[A], rewards: Sequence[R]):
         
         assert len(actions) == len(rewards), "Mismatched lengths of actions and rewards"
 
@@ -24,11 +23,11 @@ class Round:
         self._rewards = rewards
 
     @property
-    def state(self) -> Optional[F]:
+    def state(self) -> Optional[S]:
         return self._state
 
     @property
-    def actions(self) -> Sequence[F]:
+    def actions(self) -> Sequence[A]:
         return self._actions
 
     @property
@@ -37,7 +36,7 @@ class Round:
 
 class Game:
     @staticmethod
-    def from_classifier_data(features: Sequence[F], labels: Sequence[Union[str,float]]) -> 'Game':
+    def from_classifier_data(features: Sequence[S], labels: Sequence[Union[str,float]]) -> 'Game':
         
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
@@ -61,9 +60,17 @@ class Game:
 
         return Game.from_classifier_data(features, labels)
 
-    def __init__(self, rounds: Sequence[Round]) -> None:
+    @staticmethod
+    def from_generator(S: Iterable[S], A: Callable[[S],Sequence[A]], R: Callable[[S,A],float]) -> 'Game':
+        
+        def round_generator() -> Iterable[Round]:
+            for s in S: yield Round(s, A(s), [R(s,a) for a in A(s)])
+        
+        return Game(round_generator())
+
+    def __init__(self, rounds: Iterable[Round]) -> None:
         self._rounds = rounds
 
     @property
-    def rounds(self) -> Sequence[Round]:
+    def rounds(self) -> Iterable[Round]:
         return self._rounds

@@ -1,7 +1,7 @@
 import unittest
 import math
 
-from bbench.benchmarks import Result
+from bbench.benchmarks import Result, Game, Round
 
 class Test_Result_Instance(unittest.TestCase):
 

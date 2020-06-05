@@ -1,5 +1,6 @@
 import unittest
 import itertools
+import random
 
 from bbench.games import Round, Game
 
@@ -62,29 +63,30 @@ class Test_Game_Instance(unittest.TestCase):
 
 class Test_Game_Factories(unittest.TestCase):
 
-    @staticmethod
-    def good_features_and_labels_to_test():
-        yield ([1,2,3,4], [1,1,0,0])
-        yield (["a","b"], ["good", "bad"])
-        yield ([[1,2],[3,4]], ["good", "bad"])
+    def assert_game_from_classifier_data(self,features, labels):
+        game = Game.from_classifier_data(features, labels)
 
-    def test_from_classifier_data_with_good_features_and_labels(self):
+        self.assertEqual(len(game.rounds), len(features))
 
-        for features, labels in self.__class__.good_features_and_labels_to_test():
-            game = Game.from_classifier_data(features, labels)
+        for f,l,r in zip(features, labels, game.rounds):
 
-            self.assertEqual(len(game.rounds), len(features))
+            expected_state   = f
+            expected_actions = list(set(labels))
+            expected_rewards = [int(a == l) for a in r.actions]
 
-            for f,l,r in zip(features, labels, game.rounds):
+            self.assertEqual(r.state, expected_state)            
+            self.assertEqual(r.actions, expected_actions)
+            self.assertEqual(r.rewards, expected_rewards)
 
-                expected_state   = f
-                expected_actions = list(set(labels))
-                expected_rewards = [int(a == l) for a in r.actions]
+    def test_from_classifier_data_with_good_features_and_labels1(self):
+        self.assert_game_from_classifier_data([1,2,3,4], [1,1,0,0])
+    
+    def test_from_classifier_data_with_good_features_and_labels2(self):
+        self.assert_game_from_classifier_data(["a","b"], ["good", "bad"])
 
-                self.assertEqual(r.state, expected_state)            
-                self.assertEqual(r.actions, expected_actions)
-                self.assertEqual(r.rewards, expected_rewards)
-
+    def test_from_classifier_data_with_good_features_and_labels3(self):
+        self.assert_game_from_classifier_data([[1,2],[3,4]], ["good", "bad"])
+    
     def test_from_classifier_data_with_short_features(self):
         self.assertRaises(AssertionError, lambda: Game.from_classifier_data([1], [1,1]))
     
@@ -93,6 +95,18 @@ class Test_Game_Factories(unittest.TestCase):
 
     def test_from_classifier_data_with_list_labels(self):
         self.assertRaises(TypeError, lambda: Game.from_classifier_data([1,1], [[1,1],[1,2]]))
+
+    def test_from_generator(self):
+        S = [[1,2,3,4],[5,6,7,8],[2,4,6,8],[1,3,5,7]]
+        A = lambda s: list(range(1,s[0]+1))
+        R = lambda s,a: s[1]/a
+        
+        game = Game.from_generator(S,A,R)
+
+        for s,r in zip(S,game.rounds):
+            self.assertEqual(r.state  , s)
+            self.assertEqual(r.actions, A(s))
+            self.assertEqual(r.rewards, [R(s,a) for a in A(s)])
 
 if __name__ == '__main__':
     unittest.main()
