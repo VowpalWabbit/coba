@@ -13,7 +13,6 @@ State  = Union[str,float,Sequence[Union[str,float]]]
 Action = Union[str,float,Sequence[Union[str,float]]]
 Reward = float
 
-
 class Round:
     def __init__(self, 
                  state  : Optional[State], 
