@@ -93,13 +93,14 @@ class ProgressiveBenchmark(Benchmark):
         return Result(round_pvrs)
 
 
-class IterationGroupBenchmark(Benchmark):
-    def __init__(self, games: Iterable[Game],  n_iterations: int, n_rounds: int) -> None:
-        self._games = games
-        self._n_iterations = n_iterations
+class TraditionalBenchmark(Benchmark):
+    def __init__(self, games: Sequence[Game], n_rounds: int, n_iterations: int) -> None:
+        self._games        = games
         self._n_rounds     = n_rounds
+        self._n_iterations = n_iterations
+        
 
-    def evalute(self, solver_factory: Callable[[],Solver]):
+    def evaluate(self, solver_factory: Callable[[],Solver]):
         iteration_rwds: List[List[float]] = [ [] for i in range(self._n_iterations) ]
 
         for game in self._games:
@@ -107,7 +108,7 @@ class IterationGroupBenchmark(Benchmark):
 
             for i in range(self._n_iterations):
 
-                rounds  = islice(game.rounds, self._n_rounds)
+                rounds  = list(islice(game.rounds, self._n_rounds))
                 
                 choices = [ solver.choose(r.state, r.actions) for r in rounds ]
                 states  = [ r.state for r in rounds ]
