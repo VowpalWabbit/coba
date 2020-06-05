@@ -63,7 +63,7 @@ class Benchmark(ABC):
 
     @abstractmethod
     def evaluate(self, solver: Solver) -> Result:
-        pass
+        ...
 
 class ProgressiveBenchmark(Benchmark):
     def __init__(self, games: Iterable[Game], n_rounds: int) -> None:

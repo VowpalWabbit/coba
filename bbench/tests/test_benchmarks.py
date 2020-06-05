@@ -36,6 +36,7 @@ class Test_Result_Instance(unittest.TestCase):
         self.assertAlmostEqual(result.errors[1], 10/math.sqrt(2))
         self.assertAlmostEqual(result.errors[2], 15/math.sqrt(2))
         self.assertAlmostEqual(result.errors[3], 20/math.sqrt(2))
+    
 
 if __name__ == '__main__':
     unittest.main()

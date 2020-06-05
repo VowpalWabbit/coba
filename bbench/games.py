@@ -5,16 +5,20 @@
     Classes:
         > ...
 """
-from abc import ABC
+
 from typing import Optional, Iterable, Sequence, List, Union, Callable
 
 #state, action, reward types
-S = Union[str,float,Sequence[Union[str,float]]]
-A = Union[str,float,Sequence[Union[str,float]]]
-R = float
+State  = Union[str,float,Sequence[Union[str,float]]]
+Action = Union[str,float,Sequence[Union[str,float]]]
+Reward = float
+
 
 class Round:
-    def __init__(self, state: Optional[S], actions: Sequence[A], rewards: Sequence[R]):
+    def __init__(self, 
+                 state  : Optional[State], 
+                 actions: Sequence[Action],
+                 rewards: Sequence[Reward]) -> None:
         
         assert len(actions) == len(rewards), "Mismatched lengths of actions and rewards"
 
@@ -23,21 +27,22 @@ class Round:
         self._rewards = rewards
 
     @property
-    def state(self) -> Optional[S]:
+    def state(self) -> Optional[State]:
         return self._state
 
     @property
-    def actions(self) -> Sequence[A]:
+    def actions(self) -> Sequence[Action]:
         return self._actions
 
     @property
-    def rewards(self) -> Sequence[R]:
+    def rewards(self) -> Sequence[Reward]:
         return self._rewards
 
 class Game:
     @staticmethod
-    def from_classifier_data(features: Sequence[S], labels: Sequence[Union[str,float]]) -> 'Game':
-        
+    def from_classifier_data(features: Sequence[Union[str,float,Sequence[Union[str,float]]]],
+                             labels  : Sequence[Union[str,float]]) -> 'Game':
+
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
         states  = features
@@ -61,8 +66,10 @@ class Game:
         return Game.from_classifier_data(features, labels)
 
     @staticmethod
-    def from_generator(S: Iterable[S], A: Callable[[S],Sequence[A]], R: Callable[[S,A],float]) -> 'Game':
-        
+    def from_generator(S: Iterable[State], 
+                       A: Callable[[State],Sequence[Action]], 
+                       R: Callable[[State,Action],float]) -> 'Game':
+
         def round_generator() -> Iterable[Round]:
             for s in S: yield Round(s, A(s), [R(s,a) for a in A(s)])
         
