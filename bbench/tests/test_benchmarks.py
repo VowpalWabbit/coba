@@ -50,24 +50,13 @@ class Test_Result_Instance(unittest.TestCase):
 
 class Test_ProgressiveBenchmark(unittest.TestCase):
     def test_single_game(self) -> None:
-
-        rewards = [1,3]
-        game    = Game.from_iterable(cycle([0,1]), lambda s: [0,1], lambda s,a:rewards[cast(int,a)])
-        solver  = lambda: LambdaSolver(lambda s,a: cast(int,s))
-
-        result = ProgressiveBenchmark([game]).evaluate(solver)
-
-        for n, (point, error) in enumerate(zip(result.points,result.errors)):
-            expected_rewards = list(islice(cycle(rewards),(n+1)))
-            expected_progressive = sum(expected_rewards)/ len(expected_rewards)
-
-            self.assertEqual(point[0], n+1)
-            self.assertAlmostEqual(point[1], expected_progressive)
-            self.assertIsNone(error)
+        self.assert_progessivebenchmark_for_reward_sets([[1,3]])
 
     def test_multi_game(self) -> None:
+        self.assert_progessivebenchmark_for_reward_sets([[1,3],[5,6]])
 
-        rewards = [[1,3], [5,6]]
+    def assert_progessivebenchmark_for_reward_sets(self, rewards):
+        
         actions = lambda s: [0,1]
         games   = [Game.from_iterable(cycle([0,1]), actions, lambda s,a,r=r:r[a]) for r in rewards] #type: ignore
         solver  = lambda: LambdaSolver(lambda s,a: cast(int,s))
@@ -79,7 +68,11 @@ class Test_ProgressiveBenchmark(unittest.TestCase):
             expected_values  = [sum(r)/len(r) for r in expected_rewards]
             
             expected_mean    = sum(expected_values)/len(expected_values)
-            expected_error   = sqrt(sum((v-expected_mean)**2 for v in expected_values))/len(expected_values)
+            
+            if(len(expected_values) == 1):
+                expected_error = None
+            else:
+                expected_error = sqrt(sum((v-expected_mean)**2 for v in expected_values))/len(expected_values)
 
             self.assertEqual(point[0], n+1)
             self.assertAlmostEqual(point[1], expected_mean)
