@@ -1,9 +1,12 @@
-"""
-    The games module contains classes and functions for creating bandit games. A bandit
-    game is a repeated decision making problem where each decision is known as a round.
-    
-    Classes:
-        > ...
+"""The games module contains core classes and types for defining bandit games.
+
+This module contains the abstract interface expected for bandit game implementations along
+with the class defining a Round within a bandit game. This module also contains the type hints 
+for State, Action and Reward. These type hints don't contain any functionality. Rather, they 
+simply make it possible to use static type checking for any project that desires to do so.
+
+Todo:
+    * Add more Solver implementations
 """
 
 from itertools import repeat

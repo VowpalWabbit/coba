@@ -1,8 +1,7 @@
-"""The solvers module containing core bandit solver interfaces and implementations.
+"""The solvers module contains core bandit solving interfaces and implementations.
 
-This module contains the abstract base class representing the expected interface for
-all Solver implementations. This class also contains a number of common Solver 
-implementations for testing purposes and baseline benchmark determinations.
+This module contains the abstract interface for all Solver implementations along
+with a number of simple Solver implementations for testing and baseline comparisons.
 
 Todo:
     * Add more Solver implementations

@@ -1,8 +1,7 @@
-"""The benchmarks module containing core benchmark functionality and protocols.
+"""The benchmarks module contains core benchmark functionality and protocols.
 
-This module contains the abstract base class representing the expected interface for
-all Benchmark implementations. This module also containsSeveral common Benchmarch 
-protocols along with data transfer objects to represent the results of any Benchmark.
+This module contains the abstract interface expected for Benchmark implementations. This 
+module also contains several Benchmark implementations and Result data transfer class.
 
 Todo:
     * Consider refactoring Result so that samples are the core of the class rather 
