@@ -4,7 +4,7 @@ from math import sqrt
 from itertools import cycle, islice
 from typing import cast
 
-from bbench.games import Game, Round
+from bbench.games import MemoryGame, Round
 from bbench.solvers import LambdaSolver
 from bbench.benchmarks import Result, ProgressiveBenchmark, TraditionalBenchmark
 
@@ -57,7 +57,7 @@ class Test_ProgressiveBenchmark(unittest.TestCase):
 
     def assert_progessivebenchmark_for_reward_sets(self, rewards) -> None:     
         actions = lambda s: [0,1]
-        games   = [Game.from_iterable(cycle([0,1]), actions, lambda s,a,r=r:r[a]) for r in rewards] #type: ignore
+        games   = [MemoryGame.from_iterable(cycle([0,1]), actions, lambda s,a,r=r:r[a]) for r in rewards] #type: ignore
         solver  = lambda: LambdaSolver(lambda s,a: cast(int,s))
 
         result = ProgressiveBenchmark(games).evaluate(solver)
@@ -103,7 +103,7 @@ class Test_TraditionalBenchmark(unittest.TestCase):
 
     def assert_traditionalbenchmark_for_reward_sets(self, rewards, n_rounds, n_iterations) -> None:
         actions = lambda s: [0,1]
-        games   = [Game.from_iterable(cycle([0,1]), actions, lambda s,a,r=r:r[a]) for r in rewards] #type: ignore
+        games   = [MemoryGame.from_iterable(cycle([0,1]), actions, lambda s,a,r=r:r[a]) for r in rewards] #type: ignore
         solver  = lambda: LambdaSolver(lambda s,a: cast(int,s))
 
         result = TraditionalBenchmark(games, n_rounds, n_iterations).evaluate(solver)

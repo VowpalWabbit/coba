@@ -1,6 +1,6 @@
 """The solvers module contains core bandit solving interfaces and implementations.
 
-This module contains the abstract interface for all Solver implementations along
+This module contains the abstract interface expected for Solver implementations along
 with a number of simple Solver implementations for testing and baseline comparisons.
 
 Todo:
@@ -108,6 +108,8 @@ class LambdaSolver(Solver):
         Returns:
             See the base class for more information.
         """
+
+        return self._chooser(state, actions)
 
     def learn(self, state: Optional[State], action: Action, reward: Reward) -> None:
         """Learn via the optional lambda function or learn nothing without a lambda function.

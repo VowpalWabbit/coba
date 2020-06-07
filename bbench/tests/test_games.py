@@ -2,7 +2,7 @@ import unittest
 import itertools
 import random
 
-from bbench.games import Round, Game
+from bbench.games import Round, MemoryGame
 
 class Test_Round_Instance(unittest.TestCase):
 
@@ -48,23 +48,23 @@ class Test_Round_Instance(unittest.TestCase):
 
 class Test_Game_Instance(unittest.TestCase):
     def test_constructor(self) -> None:
-        Game([Round(1, [1,2,3], [1,0,1]), Round(2,[1,2,3], [1, 1, 0])])
+        MemoryGame([Round(1, [1,2,3], [1,0,1]), Round(2,[1,2,3], [1, 1, 0])])
 
     def test_rounds_correct(self) -> None:
         rounds = [Round(1, [1,2,3], [1,0,1]), Round(2,[1,2,3], [1, 1, 0])]
-        game   = Game(rounds)
+        game   = MemoryGame(rounds)
         self.assertIs(rounds, game.rounds)
 
     def test_rounds_readonly(self) -> None:
         def assign_rounds():
-            Game([]).rounds = []
+            MemoryGame([]).rounds = []
         
         self.assertRaises(AttributeError, assign_rounds)
 
 class Test_Game_Factories(unittest.TestCase):
 
-    def assert_game_from_classifier_data(self,features, labels) -> None:
-        game = Game.from_classifier_data(features, labels)
+    def assert_game_from_classifier_data(self, features, labels) -> None:
+        game = MemoryGame.from_classifier_data(features, labels)
 
         self.assertEqual(sum(1 for _ in game.rounds), len(features))
 
@@ -88,13 +88,13 @@ class Test_Game_Factories(unittest.TestCase):
         self.assert_game_from_classifier_data([[1,2],[3,4]], ["good", "bad"])
     
     def test_from_classifier_data_with_short_features(self) -> None:
-        self.assertRaises(AssertionError, lambda: Game.from_classifier_data([1], [1,1]))
+        self.assertRaises(AssertionError, lambda: MemoryGame.from_classifier_data([1], [1,1]))
     
     def test_from_classifier_data_with_short_labels(self) -> None:
-        self.assertRaises(AssertionError, lambda: Game.from_classifier_data([1,1], [1]))
+        self.assertRaises(AssertionError, lambda: MemoryGame.from_classifier_data([1,1], [1]))
 
     def test_from_classifier_data_with_list_labels(self) -> None:
-        bad_lambda = lambda: Game.from_classifier_data([1], [[1,1]]) #type: ignore
+        bad_lambda = lambda: MemoryGame.from_classifier_data([1], [[1,1]]) #type: ignore
         self.assertRaises(TypeError, bad_lambda)
 
     def test_from_iterable(self) -> None:
@@ -102,7 +102,7 @@ class Test_Game_Factories(unittest.TestCase):
         A = lambda s: list(range(1,s[0]+1))
         R = lambda s,a: s[1]/a
         
-        game = Game.from_iterable(S,A,R)
+        game = MemoryGame.from_iterable(S,A,R)
 
         for s,r in zip(S,game.rounds):
             self.assertEqual(r.state  , s)

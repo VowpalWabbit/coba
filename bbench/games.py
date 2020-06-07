@@ -8,7 +8,7 @@ simply make it possible to use static type checking for any project that desires
 Todo:
     * Add more Solver implementations
 """
-
+from abc import ABC, abstractmethod
 from itertools import repeat
 from typing import Optional, Iterable, Sequence, List, Union, Callable
 
@@ -41,10 +41,17 @@ class Round:
     def rewards(self) -> Sequence[Reward]:
         return self._rewards
 
-class Game:
+class Game(ABC):
+
+    @property
+    @abstractmethod
+    def rounds(self) -> Iterable[Round]:
+        ...
+
+class MemoryGame(Game):
     @staticmethod
     def from_classifier_data(features: Sequence[Union[str,float,Sequence[Union[str,float]]]],
-                             labels  : Sequence[Union[str,float]]) -> 'Game':
+                             labels  : Sequence[Union[str,float]]) -> 'MemoryGame':
 
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
@@ -52,10 +59,10 @@ class Game:
         actions = list(set(labels)) #todo: make this also work for labels that are lists of features
         rewards = [ [int(l==a) for a in actions] for l in labels ]
 
-        return Game(list(map(lambda s,r: Round(s,actions,r), states, rewards)))
+        return MemoryGame(list(map(lambda s,r: Round(s,actions,r), states, rewards)))
 
     @staticmethod
-    def from_csv_reader(csv_reader: Iterable[List[str]], label_col: str) -> 'Game':
+    def from_csv_reader(csv_reader: Iterable[List[str]], label_col: str) -> 'MemoryGame':
         features: List[Sequence[str]] = []
         labels  : List[str]           = []
 
@@ -66,24 +73,24 @@ class Game:
                 features.append(row_vals[:label_index] + row_vals[(label_index+1):])
                 labels  .append(row_vals[label_index])
 
-        return Game.from_classifier_data(features, labels)
+        return MemoryGame.from_classifier_data(features, labels)
 
     @staticmethod
     def from_callable(S: Callable[[],State], 
                       A: Callable[[State],Sequence[Action]], 
-                      R: Callable[[State,Action],float]) -> 'Game':
+                      R: Callable[[State,Action],float]) -> 'MemoryGame':
 
-        return Game.from_iterable((S() for _ in repeat(1)), A, R)
+        return MemoryGame.from_iterable((S() for _ in repeat(1)), A, R)
     
     @staticmethod
     def from_iterable(S: Iterable[State], 
                       A: Callable[[State],Sequence[Action]], 
-                      R: Callable[[State,Action],float]) -> 'Game':
+                      R: Callable[[State,Action],float]) -> 'MemoryGame':
 
         def round_generator() -> Iterable[Round]:
             for s in S: yield Round(s, A(s), [R(s,a) for a in A(s)])
         
-        return Game(round_generator())
+        return MemoryGame(round_generator())
 
     def __init__(self, rounds: Iterable[Round]) -> None:
         self._rounds = rounds
