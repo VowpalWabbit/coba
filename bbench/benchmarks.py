@@ -1,4 +1,4 @@
-"""The Benchmark module containing all core benchmark functionality and protocols.
+"""The benchmarks module containing all core benchmark functionality and protocols.
 
 This module contains an abstract base class representing the expected interface for
 all Benchmark implementations. Several common Benchmarch protocols and data transfer 
@@ -9,7 +9,6 @@ Todo:
         than values and errors. This would allow for separate properties for many 
         statistics of interest (e.g., means, medians, percentiles, SE), supporting 
         more flexible reporting capabilities.
-
 """
 
 from abc import ABC, abstractmethod
