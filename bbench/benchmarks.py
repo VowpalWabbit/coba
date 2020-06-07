@@ -1,8 +1,8 @@
-"""The benchmarks module containing all core benchmark functionality and protocols.
+"""The benchmarks module containing core benchmark functionality and protocols.
 
-This module contains an abstract base class representing the expected interface for
-all Benchmark implementations. Several common Benchmarch protocols and data transfer 
-objects to represent and pass the result of any Benchmark.
+This module contains the abstract base class representing the expected interface for
+all Benchmark implementations. This module also containsSeveral common Benchmarch 
+protocols along with data transfer objects to represent the results of any Benchmark.
 
 Todo:
     * Consider refactoring Result so that samples are the core of the class rather 
@@ -116,12 +116,12 @@ class Benchmark(ABC):
 class ProgressiveBenchmark(Benchmark):
     """An on-policy Benchmark measuring progressive validation gain (Blum et al., 1999).
 
-        Remarks:
-            To receive errors from this benchmark there must be more than one game.
+    Remarks:
+        To receive errors from this benchmark there must be more than one game.
 
-        References:
-            A. Blum, A. Kalai, and J. Langford. Beating the hold-out: Bounds for k-fold and 
-            progressive cross-validation. In Conference on Learning Theory (COLT), 1999.
+    References:
+        A. Blum, A. Kalai, and J. Langford. Beating the hold-out: Bounds for k-fold and 
+        progressive cross-validation. In Conference on Learning Theory (COLT), 1999.
     """
 
     def __init__(self, games: Sequence[Game], n_rounds: int = 30) -> None:
@@ -137,11 +137,11 @@ class ProgressiveBenchmark(Benchmark):
     def evaluate(self, solver_factory: Callable[[],Solver]) -> Result:
         """Calculate the progressive validation gain on a per-round basis.
             
-            Args:
-                solver_factory: See the base class for more information.
-            
-            Returns:
-                See the base class for more information.
+        Args:
+            solver_factory: See the base class for more information.
+        
+        Returns:
+            See the base class for more information.
         """
         round_pvg: List[List[float]] = [ [] for i in range(self._n_rounds) ]
 
@@ -190,11 +190,11 @@ class TraditionalBenchmark(Benchmark):
     def evaluate(self, solver_factory: Callable[[],Solver]) -> Result:
         """Calculate the E[reward|learning-iteration] for the given Solver factory.
 
-            Args:
-                solver_factory: See the base class for more information.
-            
-            Returns:
-                See the base class for more information.
+        Args:
+            solver_factory: See the base class for more information.
+        
+        Returns:
+            See the base class for more information.
         """
 
         iteration_rwds: List[List[float]] = [ [] for i in range(self._n_iterations) ]
