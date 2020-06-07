@@ -1,4 +1,14 @@
-"""
+"""The Benchmark module containing all core benchmark functionality and protocols.
+
+This module contains an abstract base class representing the expected interface for
+all Benchmark implementations. Several common Benchmarch protocols and data transfer 
+objects to represent and pass the result of any Benchmark.
+
+Todo:
+    * Consider refactoring Result so that samples are the core of the class rather 
+        than values and errors. This would allow for separate properties for many 
+        statistics of interest (e.g., means, medians, percentiles, SE), supporting 
+        more flexible reporting capabilities.
 
 """
 
@@ -9,8 +19,6 @@ from itertools import islice
 from bbench.games import Game, Round
 from bbench.solvers import Solver
 
-#TODO: consider changing this so that samples are the core of the class and then there 
-#TODO: are separate properties for statistics of interest (e.g., means, medians, percentiles, SE)
 class Result:
     """A class to contain a sequence of values along with their optional error amount."""
 
