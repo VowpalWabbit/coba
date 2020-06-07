@@ -9,69 +9,134 @@ from itertools import islice
 from bbench.games import Game, Round
 from bbench.solvers import Solver
 
+#TODO: consider changing this so that samples are the core of the class and then there 
+#TODO: are separate properties for statistics of interest (e.g., means, medians, percentiles, SE)
 class Result:
+    """A class to contain a sequence of values along with their optional error amount."""
 
     @staticmethod
-    def avg(vals: Sequence[float]) -> float:
+    def from_samples(samples: Sequence[Union[float,Sequence[float]]]) -> 'Result':
+        """Create Result from samples using mean and standard error.
+
+        Args:
+            samples: A collection of samples used to estimate mean and standard errors.
+        
+        Returns:
+          A Result with values equal to sample mean and errors equal to standard error.
+        """
+
+        safe_samples = list(map(Result._ensure_list, samples))
+
+        values = list(map(Result._avg, safe_samples))
+        errors = list(map(Result._sem, safe_samples))
+
+        return Result(values, errors)
+
+    def __init__(self, values:Sequence[float], errors: Sequence[Optional[float]]) -> None:
+        """Initialize Result.
+
+        Args:
+            values: The values of the result (e.g., mean performance).
+            errors: Estimated errors in the values (e.g., standard error).
+
+        Remarks:
+            The length of `values` and `errors` are assumed to always be equal.
+        """
+        self._values = values
+        self._errors = errors
+
+    @property
+    def values(self) -> Sequence[float]:
+        """A sequence of values returned by a Benchmark (often mean performance)."""
+        return self._values
+    
+    @property
+    def errors(self) -> Sequence[Optional[float]]:
+        """An optional sequence of errors returned by a Benchmark (often standard error)."""
+        return self._errors
+
+    @staticmethod
+    def _avg(vals: Sequence[float]) -> float:
         return sum(vals)/len(vals)
 
     @staticmethod
-    def var(vals: Sequence[float]) -> Optional[float]:
+    def _var(vals: Sequence[float]) -> Optional[float]:
         if(len(vals) == 1):
             return None
-        
-        avg = Result.avg(vals)
+
+        avg = Result._avg(vals)
         return sum([(val-avg)**2 for val in vals])/len(vals)
 
     @staticmethod
-    def sem(vals: Sequence[float]) -> Optional[float]:
+    def _sem(vals: Sequence[float]) -> Optional[float]:
         if(len(vals) == 1):
             return None
 
-        var = cast(float,Result.var(vals))
+        var = cast(float,Result._var(vals))
         return (var/len(vals))**(1/2)
 
     @staticmethod
-    def ensure_list(vals:Union[float,Sequence[float]]) -> Sequence[float]:
+    def _ensure_list(vals:Union[float,Sequence[float]]) -> Sequence[float]:
         if isinstance(vals, (float,int)):
             return [vals]
         else:
             return vals
 
-    def __init__(self, samples_by_x: Sequence[Union[float,Sequence[float]]]) -> None:
-
-        sequence_by_x = list(map(Result.ensure_list, samples_by_x))
-
-        self._values = list(map(Result.avg, sequence_by_x))
-        self._errors = list(map(Result.sem, sequence_by_x))
-
-    @property
-    def points(self) -> Sequence[Tuple[int,float]]:
-        return list(enumerate(self._values,1))
-    
-    @property
-    def errors(self) -> Sequence[Optional[float]]:
-        return self._errors
-
-    def print(self) -> 'Result':
-        return self
-
-    def plot(self) -> 'Result':
-        return self
 
 class Benchmark(ABC):
-
+    """The interface for Benchmark implementations."""
+    
     @abstractmethod
     def evaluate(self, solver_factory: Callable[[],Solver]) -> Result:
+        """Calculate the performance for a provided bandit Solver.
+
+        Args:
+            solver_factory: A function to create Solver instances. The function should 
+                always create the same Solver in order to get an unbiased performance 
+                Result. This method can be as simple as `lambda: My_Solver(...)`.
+
+        Returns:
+            A Result containing the performance statistics of the benchmark.
+
+
+        Remarks:
+            The solver factory is necessary because a Result can be calculated using
+            observed performance over several games. In these cases the easiest way to 
+            reset a Solver's learned state is to create a new one.
+        """
         ...
 
 class ProgressiveBenchmark(Benchmark):
-    def __init__(self, games: Iterable[Game], n_rounds: int = 30) -> None:
+    """An on-policy Benchmark measuring progressive validation gain (Blum et al., 1999).
+
+        Remarks:
+            To receive errors from this benchmark there must be more than one game.
+
+        References:
+            A. Blum, A. Kalai, and J. Langford. Beating the hold-out: Bounds for k-fold and 
+            progressive cross-validation. In Conference on Learning Theory (COLT), 1999.
+    """
+
+    def __init__(self, games: Sequence[Game], n_rounds: int = 30) -> None:
+        """Initialize ProgressiveBenchmark.
+
+        Args:
+            games: The games used for online, on-policy evaluation.
+            n_rounds: The number of rounds to be played on each game.
+        """
         self._games = games
         self._n_rounds = n_rounds
 
-    def evaluate(self, solver_factory: Callable[[],Solver]):
-        round_pvrs: List[List[float]] = [ [] for i in range(self._n_rounds) ]
+    def evaluate(self, solver_factory: Callable[[],Solver]) -> Result:
+        """Calculate the progressive validation gain on a per-round basis.
+            
+            Args:
+                solver_factory: See the base class for more information.
+            
+            Returns:
+                See the base class for more information.
+        """
+        round_pvg: List[List[float]] = [ [] for i in range(self._n_rounds) ]
 
         for game in self._games:
             solver = solver_factory()
@@ -88,19 +153,43 @@ class ProgressiveBenchmark(Benchmark):
 
                 progressive_reward = 1/(n+1) * reward + n/(n+1) * progressive_reward
 
-                round_pvrs[n].append(progressive_reward)
+                round_pvg[n].append(progressive_reward)
 
-        return Result(round_pvrs)
-
+        return Result.from_samples(round_pvg)
 
 class TraditionalBenchmark(Benchmark):
+    """An on-policy Benchmark using unbiased samples to estimate E[reward|learning-iteration].
+
+        Remarks:
+            Samples are unbiased only if the sequence of rounds in a game are unbiased.
+            This doesn't mean that a game can't be static, it simply means that there should
+            be a uniform random shuffling of all rounds performed at least once on a game. Once
+            such a shuffling has been done then a game can be fixed for all benchmarks after that.
+    """
+
     def __init__(self, games: Sequence[Game], n_rounds: int, n_iterations: int) -> None:
+        """Initialize TraditionalBenchmark.
+
+        Args:
+            games: The games used for sampling and learning.
+            n_rounds: The number of rounds in each learning-iteration.
+            n_iterations: The number of learning learning-iterations to sample.
+        """
         self._games        = games
         self._n_rounds     = n_rounds
         self._n_iterations = n_iterations
         
 
-    def evaluate(self, solver_factory: Callable[[],Solver]):
+    def evaluate(self, solver_factory: Callable[[],Solver]) -> Result:
+        """Calculate the E[reward|learning-iteration] for the given Solver factory.
+
+            Args:
+                solver_factory: See the base class for more information.
+            
+            Returns:
+                See the base class for more information.
+        """
+
         iteration_rwds: List[List[float]] = [ [] for i in range(self._n_iterations) ]
 
         for game in self._games:
@@ -120,4 +209,4 @@ class TraditionalBenchmark(Benchmark):
                 for s,a,r in zip(states,actions,rewards):
                     solver.learn(s,a,r)
 
-        return Result(iteration_rwds)
+        return Result.from_samples(iteration_rwds)

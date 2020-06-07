@@ -11,23 +11,23 @@ from bbench.benchmarks import Result, ProgressiveBenchmark, TraditionalBenchmark
 class Test_Result_Instance(unittest.TestCase):
 
     def test_result_points_correct_for_samples_of_1(self) -> None:
-        result = Result([10,20,30,40])
+        result = Result.from_samples([10,20,30,40])
 
-        self.assertEqual(result.points[0], (1,10))
-        self.assertEqual(result.points[1], (2,20))
-        self.assertEqual(result.points[2], (3,30))
-        self.assertEqual(result.points[3], (4,40))
+        self.assertEqual(result.values[0], 10)
+        self.assertEqual(result.values[1], 20)
+        self.assertEqual(result.values[2], 30)
+        self.assertEqual(result.values[3], 40)
 
     def test_result_points_correct_for_samples_of_2(self) -> None:
-        result = Result([[10,20],[20,30],[30,40],[40,50]])
+        result = Result.from_samples([[10,20],[20,30],[30,40],[40,50]])
 
-        self.assertEqual(result.points[0], (1,15))
-        self.assertEqual(result.points[1], (2,25))
-        self.assertEqual(result.points[2], (3,35))
-        self.assertEqual(result.points[3], (4,45))
+        self.assertEqual(result.values[0], 15)
+        self.assertEqual(result.values[1], 25)
+        self.assertEqual(result.values[2], 35)
+        self.assertEqual(result.values[3], 45)
 
     def test_result_errors_correct_for_samples_of_1(self) -> None:
-        result = Result([10,20,30,40])
+        result = Result.from_samples([10,20,30,40])
 
         self.assertIsNone(result.errors[0])
         self.assertIsNone(result.errors[1])
@@ -35,7 +35,7 @@ class Test_Result_Instance(unittest.TestCase):
         self.assertIsNone(result.errors[3])
 
     def test_result_errors_correct_for_samples_of_2(self) -> None:
-        result = Result([[10,20],[20,40],[30,60],[40,80]])
+        result = Result.from_samples([[10,20],[20,40],[30,60],[40,80]])
 
         #these are here to make mypy happy
         assert isinstance(result.errors[0], float)
@@ -62,15 +62,14 @@ class Test_ProgressiveBenchmark(unittest.TestCase):
 
         result = ProgressiveBenchmark(games).evaluate(solver)
 
-        for n, (point, error) in enumerate(zip(result.points,result.errors)):
+        for n, (value, error) in enumerate(zip(result.values,result.errors)):
             expected_rewards = [list(islice(cycle(r),(n+1))) for r in rewards ]
             expected_values  = [sum(r)/len(r) for r in expected_rewards]
             
             expected_mean    = sum(expected_values)/len(expected_values)
             expected_error = sqrt(sum((v-expected_mean)**2 for v in expected_values))/len(expected_values)
 
-            self.assertEqual(point[0], n+1)
-            self.assertAlmostEqual(point[1], expected_mean)
+            self.assertAlmostEqual(value, expected_mean)
             
             if(len(expected_values) == 1):
                 self.assertIsNone(error)
@@ -111,13 +110,12 @@ class Test_TraditionalBenchmark(unittest.TestCase):
 
         reward_cycles = [cycle(r) for r in rewards]
 
-        for n, (point, error) in enumerate(zip(result.points,result.errors)):
+        for n, (value, error) in enumerate(zip(result.values,result.errors)):
             expected_rwds = [e for r in reward_cycles for e in islice(r,n_rounds) ]
             expected_mean = sum(expected_rwds)/len(expected_rwds)
             expected_error = sqrt(sum((v-expected_mean)**2 for v in expected_rwds))/len(expected_rwds)
 
-            self.assertEqual(point[0], n+1)
-            self.assertAlmostEqual(point[1], expected_mean)
+            self.assertAlmostEqual(value, expected_mean)
 
             if(len(expected_rwds) == 1):
                 self.assertIsNone(error)
