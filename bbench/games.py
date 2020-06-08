@@ -87,16 +87,53 @@ class Game(ABC):
         ...
 
 class ClassifierGame(Game):
-    """A Game implementation created from supervised learning data with features and labels."""
+    """A Game implementation created from supervised learning data with features and labels.
+    
+    Remark:
+        Game creation is done by turning each feature observation, with its label, into 
+        a round. Each feature set becomes a state in a round and all possible labels
+        become the action set for each round. Rewards for each round are created by 
+        assigning a reward of 1 to the correct label (action) for a feature set (state)
+        and a value of 0 for all other labels on that feature set.
+    """
 
     @staticmethod
     def from_csv_path(csv_path: str, label_col:str, dialect='excel', **fmtparams) -> Game:
-        
+        """Create a ClassifierGame from a csv file with a header row.
+
+        Args:
+            csv_path: The path to the csv file.
+            label_col: The name of the column in the csv file that represents the label.
+            dialect: See `csv.reader` for an explanation of this parameter.
+            fmtparams: A pass through key value parameter for `csv.reader`.
+
+        Remarks:
+            This method will open the file and read it all into memory. Be careful when doing
+            this if you are working with a large file. One way to improve on this is to make
+            sure column are correctly typed and all string columns are represented as integer
+            backed categoricals (aka, `factors` in R).
+        """
+
         with open(csv_path, newline='') as csv_file:
             return ClassifierGame.from_csv_file(csv_file, label_col, dialect=dialect, **fmtparams)
 
     @staticmethod
     def from_csv_file(csv_file:TextIO, label_col:str, dialect='excel', **fmtparams) -> Game:
+        """Create a ClassifierGame from TextIO of a csv file.
+
+        Args:
+            csv_file: Any TextIO implementation including `open(csv_path)` and `io.StringIO()`.
+            label_col: The name of the column in the csv file that represents the label.
+            dialect: See `csv.reader` for an explanation of this parameter.
+            fmtparams: A pass through key value parameter for `csv.reader`.
+
+        Remarks:
+            This method will open the file and read it all into memory. Be careful when doing
+            this if you are working with a large file. One way to improve on this is to make
+            sure column are correctly typed and all string columns are represented as integer
+            backed categoricals (aka, `factors` in R).
+        """
+
         features: List[Sequence[str]] = []
         labels  : List[str]           = []
 
@@ -115,6 +152,12 @@ class ClassifierGame(Game):
         return ClassifierGame(features, labels)
 
     def __init__(self, features: Collection[State], labels: Collection[Union[str,float]]) -> None:
+        """Instantiate a ClassifierGame.
+
+        Args:
+            features: The collection of features used for the original classifier problem.
+            labels: The collection of labels assigned to each observation of features.
+        """
 
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
@@ -131,6 +174,11 @@ class ClassifierGame(Game):
 
     @property
     def rounds(self) -> Collection[Round]:
+        """The rounds in this game.
+        
+        Remarks:
+            See this class's base class and class level docstring for more information.
+        """
         return self._rounds
 
 class LambdaGame(Game):
@@ -144,12 +192,25 @@ class LambdaGame(Game):
                  S: Callable[[],State], 
                  A: Callable[[State],Sequence[Action]], 
                  R: Callable[[State,Action],float])->None:
+        """Instantiate a LambdaGame.
+
+        Args:
+            S: A lambda function that should return a new state every time it is called.
+            A: A lambda function that should return all valid actions for a given state.
+            R: A lambda function that should return reward given a state and action.
+        """
+
         self._S = S
         self._A = A
         self._R = R
 
     @property
     def rounds(self) -> Generator[Round, None, None]:
+        """The rounds in this game.
+
+        Remarks:
+            See the base class for more information.
+        """
 
         S = self._S
         A = self._A
@@ -166,8 +227,18 @@ class MemoryGame(Game):
     """
 
     def __init__(self, rounds: Collection[Round]) -> None:
+        """Instantiate a MemoryGame.
+
+        Args:
+            rounds: a collection of rounds to turn into a game.
+        """
         self._rounds = rounds
 
     @property
     def rounds(self) -> Collection[Round]:
+        """The rounds in this game.
+        
+        Remarks:
+            See the base class for more information.
+        """
         return self._rounds
