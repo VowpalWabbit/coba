@@ -22,11 +22,21 @@ Action = Union[str,float,Sequence[Union[str,float]]]
 Reward = float
 
 class Round:
+    """A class to contain all data needed to play and evaluate a round in a bandit game."""
+
     def __init__(self, 
                  state  : Optional[State], 
                  actions: Sequence[Action],
                  rewards: Sequence[Reward]) -> None:
+        """Instantiate Round.
 
+        Args:
+            state: Features describing the round's state. Will be None for no context games.
+            actions: Features describing available actions for the given state.
+            rewards: The reward that would be received for taking each of the given actions.        
+        """
+
+        assert len(actions) > 0, "At least one action must be provided for the round"
         assert len(actions) == len(rewards), "Mismatched lengths of actions and rewards"
 
         self._state   = state
@@ -35,24 +45,49 @@ class Round:
 
     @property
     def state(self) -> Optional[State]:
+        """Read-only property providing the round's state."""
         return self._state
 
     @property
     def actions(self) -> Sequence[Action]:
+        """Read-only property providing the round's possible actions."""
         return self._actions
 
     @property
     def rewards(self) -> Sequence[Reward]:
+        """Read-only property providing the round's reward for each action."""
         return self._rewards
 
 class Game(ABC):
+    """The interface for Game implementations."""
 
     @property
     @abstractmethod
     def rounds(self) -> Union[Generator[Round,None,None],Collection[Round]]:
+        """A read-only property providing the rounds in a game.
+
+        Remarks:
+            All benchmark implementations bbench.Benchmarks assume that rounds
+            implementation is re-iterable. That is, they assume code such as two
+            example for loops would iterate over all rounds in the given game:
+                
+                for round in game.rounds:
+                    ...
+                
+                for round in game.rounds:
+                    ...
+            
+            That rounds would be re-iterable is not a given. Most iterables in Python
+            are in fact iterators and therefore can only be looped over one time.
+
+        Returns:
+            The return value of Generator and Collection are defined to make it more
+            likely that an implementation will posess the property of being re-iterable
+        """
         ...
 
 class ClassifierGame(Game):
+    """A Game implementation created from supervised learning data with features and labels."""
 
     @staticmethod
     def from_csv_path(csv_path: str, label_col:str, dialect='excel', **fmtparams) -> Game:
@@ -99,6 +134,12 @@ class ClassifierGame(Game):
         return self._rounds
 
 class LambdaGame(Game):
+    """A Game implementation that uses lambda functions to generate states, actions and rewards.
+    
+    Remarks:
+        This implementation is useful for creating simulations from defined distributions.
+    """
+
     def __init__(self,
                  S: Callable[[],State], 
                  A: Callable[[State],Sequence[Action]], 
@@ -118,6 +159,12 @@ class LambdaGame(Game):
             yield Round(s, A(s), [R(s,a) for a in A(s)])
 
 class MemoryGame(Game):
+    """A Game implementation created using an in memory collection of Rounds.
+    
+    Remarks:
+        This implementation is very useful for unit-testing known edge cases.
+    """
+
     def __init__(self, rounds: Collection[Round]) -> None:
         self._rounds = rounds
 

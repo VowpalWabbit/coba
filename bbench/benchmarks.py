@@ -39,7 +39,7 @@ class Result:
         return Result(values, errors)
 
     def __init__(self, values:Sequence[float], errors: Sequence[Optional[float]]) -> None:
-        """Initialize Result.
+        """Instantiate Result.
 
         Args:
             values: The values of the result (e.g., mean performance).
@@ -123,7 +123,7 @@ class ProgressiveBenchmark(Benchmark):
     """
 
     def __init__(self, games: Sequence[Game], n_rounds: int = 30) -> None:
-        """Initialize ProgressiveBenchmark.
+        """Instantiate ProgressiveBenchmark.
 
         Args:
             games: The games used for online, on-policy evaluation.
@@ -173,7 +173,7 @@ class TraditionalBenchmark(Benchmark):
     """
 
     def __init__(self, games: Sequence[Game], n_rounds: int, n_iterations: int) -> None:
-        """Initialize TraditionalBenchmark.
+        """Instantiate TraditionalBenchmark.
 
         Args:
             games: The games used for sampling and learning.

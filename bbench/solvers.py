@@ -88,7 +88,7 @@ class LambdaSolver(Solver):
     def __init__(self, 
                  chooser: Callable[[Optional[State],Sequence[Action]],int], 
                  learner: Optional[Callable[[Optional[State],Action,Reward],None]] = None) -> None:
-        """Initialize LambdaSolver.
+        """Instantiate LambdaSolver.
 
         Args:
             chooser: a function matching the super().choose() signature. All parameters are passed straight through.
