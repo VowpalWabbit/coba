@@ -88,7 +88,6 @@ class Result:
         else:
             return vals
 
-
 class Benchmark(ABC):
     """The interface for Benchmark implementations."""
     

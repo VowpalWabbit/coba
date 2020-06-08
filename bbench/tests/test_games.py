@@ -2,7 +2,7 @@ import unittest
 import itertools
 import random
 
-from bbench.games import Round, MemoryGame
+from bbench.games import Round, MemoryGame, ClassifierGame
 
 class Test_Round_Instance(unittest.TestCase):
 
@@ -64,7 +64,7 @@ class Test_Game_Instance(unittest.TestCase):
 class Test_Game_Factories(unittest.TestCase):
 
     def assert_game_from_classifier_data(self, features, labels) -> None:
-        game = MemoryGame.from_classifier_data(features, labels)
+        game = ClassifierGame(features, labels)
 
         self.assertEqual(sum(1 for _ in game.rounds), len(features))
 
@@ -88,26 +88,10 @@ class Test_Game_Factories(unittest.TestCase):
         self.assert_game_from_classifier_data([[1,2],[3,4]], ["good", "bad"])
     
     def test_from_classifier_data_with_short_features(self) -> None:
-        self.assertRaises(AssertionError, lambda: MemoryGame.from_classifier_data([1], [1,1]))
+        self.assertRaises(AssertionError, lambda: ClassifierGame([1], [1,1]))
     
     def test_from_classifier_data_with_short_labels(self) -> None:
-        self.assertRaises(AssertionError, lambda: MemoryGame.from_classifier_data([1,1], [1]))
-
-    def test_from_classifier_data_with_list_labels(self) -> None:
-        bad_lambda = lambda: MemoryGame.from_classifier_data([1], [[1,1]]) #type: ignore
-        self.assertRaises(TypeError, bad_lambda)
-
-    def test_from_iterable(self) -> None:
-        S = [[1,2,3,4],[5,6,7,8],[2,4,6,8],[1,3,5,7]]
-        A = lambda s: list(range(1,s[0]+1))
-        R = lambda s,a: s[1]/a
-        
-        game = MemoryGame.from_iterable(S,A,R)
-
-        for s,r in zip(S,game.rounds):
-            self.assertEqual(r.state  , s)
-            self.assertEqual(r.actions, A(s))
-            self.assertEqual(r.rewards, [R(s,a) for a in A(s)])
+        self.assertRaises(AssertionError, lambda: ClassifierGame([1,1], [1]))
 
 if __name__ == '__main__':
     unittest.main()

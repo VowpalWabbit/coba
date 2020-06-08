@@ -1,16 +1,20 @@
 """The games module contains core classes and types for defining bandit games.
 
 This module contains the abstract interface expected for bandit game implementations along
-with the class defining a Round within a bandit game. This module also contains the type hints 
-for State, Action and Reward. These type hints don't contain any functionality. Rather, they 
-simply make it possible to use static type checking for any project that desires to do so.
+with the class defining a Round within a bandit game. Additionally, this module also contains 
+the type hints for State, Action and Reward. These type hints don't contain any functionality. 
+Rather, they simply make it possible to use static type checking for any project that desires 
+to do so.
 
 Todo:
-    * Add more Solver implementations
+    * Add RegressionGame(Game)
 """
+
+import csv
+
 from abc import ABC, abstractmethod
 from itertools import repeat
-from typing import Optional, Iterable, Sequence, List, Union, Callable
+from typing import Optional, Iterable, Sequence, List, Union, Callable, TextIO, Collection, Generator
 
 #state, action, reward types
 State  = Union[str,float,Sequence[Union[str,float]]]
@@ -22,7 +26,7 @@ class Round:
                  state  : Optional[State], 
                  actions: Sequence[Action],
                  rewards: Sequence[Reward]) -> None:
-        
+
         assert len(actions) == len(rewards), "Mismatched lengths of actions and rewards"
 
         self._state   = state
@@ -45,56 +49,78 @@ class Game(ABC):
 
     @property
     @abstractmethod
-    def rounds(self) -> Iterable[Round]:
+    def rounds(self) -> Union[Generator[Round,None,None],Collection[Round]]:
         ...
 
-class MemoryGame(Game):
-    @staticmethod
-    def from_classifier_data(features: Sequence[Union[str,float,Sequence[Union[str,float]]]],
-                             labels  : Sequence[Union[str,float]]) -> 'MemoryGame':
-
-        assert len(features) == len(labels), "Mismatched lengths of features and labels"
-
-        states  = features
-        actions = list(set(labels)) #todo: make this also work for labels that are lists of features
-        rewards = [ [int(l==a) for a in actions] for l in labels ]
-
-        return MemoryGame(list(map(lambda s,r: Round(s,actions,r), states, rewards)))
+class ClassifierGame(Game):
 
     @staticmethod
-    def from_csv_reader(csv_reader: Iterable[List[str]], label_col: str) -> 'MemoryGame':
+    def from_csv_path(csv_path: str, label_col:str, dialect='excel', **fmtparams) -> Game:
+        
+        with open(csv_path, newline='') as csv_file:
+            return ClassifierGame.from_csv_file(csv_file, label_col, dialect=dialect, **fmtparams)
+
+    @staticmethod
+    def from_csv_file(csv_file:TextIO, label_col:str, dialect='excel', **fmtparams) -> Game:
         features: List[Sequence[str]] = []
         labels  : List[str]           = []
 
-        for row_num, row_vals in enumerate(csv_reader):
-            if row_num == 0:
-                label_index = row_vals.index(label_col)
-            else:
-                features.append(row_vals[:label_index] + row_vals[(label_index+1):])
-                labels  .append(row_vals[label_index])
+        # In theory we don't have to load the whole file up front. However, in practice,
+        # not loading the file upfront is hard due to the fact that Python can't really 
+        # guarantee a generator will close the file.
+        # For more info see https://stackoverflow.com/q/29040534/1066291
+        # For more info see https://www.python.org/dev/peps/pep-0533/
+        for num,row in enumerate(csv.reader(csv_file, dialect=dialect, **fmtparams)):
+                if num == 0:
+                    label_index = row.index(label_col)
+                else:
+                    features.append(row[:label_index] + row[(label_index+1):])
+                    labels  .append(row[label_index])
 
-        return MemoryGame.from_classifier_data(features, labels)
+        return ClassifierGame(features, labels)
 
-    @staticmethod
-    def from_callable(S: Callable[[],State], 
-                      A: Callable[[State],Sequence[Action]], 
-                      R: Callable[[State,Action],float]) -> 'MemoryGame':
+    def __init__(self, features: Collection[State], labels: Collection[Union[str,float]]) -> None:
 
-        return MemoryGame.from_iterable((S() for _ in repeat(1)), A, R)
-    
-    @staticmethod
-    def from_iterable(S: Iterable[State], 
-                      A: Callable[[State],Sequence[Action]], 
-                      R: Callable[[State,Action],float]) -> 'MemoryGame':
+        assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
-        def round_generator() -> Iterable[Round]:
-            for s in S: yield Round(s, A(s), [R(s,a) for a in A(s)])
-        
-        return MemoryGame(round_generator())
+        self._label_set = list(set(labels))
 
-    def __init__(self, rounds: Iterable[Round]) -> None:
+        self._features = features
+        self._labels   = labels
+
+        states      = features
+        action_set  = list(set(labels))
+        reward_sets = [ [int(label==action) for action in action_set] for label in labels ]
+
+        self._rounds = list(map(Round, states, repeat(action_set), reward_sets))
+
+    @property
+    def rounds(self) -> Collection[Round]:
+        return self._rounds
+
+class LambdaGame(Game):
+    def __init__(self,
+                 S: Callable[[],State], 
+                 A: Callable[[State],Sequence[Action]], 
+                 R: Callable[[State,Action],float])->None:
+        self._S = S
+        self._A = A
+        self._R = R
+
+    @property
+    def rounds(self) -> Generator[Round, None, None]:
+
+        S = self._S
+        A = self._A
+        R = self._R
+
+        for s in (S() for _ in repeat(1)):
+            yield Round(s, A(s), [R(s,a) for a in A(s)])
+
+class MemoryGame(Game):
+    def __init__(self, rounds: Collection[Round]) -> None:
         self._rounds = rounds
 
     @property
-    def rounds(self) -> Iterable[Round]:
+    def rounds(self) -> Collection[Round]:
         return self._rounds

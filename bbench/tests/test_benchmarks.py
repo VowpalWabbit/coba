@@ -1,10 +1,10 @@
 import unittest
 
 from math import sqrt
-from itertools import cycle, islice
+from itertools import cycle, islice, repeat
 from typing import cast
 
-from bbench.games import MemoryGame, Round
+from bbench.games import LambdaGame, Round
 from bbench.solvers import LambdaSolver
 from bbench.benchmarks import Result, ProgressiveBenchmark, TraditionalBenchmark
 
@@ -56,8 +56,12 @@ class Test_ProgressiveBenchmark(unittest.TestCase):
         self.assert_progessivebenchmark_for_reward_sets([[1,3],[5,6]])
 
     def assert_progessivebenchmark_for_reward_sets(self, rewards) -> None:     
-        actions = lambda s: [0,1]
-        games   = [MemoryGame.from_iterable(cycle([0,1]), actions, lambda s,a,r=r:r[a]) for r in rewards] #type: ignore
+        
+        s_lambdas = (lambda s=s: lambda    : next(s) for s in (cycle([0,1]) for _ in repeat(1)))
+        a_lambdas = (lambda a=a: lambda s  : a       for a in repeat([0,1]))
+        r_lambdas = (lambda r=r: lambda s,a: r[a]    for r in rewards)
+
+        games   = [LambdaGame(s(), a(), r()) for s,a,r in zip(s_lambdas,a_lambdas,r_lambdas)]
         solver  = lambda: LambdaSolver(lambda s,a: cast(int,s))
 
         result = ProgressiveBenchmark(games).evaluate(solver)
@@ -74,7 +78,7 @@ class Test_ProgressiveBenchmark(unittest.TestCase):
             if(len(expected_values) == 1):
                 self.assertIsNone(error)
             else:
-                self.assertAlmostEqual(error, expected_error)
+                self.assertAlmostEqual(cast(float,error), expected_error)
 
 class Test_TraditionalBenchmark(unittest.TestCase):
     def test_single_game_one_round_one_iteration(self) -> None:
@@ -102,8 +106,12 @@ class Test_TraditionalBenchmark(unittest.TestCase):
         self.assert_traditionalbenchmark_for_reward_sets([[1,3],[5,6]], 10, 10)
 
     def assert_traditionalbenchmark_for_reward_sets(self, rewards, n_rounds, n_iterations) -> None:
-        actions = lambda s: [0,1]
-        games   = [MemoryGame.from_iterable(cycle([0,1]), actions, lambda s,a,r=r:r[a]) for r in rewards] #type: ignore
+        
+        s_lambdas = (lambda s=s: lambda    : next(s) for s in (cycle([0,1]) for _ in repeat(1)))
+        a_lambdas = (lambda a=a: lambda s  : a       for a in repeat([0,1]))
+        r_lambdas = (lambda r=r: lambda s,a: r[a]    for r in rewards)
+
+        games   = [LambdaGame(s(), a(), r()) for s,a,r in zip(s_lambdas,a_lambdas,r_lambdas)]
         solver  = lambda: LambdaSolver(lambda s,a: cast(int,s))
 
         result = TraditionalBenchmark(games, n_rounds, n_iterations).evaluate(solver)
@@ -120,7 +128,7 @@ class Test_TraditionalBenchmark(unittest.TestCase):
             if(len(expected_rwds) == 1):
                 self.assertIsNone(error)
             else:
-                self.assertAlmostEqual(error, expected_error)
+                self.assertAlmostEqual(cast(float,error), expected_error)
 
         self.assertEqual(n+1, n_iterations)
 if __name__ == '__main__':
