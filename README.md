@@ -33,16 +33,16 @@ Interfaces
   * Benchmark
     > Evaluate(solver_factory: Callable[[],Solver]) -> Result
     
-Implementations
-  * Round -- a simple DTO representing rounds
-  * Result -- a simple DTO representing the result of a benchmark
-  * MemoryGame -- A game where the rounds are defined in memory
-  * LambdaGame -- A game where the rounds are defined via lambda functions
-  * ClassificationGame -- A game where the rounds are defined via features and labels
-  * RandomSolver -- A solver that chooses actions at random and learns nothing
-  * LambdaSolver -- A solver whose choose and learn are implemented via lambda functions
-  * ProgressiveBenchmark -- A benchmark that calculates the expected progressive benchmark given games
-  * TraditionalBenchmark -- A benchmark that calculates expected reward from fixed policy iterations
+Classes
+  * Round                -- Simple DTO representing rounds
+  * Result               -- Simple DTO representing the result of a benchmark
+  * MemoryGame           -- Game where the rounds are defined in memory
+  * LambdaGame           -- Game where the rounds are defined via lambda functions
+  * ClassificationGame   -- Game where the rounds are defined via features and labels
+  * RandomSolver         -- Solver that chooses actions at random and learns nothing
+  * LambdaSolver         -- Solver whose choose and learn are implemented via lambda functions
+  * ProgressiveBenchmark -- Benchmark that calculates the expected progressive benchmark given games
+  * TraditionalBenchmark -- Benchmark that calculates expected reward from fixed policy iterations
 ```
 
 # To Do:
