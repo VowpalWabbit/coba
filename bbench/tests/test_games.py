@@ -2,9 +2,55 @@ import unittest
 import itertools
 import random
 
-from bbench.games import Round, MemoryGame, ClassifierGame
+from itertools import cycle
+from abc import ABC, abstractmethod
+from typing import List
+from bbench.games import Round, Game, MemoryGame, LambdaGame, ClassificationGame
 
-class Test_Round_Instance(unittest.TestCase):
+class Test_Game_Interface(ABC):
+
+    @abstractmethod
+    def _make_game(self) -> Game:
+        ...
+
+    def _expected_rounds(self) -> List[Round]:
+        return [
+            Round(1, [1,2,3], [0,1,2]),
+            Round(2, [4,5,6], [2,3,4]),
+            Round(3, [7,8,9], [4,5,6])
+        ]
+
+    def setUp(self):
+        self._game = self._make_game()
+
+    def test_rounds_is_correct(self) -> None:
+        #pylint: disable=no-member
+
+        actual_rounds   = self._game.rounds
+        expected_rounds = cycle(self._expected_rounds())
+
+        for actual_round, expected_round in zip(actual_rounds, expected_rounds):
+            self.assertEqual(actual_round.state  , expected_round.state  ) #type: ignore
+            self.assertEqual(actual_round.actions, expected_round.actions) #type: ignore
+            self.assertEqual(actual_round.rewards, expected_round.rewards) #type: ignore
+
+    def test_rounds_is_reiterable(self) -> None:
+        #pylint: disable=no-member
+
+        for round1,round2 in zip(self._game.rounds, self._game.rounds):
+            self.assertEqual(round1.state  , round2.state  ) #type: ignore
+            self.assertEqual(round1.actions, round2.actions) #type: ignore
+            self.assertEqual(round1.rewards, round2.rewards) #type: ignore
+
+    def test_rounds_is_readonly(self) -> None:
+        #pylint: disable=no-member
+
+        def assign_rounds():
+            self._game.rounds = []
+        
+        self.assertRaises(AttributeError, assign_rounds) #type: ignore
+
+class Test_Round(unittest.TestCase):
 
     def test_constructor_no_state(self) -> None:
         Round(None, [1, 2], [1, 0])
@@ -46,25 +92,39 @@ class Test_Round_Instance(unittest.TestCase):
 
         self.assertRaises(AttributeError, assign_rewards)
 
-class Test_Game_Instance(unittest.TestCase):
-    def test_constructor(self) -> None:
-        MemoryGame([Round(1, [1,2,3], [1,0,1]), Round(2,[1,2,3], [1, 1, 0])])
+class Test_MemoryGame_Interface(Test_Game_Interface, unittest.TestCase):
 
-    def test_rounds_correct(self) -> None:
-        rounds = [Round(1, [1,2,3], [1,0,1]), Round(2,[1,2,3], [1, 1, 0])]
-        game   = MemoryGame(rounds)
-        self.assertIs(rounds, game.rounds)
+    def _make_game(self) -> MemoryGame:
+        return MemoryGame(self._expected_rounds())
 
-    def test_rounds_readonly(self) -> None:
-        def assign_rounds():
-            MemoryGame([]).rounds = []
+class Test_LambdaGame_Interface(Test_Game_Interface, unittest.TestCase):
+    def _make_game(self) -> LambdaGame:
+
+        def S(i:int) -> int:
+            return [1,2,3][i]
+
+        def A(s:int) -> List[int]:
+            return [1,2,3] if s == 1 else [4,5,6] if s == 2 else [7,8,9]
         
-        self.assertRaises(AttributeError, assign_rounds)
+        def R(s:int,a:int) -> int:
+            return a-s
 
-class Test_Game_Factories(unittest.TestCase):
+        return LambdaGame(S,A,R,3)
 
-    def assert_game_from_classifier_data(self, features, labels) -> None:
-        game = ClassifierGame(features, labels)
+class Test_ClassificationGame_Interface(Test_Game_Interface, unittest.TestCase):
+    def _make_game(self) -> ClassificationGame:
+        return ClassificationGame([1,2,3], [3,2,1])
+
+    def _expected_rounds(self) -> List[Round]:
+        return [
+            Round(1, [1,2,3], [0,0,1]),
+            Round(2, [1,2,3], [0,1,0]),
+            Round(3, [1,2,3], [1,0,0])
+        ]
+
+class Test_ClassificationGame(unittest.TestCase):
+
+    def assert_game_for_data(self, game, features, labels) -> None:
 
         self.assertEqual(sum(1 for _ in game.rounds), len(features))
 
@@ -78,20 +138,32 @@ class Test_Game_Factories(unittest.TestCase):
             self.assertEqual(r.actions, expected_actions)
             self.assertEqual(r.rewards, expected_rewards)
 
-    def test_from_classifier_data_with_good_features_and_labels1(self) -> None:
-        self.assert_game_from_classifier_data([1,2,3,4], [1,1,0,0])
-    
-    def test_from_classifier_data_with_good_features_and_labels2(self) -> None:
-        self.assert_game_from_classifier_data(["a","b"], ["good", "bad"])
+    def test_constructor_with_good_features_and_labels1(self) -> None:
+        features = [1,2,3,4]
+        labels   = [1,1,0,0]
+        game     = ClassificationGame(features, labels)
 
-    def test_from_classifier_data_with_good_features_and_labels3(self) -> None:
-        self.assert_game_from_classifier_data([[1,2],[3,4]], ["good", "bad"])
+        self.assert_game_for_data(game, features, labels)
     
-    def test_from_classifier_data_with_short_features(self) -> None:
-        self.assertRaises(AssertionError, lambda: ClassifierGame([1], [1,1]))
+    def test_constructor_with_good_features_and_labels2(self) -> None:
+        features = ["a","b"]
+        labels   = ["good","bad"]
+        game     = ClassificationGame(features, labels)
+
+        self.assert_game_for_data(game, features, labels)
+
+    def test_constructor_with_good_features_and_labels3(self) -> None:
+        features = [[1,2],[3,4]]
+        labels   = ["good","bad"]
+        game     = ClassificationGame(features, labels)
+
+        self.assert_game_for_data(game, features, labels)
     
-    def test_from_classifier_data_with_short_labels(self) -> None:
-        self.assertRaises(AssertionError, lambda: ClassifierGame([1,1], [1]))
+    def test_constructor_with_too_few_features(self) -> None:
+        self.assertRaises(AssertionError, lambda: ClassificationGame([1], [1,1]))
+    
+    def test_constructor_with_too_few_labels(self) -> None:
+        self.assertRaises(AssertionError, lambda: ClassificationGame([1,1], [1]))
 
 if __name__ == '__main__':
     unittest.main()

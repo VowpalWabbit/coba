@@ -183,7 +183,6 @@ class TraditionalBenchmark(Benchmark):
         self._games        = games
         self._n_rounds     = n_rounds
         self._n_iterations = n_iterations
-        
 
     def evaluate(self, solver_factory: Callable[[],Solver]) -> Result:
         """Calculate the E[reward|learning-iteration] for the given Solver factory.
@@ -199,11 +198,15 @@ class TraditionalBenchmark(Benchmark):
 
         for game in self._games:
             solver = solver_factory()
+            
+            # fix the game rounds iterator so that the 
+            # rounds don't restart on each iteration
+            game_rounds = game.rounds
 
             for i in range(self._n_iterations):
 
-                rounds  = list(islice(game.rounds, self._n_rounds))
-                
+                rounds  = list(islice(game_rounds, self._n_rounds))
+
                 choices = [ solver.choose(r.state, r.actions) for r in rounds ]
                 states  = [ r.state for r in rounds ]
                 actions = [ r.actions[c] for r,c in zip(rounds,choices)]

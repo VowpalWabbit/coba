@@ -57,12 +57,13 @@ class Test_ProgressiveBenchmark(unittest.TestCase):
 
     def assert_progessivebenchmark_for_reward_sets(self, rewards) -> None:     
         
-        s_lambdas = (lambda s=s: lambda    : next(s) for s in (cycle([0,1]) for _ in repeat(1)))
-        a_lambdas = (lambda a=a: lambda s  : a       for a in repeat([0,1]))
-        r_lambdas = (lambda r=r: lambda s,a: r[a]    for r in rewards)
+        S = lambda i: [0,1][i%2]
+        A = lambda s: [0,1]
+        Rs = map(lambda r: (lambda s,a: r[a]), rewards)
+        C = lambda s,a: s
 
-        games   = [LambdaGame(s(), a(), r()) for s,a,r in zip(s_lambdas,a_lambdas,r_lambdas)]
-        solver  = lambda: LambdaSolver(lambda s,a: cast(int,s))
+        games   = [LambdaGame(S, A, R) for R in Rs]
+        solver  = lambda: LambdaSolver(C)
 
         result = ProgressiveBenchmark(games).evaluate(solver)
 
@@ -103,23 +104,24 @@ class Test_TraditionalBenchmark(unittest.TestCase):
         self.assert_traditionalbenchmark_for_reward_sets([[1,3],[5,6]], 10, 1)
     
     def test_multi_game_ten_round_ten_iteration(self) -> None:
-        self.assert_traditionalbenchmark_for_reward_sets([[1,3],[5,6]], 10, 10)
+        self.assert_traditionalbenchmark_for_reward_sets([[1,3],[5,6]], 9, 10)
 
     def assert_traditionalbenchmark_for_reward_sets(self, rewards, n_rounds, n_iterations) -> None:
         
-        s_lambdas = (lambda s=s: lambda    : next(s) for s in (cycle([0,1]) for _ in repeat(1)))
-        a_lambdas = (lambda a=a: lambda s  : a       for a in repeat([0,1]))
-        r_lambdas = (lambda r=r: lambda s,a: r[a]    for r in rewards)
+        S = lambda i: [0,1][i%2]
+        A = lambda s: [0,1]
+        Rs = map(lambda r: (lambda s,a: r[a]), rewards)
+        C = lambda s,a: s
 
-        games   = [LambdaGame(s(), a(), r()) for s,a,r in zip(s_lambdas,a_lambdas,r_lambdas)]
-        solver  = lambda: LambdaSolver(lambda s,a: cast(int,s))
+        games   = [LambdaGame(S, A, R) for R in Rs]
+        solver  = lambda: LambdaSolver(C)
 
         result = TraditionalBenchmark(games, n_rounds, n_iterations).evaluate(solver)
 
         reward_cycles = [cycle(r) for r in rewards]
 
         for n, (value, error) in enumerate(zip(result.values,result.errors)):
-            expected_rwds = [e for r in reward_cycles for e in islice(r,n_rounds) ]
+            expected_rwds = [r for rc in reward_cycles for r in islice(rc,n_rounds) ]
             expected_mean = sum(expected_rwds)/len(expected_rwds)
             expected_error = sqrt(sum((v-expected_mean)**2 for v in expected_rwds))/len(expected_rwds)
 

@@ -13,7 +13,7 @@ Todo:
 import csv
 
 from abc import ABC, abstractmethod
-from itertools import repeat
+from itertools import repeat, count
 from typing import Optional, Iterable, Sequence, List, Union, Callable, TextIO, Collection, Generator
 
 #state, action, reward types
@@ -86,7 +86,7 @@ class Game(ABC):
         """
         ...
 
-class ClassifierGame(Game):
+class ClassificationGame(Game):
     """A Game implementation created from supervised learning data with features and labels.
     
     Remark:
@@ -99,7 +99,7 @@ class ClassifierGame(Game):
 
     @staticmethod
     def from_csv_path(csv_path: str, label_col:str, dialect='excel', **fmtparams) -> Game:
-        """Create a ClassifierGame from a csv file with a header row.
+        """Create a ClassificationGame from a csv file with a header row.
 
         Args:
             csv_path: The path to the csv file.
@@ -115,7 +115,7 @@ class ClassifierGame(Game):
         """
 
         with open(csv_path, newline='') as csv_file:
-            return ClassifierGame.from_csv_file(csv_file, label_col, dialect=dialect, **fmtparams)
+            return ClassificationGame.from_csv_file(csv_file, label_col, dialect=dialect, **fmtparams)
 
     @staticmethod
     def from_csv_file(csv_file:TextIO, label_col:str, dialect='excel', **fmtparams) -> Game:
@@ -149,7 +149,7 @@ class ClassifierGame(Game):
                     features.append(row[:label_index] + row[(label_index+1):])
                     labels  .append(row[label_index])
 
-        return ClassifierGame(features, labels)
+        return ClassificationGame(features, labels)
 
     def __init__(self, features: Collection[State], labels: Collection[Union[str,float]]) -> None:
         """Instantiate a ClassifierGame.
@@ -189,20 +189,23 @@ class LambdaGame(Game):
     """
 
     def __init__(self,
-                 S: Callable[[],State], 
+                 S: Callable[[int],State], 
                  A: Callable[[State],Sequence[Action]], 
-                 R: Callable[[State,Action],float])->None:
+                 R: Callable[[State,Action],float],
+                 n_rounds: Optional[int]=None)->None:
         """Instantiate a LambdaGame.
 
         Args:
-            S: A lambda function that should return a new state every time it is called.
+            S: A lambda function that should return a state given an index in `range(n_rounds)`.
             A: A lambda function that should return all valid actions for a given state.
-            R: A lambda function that should return reward given a state and action.
+            R: A lambda function that should return the reward for a state and action.
+            n_rounds: how many rounds the LambdaGame should have.
         """
 
         self._S = S
         self._A = A
         self._R = R
+        self._n_rounds = n_rounds
 
     @property
     def rounds(self) -> Generator[Round, None, None]:
@@ -216,7 +219,9 @@ class LambdaGame(Game):
         A = self._A
         R = self._R
 
-        for s in (S() for _ in repeat(1)):
+        round_range = count() if self._n_rounds is None else range(self._n_rounds)
+
+        for s in map(S,round_range):
             yield Round(s, A(s), [R(s,a) for a in A(s)])
 
 class MemoryGame(Game):
