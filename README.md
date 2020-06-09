@@ -46,9 +46,30 @@ Implementations
 ```
 
 # To Do:
-  * Implement real Games (e.g., ClassificationGame.from_openml_arff() or ClassificationGame.from_openml_csv_json()??)
-  * Implement Benchmark that queries website RestAPI
+  * Implement Games from data
+    * ClassificationGame.from_openml_arff()?
+    * ClassificationGame.from_openml_csv_json()?
+  * Implement website Rest API
+  * Implement Benchmark for website Rest API
   * Implement real Solvers
   * Create graphical reporting module for Result
-  * Make the code a true package
-  * Publish the package to PyPi and AnacondaCloud
+  * Make the code a true Python package
+  * Publish the package to PyPI and Anaconda Cloud
+  
+# Possible Priorities
+  
+  * Prioritize Local
+    * Implement Games from data
+    * Implement graphical reporting module for Result
+    * Make the code a true Python package
+    * Publish the package to PyPI and Anaconda Cloud
+        
+  * Prioritize Web
+    * Implement website Rest API
+    * Implement Benchmark using website Rest API
+    * Implement full website functionality
+      * OAuth
+      * Recaptcha
+      * Leaderboard
+    * Make the code a true Python package
+    * Publish the package to PyPI and Anaconda Cloud
