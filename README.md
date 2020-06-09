@@ -50,3 +50,5 @@ Implementations
   * Implement Benchmark that queries website RestAPI
   * Implement real Solvers
   * Create graphical reporting module for Result
+  * Make the code a true package
+  * Publish the package to PyPi and AnacondaCloud
