@@ -6,7 +6,39 @@ from typing import cast
 
 from bbench.games import LambdaGame, Round
 from bbench.solvers import LambdaSolver
-from bbench.benchmarks import Result, ProgressiveBenchmark, TraditionalBenchmark
+from bbench.benchmarks import Stats, Result, Result2, ProgressiveBenchmark, TraditionalBenchmark
+
+class Test_Stats_Instance(unittest.TestCase):
+    def test_multi_mean_is_correct_1(self):
+        stats = Stats([1,1,3,3])
+        self.assertEqual(2,stats.mean)
+
+    def test_multi_mean_is_correct_2(self):
+        stats = Stats([1,1,1,1])
+        self.assertEqual(1,stats.mean)
+
+    def test_single_mean_is_correct(self):
+        stats = Stats([3])
+        self.assertEqual(3,stats.mean)
+
+    def test_empty_mean_is_correct(self):
+        stats = Stats([])
+        self.assertIsNone(stats.mean)
+
+class Test_Result2_Instance(unittest.TestCase):
+    def test_iteration_means(self):
+        result = Result2([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
+
+        self.assertEqual(3.5, result.iteration_stats[0].mean)
+        self.assertEqual(5  , result.iteration_stats[1].mean)
+        self.assertEqual(6  , result.iteration_stats[2].mean)
+
+    def test_progressive_means(self):
+        result = Result2([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
+
+        self.assertEqual(3.5 , result.progressive_stats[0].mean)
+        self.assertEqual(4.25, result.progressive_stats[1].mean)
+        self.assertEqual(4.6 , result.progressive_stats[2].mean)
 
 class Test_Result_Instance(unittest.TestCase):
 

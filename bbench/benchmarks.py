@@ -11,7 +11,7 @@ Todo:
 """
 
 from abc import ABC, abstractmethod
-from typing import Union, Iterable, Sequence, List, Callable, Optional, Tuple, cast
+from typing import Union, Iterable, Sequence, Collection, List, Callable, Optional, Tuple, cast
 from itertools import islice
 
 from bbench.games import Game, Round
@@ -88,6 +88,35 @@ class Result:
         else:
             return vals
 
+class Stats:
+    def __init__(self, values: Collection[float]):
+        self._values = values
+        self._mean = None if len(self._values) == 0 else sum(self._values)/len(self._values)
+
+    @property
+    def mean(self) -> Optional[float]:
+        return self._mean
+
+class Result2:
+
+    def __init__(self, observations: Collection[Tuple[int,int,float]]):
+        self._observations      = observations
+        self._iteration_ids     = list(set( o[1] for o in self._observations ))
+        self._iteration_stats   = [ self.predicate_stats(lambda o: o[1] == i) for i in self._iteration_ids ]
+        self._progressive_stats = [ self.predicate_stats(lambda o: o[1] <= i) for i in self._iteration_ids ]
+
+    @property
+    def iteration_stats(self) -> Sequence[Stats]:
+        return self._iteration_stats
+    
+    @property
+    def progressive_stats(self) -> Sequence[Stats]:
+        return self._progressive_stats
+
+    def predicate_stats(self, predicate: Callable[[Tuple[int,int,float]],bool]):
+        return Stats([o[2] for o in filter(predicate, self._observations)])
+
+
 class Benchmark(ABC):
     """The interface for Benchmark implementations."""
     
@@ -110,6 +139,48 @@ class Benchmark(ABC):
             reset a Solver's learned state is to create a new one.
         """
         ...
+
+class UniversalBenchmark:
+
+    def __init__(self, games: Collection[Game], n_rounds: Callable[[int],int], n_iterations: int):
+        self._games = games
+        self._n_rounds = n_rounds
+        self._n_iterations = n_iterations
+
+    def evaluate(self, solver_factory: Callable[[],Solver]) -> Result2:
+        """Calculate the E[reward|learning-iteration] for the given Solver factory.
+
+        Args:
+            solver_factory: See the base class for more information.
+        
+        Returns:
+            See the base class for more information.
+        """
+
+        results:List[Tuple[int,int,float]] = []
+
+        for game_idx, game in enumerate(self._games):
+            solver = solver_factory()
+            
+            # make sure game rounds iterator stays constant
+            # so that rounds don't restart on each iteration
+            game_rounds = game.rounds
+
+            for iteration_idx in range(self._n_iterations):
+
+                rounds  = list(islice(game_rounds, self._n_rounds(iteration_idx)))
+
+                choices = [ solver.choose(r.state, r.actions) for r in rounds ]
+                states  = [ r.state for r in rounds ]
+                actions = [ r.actions[c] for r,c in zip(rounds,choices)]
+                rewards = [ r.rewards[c] for r,c in zip(rounds,choices)]
+
+                results.extend((game_idx, iteration_idx, reward) for reward in rewards)
+
+                for s,a,r in zip(states,actions,rewards):
+                    solver.learn(s,a,r)
+
+        return Result2(results)
 
 class ProgressiveBenchmark(Benchmark):
     """An on-policy Benchmark measuring progressive validation gain (Blum et al., 1999).

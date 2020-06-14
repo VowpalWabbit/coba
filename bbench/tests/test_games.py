@@ -4,8 +4,8 @@ import random
 
 from itertools import cycle
 from abc import ABC, abstractmethod
-from typing import List
-from bbench.games import Round, Game, MemoryGame, LambdaGame, ClassificationGame
+from typing import List, Sequence
+from bbench.games import Round, Game, MemoryGame, LambdaGame, ClassificationGame, State, Action, Reward
 
 class Test_Game_Interface(ABC):
 

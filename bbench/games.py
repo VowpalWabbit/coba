@@ -14,12 +14,15 @@ import csv
 
 from abc import ABC, abstractmethod
 from itertools import repeat, count
-from typing import Optional, Iterable, Sequence, List, Union, Callable, TextIO, Collection, Generator
+from typing import Optional, Iterable, Sequence, List, Union, Callable, TextIO, Collection, Generator, TypeVar, Generic
 
 #state, action, reward types
 State  = Union[str,float,Sequence[Union[str,float]]]
 Action = Union[str,float,Sequence[Union[str,float]]]
 Reward = float
+
+T_S = TypeVar('T_S', bound=State)
+T_A = TypeVar('T_A', bound=Action)
 
 class Round:
     """A class to contain all data needed to play and evaluate a round in a bandit game."""
@@ -181,7 +184,7 @@ class ClassificationGame(Game):
         """
         return self._rounds
 
-class LambdaGame(Game):
+class LambdaGame(Game, Generic[T_S, T_A]):
     """A Game implementation that uses lambda functions to generate states, actions and rewards.
     
     Remarks:
@@ -189,9 +192,9 @@ class LambdaGame(Game):
     """
 
     def __init__(self,
-                 S: Callable[[int],State], 
-                 A: Callable[[State],Sequence[Action]], 
-                 R: Callable[[State,Action],float],
+                 S: Callable[[int],T_S], 
+                 A: Callable[[T_S],Sequence[T_A]], 
+                 R: Callable[[T_S,T_A],Reward],
                  n_rounds: Optional[int]=None)->None:
         """Instantiate a LambdaGame.
 
