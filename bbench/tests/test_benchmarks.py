@@ -6,7 +6,7 @@ from typing import cast
 
 from bbench.games import LambdaGame, Round
 from bbench.solvers import LambdaSolver
-from bbench.benchmarks import Stats, Result, Result2, ProgressiveBenchmark, TraditionalBenchmark
+from bbench.benchmarks import Stats, Result, UniversalBenchmark
 
 class Test_Stats_Instance(unittest.TestCase):
     def test_multi_mean_is_correct_1(self):
@@ -25,145 +25,106 @@ class Test_Stats_Instance(unittest.TestCase):
         stats = Stats([])
         self.assertIsNone(stats.mean)
 
-class Test_Result2_Instance(unittest.TestCase):
+class Test_Result_Instance(unittest.TestCase):
     def test_iteration_means(self):
-        result = Result2([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
+        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
 
         self.assertEqual(3.5, result.iteration_stats[0].mean)
         self.assertEqual(5  , result.iteration_stats[1].mean)
         self.assertEqual(6  , result.iteration_stats[2].mean)
 
     def test_progressive_means(self):
-        result = Result2([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
+        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
 
         self.assertEqual(3.5 , result.progressive_stats[0].mean)
         self.assertEqual(4.25, result.progressive_stats[1].mean)
         self.assertEqual(4.6 , result.progressive_stats[2].mean)
 
-class Test_Result_Instance(unittest.TestCase):
+class Test_UniversalBenchmark(unittest.TestCase):
 
-    def test_result_points_correct_for_samples_of_1(self) -> None:
-        result = Result.from_samples([10,20,30,40])
+    def test_one_game_one_round_five_iterations(self):
+        game           = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        solver_factory = lambda: LambdaSolver(lambda s,A: A[s%3])
+        benchmark      = UniversalBenchmark([game], lambda i: 1, 5)
 
-        self.assertEqual(result.values[0], 10)
-        self.assertEqual(result.values[1], 20)
-        self.assertEqual(result.values[2], 30)
-        self.assertEqual(result.values[3], 40)
+        result = benchmark.evaluate(solver_factory)
 
-    def test_result_points_correct_for_samples_of_2(self) -> None:
-        result = Result.from_samples([[10,20],[20,30],[30,40],[40,50]])
+        expected_observations = [
+            (0,0,0),(0,1,1),(0,2,2),(0,3,0),(0,4,1)
+        ]
 
-        self.assertEqual(result.values[0], 15)
-        self.assertEqual(result.values[1], 25)
-        self.assertEqual(result.values[2], 35)
-        self.assertEqual(result.values[3], 45)
+        self.assertEqual(expected_observations, result.observations)
 
-    def test_result_errors_correct_for_samples_of_1(self) -> None:
-        result = Result.from_samples([10,20,30,40])
+    def test_one_game_five_rounds_one_iteration(self):
+        game           = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        solver_factory = lambda: LambdaSolver(lambda s,A: A[s%3])
+        benchmark      = UniversalBenchmark([game], lambda i: 5, 1)
 
-        self.assertIsNone(result.errors[0])
-        self.assertIsNone(result.errors[1])
-        self.assertIsNone(result.errors[2])
-        self.assertIsNone(result.errors[3])
+        result = benchmark.evaluate(solver_factory)
 
-    def test_result_errors_correct_for_samples_of_2(self) -> None:
-        result = Result.from_samples([[10,20],[20,40],[30,60],[40,80]])
+        expected_observations = [
+            (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,0,1)
+        ]
 
-        #these are here to make mypy happy
-        assert isinstance(result.errors[0], float)
-        assert isinstance(result.errors[1], float)
-        assert isinstance(result.errors[2], float)
-        assert isinstance(result.errors[3], float)
+        self.assertEqual(expected_observations, result.observations)
 
-        self.assertAlmostEqual(result.errors[0], 5/sqrt(2))
-        self.assertAlmostEqual(result.errors[1], 10/sqrt(2))
-        self.assertAlmostEqual(result.errors[2], 15/sqrt(2))
-        self.assertAlmostEqual(result.errors[3], 20/sqrt(2))
+    def test_one_game_three_rounds_three_iterations(self):
+        game           = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        solver_factory = lambda: LambdaSolver(lambda s,A: A[s%3])
+        benchmark      = UniversalBenchmark([game], lambda i: 3, 3)
 
-class Test_ProgressiveBenchmark(unittest.TestCase):
-    def test_single_game(self) -> None:
-        self.assert_progessivebenchmark_for_reward_sets([[1,3]])
+        result = benchmark.evaluate(solver_factory)
 
-    def test_multi_game(self) -> None:
-        self.assert_progessivebenchmark_for_reward_sets([[1,3],[5,6]])
+        expected_observations = [
+            (0,0,0),(0,0,1),(0,0,2),(0,1,0),(0,1,1),(0,1,2),(0,2,0),(0,2,1),(0,2,2)
+        ]
 
-    def assert_progessivebenchmark_for_reward_sets(self, rewards) -> None:     
-        
-        S = lambda i: [0,1][i%2]
-        A = lambda s: [0,1]
-        Rs = map(lambda r: (lambda s,a: r[a]), rewards)
-        C = lambda s,a: s
+        self.assertEqual(expected_observations, result.observations)
 
-        games   = [LambdaGame(S, A, R) for R in Rs]
-        solver  = lambda: LambdaSolver(C)
+    def test_two_games_one_round_five_iterations(self):
+        game1          = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        game2          = LambdaGame(lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+        solver_factory = lambda: LambdaSolver(lambda s,A: s%3)
+        benchmark      = UniversalBenchmark([game1,game2], lambda i: 1, 5)
 
-        result = ProgressiveBenchmark(games).evaluate(solver)
+        result = benchmark.evaluate(solver_factory)
 
-        for n, (value, error) in enumerate(zip(result.values,result.errors)):
-            expected_rewards = [list(islice(cycle(r),(n+1))) for r in rewards ]
-            expected_values  = [sum(r)/len(r) for r in expected_rewards]
-            
-            expected_mean    = sum(expected_values)/len(expected_values)
-            expected_error = sqrt(sum((v-expected_mean)**2 for v in expected_values))/len(expected_values)
+        expected_observations = [
+            (0,0,0),(0,1,1),(0,2,2),(0,3,0),(0,4,1),
+            (1,0,3),(1,1,4),(1,2,5),(1,3,3),(1,4,4)
+        ]
 
-            self.assertAlmostEqual(value, expected_mean)
-            
-            if(len(expected_values) == 1):
-                self.assertIsNone(error)
-            else:
-                self.assertAlmostEqual(cast(float,error), expected_error)
+        self.assertEqual(expected_observations, result.observations)
 
-class Test_TraditionalBenchmark(unittest.TestCase):
-    def test_single_game_one_round_one_iteration(self) -> None:
-        self.assert_traditionalbenchmark_for_reward_sets([[1,3]], 1, 1)
-    
-    def test_single_game_one_round_ten_iteration(self) -> None:
-        self.assert_traditionalbenchmark_for_reward_sets([[1,3]], 1, 10)
-    
-    def test_single_game_ten_round_one_iteration(self) -> None:
-        self.assert_traditionalbenchmark_for_reward_sets([[1,3]], 10, 1)
-    
-    def test_single_game_ten_round_ten_iteration(self) -> None:
-        self.assert_traditionalbenchmark_for_reward_sets([[1,3]], 10, 10)
-    
-    def test_multi_game_one_round_one_iteration(self) -> None:
-        self.assert_traditionalbenchmark_for_reward_sets([[1,3],[5,6]], 1, 1)
-    
-    def test_multi_game_one_round_ten_iteration(self) -> None:
-        self.assert_traditionalbenchmark_for_reward_sets([[1,3],[5,6]], 1, 10)
-    
-    def test_multi_game_ten_round_one_iteration(self) -> None:
-        self.assert_traditionalbenchmark_for_reward_sets([[1,3],[5,6]], 10, 1)
-    
-    def test_multi_game_ten_round_ten_iteration(self) -> None:
-        self.assert_traditionalbenchmark_for_reward_sets([[1,3],[5,6]], 9, 10)
+    def test_two_games_five_rounds_one_iteration(self):
+        game1          = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        game2          = LambdaGame(lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+        solver_factory = lambda: LambdaSolver(lambda s,A: s%3)
+        benchmark      = UniversalBenchmark([game1,game2], lambda i: 5, 1)
 
-    def assert_traditionalbenchmark_for_reward_sets(self, rewards, n_rounds, n_iterations) -> None:
-        
-        S = lambda i: [0,1][i%2]
-        A = lambda s: [0,1]
-        Rs = map(lambda r: (lambda s,a: r[a]), rewards)
-        C = lambda s,a: s
+        result = benchmark.evaluate(solver_factory)
 
-        games   = [LambdaGame(S, A, R) for R in Rs]
-        solver  = lambda: LambdaSolver(C)
+        expected_observations = [
+            (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,0,1),
+            (1,0,3),(1,0,4),(1,0,5),(1,0,3),(1,0,4)
+        ]
 
-        result = TraditionalBenchmark(games, n_rounds, n_iterations).evaluate(solver)
+        self.assertEqual(expected_observations, result.observations)
 
-        reward_cycles = [cycle(r) for r in rewards]
+    def test_two_games_three_rounds_three_iterations(self):
+        game1          = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        game2          = LambdaGame(lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+        solver_factory = lambda: LambdaSolver(lambda s,A: s%3)
+        benchmark      = UniversalBenchmark([game1,game2], lambda i: 3, 3)
 
-        for n, (value, error) in enumerate(zip(result.values,result.errors)):
-            expected_rwds = [r for rc in reward_cycles for r in islice(rc,n_rounds) ]
-            expected_mean = sum(expected_rwds)/len(expected_rwds)
-            expected_error = sqrt(sum((v-expected_mean)**2 for v in expected_rwds))/len(expected_rwds)
+        result = benchmark.evaluate(solver_factory)
 
-            self.assertAlmostEqual(value, expected_mean)
+        expected_observations = [
+            (0,0,0),(0,0,1),(0,0,2),(0,1,0),(0,1,1),(0,1,2),(0,2,0),(0,2,1),(0,2,2),
+            (1,0,3),(1,0,4),(1,0,5),(1,1,3),(1,1,4),(1,1,5),(1,2,3),(1,2,4),(1,2,5)
+        ]
 
-            if(len(expected_rwds) == 1):
-                self.assertIsNone(error)
-            else:
-                self.assertAlmostEqual(cast(float,error), expected_error)
+        self.assertEqual(expected_observations, result.observations)
 
-        self.assertEqual(n+1, n_iterations)
 if __name__ == '__main__':
     unittest.main()
