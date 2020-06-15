@@ -48,10 +48,6 @@ class LambdaSolver_Tests(Solver_Interface_Tests, unittest.TestCase):
     def _make_solver(self) -> Solver:
         return LambdaSolver(lambda s,a: 0, lambda s,a,r:None)
 
-if __name__ == '__main__':
-    unittest.main()
-
-
 class EpsilonAverageSolver_Tests(Solver_Interface_Tests, unittest.TestCase):
     def _make_solver(self) -> Solver:
         return EpsilonAverageSolver(1/10, lambda a: 0)
