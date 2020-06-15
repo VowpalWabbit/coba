@@ -7,9 +7,10 @@ Todo:
     * Add more Solver implementations
 """
 
+import random
+
 from abc import ABC, abstractmethod
-from typing import Callable, Sequence, Optional
-from random import randint
+from typing import Callable, Sequence, Optional, Dict, Any, Iterable, cast
 
 from bbench.games import State, Action, Reward
 
@@ -69,7 +70,7 @@ class RandomSolver(Solver):
         Returns:
             See the base class for more information.
         """
-        return randint(0,len(actions)-1)
+        return random.randint(0,len(actions)-1)
 
     def learn(self, state: Optional[State], action: Action, reward: Reward) -> None:
         """Learn nothing.
@@ -123,3 +124,45 @@ class LambdaSolver(Solver):
             pass
         else:
             self._learner(state,action,reward)
+
+class EpsilonAverageSolver(Solver):
+
+    def __init__(self, epsilon: float, initial: Callable[[Action],float]) -> None:
+        self._epsilon = epsilon
+        self._initial = initial
+        self._N: Dict[Any, int] = {}
+        self._Q: Dict[Any, float] = {}
+
+    def choose(self, state: Optional[State], actions: Sequence[Action]) -> int:
+
+        if(random.random() <= self._epsilon): return random.randint(0,len(actions)-1)
+
+        hashables = [self._hashable(a) for a in actions]
+
+        values      = [ self._Q[h] if h in self._Q else self._initial(a) for h,a in zip(hashables,actions) ]
+        max_value   = max(values)
+        max_indexes = [i for i in range(len(values)) if values[i]==max_value]
+
+        return random.choice(max_indexes)
+
+    def learn(self, state: Optional[State], action: Action, reward: Reward) -> None:
+
+        action = self._hashable(action)
+
+        if action not in self._Q:
+            self._Q[action] = reward
+            self._N[action] = 1
+        else:
+            alpha = 1/(self._N[action]+1)
+            self._Q[action] = (1-alpha) * self._Q[action] + alpha * reward
+            self._N[action] = self._N[action] + 1
+
+    def _hashable(self, action: Action) -> Any:
+
+        if isinstance(action, int):
+            return action
+        
+        if isinstance(action, str):
+            return action
+
+        return tuple(cast(Iterable[Any], action))
