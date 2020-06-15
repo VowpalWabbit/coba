@@ -29,7 +29,6 @@ class Solver_Interface_Tests(ABC):
         self._solver = self._make_solver()
 
     def test_choose_index_in_actions_range(self) -> None:
-
         for state,actions in random.choices(self._state_actions_pairs(), k=self._n_samples):
             actual   = self._solver.choose(state, actions)
             expected = range(len(actions))

@@ -53,7 +53,7 @@ class Test_UniversalBenchmark(unittest.TestCase):
             (0,0,0),(0,1,1),(0,2,2),(0,3,0),(0,4,1)
         ]
 
-        self.assertEqual(expected_observations, result.observations)
+        self.assertEqual(result.observations, expected_observations)
 
     def test_one_game_five_rounds_one_iteration(self):
         game           = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -66,7 +66,7 @@ class Test_UniversalBenchmark(unittest.TestCase):
             (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,0,1)
         ]
 
-        self.assertEqual(expected_observations, result.observations)
+        self.assertEqual(result.observations, expected_observations)
 
     def test_one_game_three_rounds_three_iterations(self):
         game           = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -79,7 +79,7 @@ class Test_UniversalBenchmark(unittest.TestCase):
             (0,0,0),(0,0,1),(0,0,2),(0,1,0),(0,1,1),(0,1,2),(0,2,0),(0,2,1),(0,2,2)
         ]
 
-        self.assertEqual(expected_observations, result.observations)
+        self.assertEqual(result.observations, expected_observations)
 
     def test_two_games_one_round_five_iterations(self):
         game1          = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -94,7 +94,7 @@ class Test_UniversalBenchmark(unittest.TestCase):
             (1,0,3),(1,1,4),(1,2,5),(1,3,3),(1,4,4)
         ]
 
-        self.assertEqual(expected_observations, result.observations)
+        self.assertEqual(result.observations, expected_observations)
 
     def test_two_games_five_rounds_one_iteration(self):
         game1          = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -109,7 +109,7 @@ class Test_UniversalBenchmark(unittest.TestCase):
             (1,0,3),(1,0,4),(1,0,5),(1,0,3),(1,0,4)
         ]
 
-        self.assertEqual(expected_observations, result.observations)
+        self.assertEqual(result.observations, expected_observations)
 
     def test_two_games_three_rounds_three_iterations(self):
         game1          = LambdaGame(lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -124,7 +124,7 @@ class Test_UniversalBenchmark(unittest.TestCase):
             (1,0,3),(1,0,4),(1,0,5),(1,1,3),(1,1,4),(1,1,5),(1,2,3),(1,2,4),(1,2,5)
         ]
 
-        self.assertEqual(expected_observations, result.observations)
+        self.assertEqual(result.observations, expected_observations)
 
 if __name__ == '__main__':
     unittest.main()
