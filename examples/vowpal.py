@@ -1,6 +1,6 @@
 """
-This is an example script that uses vowpal wabbit to create a solver.
-The plots in this script require that the matplotlib package be installed.
+This is an example script that benchmarks a vowpal wabbit bandit solver.
+This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
 import itertools

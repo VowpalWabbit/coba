@@ -1,6 +1,6 @@
 """
-This is an example script that creates a simple game and three solvers.
-The plots in this script require that the matplotlib package be installed.
+This is an example script that creates a simple game and plots benchmark results.
+This script requires that the matplotlib package be installed.
 """
 
 import random
