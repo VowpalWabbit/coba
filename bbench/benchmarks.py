@@ -11,14 +11,14 @@ Todo:
 """
 
 from abc import ABC, abstractmethod
-from typing import Union, Iterable, Sequence, Collection, List, Callable, Optional, Tuple, cast
+from typing import Union, Iterable, Sequence, List, Callable, Optional, Tuple, cast
 from itertools import islice
 
 from bbench.games import Game, Round
 from bbench.solvers import Solver
 
 class Stats:
-    def __init__(self, values: Collection[float]):
+    def __init__(self, values: Sequence[float]):
         self._values = values
         self._mean = None if len(self._values) == 0 else sum(self._values)/len(self._values)
 
@@ -28,7 +28,7 @@ class Stats:
 
 class Result:
 
-    def __init__(self, observations: Collection[Tuple[int,int,float]]):
+    def __init__(self, observations: Sequence[Tuple[int,int,float]]):
         self._observations      = observations
         self._iteration_ids     = list(set( o[1] for o in self._observations ))
         self._iteration_stats   = [ self.predicate_stats(lambda o: o[1] == i) for i in self._iteration_ids ]
@@ -82,7 +82,7 @@ class UniversalBenchmark(Benchmark):
             such a shuffling has been done then a game can be fixed for all benchmarks after that.
     """
 
-    def __init__(self, games: Collection[Game], n_rounds: Callable[[int],int], n_iterations: int):
+    def __init__(self, games: Sequence[Game], n_rounds: Callable[[int],int], n_iterations: int):
         self._games = games
         self._n_rounds = n_rounds
         self._n_iterations = n_iterations

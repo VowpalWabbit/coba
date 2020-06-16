@@ -14,7 +14,7 @@ import csv
 
 from abc import ABC, abstractmethod
 from itertools import repeat, count
-from typing import Optional, Iterable, Sequence, List, Union, Callable, TextIO, Collection, Generator, TypeVar, Generic
+from typing import Optional, Sequence, List, Union, Callable, TextIO, Generator, TypeVar, Generic
 
 #state, action, reward types
 State  = Union[str,float,Sequence[Union[str,float]]]
@@ -66,7 +66,7 @@ class Game(ABC):
 
     @property
     @abstractmethod
-    def rounds(self) -> Union[Generator[Round,None,None],Collection[Round]]:
+    def rounds(self) -> Union[Generator[Round,None,None], Sequence[Round]]:
         """A read-only property providing the rounds in a game.
 
         Remarks:
@@ -84,7 +84,7 @@ class Game(ABC):
             are in fact iterators and therefore can only be looped over one time.
 
         Returns:
-            The return value of Generator and Collection are defined to make it more
+            The return value of Generator and Sequence are defined to make it more
             likely that an implementation will posess the property of being re-iterable
         """
         ...
@@ -154,7 +154,7 @@ class ClassificationGame(Game):
 
         return ClassificationGame(features, labels)
 
-    def __init__(self, features: Collection[State], labels: Collection[Union[str,float]]) -> None:
+    def __init__(self, features: Sequence[State], labels: Sequence[Union[str,float]]) -> None:
         """Instantiate a ClassifierGame.
 
         Args:
@@ -176,7 +176,7 @@ class ClassificationGame(Game):
         self._rounds = list(map(Round, states, repeat(action_set), reward_sets))
 
     @property
-    def rounds(self) -> Collection[Round]:
+    def rounds(self) -> Sequence[Round]:
         """The rounds in this game.
         
         Remarks:
@@ -234,7 +234,7 @@ class MemoryGame(Game):
         This implementation is very useful for unit-testing known edge cases.
     """
 
-    def __init__(self, rounds: Collection[Round]) -> None:
+    def __init__(self, rounds: Sequence[Round]) -> None:
         """Instantiate a MemoryGame.
 
         Args:
@@ -243,7 +243,7 @@ class MemoryGame(Game):
         self._rounds = rounds
 
     @property
-    def rounds(self) -> Collection[Round]:
+    def rounds(self) -> Sequence[Round]:
         """The rounds in this game.
         
         Remarks:
