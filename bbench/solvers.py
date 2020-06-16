@@ -159,10 +159,7 @@ class EpsilonAverageSolver(Solver):
 
     def _hashable(self, action: Action) -> Any:
 
-        if isinstance(action, int):
+        if isinstance(action, (int,str)):
             return action
         
-        if isinstance(action, str):
-            return action
-
         return tuple(cast(Iterable[Any], action))
