@@ -20,8 +20,9 @@ Interfaces
     > rewards: Sequence[Reward]
 
   * Result
-    > values: Sequence[float]
-    > errors: Sequence[Optional[float]]
+    > iteration_stats: Sequence[Stats]
+    > progressive_stats: Sequence[Stats]
+    > predicate_stats(predicate: Callable[[Tuple[int,int,float]],bool]) -> Stats
 
   * Game
     > rounds: Iterable[Round]
@@ -31,45 +32,5 @@ Interfaces
     > learn(state: State, action: Action, reward: Reward)
    
   * Benchmark
-    > Evaluate(solver_factory: Callable[[],Solver]) -> Result
-    
-Classes
-  * Round                -- Simple DTO representing rounds
-  * Result               -- Simple DTO representing the result of a benchmark
-  * MemoryGame           -- Game where the rounds are defined in memory
-  * LambdaGame           -- Game where the rounds are defined via lambda functions
-  * ClassificationGame   -- Game where the rounds are defined via features and labels
-  * RandomSolver         -- Solver that chooses actions at random and learns nothing
-  * LambdaSolver         -- Solver whose choose and learn are implemented via lambda functions
-  * ProgressiveBenchmark -- Benchmark that calculates the expected progressive benchmark given games
-  * TraditionalBenchmark -- Benchmark that calculates expected reward from fixed policy iterations
+    > Evaluate(solver_factory: Callable[[],Solver]) -> Result    
 ```
-
-# To Do:
-  * Implement Games from data
-    * ClassificationGame.from_openml_arff()?
-    * ClassificationGame.from_openml_csv_json()?
-  * Implement website Rest API
-  * Implement Benchmark for website Rest API
-  * Implement real Solvers
-  * Create graphical reporting module for Result
-  * Make the code a true Python package
-  * Publish the package to PyPI and Anaconda Cloud
-  
-# Possible Priorities
-  
-  * Prioritize Local
-    * Implement Games from data
-    * Implement graphical reporting module for Result
-    * Make the code a true Python package
-    * Publish the package to PyPI and Anaconda Cloud
-        
-  * Prioritize Web
-    * Implement website Rest API
-    * Implement Benchmark using website Rest API
-    * Implement full website functionality
-      * OAuth
-      * Recaptcha
-      * Leaderboard
-    * Make the code a true Python package
-    * Publish the package to PyPI and Anaconda Cloud
