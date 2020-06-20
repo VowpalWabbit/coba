@@ -14,7 +14,7 @@ import csv
 
 from abc import ABC, abstractmethod
 from itertools import repeat, count
-from typing import Optional, Sequence, List, Union, Callable, TextIO, Generator, TypeVar, Generic
+from typing import Optional, Iterator, Sequence, List, Union, Callable, TextIO, Generator, TypeVar, Generic
 
 #state, action, reward types
 State  = Union[str,float,Sequence[Union[str,float]]]
@@ -93,22 +93,26 @@ class ClassificationGame(Game):
     """A Game implementation created from supervised learning data with features and labels.
     
     Remark:
-        Game creation is done by turning each feature observation, with its label, into 
-        a round. Each feature set becomes a state in a round and all possible labels
-        become the action set for each round. Rewards for each round are created by 
+        ClassificationGame creation is done by turning each feature set observation and 
+        label, into a round. Each feature set becomes a state in a round and all possible 
+        labels become the action set for the round. Rewards for each round are created by 
         assigning a reward of 1 to the correct label (action) for a feature set (state)
         and a value of 0 for all other labels on that feature set.
     """
 
     @staticmethod
-    def from_csv_path(csv_path: str, label_col:str, dialect='excel', **fmtparams) -> Game:
+    def from_csv_path(
+        csv_path: str, 
+        label_col:str, 
+        csv_reader: Callable[[TextIO], Iterator[List[str]]] = csv.reader, 
+        csv_stater: Callable[[Sequence[str]], State] = lambda row:row) -> Game:
         """Create a ClassificationGame from a csv file with a header row.
 
         Args:
             csv_path: The path to the csv file.
             label_col: The name of the column in the csv file that represents the label.
-            dialect: See `csv.reader` for an explanation of this parameter.
-            fmtparams: A pass through key value parameter for `csv.reader`.
+            csv_reader: A method to parse file lines at csv_path into their string values.
+            csv_stater: A method to convert csv string values into state representations.
 
         Remarks:
             This method will open the file and read it all into memory. Be careful when doing
@@ -118,17 +122,22 @@ class ClassificationGame(Game):
         """
 
         with open(csv_path, newline='') as csv_file:
-            return ClassificationGame.from_csv_file(csv_file, label_col, dialect=dialect, **fmtparams)
+            return ClassificationGame.from_csv_file(csv_file, label_col, csv_reader, csv_stater)
 
     @staticmethod
-    def from_csv_file(csv_file:TextIO, label_col:str, dialect='excel', **fmtparams) -> Game:
-        """Create a ClassifierGame from TextIO of a csv file.
+    def from_csv_file(
+        csv_file:TextIO, 
+        label_col:str, 
+        csv_reader: Callable[[TextIO], Iterator[List[str]]] = csv.reader, 
+        csv_stater: Callable[[Sequence[str]], State] = lambda row:row) -> Game:
+
+        """Create a ClassifierGame from the TextIO of a csv file.
 
         Args:
             csv_file: Any TextIO implementation including `open(csv_path)` and `io.StringIO()`.
             label_col: The name of the column in the csv file that represents the label.
-            dialect: See `csv.reader` for an explanation of this parameter.
-            fmtparams: A pass through key value parameter for `csv.reader`.
+            csv_reader: A method to parse file lines at csv_path into their string values.
+            csv_stater: A method to convert csv string values into state representations.
 
         Remarks:
             This method will open the file and read it all into memory. Be careful when doing
@@ -137,20 +146,43 @@ class ClassificationGame(Game):
             backed categoricals (aka, `factors` in R).
         """
 
-        features: List[Sequence[str]] = []
-        labels  : List[str]           = []
+        return ClassificationGame.from_csv_rows(csv_reader(csv_file), label_col, csv_stater)
+    
+    @staticmethod
+    def from_csv_rows(
+        csv_rows:Iterator[List[str]],
+        label_col: str,
+        csv_stater: Callable[[Sequence[str]], State] = lambda row:row) -> Game:
+
+        """Create a ClassifierGame from the string values of a csv file.
+
+        Args:
+            csv_rows: Any Iterator of string values representing a row of features and a label.
+            label_col: The value of the column in the header row representing the label.
+            csv_stater: A method to convert csv string values into state representations.
+
+        Remarks:
+            This method will open the file and read it all into memory. Be careful when doing
+            this if you are working with a large file. One way to improve on this is to make
+            sure column are correctly typed and all string columns are represented as integer
+            backed categoricals (aka, `factors` in R).
+        """
+
+        features: List[State] = []
+        labels  : List[str]   = []
 
         # In theory we don't have to load the whole file up front. However, in practice,
         # not loading the file upfront is hard due to the fact that Python can't really 
         # guarantee a generator will close the file.
         # For more info see https://stackoverflow.com/q/29040534/1066291
         # For more info see https://www.python.org/dev/peps/pep-0533/
-        for num,row in enumerate(csv.reader(csv_file, dialect=dialect, **fmtparams)):
-                if num == 0:
-                    label_index = row.index(label_col)
-                else:
-                    features.append(row[:label_index] + row[(label_index+1):])
-                    labels  .append(row[label_index])
+
+        header_row  = next(csv_rows)
+        label_index = header_row.index(label_col)
+
+        for row in csv_rows:
+            features.append(csv_stater(row[:label_index] + row[(label_index+1):]))
+            labels  .append(row[label_index])
 
         return ClassificationGame(features, labels)
 
@@ -163,14 +195,9 @@ class ClassificationGame(Game):
         """
 
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
-
-        self._label_set = list(set(labels))
-
-        self._features = features
-        self._labels   = labels
-
+        
         states      = features
-        action_set  = list(set(labels))
+        action_set  = sorted(list(set(labels))) #without sorted the order is random making testing hard
         reward_sets = [ [int(label==action) for action in action_set] for label in labels ]
 
         self._rounds = list(map(Round, states, repeat(action_set), reward_sets))

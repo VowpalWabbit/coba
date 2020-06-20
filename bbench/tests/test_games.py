@@ -4,30 +4,23 @@ import random
 
 from itertools import cycle
 from abc import ABC, abstractmethod
-from typing import List, Sequence
+from typing import List, Sequence, Tuple
 from bbench.games import Round, Game, MemoryGame, LambdaGame, ClassificationGame, State, Action, Reward
 
 class Test_Game_Interface(ABC):
 
     @abstractmethod
-    def _make_game(self) -> Game:
+    def _interface_test_setup(self) -> Tuple[Game, List[Round]]:
         ...
-
-    def _expected_rounds(self) -> List[Round]:
-        return [
-            Round(1, [1,2,3], [0,1,2]),
-            Round(2, [4,5,6], [2,3,4]),
-            Round(3, [7,8,9], [4,5,6])
-        ]
-
-    def setUp(self):
-        self._game = self._make_game()
 
     def test_rounds_is_correct(self) -> None:
         #pylint: disable=no-member
 
-        actual_rounds   = self._game.rounds
-        expected_rounds = cycle(self._expected_rounds())
+        game, expected_rounds = self._interface_test_setup()
+
+        actual_rounds = list(game.rounds)
+
+        self.assertEqual(len(actual_rounds), len(expected_rounds))
 
         for actual_round, expected_round in zip(actual_rounds, expected_rounds):
             self.assertEqual(actual_round.state  , expected_round.state  ) #type: ignore
@@ -37,7 +30,9 @@ class Test_Game_Interface(ABC):
     def test_rounds_is_reiterable(self) -> None:
         #pylint: disable=no-member
 
-        for round1,round2 in zip(self._game.rounds, self._game.rounds):
+        game, _ = self._interface_test_setup()
+
+        for round1,round2 in zip(game.rounds, game.rounds):
             self.assertEqual(round1.state  , round2.state  ) #type: ignore
             self.assertEqual(round1.actions, round2.actions) #type: ignore
             self.assertEqual(round1.rewards, round2.rewards) #type: ignore
@@ -45,8 +40,10 @@ class Test_Game_Interface(ABC):
     def test_rounds_is_readonly(self) -> None:
         #pylint: disable=no-member
 
+        game, _ = self._interface_test_setup()
+
         def assign_rounds():
-            self._game.rounds = []
+            game.rounds = []
         
         self.assertRaises(AttributeError, assign_rounds) #type: ignore
 
@@ -92,37 +89,33 @@ class Test_Round(unittest.TestCase):
 
         self.assertRaises(AttributeError, assign_rewards)
 
-class Test_MemoryGame_Interface(Test_Game_Interface, unittest.TestCase):
+class Test_MemoryGame(Test_Game_Interface, unittest.TestCase):
 
-    def _make_game(self) -> MemoryGame:
-        return MemoryGame(self._expected_rounds())
+    def _interface_test_setup(self) -> Tuple[Game, List[Round]]:
+        
+        rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [4,5,6], [2,3,4])]
+        return MemoryGame(rounds), rounds
 
-class Test_LambdaGame_Interface(Test_Game_Interface, unittest.TestCase):
-    def _make_game(self) -> LambdaGame:
-
+class Test_LambdaGame(Test_Game_Interface, unittest.TestCase):
+    
+    def _interface_test_setup(self) -> Tuple[Game, List[Round]]:
+        rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [4,5,6], [2,3,4])]
+        
         def S(i:int) -> int:
-            return [1,2,3][i]
+            return [1,2][i]
 
         def A(s:int) -> List[int]:
-            return [1,2,3] if s == 1 else [4,5,6] if s == 2 else [7,8,9]
+            return [1,2,3] if s == 1 else [4,5,6]
         
         def R(s:int,a:int) -> int:
             return a-s
 
-        return LambdaGame(S,A,R,3)
+        return LambdaGame(S,A,R,2), rounds
 
-class Test_ClassificationGame_Interface(Test_Game_Interface, unittest.TestCase):
-    def _make_game(self) -> ClassificationGame:
-        return ClassificationGame([1,2,3], [3,2,1])
-
-    def _expected_rounds(self) -> List[Round]:
-        return [
-            Round(1, [1,2,3], [0,0,1]),
-            Round(2, [1,2,3], [0,1,0]),
-            Round(3, [1,2,3], [1,0,0])
-        ]
-
-class Test_ClassificationGame(unittest.TestCase):
+class Test_ClassificationGame(Test_Game_Interface, unittest.TestCase):
+    def _interface_test_setup(self) -> Tuple[Game, List[Round]]:
+        rounds = [ Round(1, [1,2], [0,1]), Round(2, [1,2], [1,0]) ]
+        return ClassificationGame([1,2], [2,1]), rounds
 
     def assert_game_for_data(self, game, features, labels) -> None:
 
@@ -131,7 +124,7 @@ class Test_ClassificationGame(unittest.TestCase):
         for f,l,r in zip(features, labels, game.rounds):
 
             expected_state   = f
-            expected_actions = list(set(labels))
+            expected_actions = sorted(list(set(labels)))
             expected_rewards = [int(a == l) for a in r.actions]
 
             self.assertEqual(r.state, expected_state)            
@@ -161,9 +154,23 @@ class Test_ClassificationGame(unittest.TestCase):
     
     def test_constructor_with_too_few_features(self) -> None:
         self.assertRaises(AssertionError, lambda: ClassificationGame([1], [1,1]))
-    
+
     def test_constructor_with_too_few_labels(self) -> None:
         self.assertRaises(AssertionError, lambda: ClassificationGame([1,1], [1]))
+
+    def test_simple_from_csv_file(self) -> None:
+        game = ClassificationGame.from_csv_file(['a,b,c','1,2,3','4,5,6'],'b')
+
+        self.assert_game_for_data(game, [['1','3'],['4','6']],['2','5'])
+
+    def test_simple_from_csv_file_with_stater(self) -> None:
+        
+        def stater(row: List[str]) -> State:
+            return [row[0] == "s1", row[0] == "s2", int(row[1])]
+
+        game = ClassificationGame.from_csv_file(['a,b,c','s1,2,3','s2,5,6'],'b', csv_stater=stater)
+
+        self.assert_game_for_data(game, [[1,0,3],[0,1,6]],['2','5'])
 
 if __name__ == '__main__':
     unittest.main()
