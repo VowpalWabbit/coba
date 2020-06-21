@@ -35,9 +35,9 @@ class Stats:
 class Result:
 
     def __init__(self, observations: Sequence[Tuple[int,int,float]]):
-        self._observations      = observations
-        self._iteration_stats   = []
-        self._progressive_stats = []
+        self._observations = observations
+        self._batch_stats  = []
+        self._sweep_stats  = []
 
         iter_curr  = self._observations[0][1]
         iter_count = 0
@@ -51,8 +51,8 @@ class Result:
         for observation in self._observations:
 
             if(iter_curr != observation[1]):
-                self._iteration_stats.append(Stats(iter_mean))
-                self._progressive_stats.append(Stats(prog_mean))
+                self._batch_stats.append(Stats(iter_mean))
+                self._sweep_stats.append(Stats(prog_mean))
 
                 iter_curr  = observation[1]
                 iter_count = 0
@@ -64,23 +64,23 @@ class Result:
             iter_mean = (1/iter_count) * observation[2] + (1-1/iter_count) * iter_mean
             prog_mean = (1/prog_count) * observation[2] + (1-1/prog_count) * prog_mean
 
-        self._iteration_stats.append(Stats(iter_mean))
-        self._progressive_stats.append(Stats(prog_mean))
+        self._batch_stats.append(Stats(iter_mean))
+        self._sweep_stats.append(Stats(prog_mean))
 
     @property
-    def iteration_stats(self) -> Sequence[Stats]:
-        return self._iteration_stats
+    def batch_stats(self) -> Sequence[Stats]:
+        return self._batch_stats
 
-    def plot_iteration_stats(self) -> None:
+    def plot_batch_stats(self) -> None:
         check_matplotlib_support("Result.plot_iteration_stats")
         import matplotlib.pyplot as plt
         raise NotImplementedError()
 
     @property
-    def progressive_stats(self) -> Sequence[Stats]:
-        return self._progressive_stats
+    def sweep_stats(self) -> Sequence[Stats]:
+        return self._sweep_stats
 
-    def plot_progressive_stats(self) -> None:
+    def plot_sweep_stats(self) -> None:
         check_matplotlib_support("Result.plot_iteration_stats")
         import matplotlib.pyplot as plt
         raise NotImplementedError()
@@ -118,7 +118,7 @@ class UniversalBenchmark(Benchmark):
     """An on-policy Benchmark using unbiased samples to estimate performance statistics.
 
     Remarks:
-        Results are unbiased only if the sequence of rounds in a given game are unbiased.
+        Results are unbiased only if the sequence of rounds in a given game are stationary.
         This doesn't mean that a game can't be static, it simply means that there should
         be a uniform random shuffling of all rounds performed at least once on a game. Once
         such a shuffling has been done then a game can be fixed for all benchmarks after that.

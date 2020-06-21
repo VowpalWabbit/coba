@@ -26,19 +26,19 @@ class Test_Stats_Instance(unittest.TestCase):
         self.assertIsNone(stats.mean)
 
 class Test_Result_Instance(unittest.TestCase):
-    def test_iteration_means(self):
+    def test_batch_means(self):
         result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
 
-        self.assertAlmostEqual(3.5, result.iteration_stats[0].mean)
-        self.assertAlmostEqual(5  , result.iteration_stats[1].mean)
-        self.assertAlmostEqual(6  , result.iteration_stats[2].mean)
+        self.assertAlmostEqual(3.5, result.batch_stats[0].mean)
+        self.assertAlmostEqual(5  , result.batch_stats[1].mean)
+        self.assertAlmostEqual(6  , result.batch_stats[2].mean)
 
-    def test_progressive_means(self):
+    def test_sweep_means(self):
         result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
 
-        self.assertAlmostEqual(3.5 , result.progressive_stats[0].mean)
-        self.assertAlmostEqual(4.25, result.progressive_stats[1].mean)
-        self.assertAlmostEqual(4.6 , result.progressive_stats[2].mean)
+        self.assertAlmostEqual(3.5 , result.sweep_stats[0].mean)
+        self.assertAlmostEqual(4.25, result.sweep_stats[1].mean)
+        self.assertAlmostEqual(4.6 , result.sweep_stats[2].mean)
 
 class Test_UniversalBenchmark(unittest.TestCase):
 

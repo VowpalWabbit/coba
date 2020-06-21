@@ -74,16 +74,20 @@ vowpalsolver_factory   = lambda: VowpalSolver()
 #define a benchmark
 #  the benchmark replays the game 15 times in order to average
 #  out when a solver randomly guesses the right answer early
-benchmark = UniversalBenchmark([game], lambda i: 2**i, 581000)
+benchmark = UniversalBenchmark([game], None, lambda i: 2**i)
 
 #benchmark all three solvers
 print("random started...")
 random_result   = benchmark.evaluate(randomsolver_factory)
 print("random done.")
 
-print("average started...")
+print("average1 started...")
+average_result1 = benchmark.evaluate(averagesolver_factory1)
+print("average1 done.")
+
+print("average2 started...")
 average_result2 = benchmark.evaluate(averagesolver_factory2)
-print("average done.")
+print("average2 done.")
 
 print("Vowpal started...")
 vowpal_result   = benchmark.evaluate(vowpalsolver_factory)
@@ -94,9 +98,10 @@ fig = plt.figure()
 
 ax = fig.add_subplot(1,1,1)
 
-ax.plot([ i.mean for i in random_result  .progressive_stats], label="random")
-ax.plot([ i.mean for i in average_result2.progressive_stats], label="optimistic epsilon-greedy")
-ax.plot([ i.mean for i in vowpal_result  .progressive_stats], label="vowpal")
+ax.plot([ i.mean for i in random_result  .batch_stats], label="random")
+ax.plot([ i.mean for i in average_result1.batch_stats], label="pessimistic epsilon-greedy")
+ax.plot([ i.mean for i in average_result2.batch_stats], label="optimistic epsilon-greedy")
+ax.plot([ i.mean for i in vowpal_result  .batch_stats], label="vowpal")
 
 ax.set_title("Mean Observed Reward for Progressive Iterations")
 ax.set_ylabel("Mean Observed Reward")
