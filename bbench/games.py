@@ -11,6 +11,7 @@ Todo:
 """
 
 import csv
+import random
 
 from abc import ABC, abstractmethod
 from itertools import repeat, count
@@ -103,7 +104,7 @@ class ClassificationGame(Game):
     @staticmethod
     def from_csv_path(
         csv_path: str, 
-        label_col:str, 
+        label_col: Union[str,int], 
         csv_reader: Callable[[TextIO], Iterator[List[str]]] = csv.reader, 
         csv_stater: Callable[[Sequence[str]], State] = lambda row:row) -> Game:
         """Create a ClassificationGame from a csv file with a header row.
@@ -126,8 +127,8 @@ class ClassificationGame(Game):
 
     @staticmethod
     def from_csv_file(
-        csv_file:TextIO, 
-        label_col:str, 
+        csv_file: TextIO, 
+        label_col: Union[str,int], 
         csv_reader: Callable[[TextIO], Iterator[List[str]]] = csv.reader, 
         csv_stater: Callable[[Sequence[str]], State] = lambda row:row) -> Game:
 
@@ -151,7 +152,7 @@ class ClassificationGame(Game):
     @staticmethod
     def from_csv_rows(
         csv_rows:Iterator[List[str]],
-        label_col: str,
+        label_col: Union[str,int],
         csv_stater: Callable[[Sequence[str]], State] = lambda row:row) -> Game:
 
         """Create a ClassifierGame from the string values of a csv file.
@@ -173,12 +174,18 @@ class ClassificationGame(Game):
 
         # In theory we don't have to load the whole file up front. However, in practice,
         # not loading the file upfront is hard due to the fact that Python can't really 
-        # guarantee a generator will close the file.
+        # guarantee a generator will close a file.
         # For more info see https://stackoverflow.com/q/29040534/1066291
         # For more info see https://www.python.org/dev/peps/pep-0533/
 
-        header_row  = next(csv_rows)
-        label_index = header_row.index(label_col)
+        if isinstance(label_col, int):
+            label_index = label_col
+        else:
+            header_row  = next(csv_rows)
+            label_index = header_row.index(label_col)
+
+        csv_rows = list(csv_rows)
+        random.shuffle(csv_rows)
 
         for row in csv_rows:
             features.append(csv_stater(row[:label_index] + row[(label_index+1):]))

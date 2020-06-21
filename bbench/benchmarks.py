@@ -18,9 +18,15 @@ from bbench.solvers import Solver
 from bbench.utilities import check_matplotlib_support
 
 class Stats:
-    def __init__(self, values: Sequence[float]):
-        self._values = values
-        self._mean = None if len(self._values) == 0 else sum(self._values)/len(self._values)
+
+    @staticmethod
+    def from_values(vals: Sequence[float]) -> "Stats":
+        mean = None if len(vals) == 0 else sum(vals)/len(vals)
+
+        return Stats(mean)
+
+    def __init__(self, mean: float):
+        self._mean = mean
 
     @property
     def mean(self) -> Optional[float]:
@@ -30,9 +36,36 @@ class Result:
 
     def __init__(self, observations: Sequence[Tuple[int,int,float]]):
         self._observations      = observations
-        self._iteration_ids     = list(set( o[1] for o in self._observations ))
-        self._iteration_stats   = [ self.predicate_stats(lambda o: o[1] == i) for i in self._iteration_ids ]
-        self._progressive_stats = [ self.predicate_stats(lambda o: o[1] <= i) for i in self._iteration_ids ]
+        self._iteration_stats   = []
+        self._progressive_stats = []
+
+        iter_curr  = self._observations[0][1]
+        iter_count = 0
+        iter_mean  = 0
+        prog_count = 0
+        prog_mean  = 0
+
+        # we manually calculate the statistics the first time
+        # using online methods so that we only have to pass
+        # through all the observations once
+        for observation in self._observations:
+
+            if(iter_curr != observation[1]):
+                self._iteration_stats.append(Stats(iter_mean))
+                self._progressive_stats.append(Stats(prog_mean))
+
+                iter_curr  = observation[1]
+                iter_count = 0
+                iter_mean  = 0
+
+            iter_count += 1
+            prog_count += 1
+
+            iter_mean = (1/iter_count) * observation[2] + (1-1/iter_count) * iter_mean
+            prog_mean = (1/prog_count) * observation[2] + (1-1/prog_count) * prog_mean
+
+        self._iteration_stats.append(Stats(iter_mean))
+        self._progressive_stats.append(Stats(prog_mean))
 
     @property
     def iteration_stats(self) -> Sequence[Stats]:
@@ -85,16 +118,24 @@ class UniversalBenchmark(Benchmark):
     """An on-policy Benchmark using unbiased samples to estimate performance statistics.
 
     Remarks:
-        Samples are unbiased only if the sequence of rounds in a given game are unbiased.
+        Results are unbiased only if the sequence of rounds in a given game are unbiased.
         This doesn't mean that a game can't be static, it simply means that there should
         be a uniform random shuffling of all rounds performed at least once on a game. Once
         such a shuffling has been done then a game can be fixed for all benchmarks after that.
     """
 
-    def __init__(self, games: Sequence[Game], n_rounds: Callable[[int],int], n_iterations: int):
-        self._games = games
-        self._n_rounds = n_rounds
-        self._n_iterations = n_iterations
+    def __init__(self, 
+        games: Sequence[Game], 
+        n_game_rounds: Optional[int], 
+        n_batch_rounds: Union[int, Callable[[int],int]]) -> None:
+        
+        self._games          = games
+        self._n_game_rounds  = n_game_rounds
+        
+        if isinstance(n_batch_rounds, int):
+            self._n_batch_rounds = lambda i: n_batch_rounds
+        else:
+            self._n_batch_rounds = n_batch_rounds
 
     def evaluate(self, solver_factory: Callable[[],Solver]) -> Result:
         """Collect observations of a Solver playing the benchmark's games to create Results.
@@ -108,25 +149,32 @@ class UniversalBenchmark(Benchmark):
 
         results:List[Tuple[int,int,float]] = []
 
-        for game_idx, game in enumerate(self._games):
-            solver = solver_factory()
+        for game_index, game in enumerate(self._games):
 
-            # make sure game rounds iterator stays constant
-            # so that rounds don't restart on each iteration
-            game_rounds = game.rounds
+            game_solver   = solver_factory()
+            batch_index   = 0
+            batch_samples = []
 
-            for iteration_idx in range(self._n_iterations):
+            for r in islice(game.rounds, self._n_game_rounds):
 
-                rounds  = list(islice(game_rounds, self._n_rounds(iteration_idx)))
+                choice = game_solver.choose(r.state, r.actions) 
+                state  = r.state
+                action = r.actions[choice]
+                reward = r.rewards[choice]
 
-                choices = [ solver.choose(r.state, r.actions) for r in rounds ]
-                states  = [ r.state for r in rounds ]
-                actions = [ r.actions[c] for r,c in zip(rounds,choices)]
-                rewards = [ r.rewards[c] for r,c in zip(rounds,choices)]
+                batch_samples.append((state, action, reward))
 
-                results.extend((game_idx, iteration_idx, reward) for reward in rewards)
+                if len(batch_samples) == self._n_batch_rounds(batch_index):
 
-                for s,a,r in zip(states,actions,rewards):
-                    solver.learn(s,a,r)
+                    for (state,action,reward) in batch_samples:
+                        game_solver.learn(state,action,reward)
+                        results.append((game_index, batch_index, reward))
+
+                    batch_samples = []
+                    batch_index += 1
+                    
+            for (state,action,reward) in batch_samples:
+                game_solver.learn(state,action,reward)
+                results.append((game_index, batch_index, reward))
 
         return Result(results)
