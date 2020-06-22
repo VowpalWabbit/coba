@@ -7,16 +7,16 @@ import random
 import matplotlib.pyplot as plt
 
 from bbench.games import LambdaGame
-from bbench.solvers import RandomSolver, EpsilonAverageSolver
+from bbench.solvers import RandomSolver, EpsilonLookupSolver
 from bbench.benchmarks import UniversalBenchmark
 
 #define a game
-game = LambdaGame(lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.uniform(a-2, a+2))
+game = LambdaGame(50, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.uniform(a-2, a+2))
 
 #create three different solver factories
 randomsolver_factory   = lambda: RandomSolver()
-averagesolver_factory1 = lambda: EpsilonAverageSolver(1/10, lambda a: 0)
-averagesolver_factory2 = lambda: EpsilonAverageSolver(1/10, lambda a: 10)
+lookupsolver_factory1 = lambda: EpsilonLookupSolver(1/10, 0)
+lookupsolver_factory2 = lambda: EpsilonLookupSolver(1/10, 10)
 
 #define a benchmark
 #  the benchmark replays the game 30 times to average 
@@ -25,8 +25,8 @@ benchmark = UniversalBenchmark([game]*30, 50, 1)
 
 #benchmark all three solvers
 random_result   = benchmark.evaluate(randomsolver_factory)
-average_result1 = benchmark.evaluate(averagesolver_factory1)
-average_result2 = benchmark.evaluate(averagesolver_factory2)
+average_result1 = benchmark.evaluate(lookupsolver_factory1)
+average_result2 = benchmark.evaluate(lookupsolver_factory2)
 
 #plot the results
 

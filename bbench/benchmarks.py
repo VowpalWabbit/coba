@@ -47,8 +47,12 @@ class Result:
 
         # we manually calculate the statistics the first time
         # using online methods so that we only have to pass
-        # through all the observations once
-        for observation in self._observations:
+        # through all the observations once.
+
+        # first we have to sort to make sure that batch 
+        # indexes spread across games are grouped together.
+
+        for observation in sorted(self._observations, key=lambda o: o[1]):
 
             if(iter_curr != observation[1]):
                 self._batch_stats.append(Stats(iter_mean))

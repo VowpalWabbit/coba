@@ -6,7 +6,7 @@ from typing import Tuple, List, Iterable, Optional, cast
 from abc import ABC, abstractmethod
 
 from bbench.games import State, Action
-from bbench.solvers import Solver, RandomSolver, LambdaSolver, EpsilonAverageSolver
+from bbench.solvers import Solver, RandomSolver, LambdaSolver, EpsilonLookupSolver, VowpalSolver
 
 class Solver_Interface_Tests(ABC):
 
@@ -47,9 +47,9 @@ class LambdaSolver_Tests(Solver_Interface_Tests, unittest.TestCase):
     def _make_solver(self) -> Solver:
         return LambdaSolver(lambda s,a: 0, lambda s,a,r:None)
 
-class EpsilonAverageSolver_Tests(Solver_Interface_Tests, unittest.TestCase):
+class EpsilonLookupSolver_Tests(Solver_Interface_Tests, unittest.TestCase):
     def _make_solver(self) -> Solver:
-        return EpsilonAverageSolver(1/10, lambda a: 0)
+        return EpsilonLookupSolver(1/10, 0)
 
 if __name__ == '__main__':
     unittest.main()

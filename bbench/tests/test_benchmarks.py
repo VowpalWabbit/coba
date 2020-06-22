@@ -26,19 +26,41 @@ class Test_Stats(unittest.TestCase):
         self.assertIsNone(stats.mean)
 
 class Test_Result(unittest.TestCase):
-    def test_batch_means(self):
+    def test_batch_means1(self):
         result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
 
-        self.assertAlmostEqual(3.5, result.batch_stats[0].mean)
-        self.assertAlmostEqual(5  , result.batch_stats[1].mean)
-        self.assertAlmostEqual(6  , result.batch_stats[2].mean)
+        self.assertEqual(len(result.batch_stats),3)
 
-    def test_sweep_means(self):
+        self.assertAlmostEqual((3+4)/2, result.batch_stats[0].mean)
+        self.assertAlmostEqual((5+5)/2, result.batch_stats[1].mean)
+        self.assertAlmostEqual((6  )/1, result.batch_stats[2].mean)
+
+    def test_batch_means2(self):
+        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6), (2,1,3)])
+
+        self.assertEqual(len(result.batch_stats),3)
+
+        self.assertAlmostEqual((3+4+3)/3, result.batch_stats[0].mean)
+        self.assertAlmostEqual((5+5  )/2, result.batch_stats[1].mean)
+        self.assertAlmostEqual((6    )/1, result.batch_stats[2].mean)
+
+    def test_sweep_means1(self):
         result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
 
-        self.assertAlmostEqual(3.5 , result.sweep_stats[0].mean)
-        self.assertAlmostEqual(4.25, result.sweep_stats[1].mean)
-        self.assertAlmostEqual(4.6 , result.sweep_stats[2].mean)
+        self.assertEqual(len(result.sweep_stats),3)
+
+        self.assertAlmostEqual((3+4      )/2 , result.sweep_stats[0].mean)
+        self.assertAlmostEqual((3+4+5+5  )/4, result.sweep_stats[1].mean)
+        self.assertAlmostEqual((3+4+5+5+6)/5, result.sweep_stats[2].mean)
+
+    def test_sweep_means2(self):
+        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6), (2,1,3)])
+
+        self.assertEqual(len(result.sweep_stats),3)
+
+        self.assertAlmostEqual((3+4+3      )/3, result.sweep_stats[0].mean)
+        self.assertAlmostEqual((3+4+3+5+5  )/5, result.sweep_stats[1].mean)
+        self.assertAlmostEqual((3+4+3+5+5+6)/6, result.sweep_stats[2].mean)
 
     def test_predicate_means1(self):
         result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])

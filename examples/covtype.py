@@ -6,7 +6,7 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 import itertools
 import random
 
-from bbench.games import ClassificationGame
+from bbench.games import ClassificationGame, ShuffleGame
 from bbench.solvers import RandomSolver, EpsilonAverageSolver, VowpalSolver
 from bbench.benchmarks import UniversalBenchmark
 
@@ -18,6 +18,7 @@ csv_stater = lambda row: [int(v) for v in row]
 
 #define a game
 game = ClassificationGame.from_csv_path(csv_path, label_col, csv_stater=csv_stater)
+game = ShuffleGame(game)
 
 #create three different solver factories
 randomsolver_factory   = lambda: RandomSolver()
@@ -33,19 +34,15 @@ benchmark = UniversalBenchmark([game], None, lambda i: 500 + 1000*i)
 #benchmark all three solvers
 print("random started...")
 random_result   = benchmark.evaluate(randomsolver_factory)
-print("random done.")
 
 print("average1 started...")
 average_result1 = benchmark.evaluate(averagesolver_factory1)
-print("average1 done.")
 
 print("average2 started...")
 average_result2 = benchmark.evaluate(averagesolver_factory2)
-print("average2 done.")
 
 print("Vowpal started...")
 vowpal_result   = benchmark.evaluate(vowpalsolver_factory)
-print("Vowpal done.")
 
 #plot the benchmark results
 fig = plt.figure()

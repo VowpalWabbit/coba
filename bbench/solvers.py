@@ -12,6 +12,7 @@ import random
 from abc import ABC, abstractmethod
 from typing import Callable, Sequence, Tuple, Union, Optional, Dict, Any, Iterable, cast
 from itertools import accumulate
+from collections import defaultdict
 
 from bbench.games import State, Action, Reward
 from bbench.utilities import check_vowpal_support
@@ -127,21 +128,20 @@ class LambdaSolver(Solver):
         else:
             self._learner(state,action,reward)
 
-class EpsilonAverageSolver(Solver):
+class EpsilonLookupSolver(Solver):
 
-    def __init__(self, epsilon: float, initial: Callable[[Action],float]) -> None:
+    def __init__(self, epsilon: float, default: float = 0) -> None:
         self._epsilon = epsilon
-        self._initial = initial
-        self._N: Dict[Any, int] = {}
-        self._Q: Dict[Any, float] = {}
+        self._N: Dict[Tuple[Optional[State], Action], int  ] = defaultdict(lambda: 1)
+        self._Q: Dict[Tuple[Optional[State], Action], float] = defaultdict(lambda: default)
 
     def choose(self, state: Optional[State], actions: Sequence[Action]) -> int:
 
         if(random.random() <= self._epsilon): return random.randint(0,len(actions)-1)
 
-        hashables = [self._hashable(a) for a in actions]
+        keys = [self._key(state,action) for action in actions]
 
-        values      = [ self._Q[h] if h in self._Q else self._initial(a) for h,a in zip(hashables,actions) ]
+        values      = [self._Q[k] for k in keys]
         max_value   = max(values)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
 
@@ -149,22 +149,27 @@ class EpsilonAverageSolver(Solver):
 
     def learn(self, state: Optional[State], action: Action, reward: Reward) -> None:
 
-        action = self._hashable(action)
+        key   = self._key(state,action)
+        alpha = 1/(self._N[key]+1)
 
-        if action not in self._Q:
-            self._Q[action] = reward
-            self._N[action] = 1
+        self._Q[key] = (1-alpha) * self._Q[key] + alpha * reward
+        self._N[key] = self._N[key] + 1
+
+    def _key(self, state: Optional[State], action: Optional[Action]) -> Tuple[Any,...]:
+        state_tuple: Tuple[Any,...]
+        action_tuple: Tuple[Any,...]
+
+        if state is None or isinstance(state, (int,float)):
+            state_tuple = (state,)
         else:
-            alpha = 1/(self._N[action]+1)
-            self._Q[action] = (1-alpha) * self._Q[action] + alpha * reward
-            self._N[action] = self._N[action] + 1
+            state_tuple = tuple(state)
 
-    def _hashable(self, action: Action) -> Any:
-
-        if isinstance(action, (int,str)):
-            return action
+        if isinstance(action, (int,float)):
+            action_tuple = (action,)
+        else:
+            action_tuple = tuple(action)
         
-        return tuple(cast(Iterable[Any], action))
+        return (state_tuple, action_tuple)
 
 class VowpalSolver(Solver):
     def __init__(self, actions: Sequence[Action]) -> None:
@@ -205,14 +210,20 @@ class VowpalSolver(Solver):
         if isinstance(state, (int,float,str)):
             return str(state)
 
-        return " ". join(map(str,state))            
+        return " ". join(map(str,state))
+    
+    def _key(self, state: Optional[State], action: Optional[Action]) -> Tuple[Any,...]:
+        state_tuple: Tuple[Any,...]
+        action_tuple: Tuple[Any,...]
 
-    def _key(self, state: Optional[State], action: Action) -> Tuple[State,Action]:
-        return self._tuple(state) + self._tuple(action)
+        if state is None or isinstance(state, (int,float)):
+            state_tuple = (state,)
+        else:
+            state_tuple = tuple(state)
 
-    def _tuple(self, value: Union[Optional[State],Action]):
-
-        if value is None or isinstance(value, (int,float,str)):
-            return tuple([value])
-
-        return tuple(value)
+        if isinstance(action, (int,float)):
+            action_tuple = (action,)
+        else:
+            action_tuple = tuple(action)
+        
+        return (state_tuple, action_tuple)
