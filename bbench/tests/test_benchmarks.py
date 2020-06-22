@@ -8,7 +8,7 @@ from bbench.games import LambdaGame, Round
 from bbench.solvers import LambdaSolver
 from bbench.benchmarks import Stats, Result, UniversalBenchmark
 
-class Test_Stats_Instance(unittest.TestCase):
+class Test_Stats(unittest.TestCase):
     def test_from_values_multi_mean_is_correct_1(self):
         stats = Stats.from_values([1,1,3,3])
         self.assertEqual(2,stats.mean)
@@ -25,7 +25,7 @@ class Test_Stats_Instance(unittest.TestCase):
         stats = Stats.from_values([])
         self.assertIsNone(stats.mean)
 
-class Test_Result_Instance(unittest.TestCase):
+class Test_Result(unittest.TestCase):
     def test_batch_means(self):
         result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
 
@@ -39,6 +39,22 @@ class Test_Result_Instance(unittest.TestCase):
         self.assertAlmostEqual(3.5 , result.sweep_stats[0].mean)
         self.assertAlmostEqual(4.25, result.sweep_stats[1].mean)
         self.assertAlmostEqual(4.6 , result.sweep_stats[2].mean)
+
+    def test_predicate_means1(self):
+        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
+
+        actual_mean = result.predicate_stats(lambda o: o[1]==1).mean
+        expected_mean = (3+4)/2
+
+        self.assertAlmostEqual(actual_mean, expected_mean)
+
+    def test_predicate_means2(self):
+        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
+
+        actual_mean = result.predicate_stats(lambda o: o[1]==1 or o[1]==3).mean
+        expected_mean = (3+4+6)/3
+
+        self.assertAlmostEqual(actual_mean, expected_mean)
 
 class Test_UniversalBenchmark(unittest.TestCase):
 

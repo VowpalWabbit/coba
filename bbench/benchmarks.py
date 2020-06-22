@@ -25,7 +25,7 @@ class Stats:
 
         return Stats(mean)
 
-    def __init__(self, mean: float):
+    def __init__(self, mean: Optional[float]):
         self._mean = mean
 
     @property
@@ -41,9 +41,9 @@ class Result:
 
         iter_curr  = self._observations[0][1]
         iter_count = 0
-        iter_mean  = 0
+        iter_mean  = 0.
         prog_count = 0
-        prog_mean  = 0
+        prog_mean  = 0.
 
         # we manually calculate the statistics the first time
         # using online methods so that we only have to pass
@@ -71,22 +71,12 @@ class Result:
     def batch_stats(self) -> Sequence[Stats]:
         return self._batch_stats
 
-    def plot_batch_stats(self) -> None:
-        check_matplotlib_support("Result.plot_iteration_stats")
-        import matplotlib.pyplot as plt
-        raise NotImplementedError()
-
     @property
     def sweep_stats(self) -> Sequence[Stats]:
         return self._sweep_stats
 
-    def plot_sweep_stats(self) -> None:
-        check_matplotlib_support("Result.plot_iteration_stats")
-        import matplotlib.pyplot as plt
-        raise NotImplementedError()
-
     def predicate_stats(self, predicate: Callable[[Tuple[int,int,float]],bool]) -> Stats:
-        return Stats([o[2] for o in filter(predicate, self._observations)])
+        return Stats.from_values([o[2] for o in filter(predicate, self._observations)])
 
     @property
     def observations(self) -> Sequence[Tuple[int,int,float]]:

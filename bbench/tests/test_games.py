@@ -1,11 +1,12 @@
 import unittest
 import itertools
 import random
+import io
 
 from itertools import cycle
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple
-from bbench.games import Round, Game, MemoryGame, LambdaGame, ClassificationGame, State, Action, Reward
+from bbench.games import State, Round, Game, MemoryGame, LambdaGame, ClassificationGame
 
 class Test_Game_Interface(ABC):
 
@@ -20,7 +21,7 @@ class Test_Game_Interface(ABC):
 
         actual_rounds = list(game.rounds)
 
-        self.assertEqual(len(actual_rounds), len(expected_rounds))
+        self.assertEqual(len(actual_rounds), len(expected_rounds)) #type: ignore
 
         for actual_round, expected_round in zip(actual_rounds, expected_rounds):
             self.assertEqual(actual_round.state  , expected_round.state  ) #type: ignore
@@ -159,16 +160,19 @@ class Test_ClassificationGame(Test_Game_Interface, unittest.TestCase):
         self.assertRaises(AssertionError, lambda: ClassificationGame([1,1], [1]))
 
     def test_simple_from_csv_file(self) -> None:
-        game = ClassificationGame.from_csv_file(['a,b,c','1,2,3','4,5,6'],'b')
+
+        textIO = io.StringIO("\n".join(['a,b,c','1,2,3','4,5,6']))
+
+        game = ClassificationGame.from_csv_file(textIO,'b')
 
         self.assert_game_for_data(game, [['1','3'],['4','6']],['2','5'])
 
     def test_simple_from_csv_file_with_stater(self) -> None:
-        
-        def stater(row: List[str]) -> State:
-            return [row[0] == "s1", row[0] == "s2", int(row[1])]
 
-        game = ClassificationGame.from_csv_file(['a,b,c','s1,2,3','s2,5,6'],'b', csv_stater=stater)
+        textIO = io.StringIO("\n".join(['a,b,c','s1,2,3','s2,5,6']))
+        stater = lambda row: [row[0] == "s1", row[0] == "s2", int(row[1])]
+
+        game = ClassificationGame.from_csv_file(textIO,'b', csv_stater=stater)
 
         self.assert_game_for_data(game, [[1,0,3],[0,1,6]],['2','5'])
 
