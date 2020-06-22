@@ -7,7 +7,7 @@ import itertools
 import random
 
 from bbench.games import ClassificationGame, ShuffleGame
-from bbench.solvers import RandomSolver, EpsilonAverageSolver, VowpalSolver
+from bbench.solvers import RandomSolver, EpsilonLookupSolver, VowpalSolver
 from bbench.benchmarks import UniversalBenchmark
 
 import matplotlib.pyplot as plt
@@ -17,31 +17,32 @@ label_col  = 54
 csv_stater = lambda row: [int(v) for v in row]
 
 #define a game
+print("loading covtype dataset")
 game = ClassificationGame.from_csv_path(csv_path, label_col, csv_stater=csv_stater)
 game = ShuffleGame(game)
 
 #create three different solver factories
-randomsolver_factory   = lambda: RandomSolver()
-averagesolver_factory1 = lambda: EpsilonAverageSolver(1/10, lambda a: 0)
-averagesolver_factory2 = lambda: EpsilonAverageSolver(1/10, lambda a: 10)
-vowpalsolver_factory   = lambda: VowpalSolver(['1', '2', '3', '4', '5', '6', '7'])
+randomsolver_factory  = lambda: RandomSolver()
+lookupsolver_factory1 = lambda: EpsilonLookupSolver(1/10, 0, include_state=True)
+lookupsolver_factory2 = lambda: EpsilonLookupSolver(1/10, 0, include_state=False)
+vowpalsolver_factory  = lambda: VowpalSolver(['1', '2', '3', '4', '5', '6', '7'])
 
 #define a benchmark
 #  the benchmark replays the game 15 times in order to average
 #  out when a solver randomly guesses the right answer early
-benchmark = UniversalBenchmark([game], None, lambda i: 500 + 1000*i)
+benchmark = UniversalBenchmark([game], None, lambda i: 500 + i*1000)
 
 #benchmark all three solvers
 print("random started...")
 random_result   = benchmark.evaluate(randomsolver_factory)
 
-print("average1 started...")
-average_result1 = benchmark.evaluate(averagesolver_factory1)
+print("lookup1 started...")
+lookup_result1 = benchmark.evaluate(lookupsolver_factory1)
 
-print("average2 started...")
-average_result2 = benchmark.evaluate(averagesolver_factory2)
+print("lookup2 started...")
+lookup_result2 = benchmark.evaluate(lookupsolver_factory2)
 
-print("Vowpal started...")
+print("vowpal started...")
 vowpal_result   = benchmark.evaluate(vowpalsolver_factory)
 
 #plot the benchmark results
@@ -50,19 +51,19 @@ fig = plt.figure()
 ax1 = fig.add_subplot(1,2,1)
 ax2 = fig.add_subplot(1,2,2)
 
-ax1.plot([ i.mean for i in random_result  .batch_stats], label="random")
-ax1.plot([ i.mean for i in average_result1.batch_stats], label="pessimistic epsilon-greedy")
-ax1.plot([ i.mean for i in average_result2.batch_stats], label="optimistic epsilon-greedy")
-ax1.plot([ i.mean for i in vowpal_result  .batch_stats], label="vowpal")
+ax1.plot([ i.mean for i in random_result .batch_stats], label="random")
+ax1.plot([ i.mean for i in lookup_result1.batch_stats], label="lookup state-action")
+ax1.plot([ i.mean for i in lookup_result2.batch_stats], label="lookup action")
+ax1.plot([ i.mean for i in vowpal_result .batch_stats], label="vowpal")
 
 ax1.set_title("Mean Reward by Batch Index")
 ax1.set_ylabel("Mean Reward")
 ax1.set_xlabel("Batch Index")
 
-ax2.plot([ i.mean for i in random_result  .sweep_stats], label="random")
-ax2.plot([ i.mean for i in average_result1.sweep_stats], label="pessimistic epsilon-greedy")
-ax2.plot([ i.mean for i in average_result2.sweep_stats], label="optimistic epsilon-greedy")
-ax2.plot([ i.mean for i in vowpal_result  .sweep_stats], label="vowpal")
+ax2.plot([ i.mean for i in random_result .sweep_stats], label="random")
+ax2.plot([ i.mean for i in lookup_result1.sweep_stats], label="pessimistic epsilon-greedy")
+ax2.plot([ i.mean for i in lookup_result2.sweep_stats], label="optimistic epsilon-greedy")
+ax2.plot([ i.mean for i in vowpal_result .sweep_stats], label="vowpal")
 
 ax2.set_title("Mean Reward by Sweep Index")
 ax2.set_xlabel("Sweep Index")

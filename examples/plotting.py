@@ -14,7 +14,7 @@ from bbench.benchmarks import UniversalBenchmark
 game = LambdaGame(50, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.uniform(a-2, a+2))
 
 #create three different solver factories
-randomsolver_factory   = lambda: RandomSolver()
+randomsolver_factory  = lambda: RandomSolver()
 lookupsolver_factory1 = lambda: EpsilonLookupSolver(1/10, 0)
 lookupsolver_factory2 = lambda: EpsilonLookupSolver(1/10, 10)
 
@@ -25,8 +25,8 @@ benchmark = UniversalBenchmark([game]*30, 50, 1)
 
 #benchmark all three solvers
 random_result   = benchmark.evaluate(randomsolver_factory)
-average_result1 = benchmark.evaluate(lookupsolver_factory1)
-average_result2 = benchmark.evaluate(lookupsolver_factory2)
+lookup_result1 = benchmark.evaluate(lookupsolver_factory1)
+lookup_result2 = benchmark.evaluate(lookupsolver_factory2)
 
 #plot the results
 
@@ -35,17 +35,17 @@ fig = plt.figure()
 ax1 = fig.add_subplot(1,2,1)
 ax2 = fig.add_subplot(1,2,2)
 
-ax1.plot([ i.mean for i in random_result  .batch_stats], label="random")
-ax1.plot([ i.mean for i in average_result1.batch_stats], label="pessimistic epsilon-greedy")
-ax1.plot([ i.mean for i in average_result2.batch_stats], label="optimistic epsilon-greedy")
+ax1.plot([ i.mean for i in random_result .batch_stats], label="random")
+ax1.plot([ i.mean for i in lookup_result1.batch_stats], label="pessimistic epsilon-greedy")
+ax1.plot([ i.mean for i in lookup_result2.batch_stats], label="optimistic epsilon-greedy")
 
 ax1.set_title("Mean Reward by Batch Index")
 ax1.set_ylabel("Mean Reward")
 ax1.set_xlabel("Batch Index")
 
-ax2.plot([ i.mean for i in random_result  .sweep_stats], label="random")
-ax2.plot([ i.mean for i in average_result1.sweep_stats], label="pessimistic epsilon-greedy")
-ax2.plot([ i.mean for i in average_result2.sweep_stats], label="optimistic epsilon-greedy")
+ax2.plot([ i.mean for i in random_result .sweep_stats], label="random")
+ax2.plot([ i.mean for i in lookup_result1.sweep_stats], label="pessimistic epsilon-greedy")
+ax2.plot([ i.mean for i in lookup_result2.sweep_stats], label="optimistic epsilon-greedy")
 
 ax2.set_title("Mean Reward by Sweep Index")
 ax2.set_xlabel("Sweep Index")

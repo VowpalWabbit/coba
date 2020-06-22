@@ -1,9 +1,8 @@
 Here is a list of potential next step items:
     * Finish Docstrings in Benchmarks
-    * Add a Bakeoff class that accepts a Benchmark and multiple solver solutions
-    * Lazily integrate Vowpal Wabbit solver
     * Lazily integrate sklearn's dataset package
     * Add RegressionGame implementation
+    * Add a Bakeoff class that accepts a Benchmark and multiple solver solutions
     * Add the ability to write Benchmark results as you go in case of long running tests
     * Add improved local plotting out of the box
     * Make base `State` optional

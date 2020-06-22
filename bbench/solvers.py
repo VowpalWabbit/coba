@@ -130,10 +130,12 @@ class LambdaSolver(Solver):
 
 class EpsilonLookupSolver(Solver):
 
-    def __init__(self, epsilon: float, default: float = 0) -> None:
+    def __init__(self, epsilon: float, default: float = 0, include_state: bool = True) -> None:
         self._epsilon = epsilon
+        self._include_state = include_state
         self._N: Dict[Tuple[Optional[State], Action], int  ] = defaultdict(lambda: 1)
         self._Q: Dict[Tuple[Optional[State], Action], float] = defaultdict(lambda: default)
+        
 
     def choose(self, state: Optional[State], actions: Sequence[Action]) -> int:
 
@@ -169,7 +171,7 @@ class EpsilonLookupSolver(Solver):
         else:
             action_tuple = tuple(action)
         
-        return (state_tuple, action_tuple)
+        return (state_tuple, action_tuple) if self._include_state else action_tuple
 
 class VowpalSolver(Solver):
     def __init__(self, actions: Sequence[Action]) -> None:
