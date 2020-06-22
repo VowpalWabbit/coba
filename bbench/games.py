@@ -151,7 +151,7 @@ class ClassificationGame(Game):
     
     @staticmethod
     def from_csv_rows(
-        csv_rows:Iterator[List[str]],
+        csv_rows: Iterator[List[str]],
         label_col: Union[str,int],
         csv_stater: Callable[[Sequence[str]], State] = lambda row:row) -> Game:
 
@@ -184,8 +184,9 @@ class ClassificationGame(Game):
             header_row  = next(csv_rows)
             label_index = header_row.index(label_col)
 
-        csv_rows = list(csv_rows)
-        random.shuffle(csv_rows)
+        csv_list = list(csv_rows)
+        random.shuffle(csv_list)
+        csv_rows = iter(csv_list)
 
         for row in csv_rows:
             features.append(csv_stater(row[:label_index] + row[(label_index+1):]))

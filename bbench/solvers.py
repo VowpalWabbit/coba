@@ -10,9 +10,11 @@ Todo:
 import random
 
 from abc import ABC, abstractmethod
-from typing import Callable, Sequence, Optional, Dict, Any, Iterable, cast
+from typing import Callable, Sequence, Tuple, Union, Optional, Dict, Any, Iterable, cast
+from itertools import accumulate
 
 from bbench.games import State, Action, Reward
+from bbench.utilities import check_vowpal_support
 
 class Solver(ABC):
     """The interface for Solver implementations."""
@@ -163,3 +165,54 @@ class EpsilonAverageSolver(Solver):
             return action
         
         return tuple(cast(Iterable[Any], action))
+
+class VowpalSolver(Solver):
+    def __init__(self, actions: Sequence[Action]) -> None:
+        
+        check_vowpal_support('VowpalSolver.__init__')
+        from vowpalwabbit import pyvw #type: ignore
+        
+        self._vw = pyvw.vw("--cb_explore 5 --epsilon 0.1 --quiet")
+        self._actions = actions
+        self._prob: Dict[Tuple[State,Action], float] = {}
+        
+
+    def choose(self, state: Optional[State], actions: Sequence[Action]) -> int:
+        pmf = self._vw.predict("| " + self._vw_format(state))
+
+        cdf   = list(accumulate(pmf))
+        rng   = random.random()
+        index = [ rng < c for c in cdf].index(True)
+
+        self._prob[self._key(state, actions[index])] = pmf[index]
+
+        return index
+
+    def learn(self, state: Optional[State], action: Action, reward: Reward) -> None:
+        
+        prob  = self._prob[self._key(state,action)]
+        cost  = -reward
+
+        vw_state  = self._vw_format(state)
+        vw_action = str(self._actions.index(action)+1)
+
+        self._vw.learn( vw_action + ":" + str(cost) + ":" + str(prob) + " | " + vw_state)
+
+    def _vw_format(self, state: Optional[State]) -> str:
+        
+        if state is None:  return ""
+
+        if isinstance(state, (int,float,str)):
+            return str(state)
+
+        return " ". join(map(str,state))            
+
+    def _key(self, state: Optional[State], action: Action) -> Tuple[State,Action]:
+        return self._tuple(state) + self._tuple(action)
+
+    def _tuple(self, value: Union[Optional[State],Action]):
+
+        if value is None or isinstance(value, (int,float,str)):
+            return tuple([value])
+
+        return tuple(value)

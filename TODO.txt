@@ -6,3 +6,4 @@ Here is a list of potential next step items:
     * Add RegressionGame implementation
     * Add the ability to write Benchmark results as you go in case of long running tests
     * Add improved local plotting out of the box
+    * Make base `State` optional

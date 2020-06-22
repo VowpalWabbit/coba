@@ -7,56 +7,10 @@ import itertools
 import random
 
 from bbench.games import LambdaGame
-from bbench.solvers import RandomSolver, EpsilonAverageSolver, Solver
+from bbench.solvers import RandomSolver, EpsilonAverageSolver, VowpalSolver
 from bbench.benchmarks import UniversalBenchmark
 
 import matplotlib.pyplot as plt
-from vowpalwabbit import pyvw
-
-class VowpalSolver(Solver):
-    def __init__(self):
-        self._vw = pyvw.vw("--cb_explore 5 --epsilon 0.1 --quiet")
-        self._prob = {}
-
-    def choose(self, state, actions):
-        pmf = self._vw.predict("| " + self._vw_format(state))
-
-        cdf   = list(itertools.accumulate(pmf))
-        rng   = random.random()
-        index = [ rng < c for c in cdf].index(True)
-
-        self._prob[self._key(state, actions[index])] = pmf[index]
-
-        return index
-
-    def learn(self, state, action, reward):
-        
-        prob  = self._prob[self._key(state,action)]
-        state = self._vw_format(state)
-        cost  = -reward
-
-        self._vw.learn(str(action+1) + ":" + str(cost) + ":" + str(prob) + " | " + state)
-
-    def _vw_format(self, state):
-        
-        if state is None:  return ""
-
-        try:
-            iter(state)
-        except:
-            return str(state)
-        else:
-            return " ". join(str(feature) for feature in state)
-
-    def _key(self, state, action):
-        return self._tuple(state) + self._tuple(action)
-
-    def _tuple(self, value):
-
-        if value is None or isinstance(value, (int,str)):
-            return tuple([value]) 
-
-        return tuple(value)
 
 #define a game
 game = LambdaGame(lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.uniform(a-2, a+2))
@@ -65,7 +19,7 @@ game = LambdaGame(lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.unif
 randomsolver_factory   = lambda: RandomSolver()
 averagesolver_factory1 = lambda: EpsilonAverageSolver(1/10, lambda a: 0)
 averagesolver_factory2 = lambda: EpsilonAverageSolver(1/10, lambda a: 10)
-vowpalsolver_factory   = lambda: VowpalSolver()
+vowpalsolver_factory   = lambda: VowpalSolver([0,1,2,3,4])
 
 #define a benchmark
 #  the benchmark replays the game 15 times in order to average
