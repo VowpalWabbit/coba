@@ -12,10 +12,10 @@ Todo:
 
 import csv
 import random
+import itertools
 
 from abc import ABC, abstractmethod
-from itertools import repeat, count
-from typing import Optional, Iterator, Sequence, List, Union, Callable, TextIO, Generator, TypeVar, Generic
+from typing import Optional, Iterator, Sequence, List, Union, Callable, TextIO, TypeVar, Generic
 
 #state, action, reward types
 State  = Union[str,float,Sequence[Union[str,float]]]
@@ -67,7 +67,7 @@ class Game(ABC):
 
     @property
     @abstractmethod
-    def rounds(self) -> Union[Generator[Round,None,None], Sequence[Round]]:
+    def rounds(self) -> Sequence[Round]:
         """A read-only property providing the rounds in a game.
 
         Remarks:
@@ -184,10 +184,6 @@ class ClassificationGame(Game):
             header_row  = next(csv_rows)
             label_index = header_row.index(label_col)
 
-        csv_list = list(csv_rows)
-        random.shuffle(csv_list)
-        csv_rows = iter(csv_list)
-
         for row in csv_rows:
             features.append(csv_stater(row[:label_index] + row[(label_index+1):]))
             labels  .append(row[label_index])
@@ -205,10 +201,10 @@ class ClassificationGame(Game):
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
         
         states      = features
-        action_set  = sorted(list(set(labels))) #without sorted the order is random making testing hard
+        action_set  = sorted(list(set(labels)))
         reward_sets = [ [int(label==action) for action in action_set] for label in labels ]
 
-        self._rounds = list(map(Round, states, repeat(action_set), reward_sets))
+        self._rounds = list(map(Round, states, itertools.repeat(action_set), reward_sets))
 
     @property
     def rounds(self) -> Sequence[Round]:
@@ -227,10 +223,10 @@ class LambdaGame(Game, Generic[T_S, T_A]):
     """
 
     def __init__(self,
+                 n_rounds: int,
                  S: Callable[[int],T_S], 
                  A: Callable[[T_S],Sequence[T_A]], 
-                 R: Callable[[T_S,T_A],Reward],
-                 n_rounds: Optional[int]=None)->None:
+                 R: Callable[[T_S,T_A],Reward])->None:
         """Instantiate a LambdaGame.
 
         Args:
@@ -243,24 +239,31 @@ class LambdaGame(Game, Generic[T_S, T_A]):
         self._S = S
         self._A = A
         self._R = R
-        self._n_rounds = n_rounds
+
+        self._rounds = list(itertools.islice(self._round_generator(), n_rounds))
 
     @property
-    def rounds(self) -> Generator[Round, None, None]:
+    def rounds(self) -> Sequence[Round]:
         """The rounds in this game.
-
+        
         Remarks:
-            See the base class for more information.
+            See this class's base class and class level docstring for more information.
         """
+        return self._rounds
+
+    def _round_generator(self) -> Iterator[Round]:
+        """Generate infinite rounds for this game."""
 
         S = self._S
         A = self._A
         R = self._R
 
-        round_range = count() if self._n_rounds is None else range(self._n_rounds)
+        for i in itertools.count():
+            state   = S(i)
+            actions = A(state)
+            rewards = [R(state,action) for action in actions]
 
-        for s in map(S,round_range):
-            yield Round(s, A(s), [R(s,a) for a in A(s)])
+            yield Round(state,actions,rewards)
 
 class MemoryGame(Game):
     """A Game implementation created using an in memory collection of Rounds.
@@ -284,4 +287,15 @@ class MemoryGame(Game):
         Remarks:
             See the base class for more information.
         """
+        return self._rounds
+
+class ShuffleGame(Game):
+    def __init__(self, game: Game):
+
+        self._rounds = list(game.rounds)
+        random.shuffle(self._rounds)
+    
+    @property
+    def rounds(self) -> Sequence[Round]:
+
         return self._rounds

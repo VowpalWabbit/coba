@@ -6,7 +6,7 @@ import io
 from itertools import cycle
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple
-from bbench.games import State, Round, Game, MemoryGame, LambdaGame, ClassificationGame
+from bbench.games import State, Round, Game, ClassificationGame, MemoryGame, LambdaGame, ShuffleGame
 
 class Test_Game_Interface(ABC):
 
@@ -90,29 +90,6 @@ class Test_Round(unittest.TestCase):
 
         self.assertRaises(AttributeError, assign_rewards)
 
-class Test_MemoryGame(Test_Game_Interface, unittest.TestCase):
-
-    def _interface_test_setup(self) -> Tuple[Game, List[Round]]:
-        
-        rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [4,5,6], [2,3,4])]
-        return MemoryGame(rounds), rounds
-
-class Test_LambdaGame(Test_Game_Interface, unittest.TestCase):
-    
-    def _interface_test_setup(self) -> Tuple[Game, List[Round]]:
-        rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [4,5,6], [2,3,4])]
-        
-        def S(i:int) -> int:
-            return [1,2][i]
-
-        def A(s:int) -> List[int]:
-            return [1,2,3] if s == 1 else [4,5,6]
-        
-        def R(s:int,a:int) -> int:
-            return a-s
-
-        return LambdaGame(S,A,R,2), rounds
-
 class Test_ClassificationGame(Test_Game_Interface, unittest.TestCase):
     def _interface_test_setup(self) -> Tuple[Game, List[Round]]:
         rounds = [ Round(1, [1,2], [0,1]), Round(2, [1,2], [1,0]) ]
@@ -175,6 +152,65 @@ class Test_ClassificationGame(Test_Game_Interface, unittest.TestCase):
         game = ClassificationGame.from_csv_file(textIO,'b', csv_stater=stater)
 
         self.assert_game_for_data(game, [[1,0,3],[0,1,6]],['2','5'])
+
+class Test_MemoryGame(Test_Game_Interface, unittest.TestCase):
+
+    def _interface_test_setup(self) -> Tuple[Game, List[Round]]:
+        
+        rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [4,5,6], [2,3,4])]
+        return MemoryGame(rounds), rounds
+
+class Test_LambdaGame(Test_Game_Interface, unittest.TestCase):
+    
+    def _interface_test_setup(self) -> Tuple[Game, List[Round]]:
+        rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [4,5,6], [2,3,4])]
+        
+        def S(i:int) -> int:
+            return [1,2][i]
+
+        def A(s:int) -> List[int]:
+            return [1,2,3] if s == 1 else [4,5,6]
+        
+        def R(s:int,a:int) -> int:
+            return a-s
+
+        return LambdaGame(2,S,A,R), rounds
+
+    def test_correct_number_of_rounds_created(self):
+        def S(i:int) -> int:
+            return [1,2][i]
+
+        def A(s:int) -> List[int]:
+            return [1,2,3] if s == 1 else [4,5,6]
+        
+        def R(s:int,a:int) -> int:
+            return a-s
+
+        game = LambdaGame(2,S,A,R)
+
+        self.assertEqual(len(game.rounds), 2)
+
+class Test_ShuffleGame(Test_Game_Interface, unittest.TestCase):
+    
+    def _interface_test_setup(self) -> Tuple[Game, List[Round]]:
+        rounds = [Round(1, [1,2,3], [0,1,2]), Round(1, [1,2,3], [0,1,2])]
+
+        return ShuffleGame(MemoryGame(rounds)), rounds
+
+    def test_rounds_not_duplicated_in_memory(self):
+        rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [4,5,6], [2,3,4])]
+
+        game = ShuffleGame(MemoryGame(rounds))
+
+        self.assertEqual(len(game.rounds),2)
+
+        self.assertEqual(sum(1 for r in game.rounds if r.state == 1),1)
+        self.assertEqual(sum(1 for r in game.rounds if r.state == 2),1)
+
+        game.rounds[0]._state = 3
+        game.rounds[1]._state = 3
+
+        self.assertEqual(sum(1 for r in game.rounds if r.state == 3),2)
 
 if __name__ == '__main__':
     unittest.main()
