@@ -4,8 +4,8 @@ from math import sqrt
 from itertools import cycle, islice, repeat
 from typing import cast
 
-from bbench.games import LambdaGame, Round
-from bbench.solvers import LambdaSolver
+from bbench.simulations import LambdaSimulation, Round
+from bbench.learners import LambdaLearner
 from bbench.benchmarks import Stats, Result, UniversalBenchmark
 
 class Test_Stats(unittest.TestCase):
@@ -81,8 +81,8 @@ class Test_Result(unittest.TestCase):
 class Test_UniversalBenchmark(unittest.TestCase):
 
     def test_one_game_five_rounds_batch_size_one(self):
-        game           = LambdaGame(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        solver_factory = lambda: LambdaSolver(lambda s,A: A[s%3])
+        game           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        solver_factory = lambda: LambdaLearner(lambda s,A: A[s%3])
         benchmark      = UniversalBenchmark([game], 5, 1)
 
         result = benchmark.evaluate(solver_factory)
@@ -94,8 +94,8 @@ class Test_UniversalBenchmark(unittest.TestCase):
         self.assertEqual(result.observations, expected_observations)
 
     def test_one_game_five_rounds_batch_size_five(self):
-        game           = LambdaGame(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        solver_factory = lambda: LambdaSolver(lambda s,A: A[s%3])
+        game           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        solver_factory = lambda: LambdaLearner(lambda s,A: A[s%3])
         benchmark      = UniversalBenchmark([game], 5, 5)
 
         result = benchmark.evaluate(solver_factory)
@@ -107,8 +107,8 @@ class Test_UniversalBenchmark(unittest.TestCase):
         self.assertEqual(result.observations, expected_observations)
 
     def test_one_game_nine_rounds_batch_size_three(self):
-        game           = LambdaGame(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        solver_factory = lambda: LambdaSolver(lambda s,A: A[s%3])
+        game           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        solver_factory = lambda: LambdaLearner(lambda s,A: A[s%3])
         benchmark      = UniversalBenchmark([game], 9, 3)
 
         result = benchmark.evaluate(solver_factory)
@@ -120,8 +120,8 @@ class Test_UniversalBenchmark(unittest.TestCase):
         self.assertEqual(result.observations, expected_observations)
 
     def test_one_game_six_rounds_batch_size_four(self):
-        game1          = LambdaGame(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        solver_factory = lambda: LambdaSolver(lambda s,A: s%3)
+        game1          = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        solver_factory = lambda: LambdaLearner(lambda s,A: s%3)
         benchmark      = UniversalBenchmark([game1], 6, 4)
 
         result = benchmark.evaluate(solver_factory)
@@ -133,8 +133,8 @@ class Test_UniversalBenchmark(unittest.TestCase):
         self.assertEqual(result.observations, expected_observations)
 
     def test_one_game_six_rounds_batch_size_power_of_two(self):
-        game1          = LambdaGame(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        solver_factory = lambda: LambdaSolver(lambda s,A: s%3)
+        game1          = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        solver_factory = lambda: LambdaLearner(lambda s,A: s%3)
         benchmark      = UniversalBenchmark([game1], 8, lambda i: 2**i)
 
         result = benchmark.evaluate(solver_factory)
@@ -147,9 +147,9 @@ class Test_UniversalBenchmark(unittest.TestCase):
 
 
     def test_two_games_five_rounds_batch_size_one(self):
-        game1          = LambdaGame(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        game2          = LambdaGame(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
-        solver_factory = lambda: LambdaSolver(lambda s,A: s%3)
+        game1          = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        game2          = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+        solver_factory = lambda: LambdaLearner(lambda s,A: s%3)
         benchmark      = UniversalBenchmark([game1,game2], 5, 1)
 
         result = benchmark.evaluate(solver_factory)
@@ -162,9 +162,9 @@ class Test_UniversalBenchmark(unittest.TestCase):
         self.assertEqual(result.observations, expected_observations)
 
     def test_two_games_five_rounds_batch_size_five(self):
-        game1          = LambdaGame(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        game2          = LambdaGame(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
-        solver_factory = lambda: LambdaSolver(lambda s,A: s%3)
+        game1          = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        game2          = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+        solver_factory = lambda: LambdaLearner(lambda s,A: s%3)
         benchmark      = UniversalBenchmark([game1,game2], 5, 5)
 
         result = benchmark.evaluate(solver_factory)
@@ -177,9 +177,9 @@ class Test_UniversalBenchmark(unittest.TestCase):
         self.assertEqual(result.observations, expected_observations)
 
     def test_two_games_nine_rounds_batch_size_three(self):
-        game1          = LambdaGame(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        game2          = LambdaGame(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
-        solver_factory = lambda: LambdaSolver(lambda s,A: s%3)
+        game1          = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        game2          = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+        solver_factory = lambda: LambdaLearner(lambda s,A: s%3)
         benchmark      = UniversalBenchmark([game1,game2], 9, 3)
 
         result = benchmark.evaluate(solver_factory)
@@ -192,9 +192,9 @@ class Test_UniversalBenchmark(unittest.TestCase):
         self.assertEqual(result.observations, expected_observations)
 
     def test_two_games_six_rounds_batch_size_four(self):
-        game1          = LambdaGame(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        game2          = LambdaGame(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
-        solver_factory = lambda: LambdaSolver(lambda s,A: s%3)
+        game1          = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        game2          = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+        solver_factory = lambda: LambdaLearner(lambda s,A: s%3)
         benchmark      = UniversalBenchmark([game1,game2], 6, 4)
 
         result = benchmark.evaluate(solver_factory)

@@ -13,8 +13,8 @@ from abc import ABC, abstractmethod
 from typing import Union, Iterable, Sequence, List, Callable, Optional, Tuple, cast
 from itertools import islice
 
-from bbench.games import Game, Round
-from bbench.solvers import Solver
+from bbench.simulations import Simulation, Round
+from bbench.learners import Learner
 from bbench.utilities import check_matplotlib_support
 
 class Stats:
@@ -50,7 +50,7 @@ class Result:
         # through all the observations once.
 
         # first we have to sort to make sure that batch 
-        # indexes spread across games are grouped together.
+        # indexes spread across simulations are grouped together.
 
         for observation in sorted(self._observations, key=lambda o: o[1]):
 
@@ -90,21 +90,21 @@ class Benchmark(ABC):
     """The interface for Benchmark implementations."""
     
     @abstractmethod
-    def evaluate(self, solver_factory: Callable[[],Solver]) -> Result:
-        """Calculate the performance for a provided bandit Solver.
+    def evaluate(self, learner_factory: Callable[[],Learner]) -> Result:
+        """Calculate the performance for a provided bandit Learner.
 
         Args:
-            solver_factory: A function to create Solver instances. The function should 
-                always create the same Solver in order to get an unbiased performance 
-                Result. This method can be as simple as `lambda: My_Solver(...)`.
+            learner_factory: A function to create Learner instances. The function should 
+                always create the same Learner in order to get an unbiased performance 
+                Result. This method can be as simple as `lambda: MyLearner(...)`.
 
         Returns:
             A Result containing the performance statistics of the benchmark.
 
         Remarks:
-            The solver factory is necessary because a Result can be calculated using
-            observed performance over several games. In these cases the easiest way to 
-            reset a Solver's learned state is to create a new one.
+            The learner factory is necessary because a Result can be calculated using
+            observed performance over several simulations. In these cases the easiest 
+            way to reset a learner's learned policy is to create a new learner.
         """
         ...
 
@@ -112,30 +112,30 @@ class UniversalBenchmark(Benchmark):
     """An on-policy Benchmark using unbiased samples to estimate performance statistics.
 
     Remarks:
-        Results are unbiased only if the sequence of rounds in a given game are stationary.
-        This doesn't mean that a game can't be static, it simply means that there should
-        be a uniform random shuffling of all rounds performed at least once on a game. Once
-        such a shuffling has been done then a game can be fixed for all benchmarks after that.
+        Results are unbiased only if the sequence of rounds in a given sim are stationary.
+        This doesn't mean that a sim can't be static, it simply means that there should
+        be a uniform random shuffling of all rounds performed at least once on a sim. Once
+        such a shuffling has been done then a sim can be fixed for all benchmarks after that.
     """
 
     def __init__(self, 
-        games: Sequence[Game], 
-        n_game_rounds: Optional[int], 
+        simulations   : Sequence[Simulation], 
+        n_sim_rounds  : Optional[int], 
         n_batch_rounds: Union[int, Callable[[int],int]]) -> None:
         
-        self._games          = games
-        self._n_game_rounds  = n_game_rounds
+        self._simulations   = simulations
+        self._n_sim_rounds  = n_sim_rounds
         
         if isinstance(n_batch_rounds, int):
             self._n_batch_rounds = lambda i: n_batch_rounds
         else:
             self._n_batch_rounds = n_batch_rounds
 
-    def evaluate(self, solver_factory: Callable[[],Solver]) -> Result:
-        """Collect observations of a Solver playing the benchmark's games to create Results.
+    def evaluate(self, learner_factory: Callable[[],Learner]) -> Result:
+        """Collect observations of a Learner playing the benchmark's simulations to create Results.
 
         Args:
-            solver_factory: See the base class for more information.
+            learner_factory: See the base class for more information.
         
         Returns:
             See the base class for more information.
@@ -143,15 +143,15 @@ class UniversalBenchmark(Benchmark):
 
         results:List[Tuple[int,int,float]] = []
 
-        for game_index, game in enumerate(self._games):
+        for sim_index, sim in enumerate(self._simulations):
 
-            game_solver   = solver_factory()
+            sim_learner   = learner_factory()
             batch_index   = 0
             batch_samples = []
 
-            for r in islice(game.rounds, self._n_game_rounds):
+            for r in islice(sim.rounds, self._n_sim_rounds):
 
-                choice = game_solver.choose(r.state, r.actions) 
+                choice = sim_learner.choose(r.state, r.actions) 
                 state  = r.state
                 action = r.actions[choice]
                 reward = r.rewards[choice]
@@ -161,14 +161,14 @@ class UniversalBenchmark(Benchmark):
                 if len(batch_samples) == self._n_batch_rounds(batch_index):
 
                     for (state,action,reward) in batch_samples:
-                        game_solver.learn(state,action,reward)
-                        results.append((game_index, batch_index, reward))
+                        sim_learner.learn(state,action,reward)
+                        results.append((sim_index, batch_index, reward))
 
                     batch_samples = []
                     batch_index += 1
                     
             for (state,action,reward) in batch_samples:
-                game_solver.learn(state,action,reward)
-                results.append((game_index, batch_index, reward))
+                sim_learner.learn(state,action,reward)
+                results.append((sim_index, batch_index, reward))
 
         return Result(results)

@@ -20,8 +20,8 @@ Interfaces
     > rewards: Sequence[Reward]
 
   * Result
-    > iteration_stats: Sequence[Stats]
-    > progressive_stats: Sequence[Stats]
+    > batch_stats: Sequence[Stats]
+    > sweep_stats: Sequence[Stats]
     > predicate_stats(predicate: Callable[[Tuple[int,int,float]],bool]) -> Stats
 
   * Game

@@ -1,49 +1,47 @@
 """
-This is an example script that creates a ClassificationGame using the covertype dataset.
+This is an example script that creates a ClassificationSimulation using the covertype dataset.
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
 import itertools
 import random
 
-from bbench.games import ClassificationGame, ShuffleGame
-from bbench.solvers import RandomSolver, EpsilonLookupSolver, VowpalSolver
+from bbench.simulations import ClassificationSimulation, ShuffleSimulation
+from bbench.learners import RandomLearner, EpsilonLookupLearner, VowpalLearner
 from bbench.benchmarks import UniversalBenchmark
 
 import matplotlib.pyplot as plt
 
 csv_path   = "./examples/data/covtype.data"
 label_col  = 54
-csv_stater = lambda row: [int(v) for v in row]
+csv_stater = lambda row: tuple([int(v) for v in row])
 
-#define a game
+#define a simulation
 print("loading covtype dataset")
-game = ClassificationGame.from_csv_path(csv_path, label_col, csv_stater=csv_stater)
-game = ShuffleGame(game)
+simulation = ClassificationSimulation.from_csv_path(csv_path, label_col, csv_stater=csv_stater)
+simulation = ShuffleSimulation(simulation)
 
-#create three different solver factories
-randomsolver_factory  = lambda: RandomSolver()
-lookupsolver_factory1 = lambda: EpsilonLookupSolver(1/10, 0, include_state=True)
-lookupsolver_factory2 = lambda: EpsilonLookupSolver(1/10, 0, include_state=False)
-vowpalsolver_factory  = lambda: VowpalSolver(['1', '2', '3', '4', '5', '6', '7'])
+#create three different learner factories
+randomlearner_factory  = lambda: RandomLearner()
+lookuplearner_factory1 = lambda: EpsilonLookupLearner(1/10, 0, include_state=True)
+lookuplearner_factory2 = lambda: EpsilonLookupLearner(1/10, 0, include_state=False)
+vowpallearner_factory  = lambda: VowpalLearner()
 
 #define a benchmark
-#  the benchmark replays the game 15 times in order to average
-#  out when a solver randomly guesses the right answer early
-benchmark = UniversalBenchmark([game], None, lambda i: 500 + i*1000)
+benchmark = UniversalBenchmark([simulation], None, lambda i: 500 + i*1000)
 
-#benchmark all three solvers
+#benchmark all three learners
 print("random started...")
-random_result   = benchmark.evaluate(randomsolver_factory)
+random_result   = benchmark.evaluate(randomlearner_factory)
 
 print("lookup1 started...")
-lookup_result1 = benchmark.evaluate(lookupsolver_factory1)
+lookup_result1 = benchmark.evaluate(lookuplearner_factory1)
 
 print("lookup2 started...")
-lookup_result2 = benchmark.evaluate(lookupsolver_factory2)
+lookup_result2 = benchmark.evaluate(lookuplearner_factory2)
 
 print("vowpal started...")
-vowpal_result   = benchmark.evaluate(vowpalsolver_factory)
+vowpal_result   = benchmark.evaluate(vowpallearner_factory)
 
 #plot the benchmark results
 fig = plt.figure()

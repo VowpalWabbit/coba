@@ -1,13 +1,13 @@
-"""The games module contains core classes and types for defining bandit games.
+"""The simulations module contains core classes and types for defining bandit simulations.
 
-This module contains the abstract interface expected for bandit game implementations along
-with the class defining a Round within a bandit game. Additionally, this module also contains 
+This module contains the abstract interface expected for bandit simulations along with the 
+class defining a Round within a bandit simulation. Additionally, this module also contains 
 the type hints for State, Action and Reward. These type hints don't contain any functionality. 
 Rather, they simply make it possible to use static type checking for any project that desires 
 to do so.
 
 Todo:
-    * Add RegressionGame(Game)
+    * Add RegressionSimulation(Simulation)
 """
 
 import csv
@@ -15,29 +15,32 @@ import random
 import itertools
 
 from abc import ABC, abstractmethod
-from typing import Optional, Iterator, Sequence, List, Union, Callable, TextIO, TypeVar, Generic
+from typing import Optional, Iterator, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Tuple
 
 #state, action, reward types
-State  = Union[str,float,Sequence[Union[str,float]]]
-Action = Union[str,float,Sequence[Union[str,float]]]
+State  = Optional[Union[str,float,Tuple[Union[str,float],...]]]
+Action = Union[str,float,Tuple[Union[str,float],...]]
 Reward = float
 
 T_S = TypeVar('T_S', bound=State)
 T_A = TypeVar('T_A', bound=Action)
 
 class Round:
-    """A class to contain all data needed to play and evaluate a round in a bandit game."""
+    """A class to contain all data needed to represent a round in a bandit simulation."""
 
     def __init__(self, 
-                 state  : Optional[State], 
+                 state  : State,
                  actions: Sequence[Action],
                  rewards: Sequence[Reward]) -> None:
         """Instantiate Round.
 
         Args:
-            state: Features describing the round's state. Will be None for no context games.
+            state: Features describing the round's state. Will be `None` for multi-armed bandit simulations.
             actions: Features describing available actions for the given state.
-            rewards: The reward that would be received for taking each of the given actions.        
+            rewards: The reward that would be received for taking each of the given actions.
+
+        Remarks:
+            It is assumed that the following is alwyas true len(actions) == len(rewards).
         """
 
         assert len(actions) > 0, "At least one action must be provided for the round"
@@ -48,7 +51,7 @@ class Round:
         self._rewards = rewards
 
     @property
-    def state(self) -> Optional[State]:
+    def state(self) -> State:
         """Read-only property providing the round's state."""
         return self._state
 
@@ -62,43 +65,32 @@ class Round:
         """Read-only property providing the round's reward for each action."""
         return self._rewards
 
-class Game(ABC):
-    """The interface for Game implementations."""
+class Simulation(ABC):
+    """The simulation interface."""
 
     @property
     @abstractmethod
     def rounds(self) -> Sequence[Round]:
-        """A read-only property providing the rounds in a game.
-
-        Remarks:
-            All benchmark implementations bbench.Benchmarks assume that rounds
-            implementation is re-iterable. That is, they assume code such as two
-            example for loops would iterate over all rounds in the given game:
-                
-                for round in game.rounds:
-                    ...
-                
-                for round in game.rounds:
-                    ...
-            
-            That rounds would be re-iterable is not a given. Most iterables in Python
-            are in fact iterators and therefore can only be looped over one time.
+        """A read-only property providing the sequence of rounds in a simulation.
 
         Returns:
-            The return value of Generator and Sequence are defined to make it more
-            likely that an implementation will posess the property of being re-iterable
+            The simulation's sequence of rounds.
+
+        Remarks:
+            All Benchmark assume that rounds is re-iterable. So long as rounds is a
+            Sequence[Round] it will always be re-iterable. If rounds were merely 
+            Iterable[Round] then it is possible for it to only allow enumeration once.
         """
         ...
 
-class ClassificationGame(Game):
-    """A Game implementation created from supervised learning data with features and labels.
+class ClassificationSimulation(Simulation):
+    """A simulation created from classifier data with features and labels.
     
     Remark:
-        ClassificationGame creation is done by turning each feature set observation and 
-        label, into a round. Each feature set becomes a state in a round and all possible 
-        labels become the action set for the round. Rewards for each round are created by 
-        assigning a reward of 1 to the correct label (action) for a feature set (state)
-        and a value of 0 for all other labels on that feature set.
+        ClassificationSimulation creation turns each feature set and label, into a round. 
+        In each round the feature set becomes the state and all possible labels become the
+        actions. Rewards for each round are created by assigning a reward of 1 to the correct 
+        label (action) for a feature set (state) and a value of 0 for all other labels (actions).
     """
 
     @staticmethod
@@ -106,8 +98,8 @@ class ClassificationGame(Game):
         csv_path: str, 
         label_col: Union[str,int], 
         csv_reader: Callable[[TextIO], Iterator[List[str]]] = csv.reader, 
-        csv_stater: Callable[[Sequence[str]], State] = lambda row:row) -> Game:
-        """Create a ClassificationGame from a csv file with a header row.
+        csv_stater: Callable[[Sequence[str]], State] = lambda row: tuple(row) ) -> Simulation:
+        """Create a ClassificationSimulation from a csv file with a header row.
 
         Args:
             csv_path: The path to the csv file.
@@ -123,16 +115,16 @@ class ClassificationGame(Game):
         """
 
         with open(csv_path, newline='') as csv_file:
-            return ClassificationGame.from_csv_file(csv_file, label_col, csv_reader, csv_stater)
+            return ClassificationSimulation.from_csv_file(csv_file, label_col, csv_reader, csv_stater)
 
     @staticmethod
     def from_csv_file(
         csv_file: TextIO, 
         label_col: Union[str,int], 
         csv_reader: Callable[[TextIO], Iterator[List[str]]] = csv.reader, 
-        csv_stater: Callable[[Sequence[str]], State] = lambda row:row) -> Game:
+        csv_stater: Callable[[Sequence[str]], State] = lambda row: tuple(row)) -> Simulation:
 
-        """Create a ClassifierGame from the TextIO of a csv file.
+        """Create a ClassificationSimulation from the TextIO of a csv file.
 
         Args:
             csv_file: Any TextIO implementation including `open(csv_path)` and `io.StringIO()`.
@@ -147,15 +139,15 @@ class ClassificationGame(Game):
             backed categoricals (aka, `factors` in R).
         """
 
-        return ClassificationGame.from_csv_rows(csv_reader(csv_file), label_col, csv_stater)
+        return ClassificationSimulation.from_csv_rows(csv_reader(csv_file), label_col, csv_stater)
     
     @staticmethod
     def from_csv_rows(
-        csv_rows: Iterator[List[str]],
-        label_col: Union[str,int],
-        csv_stater: Callable[[Sequence[str]], State] = lambda row:row) -> Game:
+        csv_rows  : Iterator[List[str]],
+        label_col : Union[str,int],
+        csv_stater: Callable[[Sequence[str]], State] = lambda row: tuple(row)) -> Simulation:
 
-        """Create a ClassifierGame from the string values of a csv file.
+        """Create a ClassifierSimulation from the string values of a csv file.
 
         Args:
             csv_rows: Any Iterator of string values representing a row of features and a label.
@@ -188,10 +180,10 @@ class ClassificationGame(Game):
             features.append(csv_stater(row[:label_index] + row[(label_index+1):]))
             labels  .append(row[label_index])
 
-        return ClassificationGame(features, labels)
+        return ClassificationSimulation(features, labels)
 
     def __init__(self, features: Sequence[State], labels: Sequence[Union[str,float]]) -> None:
-        """Instantiate a ClassifierGame.
+        """Instantiate a ClassificationSimulation.
 
         Args:
             features: The collection of features used for the original classifier problem.
@@ -208,15 +200,15 @@ class ClassificationGame(Game):
 
     @property
     def rounds(self) -> Sequence[Round]:
-        """The rounds in this game.
+        """The rounds in this simulation.
         
         Remarks:
-            See this class's base class and class level docstring for more information.
+            See the Simulation base class for more information.
         """
         return self._rounds
 
-class LambdaGame(Game, Generic[T_S, T_A]):
-    """A Game implementation that uses lambda functions to generate states, actions and rewards.
+class LambdaSimulation(Simulation, Generic[T_S, T_A]):
+    """A Simulation created from lambda functions that generate states, actions and rewards.
     
     Remarks:
         This implementation is useful for creating simulations from defined distributions.
@@ -226,14 +218,14 @@ class LambdaGame(Game, Generic[T_S, T_A]):
                  n_rounds: int,
                  S: Callable[[int],T_S], 
                  A: Callable[[T_S],Sequence[T_A]], 
-                 R: Callable[[T_S,T_A],Reward])->None:
-        """Instantiate a LambdaGame.
+                 R: Callable[[T_S,T_A],Reward]) -> None:
+        """Instantiate a LambdaSimulation.
 
         Args:
+            n_rounds: how many rounds the LambdaSimulation should have.
             S: A lambda function that should return a state given an index in `range(n_rounds)`.
             A: A lambda function that should return all valid actions for a given state.
             R: A lambda function that should return the reward for a state and action.
-            n_rounds: how many rounds the LambdaGame should have.
         """
 
         self._S = S
@@ -244,15 +236,15 @@ class LambdaGame(Game, Generic[T_S, T_A]):
 
     @property
     def rounds(self) -> Sequence[Round]:
-        """The rounds in this game.
+        """The rounds in this simulation.
         
         Remarks:
-            See this class's base class and class level docstring for more information.
+            See the Simulation base class for more information.
         """
         return self._rounds
 
     def _round_generator(self) -> Iterator[Round]:
-        """Generate infinite rounds for this game."""
+        """Generate rounds for this simulation."""
 
         S = self._S
         A = self._A
@@ -265,34 +257,34 @@ class LambdaGame(Game, Generic[T_S, T_A]):
 
             yield Round(state,actions,rewards)
 
-class MemoryGame(Game):
-    """A Game implementation created using an in memory collection of Rounds.
+class MemorySimulation(Simulation):
+    """A Simulation implementation created from in memory sequences of Rounds.
     
     Remarks:
         This implementation is very useful for unit-testing known edge cases.
     """
 
     def __init__(self, rounds: Sequence[Round]) -> None:
-        """Instantiate a MemoryGame.
+        """Instantiate a MemorySimulation.
 
         Args:
-            rounds: a collection of rounds to turn into a game.
+            rounds: a collection of rounds to turn into a simulation.
         """
         self._rounds = rounds
 
     @property
     def rounds(self) -> Sequence[Round]:
-        """The rounds in this game.
+        """The rounds in this simulation.
         
         Remarks:
-            See the base class for more information.
+            See the Simulation base class for more information.
         """
         return self._rounds
 
-class ShuffleGame(Game):
-    def __init__(self, game: Game):
+class ShuffleSimulation(Simulation):
+    def __init__(self, smiulation: Simulation):
 
-        self._rounds = list(game.rounds)
+        self._rounds = list(smiulation.rounds)
         random.shuffle(self._rounds)
     
     @property
