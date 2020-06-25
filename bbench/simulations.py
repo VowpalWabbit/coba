@@ -121,7 +121,7 @@ class ClassificationSimulation(Simulation):
                 feature_matrix[:,feature_index] = feature_matrix[:,feature_index]
                 feature_index += 1
         
-        return ClassificationSimulation(feature_matrix, bunch.target)
+        return ClassificationSimulation(list(map(tuple,feature_matrix)), list(bunch.target))
 
     @staticmethod
     def from_csv_path(

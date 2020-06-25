@@ -93,7 +93,7 @@ class Test_Round(unittest.TestCase):
 
 class Test_ClassificationSimulation(Test_Simulation_Interface, unittest.TestCase):
     def _interface_test_setup(self) -> Tuple[Simulation, List[Round]]:
-        rounds = [ Round(1, [1,2], [0,1]), Round(2, [1,2], [1,0]) ]
+        rounds = [Round(1, [1,2], [0,1]), Round(2, [1,2], [1,0]) ]
         return ClassificationSimulation([1,2], [2,1]), rounds
 
     def assert_simulation_for_data(self, simulation, features, labels) -> None:
@@ -163,7 +163,10 @@ class Test_ClassificationSimulation(Test_Simulation_Interface, unittest.TestCase
         self.assertEqual(len(simulation.rounds), 6598)
         
         for rnd in simulation.rounds:
-            self.assertEqual(len(rnd.state), 268)
+            hash(rnd.state)      #make sure these are hashable
+            hash(rnd.actions[0]) #make sure these are hashable
+            hash(rnd.actions[1]) #make sure these are hashable
+            self.assertEqual(len(rnd.state), 268) #type: ignore #(in this case we know rnd.state will be sizable)
             self.assertIn('0', rnd.actions)
             self.assertIn('1', rnd.actions)
             self.assertEqual(len(rnd.actions),2)

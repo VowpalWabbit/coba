@@ -17,9 +17,9 @@ label_col  = 54
 csv_stater = lambda row: tuple([int(v) for v in row])
 
 #define a simulation
-print("loading covtype dataset")
-simulation = ClassificationSimulation.from_csv_path(csv_path, label_col, csv_stater=csv_stater)
-simulation = ShuffleSimulation(simulation)
+print("loading datasets")
+covtype = ClassificationSimulation.from_csv_path(csv_path, label_col, csv_stater=csv_stater)
+musk    = ClassificationSimulation.from_openml(1116)
 
 #create three different learner factories
 random_factory = lambda: RandomLearner()
@@ -28,7 +28,7 @@ ucb_factory    = lambda: UcbTunedLearner()
 vowpal_factory = lambda: VowpalLearner()
 
 #define a benchmark
-benchmark = UniversalBenchmark([simulation], None, lambda i: 500 + i*1000)
+benchmark = UniversalBenchmark([covtype,musk], 6000, lambda i: 500 + i*1000)
 
 #benchmark all three learners
 print("random started...")
@@ -54,7 +54,7 @@ ax1.plot([ i.mean for i in lookup_result.batch_stats], label="epsilon-greedy")
 ax1.plot([ i.mean for i in ucb_result   .batch_stats], label="ucb")
 ax1.plot([ i.mean for i in vowpal_result.batch_stats], label="vowpal")
 
-ax1.set_title("Mean Reward by Batch Index")
+ax1.set_title("Reward by Batch Index")
 ax1.set_ylabel("Mean Reward")
 ax1.set_xlabel("Batch Index")
 
@@ -63,8 +63,8 @@ ax2.plot([ i.mean for i in lookup_result.sweep_stats], label="epsilon-greedy")
 ax2.plot([ i.mean for i in ucb_result   .sweep_stats], label="ucb")
 ax2.plot([ i.mean for i in vowpal_result.sweep_stats], label="vowpal")
 
-ax2.set_title("Mean Reward by Sweep Index")
-ax2.set_xlabel("Sweep Index")
+ax2.set_title("Progressive Validation Loss")
+ax2.set_xlabel("Batch Index")
 
 box1 = ax1.get_position()
 box2 = ax2.get_position()

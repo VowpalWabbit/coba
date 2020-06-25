@@ -32,7 +32,6 @@ lookup_result = benchmark.evaluate(lookup_factory)
 ucb_result    = benchmark.evaluate(ucb_factory)
 vowpal_result = benchmark.evaluate(vowpal_factory)
 
-
 #plot the benchmark results
 fig = plt.figure()
 
