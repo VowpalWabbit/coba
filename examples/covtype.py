@@ -23,7 +23,7 @@ simulation = ShuffleSimulation(simulation)
 
 #create three different learner factories
 random_factory = lambda: RandomLearner()
-lookup_factory = lambda: EpsilonLookupLearner(1/10, 0, include_state=False)
+lookup_factory = lambda: EpsilonLookupLearner(1/10)
 ucb_factory    = lambda: UcbTunedLearner()
 vowpal_factory = lambda: VowpalLearner()
 

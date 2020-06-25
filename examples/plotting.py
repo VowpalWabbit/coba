@@ -15,7 +15,7 @@ simulation = LambdaSimulation(50, lambda i: None, lambda s: [0,1,2,3,4], lambda 
 
 #create three different learner factories
 random_factory = lambda: RandomLearner()
-lookup_factory = lambda: EpsilonLookupLearner(1/10, None)
+lookup_factory = lambda: EpsilonLookupLearner(1/10)
 ucb_factory    = lambda: UcbTunedLearner()
 
 #define a benchmark
