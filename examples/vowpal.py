@@ -7,7 +7,7 @@ import itertools
 import random
 
 from bbench.simulations import LambdaSimulation
-from bbench.learners import RandomLearner, EpsilonLookupLearner, VowpalLearner
+from bbench.learners import RandomLearner, EpsilonLookupLearner, VowpalLearner, UcbTunedLearner
 from bbench.benchmarks import UniversalBenchmark
 
 import matplotlib.pyplot as plt
@@ -16,9 +16,10 @@ import matplotlib.pyplot as plt
 simulation = LambdaSimulation(900, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.uniform(a-2, a+2))
 
 #create three different learner factories
-randomlearner_factory = lambda: RandomLearner()
-lookuplearner_factory = lambda: EpsilonLookupLearner(1/10, None)
-vowpallearner_factory = lambda: VowpalLearner()
+random_factory = lambda: RandomLearner()
+lookup_factory = lambda: EpsilonLookupLearner(1/10, None)
+vowpal_factory = lambda: VowpalLearner()
+ucb_factory    = lambda: UcbTunedLearner()
 
 #define a benchmark
 #  the benchmark replays the simulation 15 times in order to average
@@ -26,9 +27,11 @@ vowpallearner_factory = lambda: VowpalLearner()
 benchmark = UniversalBenchmark([simulation]*15, 900, 1)
 
 #benchmark all three learners
-random_result = benchmark.evaluate(randomlearner_factory)
-lookup_result = benchmark.evaluate(lookuplearner_factory)
-vowpal_result = benchmark.evaluate(vowpallearner_factory)
+random_result = benchmark.evaluate(random_factory)
+lookup_result = benchmark.evaluate(lookup_factory)
+ucb_result    = benchmark.evaluate(ucb_factory)
+vowpal_result = benchmark.evaluate(vowpal_factory)
+
 
 #plot the benchmark results
 fig = plt.figure()
@@ -38,6 +41,7 @@ ax2 = fig.add_subplot(1,2,2)
 
 ax1.plot([ i.mean for i in random_result.batch_stats], label="random")
 ax1.plot([ i.mean for i in lookup_result.batch_stats], label="epsilon-greedy")
+ax1.plot([ i.mean for i in ucb_result   .batch_stats], label="ucb")
 ax1.plot([ i.mean for i in vowpal_result.batch_stats], label="vowpal")
 
 ax1.set_title("Mean Reward by Batch Index")
@@ -46,6 +50,7 @@ ax1.set_xlabel("Batch Index")
 
 ax2.plot([ i.mean for i in random_result.sweep_stats], label="random")
 ax2.plot([ i.mean for i in lookup_result.sweep_stats], label="epsilon-greedy")
+ax2.plot([ i.mean for i in ucb_result   .sweep_stats], label="ucb")
 ax2.plot([ i.mean for i in vowpal_result.sweep_stats], label="vowpal")
 
 ax2.set_title("Progressive Validation Loss")

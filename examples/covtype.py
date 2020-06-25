@@ -7,7 +7,7 @@ import itertools
 import random
 
 from bbench.simulations import ClassificationSimulation, ShuffleSimulation
-from bbench.learners import RandomLearner, EpsilonLookupLearner, VowpalLearner
+from bbench.learners import RandomLearner, EpsilonLookupLearner, VowpalLearner, UcbTunedLearner
 from bbench.benchmarks import UniversalBenchmark
 
 import matplotlib.pyplot as plt
@@ -22,26 +22,26 @@ simulation = ClassificationSimulation.from_csv_path(csv_path, label_col, csv_sta
 simulation = ShuffleSimulation(simulation)
 
 #create three different learner factories
-randomlearner_factory  = lambda: RandomLearner()
-lookuplearner_factory1 = lambda: EpsilonLookupLearner(1/10, 0, include_state=True)
-lookuplearner_factory2 = lambda: EpsilonLookupLearner(1/10, 0, include_state=False)
-vowpallearner_factory  = lambda: VowpalLearner()
+random_factory = lambda: RandomLearner()
+lookup_factory = lambda: EpsilonLookupLearner(1/10, 0, include_state=False)
+ucb_factory    = lambda: UcbTunedLearner()
+vowpal_factory = lambda: VowpalLearner()
 
 #define a benchmark
 benchmark = UniversalBenchmark([simulation], None, lambda i: 500 + i*1000)
 
 #benchmark all three learners
 print("random started...")
-random_result   = benchmark.evaluate(randomlearner_factory)
+random_result = benchmark.evaluate(random_factory)
 
-print("lookup1 started...")
-lookup_result1 = benchmark.evaluate(lookuplearner_factory1)
+print("epsilon started...")
+lookup_result = benchmark.evaluate(lookup_factory)
 
-print("lookup2 started...")
-lookup_result2 = benchmark.evaluate(lookuplearner_factory2)
+print("ucb started...")
+ucb_result = benchmark.evaluate(ucb_factory)
 
 print("vowpal started...")
-vowpal_result   = benchmark.evaluate(vowpallearner_factory)
+vowpal_result = benchmark.evaluate(vowpal_factory)
 
 #plot the benchmark results
 fig = plt.figure()
@@ -49,19 +49,19 @@ fig = plt.figure()
 ax1 = fig.add_subplot(1,2,1)
 ax2 = fig.add_subplot(1,2,2)
 
-ax1.plot([ i.mean for i in random_result .batch_stats], label="random")
-ax1.plot([ i.mean for i in lookup_result1.batch_stats], label="lookup state-action")
-ax1.plot([ i.mean for i in lookup_result2.batch_stats], label="lookup action")
-ax1.plot([ i.mean for i in vowpal_result .batch_stats], label="vowpal")
+ax1.plot([ i.mean for i in random_result.batch_stats], label="random")
+ax1.plot([ i.mean for i in lookup_result.batch_stats], label="epsilon-greedy")
+ax1.plot([ i.mean for i in ucb_result   .batch_stats], label="ucb")
+ax1.plot([ i.mean for i in vowpal_result.batch_stats], label="vowpal")
 
 ax1.set_title("Mean Reward by Batch Index")
 ax1.set_ylabel("Mean Reward")
 ax1.set_xlabel("Batch Index")
 
-ax2.plot([ i.mean for i in random_result .sweep_stats], label="random")
-ax2.plot([ i.mean for i in lookup_result1.sweep_stats], label="pessimistic epsilon-greedy")
-ax2.plot([ i.mean for i in lookup_result2.sweep_stats], label="optimistic epsilon-greedy")
-ax2.plot([ i.mean for i in vowpal_result .sweep_stats], label="vowpal")
+ax2.plot([ i.mean for i in random_result.sweep_stats], label="random")
+ax2.plot([ i.mean for i in lookup_result.sweep_stats], label="epsilon-greedy")
+ax2.plot([ i.mean for i in ucb_result   .sweep_stats], label="ucb")
+ax2.plot([ i.mean for i in vowpal_result.sweep_stats], label="vowpal")
 
 ax2.set_title("Mean Reward by Sweep Index")
 ax2.set_xlabel("Sweep Index")

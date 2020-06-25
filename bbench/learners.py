@@ -8,6 +8,7 @@ Todo:
     * Add VowpalAdfLearner
 """
 
+import math
 import random
 
 from abc import ABC, abstractmethod
@@ -163,13 +164,11 @@ class EpsilonLookupLearner(Learner):
         return (state, action) if self._include_state else (None, action)
 
 class VowpalLearner(Learner):
-    def __init__(self) -> None:
+    def __init__(self, epsilon: float = 0.1) -> None:
 
         check_vowpal_support('VowpalSolver.__init__')
-        from vowpalwabbit import pyvw #type: ignore
-
-        self._vw = pyvw.vw("--cb_explore 5 --epsilon 0.1 --quiet")
         
+        self._epsilon                                      = epsilon 
         self._actions   : Sequence[Action]                 = []
         self._prob      : Dict[Tuple[State,Action], float] = {}
 
@@ -181,9 +180,11 @@ class VowpalLearner(Learner):
             is forced on us by Vowpal Wabbit. If your action set is not static then you
             should use VowpalAdfLearner
         """
-        
+
         if len(self._actions) == 0:
+            from vowpalwabbit import pyvw #type: ignore
             self._actions = actions
+            self._vw = pyvw.vw(f"--cb_explore {len(actions)} --epsilon {self._epsilon} --quiet")
 
         pmf = self._vw.predict("| " + self._vw_format(state))
 
@@ -216,3 +217,76 @@ class VowpalLearner(Learner):
 
     def _key(self, state: State, action: Action) -> Tuple[State,Action]:
         return (state, action)
+
+class UcbTunedLearner(Learner):
+    """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
+    
+    References:
+        Auer, Peter, Nicolo Cesa-Bianchi, and Paul Fischer. "Finite-time analysis of 
+        the multiarmed bandit problem." Machine learning 47.2-3 (2002): 235-256.
+    """
+    def __init__(self):
+        self._init_a: int = 0
+        self._t     : int = 0
+        self._s     : Dict[Action,int] = {}
+        self._v     : Dict[Action,float] = {}
+        self._m     : Dict[Action,float] = {}
+        self._w     : Dict[Action,Tuple[int,float,float]] = {}
+    
+    def choose(self, state: State, actions: Sequence[Action]) -> int:
+
+        #we initialize by playing every action once
+        if self._init_a < len(actions):
+            i = self._init_a
+            self._init_a += 1
+        else:
+            values      = [ self._m[a] + self._UCB(a) if a in self._m else None for a in actions ]
+            max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
+            max_indexes = [i for i in range(len(values)) if values[i]==max_value]
+
+            i = random.choice(max_indexes)
+
+        return i
+        
+    def learn(self, state: State, action: Action, reward: Reward) -> None:
+        
+        if action not in self._s:
+            self._s[action] = 1
+        else:
+            self._s[action] += 1
+
+        if action not in self._m:
+            self._m[action] = reward
+        else:
+            self._m[action] = 1/self._s[action] * reward + (1-1/self._s[action]) * self._m[action]
+
+        self._t         += 1
+        self._s[action] += 1
+        self._update_v(action, reward)
+
+    def _UCB(self, action: Action) -> float:
+        return math.sqrt((math.log(self._t)/self._s[action]) * self._V(action))
+
+    def _V(self, action: Action) -> float:
+        return self._v[action] + math.sqrt(2*math.log(self._t)/self._s[action])
+
+    def _update_v(self, action: Action, reward: Reward):
+
+        #Welfords algorithm for online variance
+        #taken largely from Wikipedia
+        if action not in self._w:
+            (count,mean,M2) = (1,reward,0)
+        else:
+            (count,mean,M2) = self._w[action]
+            count += 1
+            delta = reward - mean
+            mean += delta / count
+            delta2 = reward - mean
+            M2 += delta * delta2
+
+        self._w[action] = (count,mean,M2)
+
+        if count == 1:
+            self._v[action] = 0
+        else:
+            self._v[action] = M2 / (count - 1)

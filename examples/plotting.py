@@ -7,15 +7,16 @@ import random
 import matplotlib.pyplot as plt
 
 from bbench.simulations import LambdaSimulation
-from bbench.learners import RandomLearner, EpsilonLookupLearner
+from bbench.learners import RandomLearner, EpsilonLookupLearner, UcbTunedLearner
 from bbench.benchmarks import UniversalBenchmark
 
 #define a simulation
 simulation = LambdaSimulation(50, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.uniform(a-2, a+2))
 
 #create three different learner factories
-randomlearner_factory = lambda: RandomLearner()
-lookuplearner_factory = lambda: EpsilonLookupLearner(1/10, None)
+random_factory = lambda: RandomLearner()
+lookup_factory = lambda: EpsilonLookupLearner(1/10, None)
+ucb_factory    = lambda: UcbTunedLearner()
 
 #define a benchmark
 #  the benchmark replays the simulation 30 times to 
@@ -23,8 +24,9 @@ lookuplearner_factory = lambda: EpsilonLookupLearner(1/10, None)
 benchmark = UniversalBenchmark([simulation]*30, 50, 1)
 
 #benchmark all three learners
-random_result = benchmark.evaluate(randomlearner_factory)
-lookup_result = benchmark.evaluate(lookuplearner_factory)
+random_result = benchmark.evaluate(random_factory)
+lookup_result = benchmark.evaluate(lookup_factory)
+ucb_result    = benchmark.evaluate(ucb_factory)
 
 #plot the results
 
@@ -35,6 +37,7 @@ ax2 = fig.add_subplot(1,2,2)
 
 ax1.plot([ i.mean for i in random_result.batch_stats], label="random")
 ax1.plot([ i.mean for i in lookup_result.batch_stats], label="epsilon-greedy")
+ax1.plot([ i.mean for i in ucb_result   .batch_stats], label="UCB")
 
 ax1.set_title("Reward by Batch Index")
 ax1.set_ylabel("Mean Reward")
@@ -42,6 +45,7 @@ ax1.set_xlabel("Batch Index")
 
 ax2.plot([ i.mean for i in random_result.sweep_stats], label="random")
 ax2.plot([ i.mean for i in lookup_result.sweep_stats], label="epsilon-greedy")
+ax2.plot([ i.mean for i in ucb_result   .sweep_stats], label="UCB")
 
 ax2.set_title("Progressive Validation Loss")
 ax2.set_xlabel("Batch Index")
