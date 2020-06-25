@@ -17,6 +17,8 @@ import itertools
 from abc import ABC, abstractmethod
 from typing import Optional, Iterator, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Tuple
 
+from bbench.utilities import check_sklearn_datasets_support
+
 #state, action, reward types
 State  = Optional[Union[str,float,Tuple[Union[str,float],...]]]
 Action = Union[str,float,Tuple[Union[str,float],...]]
@@ -92,6 +94,34 @@ class ClassificationSimulation(Simulation):
         actions. Rewards for each round are created by assigning a reward of 1 to the correct 
         label (action) for a feature set (state) and a value of 0 for all other labels (actions).
     """
+
+    @staticmethod
+    def from_openml(data_id:int) -> Simulation:
+        # pylint: disable=no-member #pylint really doesn't like "bunch"
+
+        check_sklearn_datasets_support("OpenMLSimulation.__init__")
+        import sklearn.datasets as ds #type: ignore
+        import numpy as np #type: ignore
+
+        bunch = ds.fetch_openml(data_id=data_id)
+
+        n_rows = bunch.data.shape[0]
+        n_cols = bunch.data.shape[1] - len(bunch.categories.keys()) + sum(map(len,bunch.categories.values()))
+
+        #pre-allocate everything
+        feature_matrix = np.empty((n_rows, n_cols))
+        feature_index = 0
+
+        for feature_name in bunch.feature_names:
+            if(feature_name in bunch.categories):
+                onehot_index = feature_matrix[:,feature_index].astype(int) 
+                feature_matrix[np.arange(n_rows),feature_index+onehot_index] = 1
+                feature_index += len(bunch.categories[feature_name])
+            else:
+                feature_matrix[:,feature_index] = feature_matrix[:,feature_index]
+                feature_index += 1
+        
+        return ClassificationSimulation(feature_matrix, bunch.target)
 
     @staticmethod
     def from_csv_path(

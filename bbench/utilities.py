@@ -3,8 +3,7 @@
 def check_matplotlib_support(caller_name: str) -> None:
     """Raise ImportError with detailed error message if matplotlib is not installed.
 
-    Funcionality requiring matplotlib (e.g., `Results.plot_progressive_stats`)
-    should lazily import matplotlib and call this helper before any computation.
+    Functionality requiring the matplotlib module should call this helper and then lazily import.
 
     Args:    
         caller_name: The name of the caller that requires matplotlib.
@@ -24,8 +23,7 @@ def check_matplotlib_support(caller_name: str) -> None:
 def check_vowpal_support(caller_name: str) -> None:
     """Raise ImportError with detailed error message if vowpalwabbit is not installed.
 
-    Methods requiring vowpal wabbit like `Results.plot_progressive_stats` should 
-    lazily import matplotlib and call this helper before any computation.
+    Functionality requiring the vowpalwabbit module should call this helper and then lazily import.
 
     Args:    
         caller_name: The name of the caller that requires matplotlib.
@@ -39,4 +37,23 @@ def check_vowpal_support(caller_name: str) -> None:
         raise ImportError(
             f"{caller_name} requires vowpalwabbit."
             " You can install vowpalwabbit with `pip install vowpalwabbit`."
+        ) from e
+
+def check_sklearn_datasets_support(caller_name: str) -> None:
+    """Raise ImportError with detailed error message if sklearn.datasets is not installed.
+
+    Functionality requiring the sklearn.datasets module should call this helper and then lazily import.
+
+    Args:    
+        caller_name: The name of the caller that requires sklearn.datasets.
+
+    Remarks:
+        This pattern was inspired by sklearn.
+    """
+    try:
+        import sklearn.datasets # type: ignore
+    except ImportError as e:
+        raise ImportError(
+            f"{caller_name} requires sklearn.datasets module."
+            " You can install sklearn with `pip install scikit-learn`."
         ) from e

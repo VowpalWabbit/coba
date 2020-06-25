@@ -166,7 +166,7 @@ class EpsilonLookupLearner(Learner):
 class VowpalLearner(Learner):
     def __init__(self, epsilon: float = 0.1) -> None:
 
-        check_vowpal_support('VowpalSolver.__init__')
+        check_vowpal_support('VowpalLearner.__init__')
         
         self._epsilon                                      = epsilon 
         self._actions   : Sequence[Action]                 = []
@@ -275,7 +275,7 @@ class UcbTunedLearner(Learner):
         #Welfords algorithm for online variance
         #taken largely from Wikipedia
         if action not in self._w:
-            (count,mean,M2) = (1,reward,0)
+            (count,mean,M2) = (1,reward,0.)
         else:
             (count,mean,M2) = self._w[action]
             count += 1

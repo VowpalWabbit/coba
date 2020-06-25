@@ -154,6 +154,23 @@ class Test_ClassificationSimulation(Test_Simulation_Interface, unittest.TestCase
 
         self.assert_simulation_for_data(simulation, [(1,0,3),(0,1,6)], ['2','5'])
 
+    def test_simple_from_openml(self) -> None:
+        #this test requires interet acess to download the data
+        #it can also be a little touchy in vscode so it may be failing because of vscode issues 
+
+        simulation = ClassificationSimulation.from_openml(1116)
+
+        self.assertEqual(len(simulation.rounds), 6598)
+        
+        for rnd in simulation.rounds:
+            self.assertEqual(len(rnd.state), 268)
+            self.assertIn('0', rnd.actions)
+            self.assertIn('1', rnd.actions)
+            self.assertEqual(len(rnd.actions),2)
+            self.assertIn(1, rnd.rewards)
+            self.assertIn(0, rnd.rewards)
+            self.assertEqual(len(rnd.rewards),2)
+
 class Test_MemorySimulation(Test_Simulation_Interface, unittest.TestCase):
 
     def _interface_test_setup(self) -> Tuple[Simulation, List[Round]]:
