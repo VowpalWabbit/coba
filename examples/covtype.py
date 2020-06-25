@@ -21,6 +21,10 @@ print("loading datasets")
 covtype = ClassificationSimulation.from_csv_path(csv_path, label_col, csv_stater=csv_stater)
 musk    = ClassificationSimulation.from_openml(1116)
 
+#shuffle the datasets
+covtype = ShuffleSimulation(covtype)
+musk    = ShuffleSimulation(musk)
+
 #create three different learner factories
 random_factory = lambda: RandomLearner()
 lookup_factory = lambda: EpsilonLookupLearner(1/10)
@@ -28,7 +32,7 @@ ucb_factory    = lambda: UcbTunedLearner()
 vowpal_factory = lambda: VowpalLearner()
 
 #define a benchmark
-benchmark = UniversalBenchmark([covtype,musk], 6000, lambda i: 500 + i*1000)
+benchmark = UniversalBenchmark([covtype,musk], 6000, lambda i: 100 + i*100)
 
 #benchmark all three learners
 print("random started...")

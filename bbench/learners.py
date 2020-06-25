@@ -164,17 +164,24 @@ class EpsilonLookupLearner(Learner):
         return (state, action) if self._include_state else (None, action)
 
 class VowpalLearner(Learner):
-    def __init__(self, epsilon: float = 0.1) -> None:
+    def __init__(self, epsilon: Optional[float] = 0.1, bag: Optional[int] = None, cover: Optional[int] = None) -> None:
 
         check_vowpal_support('VowpalLearner.__init__')
-        
-        self._epsilon                                      = epsilon 
-        self._actions   : Sequence[Action]                 = []
-        self._prob      : Dict[Tuple[State,Action], float] = {}
+
+        if epsilon is not None:
+            self._explore = f"--epsilon {epsilon}"
+
+        if bag is not None:
+            self._explore = f"--bag {bag}"
+
+        if cover is not None:
+            self._explore = f"--cover {cover}"
+
+        self._actions: Sequence[Action]                 = []
+        self._prob   : Dict[Tuple[State,Action], float] = {}
 
     def choose(self, state: State, actions: Sequence[Action]) -> int:
         """
-
         Remarks:
             We assume that the action set passed in is always the same. This restriction
             is forced on us by Vowpal Wabbit. If your action set is not static then you
@@ -184,7 +191,7 @@ class VowpalLearner(Learner):
         if len(self._actions) == 0:
             from vowpalwabbit import pyvw #type: ignore
             self._actions = actions
-            self._vw = pyvw.vw(f"--cb_explore {len(actions)} --epsilon {self._epsilon} --quiet")
+            self._vw = pyvw.vw(f"--cb_explore {len(actions)}  {self._explore} --quiet")
 
         pmf = self._vw.predict("| " + self._vw_format(state))
 
