@@ -13,3 +13,5 @@ __pycache__/
 
 # Type checking
 .mypy_cache
+
+.coverage
