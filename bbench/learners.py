@@ -133,7 +133,7 @@ class LambdaLearner(Learner):
 
 class EpsilonLookupLearner(Learner):
 
-    def __init__(self, epsilon: float, default: Optional[float] = None, include_state: bool = True) -> None:
+    def __init__(self, epsilon: float, default: Optional[float] = None, include_state: bool = False) -> None:
         self._epsilon       = epsilon
         self._include_state = include_state
         self._N: Dict[Tuple[State, Action], int            ] = defaultdict(lambda: 0 if default is None else 1)

@@ -29,12 +29,12 @@ covtype = ShuffleSimulation(covtype)
 
 #create three different learner factories
 random_factory = lambda: RandomLearner()
-lookup_factory = lambda: EpsilonLookupLearner(1/10, include_state=False)
+lookup_factory = lambda: EpsilonLookupLearner(1/10)
 ucb_factory    = lambda: UcbTunedLearner()
 vowpal_factory = lambda: VowpalLearner(bag=5)
 
 #define a benchmark
-benchmark = UniversalBenchmark([covtype], None, lambda i: 100 + i*100)
+benchmark = UniversalBenchmark([covtype], 300000, lambda i: 100 + i*100)
 
 #benchmark all three learners
 print("random started...")
