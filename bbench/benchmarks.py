@@ -15,7 +15,6 @@ from itertools import islice
 
 from bbench.simulations import Simulation, Round
 from bbench.learners import Learner
-from bbench.utilities import check_matplotlib_support
 
 class Stats:
 
