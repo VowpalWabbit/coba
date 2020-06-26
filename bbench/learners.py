@@ -191,7 +191,7 @@ class VowpalLearner(Learner):
         if len(self._actions) == 0:
             from vowpalwabbit import pyvw #type: ignore
             self._actions = actions
-            self._vw = pyvw.vw(f"--cb_explore {len(actions)}  {self._explore} --quiet")
+            self._vw = pyvw.vw(f"--cb_explore {len(actions)} -q UA  {self._explore} --quiet")
 
         pmf = self._vw.predict("| " + self._vw_format(state))
 

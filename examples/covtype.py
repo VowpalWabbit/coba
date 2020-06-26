@@ -18,21 +18,23 @@ csv_stater = lambda row: tuple([int(v) for v in row])
 
 #define a simulation
 print("loading datasets")
-covtype = ClassificationSimulation.from_csv_path(csv_path, label_col, csv_stater=csv_stater)
-musk    = ClassificationSimulation.from_openml(1116)
+#covtype = ClassificationSimulation.from_csv_path(csv_path, label_col, csv_stater=csv_stater)
+#covtype = ShuffleSimulation(covtype)
 
-#shuffle the datasets
+#musk = ClassificationSimulation.from_openml(1116)
+#musk = ShuffleSimulation(musk)
+
+covtype = ClassificationSimulation.from_openml(150)
 covtype = ShuffleSimulation(covtype)
-musk    = ShuffleSimulation(musk)
 
 #create three different learner factories
 random_factory = lambda: RandomLearner()
-lookup_factory = lambda: EpsilonLookupLearner(1/10)
+lookup_factory = lambda: EpsilonLookupLearner(1/10, include_state=False)
 ucb_factory    = lambda: UcbTunedLearner()
-vowpal_factory = lambda: VowpalLearner()
+vowpal_factory = lambda: VowpalLearner(bag=5)
 
 #define a benchmark
-benchmark = UniversalBenchmark([covtype,musk], 6000, lambda i: 100 + i*100)
+benchmark = UniversalBenchmark([covtype], None, lambda i: 100 + i*100)
 
 #benchmark all three learners
 print("random started...")

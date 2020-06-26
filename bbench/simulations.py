@@ -105,22 +105,25 @@ class ClassificationSimulation(Simulation):
 
         bunch = ds.fetch_openml(data_id=data_id)
 
+        for keys_to_remove in [k for (k,v) in bunch.categories.items() if len(v) <= 2]:
+            del bunch.categories[keys_to_remove]
+
         n_rows = bunch.data.shape[0]
         n_cols = bunch.data.shape[1] - len(bunch.categories.keys()) + sum(map(len,bunch.categories.values()))
 
         #pre-allocate everything
         feature_matrix = np.empty((n_rows, n_cols))
-        feature_index = 0
+        matrix_index = 0
 
-        for feature_name in bunch.feature_names:
+        for feature_index,feature_name in enumerate(bunch.feature_names):
             if(feature_name in bunch.categories):
-                onehot_index = feature_matrix[:,feature_index].astype(int) 
-                feature_matrix[np.arange(n_rows),feature_index+onehot_index] = 1
-                feature_index += len(bunch.categories[feature_name])
+                onehot_index = feature_matrix[:,matrix_index].astype(int)
+                feature_matrix[np.arange(n_rows),matrix_index+onehot_index] = 1
+                matrix_index += len(bunch.categories[feature_name])
             else:
-                feature_matrix[:,feature_index] = feature_matrix[:,feature_index]
-                feature_index += 1
-        
+                feature_matrix[:,matrix_index] = bunch.data[:,feature_index]
+                matrix_index += 1
+
         return ClassificationSimulation(list(map(tuple,feature_matrix)), list(bunch.target))
 
     @staticmethod
