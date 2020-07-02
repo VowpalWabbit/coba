@@ -156,7 +156,6 @@ class Test_ClassificationSimulation(Test_Simulation_Interface, unittest.TestCase
 
     def test_simple_from_openml(self) -> None:
         #this test requires interet acess to download the data
-        #it can also be a little touchy in vscode so it may be failing because of vscode issues 
 
         simulation = ClassificationSimulation.from_openml(1116)
 

@@ -12,12 +12,18 @@ Todo:
 
 import csv
 import itertools
+import urllib.request
+import json
+import io
+import hashlib
+import gzip
 
+from warnings import warn
+from contextlib import closing
 from abc import ABC, abstractmethod
 from typing import Optional, Iterator, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Tuple
 
 from bbench.rand import shuffle
-from bbench.utilities import check_sklearn_datasets_support
 
 #state, action, reward types
 State  = Optional[Union[str,float,Tuple[Union[str,float],...]]]
@@ -99,32 +105,65 @@ class ClassificationSimulation(Simulation):
     def from_openml(data_id:int) -> Simulation:
         # pylint: disable=no-member #pylint really doesn't like "bunch"
 
-        check_sklearn_datasets_support("OpenMLSimulation.__init__")
-        import sklearn.datasets as ds #type: ignore
-        import numpy as np #type: ignore
+        with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}')) as resp:
+            data = json.loads(resp.read())["data_set_description"]
 
-        bunch = ds.fetch_openml(data_id=data_id)
+        with closing(urllib.request.urlopen(f'http://www.openml.org/api/v1/json/data/features/{data_id}')) as resp:
+            meta = json.loads(resp.read())["data_features"]["feature"]
 
-        for keys_to_remove in [k for (k,v) in bunch.categories.items() if len(v) <= 2]:
-            del bunch.categories[keys_to_remove]
+        def stater(row: Sequence[str]) -> State:
+            state: List[Union[int,float]] = []
+            
+            for value,desc in zip(row,meta):
+                if(desc["is_ignore"] == "true" or desc["is_row_identifier"] == "true"):
+                    continue
+                
+                if(desc["data_type"] == "numeric"):
+                    state.append(float(value))
 
-        n_rows = bunch.data.shape[0]
-        n_cols = bunch.data.shape[1] - len(bunch.categories.keys()) + sum(map(len,bunch.categories.values()))
+                if(desc["data_type"] == "nominal"):
+                    
+                    if(len(desc["nominal_value"]) == 2):
+                        state.append(int(value == desc["nominal_value"][0]))
+                    else:
+                        state.extend([int(nv == value) for nv in desc["nominal_value"]])
+            
+            return tuple(state)
 
-        #pre-allocate everything
-        feature_matrix = np.empty((n_rows, n_cols))
-        matrix_index = 0
+        is_target  = lambda feature: feature["is_target"] == "true"
+        is_feature = lambda feature: feature["is_target"] != "true"
 
-        for feature_index,feature_name in enumerate(bunch.feature_names):
-            if(feature_name in bunch.categories):
-                onehot_index = feature_matrix[:,matrix_index].astype(int)
-                feature_matrix[np.arange(n_rows),matrix_index+onehot_index] = 1
-                matrix_index += len(bunch.categories[feature_name])
+        label_col  = list(filter(is_target, meta))[0]['name']
+        meta       = list(filter(is_feature, meta))
+
+        file_url = f"http://www.openml.org/data/v1/get_csv/{data['file_id']}"
+        file_req = urllib.request.Request(file_url, headers={'Accept-encoding':'gzip'})
+
+        with closing(urllib.request.urlopen(file_req)) as resp:
+
+            # actual_md5_checksum = hashlib.md5()
+
+            if resp.info().get('Content-Encoding') == "gzip":
+                resp_stream = gzip.GzipFile(fileobj=resp)
             else:
-                feature_matrix[:,matrix_index] = bunch.data[:,feature_index]
-                matrix_index += 1
+                resp_stream = resp
 
-        return ClassificationSimulation(list(map(tuple,feature_matrix)), list(bunch.target))
+            def decoded_lines() -> Iterator[str]:
+                for line in resp_stream:
+                    # actual_md5_checksum.update(line)
+                    yield line.decode('utf-8')
+
+            simulation = ClassificationSimulation.from_csv_rows(csv.reader(decoded_lines()), label_col, csv_stater=stater)
+
+        # # At this time openML only provides md5_checksum for arff files. Because we are reading csv we can't check this.
+        # if actual_md5_checksum.hexdigest() != data["md5_checksum"]:
+        #     warn(
+        #         "The OpenML dataset did not match the expected checksum. This could be the result of network"
+        #         "errors or the file becoming corrupted. Please consider downloading the file again and if the"
+        #         "error persists you may want to manually download and reference the file."
+        #         )
+        
+        return simulation
 
     @staticmethod
     def from_csv_path(
@@ -210,6 +249,9 @@ class ClassificationSimulation(Simulation):
             label_index = header_row.index(label_col)
 
         for row in csv_rows:
+            
+            if(len(row) == 0): continue #ignore empty lines
+            
             features.append(csv_stater(row[:label_index] + row[(label_index+1):]))
             labels  .append(row[label_index])
 

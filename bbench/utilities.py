@@ -16,8 +16,8 @@ def check_matplotlib_support(caller_name: str) -> None:
         import matplotlib # type: ignore
     except ImportError as e:
         raise ImportError(
-            f"{caller_name} requires matplotlib."
-            " You can install matplotlib with `pip install matplotlib`."
+            caller_name + " requires matplotlib. You can "
+            "install matplotlib with `pip install matplotlib`."
         ) from e
 
 def check_vowpal_support(caller_name: str) -> None:
@@ -29,31 +29,12 @@ def check_vowpal_support(caller_name: str) -> None:
         caller_name: The name of the caller that requires matplotlib.
 
     Remarks:
-        This pattern was inspired by sklearn.
+        This pattern was inspired by sklearn (see bbench.utilities.check_matplotlib_support for more information).
     """
     try:
         import vowpalwabbit # type: ignore
     except ImportError as e:
         raise ImportError(
-            f"{caller_name} requires vowpalwabbit."
-            " You can install vowpalwabbit with `pip install vowpalwabbit`."
-        ) from e
-
-def check_sklearn_datasets_support(caller_name: str) -> None:
-    """Raise ImportError with detailed error message if sklearn.datasets is not installed.
-
-    Functionality requiring the sklearn.datasets module should call this helper and then lazily import.
-
-    Args:    
-        caller_name: The name of the caller that requires sklearn.datasets.
-
-    Remarks:
-        This pattern was inspired by sklearn.
-    """
-    try:
-        import sklearn.datasets # type: ignore
-    except ImportError as e:
-        raise ImportError(
-            f"{caller_name} requires sklearn.datasets module."
-            " You can install sklearn with `pip install scikit-learn`."
+            caller_name + " requires vowpalwabbit. You can "
+            "install vowpalwabbit with `pip install vowpalwabbit`."
         ) from e
