@@ -11,12 +11,12 @@ Todo:
 """
 
 import csv
-import random
 import itertools
 
 from abc import ABC, abstractmethod
 from typing import Optional, Iterator, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Tuple
 
+from bbench.rand import shuffle
 from bbench.utilities import check_sklearn_datasets_support
 
 #state, action, reward types
@@ -315,10 +315,9 @@ class MemorySimulation(Simulation):
         return self._rounds
 
 class ShuffleSimulation(Simulation):
-    def __init__(self, smiulation: Simulation):
+    def __init__(self, smiulation: Simulation, seed: Optional[int] = None):
 
-        self._rounds = list(smiulation.rounds)
-        random.shuffle(self._rounds)
+        self._rounds = shuffle(list(smiulation.rounds))
     
     @property
     def rounds(self) -> Sequence[Round]:

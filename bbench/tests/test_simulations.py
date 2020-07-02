@@ -232,6 +232,6 @@ class Test_ShuffleSimulation(Test_Simulation_Interface, unittest.TestCase):
         simulation.rounds[1]._state = 3
 
         self.assertEqual(sum(1 for r in simulation.rounds if r.state == 3),2)
-
+    
 if __name__ == '__main__':
     unittest.main()
