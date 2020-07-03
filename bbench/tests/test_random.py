@@ -1,14 +1,14 @@
 import time
 import unittest
-import random
 
-import bbench.rand
+import random
+import bbench.random
 
 class Test_Rand(unittest.TestCase):
 
     def test_speed_of_randoms(self):
         start = time.time()
-        numbers = bbench.rand.randoms(500000)
+        numbers = bbench.random.randoms(500000)
         secs = time.time() - start
 
         self.assertEqual(len(numbers), 500000)
@@ -17,7 +17,7 @@ class Test_Rand(unittest.TestCase):
     
     def test_value_of_randoms(self):
         
-        numbers = bbench.rand.randoms(500000)
+        numbers = bbench.random.randoms(500000)
         
         self.assertEqual(len(numbers), 500000)
 
@@ -28,14 +28,14 @@ class Test_Rand(unittest.TestCase):
     def test_speed_of_shuffle(self):
 
         start = time.time()
-        bbench.rand.shuffle(list(range(500000)))
+        bbench.random.shuffle(list(range(500000)))
         secs = time.time() - start
 
         self.assertLess(secs,1)
 
     def test_value_of_shuffle(self):
 
-        numbers = bbench.rand.shuffle(list(range(500000)))
+        numbers = bbench.random.shuffle(list(range(500000)))
 
         self.assertEqual(len(numbers), 500000)
         self.assertNotEqual(numbers, list(range(500000)))
