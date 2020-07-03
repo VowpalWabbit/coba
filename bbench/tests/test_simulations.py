@@ -137,20 +137,18 @@ class Test_ClassificationSimulation(Test_Simulation_Interface, unittest.TestCase
     def test_constructor_with_too_few_labels(self) -> None:
         self.assertRaises(AssertionError, lambda: ClassificationSimulation([1,1], [1]))
 
-    def test_simple_from_csv_file(self) -> None:
+    def test_simple_from_csv_rows(self) -> None:
 
-        textIO = io.StringIO("\n".join(['a,b,c','1,2,3','4,5,6']))
-
-        simulation = ClassificationSimulation.from_csv_file(textIO,'b')
+        simulation = ClassificationSimulation.from_csv_rows([['a','b','c'],['1','2','3'],['4','5','6']],'b')
 
         self.assert_simulation_for_data(simulation, [('1','3'),('4','6')],('2','5'))
 
-    def test_simple_from_csv_file_with_stater(self) -> None:
+    def test_simple_from_csv_rows_with_stater(self) -> None:
 
-        textIO = io.StringIO("\n".join(['a,b,c','s1,2,3','s2,5,6']))
+        rows = [['a','b','c'],['s1','2','3'],['s2','5','6']]
         stater = lambda row: (row[0] == "s1", row[0] == "s2", int(row[1]))
 
-        simulation = ClassificationSimulation.from_csv_file(textIO, 'b', csv_stater=stater)
+        simulation = ClassificationSimulation.from_csv_rows(rows, 'b', csv_stater=stater)
 
         self.assert_simulation_for_data(simulation, [(1,0,3),(0,1,6)], ['2','5'])
 

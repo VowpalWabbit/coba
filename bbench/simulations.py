@@ -21,9 +21,9 @@ import gzip
 from warnings import warn
 from contextlib import closing
 from abc import ABC, abstractmethod
-from typing import Optional, Iterator, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Tuple
+from typing import Optional, Iterator, Iterable, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Tuple
 
-from bbench.rand import shuffle
+from bbench.random import shuffle
 
 #state, action, reward types
 State  = Optional[Union[str,float,Tuple[Union[str,float],...]]]
@@ -168,14 +168,16 @@ class ClassificationSimulation(Simulation):
     @staticmethod
     def from_csv_path(
         csv_path: str, 
-        label_col: Union[str,int], 
+        lbl_column: Union[str,int],
+        has_header: bool = True,
         csv_reader: Callable[[TextIO], Iterator[List[str]]] = csv.reader, 
         csv_stater: Callable[[Sequence[str]], State] = lambda row: tuple(row) ) -> Simulation:
         """Create a ClassificationSimulation from a csv file with a header row.
 
         Args:
             csv_path: The path to the csv file.
-            label_col: The name of the column in the csv file that represents the label.
+            lbl_column: The name of the column in the csv file that represents the label.
+            has_header: Indicates if the csv file has a header row.
             csv_reader: A method to parse file lines at csv_path into their string values.
             csv_stater: A method to convert csv string values into state representations.
 
@@ -187,71 +189,45 @@ class ClassificationSimulation(Simulation):
         """
 
         with open(csv_path, newline='') as csv_file:
-            return ClassificationSimulation.from_csv_file(csv_file, label_col, csv_reader, csv_stater)
-
-    @staticmethod
-    def from_csv_file(
-        csv_file: TextIO, 
-        label_col: Union[str,int], 
-        csv_reader: Callable[[TextIO], Iterator[List[str]]] = csv.reader, 
-        csv_stater: Callable[[Sequence[str]], State] = lambda row: tuple(row)) -> Simulation:
-
-        """Create a ClassificationSimulation from the TextIO of a csv file.
-
-        Args:
-            csv_file: Any TextIO implementation including `open(csv_path)` and `io.StringIO()`.
-            label_col: The name of the column in the csv file that represents the label.
-            csv_reader: A method to parse file lines at csv_path into their string values.
-            csv_stater: A method to convert csv string values into state representations.
-
-        Remarks:
-            This method will open the file and read it all into memory. Be careful when doing
-            this if you are working with a large file. One way to improve on this is to make
-            sure column are correctly typed and all string columns are represented as integer
-            backed categoricals (aka, `factors` in R).
-        """
-
-        return ClassificationSimulation.from_csv_rows(csv_reader(csv_file), label_col, csv_stater)
+            return ClassificationSimulation.from_csv_rows(csv_reader(csv_file), lbl_column, csv_stater = csv_stater)
     
     @staticmethod
     def from_csv_rows(
-        csv_rows  : Iterator[List[str]],
-        label_col : Union[str,int],
+        csv_rows  : Iterable[List[str]],
+        lbl_column: Union[int,str],
+        has_header: bool = True,
         csv_stater: Callable[[Sequence[str]], State] = lambda row: tuple(row)) -> Simulation:
 
         """Create a ClassifierSimulation from the string values of a csv file.
 
         Args:
-            csv_rows: Any Iterator of string values representing a row of features and a label.
-            label_col: The value of the column in the header row representing the label.
-            csv_stater: A method to convert csv string values into state representations.
-
-        Remarks:
-            This method will open the file and read it all into memory. Be careful when doing
-            this if you are working with a large file. One way to improve on this is to make
-            sure column are correctly typed and all string columns are represented as integer
-            backed categoricals (aka, `factors` in R).
+            csv_rows: Any iterable of string values representing a row with features/label.
+            label_col: Either the column index or the header name for the label column.
+            csv_stater: A method to convert a csv row into state representations.
         """
 
-        features: List[State] = []
-        labels  : List[str]   = []
-
         # In theory we don't have to load the whole file up front. However, in practice,
-        # not loading the file upfront is hard due to the fact that Python can't really 
+        # not loading the file upfront is hard due to the fact that Python can't really
         # guarantee a generator will close a file.
         # For more info see https://stackoverflow.com/q/29040534/1066291
         # For more info see https://www.python.org/dev/peps/pep-0533/
 
-        if isinstance(label_col, int):
-            label_index = label_col
-        else:
-            header_row  = next(csv_rows)
-            label_index = header_row.index(label_col)
+        csv_iter              = iter(csv_rows)
+        features: List[State] = []
+        labels  : List[str]   = []
 
-        for row in csv_rows:
-            
+        if not has_header and isinstance(lbl_column, str):
+            raise Exception("We are unable to determine the label by name because the csv does not have a header.")
+
+        if has_header:
+            header_row = next(csv_iter)
+
+        label_index = lbl_column if isinstance(lbl_column, int) else header_row.index(lbl_column)
+
+        for row in csv_iter:
+
             if(len(row) == 0): continue #ignore empty lines
-            
+
             features.append(csv_stater(row[:label_index] + row[(label_index+1):]))
             labels  .append(row[label_index])
 
