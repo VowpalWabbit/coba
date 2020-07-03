@@ -1,8 +1,10 @@
 """A custom implementation of random number generation.
 
 Remarks:
-    This implementation has been made to guarantee the reproducibility 
-    of benchmark tests across all versions of Python.
+    This implementation has been made to guarantee the reproducibility of benchmark tests
+    according to integer seeds across all versions of Python. The standard implementation 
+    of random within Python has had a few variations in implementation in the past and 
+    could always change in the future, making randomization by seed potentially non-fixed.
 """
 
 import math
