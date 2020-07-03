@@ -8,7 +8,7 @@ from bbench.simulations import LambdaSimulation, Round
 from bbench.learners import LambdaLearner
 from bbench.benchmarks import Stats, Result, UniversalBenchmark
 
-class Test_Stats(unittest.TestCase):
+class Stats_Tests(unittest.TestCase):
     def test_from_values_multi_mean_is_correct_1(self):
         stats = Stats.from_values([1,1,3,3])
         self.assertEqual(2,stats.mean)
@@ -25,7 +25,7 @@ class Test_Stats(unittest.TestCase):
         stats = Stats.from_values([])
         self.assertIsNone(stats.mean)
 
-class Test_Result(unittest.TestCase):
+class Result_Tests(unittest.TestCase):
     def test_batch_means1(self):
         result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
 
@@ -78,7 +78,7 @@ class Test_Result(unittest.TestCase):
 
         self.assertAlmostEqual(actual_mean, expected_mean)
 
-class Test_UniversalBenchmark(unittest.TestCase):
+class UniversalBenchmark_Tests(unittest.TestCase):
 
     def test_one_game_five_rounds_batch_size_one(self):
         game           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)

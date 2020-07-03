@@ -9,16 +9,16 @@ from typing import List, Sequence, Tuple
 
 from bbench.simulations import State, Round, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
 
-class Test_Simulation_Interface(ABC):
+class Simulation_Interface_Tests(ABC):
 
     @abstractmethod
-    def _interface_test_setup(self) -> Tuple[Simulation, List[Round]]:
+    def _make_simulation(self) -> Tuple[Simulation, List[Round]]:
         ...
 
     def test_rounds_is_correct(self) -> None:
         #pylint: disable=no-member
 
-        simulation, expected_rounds = self._interface_test_setup()
+        simulation, expected_rounds = self._make_simulation()
 
         actual_rounds = list(simulation.rounds)
 
@@ -32,7 +32,7 @@ class Test_Simulation_Interface(ABC):
     def test_rounds_is_reiterable(self) -> None:
         #pylint: disable=no-member
 
-        simulation, _ = self._interface_test_setup()
+        simulation, _ = self._make_simulation()
 
         for round1,round2 in zip(simulation.rounds, simulation.rounds):
             self.assertEqual(round1.state  , round2.state  ) #type: ignore
@@ -42,14 +42,12 @@ class Test_Simulation_Interface(ABC):
     def test_rounds_is_readonly(self) -> None:
         #pylint: disable=no-member
 
-        simulation, _ = self._interface_test_setup()
+        simulation, _ = self._make_simulation()
 
-        def assign_rounds():
+        with self.assertRaises(AttributeError): #type: ignore
             simulation.rounds = []
-        
-        self.assertRaises(AttributeError, assign_rounds) #type: ignore
 
-class Test_Round(unittest.TestCase):
+class Round_Tests(unittest.TestCase):
 
     def test_constructor_no_state(self) -> None:
         Round(None, [1, 2], [1, 0])
@@ -58,10 +56,12 @@ class Test_Round(unittest.TestCase):
         Round((1,2,3,4), [1, 2], [1, 0])
 
     def test_constructor_mismatch_actions_rewards_1(self) -> None:
-        self.assertRaises(AssertionError, lambda: Round(None, [1, 2, 3], [1, 0]))
+        with self.assertRaises(AssertionError):
+            Round(None, [1, 2, 3], [1, 0])
    
     def test_constructor_mismatch_actions_rewards_2(self) -> None:
-        self.assertRaises(AssertionError, lambda: Round(None, [1, 2], [1, 0, 2]))
+        with self.assertRaises(AssertionError): 
+            Round(None, [1, 2], [1, 0, 2])
 
     def test_state_correct_1(self) -> None:
         self.assertEqual(None, Round(None, [1, 2], [1, 0]).state)
@@ -79,20 +79,15 @@ class Test_Round(unittest.TestCase):
         self.assertEqual([1, 0], Round(None, [1, 2], [1, 0]).rewards)
     
     def test_actions_readonly(self) -> None:
-        def assign_actions():
-           Round(None, [[1],[2],[3]], [1, 0, 1]).actions = [2,0,1]
-
-        self.assertRaises(AttributeError, assign_actions)
+        with self.assertRaises(AttributeError):
+            Round(None, [[1],[2],[3]], [1, 0, 1]).actions = [2,0,1]
     
     def test_rewards_readonly(self) -> None:
-        
-        def assign_rewards():
+        with self.assertRaises(AttributeError):
             Round(None, [[1],[2],[3]], [1, 0, 1]).rewards = [2,0,1]
 
-        self.assertRaises(AttributeError, assign_rewards)
-
-class Test_ClassificationSimulation(Test_Simulation_Interface, unittest.TestCase):
-    def _interface_test_setup(self) -> Tuple[Simulation, List[Round]]:
+class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
+    def _make_simulation(self) -> Tuple[Simulation, List[Round]]:
         rounds = [Round(1, [1,2], [0,1]), Round(2, [1,2], [1,0]) ]
         return ClassificationSimulation([1,2], [2,1]), rounds
 
@@ -132,10 +127,12 @@ class Test_ClassificationSimulation(Test_Simulation_Interface, unittest.TestCase
         self.assert_simulation_for_data(simulation, features, labels)
     
     def test_constructor_with_too_few_features(self) -> None:
-        self.assertRaises(AssertionError, lambda: ClassificationSimulation([1], [1,1]))
+        with self.assertRaises(AssertionError): 
+            ClassificationSimulation([1], [1,1])
 
     def test_constructor_with_too_few_labels(self) -> None:
-        self.assertRaises(AssertionError, lambda: ClassificationSimulation([1,1], [1]))
+        with self.assertRaises(AssertionError): 
+            ClassificationSimulation([1,1], [1])
 
     def test_simple_from_csv_rows(self) -> None:
 
@@ -171,16 +168,16 @@ class Test_ClassificationSimulation(Test_Simulation_Interface, unittest.TestCase
             self.assertIn(0, rnd.rewards)
             self.assertEqual(len(rnd.rewards),2)
 
-class Test_MemorySimulation(Test_Simulation_Interface, unittest.TestCase):
+class MemorySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
-    def _interface_test_setup(self) -> Tuple[Simulation, List[Round]]:
+    def _make_simulation(self) -> Tuple[Simulation, List[Round]]:
         
         rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [4,5,6], [2,3,4])]
         return MemorySimulation(rounds), rounds
 
-class Test_LambdaSimulation(Test_Simulation_Interface, unittest.TestCase):
+class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
     
-    def _interface_test_setup(self) -> Tuple[Simulation, List[Round]]:
+    def _make_simulation(self) -> Tuple[Simulation, List[Round]]:
         rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [4,5,6], [2,3,4])]
         
         def S(i:int) -> int:
@@ -208,9 +205,9 @@ class Test_LambdaSimulation(Test_Simulation_Interface, unittest.TestCase):
 
         self.assertEqual(len(simulation.rounds), 2)
 
-class Test_ShuffleSimulation(Test_Simulation_Interface, unittest.TestCase):
+class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
     
-    def _interface_test_setup(self) -> Tuple[Simulation, List[Round]]:
+    def _make_simulation(self) -> Tuple[Simulation, List[Round]]:
         rounds = [Round(1, [1,2,3], [0,1,2]), Round(1, [1,2,3], [0,1,2])]
 
         return ShuffleSimulation(MemorySimulation(rounds)), rounds

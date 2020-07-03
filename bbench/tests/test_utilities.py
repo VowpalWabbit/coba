@@ -2,7 +2,7 @@ import unittest
 
 from bbench.utilities import check_matplotlib_support, check_vowpal_support
 
-class Test_Utilities(unittest.TestCase):
+class Utilities_Tests(unittest.TestCase):
     
     def test_check_matplotlib_support(self):
         try:

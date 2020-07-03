@@ -4,7 +4,7 @@ import unittest
 import random
 import bbench.random
 
-class Test_Rand(unittest.TestCase):
+class Random_Tests(unittest.TestCase):
 
     def test_speed_of_randoms(self):
         start = time.time()
