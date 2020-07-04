@@ -20,15 +20,15 @@ class Stats:
 
     @staticmethod
     def from_values(vals: Sequence[float]) -> "Stats":
-        mean = None if len(vals) == 0 else sum(vals)/len(vals)
+        mean = float('nan') if len(vals) == 0 else sum(vals)/len(vals)
 
         return Stats(mean)
 
-    def __init__(self, mean: Optional[float]):
+    def __init__(self, mean: float):
         self._mean = mean
 
     @property
-    def mean(self) -> Optional[float]:
+    def mean(self) -> float:
         return self._mean
 
 class Result:
@@ -124,7 +124,7 @@ class UniversalBenchmark(Benchmark):
         
         self._simulations   = simulations
         self._n_sim_rounds  = n_sim_rounds
-        
+
         if isinstance(n_batch_rounds, int):
             self._n_batch_rounds = lambda i: n_batch_rounds
         else:

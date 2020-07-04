@@ -1,13 +1,9 @@
 import unittest
-import itertools
-import random
-import io
 
-from itertools import cycle
 from abc import ABC, abstractmethod
-from typing import List, Sequence, Tuple
+from typing import List, Tuple
 
-from bbench.simulations import State, Round, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
+from bbench.simulations import Round, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
 
 class Simulation_Interface_Tests(ABC):
 
@@ -39,14 +35,6 @@ class Simulation_Interface_Tests(ABC):
             self.assertEqual(round1.actions, round2.actions) #type: ignore
             self.assertEqual(round1.rewards, round2.rewards) #type: ignore
 
-    def test_rounds_is_readonly(self) -> None:
-        #pylint: disable=no-member
-
-        simulation, _ = self._make_simulation()
-
-        with self.assertRaises(AttributeError): #type: ignore
-            simulation.rounds = []
-
 class Round_Tests(unittest.TestCase):
 
     def test_constructor_no_state(self) -> None:
@@ -77,14 +65,6 @@ class Round_Tests(unittest.TestCase):
 
     def test_rewards_correct(self) -> None:
         self.assertEqual([1, 0], Round(None, [1, 2], [1, 0]).rewards)
-    
-    def test_actions_readonly(self) -> None:
-        with self.assertRaises(AttributeError):
-            Round(None, [[1],[2],[3]], [1, 0, 1]).actions = [2,0,1]
-    
-    def test_rewards_readonly(self) -> None:
-        with self.assertRaises(AttributeError):
-            Round(None, [[1],[2],[3]], [1, 0, 1]).rewards = [2,0,1]
 
 class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
     def _make_simulation(self) -> Tuple[Simulation, List[Round]]:

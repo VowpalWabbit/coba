@@ -219,9 +219,7 @@ class ClassificationSimulation(Simulation):
         if not has_header and isinstance(lbl_column, str):
             raise Exception("We are unable to determine the label by name because the csv does not have a header.")
 
-        if has_header:
-            header_row = next(csv_iter)
-
+        header_row  = next(csv_iter) if has_header else ""
         label_index = lbl_column if isinstance(lbl_column, int) else header_row.index(lbl_column)
 
         for row in csv_iter:

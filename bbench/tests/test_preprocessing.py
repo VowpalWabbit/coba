@@ -14,26 +14,26 @@ class Encoder_Interface_Tests(ABC):
     def test_is_fit_initially_false(self):
         encoder,_,_,_ = self._make_encoder()
 
-        self.assertTrue(not encoder.is_fit) #pylint: disable=no-member
+        self.assertTrue(not encoder.is_fit) # type: ignore
 
     def test_is_fit_becomes_true_after_fit(self):
         encoder,train,_,_ = self._make_encoder()
 
         encoder.fit(train)
 
-        self.assertTrue(encoder.is_fit) #pylint: disable=no-member
+        self.assertTrue(encoder.is_fit) # type: ignore
 
     def test_throws_exception_on_second_fit_call(self):
         encoder,train,_,_ = self._make_encoder()
 
-        with self.assertRaises(Exception): #pylint: disable=no-member
+        with self.assertRaises(Exception): # type: ignore
             encoder.fit(train)
             encoder.fit(train)
 
     def test_throws_exception_on_encode_without_fit(self):
         encoder,_,test,_ = self._make_encoder()
 
-        with self.assertRaises(Exception): #pylint: disable=no-member
+        with self.assertRaises(Exception): # type: ignore
             encoder.encode(test)
 
     def test_correctly_returns_self_after_fitting(self):

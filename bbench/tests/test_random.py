@@ -1,7 +1,6 @@
 import time
 import unittest
 
-import random
 import bbench.random
 
 class Random_Tests(unittest.TestCase):
