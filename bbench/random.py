@@ -51,7 +51,7 @@ class Random:
         r = self.randoms(n)
 
         for i in range(n):
-            j = int(i + (r[i] * (n-i-1)))
+            j = min(int(i + (r[i] * (n-i))), n-1) #min() handles the edge case of r[i]==1
             
             array_like[i], array_like[j] = array_like[j], array_like[i]
 
@@ -79,7 +79,9 @@ class Random:
 
 _random = Random()
 
-def seed(seed: int) -> None:
+def seed(seed: Optional[int]) -> None:
+    global _random
+    
     _random = Random(seed)
 
 def randoms(n: int) -> Sequence[float]:

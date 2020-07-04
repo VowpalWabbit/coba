@@ -10,11 +10,14 @@ Todo:
 """
 
 from abc import ABC, abstractmethod
-from typing import Union, Iterable, Sequence, List, Callable, Optional, Tuple, cast
+from typing import Union, Sequence, List, Callable, Optional, Tuple, Generic, TypeVar
 from itertools import islice
 
-from bbench.simulations import Simulation, Round
+from bbench.simulations import Simulation, State, Action
 from bbench.learners import Learner
+
+T_S = TypeVar('T_S', bound=State)
+T_A = TypeVar('T_A', bound=Action)
 
 class Stats:
 
@@ -85,11 +88,11 @@ class Result:
     def observations(self) -> Sequence[Tuple[int,int,float]]:
         return self._observations
 
-class Benchmark(ABC):
+class Benchmark(Generic[T_S,T_A], ABC):
     """The interface for Benchmark implementations."""
     
     @abstractmethod
-    def evaluate(self, learner_factory: Callable[[],Learner]) -> Result:
+    def evaluate(self, learner_factory: Callable[[],Learner[T_S,T_A]]) -> Result:
         """Calculate the performance for a provided bandit Learner.
 
         Args:
@@ -107,7 +110,7 @@ class Benchmark(ABC):
         """
         ...
 
-class UniversalBenchmark(Benchmark):
+class UniversalBenchmark(Benchmark[T_S,T_A]):
     """An on-policy Benchmark using unbiased samples to estimate performance statistics.
 
     Remarks:
@@ -118,8 +121,8 @@ class UniversalBenchmark(Benchmark):
     """
 
     def __init__(self, 
-        simulations   : Sequence[Simulation], 
-        n_sim_rounds  : Optional[int], 
+        simulations   : Sequence[Simulation[T_S,T_A]],
+        n_sim_rounds  : Optional[int],
         n_batch_rounds: Union[int, Callable[[int],int]]) -> None:
         
         self._simulations   = simulations
@@ -130,7 +133,7 @@ class UniversalBenchmark(Benchmark):
         else:
             self._n_batch_rounds = n_batch_rounds
 
-    def evaluate(self, learner_factory: Callable[[],Learner]) -> Result:
+    def evaluate(self, learner_factory: Callable[[],Learner[T_S,T_A]]) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to create Results.
 
         Args:

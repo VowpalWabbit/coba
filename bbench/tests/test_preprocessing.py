@@ -41,14 +41,14 @@ class Encoder_Interface_Tests(ABC):
 
         actual = encoder.fit(train)
 
-        self.assertEqual(actual, encoder) #pylint: disable=no-member
+        self.assertEqual(actual, encoder) #type: ignore
 
     def test_correctly_encodes_after_fitting(self):
         encoder,train,test,expected = self._make_encoder()
 
         actual = encoder.fit(train).encode(test)
 
-        self.assertEqual(actual, expected) #pylint: disable=no-member
+        self.assertEqual(actual, expected) #type: ignore
 
 class NumericEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 

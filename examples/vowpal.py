@@ -3,11 +3,10 @@ This is an example script that benchmarks a vowpal wabbit bandit learner.
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
-import itertools
 import random
 
 from bbench.simulations import LambdaSimulation
-from bbench.learners import RandomLearner, EpsilonLookupLearner, VowpalLearner, UcbTunedLearner
+from bbench.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 from bbench.benchmarks import UniversalBenchmark
 
 import matplotlib.pyplot as plt
@@ -17,7 +16,7 @@ simulation = LambdaSimulation(900, lambda i: None, lambda s: [0,1,2,3,4], lambda
 
 #create three different learner factories
 random_factory = lambda: RandomLearner()
-lookup_factory = lambda: EpsilonLookupLearner(1/10)
+lookup_factory = lambda: EpsilonLearner(1/10)
 vowpal_factory = lambda: VowpalLearner()
 ucb_factory    = lambda: UcbTunedLearner()
 
@@ -35,8 +34,8 @@ vowpal_result = benchmark.evaluate(vowpal_factory)
 #plot the benchmark results
 fig = plt.figure()
 
-ax1 = fig.add_subplot(1,2,1)
-ax2 = fig.add_subplot(1,2,2)
+ax1 = fig.add_subplot(1,2,1) #type: ignore
+ax2 = fig.add_subplot(1,2,2) #type: ignore
 
 ax1.plot([ i.mean for i in random_result.batch_stats], label="random")
 ax1.plot([ i.mean for i in lookup_result.batch_stats], label="epsilon-greedy")
@@ -68,7 +67,6 @@ ax1.set_position([box1.x0, box1.y0 + box1.height * scale, box1.width, box1.heigh
 ax2.set_position([box2.x0, box2.y0 + box2.height * scale, box2.width, box2.height * (1-scale)])
 
 # Put a legend below current axis
-handles, labels = ax1.get_legend_handles_labels()
-fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(.5, .175), fancybox=True, ncol=2)
+fig.legend(*ax1.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .175), fancybox=True, ncol=2) #type: ignore
 
 plt.show()

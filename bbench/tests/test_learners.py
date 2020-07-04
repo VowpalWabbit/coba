@@ -2,11 +2,11 @@ import unittest
 import itertools
 import random
 
-from typing import Tuple, List, Iterable, Optional, cast
+from typing import Tuple, List
 from abc import ABC, abstractmethod
 
 from bbench.simulations import State, Action
-from bbench.learners import Learner, RandomLearner, LambdaLearner, EpsilonLookupLearner, VowpalLearner, UcbTunedLearner
+from bbench.learners import Learner, RandomLearner, LambdaLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 
 class Learner_Interface_Tests(ABC):
 
@@ -45,7 +45,8 @@ class Learner_Interface_Tests(ABC):
 
 class RandomLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
-        return RandomLearner()
+        a = RandomLearner()
+        return a
 
 class LambdaLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
@@ -53,7 +54,7 @@ class LambdaLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
 
 class EpsilonLookupLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
-        return EpsilonLookupLearner(1/10, 0)
+        return EpsilonLearner(1/10, 0)
 
 class UcbTunedLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:

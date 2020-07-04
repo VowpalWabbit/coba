@@ -80,7 +80,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
     def test_one_game_five_rounds_batch_size_one(self):
         game            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        learner_factory = lambda: LambdaLearner(lambda s,A: A[int(s%3)])
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[int(s%3)])
         benchmark       = UniversalBenchmark([game], 5, 1)
 
         result = benchmark.evaluate(learner_factory)
@@ -93,7 +93,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
     def test_one_game_five_rounds_batch_size_five(self):
         game            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        learner_factory = lambda: LambdaLearner(lambda s,A: A[int(s%3)])
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[int(s%3)])
         benchmark       = UniversalBenchmark([game], 5, 5)
 
         result = benchmark.evaluate(learner_factory)
@@ -106,7 +106,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
     def test_one_game_nine_rounds_batch_size_three(self):
         game            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        learner_factory = lambda: LambdaLearner(lambda s,A: A[int(s%3)])
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[int(s%3)])
         benchmark       = UniversalBenchmark([game], 9, 3)
 
         result = benchmark.evaluate(learner_factory)
@@ -119,7 +119,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
     def test_one_game_six_rounds_batch_size_four(self):
         game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        learner_factory = lambda: LambdaLearner(lambda s,A: int(s%3))
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: s%3)
         benchmark       = UniversalBenchmark([game1], 6, 4)
 
         result = benchmark.evaluate(learner_factory)
@@ -132,7 +132,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
     def test_one_game_six_rounds_batch_size_power_of_two(self):
         game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        learner_factory = lambda: LambdaLearner(lambda s,A: int(s%3))
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
         benchmark       = UniversalBenchmark([game1], 8, lambda i: 2**i)
 
         result = benchmark.evaluate(learner_factory)
@@ -147,7 +147,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
     def test_two_simulations_five_rounds_batch_size_one(self):
         game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         game2           = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
-        learner_factory = lambda: LambdaLearner(lambda s,A: int(s%3))
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
         benchmark       = UniversalBenchmark([game1,game2], 5, 1)
 
         result = benchmark.evaluate(learner_factory)
@@ -162,7 +162,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
     def test_two_simulations_five_rounds_batch_size_five(self):
         game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         game2           = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
-        learner_factory = lambda: LambdaLearner(lambda s,A: int(s%3))
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
         benchmark       = UniversalBenchmark([game1,game2], 5, 5)
 
         result = benchmark.evaluate(learner_factory)
@@ -177,7 +177,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
     def test_two_simulations_nine_rounds_batch_size_three(self):
         game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         game2           = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
-        learner_factory = lambda: LambdaLearner(lambda s,A: int(s%3))
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
         benchmark       = UniversalBenchmark([game1,game2], 9, 3)
 
         result = benchmark.evaluate(learner_factory)
@@ -192,7 +192,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
     def test_two_simulations_six_rounds_batch_size_four(self):
         game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         game2           = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
-        learner_factory = lambda: LambdaLearner(lambda s,A: int(s%3))
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
         benchmark       = UniversalBenchmark([game1,game2], 6, 4)
 
         result = benchmark.evaluate(learner_factory)
