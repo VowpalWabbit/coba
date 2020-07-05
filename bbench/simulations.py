@@ -27,15 +27,15 @@ State  = Optional[Hashable]
 Action = Hashable
 Reward = float
 
-T_S = TypeVar('T_S', bound=State, covariant=True)
-T_A = TypeVar('T_A', bound=Action, covariant=True)
+S_out = TypeVar('S_out', bound=State, covariant=True)
+A_out = TypeVar('A_out', bound=Action, covariant=True)
 
-class Round(Generic[T_S,T_A]):
+class Round(Generic[S_out,A_out]):
     """A class to contain all data needed to represent a round in a bandit simulation."""
 
     def __init__(self, 
-                 state  : T_S,
-                 actions: Sequence[T_A],
+                 state  : S_out,
+                 actions: Sequence[A_out],
                  rewards: Sequence[Reward]) -> None:
         """Instantiate Round.
 
@@ -56,12 +56,12 @@ class Round(Generic[T_S,T_A]):
         self._rewards = rewards
 
     @property
-    def state(self) -> State:
+    def state(self) -> S_out:
         """Read-only property providing the round's state."""
         return self._state
 
     @property
-    def actions(self) -> Sequence[Action]:
+    def actions(self) -> Sequence[A_out]:
         """Read-only property providing the round's possible actions."""
         return self._actions
 
@@ -70,12 +70,12 @@ class Round(Generic[T_S,T_A]):
         """Read-only property providing the round's reward for each action."""
         return self._rewards
 
-class Simulation(Generic[T_S,T_A], ABC):
+class Simulation(Generic[S_out,A_out], ABC):
     """The simulation interface."""
 
     @property
     @abstractmethod
-    def rounds(self) -> Sequence[Round[T_S,T_A]]:
+    def rounds(self) -> Sequence[Round[S_out,A_out]]:
         """A read-only property providing the sequence of rounds in a simulation.
 
         Returns:
@@ -88,7 +88,7 @@ class Simulation(Generic[T_S,T_A], ABC):
         """
         ...
 
-class LambdaSimulation(Simulation[T_S,T_A]):
+class LambdaSimulation(Simulation[S_out,A_out]):
     """A Simulation created from lambda functions that generate states, actions and rewards.
     
     Remarks:
@@ -97,9 +97,9 @@ class LambdaSimulation(Simulation[T_S,T_A]):
 
     def __init__(self,
                  n_rounds: int,
-                 S: Callable[[int],T_S],
-                 A: Callable[[T_S],Sequence[T_A]], 
-                 R: Callable[[T_S,T_A],Reward]) -> None:
+                 S: Callable[[int],S_out],
+                 A: Callable[[S_out],Sequence[A_out]], 
+                 R: Callable[[S_out,A_out],Reward]) -> None:
         """Instantiate a LambdaSimulation.
 
         Args:
@@ -116,7 +116,7 @@ class LambdaSimulation(Simulation[T_S,T_A]):
         self._rounds = list(itertools.islice(self._round_generator(), n_rounds))
 
     @property
-    def rounds(self) -> Sequence[Round[T_S,T_A]]:
+    def rounds(self) -> Sequence[Round[S_out,A_out]]:
         """The rounds in this simulation.
         
         Remarks:
@@ -124,7 +124,7 @@ class LambdaSimulation(Simulation[T_S,T_A]):
         """
         return self._rounds
 
-    def _round_generator(self) -> Iterator[Round[T_S,T_A]]:
+    def _round_generator(self) -> Iterator[Round[S_out,A_out]]:
         """Generate rounds for this simulation."""
 
         S = self._S
@@ -138,14 +138,14 @@ class LambdaSimulation(Simulation[T_S,T_A]):
 
             yield Round(state,actions,rewards)
 
-class MemorySimulation(Simulation[T_S,T_A]):
+class MemorySimulation(Simulation[S_out,A_out]):
     """A Simulation implementation created from in memory sequences of Rounds.
     
     Remarks:
         This implementation is very useful for unit-testing known edge cases.
     """
 
-    def __init__(self, rounds: Sequence[Round[T_S,T_A]]) -> None:
+    def __init__(self, rounds: Sequence[Round[S_out,A_out]]) -> None:
         """Instantiate a MemorySimulation.
 
         Args:
@@ -154,7 +154,7 @@ class MemorySimulation(Simulation[T_S,T_A]):
         self._rounds = rounds
 
     @property
-    def rounds(self) -> Sequence[Round[T_S,T_A]]:
+    def rounds(self) -> Sequence[Round[S_out,A_out]]:
         """The rounds in this simulation.
         
         Remarks:
@@ -162,15 +162,15 @@ class MemorySimulation(Simulation[T_S,T_A]):
         """
         return self._rounds
 
-class ShuffleSimulation(Simulation[T_S,T_A]):
-    def __init__(self, smiulation: Simulation[T_S,T_A], seed: Optional[int] = None):
+class ShuffleSimulation(Simulation[S_out,A_out]):
+    def __init__(self, smiulation: Simulation[S_out,A_out], seed: Optional[int] = None):
 
         bbench.random.seed(seed)
 
         self._rounds = bbench.random.shuffle(list(smiulation.rounds))
     
     @property
-    def rounds(self) -> Sequence[Round[T_S,T_A]]:
+    def rounds(self) -> Sequence[Round[S_out,A_out]]:
 
         return self._rounds
 
@@ -328,10 +328,10 @@ class ClassificationSimulation(Simulation[State,Action]):
         action_set  = tuple(set(labels))
         reward_sets = [ [int(label==action) for action in action_set] for label in labels ]
 
-        self._rounds = list(map(Round, states, itertools.repeat(action_set), reward_sets))
+        self._rounds = list(map(Round[State, Action], states, itertools.repeat(action_set), reward_sets))
 
     @property
-    def rounds(self) -> Sequence[Round[T_S,T_A]]:
+    def rounds(self) -> Sequence[Round[State,Action]]:
         """The rounds in this simulation.
         
         Remarks:

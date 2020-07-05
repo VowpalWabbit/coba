@@ -125,7 +125,7 @@ class UniversalBenchmark(Benchmark[T_S,T_A]):
         n_sim_rounds  : Optional[int],
         n_batch_rounds: Union[int, Callable[[int],int]]) -> None:
         
-        self._simulations   = simulations
+        self._simulations: Sequence[Simulation[T_S,T_A]]   = simulations
         self._n_sim_rounds  = n_sim_rounds
 
         if isinstance(n_batch_rounds, int):
