@@ -4,7 +4,6 @@ This module contains the abstract interface expected for Learner implementations
 with a number of Learner implementations out of the box for testing and baseline comparisons.
 
 Todo:
-    * Add UCBLearner
     * Add VowpalAdfLearner
 """
 

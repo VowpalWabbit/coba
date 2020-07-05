@@ -4,7 +4,7 @@ This module is used primarily for the creation of simulations from data sets.
 """
 
 from abc import ABC, abstractmethod
-from typing import Sequence, List, Optional, Callable
+from typing import Sequence, List, Optional
 
 class Encoder(ABC):
     """The interface for encoder implementations."""

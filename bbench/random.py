@@ -10,7 +10,7 @@ Remarks:
 import math
 import random as std_random
 
-from typing import Optional, Iterator, Sequence, Union, Any, List, MutableSequence
+from typing import Optional, Sequence, Any, List, MutableSequence
 
 class Random:
     """A random number generator via a linear congruential generator."""
@@ -81,7 +81,7 @@ _random = Random()
 
 def seed(seed: Optional[int]) -> None:
     global _random
-    
+
     _random = Random(seed)
 
 def randoms(n: int) -> Sequence[float]:

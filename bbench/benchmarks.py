@@ -4,9 +4,9 @@ This module contains the abstract interface expected for Benchmark implementatio
 module also contains several Benchmark implementations and Result data transfer class.
 
 Todo:
-    * finish docstring for Stats and Results
+    * Finish docstring for Stats and Results
     * Add more statistics to the Stats class
-    * Finish incorporating built in plotting somehow
+    * Incorporate out of the box plots
 """
 
 from abc import ABC, abstractmethod

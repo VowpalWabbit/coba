@@ -7,7 +7,7 @@ Rather, they simply make it possible to use static type checking for any project
 to do so.
 
 Todo:
-    * Add RegressionSimulation(Simulation)
+    * Add RegressionSimulation
 """
 
 import csv
