@@ -1,5 +1,4 @@
 import unittest
-import itertools
 import random
 
 from typing import Tuple, List
@@ -42,7 +41,6 @@ class Learner_Interface_Tests(ABC):
             for state in states:
                 learner.learn(state, actions[learner.choose(state,actions)], random.uniform(-2,2))
 
-
 class RandomLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
         a = RandomLearner()
@@ -63,7 +61,6 @@ class UcbTunedLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
 class VowpalLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
         return VowpalLearner()
-
 
 if __name__ == '__main__':
     unittest.main()
