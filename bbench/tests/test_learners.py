@@ -52,7 +52,7 @@ class LambdaLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
         return LambdaLearner(lambda s,a: 0, lambda s,a,r:None)
 
-class EpsilonLookupLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
+class EpsilonLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
         return EpsilonLearner(1/10, 0)
 
