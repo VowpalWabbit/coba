@@ -207,6 +207,8 @@ class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
     def _make_simulation(self) -> Tuple[Simulation, List[Round]]:
         expected_rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [1,2,3], [0,1,2])]
 
+        #with the seed set this test should always pass, if the test fails then it may mean
+        #that randomization changed which would cause old results to no longer be reproducible
         return ShuffleSimulation(MemorySimulation(expected_rounds), seed=1), expected_rounds
 
     def test_rounds_not_duplicated_in_memory(self):

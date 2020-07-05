@@ -18,7 +18,7 @@ import json
 from gzip import GzipFile
 from contextlib import closing
 from abc import ABC, abstractmethod
-from typing import Optional, Iterator, Iterable, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Tuple, Hashable
+from typing import Optional, Iterator, Iterable, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Hashable
 
 import bbench.random
 
