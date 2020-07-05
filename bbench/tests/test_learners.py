@@ -1,7 +1,7 @@
 import unittest
 import random
 
-from typing import Tuple, List
+from typing import Tuple, List, cast
 from abc import ABC, abstractmethod
 
 from bbench.simulations import State, Action
@@ -33,13 +33,16 @@ class Learner_Interface_Tests(ABC):
                 for _ in range(self._n_samples()):
                     actual   = learner.choose(state, actions)
                     expected = range(len(actions))
-                    self.assertIn(actual, expected) #type: ignore #pylint: disable=no-member
+                    cast(unittest.TestCase, self).assertIn(actual, expected)
 
     def test_learn_throws_no_exceptions(self) -> None:
         for states,actions in self._states_actions_pairs():
             learner = self._make_learner()
             for state in states:
-                learner.learn(state, actions[learner.choose(state,actions)], random.uniform(-2,2))
+                try:
+                    learner.learn(state, actions[learner.choose(state,actions)], random.uniform(-2,2))
+                except:
+                    cast(unittest.TestCase, self).fail("An exception was raised on a call to learn.")
 
 class RandomLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:

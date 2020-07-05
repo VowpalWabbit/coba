@@ -37,8 +37,8 @@ class Encoder(ABC):
         ...
 
 class NumericEncoder(Encoder):
-    def __init__(self, auto_fit = True) -> None:
-        self._is_fit = auto_fit
+    def __init__(self, is_fit = True) -> None:
+        self._is_fit = is_fit
 
     @property
     def is_fit(self) -> bool:
@@ -48,9 +48,7 @@ class NumericEncoder(Encoder):
         if self.is_fit:
             raise Exception("This encoder has already been fit.")
 
-        self._is_fit = True
-
-        return self
+        return NumericEncoder(is_fit=True)
 
     def encode(self, value: str) -> Sequence[float]:
         if not self.is_fit:
@@ -61,9 +59,9 @@ class NumericEncoder(Encoder):
 class OneHotEncoder(Encoder):
     def __init__(self, fit_values: List[str] = [], singular_if_binary: bool = True, error_if_unknown = False) -> None:
         
-        self._fit_values = fit_values
+        self._fit_values         = fit_values
         self._singular_if_binary = singular_if_binary
-        self._error_if_unknown = error_if_unknown
+        self._error_if_unknown   = error_if_unknown
     
     @property
     def is_fit(self) -> bool:
@@ -74,10 +72,7 @@ class OneHotEncoder(Encoder):
         if self.is_fit:
             raise Exception("This encoder has already been fit.")
 
-        #we sort to ensure a fixed order for testing
-        self._fit_values = sorted(list(set(values)))
-
-        return self
+        return OneHotEncoder(fit_values = sorted(set(values)), singular_if_binary=self._singular_if_binary, error_if_unknown = self._error_if_unknown)
 
     def encode(self, value: str) -> Sequence[float]:
         
@@ -96,32 +91,18 @@ class OneHotEncoder(Encoder):
 
 class InferredEncoder(Encoder):
 
-    def __init__(self) -> None:
-        self._fit_encoder: Optional[Encoder] = None
-
     @property
     def is_fit(self) -> bool:
-        return self._fit_encoder is not None
+        return False
 
     def fit(self, values: Sequence[str]) -> Encoder:
-        if self.is_fit:
-            raise Exception("This encoder has already been fit.")
-        
         if all(v.isnumeric() for v in values) and len(set(values)) > len(values)/2:
-            self._fit_encoder = NumericEncoder(auto_fit=False)
+            return NumericEncoder(is_fit=False).fit(values)
 
         if not all(v.isnumeric() for v in values) and len(set(values)) < 30:
-            self._fit_encoder = OneHotEncoder()
+            return OneHotEncoder().fit(values)
 
-        if(self._fit_encoder is None):
-            raise Exception("An appropriate encoder couldn't be inferred.")
-
-        self._fit_encoder.fit(values)
-
-        return self
+        raise Exception("An appropriate encoder couldn't be inferred.")
 
     def encode(self, value: str) -> Sequence[float]:
-        if not self.is_fit:
-            raise Exception("This encoder must be fit before it can be used.")
-
-        return self._fit_encoder.encode(value) #type: ignore
+        raise Exception("This encoder must be fit before it can be used.")

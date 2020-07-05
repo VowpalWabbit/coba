@@ -186,7 +186,6 @@ class ClassificationSimulation(Simulation[State,Action]):
 
     @staticmethod
     def from_openml(data_id:int) -> Simulation:
-        # pylint: disable=no-member #pylint really doesn't like "bunch"
 
         with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}')) as resp:
             data = json.loads(resp.read())["data_set_description"]

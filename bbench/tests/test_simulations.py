@@ -1,7 +1,7 @@
 import unittest
 
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import List, Tuple, cast
 
 from bbench.simulations import Round, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
 
@@ -12,26 +12,26 @@ class Simulation_Interface_Tests(ABC):
         ...
 
     def test_rounds_is_correct(self) -> None:
-        
+
         simulation, expected_rounds = self._make_simulation()
 
         actual_rounds = simulation.rounds
 
-        self.assertEqual(len(actual_rounds), len(expected_rounds)) #type: ignore
+        cast(unittest.TestCase, self).assertEqual(len(actual_rounds), len(expected_rounds))
 
         for actual_round, expected_round in zip(actual_rounds, expected_rounds):
-            self.assertEqual(actual_round.state  , expected_round.state  ) #type: ignore
-            self.assertSequenceEqual(actual_round.actions, expected_round.actions) #type: ignore
-            self.assertSequenceEqual(actual_round.rewards, expected_round.rewards) #type: ignore
+            cast(unittest.TestCase, self).assertEqual(actual_round.state, expected_round.state)
+            cast(unittest.TestCase, self).assertSequenceEqual(actual_round.actions, expected_round.actions)
+            cast(unittest.TestCase, self).assertSequenceEqual(actual_round.rewards, expected_round.rewards)
 
     def test_rounds_is_reiterable(self) -> None:
 
         simulation, _ = self._make_simulation()
 
         for round1,round2 in zip(simulation.rounds, simulation.rounds):
-            self.assertEqual(round1.state  , round2.state  ) #type: ignore
-            self.assertSequenceEqual(round1.actions, round2.actions) #type: ignore
-            self.assertSequenceEqual(round1.rewards, round2.rewards) #type: ignore
+            cast(unittest.TestCase, self).assertEqual(round1.state, round2.state)
+            cast(unittest.TestCase, self).assertSequenceEqual(round1.actions, round2.actions)
+            cast(unittest.TestCase, self).assertSequenceEqual(round1.rewards, round2.rewards)
 
 class Round_Tests(unittest.TestCase):
 
@@ -173,7 +173,7 @@ class MemorySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         return MemorySimulation(expected_rounds), expected_rounds
 
 class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
-    
+
     def _make_simulation(self) -> Tuple[Simulation, List[Round]]:
         expected_rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [4,5,6], [2,3,4])]
         
@@ -203,7 +203,7 @@ class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         self.assertEqual(len(simulation.rounds), 2)
 
 class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
-    
+
     def _make_simulation(self) -> Tuple[Simulation, List[Round]]:
         expected_rounds = [Round(1, [1,2,3], [0,1,2]), Round(2, [1,2,3], [0,1,2])]
 
@@ -225,6 +225,6 @@ class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         simulation.rounds[1]._state = 3
 
         self.assertEqual(sum(1 for r in simulation.rounds if r.state == 3),2)
-    
+
 if __name__ == '__main__':
     unittest.main()
