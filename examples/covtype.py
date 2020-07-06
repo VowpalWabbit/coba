@@ -11,18 +11,17 @@ import matplotlib.pyplot as plt
 
 csv_path   = "./examples/data/covtype.data"
 label_col  = 54
-csv_stater = lambda row: tuple([int(v) for v in row])
 
 #define a simulation
 print("loading datasets")
-covtype = ClassificationSimulation.from_csv_path(csv_path, label_col, csv_stater=csv_stater)
-covtype = ShuffleSimulation(covtype)
+#covtype = ClassificationSimulation.from_csv_path(csv_path, label_col)
+#covtype = ShuffleSimulation(covtype)
 
 #musk = ClassificationSimulation.from_openml(1116)
 #musk = ShuffleSimulation(musk)
 
-#covtype = ClassificationSimulation.from_openml(150)
-#covtype = ShuffleSimulation(covtype)
+covtype = ClassificationSimulation.from_openml(150)
+covtype = ShuffleSimulation(covtype)
 
 #create three different learner factories
 random_factory = lambda: RandomLearner()
