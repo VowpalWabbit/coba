@@ -1,14 +1,14 @@
 import unittest
 
 from abc import ABC, abstractmethod
-from typing import Sequence, Tuple, cast
+from typing import Sequence, Tuple, cast, Any
 
-from bbench.preprocessing import Encoder, NumericEncoder, OneHotEncoder, InferredEncoder
+from bbench.preprocessing import Encoder, StringEncoder, NumericEncoder, OneHotEncoder, InferredEncoder
 
 class Encoder_Interface_Tests(ABC):
 
     @abstractmethod
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[float]]:
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
         ...
 
     def test_is_fit_initially_false(self):
@@ -50,9 +50,20 @@ class Encoder_Interface_Tests(ABC):
 
         cast(unittest.TestCase, self).assertEqual(actual, expected)
 
+class StringEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
+
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence]:
+        return StringEncoder(is_fit=False), ["1","2","3"], "1.23", ["1.23"]
+
+    def test_is_fit_marks_as_fitted(self):
+
+        encoder = StringEncoder()
+
+        self.assertTrue(encoder.is_fit)
+
 class NumericEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[float]]:
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
         return NumericEncoder(is_fit=False), ["1","2","3"], "1.23", [1.23]
 
     def test_is_fit_marks_as_fitted(self):
@@ -63,7 +74,7 @@ class NumericEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
 class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[float]]:
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
         return OneHotEncoder(), ["d", "a","b","b","b","d"], "a", [1, 0, 0]
 
     def test_singular_if_binary(self):
@@ -97,12 +108,12 @@ class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
 class InferredNumeric_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[float]]:
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
         return InferredEncoder(), ["0","1","2","3"], "2", [2]
 
 class InferredOneHot_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[float]]:
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
         return InferredEncoder(), ["a","1","2","3"], "2", [0, 1, 0, 0]
 
 if __name__ == '__main__':

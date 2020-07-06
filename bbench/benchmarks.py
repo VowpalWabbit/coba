@@ -16,8 +16,8 @@ from itertools import islice
 from bbench.simulations import Simulation, State, Action
 from bbench.learners import Learner
 
-S_in = TypeVar('S_in', bound=State, contravariant=True)
-A_in = TypeVar('A_in', bound=Action, contravariant=True)
+ST_in = TypeVar('ST_in', bound=State, contravariant=True)
+AT_in = TypeVar('AT_in', bound=Action, contravariant=True)
 
 class Stats:
 
@@ -88,11 +88,11 @@ class Result:
     def observations(self) -> Sequence[Tuple[int,int,float]]:
         return self._observations
 
-class Benchmark(Generic[S_in,A_in], ABC):
+class Benchmark(Generic[ST_in,AT_in], ABC):
     """The interface for Benchmark implementations."""
     
     @abstractmethod
-    def evaluate(self, learner_factory: Callable[[],Learner[S_in,A_in]]) -> Result:
+    def evaluate(self, learner_factory: Callable[[],Learner[ST_in,AT_in]]) -> Result:
         """Calculate the performance for a provided bandit Learner.
 
         Args:
@@ -110,7 +110,7 @@ class Benchmark(Generic[S_in,A_in], ABC):
         """
         ...
 
-class UniversalBenchmark(Benchmark[S_in,A_in]):
+class UniversalBenchmark(Benchmark[ST_in,AT_in]):
     """An on-policy Benchmark using unbiased samples to estimate performance statistics.
 
     Remarks:
@@ -121,11 +121,11 @@ class UniversalBenchmark(Benchmark[S_in,A_in]):
     """
 
     def __init__(self, 
-        simulations   : Sequence[Simulation[S_in,A_in]],
+        simulations   : Sequence[Simulation[ST_in,AT_in]],
         n_sim_rounds  : Optional[int],
         n_batch_rounds: Union[int, Callable[[int],int]]) -> None:
         
-        self._simulations: Sequence[Simulation[S_in,A_in]]   = simulations
+        self._simulations: Sequence[Simulation[ST_in,AT_in]]   = simulations
         self._n_sim_rounds  = n_sim_rounds
 
         if isinstance(n_batch_rounds, int):
@@ -133,7 +133,7 @@ class UniversalBenchmark(Benchmark[S_in,A_in]):
         else:
             self._n_batch_rounds = n_batch_rounds
 
-    def evaluate(self, learner_factory: Callable[[],Learner[S_in,A_in]]) -> Result:
+    def evaluate(self, learner_factory: Callable[[],Learner[ST_in,AT_in]]) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to create Results.
 
         Args:

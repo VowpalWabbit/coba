@@ -18,14 +18,14 @@ from collections import defaultdict
 from bbench.simulations import State, Action, Reward
 from bbench.utilities import check_vowpal_support
 
-S_in = TypeVar('S_in', bound=State, contravariant=True)
-A_in = TypeVar('A_in', bound=Action, contravariant=True)
+ST_in = TypeVar('ST_in', bound=State, contravariant=True)
+AT_in = TypeVar('AT_in', bound=Action, contravariant=True)
 
-class Learner(Generic[S_in,A_in], ABC):
+class Learner(Generic[ST_in,AT_in], ABC):
     """The interface for Learner implementations."""
 
     @abstractmethod
-    def choose(self, state: S_in, actions: Sequence[A_in]) -> int:
+    def choose(self, state: ST_in, actions: Sequence[AT_in]) -> int:
         """Choose which action to take.
 
         Args:
@@ -47,7 +47,7 @@ class Learner(Generic[S_in,A_in], ABC):
         ...
     
     @abstractmethod
-    def learn(self, state: S_in, action: A_in, reward: Reward) -> None:
+    def learn(self, state: ST_in, action: AT_in, reward: Reward) -> None:
         """Learn about the result of an action that was taken in a state.
 
         Args:
@@ -65,12 +65,12 @@ class Learner(Generic[S_in,A_in], ABC):
         """
         ...
 
-class LambdaLearner(Learner[S_in,A_in]):
+class LambdaLearner(Learner[ST_in,AT_in]):
     """A Learner implementation that chooses and learns according to provided lambda functions."""
 
     def __init__(self, 
-                 choose: Callable[[S_in,Sequence[A_in]],int], 
-                 learn : Optional[Callable[[S_in,A_in,Reward],None]] = None) -> None:
+                 choose: Callable[[ST_in,Sequence[AT_in]],int], 
+                 learn : Optional[Callable[[ST_in,AT_in,Reward],None]] = None) -> None:
         """Instantiate LambdaLearner.
 
         Args:
@@ -81,7 +81,7 @@ class LambdaLearner(Learner[S_in,A_in]):
         self._choose = choose
         self._learn  = learn
 
-    def choose(self, state: S_in, actions: Sequence[A_in]) -> int:
+    def choose(self, state: ST_in, actions: Sequence[AT_in]) -> int:
         """Choose via the provided lambda function.
 
         Args:
@@ -94,7 +94,7 @@ class LambdaLearner(Learner[S_in,A_in]):
 
         return self._choose(state, actions)
 
-    def learn(self, state: S_in, action: A_in, reward: Reward) -> None:
+    def learn(self, state: ST_in, action: AT_in, reward: Reward) -> None:
         """Learn via the optional lambda function or learn nothing without a lambda function.
 
         Args:
@@ -205,7 +205,7 @@ class VowpalLearner(Learner[State,Action]):
 
         return index
 
-    def learn(self, state: S_in, action: A_in, reward: Reward) -> None:
+    def learn(self, state: ST_in, action: AT_in, reward: Reward) -> None:
         
         prob  = self._prob[self._key(state,action)]
         cost  = -reward
@@ -215,7 +215,7 @@ class VowpalLearner(Learner[State,Action]):
 
         self._vw.learn( vw_action + ":" + str(cost) + ":" + str(prob) + " | " + vw_state)
 
-    def _vw_format(self, state: S_in) -> str:
+    def _vw_format(self, state: ST_in) -> str:
         
         if state is None:  return ""
 
@@ -228,7 +228,7 @@ class VowpalLearner(Learner[State,Action]):
         #During runtime this cast will do nothing.
         return " ". join(map(str, cast(tuple,state)))
 
-    def _key(self, state: S_in, action: A_in) -> Tuple[S_in,A_in]:
+    def _key(self, state: ST_in, action: AT_in) -> Tuple[ST_in,AT_in]:
         return (state, action)
 
 class UcbTunedLearner(Learner[State,Action]):
@@ -241,12 +241,12 @@ class UcbTunedLearner(Learner[State,Action]):
     def __init__(self):
         self._init_a: int = 0
         self._t     : int = 0
-        self._s     : Dict[A_in,int] = {}
-        self._v     : Dict[A_in,float] = {}
-        self._m     : Dict[A_in,float] = {}
-        self._w     : Dict[A_in,Tuple[int,float,float]] = {}
+        self._s     : Dict[AT_in,int] = {}
+        self._v     : Dict[AT_in,float] = {}
+        self._m     : Dict[AT_in,float] = {}
+        self._w     : Dict[AT_in,Tuple[int,float,float]] = {}
     
-    def choose(self, state: S_in, actions: Sequence[A_in]) -> int:
+    def choose(self, state: ST_in, actions: Sequence[AT_in]) -> int:
 
         #we initialize by playing every action once
         if self._init_a < len(actions):
@@ -261,7 +261,7 @@ class UcbTunedLearner(Learner[State,Action]):
 
         return i
         
-    def learn(self, state: S_in, action: A_in, reward: Reward) -> None:
+    def learn(self, state: ST_in, action: AT_in, reward: Reward) -> None:
         
         if action not in self._s:
             self._s[action] = 1
@@ -277,13 +277,13 @@ class UcbTunedLearner(Learner[State,Action]):
         self._s[action] += 1
         self._update_v(action, reward)
 
-    def _UCB(self, action: A_in) -> float:
+    def _UCB(self, action: AT_in) -> float:
         return math.sqrt((math.log(self._t)/self._s[action]) * self._V(action))
 
-    def _V(self, action: A_in) -> float:
+    def _V(self, action: AT_in) -> float:
         return self._v[action] + math.sqrt(2*math.log(self._t)/self._s[action])
 
-    def _update_v(self, action: A_in, reward: Reward):
+    def _update_v(self, action: AT_in, reward: Reward):
 
         #Welfords algorithm for online variance
         #taken largely from Wikipedia

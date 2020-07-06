@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Tuple, cast
 
 from bbench.simulations import Round, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
+from bbench.preprocessing import DefiniteMeta, OneHotEncoder, Encoder, PartialMeta, StringEncoder
 
 class Simulation_Interface_Tests(ABC):
 
@@ -122,7 +123,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         with self.assertRaises(AssertionError): 
             ClassificationSimulation([1,1], [1])
 
-    def test_simple_from_csv_rows(self) -> None:
+    def test_from_csv_rows_inferred_numeric(self) -> None:
 
         label_column = 'b'
         csv_rows     = [['a','b','c'],
@@ -131,20 +132,30 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         simulation = ClassificationSimulation.from_csv_rows(csv_rows,label_column)
 
-        self.assert_simulation_for_data(simulation, [('1','3'),('4','6')],('2','5'))
+        self.assert_simulation_for_data(simulation, [(1,3),(4,6)],[2,5])
 
-    def test_simple_from_csv_rows_with_stater(self) -> None:
+    def test_from_csv_rows_inferred_onehot(self) -> None:
 
         label_column = 'b'
         csv_rows     = [['a' ,'b','c'],
                         ['s1','2','3'],
                         ['s2','5','6']]
 
-        stater = lambda row: (row[0] == "s1", row[0] == "s2", int(row[1]))
+        simulation = ClassificationSimulation.from_csv_rows(csv_rows, label_column)
 
-        simulation = ClassificationSimulation.from_csv_rows(csv_rows, 'b', csv_stater=stater)
+        self.assert_simulation_for_data(simulation, [(1,3),(0,6)], [2,5])
 
-        self.assert_simulation_for_data(simulation, [(1,0,3),(0,1,6)], ['2','5'])
+    def test_from_csv_rows_explicit_onehot(self) -> None:
+
+        default_meta = DefiniteMeta(label=False, ignore = False, encoder=OneHotEncoder())
+        columns_meta = {'b': PartialMeta(label=True, encoder=StringEncoder()) }
+        csv_rows     = [['a' ,'b','c'],
+                        ['s1','2','3'],
+                        ['s2','5','6']]
+        
+        simulation = ClassificationSimulation.from_csv_rows(csv_rows, default_meta=default_meta, column_metas=columns_meta)
+
+        self.assert_simulation_for_data(simulation, [(1,1),(0,0)], ['2','5'])
 
     def test_simple_from_openml(self) -> None:
         #this test requires interet acess to download the data
@@ -158,8 +169,8 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             hash(rnd.actions[0]) #make sure these are hashable
             hash(rnd.actions[1]) #make sure these are hashable
             self.assertEqual(len(rnd.state), 268) #type: ignore #(in this case we know rnd.state will be sizable)
-            self.assertIn('0', rnd.actions)
-            self.assertIn('1', rnd.actions)
+            self.assertIn(0, rnd.actions)
+            self.assertIn(1, rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             self.assertIn(1, rnd.rewards)
             self.assertIn(0, rnd.rewards)
