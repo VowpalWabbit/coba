@@ -1,6 +1,9 @@
 """The preprocessing module contains generic classes for data preparation.
 
 This module is used primarily for the creation of simulations from data sets.
+
+Todo:
+    *Finish adding docstrings.
 """
 
 from abc import ABC, abstractmethod

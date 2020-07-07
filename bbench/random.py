@@ -5,6 +5,9 @@ Remarks:
     according to integer seeds across all versions of Python. The standard implementation 
     of random within Python has had a few variations in implementation in the past and 
     could always change in the future, making randomization by seed potentially non-fixed.
+
+Todo:
+    * Finish adding docstrings.
 """
 
 import math
