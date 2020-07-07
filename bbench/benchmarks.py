@@ -4,7 +4,7 @@ This module contains the abstract interface expected for Benchmark implementatio
 module also contains several Benchmark implementations and Result data transfer class.
 
 Todo:
-    * Finish docstring for Stats and Results
+    * Improve the docstring on the UniversalBenchmark
     * Add more statistics to the Stats class
     * Incorporate out of the box plots
 """
@@ -20,26 +20,47 @@ ST_in = TypeVar('ST_in', bound=State, contravariant=True)
 AT_in = TypeVar('AT_in', bound=Action, contravariant=True)
 
 class Stats:
+    """A class to store summary statistics calculated from some sample."""
 
     @staticmethod
     def from_values(vals: Sequence[float]) -> "Stats":
+        """Create a Stats class for some given sequence of values.
+        
+        Args:
+            vals: A sample of values to calculate statistics for.
+        """
         mean = float('nan') if len(vals) == 0 else sum(vals)/len(vals)
 
         return Stats(mean)
 
     def __init__(self, mean: float):
+        """Instantiate a Stats class.
+        
+        Args:
+            mean: The mean for some sample of interest.
+        """
         self._mean = mean
 
     @property
     def mean(self) -> float:
+        """The mean for some sample."""
         return self._mean
 
 class Result:
+    """A class to contain the results of a benchmark evaluation."""
 
     def __init__(self, observations: Sequence[Tuple[int,int,float]]):
+        """Instantiate a Result.
+
+        Args:
+            observations: A sequence of three valued tuples where each tuple represents the result of 
+                a single round in a benchmark evaluation. The first value in each tuple is a zero-based 
+                game index. The second value in the tuple is a zero-based batch index. The final value
+                in the tuple is the amount of reward received after taking an action in a round.
+        """
         self._observations = observations
         self._batch_stats  = []
-        self._sweep_stats  = []
+        self._cumulative_batch_stats  = []
 
         iter_curr  = self._observations[0][1]
         iter_count = 0
@@ -58,7 +79,7 @@ class Result:
 
             if(iter_curr != observation[1]):
                 self._batch_stats.append(Stats(iter_mean))
-                self._sweep_stats.append(Stats(prog_mean))
+                self._cumulative_batch_stats.append(Stats(prog_mean))
 
                 iter_curr  = observation[1]
                 iter_count = 0
@@ -71,17 +92,25 @@ class Result:
             prog_mean = (1/prog_count) * observation[2] + (1-1/prog_count) * prog_mean
 
         self._batch_stats.append(Stats(iter_mean))
-        self._sweep_stats.append(Stats(prog_mean))
+        self._cumulative_batch_stats.append(Stats(prog_mean))
 
     @property
     def batch_stats(self) -> Sequence[Stats]:
+        """Pre-calculated statistics for each batch index."""
         return self._batch_stats
 
+
     @property
-    def sweep_stats(self) -> Sequence[Stats]:
-        return self._sweep_stats
+    def cumulative_batch_stats(self) -> Sequence[Stats]:
+        """Pre-calculated statistics where batches accumulate all prior batches as you go.  """
+        return self._cumulative_batch_stats
 
     def predicate_stats(self, predicate: Callable[[Tuple[int,int,float]],bool]) -> Stats:
+        """Calculate the statistics for any given filter predicate.
+        
+        Args:
+            predicate: Determine which observations to include when calculating statistics.
+        """
         return Stats.from_values([o[2] for o in filter(predicate, self._observations)])
 
     @property

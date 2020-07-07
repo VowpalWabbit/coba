@@ -4,9 +4,9 @@ This module is used primarily for the creation of simulations from data sets.
 """
 
 from abc import ABC, abstractmethod
-from typing import Sequence, List, Generic, TypeVar, Any, Union, Optional
+from typing import Sequence, List, Generic, TypeVar, Any, Optional, Hashable
 
-T_out = TypeVar('T_out', bound=Any, covariant=True) 
+T_out = TypeVar('T_out', bound=Hashable, covariant=True) 
 
 class Encoder(ABC, Generic[T_out]):
     """The interface for encoder implementations."""
@@ -46,7 +46,7 @@ class StringEncoder(Encoder[str]):
     def is_fit(self) -> bool:
         return self._is_fit
 
-    def fit(self, values:Sequence[str]) -> Encoder:
+    def fit(self, values:Sequence[str]) -> 'StringEncoder':
         if self.is_fit:
             raise Exception("This encoder has already been fit.")
 
@@ -66,7 +66,7 @@ class NumericEncoder(Encoder[float]):
     def is_fit(self) -> bool:
         return self._is_fit
 
-    def fit(self, values:Sequence[str]) -> Encoder:
+    def fit(self, values:Sequence[str]) -> 'NumericEncoder':
         if self.is_fit:
             raise Exception("This encoder has already been fit.")
 
@@ -89,7 +89,7 @@ class OneHotEncoder(Encoder[int]):
     def is_fit(self) -> bool:
         return len(self._fit_values) > 0
 
-    def fit(self, values: Sequence[str]) -> Encoder:
+    def fit(self, values: Sequence[str]) -> 'OneHotEncoder':
 
         if self.is_fit:
             raise Exception("This encoder has already been fit.")
@@ -130,6 +130,7 @@ class InferredEncoder(Encoder[Any]):
         raise Exception("This encoder must be fit before it can be used.")
 
 class PartialMeta:
+
     def __init__(self,
         ignore  : Optional[bool] = None,
         label   : Optional[bool] = None,
@@ -139,17 +140,19 @@ class PartialMeta:
         self.label   = label
         self.encoder = encoder
 
-class DefiniteMeta(PartialMeta):
+class DefiniteMeta:
+
     def __init__(self, ignore: bool = False, label: bool = False, encoder: Encoder = InferredEncoder()) -> None:
         
-        self.ignore  = ignore
-        self.label   = label
-        self.encoder = encoder
+        self.ignore : bool    = ignore
+        self.label  : bool    = label
+        self.encoder: Encoder = encoder
 
-    def with_overrides(self, overrides: Optional[PartialMeta] = None) -> 'DefiniteMeta':
+    def clone(self) -> 'DefiniteMeta':
+        return DefiniteMeta(self.ignore, self.label, self.encoder)
 
-        ignore  = self.ignore  if overrides is None or overrides.ignore  is None else overrides.ignore
-        label   = self.label   if overrides is None or overrides.label   is None else overrides.label
-        encoder = self.encoder if overrides is None or overrides.encoder is None else overrides.encoder
-
-        return DefiniteMeta(ignore, label, encoder)
+    def apply(self, overrides: PartialMeta) -> None:
+        
+        self.ignore  = overrides.ignore  if overrides.ignore  is not None else self.ignore
+        self.label   = overrides.label   if overrides.label   is not None else self.label
+        self.encoder = overrides.encoder if overrides.encoder is not None else self.encoder

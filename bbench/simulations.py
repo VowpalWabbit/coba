@@ -14,11 +14,14 @@ import csv
 import itertools
 import urllib.request
 import json
+import hashlib
 
+from warnings import warn
 from gzip import GzipFile
 from contextlib import closing
+from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Optional, Iterator, Iterable, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Hashable, Dict, Any
+from typing import DefaultDict, Optional, Iterator, Iterable, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Hashable, Dict, Any, cast
 
 import bbench.random
 from bbench.preprocessing import DefiniteMeta, OneHotEncoder, PartialMeta, InferredEncoder, NumericEncoder
@@ -164,29 +167,59 @@ class MemorySimulation(Simulation[ST_out,AT_out]):
         return self._rounds
 
 class ShuffleSimulation(Simulation[ST_out,AT_out]):
-    def __init__(self, smiulation: Simulation[ST_out,AT_out], seed: Optional[int] = None):
+    """A simulation which created from an existing simulation by shuffling rounds.
+    
+    Remarks:
+        Shuffling is applied one time upon creation and after that round order is fixed.
+        Shuffling also does not change the original simulation's round order or copy the
+        original rounds in memory. Shuffling is guaranteed to be deterministic according
+        to seed regardless of the local Python execution environment.
+    """
+    
+    def __init__(self, simulation: Simulation[ST_out,AT_out], seed: Optional[int] = None):
+        """Instantiate a ShuffleSimulation
+        
+        Args:
+            simulation: The simulation we which to shuffle round order for.
+            seed: The seed we wish to use in determining the shuffle order.
+        """
 
         bbench.random.seed(seed)
-
-        self._rounds = bbench.random.shuffle(list(smiulation.rounds))
+        self._rounds = bbench.random.shuffle(list(simulation.rounds))
     
     @property
     def rounds(self) -> Sequence[Round[ST_out,AT_out]]:
+        """The rounds in this simulation.
+        
+        Remarks:
+            See the Simulation base class for more information.
+        """
 
         return self._rounds
 
 class ClassificationSimulation(Simulation[State,Action]):
     """A simulation created from classifier data with features and labels.
     
+    ClassificationSimulation turns labeled observations from a classification data set
+    set, into rounds. For each round the feature set becomes the state and all possible 
+    labels become the actions. Rewards for each round are created by assigning a reward 
+    of 1 to the correct label (action) for a feature set (state) and a value of 0 for 
+    all other labels (actions).
+
     Remark:
-        ClassificationSimulation creation turns each feature set and label, into a round. 
-        In each round the feature set becomes the state and all possible labels become the
-        actions. Rewards for each round are created by assigning a reward of 1 to the correct 
-        label (action) for a feature set (state) and a value of 0 for all other labels (actions).
+        This method loads all classification data into memory. Be careful when doing
+        this if you are working with a large file. To reduce memory usage you can provide
+        meta information upfront that will allow features to be correctly encoded as a
+        data set is processed instead of waiting until the end of the data to train an encoder.
     """
 
     @staticmethod
     def from_openml(data_id:int) -> Simulation:
+        """Create a ClassificationSimulation from a given openml dataset id.
+
+        Args:
+            data_id: The unique identifier for a dataset stored on openml.
+        """
 
         with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}')) as resp:
             data = json.loads(resp.read())["data_set_description"]
@@ -202,45 +235,67 @@ class ClassificationSimulation(Simulation[State,Action]):
                 label   = m["is_target"] == "true",
                 encoder = NumericEncoder() if m["data_type"] == "numeric" else OneHotEncoder()
             )
-
+        
         file_url = f"http://www.openml.org/data/v1/get_csv/{data['file_id']}"
-        file_req = urllib.request.Request(file_url, headers={'Accept-encoding':'gzip'})
+        
+        return ClassificationSimulation.from_csv_url(file_url, column_metas=column_metas)
 
-        with closing(urllib.request.urlopen(file_req)) as resp:
+    @staticmethod
+    def from_csv_url(
+        csv_url     : str,
+        label_col   : Optional[Union[str,int]] = None,
+        md5_checksum: Optional[str] = None,
+        csv_reader  : Callable[[TextIO], Iterator[List[str]]] = csv.reader,
+        has_header  : bool = True,
+        default_meta: DefiniteMeta = DefiniteMeta(ignore=False,label=False,encoder=InferredEncoder()),
+        column_metas: Union[Dict[int,PartialMeta],Dict[str,PartialMeta]] = cast(Dict[int,PartialMeta],{})) -> Simulation:
+        """Create a ClassificationSimulation from the url to a csv formatted dataset.
 
-            # actual_md5_checksum = hashlib.md5()
+        Args:
+            csv_url: The url to a csv formatted dataset.
+            label_col: The name of the column in the csv file that represents the label.
+            md5_checksum: The expected md5 checksum of the csv dataset to ensure data integrity.
+            csv_reader: A method to parse file lines at csv_path into their string values.
+            has_header: Indicates if the csv file has a header row.
+            default_meta: The default meta values for all columns unless explictly overridden with column_metas.
+            column_metas: Keys are column name or index, values are meta objects that override the default values.
+        """
 
-            if resp.info().get('Content-Encoding') == "gzip":
-                resp_stream = GzipFile(fileobj=resp)
-            else:
-                resp_stream = resp
+        csv_request = urllib.request.Request(csv_url, headers={'Accept-encoding':'gzip'})
+        with closing(urllib.request.urlopen(csv_request)) as resp:
 
-            def decoded_lines() -> Iterator[str]:
-                for line in resp_stream:
-                    # actual_md5_checksum.update(line)
+            actual_md5_checksum  = hashlib.md5()
+            is_resp_content_gzip = resp.info().get('Content-Encoding') == "gzip"
+            resp_content_stream  = GzipFile(fileobj=resp) if is_resp_content_gzip else resp
+
+            def decoded_lines_and_calc_checksum() -> Iterator[str]:
+                for line in resp_content_stream:
+                    actual_md5_checksum.update(line)
                     yield line.decode('utf-8')
 
-            simulation = ClassificationSimulation.from_csv_rows(csv.reader(decoded_lines()), column_metas=column_metas)
+            csv_rows = csv.reader(decoded_lines_and_calc_checksum())
 
-        # # At this time openML only provides md5_checksum for arff files. Because we are reading csv we can't check this.
-        # if actual_md5_checksum.hexdigest() != data["md5_checksum"]:
-        #     warn(
-        #         "The OpenML dataset did not match the expected checksum. This could be the result of network"
-        #         "errors or the file becoming corrupted. Please consider downloading the file again and if the"
-        #         "error persists you may want to manually download and reference the file."
-        #         )
-        
+            simulation = ClassificationSimulation.from_csv_rows(csv_rows, label_col, has_header, default_meta, column_metas)
+
+        # At this time openML only provides md5_checksum for arff files. Because we are reading csv we can't check this.
+        if md5_checksum is not None and md5_checksum != actual_md5_checksum.hexdigest():
+            warn(
+                "The OpenML dataset did not match the expected checksum. This could be the result of network"
+                "errors or the file becoming corrupted. Please consider downloading the file again and if the"
+                "error persists you may want to manually download and reference the file."
+                )
+
         return simulation
 
     @staticmethod
     def from_csv_path(
         csv_path    : str,
-        label_col   : Union[str,int],
+        label_col   : Optional[Union[str,int]] = None,
         csv_reader  : Callable[[TextIO], Iterator[List[str]]] = csv.reader,
         has_header  : bool = True,
         default_meta: DefiniteMeta = DefiniteMeta(ignore=False,label=False,encoder=InferredEncoder()),
-        column_metas: Union[Dict[int,PartialMeta],Dict[str,PartialMeta]] = {}) -> Simulation:
-        """Create a ClassificationSimulation from a csv file with a header row.
+        column_metas: Union[Dict[int,PartialMeta],Dict[str,PartialMeta]] = cast(Dict[int,PartialMeta],{})) -> Simulation:
+        """Create a ClassificationSimulation from the path to a csv formatted file.
 
         Args:
             csv_path: The path to the csv file.
@@ -249,26 +304,19 @@ class ClassificationSimulation(Simulation[State,Action]):
             has_header: Indicates if the csv file has a header row.
             default_meta: The default meta values for all columns unless explictly overridden with column_metas.
             column_metas: Keys are column name or index, values are meta objects that override the default values.
-
-        Remarks:
-            This method will open the file and read it all into memory. Be careful when doing
-            this if you are working with a large file. One way to improve on this is to make
-            sure column are correctly typed and all string columns are represented as integer
-            backed categoricals (aka, `factors` in R).
         """
 
         with open(csv_path, newline='') as csv_file:
             return ClassificationSimulation.from_csv_rows(csv_reader(csv_file), label_col, has_header, default_meta, column_metas)
-    
+
     @staticmethod
     def from_csv_rows(
         csv_rows    : Iterable[List[str]],
         label_col   : Optional[Union[str,int]] = None,
         has_header  : bool = True,
         default_meta: DefiniteMeta = DefiniteMeta(ignore=False,label=False,encoder=InferredEncoder()),
-        column_metas: Union[Dict[int,PartialMeta],Dict[str,PartialMeta]] = {}) -> Simulation:
-
-        """Create a ClassifierSimulation from the string values of a csv file.
+        column_metas: Union[Dict[int,PartialMeta],Dict[str,PartialMeta]] = cast(Dict[int,PartialMeta],{})) -> Simulation:
+        """Create a ClassifierSimulation from the rows contained in a csv formatted dataset.
 
         Args:
             csv_rows: Any iterable of string values representing a row with features/label.
@@ -284,81 +332,65 @@ class ClassificationSimulation(Simulation[State,Action]):
         # For more info see https://stackoverflow.com/q/29040534/1066291
         # For more info see https://www.python.org/dev/peps/pep-0533/
 
-        csv_iter                         = iter(csv_rows)
-        csv_cols  : List[List[Any]]      = []
-        header_row: List[str]            = next(csv_iter) if has_header else []
+        T_COL_VAL = Union[str,Sequence[Hashable]]
+        T_COL     = List[T_COL_VAL]
+
+        csv_iter              = iter(csv_rows)
+        header_row: List[str] = next(csv_iter) if has_header else []
+
+        columns : Dict[int, T_COL       ]   = defaultdict(list)
+        metas   : Dict[int, DefiniteMeta]   = defaultdict(default_meta.clone)
+        features: Dict[int, List[Hashable]] = defaultdict(list)
+        labels  : Dict[int, List[Hashable]] = defaultdict(list)
 
         label_index = header_row.index(label_col) if label_col in header_row else label_col if isinstance(label_col,int) else None  # type: ignore
         label_meta  = column_metas.get(label_col, column_metas.get(label_index, None)) #type: ignore
 
         if isinstance(label_col, str) and label_col not in header_row:
             raise Exception("We were unable to find the label column in the header row (or there was no header row).")
-        
+
         if any(map(lambda key: isinstance(key,str) and key not in header_row, column_metas)):
             raise Exception("We were unable to find a meta column in the header row (or there was no header row).")
 
         if label_meta is not None and label_meta.label == False:
-            raise Exception("A meta entry was provided for the label column that which was explicitly marked as non-label.")
-
-        index_metas: Dict[int,DefiniteMeta] = dict()
+            raise Exception("A meta entry was provided for the label column that was explicitly marked as non-label.")
 
         if label_index is not None and label_meta is None:
-            index_metas[label_index] = default_meta.with_overrides(PartialMeta(label=True))
+            metas[label_index].apply(PartialMeta(label=True))
 
-        if column_metas is not None:
-            for key,meta in column_metas.items():
+        for key,meta in column_metas.items():
+            metas[header_row.index(key) if isinstance(key ,str) else key].apply(meta)
 
-                index = header_row.index(key) if isinstance(key ,str) else key
+        #first pass, loop through all rows. If meta is marked as ignore place an empty
+        # tuple in the column array, if meta has an encoder already fit encode now, if
+        #the encoder isn't fit place the string value in the column for later fitting.
+        for row in (r for r in csv_iter if len(r) > 0):
+            for r,col,m in [ (row[i], columns[i], metas[i]) for i in range(len(row)) ]:
+                col.append(() if m.ignore else m.encoder.encode(r) if m.encoder.is_fit else r)
 
-                if index in index_metas:
-                    raise Exception("Two separate encodings were provided for the same column in a csv stream.")
+        #second pass, loop through all columns. Now that we have the data in column arrays
+        #we are able to fit any encoders that need fitting. After fitting we need to encode
+        #these column's string values and turn our data back into rows for features and labels.
+        for col,m in [ (columns[i], metas[i]) for i in range(len(columns)) if not metas[i].ignore ]:
+
+            #if the encoder isn't already fit we know that col is a List[str]
+            encoder = None if m.encoder.is_fit else m.encoder.fit(cast(List[str],col))
+
+            for c,f,l in [ (col[i], features[i], labels[i]) for i in range(len(col)) ]:
+
+                final_value = c if encoder is None else encoder.encode(cast(str,c))
+
+                if m.label:
+                    l.extend(final_value)
                 else:
-                    index_metas[index] = default_meta.with_overrides(meta)
+                    f.extend(final_value)
 
-        row_count = 0
+        finalize = lambda x: x[0] if len(x) == 1 else tuple(x)
 
-        for row in csv_iter:
-            
-            if len(row) == 0: continue #ignore empty lines
-            
-            row_count += 1
+        states  = [ finalize(features[i]) for i in range(len(features)) ]
+        actions = [ finalize(labels  [i]) for i in range(len(labels  )) ]
 
-            if len(csv_cols) == 0: #first non-empty row after optional header
-                csv_cols = [ [] for _ in range(len(row)) ]
-
-                for i in range(len(row)):
-                    if i not in index_metas:
-                        index_metas[i] = default_meta.with_overrides(None)
-
-            for i,val in enumerate(row):
-                if(index_metas[i].ignore):
-                    continue
-                elif(index_metas[i].encoder.is_fit):
-                    csv_cols[i].append(index_metas[i].encoder.encode(val))
-                else:
-                    csv_cols[i].append(val)
-
-        features: List[List[Hashable]] = [ [] for _ in range(row_count) ]
-        labels  : List[List[Hashable]] = [ [] for _ in range(row_count) ]
-
-        for col in index_metas:
-            if index_metas[col].ignore: continue
-
-            if index_metas[col].encoder.is_fit:
-                encode = lambda x: x
-            else:
-                encode = index_metas[col].encoder.fit(csv_cols[col]).encode
-            
-            for row,val in enumerate(csv_cols[col]):
-                
-                if index_metas[col].label:
-                    labels[row].extend(encode(val))
-                else:
-                    features[row].extend(encode(val))
-
-        to_hashable = lambda x: x[0] if len(x) ==1 else tuple(x)
-
-        return ClassificationSimulation([to_hashable(f) for f in features], [to_hashable(l) for l in labels])
+        return ClassificationSimulation(states, actions)
 
     def __init__(self, features: Sequence[State], labels: Sequence[Action]) -> None:
         """Instantiate a ClassificationSimulation.

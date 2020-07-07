@@ -75,7 +75,7 @@ class LambdaLearner(Learner[ST_in,AT_in]):
 
         Args:
             chooser: a function matching the super().choose() signature. All parameters are passed straight through.
-            learner: an optional function matching the super().learn() signature. If provided all parameters are passed
+            learner: a function matching the super().learn() signature. If provided all parameters are passed
                 straight through. If the function isn't provided then no learning occurs.
         """
         self._choose = choose
@@ -85,11 +85,11 @@ class LambdaLearner(Learner[ST_in,AT_in]):
         """Choose via the provided lambda function.
 
         Args:
-            state: See the base class for more information.
-            actions: See the base class for more information.
+            state: The state we're currently in. See the base class for more information.
+            actions: The actions to choose from. See the base class for more information.
 
         Returns:
-            See the base class for more information.
+            The index of the selected action. See the base class for more information.
         """
 
         return self._choose(state, actions)
@@ -98,9 +98,9 @@ class LambdaLearner(Learner[ST_in,AT_in]):
         """Learn via the optional lambda function or learn nothing without a lambda function.
 
         Args:
-            state: See the base class for more information.
-            action: See the base class for more information.
-            reward: See the base class for more information.
+            state: The state we're learning about. See the base class for more information.
+            action: The action that was selected in the state. See the base class for more information.
+            reward: The reward that was gained from the action. See the base class for more information.
         """
         if self._learn is None:
             pass
@@ -114,35 +114,56 @@ class RandomLearner(Learner[State,Action]):
         """Choose a random action from the action set.
         
         Args:
-            state: See the base class for more information.
-            actions: See the base class for more information.
+            state: The state we're currently in. See the base class for more information.
+            actions: The actions to choose from. See the base class for more information.
 
         Returns:
-            See the base class for more information.
+            The index of the selected action. See the base class for more information.
         """
         return random.randint(0,len(actions)-1)
 
     def learn(self, state: State, action: Action, reward: Reward) -> None:
-        """Learn nothing.
+        """Learns nothing.
 
         Args:
-            state: See the base class for more information.
-            action: See the base class for more information.
-            reward: See the base class for more information.
+            state: The state we're learning about. See the base class for more information.
+            action: The action that was selected in the state. See the base class for more information.
+            reward: The reward that was gained from the action. See the base class for more information.
         """
 
         pass
 
 class EpsilonLearner(Learner[State,Action]):
+    """A learner using epsilon-greedy searching while smoothing observations into a state/state-action lookup table.
+
+    Remarks:
+        This algorithm does not use any function approximation to attempt to generalize observed rewards.
+    """
 
     def __init__(self, epsilon: float, default: Optional[float] = None, include_state: bool = False) -> None:
+        """Instantiate an EpsilonLearner.
+
+        Args:
+            epsilon: A value between 0 and 1. We explore with probability epsilon and exploit otherwise.
+            default: Our initial guess of the expected rewards for all state-action pairs.
+            include_state: If true lookups are a function of state-action otherwise they are a function of action.
+        """
+
         self._epsilon       = epsilon
         self._include_state = include_state
         self._N: Dict[Tuple[State, Action], int            ] = defaultdict(lambda: int(0 if default is None else 1))
         self._Q: Dict[Tuple[State, Action], Optional[float]] = defaultdict(lambda: default)
 
     def choose(self, state: State, actions: Sequence[Action]) -> int:
+        """Choose greedily with probability 1-epsilon. Choose a randomly with probability epsilon.
+        
+        Args:
+            state: The state we're currently in. See the base class for more information.
+            actions: The actions to choose from. See the base class for more information.
 
+        Returns:
+            The index of the selected action. See the base class for more information.
+        """
         if(random.random() <= self._epsilon): return random.randint(0,len(actions)-1)
 
         keys        = [ self._key(state,action) for action in actions ]
@@ -153,6 +174,13 @@ class EpsilonLearner(Learner[State,Action]):
         return random.choice(max_indexes)
 
     def learn(self, state: State, action: Action, reward: Reward) -> None:
+        """Smooth the observed reward into our current estimate of either E[R|S,A] or E[R|A].
+
+        Args:
+            state: The state we're learning about. See the base class for more information.
+            action: The action that was selected in the state. See the base class for more information.
+            reward: The reward that was gained from the action. See the base class for more information.
+        """
 
         key   = self._key(state,action)
         alpha = 1/(self._N[key]+1)
@@ -166,7 +194,36 @@ class EpsilonLearner(Learner[State,Action]):
         return (state, action) if self._include_state else (None, action)
 
 class VowpalLearner(Learner[State,Action]):
+    """A learner using Vowpal Wabbit's contextual bandit command line interface.
+
+    Remarks:
+        This learner requires that the Vowpal Wabbit package be installed. This package can be
+        installed via `pip install vowpalwabbit`. To learn more about solving contextual bandit
+        problems with Vowpal Wabbit see https://vowpalwabbit.org/tutorials/contextual_bandits.html.
+    """
+
     def __init__(self, epsilon: Optional[float] = 0.1, bag: Optional[int] = None, cover: Optional[int] = None) -> None:
+        """Instantiate a VowpalLearner.
+
+        Args:
+            epsilon: A value between 0 and 1. If provided exploration will follow epsilon-greedy.
+            bag: An integer value greater than 0. This value determines how many separate policies will be
+                learned. Each policy will be learned from bootstrap aggregation making each policy unique. 
+                For each choice one policy will be selected according to a uniform distribution and followed.
+            cover: An integer value greater than 0. This value value determines how many separate policies will be
+                learned. These policies are learned in such a way to explicitly optimize policy diversity in order
+                to control exploration. For each choice one policy will be selected according to a uniform distribution
+                and followed. For more information on this algorithm see Agarwal et al. (2014).
+
+        Remarks:
+            Only one parameter of epsilon, bag and cover should be set. If more than one parameter is set then 
+            only one value is used according to the precedence of first use cover then bag then epsilon.
+
+        References:
+            Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming 
+            the monster: A fast and simple algorithm for contextual bandits." In International Conference on 
+            Machine Learning, pp. 1638-1646. 2014.
+        """
 
         check_vowpal_support('VowpalLearner.__init__')
 
@@ -183,11 +240,19 @@ class VowpalLearner(Learner[State,Action]):
         self._prob   : Dict[Tuple[State,Action], float] = {}
 
     def choose(self, state: State, actions: Sequence[Action]) -> int:
-        """
+        """Choose an action according to the explor-exploit parameters passed into the contructor.
+
+        Args:
+            state: The state we're currently in. See the base class for more information.
+            actions: The actions to choose from. See the base class for more information.
+
+        Returns:
+            The index of the selected action. See the base class for more information.
+
         Remarks:
             We assume that the action set passed in is always the same. This restriction
             is forced on us by Vowpal Wabbit. If your action set is not static then you
-            should use VowpalAdfLearner
+            should use VowpalAdfLearner.
         """
 
         if len(self._actions) == 0:
@@ -206,6 +271,13 @@ class VowpalLearner(Learner[State,Action]):
         return index
 
     def learn(self, state: ST_in, action: AT_in, reward: Reward) -> None:
+        """Learn from the obsered reward for the given state action pair.
+
+        Args:
+            state: The state we're learning about. See the base class for more information.
+            action: The action that was selected in the state. See the base class for more information.
+            reward: The reward that was gained from the action. See the base class for more information.
+        """
         
         prob  = self._prob[self._key(state,action)]
         cost  = -reward
@@ -239,6 +311,8 @@ class UcbTunedLearner(Learner[State,Action]):
         the multiarmed bandit problem." Machine learning 47.2-3 (2002): 235-256.
     """
     def __init__(self):
+        """Instantiate a UcbTunedLearner."""
+        
         self._init_a: int = 0
         self._t     : int = 0
         self._s     : Dict[AT_in,int] = {}
@@ -247,7 +321,15 @@ class UcbTunedLearner(Learner[State,Action]):
         self._w     : Dict[AT_in,Tuple[int,float,float]] = {}
     
     def choose(self, state: ST_in, actions: Sequence[AT_in]) -> int:
+        """Choose an action greedily according to the upper confidence bound estimates.
 
+        Args:
+            state: The state we're currently in. See the base class for more information.
+            actions: The actions to choose from. See the base class for more information.
+
+        Returns:
+            The index of the selected action. See the base class for more information.
+        """
         #we initialize by playing every action once
         if self._init_a < len(actions):
             i = self._init_a
@@ -262,7 +344,13 @@ class UcbTunedLearner(Learner[State,Action]):
         return i
         
     def learn(self, state: ST_in, action: AT_in, reward: Reward) -> None:
-        
+        """Smooth the observed reward into our current estimate of E[R|S,A].
+
+        Args:
+            state: The state we're learning about. See the base class for more information.
+            action: The action that was selected in the state. See the base class for more information.
+            reward: The reward that was gained from the action. See the base class for more information.
+        """
         if action not in self._s:
             self._s[action] = 1
         else:
@@ -285,7 +373,7 @@ class UcbTunedLearner(Learner[State,Action]):
 
     def _update_v(self, action: AT_in, reward: Reward):
 
-        #Welfords algorithm for online variance
+        #Welford's algorithm for online variance
         #taken largely from Wikipedia
         if action not in self._w:
             (count,mean,M2) = (1,reward,0.)
