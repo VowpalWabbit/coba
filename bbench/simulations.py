@@ -185,7 +185,7 @@ class ShuffleSimulation(Simulation[ST_out,AT_out]):
         """
 
         bbench.random.seed(seed)
-        self._rounds = bbench.random.shuffle(list(simulation.rounds))
+        self._rounds = bbench.random.shuffle(simulation.rounds)
     
     @property
     def rounds(self) -> Sequence[Round[ST_out,AT_out]]:
@@ -339,7 +339,7 @@ class ClassificationSimulation(Simulation[State,Action]):
         header_row: List[str] = next(csv_iter) if has_header else []
 
         columns : Dict[int, T_COL       ]   = defaultdict(list)
-        metas   : Dict[int, DefiniteMeta]   = defaultdict(default_meta.clone)
+        metas   : Dict[int, DefiniteMeta]   = defaultdict(lambda:default_meta)
         features: Dict[int, List[Hashable]] = defaultdict(list)
         labels  : Dict[int, List[Hashable]] = defaultdict(list)
 
@@ -355,11 +355,14 @@ class ClassificationSimulation(Simulation[State,Action]):
         if label_meta is not None and label_meta.label == False:
             raise Exception("A meta entry was provided for the label column that was explicitly marked as non-label.")
 
+        def to_column_index(key: Union[int,str]):
+            return header_row.index(key) if isinstance(key,str) else key
+
         if label_index is not None and label_meta is None:
-            metas[label_index].apply(PartialMeta(label=True))
+            metas[label_index] = metas[label_index].apply(PartialMeta(label=True))
 
         for key,meta in column_metas.items():
-            metas[header_row.index(key) if isinstance(key ,str) else key].apply(meta)
+            metas[to_column_index(key)] = metas[to_column_index(key)].apply(meta)
 
         #first pass, loop through all rows. If meta is marked as ignore place an empty
         # tuple in the column array, if meta has an encoder already fit encode now, if

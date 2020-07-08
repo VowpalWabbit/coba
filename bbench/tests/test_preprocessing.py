@@ -150,14 +150,14 @@ class DefiniteMeta_Tests(unittest.TestCase):
 
         original_meta = DefiniteMeta(True,True,NumericEncoder())
         
-        original_meta.apply(PartialMeta(ignore = expected_ignore))
-        self.assertEqual(original_meta.ignore , expected_ignore)
+        applied_meta = original_meta.apply(PartialMeta(ignore = expected_ignore))
+        self.assertEqual(applied_meta.ignore , expected_ignore)
 
-        original_meta.apply(PartialMeta(label = expected_label))
-        self.assertEqual(original_meta.label  , expected_label) 
+        applied_meta = original_meta.apply(PartialMeta(label = expected_label))
+        self.assertEqual(applied_meta.label  , expected_label) 
 
-        original_meta.apply(PartialMeta(encoder = expected_encoder))
-        self.assertEqual(original_meta.encoder  , expected_encoder)
+        applied_meta = original_meta.apply(PartialMeta(encoder = expected_encoder))
+        self.assertEqual(applied_meta.encoder  , expected_encoder)
 
 class PartialMeta_Tests(unittest.TestCase):
 

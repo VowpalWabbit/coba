@@ -37,19 +37,19 @@ fig = plt.figure()
 ax1 = fig.add_subplot(1,2,1) #type: ignore
 ax2 = fig.add_subplot(1,2,2) #type: ignore
 
-ax1.plot([ i.mean for i in random_result.batch_stats], label="random")
-ax1.plot([ i.mean for i in lookup_result.batch_stats], label="epsilon-greedy")
-ax1.plot([ i.mean for i in ucb_result   .batch_stats], label="ucb")
-ax1.plot([ i.mean for i in vowpal_result.batch_stats], label="vowpal")
+ax1.plot([ i.mean for i in random_result.batch_stats], label="Random")
+ax1.plot([ i.mean for i in lookup_result.batch_stats], label="Epsilon-greedy")
+ax1.plot([ i.mean for i in ucb_result   .batch_stats], label="UCB")
+ax1.plot([ i.mean for i in vowpal_result.batch_stats], label="Vowpal")
 
 ax1.set_title("Mean Reward by Batch Index")
 ax1.set_ylabel("Mean Reward")
 ax1.set_xlabel("Batch Index")
 
-ax2.plot([ i.mean for i in random_result.cumulative_batch_stats], label="random")
-ax2.plot([ i.mean for i in lookup_result.cumulative_batch_stats], label="epsilon-greedy")
-ax2.plot([ i.mean for i in ucb_result   .cumulative_batch_stats], label="ucb")
-ax2.plot([ i.mean for i in vowpal_result.cumulative_batch_stats], label="vowpal")
+ax2.plot([ i.mean for i in random_result.cumulative_batch_stats], label="Random")
+ax2.plot([ i.mean for i in lookup_result.cumulative_batch_stats], label="Epsilon-greedy")
+ax2.plot([ i.mean for i in ucb_result   .cumulative_batch_stats], label="UCB")
+ax2.plot([ i.mean for i in vowpal_result.cumulative_batch_stats], label="Vowpal")
 
 ax2.set_title("Progressive Validation Loss")
 ax2.set_xlabel("Batch Index")

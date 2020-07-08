@@ -288,7 +288,14 @@ class VowpalLearner(Learner[State,Action]):
         self._vw.learn( vw_action + ":" + str(cost) + ":" + str(prob) + " | " + vw_state)
 
     def _vw_format(self, state: ST_in) -> str:
+        """convert state into the proper format for pyvw.
         
+        Args:
+            state: The state we wish to convert to pyvw representation.
+
+        Returns:
+            The state in pyvw representation.
+        """
         if state is None:  return ""
 
         if isinstance(state, (int,float,str)):
@@ -301,6 +308,15 @@ class VowpalLearner(Learner[State,Action]):
         return " ". join(map(str, cast(tuple,state)))
 
     def _key(self, state: ST_in, action: AT_in) -> Tuple[ST_in,AT_in]:
+        """Converts a state and action into a key for E[R|S,A] lookup.
+        
+        Args:
+            state: The state we want to lookup E[R|S,A] for.
+            action: The action we wish to lookup E[R|S,A] for.
+
+        Returns:
+            State and Action in a format that can be used for dictionary lookup.
+        """
         return (state, action)
 
 class UcbTunedLearner(Learner[State,Action]):
@@ -312,7 +328,7 @@ class UcbTunedLearner(Learner[State,Action]):
     """
     def __init__(self):
         """Instantiate a UcbTunedLearner."""
-        
+
         self._init_a: int = 0
         self._t     : int = 0
         self._s     : Dict[AT_in,int] = {}
@@ -335,7 +351,7 @@ class UcbTunedLearner(Learner[State,Action]):
             i = self._init_a
             self._init_a += 1
         else:
-            values      = [ self._m[a] + self._UCB(a) if a in self._m else None for a in actions ]
+            values      = [ self._m[a] + self._Avg_R_UCB(a) if a in self._m else None for a in actions ]
             max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
             max_indexes = [i for i in range(len(values)) if values[i]==max_value]
 
@@ -365,16 +381,51 @@ class UcbTunedLearner(Learner[State,Action]):
         self._s[action] += 1
         self._update_v(action, reward)
 
-    def _UCB(self, action: AT_in) -> float:
-        return math.sqrt((math.log(self._t)/self._s[action]) * self._V(action))
+    def _Avg_R_UCB(self, action: AT_in) -> float:
+        """Produce the estimated upper confidence bound (UCB) for E[R|A].
 
-    def _V(self, action: AT_in) -> float:
-        return self._v[action] + math.sqrt(2*math.log(self._t)/self._s[action])
+        Args:
+            action: The action for which we want to retrieve UCB for E[R|A].
 
-    def _update_v(self, action: AT_in, reward: Reward):
+        Returns:
+            The estimated UCB for E[R|A].
 
-        #Welford's algorithm for online variance
-        #taken largely from Wikipedia
+        Remarks:
+            See the beginning of section 4 in the algorithm's paper for this equation.
+        """
+        ln = math.log; n = self._t; n_j = self._s[action]; V_j = self._Var_R_UCB(action)
+
+        return math.sqrt(ln(n)/n_j * min(1/4,V_j))
+
+    def _Var_R_UCB(self, action: AT_in) -> float:
+        """Produce the upper confidence bound (UCB) for Var[R|A].
+
+        Args:
+            action: The action for which we want to retrieve UCB for Var[R|A].
+
+        Returns:
+            The estimated UCB for Var[R|A].
+
+        Remarks:
+            See the beginning of section 4 in the algorithm's paper for this equation.
+        """
+        ln = math.log; t = self._t; s = self._s[action]; var = self._v[action]
+        
+        return var + math.sqrt(2*ln(t)/s)
+
+    def _update_v(self, action: AT_in, reward: Reward) -> None:
+        """Update the sample reward variance for a given action.
+
+        This algorithm is an implementation of Welford's online variance
+        algorithm taken largely from pseudocode on Wikipedia [1].
+
+        Args:
+            action: The action we are update reward sample variance for.
+            reward: The latest observation of reward we wish to update variance for.
+
+        References:
+            [1]: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+        """
         if action not in self._w:
             (count,mean,M2) = (1,reward,0.)
         else:

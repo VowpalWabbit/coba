@@ -43,8 +43,8 @@ ax1.set_title("Reward by Batch Index")
 ax1.set_ylabel("Mean Reward")
 ax1.set_xlabel("Batch Index")
 
-ax2.plot([ i.mean for i in random_result.cumulative_batch_stats], label="random")
-ax2.plot([ i.mean for i in lookup_result.cumulative_batch_stats], label="epsilon-greedy")
+ax2.plot([ i.mean for i in random_result.cumulative_batch_stats], label="Random")
+ax2.plot([ i.mean for i in lookup_result.cumulative_batch_stats], label="Epsilon-greedy")
 ax2.plot([ i.mean for i in ucb_result   .cumulative_batch_stats], label="UCB")
 
 ax2.set_title("Progressive Validation Loss")
