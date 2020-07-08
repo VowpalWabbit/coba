@@ -270,7 +270,7 @@ class VowpalLearner(Learner[State,Action]):
 
         return index
 
-    def learn(self, state: ST_in, action: AT_in, reward: Reward) -> None:
+    def learn(self, state: State, action: Action, reward: Reward) -> None:
         """Learn from the obsered reward for the given state action pair.
 
         Args:
@@ -287,7 +287,7 @@ class VowpalLearner(Learner[State,Action]):
 
         self._vw.learn( vw_action + ":" + str(cost) + ":" + str(prob) + " | " + vw_state)
 
-    def _vw_format(self, state: ST_in) -> str:
+    def _vw_format(self, state: State) -> str:
         """convert state into the proper format for pyvw.
         
         Args:
@@ -307,7 +307,7 @@ class VowpalLearner(Learner[State,Action]):
         #During runtime this cast will do nothing.
         return " ". join(map(str, cast(tuple,state)))
 
-    def _key(self, state: ST_in, action: AT_in) -> Tuple[ST_in,AT_in]:
+    def _key(self, state: State, action: Action) -> Tuple[State,Action]:
         """Converts a state and action into a key for E[R|S,A] lookup.
         
         Args:
@@ -331,12 +331,12 @@ class UcbTunedLearner(Learner[State,Action]):
 
         self._init_a: int = 0
         self._t     : int = 0
-        self._s     : Dict[AT_in,int] = {}
-        self._v     : Dict[AT_in,float] = {}
-        self._m     : Dict[AT_in,float] = {}
-        self._w     : Dict[AT_in,Tuple[int,float,float]] = {}
+        self._s     : Dict[Action,int] = {}
+        self._v     : Dict[Action,float] = {}
+        self._m     : Dict[Action,float] = {}
+        self._w     : Dict[Action,Tuple[int,float,float]] = {}
     
-    def choose(self, state: ST_in, actions: Sequence[AT_in]) -> int:
+    def choose(self, state: State, actions: Sequence[Action]) -> int:
         """Choose an action greedily according to the upper confidence bound estimates.
 
         Args:
@@ -359,7 +359,7 @@ class UcbTunedLearner(Learner[State,Action]):
 
         return i
         
-    def learn(self, state: ST_in, action: AT_in, reward: Reward) -> None:
+    def learn(self, state: State, action: Action, reward: Reward) -> None:
         """Smooth the observed reward into our current estimate of E[R|S,A].
 
         Args:
@@ -381,7 +381,7 @@ class UcbTunedLearner(Learner[State,Action]):
         self._s[action] += 1
         self._update_v(action, reward)
 
-    def _Avg_R_UCB(self, action: AT_in) -> float:
+    def _Avg_R_UCB(self, action: Action) -> float:
         """Produce the estimated upper confidence bound (UCB) for E[R|A].
 
         Args:
@@ -397,7 +397,7 @@ class UcbTunedLearner(Learner[State,Action]):
 
         return math.sqrt(ln(n)/n_j * min(1/4,V_j))
 
-    def _Var_R_UCB(self, action: AT_in) -> float:
+    def _Var_R_UCB(self, action: Action) -> float:
         """Produce the upper confidence bound (UCB) for Var[R|A].
 
         Args:
@@ -413,7 +413,7 @@ class UcbTunedLearner(Learner[State,Action]):
         
         return var + math.sqrt(2*ln(t)/s)
 
-    def _update_v(self, action: AT_in, reward: Reward) -> None:
+    def _update_v(self, action: Action, reward: Reward) -> None:
         """Update the sample reward variance for a given action.
 
         This algorithm is an implementation of Welford's online variance

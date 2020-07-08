@@ -140,14 +140,7 @@ class Benchmark(Generic[ST_in,AT_in], ABC):
         ...
 
 class UniversalBenchmark(Benchmark[ST_in,AT_in]):
-    """An on-policy Benchmark using unbiased samples to estimate performance statistics.
-
-    Remarks:
-        Results are unbiased only if the sequence of rounds in a given sim are stationary.
-        This doesn't mean that a sim can't be static, it simply means that there should
-        be a uniform random shuffling of all rounds performed at least once on a sim. Once
-        such a shuffling has been done then a sim can be fixed for all benchmarks after that.
-    """
+    """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
     def __init__(self, 
         simulations   : Sequence[Simulation[ST_in,AT_in]],

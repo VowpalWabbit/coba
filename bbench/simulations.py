@@ -21,10 +21,10 @@ from gzip import GzipFile
 from contextlib import closing
 from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import DefaultDict, Optional, Iterator, Iterable, Sequence, List, Union, Callable, TextIO, TypeVar, Generic, Hashable, Dict, Any, cast
+from typing import Optional, Iterable, Sequence, List, Union, Callable, TypeVar, Generic, Hashable, Dict, cast, Any
 
 import bbench.random
-from bbench.preprocessing import DefiniteMeta, OneHotEncoder, PartialMeta, InferredEncoder, NumericEncoder
+from bbench.preprocessing import DefiniteMeta, PartialMeta, OneHotEncoder, NumericEncoder
 
 #state, action, reward types
 State  = Optional[Hashable]
@@ -128,7 +128,7 @@ class LambdaSimulation(Simulation[ST_out,AT_out]):
         """
         return self._rounds
 
-    def _round_generator(self) -> Iterator[Round[ST_out,AT_out]]:
+    def _round_generator(self) -> Iterable[Round[ST_out,AT_out]]:
         """Generate rounds for this simulation."""
 
         S = self._S
@@ -243,12 +243,12 @@ class ClassificationSimulation(Simulation[State,Action]):
     @staticmethod
     def from_csv_url(
         csv_url     : str,
-        label_col   : Optional[Union[str,int]] = None,
+        label_col   : Union[None,str,int] = None,
         md5_checksum: Optional[str] = None,
-        csv_reader  : Callable[[TextIO], Iterator[List[str]]] = csv.reader,
+        csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader,
         has_header  : bool = True,
-        default_meta: DefiniteMeta = DefiniteMeta(ignore=False,label=False,encoder=InferredEncoder()),
-        column_metas: Union[Dict[int,PartialMeta],Dict[str,PartialMeta]] = cast(Dict[int,PartialMeta],{})) -> Simulation:
+        default_meta: DefiniteMeta = DefiniteMeta(),
+        column_metas: Dict[Any,PartialMeta] = {}) -> Simulation:
         """Create a ClassificationSimulation from the url to a csv formatted dataset.
 
         Args:
@@ -268,7 +268,7 @@ class ClassificationSimulation(Simulation[State,Action]):
             is_resp_content_gzip = resp.info().get('Content-Encoding') == "gzip"
             resp_content_stream  = GzipFile(fileobj=resp) if is_resp_content_gzip else resp
 
-            def decoded_lines_and_calc_checksum() -> Iterator[str]:
+            def decoded_lines_and_calc_checksum() -> Iterable[str]:
                 for line in resp_content_stream:
                     actual_md5_checksum.update(line)
                     yield line.decode('utf-8')
@@ -290,11 +290,11 @@ class ClassificationSimulation(Simulation[State,Action]):
     @staticmethod
     def from_csv_path(
         csv_path    : str,
-        label_col   : Optional[Union[str,int]] = None,
-        csv_reader  : Callable[[TextIO], Iterator[List[str]]] = csv.reader,
+        label_col   : Union[None,str,int] = None,
+        csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader,
         has_header  : bool = True,
-        default_meta: DefiniteMeta = DefiniteMeta(ignore=False,label=False,encoder=InferredEncoder()),
-        column_metas: Union[Dict[int,PartialMeta],Dict[str,PartialMeta]] = cast(Dict[int,PartialMeta],{})) -> Simulation:
+        default_meta: DefiniteMeta = DefiniteMeta(),
+        column_metas: Dict[Any,PartialMeta] = {}) -> Simulation:
         """Create a ClassificationSimulation from the path to a csv formatted file.
 
         Args:
@@ -311,11 +311,11 @@ class ClassificationSimulation(Simulation[State,Action]):
 
     @staticmethod
     def from_csv_rows(
-        csv_rows    : Iterable[List[str]],
-        label_col   : Optional[Union[str,int]] = None,
+        csv_rows    : Iterable[Sequence[str]],
+        label_col   : Union[None,str,int] = None,
         has_header  : bool = True,
-        default_meta: DefiniteMeta = DefiniteMeta(ignore=False,label=False,encoder=InferredEncoder()),
-        column_metas: Union[Dict[int,PartialMeta],Dict[str,PartialMeta]] = cast(Dict[int,PartialMeta],{})) -> Simulation:
+        default_meta: DefiniteMeta = DefiniteMeta(),
+        column_metas: Dict[Any,PartialMeta] = {}) -> Simulation:
         """Create a ClassifierSimulation from the rows contained in a csv formatted dataset.
 
         Args:
@@ -336,27 +336,27 @@ class ClassificationSimulation(Simulation[State,Action]):
         T_COL     = List[T_COL_VAL]
 
         csv_iter              = iter(csv_rows)
-        header_row: List[str] = next(csv_iter) if has_header else []
+        header: Sequence[str] = next(csv_iter) if has_header else []
 
         columns : Dict[int, T_COL       ]   = defaultdict(list)
         metas   : Dict[int, DefiniteMeta]   = defaultdict(lambda:default_meta)
         features: Dict[int, List[Hashable]] = defaultdict(list)
         labels  : Dict[int, List[Hashable]] = defaultdict(list)
 
-        label_index = header_row.index(label_col) if label_col in header_row else label_col if isinstance(label_col,int) else None  # type: ignore
+        label_index = header.index(label_col) if label_col in header else label_col if isinstance(label_col,int) else None  # type: ignore
         label_meta  = column_metas.get(label_col, column_metas.get(label_index, None)) #type: ignore
 
-        if isinstance(label_col, str) and label_col not in header_row:
+        if isinstance(label_col, str) and label_col not in header:
             raise Exception("We were unable to find the label column in the header row (or there was no header row).")
 
-        if any(map(lambda key: isinstance(key,str) and key not in header_row, column_metas)):
+        if any(map(lambda key: isinstance(key,str) and key not in header, column_metas)):
             raise Exception("We were unable to find a meta column in the header row (or there was no header row).")
 
         if label_meta is not None and label_meta.label == False:
             raise Exception("A meta entry was provided for the label column that was explicitly marked as non-label.")
 
         def to_column_index(key: Union[int,str]):
-            return header_row.index(key) if isinstance(key,str) else key
+            return header.index(key) if isinstance(key,str) else key
 
         if label_index is not None and label_meta is None:
             metas[label_index] = metas[label_index].apply(PartialMeta(label=True))
@@ -377,7 +377,7 @@ class ClassificationSimulation(Simulation[State,Action]):
         for col,m in [ (columns[i], metas[i]) for i in range(len(columns)) if not metas[i].ignore ]:
 
             #if the encoder isn't already fit we know that col is a List[str]
-            encoder = None if m.encoder.is_fit else m.encoder.fit(cast(List[str],col))
+            encoder = None if m.encoder.is_fit else m.encoder.fit(cast(Sequence[str],col))
 
             for c,f,l in [ (col[i], features[i], labels[i]) for i in range(len(col)) ]:
 
