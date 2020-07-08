@@ -4,13 +4,14 @@ This module contains the abstract interface expected for Benchmark implementatio
 module also contains several Benchmark implementations and Result data transfer class.
 
 Todo:
-    * Improve the docstring on the UniversalBenchmark
     * Add more statistics to the Stats class
     * Incorporate out of the box plots
 """
 
+import json
+
 from abc import ABC, abstractmethod
-from typing import Union, Sequence, List, Callable, Optional, Tuple, Generic, TypeVar
+from typing import Union, Sequence, List, Callable, Optional, Tuple, Generic, TypeVar, TextIO
 from itertools import islice
 
 from bbench.simulations import Simulation, State, Action
@@ -25,7 +26,7 @@ class Stats:
     @staticmethod
     def from_values(vals: Sequence[float]) -> "Stats":
         """Create a Stats class for some given sequence of values.
-        
+
         Args:
             vals: A sample of values to calculate statistics for.
         """
@@ -35,7 +36,7 @@ class Stats:
 
     def __init__(self, mean: float):
         """Instantiate a Stats class.
-        
+
         Args:
             mean: The mean for some sample of interest.
         """
@@ -99,7 +100,6 @@ class Result:
         """Pre-calculated statistics for each batch index."""
         return self._batch_stats
 
-
     @property
     def cumulative_batch_stats(self) -> Sequence[Stats]:
         """Pre-calculated statistics where batches accumulate all prior batches as you go.  """
@@ -142,11 +142,25 @@ class Benchmark(Generic[ST_in,AT_in], ABC):
 class UniversalBenchmark(Benchmark[ST_in,AT_in]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
+    @staticmethod
+    def from_config(text: TextIO) -> None:
+        """Creates a UniversalBenchmark from configuration IO.
+
+        Args:
+            text: An IO stream containing the configuration settings
+        """
+        json_objects = json.load(text)
+
+        simulations_config = json_objects["simulations"]
+        benchmark_config = json_objects["benchmark"]
+
+        raise NotImplementedError()
+
     def __init__(self, 
         simulations   : Sequence[Simulation[ST_in,AT_in]],
         n_sim_rounds  : Optional[int],
         n_batch_rounds: Union[int, Callable[[int],int]]) -> None:
-        
+
         self._simulations: Sequence[Simulation[ST_in,AT_in]]   = simulations
         self._n_sim_rounds  = n_sim_rounds
 

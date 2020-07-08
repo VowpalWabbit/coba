@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Tuple, cast
 
 from bbench.simulations import Round, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
-from bbench.preprocessing import DefiniteMeta, OneHotEncoder, Encoder, PartialMeta, StringEncoder
+from bbench.preprocessing import DefiniteMeta, NumericEncoder, OneHotEncoder, PartialMeta, StringEncoder
 
 class Simulation_Interface_Tests(ABC):
 
@@ -123,37 +123,37 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         with self.assertRaises(AssertionError): 
             ClassificationSimulation([1,1], [1])
 
-    def test_from_csv_rows_inferred_numeric(self) -> None:
+    def test_from_table_inferred_numeric(self) -> None:
 
         label_column = 'b'
-        csv_rows     = [['a','b','c'],
+        table        = [['a','b','c'],
                         ['1','2','3'],
                         ['4','5','6']]
 
-        simulation = ClassificationSimulation.from_csv_rows(csv_rows,label_column)
+        simulation = ClassificationSimulation.from_table(table,label_column)
 
         self.assert_simulation_for_data(simulation, [(1,3),(4,6)],[2,5])
 
-    def test_from_csv_rows_inferred_onehot(self) -> None:
+    def test_from_table_inferred_onehot(self) -> None:
 
         label_column = 'b'
-        csv_rows     = [['a' ,'b','c'],
+        table        = [['a' ,'b','c'],
                         ['s1','2','3'],
                         ['s2','5','6']]
 
-        simulation = ClassificationSimulation.from_csv_rows(csv_rows, label_column)
+        simulation = ClassificationSimulation.from_table(table, label_column)
 
         self.assert_simulation_for_data(simulation, [(1,3),(0,6)], [2,5])
 
-    def test_from_csv_rows_explicit_onehot(self) -> None:
+    def test_from_table_explicit_onehot(self) -> None:
 
         default_meta = DefiniteMeta(label=False, ignore = False, encoder=OneHotEncoder())
         columns_meta = {'b': PartialMeta(label=True, encoder=StringEncoder()) }
-        csv_rows     = [['a' ,'b','c'],
+        table        = [['a' ,'b','c'],
                         ['s1','2','3'],
                         ['s2','5','6']]
         
-        simulation = ClassificationSimulation.from_csv_rows(csv_rows, default_meta=default_meta, column_metas=columns_meta)
+        simulation = ClassificationSimulation.from_table(table, default_meta=default_meta, column_metas=columns_meta)
 
         self.assert_simulation_for_data(simulation, [(1,1),(0,0)], ['2','5'])
 
@@ -168,7 +168,36 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             hash(rnd.state)      #make sure these are hashable
             hash(rnd.actions[0]) #make sure these are hashable
             hash(rnd.actions[1]) #make sure these are hashable
-            self.assertEqual(len(rnd.state), 268) #type: ignore #(in this case we know rnd.state will be sizable)
+            self.assertEqual(len(cast(Tuple,rnd.state)), 268)
+            self.assertIn(0, rnd.actions)
+            self.assertIn(1, rnd.actions)
+            self.assertEqual(len(rnd.actions),2)
+            self.assertIn(1, rnd.rewards)
+            self.assertIn(0, rnd.rewards)
+            self.assertEqual(len(rnd.rewards),2)
+
+    def test_simple_from_csv(self) -> None:
+        #this test requires interet acess to download the data
+
+        location     = "http://www.openml.org/data/v1/get_csv/53999"
+        default_meta = DefiniteMeta(encoder=NumericEncoder())
+        column_metas = {
+            "class"            : PartialMeta(label=True,encoder=OneHotEncoder()), 
+            "molecule_name"    : PartialMeta(encoder=OneHotEncoder()),
+            "ID"               : PartialMeta(ignore=True),
+            "conformation_name": PartialMeta(ignore=True)
+        }
+        md5_checksum = "4fbb00ba35dd05a29be1f52b7e0faeb6"
+
+        simulation = ClassificationSimulation.from_csv(location, md5_checksum=md5_checksum, default_meta=default_meta, column_metas=column_metas)
+
+        self.assertEqual(len(simulation.rounds), 6598)
+
+        for rnd in simulation.rounds:
+            hash(rnd.state)      #make sure these are hashable
+            hash(rnd.actions[0]) #make sure these are hashable
+            hash(rnd.actions[1]) #make sure these are hashable
+            self.assertEqual(len(cast(Tuple,rnd.state)), 268)
             self.assertIn(0, rnd.actions)
             self.assertIn(1, rnd.actions)
             self.assertEqual(len(rnd.actions),2)

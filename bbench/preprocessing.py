@@ -275,7 +275,7 @@ class InferredEncoder(Encoder[Any]):
         if all(v.isnumeric() for v in values) and len(set(values)) > len(values)/2:
             return NumericEncoder(is_fit=False).fit(values)
 
-        if not all(v.isnumeric() for v in values) and len(set(values)) < 30:
+        if len(set(values)) < 200:
             return OneHotEncoder().fit(values)
 
         return StringEncoder(is_fit=False).fit(values)
