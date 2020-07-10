@@ -22,6 +22,14 @@ class Encoder(ABC, Generic[T_out]):
 
     @staticmethod
     def from_json(json_val:str) -> 'Encoder':
+        """Construct an Encoder object from JSON.
+        
+        Args:
+            json_val: Either a json string or the decoded json object.
+        
+        Returns:
+            The Encoder representation of the given JSON string or object.
+        """
 
         if json_val == "numeric" : return NumericEncoder()
         if json_val == "onehot"  : return OneHotEncoder()
@@ -306,6 +314,14 @@ class Metadata(Generic[T_ignore, T_label, T_encoder]):
 
     @staticmethod
     def from_json(json_val:Union[str, Dict[str,Any]]) -> 'Metadata':
+        """Construct a Metadata object from JSON.
+
+        Args:
+            json_val: Either a json string or the decoded json object.
+        
+        Returns:
+            The Metadata representation of the given JSON string or object.
+        """
 
         config = json.loads(json_val) if isinstance(json_val,str) else json_val
 
