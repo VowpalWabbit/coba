@@ -55,6 +55,12 @@ class StringEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
     def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence]:
         return StringEncoder(is_fit=False), ["1","2","3"], "1.23", ["1.23"]
 
+    def test_from_json(self):
+
+        encoder = Encoder.from_json("string")
+
+        self.assertIsInstance(encoder,StringEncoder)
+
     def test_is_fit_marks_as_fitted(self):
 
         encoder = StringEncoder()
@@ -66,6 +72,13 @@ class NumericEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
     def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
         return NumericEncoder(is_fit=False), ["1","2","3"], "1.23", [1.23]
 
+    def test_from_json(self):
+
+        encoder = Encoder.from_json("numeric")
+        
+        self.assertIsInstance(encoder,NumericEncoder)
+
+
     def test_is_fit_marks_as_fitted(self):
 
         encoder = NumericEncoder()
@@ -76,6 +89,13 @@ class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
     def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
         return OneHotEncoder(), ["d", "a","b","b","b","d"], "a", [1, 0, 0]
+
+    def test_from_json(self):
+
+        encoder = Encoder.from_json("onehot")
+        
+        self.assertIsInstance(encoder,OneHotEncoder)
+
 
     def test_singular_if_binary(self):
         encoder = OneHotEncoder(singular_if_binary=True).fit(["1","1","1","0","0"])
