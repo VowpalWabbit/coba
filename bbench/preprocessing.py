@@ -4,8 +4,10 @@ Remarks:
     This module is used primarily for the creation of simulations from data sets.
 """
 
+import json
+
 from abc import ABC, abstractmethod
-from typing import Sequence, List, Generic, TypeVar, Any, Optional, Hashable
+from typing import Sequence, Generic, TypeVar, Any, Optional, Hashable, Union, Dict, overload, cast
 
 T_out = TypeVar('T_out', bound=Hashable, covariant=True) 
 
@@ -17,6 +19,16 @@ class Encoder(ABC, Generic[T_out]):
         implementations are immutable. This means that the `fit` method should always
         return a new Encoder.
     """
+
+    @staticmethod
+    def from_json(json_val:str) -> 'Encoder':
+
+        if json_val == "numeric" : return NumericEncoder()
+        if json_val == "onehot"  : return OneHotEncoder()
+        if json_val == "string"  : return StringEncoder()
+        if json_val == "inferred": return InferredEncoder()
+
+        raise Exception('We were unable to determine the appropriate encoder from json')
 
     @property
     @abstractmethod
@@ -246,7 +258,7 @@ class OneHotEncoder(Encoder[int]):
 
         return encoding
 
-class InferredEncoder(Encoder[Any]):
+class InferredEncoder(Encoder[Hashable]):
     """An Encoder implementation that looks at its given `fit` values and infers the best Encoder."""
 
     @property
@@ -280,18 +292,44 @@ class InferredEncoder(Encoder[Any]):
 
         return StringEncoder(is_fit=False).fit(values)
 
-    def encode(self, value: Any) -> Sequence[Any]:
+    def encode(self, value: Any) -> Sequence[Hashable]:
         """This implementation never encodes since `fit` returns specific implementations."""
 
         raise Exception("This encoder must be fit before it can be used.")
 
-class PartialMeta:
+T_ignore  = TypeVar('T_ignore' , bound = Optional[bool]   , covariant=True) 
+T_label   = TypeVar('T_label'  , bound = Optional[bool]   , covariant=True) 
+T_encoder = TypeVar('T_encoder', bound = Optional[Encoder], covariant=True)
+
+class Metadata(Generic[T_ignore, T_label, T_encoder]):
     """A storage class for Optional meta information describing features."""
 
-    def __init__(self,
-        ignore  : Optional[bool] = None,
-        label   : Optional[bool] = None,
-        encoder : Optional[Encoder] = None) -> None:
+    @staticmethod
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'Metadata':
+
+        config = json.loads(json_val) if isinstance(json_val,str) else json_val
+
+        ignore  = None  if "ignore"  not in config else config["ignore"]
+        label   = None  if "label"   not in config else config["label" ]
+        encoder = None  if "encoder" not in config else Encoder.from_json(config["encoder"])
+
+        return Metadata(ignore,label,encoder)
+
+    @property
+    def ignore(self) -> T_ignore:
+        return self._ignore
+
+    @property
+    def label(self) -> T_label:
+        return self._label
+
+    @property
+    def encoder(self) -> T_encoder:
+        return self._encoder
+
+    
+    def __init__(self, ignore: T_ignore, label: T_label, encoder: T_encoder) -> None:
+        ...
         """Instantiate PartialMeta.
 
         Args:
@@ -299,50 +337,31 @@ class PartialMeta:
             label: Indicates if the feature should be regarded as a supervised label
             encoder: The Encoder that should be used when ingesting features.
         """
+        self._ignore  = ignore
+        self._label   = label
+        self._encoder = encoder
 
-        self.ignore  = ignore
-        self.label   = label
-        self.encoder = encoder
-
-class DefiniteMeta:
-    """A storage class for required meta information describing features."""
-
-    def __init__(self, ignore: bool = False, label: bool = False, encoder: Encoder = InferredEncoder()) -> None:
-        """Instantiate DefiniteMeta.
-
-        Args:
-            ignore: Indicates if the feature should be ignored.
-            label: Indicates if the feature should be regarded as a supervised label
-            encoder: The Encoder that should be used when ingesting features.
-        """
-
-        self.ignore  = ignore
-        self.label   = label
-        self.encoder = encoder
-
-    def clone(self) -> 'DefiniteMeta':
+    def clone(self) -> 'Metadata[T_ignore, T_label, T_encoder]':
         """Clone the current DefiniteMeta. 
 
         Returns:
             Returns a new DefiniteMeta with identical properties.
         """
 
-        return DefiniteMeta(self.ignore, self.label, self.encoder)
+        return Metadata(self.ignore, self.label, self.encoder)
 
-    def apply(self, overrides: PartialMeta) -> 'DefiniteMeta':
+    def override(self, override: 'Metadata') -> 'Metadata[T_ignore, T_label, T_encoder]':
         """Apply by overriding DefiniteMeta properties with not none PartialMeta properties.
 
         Args:
-            overrides: A PartialMeta that should be used to override properties in the DefiniteMeta.
+            override: A Metadata that should be used to override properties in the DefiniteMeta.
 
         Returns:
             Returns a new DefiniteMeta with properties overriden by not None PartialMeta properties.
         """
 
-        new = self.clone()
+        ignore  = override.ignore  if override.ignore  is not None else self.ignore
+        label   = override.label   if override.label   is not None else self.label
+        encoder = override.encoder if override.encoder is not None else self.encoder
 
-        new.ignore  = overrides.ignore  if overrides.ignore  is not None else self.ignore
-        new.label   = overrides.label   if overrides.label   is not None else self.label
-        new.encoder = overrides.encoder if overrides.encoder is not None else self.encoder
-
-        return new
+        return Metadata[T_ignore, T_label, T_encoder](ignore, label, encoder)

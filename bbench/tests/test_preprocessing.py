@@ -3,7 +3,7 @@ import unittest
 from abc import ABC, abstractmethod
 from typing import Sequence, Tuple, cast, Any
 
-from bbench.preprocessing import DefiniteMeta, Encoder, StringEncoder, NumericEncoder, OneHotEncoder, InferredEncoder, DefiniteMeta, PartialMeta
+from bbench.preprocessing import Metadata, Encoder, StringEncoder, NumericEncoder, OneHotEncoder, InferredEncoder
 
 class Encoder_Interface_Tests(ABC):
 
@@ -116,25 +116,58 @@ class InferredOneHot_Tests(Encoder_Interface_Tests, unittest.TestCase):
     def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
         return InferredEncoder(), ["a","1","2","3"], "2", [0, 1, 0, 0]
 
-class DefiniteMeta_Tests(unittest.TestCase):
+class Metadata_Tests(unittest.TestCase):
 
-    def test_init_correctly_instantiates(self):
-        expected_ignore = True
-        expected_label = True
+    def test_init_correctly_instantiates_1(self):
+        expected_ignore  = True
+        expected_label   = None
+        expected_encoder = None
+
+        actual_meta = Metadata(expected_ignore, expected_label, expected_encoder)
+
+        self.assertEqual(actual_meta.ignore , expected_ignore )
+        self.assertEqual(actual_meta.label  , expected_label  ) 
+        self.assertEqual(actual_meta.encoder, expected_encoder)
+
+    def test_init_correctly_instantiates_2(self):
+        expected_ignore  = None
+        expected_label   = True
+        expected_encoder = None
+
+        actual_meta = Metadata(expected_ignore,expected_label,expected_encoder)
+
+        self.assertEqual(actual_meta.ignore , expected_ignore )
+        self.assertEqual(actual_meta.label  , expected_label  ) 
+        self.assertEqual(actual_meta.encoder, expected_encoder)
+
+    def test_init_correctly_instantiates_3(self):
+        expected_ignore  = None
+        expected_label   = None
         expected_encoder = NumericEncoder()
 
-        actual_meta = DefiniteMeta(expected_ignore,expected_label,expected_encoder)
+        actual_meta = Metadata(expected_ignore, expected_label, expected_encoder)
+
+        self.assertEqual(actual_meta.ignore , expected_ignore )
+        self.assertEqual(actual_meta.label  , expected_label  ) 
+        self.assertEqual(actual_meta.encoder, expected_encoder)
+
+    def test_init_correctly_instantiates_4(self):
+        expected_ignore  = True
+        expected_label   = True
+        expected_encoder = NumericEncoder()
+
+        actual_meta = Metadata(expected_ignore, expected_label, expected_encoder)
 
         self.assertEqual(actual_meta.ignore , expected_ignore )
         self.assertEqual(actual_meta.label  , expected_label  ) 
         self.assertEqual(actual_meta.encoder, expected_encoder)
 
     def test_clone_correctly_clones(self):
-        expected_ignore = True
-        expected_label = True
+        expected_ignore  = True
+        expected_label   = True
         expected_encoder = NumericEncoder()
 
-        original_meta = DefiniteMeta(expected_ignore,expected_label,expected_encoder)
+        original_meta = Metadata(expected_ignore, expected_label, expected_encoder)
         clone_meta    = original_meta.clone()
 
         self.assertEqual(clone_meta.ignore , expected_ignore )
@@ -148,51 +181,27 @@ class DefiniteMeta_Tests(unittest.TestCase):
         expected_label   = False
         expected_encoder = NumericEncoder()
 
-        original_meta = DefiniteMeta(True,True,NumericEncoder())
+        original_meta = Metadata(True,True,NumericEncoder())
         
-        applied_meta = original_meta.apply(PartialMeta(ignore = expected_ignore))
+        applied_meta = original_meta.override(Metadata(expected_ignore, None, None))
         self.assertEqual(applied_meta.ignore , expected_ignore)
 
-        applied_meta = original_meta.apply(PartialMeta(label = expected_label))
+        applied_meta = original_meta.override(Metadata(None, expected_label, None))
         self.assertEqual(applied_meta.label  , expected_label) 
 
-        applied_meta = original_meta.apply(PartialMeta(encoder = expected_encoder))
+        applied_meta = original_meta.override(Metadata(None, None, expected_encoder))
         self.assertEqual(applied_meta.encoder  , expected_encoder)
 
-class PartialMeta_Tests(unittest.TestCase):
+    def test_from_json_works(self):
+        expected_ignore  = False
+        expected_label   = False
+        expected_encoder = NumericEncoder
 
-    def test_init_correctly_instantiates_1(self):
-        expected_ignore  = True
-        expected_label   = None
-        expected_encoder = None
-
-        actual_meta = PartialMeta(ignore=expected_ignore)
+        actual_meta = Metadata.from_json('{ "ignore":false, "label":false, "encoder":"numeric" }')
 
         self.assertEqual(actual_meta.ignore , expected_ignore )
         self.assertEqual(actual_meta.label  , expected_label  ) 
-        self.assertEqual(actual_meta.encoder, expected_encoder)
-
-    def test_init_correctly_instantiates_2(self):
-        expected_ignore  = None
-        expected_label   = True
-        expected_encoder = None
-
-        actual_meta = PartialMeta(label=expected_label)
-
-        self.assertEqual(actual_meta.ignore , expected_ignore )
-        self.assertEqual(actual_meta.label  , expected_label  ) 
-        self.assertEqual(actual_meta.encoder, expected_encoder)
-
-    def test_init_correctly_instantiates_3(self):
-        expected_ignore  = None
-        expected_label   = None
-        expected_encoder = NumericEncoder()
-
-        actual_meta = PartialMeta(encoder=expected_encoder)
-
-        self.assertEqual(actual_meta.ignore , expected_ignore )
-        self.assertEqual(actual_meta.label  , expected_label  ) 
-        self.assertEqual(actual_meta.encoder, expected_encoder)
+        self.assertIsInstance(actual_meta.encoder, expected_encoder)
 
 if __name__ == '__main__':
     unittest.main()

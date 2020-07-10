@@ -143,17 +143,17 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
     @staticmethod
-    def from_config(text: TextIO) -> None:
+    def from_json(json_IO: TextIO) -> None:
         """Creates a UniversalBenchmark from configuration IO.
 
         Args:
-            text: An IO stream containing the configuration settings
+            json_IO: An IO stream containing json configuration settings
         """
-        json_objects = json.load(text)
+        json_objects = json.load(json_IO)
 
-        simulations_config = json_objects["simulations"]
-        benchmark_config = json_objects["benchmark"]
-
+        simulations = json_objects["simulations"]
+        batches     = json_objects["batches"]
+    
         raise NotImplementedError()
 
     def __init__(self, 
