@@ -217,7 +217,7 @@ class Metadata_Tests(unittest.TestCase):
         expected_label   = False
         expected_encoder = NumericEncoder
 
-        actual_meta = Metadata.from_json('{ "ignore":false, "label":false, "encoder":"numeric" }')
+        actual_meta = Metadata.from_json('{ "ignore":false, "label":false, "encoding":"numeric" }')
 
         self.assertEqual(actual_meta.ignore , expected_ignore )
         self.assertEqual(actual_meta.label  , expected_label  ) 

@@ -65,6 +65,25 @@ class Round_Tests(unittest.TestCase):
     def test_rewards_correct(self) -> None:
         self.assertSequenceEqual([1, 0], Round(None, [1, 2], [1, 0]).rewards)
 
+class Simulation_Tests(unittest.TestCase):
+
+    def test_from_json(self):
+        json_val = ''' {
+            "seed": 1283,
+            "type": "classification",
+            "from": {
+                "format"          : "table",
+                "table"           : [["a","b","c"], ["s1","2","3"], ["s2","5","6"]],
+                "has_header"      : true,
+                "column_default"  : { "ignore":false, "label":false, "encoding":"onehot" },
+                "column_overrides": { "b": { "label":true, "encoding":"string" } }
+            }
+        } '''
+
+        simulation = Simulation.from_json(json_val)
+
+        self.assertEqual(len(simulation.rounds), 2)
+
 class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
     def _make_simulation(self) -> Tuple[Simulation, List[Round]]:
         
@@ -204,6 +223,20 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             self.assertIn(1, rnd.rewards)
             self.assertIn(0, rnd.rewards)
             self.assertEqual(len(rnd.rewards),2)
+
+    def test_from_json_table(self) -> None:
+        
+        json_val = '''{
+            "format"          : "table",
+            "table"           : [["a","b","c"], ["s1","2","3"], ["s2","5","6"]],
+            "has_header"      : true,
+            "column_default"  : { "ignore":false, "label":false, "encoding":"onehot" },
+            "column_overrides": { "b": { "label":true, "encoding":"string" } }
+        }'''
+
+        simulation = ClassificationSimulation.from_json(json_val)
+
+        self.assert_simulation_for_data(simulation, [(1,1),(0,0)], ['2','5'])
 
 class MemorySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 

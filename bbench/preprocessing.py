@@ -318,18 +318,22 @@ class Metadata(Generic[T_ignore, T_label, T_encoder]):
 
         Args:
             json_val: Either a json string or the decoded json object.
-        
+
         Returns:
             The Metadata representation of the given JSON string or object.
         """
 
         config = json.loads(json_val) if isinstance(json_val,str) else json_val
 
-        ignore  = None  if "ignore"  not in config else config["ignore"]
-        label   = None  if "label"   not in config else config["label" ]
-        encoder = None  if "encoder" not in config else Encoder.from_json(config["encoder"])
+        ignore  = None if "ignore"   not in config else config["ignore"]
+        label   = None if "label"    not in config else config["label" ]
+        encoder = None if "encoding" not in config else Encoder.from_json(config["encoding"])
 
         return Metadata(ignore,label,encoder)
+
+    @staticmethod
+    def default() -> 'Metadata[bool,bool,Encoder]':
+        return Metadata(False,False,InferredEncoder())
 
     @property
     def ignore(self) -> T_ignore:

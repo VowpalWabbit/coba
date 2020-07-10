@@ -24,7 +24,7 @@ from collections import defaultdict
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable, Sequence, List, Union, Callable, TypeVar, Generic, Hashable, Dict, cast, Any, ContextManager, IO
 
-import bbench.random
+from bbench import random as cb_random
 from bbench.preprocessing import Metadata, OneHotEncoder, NumericEncoder, InferredEncoder, Encoder
 
 #state, action, reward types
@@ -78,6 +78,29 @@ class Round(Generic[ST_out,AT_out]):
 class Simulation(Generic[ST_out,AT_out], ABC):
     """The simulation interface."""
 
+    @staticmethod
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'Simulation':
+        """Construct a Simulation object from JSON.
+
+        Args:
+            json_val: Either a json string or the decoded json object.
+
+        Returns:
+            The Simulation representation of the given JSON string or object.
+        """
+
+        config = json.loads(json_val) if isinstance(json_val,str) else json_val
+
+        no_shuffle  : Callable[[Simulation], Simulation] = lambda sim: sim
+        seed_shuffle: Callable[[Simulation], Simulation] = lambda sim: ShuffleSimulation(sim, config["seed"])
+
+        shuffler = no_shuffle if "seed" not in config else seed_shuffle
+
+        if config["type"] == "classification":
+            return  shuffler(ClassificationSimulation.from_json(config["from"]))
+
+        raise Exception("We were unable to recognize the provided simulation type")
+
     @property
     @abstractmethod
     def rounds(self) -> Sequence[Round[ST_out,AT_out]]:
@@ -95,7 +118,7 @@ class Simulation(Generic[ST_out,AT_out], ABC):
 
 class LambdaSimulation(Simulation[ST_out,AT_out]):
     """A Simulation created from lambda functions that generate states, actions and rewards.
-    
+
     Remarks:
         This implementation is useful for creating simulations from defined distributions.
     """
@@ -169,29 +192,29 @@ class MemorySimulation(Simulation[ST_out,AT_out]):
 
 class ShuffleSimulation(Simulation[ST_out,AT_out]):
     """A simulation which created from an existing simulation by shuffling rounds.
-    
+
     Remarks:
         Shuffling is applied one time upon creation and after that round order is fixed.
         Shuffling also does not change the original simulation's round order or copy the
         original rounds in memory. Shuffling is guaranteed to be deterministic according
         to seed regardless of the local Python execution environment.
     """
-    
+
     def __init__(self, simulation: Simulation[ST_out,AT_out], seed: Optional[int] = None):
         """Instantiate a ShuffleSimulation
-        
+
         Args:
             simulation: The simulation we which to shuffle round order for.
             seed: The seed we wish to use in determining the shuffle order.
         """
 
-        bbench.random.seed(seed)
-        self._rounds = bbench.random.shuffle(simulation.rounds)
-    
+        cb_random.seed(seed)
+        self._rounds = cb_random.shuffle(simulation.rounds)
+
     @property
     def rounds(self) -> Sequence[Round[ST_out,AT_out]]:
         """The rounds in this simulation.
-        
+
         Remarks:
             See the Simulation base class for more information.
         """
@@ -215,18 +238,75 @@ class ClassificationSimulation(Simulation[State,Action]):
     """
 
     @staticmethod
-    def from_json(json_IO:str) -> Simulation:
-        config = json.loads(json_IO)
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> Simulation:
+        """Construct a ClassificationSimulation object from JSON.
 
-        return ClassificationSimulation.from_openml(config["id"])
+        Args:
+            json_val: Either a json string or the decoded json object.
 
-        #if config["format"] == "openml":
-        #    return ClassificationSimulation.from_openml(config["id"])
+        Returns:
+            The ClassificationSimulation representation of the given JSON string or object.
+        """
 
-        #if config["format"] == "csv":
-        #    default_meta = DefiniteMeta()
+        config = json.loads(json_val) if isinstance(json_val,str) else json_val
 
+        if config["format"] == "openml":
+            return ClassificationSimulation.from_openml(config["id"])
 
+        if config["format"] == "csv":
+            
+            location    : str                         = config["location"]
+            md5_checksum: Optional[str]               = None
+            has_header  : bool                        = True
+            default_meta: Metadata[bool,bool,Encoder] = Metadata.default()
+            columns_meta: Dict[Any, Metadata]         = {}
+
+            if "md5_checksum" in config:
+                md5_checksum = config["md5_checksum"]
+
+            if "has_header" in config:
+                has_header = config["has_header"]
+
+            if "column_default" in config:
+                default_meta = Metadata.from_json(config["column_default"])
+
+            if "column_overrides" in config:
+                for key,value in config["column_overrides"].items():
+                    columns_meta[key] = Metadata.from_json(value)
+
+            return ClassificationSimulation.from_csv(
+                location     = location,
+                md5_checksum = md5_checksum,
+                has_header   = has_header,
+                default_meta = default_meta,
+                columns_meta = columns_meta
+            )
+
+        if config["format"] == "table":
+
+            table       : Iterable[Sequence[str]]     = config["table"]
+            has_header  : bool                        = True
+            default_meta: Metadata[bool,bool,Encoder] = Metadata.default()
+            columns_meta: Dict[Any, Metadata]         = {}
+
+            if "has_header" in config:
+                has_header = config["has_header"]
+
+            if "column_default" in config:
+                default_meta = Metadata.from_json(config["column_default"])
+
+            if "column_overrides" in config:
+                for key,value in config["column_overrides"].items():
+                    columns_meta[key] = Metadata.from_json(value)
+
+            return ClassificationSimulation.from_table(
+                table        = table,
+                has_header   = has_header,
+                default_meta = default_meta,
+                columns_meta = columns_meta
+            )
+
+        raise Exception("We were unable to recognize the provided data format.")
 
     @staticmethod
     def from_openml(data_id:int) -> Simulation:
@@ -262,7 +342,7 @@ class ClassificationSimulation(Simulation[State,Action]):
         md5_checksum: Optional[str] = None,
         csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader,
         has_header  : bool = True,
-        default_meta: Metadata[bool,bool,Encoder] = Metadata(False,False,InferredEncoder()),
+        default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
         columns_meta: Dict[Any,Metadata] = {}) -> Simulation:
         """Create a ClassificationSimulation given the location of a csv formatted dataset.
 
@@ -319,7 +399,7 @@ class ClassificationSimulation(Simulation[State,Action]):
         table       : Iterable[Sequence[str]],
         label_col   : Union[None,str,int] = None,
         has_header  : bool = True,
-        default_meta: Metadata[bool,bool,Encoder] = Metadata(False,False,InferredEncoder()),
+        default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
         columns_meta: Dict[Any,Metadata] = {}) -> Simulation:
         """Create a ClassifierSimulation from the rows contained in a csv formatted dataset.
 
@@ -419,7 +499,7 @@ class ClassificationSimulation(Simulation[State,Action]):
     @property
     def rounds(self) -> Sequence[Round[State,Action]]:
         """The rounds in this simulation.
-        
+
         Remarks:
             See the Simulation base class for more information.
         """
