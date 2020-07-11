@@ -250,16 +250,17 @@ class ClassificationSimulation(Simulation[State,Action]):
 
         config = json.loads(json_val) if isinstance(json_val,str) else json_val
 
+        has_header  : bool                        = True
+        default_meta: Metadata[bool,bool,Encoder] = Metadata.default()
+        columns_meta: Dict[Any, Metadata]         = {}
+
         if config["format"] == "openml":
             return ClassificationSimulation.from_openml(config["id"])
 
         if config["format"] == "csv":
             
-            location    : str                         = config["location"]
-            md5_checksum: Optional[str]               = None
-            has_header  : bool                        = True
-            default_meta: Metadata[bool,bool,Encoder] = Metadata.default()
-            columns_meta: Dict[Any, Metadata]         = {}
+            location    : str           = config["location"]
+            md5_checksum: Optional[str] = None
 
             if "md5_checksum" in config:
                 md5_checksum = config["md5_checksum"]
@@ -268,7 +269,7 @@ class ClassificationSimulation(Simulation[State,Action]):
                 has_header = config["has_header"]
 
             if "column_default" in config:
-                default_meta = Metadata.from_json(config["column_default"])
+                default_meta = cast(Metadata[bool,bool,Encoder],Metadata.from_json(config["column_default"]))
 
             if "column_overrides" in config:
                 for key,value in config["column_overrides"].items():
@@ -284,16 +285,13 @@ class ClassificationSimulation(Simulation[State,Action]):
 
         if config["format"] == "table":
 
-            table       : Iterable[Sequence[str]]     = config["table"]
-            has_header  : bool                        = True
-            default_meta: Metadata[bool,bool,Encoder] = Metadata.default()
-            columns_meta: Dict[Any, Metadata]         = {}
+            table: Iterable[Sequence[str]] = config["table"]
 
             if "has_header" in config:
                 has_header = config["has_header"]
 
             if "column_default" in config:
-                default_meta = Metadata.from_json(config["column_default"])
+                default_meta = cast(Metadata[bool,bool,Encoder],Metadata.from_json(config["column_default"]))
 
             if "column_overrides" in config:
                 for key,value in config["column_overrides"].items():
