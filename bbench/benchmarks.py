@@ -9,9 +9,10 @@ Todo:
 """
 
 import json
+import collections
 
 from abc import ABC, abstractmethod
-from typing import Union, Sequence, List, Callable, Optional, Tuple, Generic, TypeVar, TextIO
+from typing import Union, Sequence, List, Callable, Optional, Tuple, Generic, TypeVar, Dict, Any
 from itertools import islice
 
 from bbench.simulations import Simulation, State, Action
@@ -143,37 +144,49 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
     @staticmethod
-    def from_json(json_IO: TextIO) -> None:
-        """Creates a UniversalBenchmark from configuration IO.
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> None:
+        """Create a UniversalBenchmark from configuration IO.
 
         Args:
-            json_IO: An IO stream containing json configuration settings
+            json_val: Either a json string or the decoded json object.
+
+        Returns:
+            The UniversalBenchmark representation of the given JSON string or object.
         """
-        json_objects = json.load(json_IO)
+
+        config = json.load(json_val)
 
         simulations = json_objects["simulations"]
         batches     = json_objects["batches"]
 
-        
+        simulations_is_singular = isinstance(config["simulations"], dict)
+        simulation_configs = [ config["simulations"] ] if simulations_is_singular else config["simulations"]
 
+        simulations = [ Simulation.from_json(simulation_config) for sim_config in simulation_configs ]
+        batches     = json_objects["batches"]
     
-        raise NotImplementedError()
+        return UniversalBenchmark(simulations, batches)
 
     def __init__(self, 
-        simulations   : Sequence[Simulation[ST_in,AT_in]],
-        n_sim_rounds  : Optional[int],
-        n_batch_rounds: Union[int, Callable[[int],int]]) -> None:
+        simulations: Sequence[Simulation[ST_in,AT_in]],
+        batches    : Union[int, Sequence[int], Callable[[int],int]] = 1) -> None:
+        """Instantiate a UniversalBenchmark.
+        
+        Args:
+            simulations: A sequence of simulations to benchmark against
+            batches: Indicates how to batch evaluations and learning. If batches is an integer
+                then all simulations will run to completion with batch sizes of the given int.
+                If batches is a sequence of integers then `sum(batches)` rounds will be pulled
+                from each simulation and batched according to each int in the sequence. If
+                batches is a function of batch_index then it runs until the simulation ends
+                with the size of each batch_index equal to the given `func(batch_index)`.
+        """
 
-        self._simulations: Sequence[Simulation[ST_in,AT_in]]   = simulations
-        self._n_sim_rounds  = n_sim_rounds
-
-        if isinstance(n_batch_rounds, int):
-            self._n_batch_rounds = lambda i: n_batch_rounds
-        else:
-            self._n_batch_rounds = n_batch_rounds
+        self._simulations = simulations
+        self._batches     = batches
 
     def evaluate(self, learner_factory: Callable[[],Learner[ST_in,AT_in]]) -> Result:
-        """Collect observations of a Learner playing the benchmark's simulations to create Results.
+        """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
             learner_factory: See the base class for more information.
@@ -184,13 +197,22 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
 
         results:List[Tuple[int,int,float]] = []
 
+        batches_is_int = isinstance(self._batches,int)
+        batches_is_seq = isinstance(self._batches,collections.Sequence)
+
+        #if batches is either an int or function don't limit rounds
+        n_rounds = sum(self._batches) if batches_is_seq else None
+
+        def batch_size(i:int) -> int:
+            return self._batches if batches_is_int else self._batches[i] if batches_is_seq else self._batches(i)
+
         for sim_index, sim in enumerate(self._simulations):
 
             sim_learner   = learner_factory()
             batch_index   = 0
             batch_samples = []
 
-            for r in islice(sim.rounds, self._n_sim_rounds):
+            for r in islice(sim.rounds, n_rounds):
 
                 choice = sim_learner.choose(r.state, r.actions) 
                 state  = r.state
@@ -199,7 +221,7 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
 
                 batch_samples.append((state, action, reward))
 
-                if len(batch_samples) == self._n_batch_rounds(batch_index):
+                if len(batch_samples) == batch_size(batch_index):
 
                     for (state,action,reward) in batch_samples:
                         sim_learner.learn(state,action,reward)
