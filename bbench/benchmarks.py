@@ -144,7 +144,7 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> None:
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'UniversalBenchmark':
         """Create a UniversalBenchmark from configuration IO.
 
         Args:
@@ -154,16 +154,16 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
             The UniversalBenchmark representation of the given JSON string or object.
         """
 
-        config = json.load(json_val)
+        if isinstance(json_val, str):
+            config = json.loads(json_val)
+        else:
+            config = json_val
 
-        simulations = json_objects["simulations"]
-        batches     = json_objects["batches"]
+        is_singular = isinstance(config["simulations"], dict)
+        sim_configs = config["simulations"] if not is_singular else [ config["simulations"] ]
 
-        simulations_is_singular = isinstance(config["simulations"], dict)
-        simulation_configs = [ config["simulations"] ] if simulations_is_singular else config["simulations"]
-
-        simulations = [ Simulation.from_json(simulation_config) for sim_config in simulation_configs ]
-        batches     = json_objects["batches"]
+        simulations = [ Simulation.from_json(sim_config) for sim_config in sim_configs ]
+        batches     = config["batches"]
     
         return UniversalBenchmark(simulations, batches)
 
@@ -197,14 +197,8 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
 
         results:List[Tuple[int,int,float]] = []
 
-        batches_is_int = isinstance(self._batches,int)
-        batches_is_seq = isinstance(self._batches,collections.Sequence)
-
-        #if batches is either an int or function don't limit rounds
-        n_rounds = sum(self._batches) if batches_is_seq else None
-
-        def batch_size(i:int) -> int:
-            return self._batches if batches_is_int else self._batches[i] if batches_is_seq else self._batches(i)
+        #if batches is a sequence if ints limit to the batch sum else don't limit the rounds
+        n_rounds = sum(self._batches) if isinstance(self._batches,collections.Sequence) else None
 
         for sim_index, sim in enumerate(self._simulations):
 
@@ -221,7 +215,7 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
 
                 batch_samples.append((state, action, reward))
 
-                if len(batch_samples) == batch_size(batch_index):
+                if len(batch_samples) == self._batch_size(batch_index):
 
                     for (state,action,reward) in batch_samples:
                         sim_learner.learn(state,action,reward)
@@ -235,3 +229,9 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
                 results.append((sim_index, batch_index, reward))
 
         return Result(results)
+
+    def _batch_size(self, i:int) -> int:
+        if isinstance(self._batches, int                 ): return self._batches
+        if isinstance(self._batches, collections.Sequence): return self._batches[i]
+        if callable  (self._batches                      ): return self._batches(i)
+        raise Exception("We were unable to determine batch size from the supplied parameters")
