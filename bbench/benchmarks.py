@@ -200,12 +200,6 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
         #if batches is a sequence if ints limit to the batch sum else don't limit the rounds
         n_rounds = sum(self._batches) if isinstance(self._batches,collections.Sequence) else None
 
-        def batch_size(i:int) -> int:
-            if isinstance(self._batches, int                 ): return self._batches
-            if isinstance(self._batches, collections.Sequence): return self._batches[i]
-            if callable  (self._batches                      ): return self._batches(i)
-            raise Exception("We were unable to determine batch size from the supplied parameters")
-
         for sim_index, sim in enumerate(self._simulations):
 
             sim_learner   = learner_factory()
@@ -221,7 +215,7 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
 
                 batch_samples.append((state, action, reward))
 
-                if len(batch_samples) == batch_size(batch_index):
+                if len(batch_samples) == self._batch_size(batch_index):
 
                     for (state,action,reward) in batch_samples:
                         sim_learner.learn(state,action,reward)
@@ -235,3 +229,9 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
                 results.append((sim_index, batch_index, reward))
 
         return Result(results)
+
+    def _batch_size(self, i:int) -> int:
+        if isinstance(self._batches, int                 ): return self._batches
+        if isinstance(self._batches, collections.Sequence): return self._batches[i]
+        if callable  (self._batches                      ): return self._batches(i)
+        raise Exception("We were unable to determine batch size from the supplied parameters")
