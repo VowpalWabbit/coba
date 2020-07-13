@@ -208,10 +208,9 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
             for r in islice(sim.rounds, n_rounds):
 
-                state  = r.state
-                action = sim_learner.choose(r.state, r.actions)
+                index = sim_learner.choose(r.state, r.actions)
 
-                batch_choices.append((state, action))
+                batch_choices.append(r.choices[index])
                 
                 if len(batch_choices) == self._batch_size(batch_index):
                     for (state,action,reward) in sim.rewards(batch_choices):

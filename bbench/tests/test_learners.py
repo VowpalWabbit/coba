@@ -32,25 +32,24 @@ class Learner_Interface_Tests(ABC):
             for state in states:
                 for _ in range(self._n_samples()):
                     choice = learner.choose(state, actions)
-                    cast(unittest.TestCase, self).assertIn(choice, actions)
+                    cast(unittest.TestCase, self).assertIn(choice, range(len(actions)))
 
     def test_learn_throws_no_exceptions(self) -> None:
         for states,actions in self._states_actions_pairs():
             learner = self._make_learner()
             for state in states:
                 try:
-                    learner.learn(state, learner.choose(state,actions), random.uniform(-2,2))
+                    learner.learn(state, actions[learner.choose(state,actions)], random.uniform(-2,2))
                 except:
                     cast(unittest.TestCase, self).fail("An exception was raised on a call to learn.")
 
 class RandomLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
-        a = RandomLearner()
-        return a
+        return RandomLearner()
 
 class LambdaLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
-        return LambdaLearner(lambda s,a: a[0], lambda s,a,r:None)
+        return LambdaLearner(lambda s,a: 0, lambda s,a,r:None)
 
 class EpsilonLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:

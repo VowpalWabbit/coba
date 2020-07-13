@@ -36,13 +36,13 @@ class Simulation_Interface_Tests(ABC):
 
         simulation, expected_rounds, expected_rewards = self._make_simulation()
 
-        actual_rounds  = simulation.rounds
+        actual_rounds = simulation.rounds
 
         cast(unittest.TestCase, self).assertEqual(len(actual_rounds), len(expected_rounds))
 
         for actual_round, expected_round, expected_reward in zip(actual_rounds, expected_rounds, expected_rewards):
 
-            actual_reward = simulation.rewards(actual_round.state_actions)
+            actual_reward = simulation.rewards(actual_round.choices)
 
             cast(unittest.TestCase, self).assertEqual(actual_round.state, expected_round.state)
             cast(unittest.TestCase, self).assertCountEqual(actual_round.actions, expected_round.actions)
@@ -54,8 +54,8 @@ class Simulation_Interface_Tests(ABC):
 
         for round1,round2 in zip(simulation.rounds, simulation.rounds):
 
-            round1_rewards = simulation.rewards(round1.state_actions)
-            round2_rewards = simulation.rewards(round2.state_actions)
+            round1_rewards = simulation.rewards(round1.choices)
+            round2_rewards = simulation.rewards(round2.choices)
 
             cast(unittest.TestCase, self).assertEqual(round1.state, round2.state)
             cast(unittest.TestCase, self).assertSequenceEqual(round1.actions, round2.actions)
@@ -89,7 +89,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         states_actions_rewards = zip(states, action_sets, reward_sets)
 
-        expected_rounds  = list(map(Round[int,int],states,action_sets))
+        expected_rounds  = list(map(Round, states, action_sets))
         expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
 
         return ClassificationSimulation([1,2], [2,1]), expected_rounds, expected_rewards
@@ -115,7 +115,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             actual_state   = r.state
             actual_actions = r.actions
             
-            actual_reward  = simulation.rewards(r.state_actions)
+            actual_reward  = simulation.rewards(r.choices)
 
             self.assertEqual(actual_state, expected_state)            
             self.assertSequenceEqual(actual_actions, expected_actions)
@@ -202,7 +202,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             self.assertIn(1, rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
-            actual_rewards  = [ rwd[2] for rwd in simulation.rewards(rnd.state_actions) ]
+            actual_rewards  = [ rwd[2] for rwd in simulation.rewards(rnd.choices) ]
 
             self.assertIn(1, actual_rewards)
             self.assertIn(0, actual_rewards)
@@ -234,7 +234,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             self.assertIn(1, rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
-            actual_rewards = [ rwd[2] for rwd in simulation.rewards(rnd.state_actions) ]
+            actual_rewards = [ rwd[2] for rwd in simulation.rewards(rnd.choices) ]
 
             self.assertIn(1, actual_rewards)
             self.assertIn(0, actual_rewards)
@@ -280,7 +280,7 @@ class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         
         states_actions_rewards = zip(states, action_sets, reward_sets)
 
-        expected_rounds  = list(map(Round[int,int],states,action_sets))
+        expected_rounds  = list(map(Round,states,action_sets))
         expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
 
         def S(i:int) -> int:
@@ -318,7 +318,7 @@ class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
         states_actions_rewards = zip(states, action_sets, reward_sets)
 
-        expected_rounds  = list(map(Round[int,int],states,action_sets))
+        expected_rounds  = list(map(Round,states,action_sets))
         expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
 
         simulation = MemorySimulation(states, action_sets, reward_sets)

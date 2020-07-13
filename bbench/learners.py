@@ -18,14 +18,14 @@ from collections import defaultdict
 from bbench.simulations import State, Action, Reward
 from bbench.utilities import check_vowpal_support
 
-_S = TypeVar('_S', bound=State)
-_A = TypeVar('_A', bound=Action)
+_S_in = TypeVar('_S_in', bound=State , contravariant=True)
+_A_in = TypeVar('_A_in', bound=Action, contravariant=True)
 
-class Learner(Generic[_S,_A], ABC):
+class Learner(Generic[_S_in, _A_in], ABC):
     """The interface for Learner implementations."""
 
     @abstractmethod
-    def choose(self, state: _S, actions: Sequence[_A]) -> _A:
+    def choose(self, state: _S_in, actions: Sequence[_A_in]) -> int:
         """Choose which action to take.
 
         Args:
@@ -47,7 +47,7 @@ class Learner(Generic[_S,_A], ABC):
         ...
     
     @abstractmethod
-    def learn(self, state: _S, action: _A, reward: Reward) -> None:
+    def learn(self, state: _S_in, action: _A_in, reward: Reward) -> None:
         """Learn about the result of an action that was taken in a state.
 
         Args:
@@ -65,12 +65,12 @@ class Learner(Generic[_S,_A], ABC):
         """
         ...
 
-class LambdaLearner(Learner[_S,_A]):
+class LambdaLearner(Learner[_S_in, _A_in]):
     """A Learner implementation that chooses and learns according to provided lambda functions."""
 
     def __init__(self, 
-                 choose: Callable[[_S,Sequence[_A]],_A], 
-                 learn : Optional[Callable[[_S,_A,Reward],None]] = None) -> None:
+                 choose: Callable[[_S_in, Sequence[_A_in]], int], 
+                 learn : Optional[Callable[[_S_in, _A_in, Reward],None]] = None) -> None:
         """Instantiate LambdaLearner.
 
         Args:
@@ -81,7 +81,7 @@ class LambdaLearner(Learner[_S,_A]):
         self._choose = choose
         self._learn  = learn
 
-    def choose(self, state: _S, actions: Sequence[_A]) -> _A:
+    def choose(self, state: _S_in, actions: Sequence[_A_in]) -> int:
         """Choose via the provided lambda function.
 
         Args:
@@ -94,7 +94,7 @@ class LambdaLearner(Learner[_S,_A]):
 
         return self._choose(state, actions)
 
-    def learn(self, state: _S, action: _A, reward: Reward) -> None:
+    def learn(self, state: _S_in, action: _A_in, reward: Reward) -> None:
         """Learn via the optional lambda function or learn nothing without a lambda function.
 
         Args:
@@ -107,10 +107,10 @@ class LambdaLearner(Learner[_S,_A]):
         else:
             self._learn(state,action,reward)
 
-class RandomLearner(Learner[State,Action]):
+class RandomLearner(Learner[State, Action]):
     """A Learner implementation that selects an action at random and learns nothing."""
 
-    def choose(self, state: State, actions: Sequence[Action]) -> Action:
+    def choose(self, state: State, actions: Sequence[Action]) -> int:
         """Choose a random action from the action set.
         
         Args:
@@ -120,7 +120,7 @@ class RandomLearner(Learner[State,Action]):
         Returns:
             The index of the selected action. See the base class for more information.
         """
-        return actions[random.randint(0,len(actions)-1)]
+        return random.randint(0, len(actions)-1)
 
     def learn(self, state: State, action: Action, reward: Reward) -> None:
         """Learns nothing.
@@ -133,7 +133,7 @@ class RandomLearner(Learner[State,Action]):
 
         pass
 
-class EpsilonLearner(Learner[State,Action]):
+class EpsilonLearner(Learner[State, Action]):
     """A learner using epsilon-greedy searching while smoothing observations into a state/state-action lookup table.
 
     Remarks:
@@ -154,7 +154,7 @@ class EpsilonLearner(Learner[State,Action]):
         self._N: Dict[Tuple[State, Action], int            ] = defaultdict(lambda: int(0 if default is None else 1))
         self._Q: Dict[Tuple[State, Action], Optional[float]] = defaultdict(lambda: default)
 
-    def choose(self, state: State, actions: Sequence[Action]) -> Action:
+    def choose(self, state: State, actions: Sequence[Action]) -> int:
         """Choose greedily with probability 1-epsilon. Choose a randomly with probability epsilon.
         
         Args:
@@ -164,14 +164,14 @@ class EpsilonLearner(Learner[State,Action]):
         Returns:
             The index of the selected action. See the base class for more information.
         """
-        if(random.random() <= self._epsilon): return actions[random.randint(0,len(actions)-1)]
+        if(random.random() <= self._epsilon): return random.randint(0,len(actions)-1)
 
         keys        = [ self._key(state,action) for action in actions ]
         values      = [ self._Q[key] for key in keys ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
 
-        return actions[random.choice(max_indexes)]
+        return random.choice(max_indexes)
 
     def learn(self, state: State, action: Action, reward: Reward) -> None:
         """Smooth the observed reward into our current estimate of either E[R|S,A] or E[R|A].
@@ -193,7 +193,7 @@ class EpsilonLearner(Learner[State,Action]):
     def _key(self, state: State, action: Action) -> Tuple[State,Action]:
         return (state, action) if self._include_state else (None, action)
 
-class VowpalLearner(Learner[State,Action]):
+class VowpalLearner(Learner[State, Action]):
     """A learner using Vowpal Wabbit's contextual bandit command line interface.
 
     Remarks:
@@ -239,7 +239,7 @@ class VowpalLearner(Learner[State,Action]):
         self._actions: Sequence[State]                  = []
         self._prob   : Dict[Tuple[State,Action], float] = {}
 
-    def choose(self, state: State, actions: Sequence[Action]) -> Action:
+    def choose(self, state: State, actions: Sequence[Action]) -> int:
         """Choose an action according to the explor-exploit parameters passed into the contructor.
 
         Args:
@@ -268,7 +268,7 @@ class VowpalLearner(Learner[State,Action]):
 
         self._prob[(state, actions[index])] = pmf[index]
 
-        return actions[index]
+        return index
 
     def learn(self, state: State, action: Action, reward: Reward) -> None:
         """Learn from the obsered reward for the given state action pair.
@@ -307,7 +307,7 @@ class VowpalLearner(Learner[State,Action]):
         #During runtime this cast will do nothing.
         return " ". join(map(str, cast(tuple,state)))
 
-class UcbTunedLearner(Learner[State,Action]):
+class UcbTunedLearner(Learner[State, Action]):
     """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
     
     References:
@@ -324,7 +324,7 @@ class UcbTunedLearner(Learner[State,Action]):
         self._m     : Dict[Action,float] = {}
         self._w     : Dict[Action,Tuple[int,float,float]] = {}
     
-    def choose(self, state: State, actions: Sequence[Action]) -> Action:
+    def choose(self, state: State, actions: Sequence[Action]) -> int:
         """Choose an action greedily according to the upper confidence bound estimates.
 
         Args:
@@ -336,16 +336,14 @@ class UcbTunedLearner(Learner[State,Action]):
         """
         #we initialize by playing every action once
         if self._init_a < len(actions):
-            i = self._init_a
             self._init_a += 1
+            return self._init_a-1
+
         else:
             values      = [ self._m[a] + self._Avg_R_UCB(a) if a in self._m else None for a in actions ]
             max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
             max_indexes = [i for i in range(len(values)) if values[i]==max_value]
-
-            i = random.choice(max_indexes)
-
-        return actions[i]
+            return random.choice(max_indexes)
         
     def learn(self, state: State, action: Action, reward: Reward) -> None:
         """Smooth the observed reward into our current estimate of E[R|S,A].
