@@ -6,9 +6,9 @@ This script requires that the matplotlib package be installed.
 import random
 import matplotlib.pyplot as plt
 
-from bbench.simulations import LambdaSimulation
-from bbench.learners import RandomLearner, EpsilonLearner, UcbTunedLearner
-from bbench.benchmarks import UniversalBenchmark
+from coba.simulations import LambdaSimulation
+from coba.learners import RandomLearner, EpsilonLearner, UcbTunedLearner
+from coba.benchmarks import UniversalBenchmark
 
 #define a simulation
 simulation = LambdaSimulation(50, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.uniform(a-2, a+2))

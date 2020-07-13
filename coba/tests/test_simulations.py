@@ -3,8 +3,8 @@ import unittest
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple, cast, Dict
 
-from bbench.simulations import State, Action, Reward, Round, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
-from bbench.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata
+from coba.simulations import State, Action, Reward, Round, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
+from coba.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata
 
 class Round_Tests(unittest.TestCase):
 

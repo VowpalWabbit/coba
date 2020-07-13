@@ -3,9 +3,9 @@ This is an example script that creates a ClassificationSimulation using the cove
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
-from bbench.simulations import ClassificationSimulation, ShuffleSimulation
-from bbench.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
-from bbench.benchmarks import UniversalBenchmark
+from coba.simulations import ClassificationSimulation, ShuffleSimulation
+from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
+from coba.benchmarks import UniversalBenchmark
 
 import matplotlib.pyplot as plt
 

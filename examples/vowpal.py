@@ -5,9 +5,9 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 
 import random
 
-from bbench.simulations import LambdaSimulation
-from bbench.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
-from bbench.benchmarks import UniversalBenchmark
+from coba.simulations import LambdaSimulation
+from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
+from coba.benchmarks import UniversalBenchmark
 
 import matplotlib.pyplot as plt
 

@@ -3,7 +3,7 @@ import unittest
 from abc import ABC, abstractmethod
 from typing import Sequence, Tuple, cast, Any
 
-from bbench.preprocessing import Metadata, Encoder, StringEncoder, NumericEncoder, OneHotEncoder, InferredEncoder
+from coba.preprocessing import Metadata, Encoder, StringEncoder, NumericEncoder, OneHotEncoder, InferredEncoder
 
 class Encoder_Interface_Tests(ABC):
 

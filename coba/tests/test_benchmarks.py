@@ -3,9 +3,9 @@ import unittest
 
 from math import isnan
 
-from bbench.simulations import LambdaSimulation, Simulation
-from bbench.learners import LambdaLearner
-from bbench.benchmarks import Stats, Result, UniversalBenchmark
+from coba.simulations import LambdaSimulation, Simulation
+from coba.learners import LambdaLearner
+from coba.benchmarks import Stats, Result, UniversalBenchmark
 
 class Stats_Tests(unittest.TestCase):
     def test_from_values_multi_mean_is_correct_1(self):

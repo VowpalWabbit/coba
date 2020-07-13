@@ -15,8 +15,8 @@ from abc import ABC, abstractmethod
 from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload
 from itertools import islice
 
-from bbench.simulations import Simulation, State, Action
-from bbench.learners import Learner
+from coba.simulations import Simulation, State, Action
+from coba.learners import Learner
 
 _S = TypeVar('_S', bound=State)
 _A = TypeVar('_A', bound=Action)

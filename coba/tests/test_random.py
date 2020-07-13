@@ -1,13 +1,13 @@
 import time
 import unittest
 
-import bbench.random
+import coba.random
 
 class Random_Tests(unittest.TestCase):
 
     def test_speed_of_randoms(self):
         start = time.time()
-        numbers = bbench.random.randoms(500000)
+        numbers = coba.random.randoms(500000)
         secs = time.time() - start
 
         self.assertEqual(len(numbers), 500000)
@@ -16,7 +16,7 @@ class Random_Tests(unittest.TestCase):
 
     def test_value_of_randoms(self):
 
-        numbers = bbench.random.randoms(500000)
+        numbers = coba.random.randoms(500000)
 
         self.assertEqual(len(numbers), 500000)
 
@@ -27,7 +27,7 @@ class Random_Tests(unittest.TestCase):
     def test_speed_of_shuffle(self):
 
         start = time.time()
-        bbench.random.shuffle(list(range(500000)))
+        coba.random.shuffle(list(range(500000)))
         secs = time.time() - start
 
         print(secs)
@@ -36,16 +36,16 @@ class Random_Tests(unittest.TestCase):
 
     def test_value_of_shuffle(self):
 
-        numbers = bbench.random.shuffle(list(range(500000)))
+        numbers = coba.random.shuffle(list(range(500000)))
 
         self.assertEqual(len(numbers), 500000)
         self.assertNotEqual(numbers, list(range(500000)))
 
     def test_random_repetability(self):
 
-        bbench.random.seed(10)
+        coba.random.seed(10)
 
-        actual_random_numbers = bbench.random.randoms(5)
+        actual_random_numbers = coba.random.randoms(5)
         expected_random_numbers = [
             0.08635475773956139,
             0.18061295168531402,

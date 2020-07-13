@@ -15,8 +15,8 @@ from typing import Callable, Sequence, Tuple, Optional, Dict, cast, Generic, Typ
 from itertools import accumulate
 from collections import defaultdict
 
-from bbench.simulations import State, Action, Reward
-from bbench.utilities import check_vowpal_support
+from coba.simulations import State, Action, Reward
+from coba.utilities import check_vowpal_support
 
 _S_in = TypeVar('_S_in', bound=State , contravariant=True)
 _A_in = TypeVar('_A_in', bound=Action, contravariant=True)

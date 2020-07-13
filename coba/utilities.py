@@ -29,7 +29,7 @@ def check_vowpal_support(caller_name: str) -> None:
         caller_name: The name of the caller that requires matplotlib.
 
     Remarks:
-        This pattern was inspired by sklearn (see bbench.utilities.check_matplotlib_support for more information).
+        This pattern was inspired by sklearn (see coba.utilities.check_matplotlib_support for more information).
     """
     try:
         import vowpalwabbit # type: ignore

@@ -10,7 +10,7 @@ with open("README.md", "r") as f:
     long_description = f.read()
 
 setuptools.setup(
-    name="bbench",
+    name="coba",
     version=VERSION,
     author="Mark Rucker",
     author_email="rucker.mark@gmail.com",

@@ -1,6 +1,6 @@
 import unittest
 
-from bbench.utilities import check_matplotlib_support, check_vowpal_support
+from coba.utilities import check_matplotlib_support, check_vowpal_support
 
 class Utilities_Tests(unittest.TestCase):
     

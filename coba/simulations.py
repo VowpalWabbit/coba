@@ -24,8 +24,8 @@ from collections import defaultdict
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable, Sequence, List, Union, Callable, TypeVar, Generic, Hashable, Dict, cast, Any, ContextManager, IO, Tuple, overload
 
-from bbench import random as cb_random
-from bbench.preprocessing import Metadata, OneHotEncoder, NumericEncoder, Encoder
+from coba import random as cb_random
+from coba.preprocessing import Metadata, OneHotEncoder, NumericEncoder, Encoder
 
 State  = Optional[Hashable]
 Action = Hashable

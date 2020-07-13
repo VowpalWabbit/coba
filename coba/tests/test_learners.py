@@ -4,8 +4,8 @@ import random
 from typing import Tuple, List, cast
 from abc import ABC, abstractmethod
 
-from bbench.simulations import State, Action
-from bbench.learners import Learner, RandomLearner, LambdaLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
+from coba.simulations import State, Action
+from coba.learners import Learner, RandomLearner, LambdaLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 
 class Learner_Interface_Tests(ABC):
 
