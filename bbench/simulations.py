@@ -15,7 +15,7 @@ import urllib.request
 import json
 import hashlib
 
-from itertools import repeat, count
+from itertools import repeat
 from http.client import HTTPResponse
 from warnings import warn
 from gzip import GzipFile
@@ -33,13 +33,13 @@ Action = Hashable
 Reward = float
 Key    = int 
 
-TS_out = TypeVar('TS_out', bound=State, covariant=True)
-TA_out = TypeVar('TA_out', bound=Action, covariant=True)
+_S = TypeVar('_S', bound=State)
+_A = TypeVar('_A', bound=Action)
 
-class Round(Generic[TS_out,TA_out]):
+class Round(Generic[_S,_A]):
     """A class to contain all data needed to represent a round in a bandit simulation."""
 
-    def __init__(self, key: Key, state: TS_out, actions: Sequence[TA_out]) -> None:
+    def __init__(self, state: _S, actions: Sequence[_A]) -> None:
         """Instantiate Round.
 
         Args
@@ -50,27 +50,24 @@ class Round(Generic[TS_out,TA_out]):
 
         assert len(actions) > 0, "At least one action must be provided for the round"
 
-        self._key     = key
         self._state   = state
         self._actions = actions
 
     @property
-    def state(self) -> TS_out:
+    def state(self) -> _S:
         """The round's state description."""
         return self._state
 
     @property
-    def actions(self) -> Sequence[TA_out]:
+    def actions(self) -> Sequence[_A]:
         """The round's action choices."""
         return self._actions
 
     @property
-    def key(self) -> Key:
-        """The round's unique identifier."""
-        return self._key
+    def state_actions(self) -> Sequence[Tuple[_S,_A]]:
+        return [ (self._state, action) for action in self._actions ]
 
-
-class Simulation(Generic[TS_out,TA_out], ABC):
+class Simulation(Generic[_S, _A], ABC):
     """The simulation interface."""
 
     @staticmethod
@@ -98,7 +95,7 @@ class Simulation(Generic[TS_out,TA_out], ABC):
 
     @property
     @abstractmethod
-    def rounds(self) -> Sequence[Round[TS_out,TA_out]]:
+    def rounds(self) -> Sequence[Round[_S,_A]]:
         """The sequence of rounds in a simulation.
 
         Remarks:
@@ -109,62 +106,72 @@ class Simulation(Generic[TS_out,TA_out], ABC):
         ...
 
     @abstractmethod
-    def rewards(self, choices: Sequence[Tuple[Key,int]]) -> Sequence[Tuple[Key,Reward]]:
+    def rewards(self, choices: Sequence[Tuple[_S,_A]]) -> Sequence[Tuple[_S,_A,Reward]]:
         """The rewards for rounds (identified by key) and the chosen action index.
 
         Args:
-            choices: A sequence of tuples containing a round key and chosen action index.
+            choices: A sequence of tuples containing states and the action that was chosen.
 
         Returns:
             A sequence of tuples containing a round key and its observed reward.
         """
         ...
 
-class MemorySimulation(Simulation[TS_out,TA_out]):
+class MemorySimulation(Simulation[_S,_A]):
     """A Simulation implementation created from in memory sequences of Rounds.
     
     Remarks:
         This implementation is very useful for unit-testing known edge cases.
     """
 
-    def __init__(self, rounds_rewards: Sequence[Tuple[Round[TS_out, TA_out], Sequence[Reward]]]) -> None:
+    def __init__(self, 
+        states: Sequence[_S], 
+        action_sets: Sequence[Sequence[_A]], 
+        reward_sets: Sequence[Sequence[Reward]] ) -> None:
         """Instantiate a MemorySimulation.
 
         Args:
-            rounds: a collection of rounds to turn into a simulation.
+            states: A collection of states to turn into a simulation.
+            rounds: A collection of action sets to turn into a simulation
+            rewards: A collection of reward sets to turn into a simulation 
         """
 
-        self._rounds: List[Round[TS_out,TA_out]] = []
-        self._rewards: Dict[Key, Sequence[Reward]]  = {}
+        assert len(states) == len(action_sets) == len(reward_sets), "Mismatched lengths of states, actions and rewards"
 
-        for rnd,rewards in rounds_rewards:
-            self._rounds.append(rnd)
-            self._rewards[rnd.key] = rewards
+        self._rounds : List[Round[_S,_A]] = []
+        self._rewards: Dict[Tuple[_S,_A], Reward]  = {}
+
+        for state, actions, rewards in zip(states, action_sets, reward_sets):
+
+            state_action_rewards = zip(zip(repeat(state),actions),rewards)
+
+            self._rewards.update(state_action_rewards)
+            self._rounds.append(Round(state, actions))
 
     @property
-    def rounds(self) -> Sequence[Round[TS_out,TA_out]]:
+    def rounds(self) -> Sequence[Round[_S,_A]]:
         """The rounds in this simulation.
-        
+
         Remarks:
             See the Simulation base class for more information.
         """
         return self._rounds
 
-    def rewards(self, choices: Sequence[Tuple[Key,int]]) -> Sequence[Tuple[Key,Reward]]:
+    def rewards(self, choices: Sequence[Tuple[_S, _A]]) -> Sequence[Tuple[_S, _A,Reward]]:
         """The rewards for rounds (identified by key) and the chosen action index.
-        
+
         Remarks:
-            See the Simulation base class for more information.        
+            See the Simulation base class for more information.
         """
 
-        rewards: List[Tuple[Key,Reward]] = []
+        out: List[Tuple[_S, _A, Reward]] = []
 
-        for (key,action_index) in choices:
-            rewards.append( (key, self._rewards[key][action_index]) )
+        for choice in choices:
+            out.append((choice[0], choice[1], self._rewards[choice]))
 
-        return rewards
+        return out
 
-class LambdaSimulation(Simulation[TS_out,TA_out]):
+class LambdaSimulation(Simulation[_S,_A]):
     """A Simulation created from lambda functions that generate states, actions and rewards.
 
     Remarks:
@@ -173,31 +180,35 @@ class LambdaSimulation(Simulation[TS_out,TA_out]):
 
     def __init__(self,
                  n_rounds: int,
-                 S: Callable[[int],TS_out],
-                 A: Callable[[TS_out],Sequence[TA_out]], 
-                 R: Callable[[TS_out,TA_out],Reward]) -> None:
+                 state: Callable[[int],_S],
+                 action_set: Callable[[_S],Sequence[_A]], 
+                 reward: Callable[[_S,_A],Reward]) -> None:
         """Instantiate a LambdaSimulation.
 
         Args:
             n_rounds: how many rounds the LambdaSimulation should have.
-            S: A lambda function that should return a state given an index in `range(n_rounds)`.
-            A: A lambda function that should return all valid actions for a given state.
-            R: A lambda function that should return the reward for a state and action.
+            state: A lambda function that should return a state given an index in `range(n_rounds)`.
+            action_set: A lambda function that should return all valid actions for a given state.
+            reward: A lambda function that should return the reward for a state and action.
         """
 
-        rounds_rewards: List[Tuple[Round[TS_out, TA_out], Sequence[Reward]]] = []
+        states     : List[_S]       = []
+        action_sets: List[Sequence[_A]] = []
+        reward_sets: List[Sequence[Reward]] = []
 
         for i in range(n_rounds):
-            state   = S(i)
-            actions = A(state)
-            rewards = [R(state,action) for action in actions]
+            _state      = state(i)
+            _action_set = action_set(_state)
+            _reward_set = [reward(_state, _action) for _action in _action_set]
 
-            rounds_rewards.append( (Round(i,state,actions), rewards) )
+            states     .append(_state)
+            action_sets.append(_action_set)
+            reward_sets.append(_reward_set)
 
-        self._simulation = MemorySimulation(rounds_rewards)
+        self._simulation = MemorySimulation(states, action_sets, reward_sets)
 
     @property
-    def rounds(self) -> Sequence[Round[TS_out,TA_out]]:
+    def rounds(self) -> Sequence[Round[_S,_A]]:
         """The rounds in this simulation.
 
         Remarks:
@@ -205,7 +216,7 @@ class LambdaSimulation(Simulation[TS_out,TA_out]):
         """
         return self._simulation.rounds
 
-    def rewards(self, choices: Sequence[Tuple[Key,int]]) -> Sequence[Tuple[Key,Reward]]:
+    def rewards(self, choices: Sequence[Tuple[_S,_A]]) -> Sequence[Tuple[_S,_A,Reward]]:
         """The rewards for rounds (identified by key) and the chosen action index.
 
         Remarks:
@@ -214,7 +225,7 @@ class LambdaSimulation(Simulation[TS_out,TA_out]):
 
         return self._simulation.rewards(choices)
 
-class ShuffleSimulation(Simulation[TS_out,TA_out]):
+class ShuffleSimulation(Simulation[_S,_A]):
     """A simulation which created from an existing simulation by shuffling rounds.
 
     Remarks:
@@ -224,7 +235,7 @@ class ShuffleSimulation(Simulation[TS_out,TA_out]):
         to seed regardless of the local Python execution environment.
     """
 
-    def __init__(self, simulation: Simulation[TS_out,TA_out], seed: Optional[int] = None):
+    def __init__(self, simulation: Simulation[_S,_A], seed: Optional[int] = None):
         """Instantiate a ShuffleSimulation
 
         Args:
@@ -238,7 +249,7 @@ class ShuffleSimulation(Simulation[TS_out,TA_out]):
         self._rewards = simulation.rewards
 
     @property
-    def rounds(self) -> Sequence[Round[TS_out,TA_out]]:
+    def rounds(self) -> Sequence[Round[_S,_A]]:
         """The rounds in this simulation.
 
         Remarks:
@@ -247,7 +258,7 @@ class ShuffleSimulation(Simulation[TS_out,TA_out]):
 
         return self._rounds
 
-    def rewards(self, choices: Sequence[Tuple[Key,int]]) -> Sequence[Tuple[Key,Reward]]:
+    def rewards(self, choices: Sequence[Tuple[_S,_A]]) -> Sequence[Tuple[_S,_A,Reward]]:
         """The rewards for rounds (identified by key) and the chosen action index.
         
         Remarks:
@@ -526,19 +537,14 @@ class ClassificationSimulation(Simulation[State,Action]):
 
         action_set = tuple(set(labels))
 
-        states      = features
-        action_sets = repeat(action_set, len(features))
-        reward_sets = [ [int(label==action) for action in action_set] for label in labels ]
+        states  = features
+        actions = list(repeat(action_set,len(states)))
+        rewards = [ [ int(label==action) for action in action_set] for label in labels ]
 
-        rounds_rewards: List[Tuple[Round[TS_out, TA_out], Sequence[Reward]]] = []
-
-        for i,state, action_set, reward_set in zip(count(), states, action_sets, reward_sets):
-            rounds_rewards.append( (Round(i, state, action_set), reward_set) )
-
-        self._simulation = MemorySimulation(rounds_rewards)
+        self._simulation = MemorySimulation(states,actions,rewards)
 
     @property
-    def rounds(self) -> Sequence[Round[TS_out,TA_out]]:
+    def rounds(self) -> Sequence[Round[State,Action]]:
         """The rounds in this simulation.
 
         Remarks:
@@ -546,7 +552,7 @@ class ClassificationSimulation(Simulation[State,Action]):
         """
         return self._simulation.rounds
 
-    def rewards(self, choices: Sequence[Tuple[Key,int]]) -> Sequence[Tuple[Key,Reward]]:
+    def rewards(self, choices: Sequence[Tuple[State,Action]]) -> Sequence[Tuple[State,Action,Reward]]:
         """The rewards for rounds (identified by key) and the chosen action index.
 
         Remarks:

@@ -12,14 +12,14 @@ import json
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Union, Sequence, List, Callable, Optional, Tuple, Generic, TypeVar, Dict, Any
+from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any
 from itertools import islice
 
 from bbench.simulations import Simulation, State, Action
 from bbench.learners import Learner
 
-ST_in = TypeVar('ST_in', bound=State, contravariant=True)
-AT_in = TypeVar('AT_in', bound=Action, contravariant=True)
+_S = TypeVar('_S', bound=State)
+_A = TypeVar('_A', bound=Action)
 
 class Stats:
     """A class to store summary statistics calculated from some sample."""
@@ -118,11 +118,11 @@ class Result:
     def observations(self) -> Sequence[Tuple[int,int,float]]:
         return self._observations
 
-class Benchmark(Generic[ST_in,AT_in], ABC):
+class Benchmark(Generic[_S,_A], ABC):
     """The interface for Benchmark implementations."""
     
     @abstractmethod
-    def evaluate(self, learner_factory: Callable[[],Learner[ST_in,AT_in]]) -> Result:
+    def evaluate(self, learner_factory: Callable[[],Learner[_S,_A]]) -> Result:
         """Calculate the performance for a provided bandit Learner.
 
         Args:
@@ -140,7 +140,7 @@ class Benchmark(Generic[ST_in,AT_in], ABC):
         """
         ...
 
-class UniversalBenchmark(Benchmark[ST_in,AT_in]):
+class UniversalBenchmark(Benchmark[_S,_A]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
     @staticmethod
@@ -168,7 +168,7 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
         return UniversalBenchmark(simulations, batches)
 
     def __init__(self, 
-        simulations: Sequence[Simulation[ST_in,AT_in]],
+        simulations: Sequence[Simulation[_S,_A]],
         batches    : Union[int, Sequence[int], Callable[[int],int]] = 1) -> None:
         """Instantiate a UniversalBenchmark.
         
@@ -185,7 +185,7 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
         self._simulations = simulations
         self._batches     = batches
 
-    def evaluate(self, learner_factory: Callable[[],Learner[ST_in,AT_in]]) -> Result:
+    def evaluate(self, learner_factory: Callable[[],Learner[_S,_A]]) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
@@ -204,27 +204,25 @@ class UniversalBenchmark(Benchmark[ST_in,AT_in]):
 
             sim_learner   = learner_factory()
             batch_index   = 0
-            batch_samples = []
+            batch_choices = []
 
             for r in islice(sim.rounds, n_rounds):
 
-                choice = sim_learner.choose(r.state, r.actions) 
                 state  = r.state
-                action = r.actions[choice]
-                reward = r.rewards[choice]
+                action = sim_learner.choose(r.state, r.actions)
 
-                batch_samples.append((state, action, reward))
+                batch_choices.append((state, action))
 
-                if len(batch_samples) == self._batch_size(batch_index):
+                if len(batch_choices) == self._batch_size(batch_index):
 
-                    for (state,action,reward) in batch_samples:
+                    for (state,action,reward) in sim.rewards(batch_choices):
                         sim_learner.learn(state,action,reward)
                         results.append((sim_index, batch_index, reward))
 
-                    batch_samples = []
+                    batch_choices = []
                     batch_index += 1
                     
-            for (state,action,reward) in batch_samples:
+            for (state,action,reward) in sim.rewards(batch_choices):
                 sim_learner.learn(state,action,reward)
                 results.append((sim_index, batch_index, reward))
 

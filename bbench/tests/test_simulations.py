@@ -3,33 +3,33 @@ import unittest
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple, cast, Dict
 
-from bbench.simulations import Round, Reward, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
+from bbench.simulations import State, Action, Reward, Round, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
 from bbench.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata
 
 class Round_Tests(unittest.TestCase):
 
     def test_constructor_no_state(self) -> None:
-        Round(1, None, [1, 2])
+        Round(None, [1, 2])
 
     def test_constructor_state(self) -> None:
-        Round(1, (1,2,3,4), [1, 2])
+        Round((1,2,3,4), [1, 2])
 
     def test_state_correct_1(self) -> None:
-        self.assertEqual(None, Round(1, None, [1, 2]).state)
+        self.assertEqual(None, Round(None, [1, 2]).state)
 
     def test_actions_correct_1(self) -> None:
-        self.assertSequenceEqual([1, 2], Round(1, None, [1, 2]).actions)
+        self.assertSequenceEqual([1, 2], Round(None, [1, 2]).actions)
 
     def test_actions_correct_2(self) -> None:
-        self.assertSequenceEqual(["A", "B"], Round(1, None, ["A", "B"]).actions)
+        self.assertSequenceEqual(["A", "B"], Round(None, ["A", "B"]).actions)
 
     def test_actions_correct_3(self) -> None:
-        self.assertSequenceEqual([(1,2), (3,4)], Round(1, None, [(1,2), (3,4)]).actions)
+        self.assertSequenceEqual([(1,2), (3,4)], Round(None, [(1,2), (3,4)]).actions)
 
 class Simulation_Interface_Tests(ABC):
 
     @abstractmethod
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Reward]]]:
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Tuple[State,Action,Reward]]]]:
         ...
 
     def test_rounds_is_correct(self) -> None:
@@ -42,12 +42,11 @@ class Simulation_Interface_Tests(ABC):
 
         for actual_round, expected_round, expected_reward in zip(actual_rounds, expected_rounds, expected_rewards):
 
-            actual_reward = simulation.rewards([ (actual_round.key,i) for i in range(len(actual_round.actions)) ])
-            actual_reward = [ r[1] for r in actual_reward ]
+            actual_reward = simulation.rewards(actual_round.state_actions)
 
             cast(unittest.TestCase, self).assertEqual(actual_round.state, expected_round.state)
-            cast(unittest.TestCase, self).assertSequenceEqual(actual_round.actions, expected_round.actions)
-            cast(unittest.TestCase, self).assertSequenceEqual(actual_reward, expected_reward)
+            cast(unittest.TestCase, self).assertCountEqual(actual_round.actions, expected_round.actions)
+            cast(unittest.TestCase, self).assertCountEqual(actual_reward, expected_reward)
 
     def test_rounds_is_reiterable(self) -> None:
 
@@ -55,8 +54,8 @@ class Simulation_Interface_Tests(ABC):
 
         for round1,round2 in zip(simulation.rounds, simulation.rounds):
 
-            round1_rewards = simulation.rewards([ (round1.key,i) for i in range(len(round1.actions)) ])
-            round2_rewards = simulation.rewards([ (round2.key,i) for i in range(len(round2.actions)) ])
+            round1_rewards = simulation.rewards(round1.state_actions)
+            round2_rewards = simulation.rewards(round2.state_actions)
 
             cast(unittest.TestCase, self).assertEqual(round1.state, round2.state)
             cast(unittest.TestCase, self).assertSequenceEqual(round1.actions, round2.actions)
@@ -82,16 +81,22 @@ class Simulation_Tests(unittest.TestCase):
         self.assertEqual(len(simulation.rounds), 2)
 
 class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Reward]]]:
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Tuple[State,Action,Reward]]]]:
         
-        rounds  = [Round(0, 1, [1,2]), Round(1, 2, [1,2]) ]
-        rewards = [[0,1], [1,0]] 
+        states      =  [1,2]
+        action_sets = [[1,2], [1,2]]
+        reward_sets = [[0,1], [1,0]]
 
-        return ClassificationSimulation([1,2], [2,1]), rounds, rewards
+        states_actions_rewards = zip(states, action_sets, reward_sets)
+
+        expected_rounds  = list(map(Round[int,int],states,action_sets))
+        expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
+
+        return ClassificationSimulation([1,2], [2,1]), expected_rounds, expected_rewards
 
     def assert_simulation_for_data(self, simulation, features, labels) -> None:
 
-        self.assertEqual(sum(1 for _ in simulation.rounds), len(features))
+        self.assertEqual(len(simulation.rounds), len(features))
 
         #first we make sure that all the labels are included 
         #in the first rounds actions without any concern for order
@@ -105,13 +110,12 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         for f,l,r in zip(features, labels, simulation.rounds):
 
             expected_state   = f
-            expected_rewards = [int(a == l) for a in r.actions]
+            expected_rewards = [ (f, a, int(a == l)) for a in r.actions]
 
             actual_state   = r.state
             actual_actions = r.actions
             
-            actual_reward  = simulation.rewards([(r.key,i) for i in range(len(r.actions))])
-            actual_reward  = [ actual_r[1] for actual_r in actual_reward]
+            actual_reward  = simulation.rewards(r.state_actions)
 
             self.assertEqual(actual_state, expected_state)            
             self.assertSequenceEqual(actual_actions, expected_actions)
@@ -188,16 +192,17 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         self.assertEqual(len(simulation.rounds), 6598)
 
         for rnd in simulation.rounds:
+            
             hash(rnd.state)      #make sure these are hashable
             hash(rnd.actions[0]) #make sure these are hashable
             hash(rnd.actions[1]) #make sure these are hashable
+            
             self.assertEqual(len(cast(Tuple,rnd.state)), 268)
             self.assertIn(0, rnd.actions)
             self.assertIn(1, rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
-            actual_rewards  = simulation.rewards([(rnd.key,i) for i in range(len(rnd.actions))])
-            actual_rewards  = [ actual_r[1] for actual_r in actual_rewards]
+            actual_rewards  = [ rwd[2] for rwd in simulation.rewards(rnd.state_actions) ]
 
             self.assertIn(1, actual_rewards)
             self.assertIn(0, actual_rewards)
@@ -223,13 +228,13 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             hash(rnd.state)      #make sure these are hashable
             hash(rnd.actions[0]) #make sure these are hashable
             hash(rnd.actions[1]) #make sure these are hashable
+
             self.assertEqual(len(cast(Tuple,rnd.state)), 268)
             self.assertIn(0, rnd.actions)
             self.assertIn(1, rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
-            actual_rewards  = simulation.rewards([(rnd.key,i) for i in range(len(rnd.actions))])
-            actual_rewards  = [ actual_r[1] for actual_r in actual_rewards]
+            actual_rewards = [ rwd[2] for rwd in simulation.rewards(rnd.state_actions) ]
 
             self.assertIn(1, actual_rewards)
             self.assertIn(0, actual_rewards)
@@ -250,26 +255,39 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
 class MemorySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Reward]]]:
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Tuple[State,Action,Reward]]]]:
         
-        expected_rounds  = [Round(0, 1, [1,2,3]), Round(1, 2, [4,5,6])]
-        expected_rewards = [[0,1,2], [2,3,4]]
-        
-        simulation = MemorySimulation(list(zip(expected_rounds,expected_rewards)))
+        states      =  [1,2]
+        action_sets = [[1,2,3], [4,5,6]]
+        reward_sets = [[0,1,2], [2,3,4]]
+
+        states_actions_rewards = zip(states, action_sets, reward_sets)
+
+        expected_rounds  = list(map(Round[int,int],states,action_sets))
+        expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
+
+        simulation = MemorySimulation(states, action_sets, reward_sets)
 
         return simulation, expected_rounds, expected_rewards
 
 class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Reward]]]:
-        expected_rounds  = [Round(0, 1, [1,2,3]), Round(1, 2, [4,5,6])]
-        expected_rewards = [[0,1,2], [2,3,4]]
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Tuple[State,Action,Reward]]]]:
         
+        states      =  [0,1]
+        action_sets = [[1,2,3], [4,5,6]]
+        reward_sets = [[1,2,3], [3,4,5]]
+        
+        states_actions_rewards = zip(states, action_sets, reward_sets)
+
+        expected_rounds  = list(map(Round[int,int],states,action_sets))
+        expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
+
         def S(i:int) -> int:
-            return [1,2][i]
+            return states[i]
 
         def A(s:int) -> List[int]:
-            return [1,2,3] if s == 1 else [4,5,6]
+            return action_sets[s]
         
         def R(s:int,a:int) -> int:
             return a-s
@@ -292,21 +310,30 @@ class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
 class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Reward]]]:
-        expected_rounds = [Round(0, 1, [1,2,3]), Round(1, (1,2,3), [0,1,2])]
-        expected_rewards = [[0,1,2], [2,3,4]]
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Tuple[State,Action,Reward]]]]:
 
-        simulation = MemorySimulation(list(zip(expected_rounds,expected_rewards)))
+        states      = [1,2]
+        action_sets = [[1,2,3],[0,1,2]]
+        reward_sets = [[0,1,2],[2,3,4]]
+
+        states_actions_rewards = zip(states, action_sets, reward_sets)
+
+        expected_rounds  = list(map(Round[int,int],states,action_sets))
+        expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
+
+        simulation = MemorySimulation(states, action_sets, reward_sets)
 
         #with the seed set this test should always pass, if the test fails then it may mean
         #that randomization changed which would cause old results to no longer be reproducible
-        return ShuffleSimulation(simulation, seed=1), expected_rounds, expected_rewards
+        return ShuffleSimulation(simulation, 1), expected_rounds, expected_rewards
 
     def test_rounds_not_duplicated_in_memory(self):
-        rounds = [Round(0, 1, [1,2,3]), Round(1, 2, [4,5,6])]
-        rewards = [[0,1,2], [2,3,4]]
+        
+        states      = [1,2]
+        action_sets = [[1,2,3], [4,5,6]]
+        reward_sets = [[0,1,2], [2,3,4]]
 
-        simulation = ShuffleSimulation(MemorySimulation(list(zip(rounds,rewards))))
+        simulation = ShuffleSimulation(MemorySimulation(states,action_sets,reward_sets))
 
         self.assertEqual(len(simulation.rounds),2)
 
