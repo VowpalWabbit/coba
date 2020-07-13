@@ -149,7 +149,6 @@ class MemorySimulation(Simulation[_S_out, _A_out]):
 
         assert len(states) == len(action_sets) == len(reward_sets), "Mismatched lengths of states, actions and rewards"
 
-        self._rounds_by_key   : Dict[Key, KeyRound] = {}
         self._rounds_by_index : List[KeyRound[_S_out,_A_out]] = []
         self._rewards_by_tuple: Dict[Tuple[Key,int], Reward]  = {}
 
@@ -162,7 +161,6 @@ class MemorySimulation(Simulation[_S_out, _A_out]):
 
             self._rewards_by_tuple.update(round_action_rewards)
             self._rounds_by_index.append(rnd)
-            self._rounds_by_key[round_key] = rnd
 
     @property
     def rounds(self) -> Sequence[KeyRound[_S_out,_A_out]]:
@@ -184,8 +182,8 @@ class MemorySimulation(Simulation[_S_out, _A_out]):
 
         for choice in choices:
 
-            state  = self.rounds[choice[0]].state
-            action = self.rounds[choice[0]].actions[choice[1]]
+            state  = self._rounds_by_index[choice[0]].state
+            action = self._rounds_by_index[choice[0]].actions[choice[1]]
 
             out.append((state, action, self._rewards_by_tuple[choice]))
 

@@ -76,7 +76,6 @@ class Random:
             
             l[i], l[j] = l[j], l[i]
 
-
         return l
 
     def _next(self, n: int) -> Sequence[int]:

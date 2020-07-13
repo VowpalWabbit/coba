@@ -21,7 +21,7 @@ ucb_factory    = lambda: UcbTunedLearner()
 #define a benchmark
 #  the benchmark replays the simulation 30 times to 
 #  average out a learner randomly guessing the right answer
-benchmark = UniversalBenchmark([simulation]*30, 50, 1)
+benchmark = UniversalBenchmark([simulation]*30, 1)
 
 #benchmark all three learners
 random_result = benchmark.evaluate(random_factory)

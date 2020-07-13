@@ -13,15 +13,14 @@ csv_path   = "./examples/data/covtype.data"
 label_col  = 54
 
 #define a simulation
-print("loading datasets")
-#covtype = ClassificationSimulation.from_csv_path(csv_path, label_col)
-#covtype = ShuffleSimulation(covtype)
+print("loading data")
+#data = ClassificationSimulation.from_csv_path(csv_path, label_col)
+#data = ClassificationSimulation.from_openml(1116)
+data = ClassificationSimulation.from_openml(150)
 
-#musk = ClassificationSimulation.from_openml(1116)
-#musk = ShuffleSimulation(musk)
-
-covtype = ClassificationSimulation.from_openml(150)
-covtype = ShuffleSimulation(covtype)
+#shuffle the data to make it stationary
+print("shuffling data")
+data = ShuffleSimulation(data)
 
 #create three different learner factories
 random_factory = lambda: RandomLearner()
@@ -30,7 +29,7 @@ ucb_factory    = lambda: UcbTunedLearner()
 vowpal_factory = lambda: VowpalLearner(bag=5)
 
 #define a benchmark
-benchmark = UniversalBenchmark([covtype], 300000, lambda i: 100 + i*100)
+benchmark = UniversalBenchmark([data], lambda i: 100 + i*100, 300000)
 
 #benchmark all three learners
 print("random started...")

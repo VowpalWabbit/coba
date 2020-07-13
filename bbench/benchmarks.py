@@ -12,7 +12,7 @@ import json
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any
+from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload
 from itertools import islice
 
 from bbench.simulations import Simulation, State, Action
@@ -169,7 +169,8 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
     def __init__(self, 
         simulations: Sequence[Simulation[_S,_A]],
-        batches    : Union[int, Sequence[int], Callable[[int],int]] = 1) -> None:
+        batches    : Union[int, Sequence[int], Callable[[int],int]] = 1, 
+        n_rounds   : int = None) -> None:
         """Instantiate a UniversalBenchmark.
         
         Args:
@@ -185,6 +186,9 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         self._simulations = simulations
         self._batches     = batches
 
+        #if batches is a sequence if ints limit to the batch sum else don't limit the rounds
+        self._n_rounds = sum(self._batches) if isinstance(self._batches,collections.Sequence) else n_rounds
+
     def evaluate(self, learner_factory: Callable[[],Learner[_S,_A]]) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
@@ -197,16 +201,13 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
         results:List[Tuple[int,int,float]] = []
 
-        #if batches is a sequence if ints limit to the batch sum else don't limit the rounds
-        n_rounds = sum(self._batches) if isinstance(self._batches,collections.Sequence) else None
-
         for sim_index, sim in enumerate(self._simulations):
 
             sim_learner   = learner_factory()
             batch_index   = 0
             batch_choices = []
 
-            for r in islice(sim.rounds, n_rounds):
+            for r in islice(sim.rounds, self._n_rounds):
 
                 index = sim_learner.choose(r.state, r.actions)
 
