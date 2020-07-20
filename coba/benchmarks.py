@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload
 from itertools import islice
 
-from coba.simulations import Simulation, State, Action
+from coba.simulations import LazySimulation, Simulation, State, Action
 from coba.learners import Learner
 
 _S = TypeVar('_S', bound=State)
@@ -162,6 +162,11 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         is_singular = isinstance(config["simulations"], dict)
         sim_configs = config["simulations"] if not is_singular else [ config["simulations"] ]
 
+        #by default benchmarks are loaded lazily
+        for sim_config in sim_configs:
+            if "lazy" not in sim_config:
+                sim_config["lazy"] = True
+
         simulations = [ Simulation.from_json(sim_config) for sim_config in sim_configs ]
         batches     = config["batches"]
     
@@ -207,6 +212,9 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             batch_index   = 0
             batch_choices = []
 
+            if isinstance(sim, LazySimulation):
+                sim.load()
+
             for r in islice(sim.rounds, self._n_rounds):
 
                 index = sim_learner.choose(r.state, r.actions)
@@ -220,6 +228,9 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
                     batch_choices = []
                     batch_index += 1
+            
+            if isinstance(sim, LazySimulation):
+                sim.unload()
                     
             for (state,action,reward) in sim.rewards(batch_choices):
                 sim_learner.learn(state,action,reward)

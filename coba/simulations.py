@@ -81,7 +81,7 @@ class Simulation(Generic[_S_out, _A_out], ABC):
     """The simulation interface."""
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'Simulation':
+    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'Simulation[State,Action]':
         """Construct a Simulation object from JSON.
 
         Args:
@@ -93,13 +93,17 @@ class Simulation(Generic[_S_out, _A_out], ABC):
 
         config = json.loads(json_val) if isinstance(json_val,str) else json_val
 
-        no_shuffle  : Callable[[Simulation], Simulation] = lambda sim: sim
-        seed_shuffle: Callable[[Simulation], Simulation] = lambda sim: ShuffleSimulation(sim, config["seed"])
+        no_shuffle  : Callable[[Simulation[State,Action]], Simulation] = lambda sim: sim
+        seed_shuffle: Callable[[Simulation[State,Action]], Simulation] = lambda sim: ShuffleSimulation(sim, config["seed"])
 
-        shuffler = no_shuffle if "seed" not in config else seed_shuffle
+        lazy_loader: Callable[[Callable[[],Simulation[State,Action]]], Simulation] = lambda sim_factory: LazySimulation(sim_factory)
+        now_loader :Callable[[Callable[[],Simulation[State,Action]]], Simulation]  = lambda sim_factory: sim_factory()
+
+        shuffler = seed_shuffle if "seed" in config and config["seed"] is not None else no_shuffle
+        loader   = lazy_loader  if "lazy" in config and config["lazy"] == True     else now_loader
 
         if config["type"] == "classification":
-            return  shuffler(ClassificationSimulation.from_json(config["from"]))
+            return  loader(lambda: shuffler(ClassificationSimulation.from_json(config["from"])))
 
         raise Exception("We were unable to recognize the provided simulation type")
 
@@ -127,6 +131,60 @@ class Simulation(Generic[_S_out, _A_out], ABC):
             round/action. This sequence will always align with the provided choices.
         """
         ...
+
+class LazySimulation(Simulation[_S_out, _A_out]):
+    """A Simulation implementation which supports loading and unloading from memory.""" 
+    
+    def __init__(self, sim_factory = Callable[[],Simulation[_S_out,_A_out]]) -> None:
+        """Instantiate a LazySimulation
+        
+        Args:
+            sim_factory: A factory method for loading the simulation when requested.
+        """
+        self._sim_factory = sim_factory
+        self._simulation: Optional[Simulation[_S_out, _A_out]]  = None
+
+    def load(self) -> 'LazySimulation[_S_out,_A_out]':
+        """Load the simulation into memory. If already loaded do nothing."""
+        
+        if self._simulation is None:
+            self._simulation = self._sim_factory()
+
+        return self
+
+    def unload(self) -> 'LazySimulation[_S_out,_A_out]':
+        """Unload the simulation from memory."""
+        
+        self._simulation = None
+        
+        return self
+
+
+    @property
+    def rounds(self) -> Sequence[KeyRound[_S_out,_A_out]]:
+        """The rounds in this simulation.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+
+        if self._simulation is not None:
+            return self._simulation.rounds
+        
+        raise Exception("A LazySimulation must be loaded before it can be used.")
+
+    def rewards(self, choices: Sequence[Tuple[Key, int]]) -> Sequence[Tuple[_S_out, _A_out,Reward]]:
+        """The observed rewards for a given round (identified by its key) and an action index.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+        
+        if self._simulation is not None:
+            return self._simulation.rewards(choices)
+
+        raise Exception("A LazySimulation must be loaded before it can be used.")
+
 
 class MemorySimulation(Simulation[_S_out, _A_out]):
     """A Simulation implementation created from in memory sequences of Rounds.
@@ -302,7 +360,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
     """
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> Simulation:
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'ClassificationSimulation[State,Action]':
         """Construct a ClassificationSimulation object from JSON.
 
         Args:
@@ -371,7 +429,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         raise Exception("We were unable to recognize the provided data format.")
 
     @staticmethod
-    def from_openml(data_id:int) -> Simulation:
+    def from_openml(data_id:int) -> 'ClassificationSimulation[State,Action]':
         """Create a ClassificationSimulation from a given openml dataset id.
 
         Args:
@@ -405,7 +463,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader,
         has_header  : bool = True,
         default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
-        columns_meta: Dict[Any,Metadata] = {}) -> Simulation:
+        columns_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[State,Action]':
         """Create a ClassificationSimulation given the location of a csv formatted dataset.
 
         Args:
@@ -462,7 +520,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         label_col   : Union[None,str,int] = None,
         has_header  : bool = True,
         default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
-        columns_meta: Dict[Any,Metadata] = {}) -> Simulation:
+        columns_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[State,Action]':
         """Create a ClassifierSimulation from the rows contained in a csv formatted dataset.
 
         Args:

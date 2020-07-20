@@ -79,6 +79,19 @@ class Result_Tests(unittest.TestCase):
 
 class UniversalBenchmark_Tests(unittest.TestCase):
 
+    def test_from_json(self):
+        json = """{
+            "batches": 1,
+            "simulations": [
+                {"seed":1283,"type":"classification","from":{"format":"openml","id":1116}},
+                {"seed":1283,"type":"classification","from":{"format":"openml","id":1116}}
+            ]
+        }"""
+
+        benchmark = UniversalBenchmark.from_json(json)
+
+        self.assertEqual(len(benchmark._simulations),2)
+
     def test_one_game_five_rounds_batch_size_one(self):
         game            = LambdaSimulation[int,int](50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: int(s%3))

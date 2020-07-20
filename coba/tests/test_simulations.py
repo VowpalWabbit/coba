@@ -3,7 +3,12 @@ import unittest
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple, cast, Dict
 
-from coba.simulations import State, Action, Reward, Round, Simulation, ClassificationSimulation, MemorySimulation, LambdaSimulation, ShuffleSimulation
+from coba.simulations import (
+    State, Action, Reward, Round, Simulation, 
+    ClassificationSimulation, MemorySimulation, 
+    LambdaSimulation, ShuffleSimulation, LazySimulation
+)
+
 from coba.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata
 
 class Round_Tests(unittest.TestCase):
@@ -89,7 +94,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         states_actions_rewards = zip(states, action_sets, reward_sets)
 
-        expected_rounds  = list(map(Round, states, action_sets))
+        expected_rounds  = list(map(Round[int,int], states, action_sets))
         expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
 
         return ClassificationSimulation([1,2], [2,1]), expected_rounds, expected_rewards
@@ -280,7 +285,7 @@ class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         
         states_actions_rewards = zip(states, action_sets, reward_sets)
 
-        expected_rounds  = list(map(Round,states,action_sets))
+        expected_rounds  = list(map(Round[int,int],states,action_sets))
         expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
 
         def S(i:int) -> int:
@@ -318,7 +323,7 @@ class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
         states_actions_rewards = zip(states, action_sets, reward_sets)
 
-        expected_rounds  = list(map(Round,states,action_sets))
+        expected_rounds  = list(map(Round[int,int],states,action_sets))
         expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
 
         simulation = MemorySimulation(states, action_sets, reward_sets)
@@ -344,6 +349,31 @@ class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         simulation.rounds[1]._state = 3
 
         self.assertEqual(sum(1 for r in simulation.rounds if r.state == 3),2)
+
+class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
+
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Round], Sequence[Sequence[Tuple[State,Action,Reward]]]]:
+    
+        states      =  [1,2]
+        action_sets = [[1,2,3], [4,5,6]]
+        reward_sets = [[0,1,2], [2,3,4]]
+
+        states_actions_rewards = zip(states, action_sets, reward_sets)
+
+        expected_rounds  = list(map(Round[int,int],states,action_sets))
+        expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in states_actions_rewards]
+
+        simulation = LazySimulation[int,int](lambda: MemorySimulation(states, action_sets, reward_sets)).load()
+
+        return simulation, expected_rounds, expected_rewards    
+
+    def test_unload_removes_simulation(self):
+
+        simulation = cast(LazySimulation, self._make_simulation()[0])
+
+        self.assertIsNotNone(simulation._simulation)
+        simulation.unload()
+        self.assertIsNone(simulation._simulation)
 
 if __name__ == '__main__':
     unittest.main()
