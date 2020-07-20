@@ -180,12 +180,12 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
     def test_from_table_explicit_onehot(self) -> None:
 
         default_meta = Metadata(False, False, OneHotEncoder())
-        columns_meta = {'b': Metadata(None, True, StringEncoder()) }
+        defined_meta = {'b': Metadata(None, True, StringEncoder()) }
         table        = [['a' ,'b','c'],
                         ['s1','2','3'],
                         ['s2','5','6']]
         
-        simulation = ClassificationSimulation.from_table(table, default_meta=default_meta, columns_meta=columns_meta)
+        simulation = ClassificationSimulation.from_table(table, default_meta=default_meta, defined_meta=defined_meta)
 
         self.assert_simulation_for_data(simulation, [(1,1),(0,0)], ['2','5'])
 
@@ -217,7 +217,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         location     = "http://www.openml.org/data/v1/get_csv/53999"
         default_meta = Metadata(False, False, NumericEncoder())
-        columns_meta: Dict[str,Metadata] = {
+        defined_meta: Dict[str,Metadata] = {
             "class"            : Metadata(None, True, OneHotEncoder()), 
             "molecule_name"    : Metadata(None, None, OneHotEncoder()),
             "ID"               : Metadata(True, None, None),
@@ -225,7 +225,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         }
         md5_checksum = "4fbb00ba35dd05a29be1f52b7e0faeb6"
 
-        simulation = ClassificationSimulation.from_csv(location, md5_checksum=md5_checksum, default_meta=default_meta, columns_meta=columns_meta)
+        simulation = ClassificationSimulation.from_csv(location, md5_checksum=md5_checksum, default_meta=default_meta, defined_meta=defined_meta)
 
         self.assertEqual(len(simulation.rounds), 6598)
 

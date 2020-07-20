@@ -122,7 +122,7 @@ class Benchmark(Generic[_S,_A], ABC):
     """The interface for Benchmark implementations."""
     
     @abstractmethod
-    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Result:
+    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Sequence[Result]:
         """Calculate the performance for a provided bandit Learner.
 
         Args:

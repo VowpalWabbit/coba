@@ -12,17 +12,20 @@ Todo:
 
 import csv
 import json
-import hashlib
 import urllib.request
+
+import time
 
 from itertools import repeat, count
 from http.client import HTTPResponse
 from warnings import warn
-from gzip import GzipFile
+from gzip import  decompress
 from contextlib import closing
 from collections import defaultdict
 from abc import ABC, abstractmethod
+from hashlib import md5
 from typing import Optional, Iterable, Sequence, List, Union, Callable, TypeVar, Generic, Hashable, Dict, cast, Any, ContextManager, IO, Tuple, overload
+
 
 from coba import random as cb_random
 from coba.preprocessing import Metadata, OneHotEncoder, NumericEncoder, Encoder
@@ -374,7 +377,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
         has_header  : bool                        = True
         default_meta: Metadata[bool,bool,Encoder] = Metadata.default()
-        columns_meta: Dict[Any, Metadata]         = {}
+        defined_meta: Dict[Any, Metadata]         = {}
 
         if config["format"] == "openml":
             return ClassificationSimulation.from_openml(config["id"])
@@ -395,14 +398,14 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
             if "column_overrides" in config:
                 for key,value in config["column_overrides"].items():
-                    columns_meta[key] = Metadata.from_json(value)
+                    defined_meta[key] = Metadata.from_json(value)
 
             return ClassificationSimulation.from_csv(
                 location     = location,
                 md5_checksum = md5_checksum,
                 has_header   = has_header,
                 default_meta = default_meta,
-                columns_meta = columns_meta
+                defined_meta = defined_meta
             )
 
         if config["format"] == "table":
@@ -417,13 +420,13 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
             if "column_overrides" in config:
                 for key,value in config["column_overrides"].items():
-                    columns_meta[key] = Metadata.from_json(value)
+                    defined_meta[key] = Metadata.from_json(value)
 
             return ClassificationSimulation.from_table(
                 table        = table,
                 has_header   = has_header,
                 default_meta = default_meta,
-                columns_meta = columns_meta
+                defined_meta = defined_meta
             )
 
         raise Exception("We were unable to recognize the provided data format.")
@@ -436,16 +439,18 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             data_id: The unique identifier for a dataset stored on openml.
         """
 
+        print(f"loading openml {data_id}...")
+
         with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}')) as resp:
             data = json.loads(resp.read())["data_set_description"]
 
         with closing(urllib.request.urlopen(f'http://www.openml.org/api/v1/json/data/features/{data_id}')) as resp:
             meta = json.loads(resp.read())["data_features"]["feature"]
 
-        columns_meta: Dict[str,Metadata] = {}
+        defined_meta: Dict[str,Metadata] = {}
 
         for m in meta:
-            columns_meta[m["name"]] = Metadata(
+            defined_meta[m["name"]] = Metadata(
                 ignore  = m["is_ignore"] == "true" or m["is_row_identifier"] == "true",
                 label   = m["is_target"] == "true",
                 encoder = NumericEncoder() if m["data_type"] == "numeric" else OneHotEncoder()
@@ -453,7 +458,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
         csv_url = f"http://www.openml.org/data/v1/get_csv/{data['file_id']}"
 
-        return ClassificationSimulation.from_csv(csv_url, columns_meta=columns_meta)
+        return ClassificationSimulation.from_csv(csv_url, defined_meta=defined_meta)
 
     @staticmethod
     def from_csv(
@@ -463,7 +468,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader,
         has_header  : bool = True,
         default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
-        columns_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[State,Action]':
+        defined_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[State,Action]':
         """Create a ClassificationSimulation given the location of a csv formatted dataset.
 
         Args:
@@ -492,25 +497,20 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             is_disk_gzip = is_disk and location.lower().endswith(".gz")
             is_http_gzip = is_http and cast(HTTPResponse, raw_stream).info().get('Content-Encoding') == "gzip"
 
-            stream = cast(Iterable[bytes],GzipFile(fileobj=raw_stream) if is_disk_gzip or is_http_gzip else raw_stream) 
+            all_bytes = decompress(raw_stream.read()) if is_disk_gzip or is_http_gzip else raw_stream.read()
 
-            actual_md5_checksum  = hashlib.md5()
-
-            def decoded_lines_and_calc_checksum() -> Iterable[str]:
-                for line in stream:
-                    actual_md5_checksum.update(line)
-                    yield line.decode('utf-8')
-
-            csv_rows   = csv.reader(decoded_lines_and_calc_checksum())
-            simulation = ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, columns_meta)
-
-        # At this time openML only provides md5_checksum for arff files. Because we are reading csv we can't check this.
-        if md5_checksum is not None and md5_checksum != actual_md5_checksum.hexdigest():
+        if md5_checksum is not None and md5_checksum != md5(all_bytes).hexdigest():
             warn(
-                "The OpenML dataset did not match the expected checksum. This could be the result of network"
-                "errors or the file becoming corrupted. Please consider downloading the file again and if the"
-                "error persists you may want to manually download and reference the file."
-                )
+                "The dataset did not match the expected checksum. This could be the result of network "
+                "errors or the file becoming corrupted. Please consider downloading the file again and if "
+                "the error persists you may want to manually download and reference the file."
+            )
+        
+        all_text  = all_bytes.decode('utf-8')
+        all_lines = all_text.split("\n")
+        csv_rows  = csv_reader(all_lines)
+
+        simulation = ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
 
         return simulation
 
@@ -520,7 +520,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         label_col   : Union[None,str,int] = None,
         has_header  : bool = True,
         default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
-        columns_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[State,Action]':
+        defined_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[State,Action]':
         """Create a ClassifierSimulation from the rows contained in a csv formatted dataset.
 
         Args:
@@ -543,48 +543,64 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         table_iter            = iter(table)
         header: Sequence[str] = next(table_iter) if has_header else []
 
-        columns : Dict[int,COLUMN_ENTRIES ] = defaultdict(list)
-        metas   : Dict[int, DEFINITE_META ] = defaultdict(lambda:default_meta)
-        features: Dict[int, List[Hashable]] = defaultdict(list)
-        labels  : Dict[int, List[Hashable]] = defaultdict(list)
+        columns : List[COLUMN_ENTRIES] = []
+        metas   : List[DEFINITE_META ] = []
+        features: List[List[Hashable]] = []
+        labels  : List[List[Hashable]] = []
  
         label_index = header.index(label_col) if label_col in header else label_col if isinstance(label_col,int) else None  # type: ignore
-        label_meta  = columns_meta.get(label_col, columns_meta.get(label_index, None)) #type: ignore
+        label_meta  = defined_meta.get(label_col, defined_meta.get(label_index, None)) #type: ignore
 
         if isinstance(label_col, str) and label_col not in header:
             raise Exception("We were unable to find the label column in the header row (or there was no header row).")
 
-        if any(map(lambda key: isinstance(key,str) and key not in header, columns_meta)):
+        if any(map(lambda key: isinstance(key,str) and key not in header, defined_meta)):
             raise Exception("We were unable to find a meta column in the header row (or there was no header row).")
 
         if label_meta is not None and label_meta.label == False:
             raise Exception("A meta entry was provided for the label column that was explicitly marked as non-label.")
 
         def to_column_index(key: Union[int,str]):
-            return header.index(key) if isinstance(key,str) else key
+            return header.index(key) if isinstance(key,str) else key        
 
-        if label_index is not None and label_meta is None:
-            metas[label_index] = metas[label_index].override(Metadata(None,True,None))
-
-        for key,meta in columns_meta.items():
-            metas[to_column_index(key)] = metas[to_column_index(key)].override(meta)
+        if label_meta is None and label_index is not None:
+            defined_meta[label_index] = default_meta.override(Metadata(None,True,None))
 
         #first pass, loop through all rows. If meta is marked as ignore place an empty
         # tuple in the column array, if meta has an encoder already fit encode now, if
         #the encoder isn't fit place the string value in the column for later fitting.
         for row in (r for r in table_iter if len(r) > 0):
-            for r,col,m in [ (row[i], columns[i], metas[i]) for i in range(len(row)) ]:
-                col.append(() if m.ignore else m.encoder.encode(r) if m.encoder.is_fit else r)
+
+            if(len(columns) == 0):
+                columns = [ [] for _ in range(len(row)) ]
+
+            if(len(metas) == 0):
+                metas = [ default_meta for _ in range(len(row)) ]
+
+                for key,meta in defined_meta.items():
+                    metas[to_column_index(key)] = default_meta.override(meta)
+
+            for r,col,m in zip(row, columns, metas):
+                if m.ignore: continue
+                col.append(m.encoder.encode(r) if m.encoder.is_fit else r)
 
         #second pass, loop through all columns. Now that we have the data in column arrays
         #we are able to fit any encoders that need fitting. After fitting we need to encode
         #these column's string values and turn our data back into rows for features and labels.
-        for i,col,m in [ (i, columns[i], metas[i]) for i in range(len(columns)) if not metas[i].ignore ]:
+        for col,m in zip(columns,metas):
+
+            if m.ignore: continue
+
+            if len(features) == 0:
+                features = [ [] for _ in range(len(col)) ]
+
+            if len(labels) == 0:
+                labels = [ [] for _ in range(len(col)) ]
 
             #if the encoder isn't already fit we know that col is a List[str]
             encoder = None if m.encoder.is_fit else m.encoder.fit(cast(Sequence[str],col))
 
-            for c,f,l in [ (col[i], features[i], labels[i]) for i in range(len(col)) ]:
+            for c,f,l in zip(col,features,labels):
 
                 final_value = c if encoder is None else encoder.encode(cast(str,c))
 

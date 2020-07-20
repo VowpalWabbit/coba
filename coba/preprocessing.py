@@ -259,7 +259,10 @@ class OneHotEncoder(Encoder[int]):
         if self._error_if_unknown and value not in self._fit_values:
             raise Exception(f"An unkown value ('{value}') given to the encoder.")
 
-        encoding: Sequence[int] = [ 1 if value == fit_value else 0 for fit_value in self._fit_values]
+        encoding = [0] * len(self._fit_values)
+        
+        if value in self._fit_values:
+            encoding[self._fit_values.index(value)] = 1
 
         if self._singular_if_binary and len(encoding) == 2:
             encoding = [ encoding[0] ]
