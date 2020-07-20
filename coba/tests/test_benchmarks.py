@@ -3,7 +3,7 @@ import unittest
 
 from math import isnan
 
-from coba.simulations import LambdaSimulation, Simulation
+from coba.simulations import LambdaSimulation, LazySimulation, Simulation
 from coba.learners import LambdaLearner
 from coba.benchmarks import Stats, Result, UniversalBenchmark
 
@@ -91,11 +91,12 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         benchmark = UniversalBenchmark.from_json(json)
 
         self.assertEqual(len(benchmark._simulations),2)
+        self.assertIsInstance(benchmark._simulations[0],LazySimulation)
 
-    def test_one_game_five_rounds_batch_size_one(self):
-        game            = LambdaSimulation[int,int](50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
+    def test_one_sim_five_batches_of_one(self):
+        sim             = LambdaSimulation[int,int](50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: int(s%3))
-        benchmark       = UniversalBenchmark[int,int]([game], [1]*5)
+        benchmark       = UniversalBenchmark[int,int]([sim], [1]*5)
 
         result = benchmark.evaluate([learner_factory])[0]
 
@@ -105,10 +106,10 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         self.assertEqual(result.observations, expected_observations)
 
-    def test_one_game_five_rounds_batch_size_five(self):
-        game            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+    def test_one_sim_one_batch_of_five(self):
+        sim             = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[int(s%3)])
-        benchmark       = UniversalBenchmark([game], [5])
+        benchmark       = UniversalBenchmark([sim], [5])
 
         result = benchmark.evaluate([learner_factory])[0]
 
@@ -118,10 +119,10 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         self.assertEqual(result.observations, expected_observations)
 
-    def test_one_game_nine_rounds_batch_size_three(self):
-        game            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
+    def test_one_sim_three_batches_of_three(self):
+        sim             = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: int(s%3))
-        benchmark       = UniversalBenchmark([game], [3,3,3])
+        benchmark       = UniversalBenchmark([sim], [3,3,3])
 
         result = benchmark.evaluate([learner_factory])[0]
 
@@ -131,10 +132,10 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         self.assertEqual(result.observations, expected_observations)
 
-    def test_one_game_six_rounds_batch_size_four(self):
-        game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+    def test_one_sim_two_batches(self):
+        sim            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: s%3)
-        benchmark       = UniversalBenchmark([game1], [4,2])
+        benchmark       = UniversalBenchmark([sim], [4,2])
 
         result = benchmark.evaluate([learner_factory])[0]
 
@@ -144,10 +145,10 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         self.assertEqual(result.observations, expected_observations)
 
-    def test_one_game_six_rounds_batch_size_power_of_two(self):
-        game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+    def test_one_sim_four_batches(self):
+        sim            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
-        benchmark       = UniversalBenchmark([game1], [1, 2, 4, 1])
+        benchmark       = UniversalBenchmark([sim], [1, 2, 4, 1])
 
         result = benchmark.evaluate([learner_factory])[0]
 
@@ -157,12 +158,11 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         self.assertEqual(result.observations, expected_observations)
 
-
-    def test_two_simulations_five_rounds_batch_size_one(self):
-        game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        game2           = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+    def test_two_sims_five_batches_of_one(self):
+        sim1            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        sim2            = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
-        benchmark       = UniversalBenchmark([game1,game2], [1]*5)
+        benchmark       = UniversalBenchmark([sim1,sim2], [1]*5)
 
         result = benchmark.evaluate([learner_factory])[0]
 
@@ -173,11 +173,11 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         self.assertEqual(result.observations, expected_observations)
 
-    def test_two_simulations_five_rounds_batch_size_five(self):
-        game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        game2           = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+    def test_two_sims_one_batch_of_five(self):
+        sim1            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        sim2            = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
-        benchmark       = UniversalBenchmark([game1,game2], [5])
+        benchmark       = UniversalBenchmark([sim1,sim2], [5])
 
         result = benchmark.evaluate([learner_factory])[0]
 
@@ -188,13 +188,12 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         self.assertEqual(result.observations, expected_observations)
 
-    def test_two_simulations_nine_rounds_batch_size_three(self):
-        game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
-        game2           = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s, a: a)
+    def test_two_sims_three_batches_of_three(self):
+        sim1            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
+        sim2            = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s, a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: int(s%3))
 
-        simulations: List[Simulation[int,int]] = [game1]
-        benchmark       = UniversalBenchmark[int,int]([game1,game2], [3]*3)
+        benchmark       = UniversalBenchmark[int,int]([sim1,sim2], [3]*3)
 
         result = benchmark.evaluate([learner_factory])[0]
 
@@ -205,17 +204,29 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         self.assertEqual(result.observations, expected_observations)
 
-    def test_two_simulations_six_rounds_batch_size_four(self):
-        game1           = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
-        game2           = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s, a: a)
+    def test_two_sims_two_batches_of_four_and_two(self):
+        sim1            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
+        sim2            = LambdaSimulation(50, lambda i: i, lambda s: [3,4,5], lambda s, a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: int(s%3))
-        benchmark       = UniversalBenchmark([game1,game2], [4,2])
+        benchmark       = UniversalBenchmark([sim1,sim2], [4,2])
 
         result = benchmark.evaluate([learner_factory])[0]
 
         expected_observations = [
             (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,1,1),(0,1,2),
             (1,0,3),(1,0,4),(1,0,5),(1,0,3),(1,1,4),(1,1,5)
+        ]
+
+        self.assertEqual(result.observations, expected_observations)
+
+    def test_lazy_sim_two_batches(self):
+        sim1            = LazySimulation[int,int](lambda:LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a))
+        benchmark       = UniversalBenchmark([sim1], [4,2])
+        learner_factory = lambda: LambdaLearner[int,int](lambda s, A: int(s%3))
+        result = benchmark.evaluate([learner_factory])[0]
+
+        expected_observations = [
+            (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,1,1),(0,1,2)
         ]
 
         self.assertEqual(result.observations, expected_observations)

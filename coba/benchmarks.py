@@ -210,14 +210,14 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
         for sim_index, sim in enumerate(self._simulations):
 
+            if isinstance(sim, LazySimulation):
+                sim.load()
+
             for factory, results in zip(learner_factories, learner_results):
 
                 sim_learner   = factory()
                 batch_index   = 0
                 batch_choices = []
-
-                if isinstance(sim, LazySimulation):
-                    sim.load()
 
                 for r in islice(sim.rounds, self._n_rounds):
 
@@ -232,13 +232,13 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
                         batch_choices = []
                         batch_index += 1
-                
-                if isinstance(sim, LazySimulation):
-                    sim.unload()
-                        
+                                        
                 for (state,action,reward) in sim.rewards(batch_choices):
                     sim_learner.learn(state,action,reward)
                     results.append((sim_index, batch_index, reward))
+
+            if isinstance(sim, LazySimulation):
+                sim.unload()
 
         return [ Result(results) for results in learner_results ]
 
