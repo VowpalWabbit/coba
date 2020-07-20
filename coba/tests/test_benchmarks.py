@@ -97,7 +97,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: int(s%3))
         benchmark       = UniversalBenchmark[int,int]([game], [1]*5)
 
-        result = benchmark.evaluate(learner_factory)
+        result = benchmark.evaluate([learner_factory])[0]
 
         expected_observations = [
             (0,0,0),(0,1,1),(0,2,2),(0,3,0),(0,4,1)
@@ -110,7 +110,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[int(s%3)])
         benchmark       = UniversalBenchmark([game], [5])
 
-        result = benchmark.evaluate(learner_factory)
+        result = benchmark.evaluate([learner_factory])[0]
 
         expected_observations = [
             (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,0,1)
@@ -123,7 +123,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: int(s%3))
         benchmark       = UniversalBenchmark([game], [3,3,3])
 
-        result = benchmark.evaluate(learner_factory)
+        result = benchmark.evaluate([learner_factory])[0]
 
         expected_observations = [
             (0,0,0),(0,0,1),(0,0,2),(0,1,0),(0,1,1),(0,1,2),(0,2,0),(0,2,1),(0,2,2)
@@ -136,7 +136,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: s%3)
         benchmark       = UniversalBenchmark([game1], [4,2])
 
-        result = benchmark.evaluate(learner_factory)
+        result = benchmark.evaluate([learner_factory])[0]
 
         expected_observations = [
             (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,1,1),(0,1,2)
@@ -149,7 +149,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
         benchmark       = UniversalBenchmark([game1], [1, 2, 4, 1])
 
-        result = benchmark.evaluate(learner_factory)
+        result = benchmark.evaluate([learner_factory])[0]
 
         expected_observations = [
             (0,0,0),(0,1,1),(0,1,2),(0,2,0),(0,2,1),(0,2,2),(0,2,0),(0,3,1)
@@ -164,7 +164,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
         benchmark       = UniversalBenchmark([game1,game2], [1]*5)
 
-        result = benchmark.evaluate(learner_factory)
+        result = benchmark.evaluate([learner_factory])[0]
 
         expected_observations = [
             (0,0,0),(0,1,1),(0,2,2),(0,3,0),(0,4,1),
@@ -179,7 +179,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: int(s%3))
         benchmark       = UniversalBenchmark([game1,game2], [5])
 
-        result = benchmark.evaluate(learner_factory)
+        result = benchmark.evaluate([learner_factory])[0]
 
         expected_observations = [
             (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,0,1),
@@ -196,7 +196,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         simulations: List[Simulation[int,int]] = [game1]
         benchmark       = UniversalBenchmark[int,int]([game1,game2], [3]*3)
 
-        result = benchmark.evaluate(learner_factory)
+        result = benchmark.evaluate([learner_factory])[0]
 
         expected_observations = [
             (0,0,0),(0,0,1),(0,0,2),(0,1,0),(0,1,1),(0,1,2),(0,2,0),(0,2,1),(0,2,2),
@@ -211,7 +211,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: int(s%3))
         benchmark       = UniversalBenchmark([game1,game2], [4,2])
 
-        result = benchmark.evaluate(learner_factory)
+        result = benchmark.evaluate([learner_factory])[0]
 
         expected_observations = [
             (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,1,1),(0,1,2),

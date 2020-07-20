@@ -122,16 +122,16 @@ class Benchmark(Generic[_S,_A], ABC):
     """The interface for Benchmark implementations."""
     
     @abstractmethod
-    def evaluate(self, learner_factory: Callable[[],Learner[_S,_A]]) -> Result:
+    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Result:
         """Calculate the performance for a provided bandit Learner.
 
         Args:
-            learner_factory: A function to create Learner instances. The function should 
-                always create the same Learner in order to get an unbiased performance 
+            learner_factories: A sequence of functions to create Learner instances. Each function 
+                should always create the same Learner in order to get an unbiased performance 
                 Result. This method can be as simple as `lambda: MyLearner(...)`.
 
         Returns:
-            A Result containing the performance statistics of the benchmark.
+            The resulting performance statistics for each given learner to evaluate.
 
         Remarks:
             The learner factory is necessary because a Result can be calculated using
@@ -162,7 +162,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         is_singular = isinstance(config["simulations"], dict)
         sim_configs = config["simulations"] if not is_singular else [ config["simulations"] ]
 
-        #by default benchmarks are loaded lazily
+        #by default load simulations lazily
         for sim_config in sim_configs:
             if "lazy" not in sim_config:
                 sim_config["lazy"] = True
@@ -194,49 +194,53 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         #if batches is a sequence if ints limit to the batch sum else don't limit the rounds
         self._n_rounds = sum(self._batches) if isinstance(self._batches,collections.Sequence) else n_rounds
 
-    def evaluate(self, learner_factory: Callable[[],Learner[_S,_A]]) -> Result:
+    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Sequence[Result]:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
-            learner_factory: See the base class for more information.
+            learner_factories: See the base class for more information.
         
         Returns:
             See the base class for more information.
         """
 
-        results:List[Tuple[int,int,float]] = []
+        Results = List[Tuple[int,int,float]]
+        
+        learner_results: List[Results] = [[] for _ in learner_factories]
 
         for sim_index, sim in enumerate(self._simulations):
 
-            sim_learner   = learner_factory()
-            batch_index   = 0
-            batch_choices = []
+            for factory, results in zip(learner_factories, learner_results):
 
-            if isinstance(sim, LazySimulation):
-                sim.load()
+                sim_learner   = factory()
+                batch_index   = 0
+                batch_choices = []
 
-            for r in islice(sim.rounds, self._n_rounds):
+                if isinstance(sim, LazySimulation):
+                    sim.load()
 
-                index = sim_learner.choose(r.state, r.actions)
+                for r in islice(sim.rounds, self._n_rounds):
 
-                batch_choices.append(r.choices[index])
-                
-                if len(batch_choices) == self._batch_size(batch_index):
-                    for (state,action,reward) in sim.rewards(batch_choices):
-                        sim_learner.learn(state,action,reward)
-                        results.append((sim_index, batch_index, reward))
+                    index = sim_learner.choose(r.state, r.actions)
 
-                    batch_choices = []
-                    batch_index += 1
-            
-            if isinstance(sim, LazySimulation):
-                sim.unload()
+                    batch_choices.append(r.choices[index])
                     
-            for (state,action,reward) in sim.rewards(batch_choices):
-                sim_learner.learn(state,action,reward)
-                results.append((sim_index, batch_index, reward))
+                    if len(batch_choices) == self._batch_size(batch_index):
+                        for (state,action,reward) in sim.rewards(batch_choices):
+                            sim_learner.learn(state,action,reward)
+                            results.append((sim_index, batch_index, reward))
 
-        return Result(results)
+                        batch_choices = []
+                        batch_index += 1
+                
+                if isinstance(sim, LazySimulation):
+                    sim.unload()
+                        
+                for (state,action,reward) in sim.rewards(batch_choices):
+                    sim_learner.learn(state,action,reward)
+                    results.append((sim_index, batch_index, reward))
+
+        return [ Result(results) for results in learner_results ]
 
     def _batch_size(self, i:int) -> int:
         if isinstance(self._batches, int                 ): return self._batches
