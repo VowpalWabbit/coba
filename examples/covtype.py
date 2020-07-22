@@ -51,7 +51,7 @@ ax2.plot([ i.mean for i in epsilon_result.cumulative_batch_stats], label="Epsilo
 ax2.plot([ i.mean for i in ucb_result    .cumulative_batch_stats], label="UCB")
 ax2.plot([ i.mean for i in vowpal_result .cumulative_batch_stats], label="Vowpal")
 
-ax2.set_title("Progressive Validation Loss")
+ax2.set_title("Progressive Validation Reward")
 ax2.set_xlabel("Batch Index")
 
 (bot1, top1) = ax1.get_ylim()
