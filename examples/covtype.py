@@ -14,16 +14,16 @@ label_col  = 54
 
 #define a simulation
 print("loading simulation data...")
-#data = ClassificationSimulation.from_csv_path(csv_path, label_col)
-#data = ClassificationSimulation.from_openml(1116)
-data = ClassificationSimulation.from_openml(150)
+#sim = ClassificationSimulation.from_csv_path(csv_path, label_col)
+#sim = ClassificationSimulation.from_openml(1116)
+sim = ClassificationSimulation.from_openml(150)
 
 #shuffle to make sure data is stationary
 print("shuffling simulation data...")
-data = ShuffleSimulation(data)
+sim = ShuffleSimulation(sim)
 
 print("defining the benchmark...")
-benchmark = UniversalBenchmark([data], lambda i: 100 + i*100, 300000)
+benchmark = UniversalBenchmark([sim], batch_size = lambda i: 100 + i*100)
 
 print("creating the learners...")
 learner_factories = [ lambda: RandomLearner(), lambda: EpsilonLearner(1/10), lambda: UcbTunedLearner(), lambda: VowpalLearner(bag=5) ]

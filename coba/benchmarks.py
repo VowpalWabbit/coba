@@ -12,8 +12,8 @@ import json
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload
-from itertools import islice
+from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, Iterable
+from itertools import islice, count
 
 from coba.simulations import LazySimulation, Simulation, State, Action
 from coba.learners import Learner
@@ -169,13 +169,22 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
         simulations = [ Simulation.from_json(sim_config) for sim_config in sim_configs ]
         batches     = config["batches"]
-    
-        return UniversalBenchmark(simulations, batches)
+
+        if "count" in config["batches"]:
+            return UniversalBenchmark(simulations, batch_count=config["batches"]["count"])
+        else:
+            return UniversalBenchmark(simulations, batch_size=config["batches"]["size"])    
+
+    @overload
+    def __init__(self, simulations: Sequence[Simulation[_S,_A]],*, batch_count: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, simulations: Sequence[Simulation[_S,_A]],*, batch_size: Union[int, Sequence[int], Callable[[int],int]]) -> None:
+        ...
 
     def __init__(self, 
-        simulations: Sequence[Simulation[_S,_A]],
-        batches    : Union[int, Sequence[int], Callable[[int],int]] = 1, 
-        n_rounds   : int = None) -> None:
+        simulations: Sequence[Simulation[_S,_A]], batch_count: int = None, batch_size : Union[int, Sequence[int], Callable[[int],int]] = None) -> None:
         """Instantiate a UniversalBenchmark.
         
         Args:
@@ -189,10 +198,8 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         """
 
         self._simulations = simulations
-        self._batches     = batches
-
-        #if batches is a sequence if ints limit to the batch sum else don't limit the rounds
-        self._n_rounds = sum(self._batches) if isinstance(self._batches,collections.Sequence) else n_rounds
+        self._batch_count = batch_count
+        self._batch_size  = batch_size
 
     def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Sequence[Result]:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
@@ -212,6 +219,9 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
             if isinstance(sim, LazySimulation):
                 sim.load()
+                
+            batch_sizes = self._batch_sizes(len(sim.rounds))
+            n_rounds = sum(batch_sizes)
 
             for factory, results in zip(learner_factories, learner_results):
 
@@ -219,13 +229,13 @@ class UniversalBenchmark(Benchmark[_S,_A]):
                 batch_index   = 0
                 batch_choices = []
 
-                for r in islice(sim.rounds, self._n_rounds):
+                for r in islice(sim.rounds, n_rounds):
 
                     index = sim_learner.choose(r.state, r.actions)
 
                     batch_choices.append(r.choices[index])
                     
-                    if len(batch_choices) == self._batch_size(batch_index):
+                    if len(batch_choices) == batch_sizes[batch_index]:
                         for (state,action,reward) in sim.rewards(batch_choices):
                             sim_learner.learn(state,action,reward)
                             results.append((sim_index, batch_index, reward))
@@ -242,8 +252,36 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
         return [ Result(results) for results in learner_results ]
 
-    def _batch_size(self, i:int) -> int:
-        if isinstance(self._batches, int                 ): return self._batches
-        if isinstance(self._batches, collections.Sequence): return self._batches[i]
-        if callable  (self._batches                      ): return self._batches(i)
+    def _batch_sizes(self, n_rounds: int) -> Sequence[int]:
+
+        if self._batch_count is not None:
+            
+            batches   = [int(float(n_rounds)/(self._batch_count))] * self._batch_count
+            remainder = n_rounds % self._batch_count
+            
+            if remainder > 0:
+                spacing = float(self._batch_count)/remainder
+                for i in range(remainder): batches[int(i*(spacing-1))] += 1
+
+            return batches
+        
+        if isinstance(self._batch_size, int): 
+            return [self._batch_size] * int(float(n_rounds)/self._batch_size)
+
+        if isinstance(self._batch_size, collections.Sequence): 
+            return self._batch_size
+
+        if callable(self._batch_size):
+            batch_size_iter        = (self._batch_size(i) for i in count())
+            next_batch_size        = next(batch_size_iter)
+            remaining_rounds       = n_rounds
+            batch_sizes: List[int] = []
+
+            while remaining_rounds > next_batch_size:
+                batch_sizes.append(next_batch_size)
+                remaining_rounds -= next_batch_size
+                next_batch_size  = next(batch_size_iter)
+            
+            return batch_sizes
+        
         raise Exception("We were unable to determine batch size from the supplied parameters")
