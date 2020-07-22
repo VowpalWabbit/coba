@@ -264,7 +264,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             
             if remainder > 0:
                 spacing = float(self._batch_count)/remainder
-                for i in range(remainder): batches[int(i*(spacing-1))] += 1
+                for i in range(remainder): batches[int(i*spacing)] += 1
 
             return batches
         
