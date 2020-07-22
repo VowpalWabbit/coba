@@ -12,11 +12,12 @@ import json
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, Iterable
-from itertools import islice, count
+from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, cast
+from itertools import islice, count, repeat
 
 from coba.simulations import LazySimulation, Simulation, State, Action
 from coba.learners import Learner
+from coba.utilities import JsonTemplate
 
 _S = TypeVar('_S', bound=State)
 _A = TypeVar('_A', bound=Action)
@@ -155,9 +156,11 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         """
 
         if isinstance(json_val, str):
-            config = json.loads(json_val)
+            config = cast(Dict[str,Any],json.loads(json_val))
         else:
             config = json_val
+
+        config = JsonTemplate.parse(config)
 
         is_singular = isinstance(config["simulations"], dict)
         sim_configs = config["simulations"] if not is_singular else [ config["simulations"] ]
