@@ -4,7 +4,6 @@ This module contains the abstract interface expected for Benchmark implementatio
 module also contains several Benchmark implementations and Result data transfer class.
 
 Todo:
-    * Add more statistics to the Stats class
     * Incorporate out of the box plots
 """
 
@@ -66,41 +65,48 @@ class Result:
 
     @staticmethod
     def from_observations(observations: Sequence[Tuple[int,int,float]], drop_first_batch:bool=True) -> 'Result':
-            
-            result = Result(drop_first_batch)
-
-            sim_batch_observations: List[float] = []
-            sim_index = None
-            batch_index = None
-
-            for observation in sorted(observations, key=lambda o: (o[0], o[1])):
-
-                if sim_index is None: sim_index = observation[0]
-                if batch_index is None: batch_index = observation[1]
-
-                if sim_index != observation[0] or batch_index != observation[1]:
-
-                    result.add_observations(sim_index, batch_index, sim_batch_observations)
-
-                    sim_index              = observation[0]
-                    batch_index             = observation[1]
-                    sim_batch_observations = []
-
-                sim_batch_observations.append(observation[2])
-
-            if sim_index is not None and batch_index is not None:
-                result.add_observations(sim_index, batch_index, sim_batch_observations)
-
-            return result
-
-    def __init__(self, drop_first_batch=True):
-        """Instantiate a Result.
-
+        """Create a Result object from the provided observations. 
+        
         Args:
             observations: A sequence of three valued tuples where each tuple represents the result of 
                 a single round in a benchmark evaluation. The first value in each tuple is a zero-based 
                 sim index. The second value in the tuple is a zero-based batch index. The final value
                 in the tuple is the amount of reward received after taking an action in a round.
+            drop_first_batch: An indicator determining if the first batch should be excluded from Result.
+        """            
+        result = Result(drop_first_batch)
+
+        sim_batch_observations: List[float] = []
+        sim_index = None
+        batch_index = None
+
+        for observation in sorted(observations, key=lambda o: (o[0], o[1])):
+
+            if sim_index is None: sim_index = observation[0]
+            if batch_index is None: batch_index = observation[1]
+
+            if sim_index != observation[0] or batch_index != observation[1]:
+
+                result.add_observations(sim_index, batch_index, sim_batch_observations)
+
+                sim_index              = observation[0]
+                batch_index             = observation[1]
+                sim_batch_observations = []
+
+            sim_batch_observations.append(observation[2])
+
+        if sim_index is not None and batch_index is not None:
+            result.add_observations(sim_index, batch_index, sim_batch_observations)
+
+        return result
+
+    def __init__(self, drop_first_batch=True):
+        """Instantiate a Result.
+
+        Args:
+            drop_first_batch: Indicates if the first batch in every simulation should be excluded from
+                Result. The first batch represents choices made without any learning and says relatively
+                little about a learner potentially biasing cumulative statistics siginificantly.
         """
         self._sim_batch_stats: Dict[Tuple[int,int], Stats] = {}
         
@@ -124,7 +130,7 @@ class Result:
 
     @property
     def cumulative_batch_stats(self) -> Sequence[Stats]:
-        """Pre-calculated statistics where batches accumulate all prior batches as you go.  """
+        """Pre-calculated statistics where batches accumulate all prior batches as you go."""
 
         cum_mean: float = 0.0
         cum_stats: List[Stats] = []
@@ -139,10 +145,9 @@ class Result:
         """Update result stats with a new set of batch observations.
 
         Args:
-            observations: A sequence of three valued tuples where each tuple represents the result of 
-                a single round in a benchmark evaluation. The first value in each tuple is a zero-based 
-                sim index. The second value in the tuple is a zero-based batch index. The final value
-                in the tuple is the amount of reward received after taking an action in a round.
+            simulation_index: A unique identifier for the simulation that rewards came from
+            batch_index: A unique identifier for the batch that rewards came from
+            rewards: The observed reward values for the given batch in a simulation
         """
 
         if (self._drop_first_batch and batch_index == 0) or len(rewards) == 0: 
