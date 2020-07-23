@@ -1,83 +1,79 @@
-from typing import List
 import unittest
 
 from math import isnan
 
-from coba.simulations import LambdaSimulation, LazySimulation, Simulation
+from coba.simulations import LambdaSimulation, LazySimulation
 from coba.learners import LambdaLearner
 from coba.benchmarks import Stats, Result, UniversalBenchmark
 
 class Stats_Tests(unittest.TestCase):
     def test_from_values_multi_mean_is_correct_1(self):
-        stats = Stats.from_values([1,1,3,3])
+        stats = Stats.from_observations([1,1,3,3])
         self.assertEqual(2,stats.mean)
 
     def test_from_values_multi_mean_is_correct_2(self):
-        stats = Stats.from_values([1,1,1,1])
+        stats = Stats.from_observations([1,1,1,1])
         self.assertEqual(1,stats.mean)
 
     def test_from_values_single_mean_is_correct(self):
-        stats = Stats.from_values([3])
+        stats = Stats.from_observations([3])
         self.assertEqual(3,stats.mean)
 
     def test_from_values_empty_mean_is_correct(self):
-        stats = Stats.from_values([])
+        stats = Stats.from_observations([])
         self.assertTrue(isnan(stats.mean))
 
 class Result_Tests(unittest.TestCase):
+
     def test_batch_means1(self):
-        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
+        result = Result.from_observations([(0,0,3), (0,0,4), (0,1,5), (0,1,5), (0,2,6)], False)
 
         self.assertEqual(len(result.batch_stats),3)
 
         self.assertAlmostEqual((3.+4.)/2., result.batch_stats[0].mean)
-        self.assertAlmostEqual((5+5  )/2, result.batch_stats[1].mean)
-        self.assertAlmostEqual((6    )/1, result.batch_stats[2].mean)
+        self.assertAlmostEqual((5+5  )/2., result.batch_stats[1].mean)
+        self.assertAlmostEqual((6    )/1., result.batch_stats[2].mean)
 
     def test_batch_means2(self):
-        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6), (2,1,3)])
+        result = Result.from_observations([(0,0,3), (0,0,4), (0,1,5), (0,1,5), (0,2,6), (1,0,3)], False)
 
         self.assertEqual(len(result.batch_stats),3)
 
-        self.assertAlmostEqual((3+4+3)/3, result.batch_stats[0].mean)
-        self.assertAlmostEqual((5+5  )/2, result.batch_stats[1].mean)
-        self.assertAlmostEqual((6    )/1, result.batch_stats[2].mean)
+        self.assertAlmostEqual((3.5+3)/2., result.batch_stats[0].mean)
+        self.assertAlmostEqual((5+5  )/2., result.batch_stats[1].mean)
+        self.assertAlmostEqual((6    )/1., result.batch_stats[2].mean)
 
     def test_cumulative_batch_means1(self):
-        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
+        result = Result.from_observations([(0,0,3), (0,0,4), (0,1,5), (0,1,5), (0,2,6)], False)
 
         self.assertEqual(len(result.cumulative_batch_stats),3)
 
-        self.assertAlmostEqual((3+4      )/2, result.cumulative_batch_stats[0].mean)
-        self.assertAlmostEqual((3+4+5+5  )/4, result.cumulative_batch_stats[1].mean)
-        self.assertAlmostEqual((3+4+5+5+6)/5, result.cumulative_batch_stats[2].mean)
+        self.assertAlmostEqual((3+4    )/2., result.cumulative_batch_stats[0].mean)
+        self.assertAlmostEqual((3.5+5  )/2., result.cumulative_batch_stats[1].mean)
+        self.assertAlmostEqual((3.5+5+6)/3., result.cumulative_batch_stats[2].mean)
 
     def test_cumulative_batch_means2(self):
-        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6), (2,1,3)])
+        result = Result.from_observations([(0,0,3), (0,0,4), (0,1,5), (0,1,5), (0,2,6), (1,0,3)], False)
 
         self.assertEqual(len(result.cumulative_batch_stats),3)
 
-        self.assertAlmostEqual((3+4+3      )/3, result.cumulative_batch_stats[0].mean)
-        self.assertAlmostEqual((3+4+3+5+5  )/5, result.cumulative_batch_stats[1].mean)
-        self.assertAlmostEqual((3+4+3+5+5+6)/6, result.cumulative_batch_stats[2].mean)
-
-    def test_predicate_means1(self):
-        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
-
-        actual_mean = result.predicate_stats(lambda o: o[1]==1).mean
-        expected_mean = (3+4)/2
-
-        self.assertAlmostEqual(actual_mean, expected_mean)
-
-    def test_predicate_means2(self):
-        result = Result([(1,1,3), (1,1,4), (1,2,5), (1,2,5), (1,3,6)])
-
-        actual_mean = result.predicate_stats(lambda o: o[1]==1 or o[1]==3).mean
-        expected_mean = (3+4+6)/3
-
-        self.assertAlmostEqual(actual_mean, expected_mean)
+        self.assertAlmostEqual((3.5+3   )/2., result.cumulative_batch_stats[0].mean)
+        self.assertAlmostEqual((3.25+5  )/2., result.cumulative_batch_stats[1].mean)
+        self.assertAlmostEqual((3.25+5+6)/3., result.cumulative_batch_stats[2].mean)
 
 class UniversalBenchmark_Tests(unittest.TestCase):
+
+    def _verify_result_from_expected_obs(self, actual_result, expected_obs):
+        expected_result = Result.from_observations(expected_obs)
+
+        self.assertEqual(len(actual_result.batch_stats), len(expected_result.batch_stats))
+        self.assertEqual(len(actual_result.sim_stats), len(expected_result.sim_stats))
+
+        for actual_stat, expected_stat in zip(actual_result.batch_stats, expected_result.batch_stats):
+            self.assertEqual(actual_stat.mean, expected_stat.mean)
+
+        for actual_stat, expected_stat in zip(actual_result.sim_stats, expected_result.sim_stats):
+            self.assertEqual(actual_stat.mean, expected_stat.mean)
 
     def test_from_json(self):
         json = """{
@@ -104,7 +100,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (0,0,0),(0,1,1),(0,2,2),(0,3,0),(0,4,1)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_one_sim_batch_count_one(self):
         sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -117,7 +113,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,0,1)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_one_sim_batch_count_two(self):
         sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -130,7 +126,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (0,0,0),(0,0,1),(0,0,2),(0,1,0),(0,1,1)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_one_sim_batch_size_three_threes(self):
         sim             = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
@@ -143,7 +139,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (0,0,0),(0,0,1),(0,0,2),(0,1,0),(0,1,1),(0,1,2),(0,2,0),(0,2,1),(0,2,2)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_one_sim_batch_size_four_and_two(self):
         sim            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -156,7 +152,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,1,1),(0,1,2)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_one_sim_batch_size_sequence(self):
         sim            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -169,7 +165,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (0,0,0),(0,1,1),(0,1,2),(0,2,0),(0,2,1),(0,2,2),(0,2,0),(0,3,1)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_two_sims_batch_size_five_ones(self):
         sim1            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -184,7 +180,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (1,0,3),(1,1,4),(1,2,5),(1,3,3),(1,4,4)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_two_sims_batch_count_one(self):
         sim1            = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -199,7 +195,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (1,0,3),(1,0,4),(1,0,5),(1,0,3)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_two_sims_batch_count_two(self):
         sim1            = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -214,7 +210,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (1,0,3),(1,0,4),(1,1,5),(1,1,3)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_two_sims_batch_size_three_threes(self):
         sim1            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
@@ -230,7 +226,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (1,0,3),(1,0,4),(1,0,5),(1,1,3),(1,1,4),(1,1,5),(1,2,3),(1,2,4),(1,2,5)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_two_sims_batch_size_four_and_two(self):
         sim1            = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a)
@@ -245,7 +241,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (1,0,3),(1,0,4),(1,0,5),(1,0,3),(1,1,4),(1,1,5)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
     def test_lazy_sim_two_batches(self):
         sim1            = LazySimulation[int,int](lambda:LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a))
@@ -257,7 +253,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             (0,0,0),(0,0,1),(0,0,2),(0,0,0),(0,1,1),(0,1,2)
         ]
 
-        self.assertEqual(result.observations, expected_observations)
+        self._verify_result_from_expected_obs(result, expected_observations)
 
 if __name__ == '__main__':
     unittest.main()

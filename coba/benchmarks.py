@@ -10,10 +10,11 @@ Todo:
 
 import json
 import collections
+import math
 
 from abc import ABC, abstractmethod
 from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, cast
-from itertools import islice, count, repeat
+from itertools import islice, count
 
 from coba.simulations import LazySimulation, Simulation, State, Action
 from coba.learners import Learner
@@ -26,23 +27,34 @@ class Stats:
     """A class to store summary statistics calculated from some sample."""
 
     @staticmethod
-    def from_values(vals: Sequence[float]) -> "Stats":
+    def from_observations(observations: Sequence[float]) -> "Stats":
         """Create a Stats class for some given sequence of values.
 
         Args:
             vals: A sample of values to calculate statistics for.
         """
-        mean = float('nan') if len(vals) == 0 else sum(vals)/len(vals)
 
-        return Stats(mean)
+        if len(observations) == 0:
+            return Stats(float('nan'),float('nan'),float('nan'))
 
-    def __init__(self, mean: float):
+        mean = sum(observations)/len(observations)
+        var  = sum( (v-mean)**2 for v in observations)/len(observations)
+        sem  = math.sqrt(var/len(observations))
+
+        return Stats(mean, var, sem)
+
+    def __init__(self, mean:float = float('nan'), variance:float = float('nan'), SEM:float = float('nan')):
         """Instantiate a Stats class.
 
         Args:
             mean: The mean for some sample of interest.
+            variance: The variance for some sample of interest.
+            SEM: The standard error of the mean for some sample of interest.
         """
-        self._mean = mean
+
+        self._mean     = mean
+        self._variance = variance
+        self._SEM      = SEM
 
     @property
     def mean(self) -> float:
@@ -52,50 +64,58 @@ class Stats:
 class Result:
     """A class to contain the results of a benchmark evaluation."""
 
-    def __init__(self, observations: Sequence[Tuple[int,int,float]]):
+    @staticmethod
+    def from_observations(observations: Sequence[Tuple[int,int,float]], drop_first_batch:bool=True) -> 'Result':
+            
+            result = Result(drop_first_batch)
+
+            sim_batch_observations: List[float] = []
+            sim_index = None
+            batch_index = None
+
+            for observation in sorted(observations, key=lambda o: (o[0], o[1])):
+
+                if sim_index is None: sim_index = observation[0]
+                if batch_index is None: batch_index = observation[1]
+
+                if sim_index != observation[0] or batch_index != observation[1]:
+
+                    result.add_observations(sim_index, batch_index, sim_batch_observations)
+
+                    sim_index              = observation[0]
+                    batch_index             = observation[1]
+                    sim_batch_observations = []
+
+                sim_batch_observations.append(observation[2])
+
+            if sim_index is not None and batch_index is not None:
+                result.add_observations(sim_index, batch_index, sim_batch_observations)
+
+            return result
+
+    def __init__(self, drop_first_batch=True):
         """Instantiate a Result.
 
         Args:
             observations: A sequence of three valued tuples where each tuple represents the result of 
                 a single round in a benchmark evaluation. The first value in each tuple is a zero-based 
-                game index. The second value in the tuple is a zero-based batch index. The final value
+                sim index. The second value in the tuple is a zero-based batch index. The final value
                 in the tuple is the amount of reward received after taking an action in a round.
         """
-        self._observations = observations
-        self._batch_stats  = []
-        self._cumulative_batch_stats  = []
+        self._sim_batch_stats: Dict[Tuple[int,int], Stats] = {}
+        
+        self._batch_stats:List[Stats] = []
+        self._sim_stats:List[Stats]  = []
 
-        iter_curr  = self._observations[0][1]
-        iter_count = 0
-        iter_mean  = 0.
-        prog_count = 0
-        prog_mean  = 0.
+        self._batch_stats_count:List[int] = [] 
+        self._sim_stats_count:List[int] = []
 
-        # we manually calculate the statistics the first time
-        # using online methods so that we only have to pass
-        # through all the observations once.
+        self._drop_first_batch = drop_first_batch    
 
-        # first we have to sort to make sure that batch 
-        # indexes spread across simulations are grouped together.
-
-        for observation in sorted(self._observations, key=lambda o: o[1]):
-
-            if(iter_curr != observation[1]):
-                self._batch_stats.append(Stats(iter_mean))
-                self._cumulative_batch_stats.append(Stats(prog_mean))
-
-                iter_curr  = observation[1]
-                iter_count = 0
-                iter_mean  = 0
-
-            iter_count += 1
-            prog_count += 1
-
-            iter_mean = (1/iter_count) * observation[2] + (1-1/iter_count) * iter_mean
-            prog_mean = (1/prog_count) * observation[2] + (1-1/prog_count) * prog_mean
-
-        self._batch_stats.append(Stats(iter_mean))
-        self._cumulative_batch_stats.append(Stats(prog_mean))
+    @property
+    def sim_stats(self) -> Sequence[Stats]:
+        """Pre-calculated statistics for each simulation."""
+        return self._sim_stats
 
     @property
     def batch_stats(self) -> Sequence[Stats]:
@@ -105,23 +125,66 @@ class Result:
     @property
     def cumulative_batch_stats(self) -> Sequence[Stats]:
         """Pre-calculated statistics where batches accumulate all prior batches as you go.  """
-        return self._cumulative_batch_stats
 
-    def predicate_stats(self, predicate: Callable[[Tuple[int,int,float]],bool]) -> Stats:
-        """Calculate the statistics for any given filter predicate.
-        
+        cum_mean: float = 0.0
+        cum_stats: List[Stats] = []
+
+        for n, stats in enumerate(self._batch_stats, start=1):
+            cum_mean = (n-1)/n * cum_mean + (1/n) * stats.mean
+            cum_stats.append(Stats(cum_mean))
+
+        return cum_stats
+
+    def add_observations(self, simulation_index: int, batch_index: int, rewards: Sequence[float]):
+        """Update result stats with a new set of batch observations.
+
         Args:
-            predicate: Determine which observations to include when calculating statistics.
+            observations: A sequence of three valued tuples where each tuple represents the result of 
+                a single round in a benchmark evaluation. The first value in each tuple is a zero-based 
+                sim index. The second value in the tuple is a zero-based batch index. The final value
+                in the tuple is the amount of reward received after taking an action in a round.
         """
-        return Stats.from_values([o[2] for o in filter(predicate, self._observations)])
 
-    @property
-    def observations(self) -> Sequence[Tuple[int,int,float]]:
-        return self._observations
+        if (self._drop_first_batch and batch_index == 0) or len(rewards) == 0: 
+            return
+
+        if self._drop_first_batch:
+            batch_index -= 1
+
+        if (simulation_index+1) > len(self._sim_stats):
+            sims_to_add = (simulation_index+1) - len(self._sim_stats)
+
+            self._sim_stats.extend([Stats() for _ in range(sims_to_add)])
+            self._sim_stats_count.extend([1 for _ in range(sims_to_add)])
+
+        if (batch_index+1) > len(self._batch_stats):
+            batches_to_add = (batch_index+1) - len(self._batch_stats)
+
+            self._batch_stats.extend([Stats() for _ in range(batches_to_add)])
+            self._batch_stats_count.extend([1 for _ in range(batches_to_add)])
+
+        stats = Stats.from_observations(rewards)
+
+        self._sim_batch_stats[(simulation_index, batch_index)] = stats
+
+        n = self._sim_stats_count[simulation_index]
+        old_sim_stats_mean = self._sim_stats[simulation_index].mean if n > 1 else 0
+        new_sim_stats_mean = (n-1)/n * old_sim_stats_mean + 1/n * stats.mean
+
+        n = self._batch_stats_count[batch_index]
+        old_batch_stats_mean = self._batch_stats[batch_index].mean if n > 1 else 0
+        new_batch_stats_mean = (n-1)/n * old_batch_stats_mean + 1/n * stats.mean
+
+        self._sim_stats [simulation_index] = Stats(new_sim_stats_mean)
+        self._batch_stats[batch_index] = Stats(new_batch_stats_mean)
+        
+        self._sim_stats_count[simulation_index] += 1
+        self._batch_stats_count[batch_index] += 1
+        
 
 class Benchmark(Generic[_S,_A], ABC):
     """The interface for Benchmark implementations."""
-    
+
     @abstractmethod
     def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Sequence[Result]:
         """Calculate the performance for a provided bandit Learner.
@@ -214,9 +277,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             See the base class for more information.
         """
 
-        Results = List[Tuple[int,int,float]]
-        
-        learner_results: List[Results] = [[] for _ in learner_factories]
+        learner_results: List[Result] = [Result() for _ in learner_factories]
 
         for sim_index, sim in enumerate(self._simulations):
 
@@ -226,7 +287,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             batch_sizes = self._batch_sizes(len(sim.rounds))
             n_rounds = sum(batch_sizes)
 
-            for factory, results in zip(learner_factories, learner_results):
+            for factory, result in zip(learner_factories, learner_results):
 
                 sim_learner   = factory()
                 batch_index   = 0
@@ -239,21 +300,19 @@ class UniversalBenchmark(Benchmark[_S,_A]):
                     batch_choices.append(r.choices[index])
                     
                     if len(batch_choices) == batch_sizes[batch_index]:
-                        for (state,action,reward) in sim.rewards(batch_choices):
-                            sim_learner.learn(state,action,reward)
-                            results.append((sim_index, batch_index, reward))
+                        observations = sim.rewards(batch_choices)
+                        self._update_learner_and_result(sim_learner, result, sim_index, batch_index, observations)
 
                         batch_choices = []
                         batch_index += 1
-                                        
-                for (state,action,reward) in sim.rewards(batch_choices):
-                    sim_learner.learn(state,action,reward)
-                    results.append((sim_index, batch_index, reward))
+
+                observations = sim.rewards(batch_choices)
+                self._update_learner_and_result(sim_learner, result, sim_index, batch_index, observations)
 
             if isinstance(sim, LazySimulation):
                 sim.unload()
 
-        return [ Result(results) for results in learner_results ]
+        return learner_results
 
     def _batch_sizes(self, n_rounds: int) -> Sequence[int]:
 
@@ -288,3 +347,15 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             return batch_sizes
         
         raise Exception("We were unable to determine batch size from the supplied parameters")
+
+    def _update_learner_and_result(self, 
+        learner: Learner[_S,_A],
+        result: Result,
+        sim_index:int, 
+        batch_index:int, 
+        results:Sequence[Tuple[_S,_A,float]]):
+
+        result.add_observations(sim_index, batch_index, [ batch_result[2] for batch_result in results ])
+
+        for (state,action,reward) in results:
+            learner.learn(state,action,reward)
