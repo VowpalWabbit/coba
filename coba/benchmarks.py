@@ -66,14 +66,14 @@ class Result:
     @staticmethod
     def from_observations(observations: Sequence[Tuple[int,int,float]], drop_first_batch:bool=True) -> 'Result':
         """Create a Result object from the provided observations. 
-        
+
         Args:
             observations: A sequence of three valued tuples where each tuple represents the result of 
                 a single round in a benchmark evaluation. The first value in each tuple is a zero-based 
                 sim index. The second value in the tuple is a zero-based batch index. The final value
                 in the tuple is the amount of reward received after taking an action in a round.
             drop_first_batch: An indicator determining if the first batch should be excluded from Result.
-        """            
+        """
         result = Result(drop_first_batch)
 
         sim_batch_observations: List[float] = []
@@ -90,7 +90,7 @@ class Result:
                 result.add_observations(sim_index, batch_index, sim_batch_observations)
 
                 sim_index              = observation[0]
-                batch_index             = observation[1]
+                batch_index            = observation[1]
                 sim_batch_observations = []
 
             sim_batch_observations.append(observation[2])
@@ -109,7 +109,7 @@ class Result:
                 little about a learner potentially biasing cumulative statistics siginificantly.
         """
         self._sim_batch_stats: Dict[Tuple[int,int], Stats] = {}
-        
+
         self._batch_stats:List[Stats] = []
         self._sim_stats:List[Stats]  = []
 
@@ -182,10 +182,9 @@ class Result:
 
         self._sim_stats [simulation_index] = Stats(new_sim_stats_mean)
         self._batch_stats[batch_index] = Stats(new_batch_stats_mean)
-        
+
         self._sim_stats_count[simulation_index] += 1
         self._batch_stats_count[batch_index] += 1
-        
 
 class Benchmark(Generic[_S,_A], ABC):
     """The interface for Benchmark implementations."""
@@ -254,10 +253,10 @@ class UniversalBenchmark(Benchmark[_S,_A]):
     def __init__(self, simulations: Sequence[Simulation[_S,_A]],*, batch_size: Union[int, Sequence[int], Callable[[int],int]]) -> None:
         ...
 
-    def __init__(self, 
+    def __init__(self,
         simulations: Sequence[Simulation[_S,_A]], batch_count: int = None, batch_size : Union[int, Sequence[int], Callable[[int],int]] = None) -> None:
         """Instantiate a UniversalBenchmark.
-        
+
         Args:
             simulations: A sequence of simulations to benchmark against
             batches: Indicates how to batch evaluations and learning. If batches is an integer
