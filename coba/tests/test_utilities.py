@@ -99,8 +99,31 @@ class OnlineVariance_Tests(unittest.TestCase):
             for number in batch:
                 online.update(number)
 
-            #notice that this test will fail on the final the batch if places > 15
+            #note: this test will fail on the final the batch if `places` > 15
             self.assertAlmostEqual(online.variance, statistics.variance(batch), places = 15)
+
+    def test_100_integers_update_variance(self):
+
+        batch = list(range(0,100))
+
+        online = OnlineVariance()
+
+        for number in batch:
+            online.update(number)
+
+        self.assertEqual(online.variance, statistics.variance(batch))
+
+    def test_100_floats_update_variance(self):
+
+        batch = [ i/3 for i in range(0,100) ]
+
+        online = OnlineVariance()
+
+        for number in batch:
+            online.update(number)
+
+        #note: this test will fail on the final the batch if `places` > 12
+        self.assertAlmostEqual(online.variance, statistics.variance(batch), places=12)
 
 if __name__ == '__main__':
     unittest.main()
