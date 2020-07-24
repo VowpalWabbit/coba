@@ -122,7 +122,7 @@ class OnlineVariance():
 
     @property
     def variance(self) -> float:
-        """The current variance given all updates."""
+        """The variance of all given updates."""
         return self._variance
 
     def update(self, value: float) -> None:
@@ -140,3 +140,25 @@ class OnlineVariance():
 
         if count > 1:
             self._variance = M2 / (count - 1)
+
+class OnlineMean():
+    """Calculate mean in an online fashion."""
+
+    def __init__(self):
+        self._n = 0
+        self._mean = float('nan')
+
+    @property
+    def mean(self) -> float:
+        """The mean of all given updates."""
+
+        return self._mean
+
+    def update(self, value:float) -> None:
+        """Update the current mean with the given value."""
+        
+        self._n += 1
+
+        alpha = 1/self._n
+
+        self._mean = value if alpha == 1 else (1 - alpha) * self._mean + alpha * value

@@ -115,9 +115,9 @@ class Random_Tests(unittest.TestCase):
             self.assertAlmostEqual(actual,expected)
 
     def test_random_is_uniform_0_1(self):
-        #this test will fail occasionally (1/100)
+        #this test will fail maybe 1% of the time
         
-        walks = 1000
+        walks = 2000
         steps = 100
 
         coba_random_walk = ([-1 if n < 0.5 else 1 for n in coba.random.randoms(steps)] for _ in count()) 

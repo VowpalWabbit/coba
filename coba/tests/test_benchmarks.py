@@ -39,7 +39,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(len(result.batch_stats),3)
 
-        self.assertAlmostEqual((3.5+3)/2., result.batch_stats[0].mean)
+        self.assertAlmostEqual((3+4+3)/3., result.batch_stats[0].mean)
         self.assertAlmostEqual((5+5  )/2., result.batch_stats[1].mean)
         self.assertAlmostEqual((6    )/1., result.batch_stats[2].mean)
 
@@ -48,18 +48,18 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(len(result.cumulative_batch_stats),3)
 
-        self.assertAlmostEqual((3+4    )/2., result.cumulative_batch_stats[0].mean)
-        self.assertAlmostEqual((3.5+5  )/2., result.cumulative_batch_stats[1].mean)
-        self.assertAlmostEqual((3.5+5+6)/3., result.cumulative_batch_stats[2].mean)
+        self.assertAlmostEqual((3+4      )/2., result.cumulative_batch_stats[0].mean)
+        self.assertAlmostEqual((3+4+5+5  )/4., result.cumulative_batch_stats[1].mean)
+        self.assertAlmostEqual((3+4+5+5+6)/5., result.cumulative_batch_stats[2].mean)
 
     def test_cumulative_batch_means2(self):
         result = Result.from_observations([(0,0,3), (0,0,4), (0,1,5), (0,1,5), (0,2,6), (1,0,3)], False)
 
         self.assertEqual(len(result.cumulative_batch_stats),3)
 
-        self.assertAlmostEqual((3.5+3   )/2., result.cumulative_batch_stats[0].mean)
-        self.assertAlmostEqual((3.25+5  )/2., result.cumulative_batch_stats[1].mean)
-        self.assertAlmostEqual((3.25+5+6)/3., result.cumulative_batch_stats[2].mean)
+        self.assertAlmostEqual((3+4+3      )/3., result.cumulative_batch_stats[0].mean)
+        self.assertAlmostEqual((3+4+3+5+5  )/5., result.cumulative_batch_stats[1].mean)
+        self.assertAlmostEqual((3+4+3+5+5+6)/6., result.cumulative_batch_stats[2].mean)
 
 class UniversalBenchmark_Tests(unittest.TestCase):
 

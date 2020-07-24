@@ -4,7 +4,7 @@ import json
 import math
 import statistics
 
-from coba.utilities import OnlineVariance, JsonTemplating, check_matplotlib_support, check_vowpal_support
+from coba.utilities import OnlineMean, OnlineVariance, JsonTemplating, check_matplotlib_support, check_vowpal_support
 
 class check_library_Tests(unittest.TestCase):
     
@@ -124,6 +124,72 @@ class OnlineVariance_Tests(unittest.TestCase):
 
         #note: this test will fail on the final the batch if `places` > 12
         self.assertAlmostEqual(online.variance, statistics.variance(batch), places=12)
+
+class OnlineMean_Tests(unittest.TestCase):
+
+    def test_no_updates_variance_nan(self):
+        
+        online = OnlineMean()
+        
+        self.assertTrue(math.isnan(online.mean))
+
+    def test_one_update_variance_nan(self):
+        
+        batch = [1]
+        
+        online = OnlineMean()
+
+        for number in batch:
+            online.update(number)
+
+        self.assertEqual(online.mean, statistics.mean(batch))
+
+    def test_two_update_variance(self):
+
+        batches = [ [0, 2], [1, 1], [1,2], [-1,1], [10.5,20] ]
+
+        for batch in batches:
+            online = OnlineMean()
+
+            for number in batch:
+                online.update(number)
+
+            self.assertEqual(online.mean, statistics.mean(batch))
+
+    def test_three_update_variance(self):
+
+        batches = [ [0, 2, 4], [1, 1, 1], [1,2,3], [-1,1,-1], [10.5,20,29.5] ]
+
+        for batch in batches:
+            online = OnlineMean()
+
+            for number in batch:
+                online.update(number)
+
+            self.assertEqual(online.mean, statistics.mean(batch))
+
+    def test_100_integers_update_variance(self):
+
+        batch = list(range(0,100))
+
+        online = OnlineMean()
+
+        for number in batch:
+            online.update(number)
+
+        self.assertAlmostEqual(online.mean, statistics.mean(batch))
+
+    def test_100_floats_update_variance(self):
+
+        batch = [ i/3 for i in range(0,100) ]
+
+        online = OnlineMean()
+
+        for number in batch:
+            online.update(number)
+
+        self.assertAlmostEqual(online.mean, statistics.mean(batch))
+
 
 if __name__ == '__main__':
     unittest.main()

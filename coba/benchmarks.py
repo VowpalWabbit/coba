@@ -7,17 +7,18 @@ Todo:
     * Incorporate out of the box plots
 """
 
+from collections import defaultdict
 import json
 import collections
 import math
 
 from abc import ABC, abstractmethod
-from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, cast
+from typing import DefaultDict, Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, cast
 from itertools import islice, count
 
 from coba.simulations import LazySimulation, Simulation, State, Action
 from coba.learners import Learner
-from coba.utilities import JsonTemplating
+from coba.utilities import JsonTemplating, OnlineMean, OnlineVariance
 
 _S = TypeVar('_S', bound=State)
 _A = TypeVar('_A', bound=Action)
@@ -26,39 +27,108 @@ class Stats:
     """A class to store summary statistics calculated from some sample."""
 
     @staticmethod
-    def from_observations(observations: Sequence[float]) -> "Stats":
+    def from_observations(observations: Sequence[float]) -> 'Stats':
         """Create a Stats class for some given sequence of values.
 
         Args:
             vals: A sample of values to calculate statistics for.
         """
 
-        if len(observations) == 0:
-            return Stats(float('nan'),float('nan'),float('nan'))
+        online_mean = OnlineMean()
+        online_var  = OnlineVariance()
 
-        mean = sum(observations)/len(observations)
-        var  = sum( (v-mean)**2 for v in observations)/len(observations)
-        sem  = math.sqrt(var/len(observations))
+        for observation in observations:
+            online_mean.update(observation)
+            online_var .update(observation)
 
-        return Stats(mean, var, sem)
+        N    = len(observations)
+        mean = online_mean.mean
+        var  = online_var.variance
+        SEM  = math.sqrt(var/N) if N > 0 else float('nan')
 
-    def __init__(self, mean:float = float('nan'), variance:float = float('nan'), SEM:float = float('nan')):
+        return Stats(N, mean, var, SEM)
+
+    def __init__(self, N: int = 0, mean: float = float('nan'), variance:float = float('nan'), SEM: float = float('nan')):
         """Instantiate a Stats class.
 
         Args:
+            N: The size of the sample of interest.
             mean: The mean for some sample of interest.
             variance: The variance for some sample of interest.
             SEM: The standard error of the mean for some sample of interest.
         """
 
+        self._N        = N
         self._mean     = mean
         self._variance = variance
         self._SEM      = SEM
 
     @property
+    def N(self) -> int:
+        """The size of the sample."""
+        return self._N
+
+    @property
     def mean(self) -> float:
         """The mean for some sample."""
         return self._mean
+
+    @property
+    def variance(self) -> float:
+        """The mean for some sample."""
+        return self._variance
+
+    @property
+    def SEM(self) -> float:
+        """The mean for some sample."""
+        return self._SEM
+
+    def blend(self, stats: 'Stats') -> None:
+        """Calculate the stats that would come from blending two samples.
+        
+        Args:
+            stats: The previously calculated stats that we wish to merge.
+
+        Remarks:
+            In theory, if every 'Stats' object kept their entire sample then we could estimate all the
+            values that we calculate below empirically by mixing all samples into a single big pot and
+            then recalculating mean, variance and SEM. Unfortunately, this approach while simple has two
+            drawbacks. First, if a benchmark has many simulations with many examples this would mean that 
+            our package would always be constrained since our memory complexity would be O(n). Second, our 
+            computation complexity would also be around O(Sn) since merging `S` stats will require relooping 
+            over all samples again. The downside of not taking the simple approach is that stats with N == 1 
+            become problematic since we don't know their variance. Therefore we adjust for this below by 
+            adding the average variance back in for ever stat with N == 1.
+        """
+
+        total     = 0
+        total_var = 0
+        total_N   = 0
+        total_N_1 = 0 
+
+        for stat in [stats, self]:
+            total     += stat.mean * stat.N if stat.N > 0 else 0
+            total_var += stat.variance * stat.N if stat.N > 1 else 0
+            total_N   += stat.N
+            total_N_1 += int(stat.N == 1)
+
+        #when we only have a single observation there is no way for us to estimate
+        #the variance of that random number therefore add in a neutral amount of
+        #variance since this number is still in total and total_N and we don't want
+        #to remove it.
+        total_var += (total_var/total_N) * total_N_1
+
+        #to understand why we calculate variance as we do below consider the following
+        # E[Z] = (3/5)E[X] + (2/5)E[Y]
+        # 5*Var[Z] = 3*Var[X] + 2*Var[Y]
+
+        self._N        = total_N
+        self._mean     = total/total_N
+        self._variance = total_var/total_N
+        self._SEM      = math.sqrt(total_var)/total_N
+
+    def copy(self) -> 'Stats':
+        return Stats(self._N, self._mean, self._variance, self._SEM)
 
 class Result:
     """A class to contain the results of a benchmark evaluation."""
@@ -108,38 +178,35 @@ class Result:
                 Result. The first batch represents choices made without any learning and says relatively
                 little about a learner potentially biasing cumulative statistics siginificantly.
         """
-        self._sim_batch_stats: Dict[Tuple[int,int], Stats] = {}
+        self._sim_batch_stats: Dict[Tuple[int,int], Stats] = defaultdict(Stats)
+        self._batch_stats    : Dict[int           , Stats] = defaultdict(Stats)
+        self._sim_stats      : Dict[int           , Stats] = defaultdict(Stats)
+        self._prog_stats     : Dict[int           , Stats] = defaultdict(Stats)
 
-        self._batch_stats:List[Stats] = []
-        self._sim_stats:List[Stats]  = []
-
-        self._batch_stats_count:List[int] = [] 
-        self._sim_stats_count:List[int] = []
-
-        self._drop_first_batch = drop_first_batch    
+        self._drop_first_batch = drop_first_batch
 
     @property
     def sim_stats(self) -> Sequence[Stats]:
         """Pre-calculated statistics for each simulation."""
-        return self._sim_stats
+        return [ self._sim_stats[key] for key in sorted(self._sim_stats)]
 
     @property
     def batch_stats(self) -> Sequence[Stats]:
         """Pre-calculated statistics for each batch index."""
-        return self._batch_stats
+        return [ self._batch_stats[key] for key in sorted(self._sim_stats)]
 
     @property
     def cumulative_batch_stats(self) -> Sequence[Stats]:
         """Pre-calculated statistics where batches accumulate all prior batches as you go."""
 
-        cum_mean: float = 0.0
-        cum_stats: List[Stats] = []
+        cum_stats = Stats()
+        stats     = []
 
-        for n, stats in enumerate(self._batch_stats, start=1):
-            cum_mean = (n-1)/n * cum_mean + (1/n) * stats.mean
-            cum_stats.append(Stats(cum_mean))
+        for key in self._batch_stats:
+            cum_stats.blend(self._batch_stats[key])
+            stats.append(cum_stats.copy())
 
-        return cum_stats
+        return stats
 
     def add_observations(self, simulation_index: int, batch_index: int, rewards: Sequence[float]):
         """Update result stats with a new set of batch observations.
@@ -153,38 +220,11 @@ class Result:
         if (self._drop_first_batch and batch_index == 0) or len(rewards) == 0: 
             return
 
-        if self._drop_first_batch:
-            batch_index -= 1
-
-        if (simulation_index+1) > len(self._sim_stats):
-            sims_to_add = (simulation_index+1) - len(self._sim_stats)
-
-            self._sim_stats.extend([Stats() for _ in range(sims_to_add)])
-            self._sim_stats_count.extend([1 for _ in range(sims_to_add)])
-
-        if (batch_index+1) > len(self._batch_stats):
-            batches_to_add = (batch_index+1) - len(self._batch_stats)
-
-            self._batch_stats.extend([Stats() for _ in range(batches_to_add)])
-            self._batch_stats_count.extend([1 for _ in range(batches_to_add)])
-
         stats = Stats.from_observations(rewards)
 
-        self._sim_batch_stats[(simulation_index, batch_index)] = stats
-
-        n = self._sim_stats_count[simulation_index]
-        old_sim_stats_mean = self._sim_stats[simulation_index].mean if n > 1 else 0
-        new_sim_stats_mean = (n-1)/n * old_sim_stats_mean + 1/n * stats.mean
-
-        n = self._batch_stats_count[batch_index]
-        old_batch_stats_mean = self._batch_stats[batch_index].mean if n > 1 else 0
-        new_batch_stats_mean = (n-1)/n * old_batch_stats_mean + 1/n * stats.mean
-
-        self._sim_stats [simulation_index] = Stats(new_sim_stats_mean)
-        self._batch_stats[batch_index] = Stats(new_batch_stats_mean)
-
-        self._sim_stats_count[simulation_index] += 1
-        self._batch_stats_count[batch_index] += 1
+        self._sim_batch_stats[(simulation_index, batch_index)].blend(stats)
+        self._batch_stats[batch_index].blend(stats)
+        self._sim_stats[batch_index].blend(stats)
 
 class Benchmark(Generic[_S,_A], ABC):
     """The interface for Benchmark implementations."""

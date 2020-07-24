@@ -360,7 +360,7 @@ class UcbTunedLearner(Learner[State, Action]):
         if action not in self._m:
             self._m[action] = reward
         else:
-            self._m[action] = 1/self._s[action] * reward + (1-1/self._s[action]) * self._m[action]
+            self._m[action] = (1-1/self._s[action]) * self._m[action] + 1/self._s[action] * reward
 
         self._t         += 1
         self._s[action] += 1
