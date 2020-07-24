@@ -83,7 +83,7 @@ class Stats:
         """The mean for some sample."""
         return self._SEM
 
-    def blend(self, stats: 'Stats') -> None:
+    def blend(self, stats: 'Stats') -> None: #type: ignore #(this error is a bug with pylance)
         """Calculate the stats that would come from blending two samples.
         
         Args:
@@ -101,12 +101,12 @@ class Stats:
             adding the average variance back in for ever stat with N == 1.
         """
 
-        total     = 0
-        total_var = 0
+        total     = 0.
+        total_var = 0.
         total_N   = 0
         total_N_1 = 0 
 
-        for stat in [stats, self]:
+        for stat in [stats, self]: #type: ignore #(this error is a bug with pylance)
             total     += stat.mean * stat.N if stat.N > 0 else 0
             total_var += stat.variance * stat.N if stat.N > 1 else 0
             total_N   += stat.N
