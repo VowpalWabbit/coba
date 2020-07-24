@@ -16,7 +16,7 @@ from itertools import accumulate
 from collections import defaultdict
 
 from coba.simulations import State, Action, Reward
-from coba.utilities import check_vowpal_support
+from coba.utilities import OnlineVariance, check_vowpal_support
 
 _S_in = TypeVar('_S_in', bound=State , contravariant=True)
 _A_in = TypeVar('_A_in', bound=Action, contravariant=True)
@@ -320,9 +320,8 @@ class UcbTunedLearner(Learner[State, Action]):
         self._init_a: int = 0
         self._t     : int = 0
         self._s     : Dict[Action,int] = {}
-        self._v     : Dict[Action,float] = {}
         self._m     : Dict[Action,float] = {}
-        self._w     : Dict[Action,Tuple[int,float,float]] = {}
+        self._v     : Dict[Action,OnlineVariance] = defaultdict(OnlineVariance)
     
     def choose(self, state: State, actions: Sequence[Action]) -> int:
         """Choose an action greedily according to the upper confidence bound estimates.
@@ -365,7 +364,7 @@ class UcbTunedLearner(Learner[State, Action]):
 
         self._t         += 1
         self._s[action] += 1
-        self._update_v(action, reward)
+        self._v[action].update(reward)
 
     def _Avg_R_UCB(self, action: Action) -> float:
         """Produce the estimated upper confidence bound (UCB) for E[R|A].
@@ -395,36 +394,6 @@ class UcbTunedLearner(Learner[State, Action]):
         Remarks:
             See the beginning of section 4 in the algorithm's paper for this equation.
         """
-        ln = math.log; t = self._t; s = self._s[action]; var = self._v[action]
+        ln = math.log; t = self._t; s = self._s[action]; var = self._v[action].variance
         
         return var + math.sqrt(2*ln(t)/s)
-
-    def _update_v(self, action: Action, reward: Reward) -> None:
-        """Update the sample reward variance for a given action.
-
-        This algorithm is an implementation of Welford's online variance
-        algorithm taken largely from pseudocode on Wikipedia [1].
-
-        Args:
-            action: The action we are update reward sample variance for.
-            reward: The latest observation of reward we wish to update variance for.
-
-        References:
-            [1]: https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
-        """
-        if action not in self._w:
-            (count,mean,M2) = (1,reward,0.)
-        else:
-            (count,mean,M2) = self._w[action]
-            count += 1
-            delta = reward - mean
-            mean += delta / count
-            delta2 = reward - mean
-            M2 += delta * delta2
-
-        self._w[action] = (count,mean,M2)
-
-        if count == 1:
-            self._v[action] = 0
-        else:
-            self._v[action] = M2 / (count - 1)

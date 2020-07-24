@@ -12,13 +12,11 @@ import matplotlib.pyplot as plt
 csv_path   = "./examples/data/covtype.data"
 label_col  = 54
 
-#define a simulation
 print("loading simulation data...")
 #sim = ClassificationSimulation.from_csv_path(csv_path, label_col)
 #sim = ClassificationSimulation.from_openml(1116)
 sim = ClassificationSimulation.from_openml(150)
 
-#shuffle to make sure data is stationary
 print("shuffling simulation data...")
 sim = ShuffleSimulation(sim)
 

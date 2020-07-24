@@ -8,14 +8,12 @@ from coba.benchmarks import UniversalBenchmark
 
 import matplotlib.pyplot as plt
 
-with open("./examples/data/bakeoff.json") as fs:
+with open("./examples/bakeoff.json") as fs:
     json = fs.read()
 
-#create the benchmark
 print("creating benchmark...")
 benchmark = UniversalBenchmark.from_json(json)
 
-#create the learner to benchmark
 print("creating learners...")
 learner_factories = [ lambda: RandomLearner(), lambda: EpsilonLearner(1/10), lambda: UcbTunedLearner(), lambda: VowpalLearner(bag=5) ]
 

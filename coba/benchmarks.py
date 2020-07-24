@@ -17,7 +17,7 @@ from itertools import islice, count
 
 from coba.simulations import LazySimulation, Simulation, State, Action
 from coba.learners import Learner
-from coba.utilities import JsonTemplate
+from coba.utilities import JsonTemplating
 
 _S = TypeVar('_S', bound=State)
 _A = TypeVar('_A', bound=Action)
@@ -227,7 +227,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         else:
             config = json_val
 
-        config = JsonTemplate.parse(config)
+        config = JsonTemplating.parse(config)
 
         is_singular = isinstance(config["simulations"], dict)
         sim_configs = config["simulations"] if not is_singular else [ config["simulations"] ]

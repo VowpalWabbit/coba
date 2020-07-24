@@ -90,7 +90,7 @@ class Random:
             The `n` generated random numbers in [0,m-1].
         """
         
-        if n < 0 or not isinstance(n, int):
+        if n <= 0 or not isinstance(n, int):
             raise ValueError("n must be an integer greater than 0")
 
         numbers: List[int] = []

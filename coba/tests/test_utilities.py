@@ -1,10 +1,12 @@
 
 import unittest
 import json
+import math
+import statistics
 
-from coba.utilities import JsonTemplate, check_matplotlib_support, check_vowpal_support
+from coba.utilities import OnlineVariance, JsonTemplating, check_matplotlib_support, check_vowpal_support
 
-class Utilities_Tests(unittest.TestCase):
+class check_library_Tests(unittest.TestCase):
     
     def test_check_matplotlib_support(self):
         try:
@@ -18,21 +20,21 @@ class Utilities_Tests(unittest.TestCase):
         except Exception:
             self.fail("check_vowpal_support raised an exception")
 
-class JsonTemplate_Tests(unittest.TestCase):
+class JsonTemplating_Tests(unittest.TestCase):
     def test_no_template_string_unchanged_1(self):
-        self.assertEqual(JsonTemplate.parse("[1,2,3]"), [1,2,3])
+        self.assertEqual(JsonTemplating.parse("[1,2,3]"), [1,2,3])
 
     def test_no_template_string_unchanged_2(self):
-        actual = JsonTemplate.parse('{"a":1}')
+        actual = JsonTemplating.parse('{"a":1}')
         
         self.assertCountEqual(actual.keys(), ["a"])
         self.assertEqual(actual["a"], 1)
 
     def test_no_template_object_unchanged_1(self):
-        self.assertEqual(JsonTemplate.parse(json.loads("[1,2,3]")), [1,2,3])
+        self.assertEqual(JsonTemplating.parse(json.loads("[1,2,3]")), [1,2,3])
 
     def test_no_template_object_unchanged2(self):
-        actual = JsonTemplate.parse(json.loads('{"a":1}'))
+        actual = JsonTemplating.parse(json.loads('{"a":1}'))
 
         self.assertCountEqual(actual.keys(), ["a"])
         self.assertEqual(actual["a"], 1)
@@ -47,7 +49,7 @@ class JsonTemplate_Tests(unittest.TestCase):
             ]
         }"""
 
-        actual = JsonTemplate.parse(json_str)
+        actual = JsonTemplating.parse(json_str)
 
         self.assertCountEqual(actual.keys(), ["batches", "simulations"])
         self.assertCountEqual(actual["batches"], ["count"])
@@ -61,6 +63,44 @@ class JsonTemplate_Tests(unittest.TestCase):
             self.assertEqual(simulation["from"]["format"], "openml")
 
         self.assertCountEqual([ sim["from"]["id"] for sim in actual["simulations"] ], [3,6])
+
+class OnlineVariance_Tests(unittest.TestCase):
+
+    def test_no_updates_variance_nan(self):
+        online = OnlineVariance()
+        self.assertTrue(math.isnan(online.variance))
+
+    def test_one_update_variance_nan(self):
+        online = OnlineVariance()
+
+        online.update(1)
+
+        self.assertTrue(math.isnan(online.variance))
+
+    def test_two_update_variance(self):
+
+        batches = [ [0, 2], [1, 1], [1,2], [-1,1], [10.5,20] ]
+
+        for batch in batches:
+            online = OnlineVariance()
+
+            for number in batch:
+                online.update(number)
+
+            self.assertEqual(online.variance, statistics.variance(batch))
+
+    def test_three_update_variance(self):
+
+        batches = [ [0, 2, 4], [1, 1, 1], [1,2,3], [-1,1,-1], [10.5,20,29.5] ]
+
+        for batch in batches:
+            online = OnlineVariance()
+
+            for number in batch:
+                online.update(number)
+
+            #notice that this test will fail on the final the batch if places > 15
+            self.assertAlmostEqual(online.variance, statistics.variance(batch), places = 15)
 
 if __name__ == '__main__':
     unittest.main()
