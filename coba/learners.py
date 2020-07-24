@@ -226,6 +226,8 @@ class VowpalLearner(Learner[State, Action]):
         """
 
         check_vowpal_support('VowpalLearner.__init__')
+        from vowpalwabbit import pyvw #type: ignore #ignored due to mypy error
+        self._vw = pyvw.vw
 
         if epsilon is not None:
             self._explore = f"--epsilon {epsilon}"
@@ -256,11 +258,10 @@ class VowpalLearner(Learner[State, Action]):
         """
 
         if len(self._actions) == 0:
-            from vowpalwabbit import pyvw #type: ignore
             self._actions = actions
-            self._vw = pyvw.vw(f"--cb_explore {len(actions)} -q UA  {self._explore} --quiet")
+            self._vw_learner = self._vw(f"--cb_explore {len(actions)} -q UA  {self._explore} --quiet")
 
-        pmf = self._vw.predict("| " + self._vw_format(state))
+        pmf = self._vw_learner.predict("| " + self._vw_format(state))
 
         cdf   = list(accumulate(pmf))
         rng   = random.random()
@@ -285,7 +286,7 @@ class VowpalLearner(Learner[State, Action]):
         vw_state  = self._vw_format(state)
         vw_action = str(self._actions.index(action)+1)
 
-        self._vw.learn( vw_action + ":" + str(cost) + ":" + str(prob) + " | " + vw_state)
+        self._vw_learner.learn( vw_action + ":" + str(cost) + ":" + str(prob) + " | " + vw_state)
 
     def _vw_format(self, state: State) -> str:
         """convert state into the proper format for pyvw.
