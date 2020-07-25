@@ -565,9 +565,6 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
         columns  : List[COLUMN_ENTRIES] = [ []           for _ in range(n_col) ]
         metas    : List[DEFINITE_META ] = [ default_meta for _ in range(n_col) ]
-
-        features: List[List[Hashable]] = []
-        labels  : List[List[Hashable]] = []
  
         label_index = header.index(label_col) if label_col in header else label_col if isinstance(label_col,int) else None  # type: ignore
         label_meta  = defined_meta.get(label_col, defined_meta.get(label_index, None)) #type: ignore
@@ -618,14 +615,13 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             else:
                 dest.append(cast(Sequence[Tuple[int,...]],values))
 
-        features = list(map(list,map(chain.from_iterable, zip(*feature_encodings))))
-        labels   = list(map(list,map(chain.from_iterable, zip(*label_encodings))))
+        features = list(map(tuple,map(chain.from_iterable, zip(*feature_encodings)))) #type: ignore
+        labels   = list(map(tuple,map(chain.from_iterable, zip(*label_encodings)))) #type: ignore
         print(time.time() - start)
 
         start = time.time()
-        finalize = lambda x: x[0] if len(x) == 1 else tuple(x)
-        states  = [ finalize(features[i]) for i in range(len(features)) ]
-        actions = [ finalize(labels  [i]) for i in range(len(labels  )) ]
+        states  = [ f if len(f) > 1 else f[0] for f in features ]
+        actions = [ l if len(l) > 1 else l[0] for l in labels   ]
         print(time.time()-start)
 
         start = time.time()

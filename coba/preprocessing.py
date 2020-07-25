@@ -272,7 +272,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             singular_if_binary = self._singular_if_binary, 
             error_if_unknown   = self._error_if_unknown)
 
-    def encode(self, values: Sequence[Any]) -> Sequence[Sequence[int]]:
+    def encode(self, values: Sequence[Any]) -> Sequence[Tuple[int,...]]:
         """Encode the given value as a sequence of 0's and 1's.
 
         Args:
