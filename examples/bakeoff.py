@@ -7,7 +7,7 @@ from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTuned
 from coba.benchmarks import UniversalBenchmark
 from coba.analysis  import Plots
 
-with open("./examples/bakeoff.json") as fs:
+with open("./examples/data/full_bakeoff.json") as fs:
     json = fs.read()
 
 print("creating benchmark...")

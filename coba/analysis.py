@@ -11,7 +11,7 @@ class Plots():
     def standard_plot(results: Sequence[Result]) -> None:
 
         check_matplotlib_support('Plots.standard_plot')
-        import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt #type: ignore 
 
         fig = plt.figure()
 

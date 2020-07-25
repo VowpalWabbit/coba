@@ -31,6 +31,7 @@ class Interaction_Tests(unittest.TestCase):
     def test_actions_correct_3(self) -> None:
         self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)]).actions)
 
+
 class Simulation_Interface_Tests(ABC):
 
     @abstractmethod
@@ -191,6 +192,9 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
     def test_simple_from_openml(self) -> None:
         #this test requires interet acess to download the data
+
+        #simulation = ClassificationSimulation.from_openml(154)
+        #return
 
         simulation = ClassificationSimulation.from_openml(1116)
 

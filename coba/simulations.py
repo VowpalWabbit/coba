@@ -14,12 +14,13 @@ import csv
 import json
 import urllib.request
 
-from itertools import repeat, count
+import time
+
+from itertools import repeat, count, chain
 from http.client import HTTPResponse
 from warnings import warn
 from gzip import  decompress
 from contextlib import closing
-from collections import defaultdict
 from abc import ABC, abstractmethod
 from hashlib import md5
 from typing import Optional, Iterable, Sequence, List, Union, Callable, TypeVar, Generic, Hashable, Dict, cast, Any, ContextManager, IO, Tuple, overload
@@ -441,19 +442,27 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
         print(f"loading openml {data_id}...")
 
+        start = time.time()
         with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}')) as resp:
             data = json.loads(resp.read())["data_set_description"]
 
         with closing(urllib.request.urlopen(f'http://www.openml.org/api/v1/json/data/features/{data_id}')) as resp:
             meta = json.loads(resp.read())["data_features"]["feature"]
+        print(time.time()-start)
 
         defined_meta: Dict[str,Metadata] = {}
 
         for m in meta:
+
+            if m['data_type'] == 'numeric':
+                encoder = cast(Encoder, NumericEncoder())
+            else:
+                encoder = cast(Encoder, OneHotEncoder(m['nominal_value']))
+
             defined_meta[m["name"]] = Metadata(
                 ignore  = m["is_ignore"] == "true" or m["is_row_identifier"] == "true",
                 label   = m["is_target"] == "true",
-                encoder = NumericEncoder() if m["data_type"] == "numeric" else OneHotEncoder()
+                encoder = encoder
             )
 
         csv_url = f"http://www.openml.org/data/v1/get_csv/{data['file_id']}"
@@ -480,7 +489,8 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             default_meta: The default meta values for all columns unless explictly overridden with column_metas.
             column_metas: Keys are column name or index, values are meta objects that override the default values.
         """
-
+        
+        start = time.time()
         is_disk =  not location.lower().startswith('http')
         is_http =      location.lower().startswith('http')
 
@@ -491,13 +501,16 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         else:
             http_request = urllib.request.Request(location, headers={'Accept-encoding':'gzip'})
             stream_manager = closing(urllib.request.urlopen(http_request))
+        print(time.time()-start)
 
         with stream_manager as raw_stream:
 
             is_disk_gzip = is_disk and location.lower().endswith(".gz")
             is_http_gzip = is_http and cast(HTTPResponse, raw_stream).info().get('Content-Encoding') == "gzip"
 
+            start = time.time()
             all_bytes = decompress(raw_stream.read()) if is_disk_gzip or is_http_gzip else raw_stream.read()
+            print(time.time()-start)
 
         if md5_checksum is not None and md5_checksum != md5(all_bytes).hexdigest():
             warn(
@@ -506,9 +519,11 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
                 "the error persists you may want to manually download and reference the file."
             )
         
+        start = time.time()
         all_text  = all_bytes.decode('utf-8')
         all_lines = all_text.split("\n")
         csv_rows  = csv_reader(all_lines)
+        print(time.time()-start)
 
         simulation = ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
 
@@ -540,11 +555,17 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         DEFINITE_META  = Metadata[bool,bool,Encoder[Hashable]]
         COLUMN_ENTRIES = List[Union[str,Sequence[Hashable]]]
 
-        table_iter            = iter(table)
-        header: Sequence[str] = next(table_iter) if has_header else []
+        itable = filter(None, iter(table)) #filter out empty rows
+        
+        first  = next(itable)
+        n_col  = len(first)
+        itable = chain([first], itable)
 
-        columns : List[COLUMN_ENTRIES] = []
-        metas   : List[DEFINITE_META ] = []
+        header: Sequence[str] = next(itable) if has_header else []
+
+        columns  : List[COLUMN_ENTRIES] = [ []           for _ in range(n_col) ]
+        metas    : List[DEFINITE_META ] = [ default_meta for _ in range(n_col) ]
+
         features: List[List[Hashable]] = []
         labels  : List[List[Hashable]] = []
  
@@ -561,60 +582,57 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             raise Exception("A meta entry was provided for the label column that was explicitly marked as non-label.")
 
         def to_column_index(key: Union[int,str]):
-            return header.index(key) if isinstance(key,str) else key        
+            return header.index(key) if isinstance(key,str) else key
 
-        if label_meta is None and label_index is not None:
-            defined_meta[label_index] = default_meta.override(Metadata(None,True,None))
+        defined_meta = { to_column_index(key):defined_meta[key] for key in defined_meta }
+        for key,meta in defined_meta.items(): metas[key] = metas[key].override(meta)
 
+        if label_index is not None:
+            metas[label_index] = metas[label_index].override(Metadata(None,True,None))
+
+        start = time.time()
         #first pass, loop through all rows. If meta is marked as ignore place an empty
         # tuple in the column array, if meta has an encoder already fit encode now, if
         #the encoder isn't fit place the string value in the column for later fitting.
-        for row in (r for r in table_iter if len(r) > 0):
+        for row in itable:
+            for r,col in zip(row, columns):
+                col.append(r)
+        print(time.time() - start)
 
-            if(len(columns) == 0):
-                columns = [ [] for _ in range(len(row)) ]
+        feature_encodings: List[Sequence[Sequence[Hashable]] ] = []
+        label_encodings  : List[Sequence[Sequence[Hashable]] ] = [] 
 
-            if(len(metas) == 0):
-                metas = [ default_meta for _ in range(len(row)) ]
-
-                for key,meta in defined_meta.items():
-                    metas[to_column_index(key)] = default_meta.override(meta)
-
-            for r,col,m in zip(row, columns, metas):
-                if m.ignore: continue
-                col.append(m.encoder.encode(r) if m.encoder.is_fit else r)
-
+        start = time.time()
         #second pass, loop through all columns. Now that we have the data in column arrays
         #we are able to fit any encoders that need fitting. After fitting we need to encode
         #these column's string values and turn our data back into rows for features and labels.
-        for col,m in zip(columns,metas):
-
+        for col, m in zip(columns, metas):
             if m.ignore: continue
 
-            if len(features) == 0:
-                features = [ [] for _ in range(len(col)) ]
+            encoder = m.encoder if m.encoder.is_fit else m.encoder.fit(col)
+            values  = encoder.encode(col)
+            dest    = label_encodings if m.label else feature_encodings
 
-            if len(labels) == 0:
-                labels = [ [] for _ in range(len(col)) ]
+            if not isinstance(encoder, OneHotEncoder):
+                dest.append([ (v,) for v in values ])
+            else:
+                dest.append(cast(Sequence[Tuple[int,...]],values))
 
-            #if the encoder isn't already fit we know that col is a List[str]
-            encoder = None if m.encoder.is_fit else m.encoder.fit(cast(Sequence[str],col))
+        features = list(map(list,map(chain.from_iterable, zip(*feature_encodings))))
+        labels   = list(map(list,map(chain.from_iterable, zip(*label_encodings))))
+        print(time.time() - start)
 
-            for c,f,l in zip(col,features,labels):
-
-                final_value = c if encoder is None else encoder.encode(cast(str,c))
-
-                if m.label:
-                    l.extend(final_value)
-                else:
-                    f.extend(final_value)
-
+        start = time.time()
         finalize = lambda x: x[0] if len(x) == 1 else tuple(x)
-
         states  = [ finalize(features[i]) for i in range(len(features)) ]
         actions = [ finalize(labels  [i]) for i in range(len(labels  )) ]
+        print(time.time()-start)
 
-        return ClassificationSimulation(states, actions)
+        start = time.time()
+        simulation = ClassificationSimulation(states, actions)
+        print(time.time()-start)
+
+        return simulation
 
     def __init__(self, features: Sequence[_S_out], labels: Sequence[_A_out]) -> None:
         """Instantiate a ClassificationSimulation.

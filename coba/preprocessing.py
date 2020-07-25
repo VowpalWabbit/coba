@@ -6,8 +6,9 @@ Remarks:
 
 import json
 
+from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Sequence, Generic, TypeVar, Any, Optional, Hashable, Union, Dict, overload, cast
+from typing import Sequence, Generic, TypeVar, Any, Optional, Hashable, Union, Dict, Tuple
 
 T_out = TypeVar('T_out', bound=Hashable, covariant=True) 
 
@@ -66,11 +67,11 @@ class Encoder(ABC, Generic[T_out]):
         ...
 
     @abstractmethod
-    def encode(self, value: Any) -> Sequence[T_out]:
+    def encode(self, values: Sequence[Any]) -> Sequence[T_out]:
         """Encode the given value into the implementation's generic type.
 
         Args:
-            value: The value that needs to be encoded as the given generic type.
+            values: The values that need to be encoded as the given generic type.
 
         Returns:
             The encoded value as a sequence of generic types.
@@ -119,7 +120,7 @@ class StringEncoder(Encoder[str]):
 
         return StringEncoder(is_fit=True)
 
-    def encode(self, value: Any) -> Sequence[str]:
+    def encode(self, values: Sequence[Any]) -> Sequence[str]:
         """Encode the given value as a sequence of strings.
 
         Args:
@@ -135,7 +136,7 @@ class StringEncoder(Encoder[str]):
         if not self.is_fit:
             raise Exception("This encoder must be fit before it can be used.")
 
-        return [str(value)]
+        return [str(value) for value in values]
 
 class NumericEncoder(Encoder[float]):
     """An Encoder implementation that turns incoming values into float values."""
@@ -177,7 +178,7 @@ class NumericEncoder(Encoder[float]):
 
         return NumericEncoder(is_fit=True)
 
-    def encode(self, value: Any) -> Sequence[float]:
+    def encode(self, values: Sequence[Any]) -> Sequence[float]:
         """Encode the given value as a sequence of floats.
 
         Args:
@@ -193,9 +194,12 @@ class NumericEncoder(Encoder[float]):
         if not self.is_fit:
             raise Exception("This encoder must be fit before it can be used.")
 
-        return [float(value)]
+        #Somewhat surprisingly this seems to be a small bottleneck in ingest performance.
+        #The fastnumbers package seems like it could potentially provide around a 20% speed increase.
+        #https://pypi.org/project/fastnumbers
+        return [float(value) for value in values]
 
-class OneHotEncoder(Encoder[int]):
+class OneHotEncoder(Encoder[Tuple[int,...]]):
     """An Encoder implementation that turns incoming values into a one hot representation."""
 
     def __init__(self, fit_values: Sequence[Any] = [], singular_if_binary: bool = True, error_if_unknown = False) -> None:
@@ -211,6 +215,29 @@ class OneHotEncoder(Encoder[int]):
         self._fit_values         = fit_values
         self._singular_if_binary = singular_if_binary
         self._error_if_unknown   = error_if_unknown
+        self._is_fit             = len(fit_values) > 0
+
+        if fit_values:
+
+            if len(fit_values) == 2 and singular_if_binary:
+                unknown_onehot = tuple([0])
+                known_onehots = [[1],[0]]
+            else:
+                unknown_onehot = tuple([0] * len(fit_values))
+                known_onehots  = [ [0] * len(fit_values) for _ in range(len(fit_values)) ]
+                
+                for i,k in enumerate(known_onehots):
+                    k[i] = 1
+
+            keys_and_values = zip(fit_values, map(lambda k_oh: tuple(k_oh), known_onehots))
+            default_factory = lambda:unknown_onehot
+
+            self._onehots: Dict[Any,Tuple[int,...]]
+
+            if self._error_if_unknown:
+                self._onehots = dict(keys_and_values)
+            else:
+                self._onehots = defaultdict(default_factory, keys_and_values)
 
     @property
     def is_fit(self) -> bool:
@@ -220,7 +247,7 @@ class OneHotEncoder(Encoder[int]):
             See the base class for more information.
         """
 
-        return len(self._fit_values) > 0
+        return self._is_fit
 
     def fit(self, values: Sequence[Any]) -> 'OneHotEncoder':
         """Determine how to encode from given training data.
@@ -238,9 +265,14 @@ class OneHotEncoder(Encoder[int]):
         if self.is_fit:
             raise Exception("This encoder has already been fit.")
 
-        return OneHotEncoder(fit_values = sorted(set(values)), singular_if_binary=self._singular_if_binary, error_if_unknown = self._error_if_unknown)
+        fit_values = sorted(set(values))
 
-    def encode(self, value: Any) -> Sequence[int]:
+        return OneHotEncoder(
+            fit_values         = fit_values, 
+            singular_if_binary = self._singular_if_binary, 
+            error_if_unknown   = self._error_if_unknown)
+
+    def encode(self, values: Sequence[Any]) -> Sequence[Sequence[int]]:
         """Encode the given value as a sequence of 0's and 1's.
 
         Args:
@@ -256,18 +288,7 @@ class OneHotEncoder(Encoder[int]):
         if not self.is_fit:
             raise Exception("This encoder must be fit before it can be used.")
 
-        if self._error_if_unknown and value not in self._fit_values:
-            raise Exception(f"An unkown value ('{value}') given to the encoder.")
-
-        encoding = [0] * len(self._fit_values)
-        
-        if value in self._fit_values:
-            encoding[self._fit_values.index(value)] = 1
-
-        if self._singular_if_binary and len(encoding) == 2:
-            encoding = [ encoding[0] ]
-
-        return encoding
+        return [ self._onehots[value] for value in values ]
 
 class InferredEncoder(Encoder[Hashable]):
     """An Encoder implementation that looks at its given `fit` values and infers the best Encoder."""

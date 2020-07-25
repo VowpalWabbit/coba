@@ -8,7 +8,7 @@ from coba.preprocessing import Metadata, Encoder, StringEncoder, NumericEncoder,
 class Encoder_Interface_Tests(ABC):
 
     @abstractmethod
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:
         ...
 
     def test_is_fit_initially_false(self):
@@ -52,8 +52,8 @@ class Encoder_Interface_Tests(ABC):
 
 class StringEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence]:
-        return StringEncoder(is_fit=False), ["1","2","3"], "1.23", ["1.23"]
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:
+        return StringEncoder(is_fit=False), ["1","2","3"], ["1.23"], ["1.23"]
 
     def test_from_json(self):
 
@@ -69,8 +69,8 @@ class StringEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
 class NumericEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
-        return NumericEncoder(is_fit=False), ["1","2","3"], "1.23", [1.23]
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:
+        return NumericEncoder(is_fit=False), ["1","2","3"], ["1.23"], [1.23]
 
     def test_from_json(self):
 
@@ -87,8 +87,8 @@ class NumericEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
 class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
-        return OneHotEncoder(), ["d", "a","b","b","b","d"], "a", [1, 0, 0]
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:
+        return OneHotEncoder(), ["d","a","b","b","b","d"], ["a"], [(1, 0, 0)]
 
     def test_from_json(self):
 
@@ -96,45 +96,46 @@ class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
         
         self.assertIsInstance(encoder,OneHotEncoder)
 
-
     def test_singular_if_binary(self):
         encoder = OneHotEncoder(singular_if_binary=True).fit(["1","1","1","0","0"])
 
-        self.assertEqual(encoder.encode("0"), [1])
-        self.assertEqual(encoder.encode("1"), [0])
+        self.assertEqual(encoder.encode(["0"]), [(1,)])
+        self.assertEqual(encoder.encode(["1"]), [(0,)])
 
     def test_error_if_unkonwn_true(self):
         encoder = OneHotEncoder(error_if_unknown=True).fit(["1","1","1","0","0"])
 
         with self.assertRaises(Exception):
-            self.assertEqual(encoder.encode("2"), [1])
+            self.assertEqual(encoder.encode(["2"]), [(0)])
 
     def test_error_if_unkonwn_false(self):
         encoder = OneHotEncoder(error_if_unknown=False).fit(["0","1","2"])
 
         try:
-            actual = encoder.encode("5")
+            actual = encoder.encode(["5"])
         except:
             self.fail("An exception was raised when it shouldn't have been")
 
-        self.assertEqual(actual, [0,0,0])
+        self.assertEqual(actual, [(0,0,0)])
 
     def test_instantiated_fit_values(self):
         encoder = OneHotEncoder(fit_values=["0","1","2"])
 
-        self.assertEqual(encoder.encode("0"), [1,0,0])
-        self.assertEqual(encoder.encode("1"), [0,1,0])
-        self.assertEqual(encoder.encode("2"), [0,0,1])
+        expected = [(1,0,0),(0,1,0),(0,0,1),(0,1,0)]
+
+        actual = encoder.encode(["0","1","2","1"])
+
+        self.assertEqual(actual, expected)
 
 class InferredNumeric_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
-        return InferredEncoder(), ["0","1","2","3"], "2", [2]
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:
+        return InferredEncoder(), ["0","1","2","3"], ["2"], [2]
 
 class InferredOneHot_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
-    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], str, Sequence[Any]]:
-        return InferredEncoder(), ["a","1","2","3"], "2", [0, 1, 0, 0]
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:
+        return InferredEncoder(), ["a","1","2","3"], ["2"], [(0, 1, 0, 0)]
 
 class Metadata_Tests(unittest.TestCase):
 
