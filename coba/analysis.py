@@ -19,14 +19,14 @@ class Plots():
         ax2 = fig.add_subplot(1,2,2) #type: ignore
 
         for result in results:
-            ax1.plot([ i.mean for i in result .batch_stats], label=result.label)
+            ax1.plot([ i.mean for i in result .batch_stats], label=result.learner_name)
 
         ax1.set_title("Reward by Batch Index")
         ax1.set_ylabel("Mean Reward")
         ax1.set_xlabel("Batch Index")
 
         for result in results:
-            ax2.plot([ i.mean for i in result.cumulative_batch_stats], label=result.label)
+            ax2.plot([ i.mean for i in result.cumulative_batch_stats], label=result.learner_name)
 
         ax2.set_title("Progressive Validation Reward")
         ax2.set_xlabel("Batch Index")

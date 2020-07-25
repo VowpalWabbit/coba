@@ -140,9 +140,9 @@ class Result:
 
         Args:
             observations: A sequence of three valued tuples where each tuple represents the result of 
-                a single round in a benchmark evaluation. The first value in each tuple is a zero-based 
+                a single interaction in a benchmark evaluation. The first value in each tuple is a zero-based 
                 sim index. The second value in the tuple is a zero-based batch index. The final value
-                in the tuple is the amount of reward received after taking an action in a round.
+                in the tuple is the amount of reward received after taking an action in an interaction.
             drop_first_batch: An indicator determining if the first batch should be excluded from Result.
         """
         result = Result(drop_first_batch = drop_first_batch)
@@ -307,13 +307,13 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         """Instantiate a UniversalBenchmark.
 
         Args:
-            simulations: A sequence of simulations to benchmark against
-            batches: Indicates how to batch evaluations and learning. If batches is an integer
-                then all simulations will run to completion with batch sizes of the given int.
-                If batches is a sequence of integers then `sum(batches)` rounds will be pulled
-                from each simulation and batched according to each int in the sequence. If
-                batches is a function of batch_index then it runs until the simulation ends
-                with the size of each batch_index equal to the given `func(batch_index)`.
+            simulations: A sequence of simulations to benchmark against.
+            batch_count: How many interaction batches per simulation (batch_size will be spread evenly).
+            batch_size: An indication of how large every batch should be. If batch_size is an integer
+                then simulations will run until completion with batch sizes of the given int. If 
+                batch_size is a sequence of integers then `sum(batch_size)` interactions will be 
+                pulled from simulations and batched according to the sequence. If batch_size is a 
+                function then simulation run until completion with batch_size determined by function.
         """
 
         self._simulations = simulations
@@ -337,8 +337,8 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             if isinstance(sim, LazySimulation):
                 sim.load()
                 
-            batch_sizes = self._batch_sizes(len(sim.rounds))
-            n_rounds = sum(batch_sizes)
+            batch_sizes = self._batch_sizes(len(sim.interactions))
+            n_interactions = sum(batch_sizes)
 
             for factory, result in zip(learner_factories, learner_results):
 
@@ -346,7 +346,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
                 batch_index   = 0
                 batch_choices = []
 
-                for r in islice(sim.rounds, n_rounds):
+                for r in islice(sim.interactions, n_interactions):
 
                     index = sim_learner.choose(r.state, r.actions)
 
@@ -367,12 +367,12 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
         return learner_results
 
-    def _batch_sizes(self, n_rounds: int) -> Sequence[int]:
+    def _batch_sizes(self, n_interactions: int) -> Sequence[int]:
 
         if self._batch_count is not None:
             
-            batches   = [int(float(n_rounds)/(self._batch_count))] * self._batch_count
-            remainder = n_rounds % self._batch_count
+            batches   = [int(float(n_interactions)/(self._batch_count))] * self._batch_count
+            remainder = n_interactions % self._batch_count
             
             if remainder > 0:
                 spacing = float(self._batch_count)/remainder
@@ -381,7 +381,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             return batches
         
         if isinstance(self._batch_size, int): 
-            return [self._batch_size] * int(float(n_rounds)/self._batch_size)
+            return [self._batch_size] * int(float(n_interactions)/self._batch_size)
 
         if isinstance(self._batch_size, collections.Sequence): 
             return self._batch_size
@@ -389,12 +389,12 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         if callable(self._batch_size):
             batch_size_iter        = (self._batch_size(i) for i in count())
             next_batch_size        = next(batch_size_iter)
-            remaining_rounds       = n_rounds
+            remaining_interactions = n_interactions
             batch_sizes: List[int] = []
 
-            while remaining_rounds > next_batch_size:
+            while remaining_interactions > next_batch_size:
                 batch_sizes.append(next_batch_size)
-                remaining_rounds -= next_batch_size
+                remaining_interactions -= next_batch_size
                 next_batch_size  = next(batch_size_iter)
             
             return batch_sizes

@@ -1,7 +1,7 @@
 """The simulations module contains core classes and types for defining contextual bandit simulations.
 
 This module contains the abstract interface expected for bandit simulations along with the 
-class defining a Round within a bandit simulation. Additionally, this module also contains 
+class defining an Interaction within a bandit simulation. Additionally, this module also contains 
 the type hints for State, Action and Reward. These type hints don't contain any functionality. 
 Rather, they simply make it possible to use static type checking for any project that desires 
 to do so.
@@ -14,8 +14,6 @@ import csv
 import json
 import urllib.request
 
-import time
-
 from itertools import repeat, count
 from http.client import HTTPResponse
 from warnings import warn
@@ -26,7 +24,6 @@ from abc import ABC, abstractmethod
 from hashlib import md5
 from typing import Optional, Iterable, Sequence, List, Union, Callable, TypeVar, Generic, Hashable, Dict, cast, Any, ContextManager, IO, Tuple, overload
 
-
 from coba import random as cb_random
 from coba.preprocessing import Metadata, OneHotEncoder, NumericEncoder, Encoder
 
@@ -34,50 +31,61 @@ State  = Optional[Hashable]
 Action = Hashable
 Reward = float
 Key    = int 
+Choice = Tuple[Key,int]
 
 _S_out = TypeVar('_S_out', bound=State, covariant=True)
 _A_out = TypeVar('_A_out', bound=Action, covariant=True)
 
-class Round(Generic[_S_out, _A_out]):
-    """A class to contain all data needed to represent a round in a bandit simulation."""
+class Interaction(Generic[_S_out, _A_out]):
+    """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
     def __init__(self, state: _S_out, actions: Sequence[_A_out]) -> None:
-        """Instantiate Round.
+        """Instantiate Interaction.
 
         Args
-            key: A unique identifier for the round.
-            state: Features describing the round's state. Will be `None` for multi-armed bandit simulations.
-            actions: Features describing available actions for the round.
+            state: Features describing the interactions's state. Will be `None` for multi-armed bandit simulations.
+            actions: Features describing available actions in the interaction.
         """
 
-        assert len(actions) > 0, "At least one action must be provided for the round"
+        assert len(actions) > 0, "At least one action must be provided to interact"
 
         self._state   = state
         self._actions = actions
 
     @property
     def state(self) -> _S_out:
-        """The round's state description."""
+        """The interaction's state description."""
         return self._state
 
     @property
     def actions(self) -> Sequence[_A_out]:
-        """The round's action choices."""
+        """The interactions's available actions."""
         return self._actions
 
-class KeyRound(Round[_S_out, _A_out]):
+class KeyedInteraction(Interaction[_S_out, _A_out]):
+    """An interaction that's been given a unique identifier."""
 
     def __init__(self, key: Key, state: _S_out, actions: Sequence[_A_out]) -> None:
-        self._key = key
+        """Instantiate a KeyedInteraction.
+
+        Args:
+            key: The unique key identifying the interaction.
+            state: The context in which the interaction is ocurring.
+            actions: The actions available to take in the interaction.
+        """
+        
         super().__init__(state,actions)
+        
+        self._key = key
 
     @property
     def key(self) -> Key:
+        """The unique key associated with the interaction."""
         return self._key
 
     @property
-    def choices(self) -> Sequence[Tuple[Key,int]]:
-        """A convenience method providing the round choices in the expected rewards format."""
+    def choices(self) -> Sequence[Choice]:
+        """A convenience method providing all possible choices in the expected reward format."""
         return [ (self._key, action_index) for action_index in range(len(self._actions)) ]
 
 class Simulation(Generic[_S_out, _A_out], ABC):
@@ -112,26 +120,26 @@ class Simulation(Generic[_S_out, _A_out], ABC):
 
     @property
     @abstractmethod
-    def rounds(self) -> Sequence[KeyRound[_S_out, _A_out]]:
-        """The sequence of rounds in a simulation.
+    def interactions(self) -> Sequence[KeyedInteraction[_S_out, _A_out]]:
+        """The sequence of interactions in a simulation.
 
         Remarks:
-            All Benchmark assume that rounds is re-iterable. So long as rounds is a
-            Sequence it will always be re-iterable. If rounds were merely Iterable
-            Iterable then it is possible for it to only allow enumeration once.
+            All Benchmark assume that interactions is re-iterable. So long as interactions is 
+            a Sequence it will always be re-iterable. If interactions was merely Iterable then 
+            it would be possible for it to only allow enumeration one time.
         """
         ...
     
     @abstractmethod
-    def rewards(self, choices: Sequence[Tuple[Key,int]] ) -> Sequence[Tuple[_S_out, _A_out, Reward]]:
-        """The observed rewards for a given round (identified by its key) and an action index.
+    def rewards(self, choices: Sequence[Choice] ) -> Sequence[Tuple[_S_out, _A_out, Reward]]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Args:
-            choices: A sequence of tuples containing a round key and an action index.
+            choices: A sequence of tuples containing an interaction key and an action index.
 
         Returns:
             A sequence of tuples containing state, action, and reward for the requested 
-            round/action. This sequence will always align with the provided choices.
+            interaction/action. This sequence will always align with the provided choices.
         """
         ...
 
@@ -164,20 +172,20 @@ class LazySimulation(Simulation[_S_out, _A_out]):
 
 
     @property
-    def rounds(self) -> Sequence[KeyRound[_S_out,_A_out]]:
-        """The rounds in this simulation.
+    def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
+        """The interactions in this simulation.
 
         Remarks:
             See the Simulation base class for more information.
         """
 
         if self._simulation is not None:
-            return self._simulation.rounds
+            return self._simulation.interactions
         
         raise Exception("A LazySimulation must be loaded before it can be used.")
 
-    def rewards(self, choices: Sequence[Tuple[Key, int]]) -> Sequence[Tuple[_S_out, _A_out,Reward]]:
-        """The observed rewards for a given round (identified by its key) and an action index.
+    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_S_out, _A_out,Reward]]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
             See the Simulation base class for more information.
@@ -188,13 +196,8 @@ class LazySimulation(Simulation[_S_out, _A_out]):
 
         raise Exception("A LazySimulation must be loaded before it can be used.")
 
-
 class MemorySimulation(Simulation[_S_out, _A_out]):
-    """A Simulation implementation created from in memory sequences of Rounds.
-    
-    Remarks:
-        This implementation is very useful for unit-testing known edge cases.
-    """
+    """A Simulation implementation created from in memory sequences of states, actions and rewards."""
 
     def __init__(self, 
         states: Sequence[_S_out], 
@@ -204,36 +207,33 @@ class MemorySimulation(Simulation[_S_out, _A_out]):
 
         Args:
             states: A collection of states to turn into a simulation.
-            rounds: A collection of action sets to turn into a simulation
-            rewards: A collection of reward sets to turn into a simulation 
+            action_sets: A collection of action sets to turn into a simulation
+            reward_sets: A collection of reward sets to turn into a simulation 
         """
 
         assert len(states) == len(action_sets) == len(reward_sets), "Mismatched lengths of states, actions and rewards"
 
-        self._rounds_by_index : List[KeyRound[_S_out,_A_out]] = []
-        self._rewards_by_tuple: Dict[Tuple[Key,int], Reward]  = {}
+        self._interactions: List[KeyedInteraction[_S_out,_A_out]] = []
+        self._rewards     : Dict[Choice, Reward]  = {}
 
-        for round_key, state, actions, rewards in zip(count(), states, action_sets, reward_sets):
+        for key, state, actions, rewards in zip(count(), states, action_sets, reward_sets):
 
-            round_action_tuples  = zip(repeat(round_key), range(len(actions)))
-            round_action_rewards = zip(round_action_tuples, rewards)
+            rnd = KeyedInteraction(key, state, actions)
 
-            rnd = KeyRound(round_key, state, actions)
-
-            self._rewards_by_tuple.update(round_action_rewards)
-            self._rounds_by_index.append(rnd)
+            self._interactions.append(rnd)
+            self._rewards.update(zip(rnd.choices, rewards))
 
     @property
-    def rounds(self) -> Sequence[KeyRound[_S_out,_A_out]]:
-        """The rounds in this simulation.
+    def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
+        """The interactions in this simulation.
 
         Remarks:
             See the Simulation base class for more information.
         """
-        return self._rounds_by_index
+        return self._interactions
 
-    def rewards(self, choices: Sequence[Tuple[Key, int]]) -> Sequence[Tuple[_S_out, _A_out,Reward]]:
-        """The observed rewards for a given round (identified by its key) and an action index.
+    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_S_out, _A_out,Reward]]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
             See the Simulation base class for more information.
@@ -243,10 +243,10 @@ class MemorySimulation(Simulation[_S_out, _A_out]):
 
         for choice in choices:
 
-            state  = self._rounds_by_index[choice[0]].state
-            action = self._rounds_by_index[choice[0]].actions[choice[1]]
+            state  = self._interactions[choice[0]].state
+            action = self._interactions[choice[0]].actions[choice[1]]
 
-            out.append((state, action, self._rewards_by_tuple[choice]))
+            out.append((state, action, self._rewards[choice]))
 
         return out
 
@@ -258,24 +258,24 @@ class LambdaSimulation(Simulation[_S_out, _A_out]):
     """
 
     def __init__(self,
-                 n_rounds: int,
+                 n_interactions: int,
                  state: Callable[[int],_S_out],
                  action_set: Callable[[_S_out],Sequence[_A_out]], 
                  reward: Callable[[_S_out,_A_out],Reward]) -> None:
         """Instantiate a LambdaSimulation.
 
         Args:
-            n_rounds: how many rounds the LambdaSimulation should have.
-            state: A lambda function that should return a state given an index in `range(n_rounds)`.
-            action_set: A lambda function that should return all valid actions for a given state.
-            reward: A lambda function that should return the reward for a state and action.
+            n_interactions: How many interactions the LambdaSimulation should have.
+            state: A function that should return a state given an index in `range(n_interactions)`.
+            action_set: A function that should return all valid actions for a given state.
+            reward: A function that should return the reward for a state and action.
         """
 
         states     : List[_S_out]           = []
         action_sets: List[Sequence[_A_out]] = []
         reward_sets: List[Sequence[Reward]] = []
 
-        for i in range(n_rounds):
+        for i in range(n_interactions):
             _state      = state(i)
             _action_set = action_set(_state)
             _reward_set = [reward(_state, _action) for _action in _action_set]
@@ -287,16 +287,16 @@ class LambdaSimulation(Simulation[_S_out, _A_out]):
         self._simulation = MemorySimulation(states, action_sets, reward_sets)
 
     @property
-    def rounds(self) -> Sequence[KeyRound[_S_out,_A_out]]:
-        """The rounds in this simulation.
+    def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
+        """The interactions in this simulation.
 
         Remarks:
             See the Simulation base class for more information.
         """
-        return self._simulation.rounds
+        return self._simulation.interactions
 
-    def rewards(self, choices: Sequence[Tuple[Key,int]]) -> Sequence[Tuple[_S_out,_A_out,Reward]]:
-        """The observed rewards for a given round (identified by its key) and an action index.
+    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_S_out,_A_out,Reward]]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
             See the Simulation base class for more information.        
@@ -305,40 +305,40 @@ class LambdaSimulation(Simulation[_S_out, _A_out]):
         return self._simulation.rewards(choices)
 
 class ShuffleSimulation(Simulation[_S_out, _A_out]):
-    """A simulation which created from an existing simulation by shuffling rounds.
+    """A simulation which created from an existing simulation by shuffling interactions.
 
     Remarks:
-        Shuffling is applied one time upon creation and after that round order is fixed.
-        Shuffling also does not change the original simulation's round order or copy the
-        original rounds in memory. Shuffling is guaranteed to be deterministic according
-        to seed regardless of the local Python execution environment.
+        Shuffling is applied one time upon creation and after that interaction order is fixed.
+        Shuffling does not change the original simulation's interaction order or copy the
+        original interactions in memory. Shuffling is guaranteed to be deterministic 
+        according any given to seed regardless of the local Python execution environment.
     """
 
     def __init__(self, simulation: Simulation[_S_out,_A_out], seed: Optional[int] = None):
         """Instantiate a ShuffleSimulation
 
         Args:
-            simulation: The simulation we which to shuffle round order for.
+            simulation: The simulation we which to shuffle interaction order for.
             seed: The seed we wish to use in determining the shuffle order.
         """
 
         cb_random.seed(seed)
 
-        self._rounds  = cb_random.shuffle(simulation.rounds)
-        self._rewards = simulation.rewards
+        self._interactions = cb_random.shuffle(simulation.interactions)
+        self._rewards      = simulation.rewards
 
     @property
-    def rounds(self) -> Sequence[KeyRound[_S_out,_A_out]]:
-        """The rounds in this simulation.
+    def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
+        """The interactions in this simulation.
 
         Remarks:
             See the Simulation base class for more information.
         """
 
-        return self._rounds
+        return self._interactions
 
-    def rewards(self, choices: Sequence[Tuple[Key,int]]) -> Sequence[Tuple[_S_out,_A_out,Reward]]:
-        """The observed rewards for a given round (identified by its key) and an action index.
+    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_S_out,_A_out,Reward]]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
         
         Remarks:
             See the Simulation base class for more information.        
@@ -350,10 +350,10 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
     """A simulation created from classifier data with features and labels.
     
     ClassificationSimulation turns labeled observations from a classification data set
-    set, into rounds. For each round the feature set becomes the state and all possible 
-    labels become the actions. Rewards for each round are created by assigning a reward 
-    of 1 to the correct label (action) for a feature set (state) and a value of 0 for 
-    all other labels (actions).
+    set, into interactions. For each interaction the feature set becomes the state and 
+    all possible labels become the actions. Rewards for each interaction are created by 
+    assigning a reward of 1 to the correct label (action) for a feature set (state) and 
+    a value of 0 for all other labels (actions).
 
     Remark:
         This class when created from a data set will load all data into memory. Be careful when 
@@ -635,16 +635,16 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         self._simulation = MemorySimulation(states, actions, rewards)
 
     @property
-    def rounds(self) -> Sequence[KeyRound[_S_out, _A_out]]:
-        """The rounds in this simulation.
+    def interactions(self) -> Sequence[KeyedInteraction[_S_out, _A_out]]:
+        """The interactions in this simulation.
 
         Remarks:
             See the Simulation base class for more information.
         """
-        return self._simulation.rounds
+        return self._simulation.interactions
 
-    def rewards(self, choices: Sequence[Tuple[Key, int]]) -> Sequence[Tuple[_S_out, _A_out, Reward]]:
-        """The observed rewards for a given round (identified by its key) and an action index.
+    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_S_out, _A_out, Reward]]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
             See the Simulation base class for more information.        
