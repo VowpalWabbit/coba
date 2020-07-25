@@ -7,14 +7,15 @@ Todo:
     * Incorporate out of the box plots
 """
 
-from collections import defaultdict
+
 import json
 import collections
 import math
 
 from abc import ABC, abstractmethod
-from typing import DefaultDict, Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, cast
+from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, cast, Optional
 from itertools import islice, count
+from collections import defaultdict
 
 from coba.simulations import LazySimulation, Simulation, State, Action
 from coba.learners import Learner
@@ -144,7 +145,7 @@ class Result:
                 in the tuple is the amount of reward received after taking an action in a round.
             drop_first_batch: An indicator determining if the first batch should be excluded from Result.
         """
-        result = Result(drop_first_batch)
+        result = Result(drop_first_batch = drop_first_batch)
 
         sim_batch_observations: List[float] = []
         sim_index = None
@@ -170,7 +171,7 @@ class Result:
 
         return result
 
-    def __init__(self, drop_first_batch=True):
+    def __init__(self, learner_name: str = None, drop_first_batch=True):
         """Instantiate a Result.
 
         Args:
@@ -178,12 +179,21 @@ class Result:
                 Result. The first batch represents choices made without any learning and says relatively
                 little about a learner potentially biasing cumulative statistics siginificantly.
         """
+
+        self._learner_name = learner_name if learner_name is not None else "Unknown"
+
         self._sim_batch_stats: Dict[Tuple[int,int], Stats] = defaultdict(Stats)
         self._batch_stats    : Dict[int           , Stats] = defaultdict(Stats)
         self._sim_stats      : Dict[int           , Stats] = defaultdict(Stats)
         self._prog_stats     : Dict[int           , Stats] = defaultdict(Stats)
 
         self._drop_first_batch = drop_first_batch
+
+    @property
+    def learner_name(self) -> Optional[str]:
+        """A descriptive name for the learner used to Generate these results."""
+
+        return self._learner_name
 
     @property
     def sim_stats(self) -> Sequence[Stats]:
@@ -278,7 +288,6 @@ class UniversalBenchmark(Benchmark[_S,_A]):
                 sim_config["lazy"] = True
 
         simulations = [ Simulation.from_json(sim_config) for sim_config in sim_configs ]
-        batches     = config["batches"]
 
         if "count" in config["batches"]:
             return UniversalBenchmark(simulations, batch_count=config["batches"]["count"])
@@ -321,7 +330,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             See the base class for more information.
         """
 
-        learner_results: List[Result] = [Result() for _ in learner_factories]
+        learner_results: List[Result] = [Result(name) for name in self._safe_names(learner_factories)]
 
         for sim_index, sim in enumerate(self._simulations):
 
@@ -403,3 +412,16 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
         for (state,action,reward) in results:
             learner.learn(state,action,reward)
+
+    def _safe_names(self, factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Sequence[Optional[str]]:
+
+        names: List[Optional[str]] = []
+
+        for factory in factories:
+            try:
+                names.append(factory().name)
+            except:
+                names.append(None)
+        
+        return names
+

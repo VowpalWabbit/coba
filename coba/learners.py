@@ -24,6 +24,15 @@ _A_in = TypeVar('_A_in', bound=Action, contravariant=True)
 class Learner(Generic[_S_in, _A_in], ABC):
     """The interface for Learner implementations."""
 
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """ The name of the learner.
+        
+        This value is used for descriptive purposes only when creating benchmark results.
+        """
+        ...
+
     @abstractmethod
     def choose(self, state: _S_in, actions: Sequence[_A_in]) -> int:
         """Choose which action to take.
@@ -81,6 +90,14 @@ class LambdaLearner(Learner[_S_in, _A_in]):
         self._choose = choose
         self._learn  = learn
 
+    @property
+    def name(self) -> str:
+        """The name of the Learner.
+        
+        See the base class for more information
+        """  
+        return "Lambda"
+
     def choose(self, state: _S_in, actions: Sequence[_A_in]) -> int:
         """Choose via the provided lambda function.
 
@@ -109,6 +126,14 @@ class LambdaLearner(Learner[_S_in, _A_in]):
 
 class RandomLearner(Learner[State, Action]):
     """A Learner implementation that selects an action at random and learns nothing."""
+
+    @property
+    def name(self) -> str:
+        """The name of the Learner.
+        
+        See the base class for more information
+        """  
+        return "Random"
 
     def choose(self, state: State, actions: Sequence[Action]) -> int:
         """Choose a random action from the action set.
@@ -153,6 +178,14 @@ class EpsilonLearner(Learner[State, Action]):
         self._include_state = include_state
         self._N: Dict[Tuple[State, Action], int            ] = defaultdict(lambda: int(0 if default is None else 1))
         self._Q: Dict[Tuple[State, Action], Optional[float]] = defaultdict(lambda: default)
+
+    @property
+    def name(self) -> str:
+        """The name of the Learner.
+        
+        See the base class for more information
+        """
+        return "Epislon-greedy"
 
     def choose(self, state: State, actions: Sequence[Action]) -> int:
         """Choose greedily with probability 1-epsilon. Choose a randomly with probability epsilon.
@@ -241,6 +274,14 @@ class VowpalLearner(Learner[State, Action]):
         self._actions: Sequence[State]                  = []
         self._prob   : Dict[Tuple[State,Action], float] = {}
 
+    @property
+    def name(self) -> str:
+        """The name of the Learner.
+        
+        See the base class for more information
+        """  
+        return "Vowpal"
+
     def choose(self, state: State, actions: Sequence[Action]) -> int:
         """Choose an action according to the explor-exploit parameters passed into the contructor.
 
@@ -324,6 +365,14 @@ class UcbTunedLearner(Learner[State, Action]):
         self._m     : Dict[Action,float] = {}
         self._v     : Dict[Action,OnlineVariance] = defaultdict(OnlineVariance)
     
+    @property
+    def name(self) -> str:
+        """The name of the Learner.
+        
+        See the base class for more information
+        """  
+        return "UCB"
+
     def choose(self, state: State, actions: Sequence[Action]) -> int:
         """Choose an action greedily according to the upper confidence bound estimates.
 
