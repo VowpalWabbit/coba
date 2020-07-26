@@ -193,8 +193,8 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
     def test_simple_from_openml(self) -> None:
         #this test requires interet acess to download the data
 
-        #simulation = ClassificationSimulation.from_openml(154)
-        #return
+        simulation = ClassificationSimulation.from_openml(154)
+        return
 
         simulation = ClassificationSimulation.from_openml(1116)
 

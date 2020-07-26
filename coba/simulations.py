@@ -48,7 +48,7 @@ class Interaction(Generic[_S_out, _A_out]):
             actions: Features describing available actions in the interaction.
         """
 
-        assert len(actions) > 0, "At least one action must be provided to interact"
+        assert actions, "At least one action must be provided to interact"
 
         self._state   = state
         self._actions = actions
@@ -87,7 +87,7 @@ class KeyedInteraction(Interaction[_S_out, _A_out]):
     @property
     def choices(self) -> Sequence[Choice]:
         """A convenience method providing all possible choices in the expected reward format."""
-        return [ (self._key, action_index) for action_index in range(len(self._actions)) ]
+        return list(zip(repeat(self._key), range(len(self._actions))))
 
 class Simulation(Generic[_S_out, _A_out], ABC):
     """The simulation interface."""
@@ -214,15 +214,18 @@ class MemorySimulation(Simulation[_S_out, _A_out]):
 
         assert len(states) == len(action_sets) == len(reward_sets), "Mismatched lengths of states, actions and rewards"
 
-        self._interactions: List[KeyedInteraction[_S_out,_A_out]] = []
-        self._rewards     : Dict[Choice, Reward]  = {}
+        start = time.time()
+        self._interactions = list(map(KeyedInteraction, count(), states, action_sets))
+        print(time.time() - start)
+        
+        start = time.time()
+        choices = chain.from_iterable([ i.choices for i in self._interactions])
+        rewards = chain.from_iterable(reward_sets)
+        print(time.time() - start)
 
-        for key, state, actions, rewards in zip(count(), states, action_sets, reward_sets):
-
-            rnd = KeyedInteraction(key, state, actions)
-
-            self._interactions.append(rnd)
-            self._rewards.update(zip(rnd.choices, rewards))
+        start = time.time()
+        self._rewards = dict(zip(choices,rewards))
+        print(time.time() - start)        
 
     @property
     def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
@@ -624,9 +627,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         actions = [ l if len(l) > 1 else l[0] for l in labels   ]
         print(time.time()-start)
 
-        start = time.time()
         simulation = ClassificationSimulation(states, actions)
-        print(time.time()-start)
 
         return simulation
 
@@ -640,13 +641,18 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
+        #reward_encoder = OneHotEncoder(labels).encode(labels)
+
         action_set = tuple(set(labels))
 
         states  = features
         actions = list(repeat(action_set, len(states)))
-        rewards = [ [ int(label == action) for action in action_set] for label in labels ]
+        
+        start = time.time()
+        rewards = OneHotEncoder(action_set,False,True).encode(labels)
+        print(time.time() - start)
 
-        self._simulation = MemorySimulation(states, actions, rewards)
+        self._simulation = MemorySimulation(states, actions, rewards)        
 
     @property
     def interactions(self) -> Sequence[KeyedInteraction[_S_out, _A_out]]:
