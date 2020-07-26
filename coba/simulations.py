@@ -214,18 +214,18 @@ class MemorySimulation(Simulation[_S_out, _A_out]):
 
         assert len(states) == len(action_sets) == len(reward_sets), "Mismatched lengths of states, actions and rewards"
 
-        start = time.time()
+        #start = time.time()
         self._interactions = list(map(KeyedInteraction, count(), states, action_sets))
-        print(time.time() - start)
+        #print(time.time() - start)
         
-        start = time.time()
+        #start = time.time()
         choices = chain.from_iterable([ i.choices for i in self._interactions])
         rewards = chain.from_iterable(reward_sets)
-        print(time.time() - start)
+        #print(time.time() - start)
 
-        start = time.time()
+        #start = time.time()
         self._rewards = dict(zip(choices,rewards))
-        print(time.time() - start)        
+        #print(time.time() - start)        
 
     @property
     def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
@@ -443,15 +443,15 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             data_id: The unique identifier for a dataset stored on openml.
         """
 
-        print(f"loading openml {data_id}...")
+        print(f"loading openml {data_id}... {round(time.time(),2)}")
 
-        start = time.time()
+        #start = time.time()
         with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}')) as resp:
             data = json.loads(resp.read())["data_set_description"]
 
         with closing(urllib.request.urlopen(f'http://www.openml.org/api/v1/json/data/features/{data_id}')) as resp:
             meta = json.loads(resp.read())["data_features"]["feature"]
-        print(time.time()-start)
+        #print(time.time()-start)
 
         defined_meta: Dict[str,Metadata] = {}
 
@@ -493,7 +493,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             column_metas: Keys are column name or index, values are meta objects that override the default values.
         """
         
-        start = time.time()
+        #start = time.time()
         is_disk =  not location.lower().startswith('http')
         is_http =      location.lower().startswith('http')
 
@@ -504,16 +504,16 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         else:
             http_request = urllib.request.Request(location, headers={'Accept-encoding':'gzip'})
             stream_manager = closing(urllib.request.urlopen(http_request))
-        print(time.time()-start)
+        #print(time.time()-start)
 
         with stream_manager as raw_stream:
 
             is_disk_gzip = is_disk and location.lower().endswith(".gz")
             is_http_gzip = is_http and cast(HTTPResponse, raw_stream).info().get('Content-Encoding') == "gzip"
 
-            start = time.time()
+            #start = time.time()
             all_bytes = decompress(raw_stream.read()) if is_disk_gzip or is_http_gzip else raw_stream.read()
-            print(time.time()-start)
+            #print(time.time()-start)
 
         if md5_checksum is not None and md5_checksum != md5(all_bytes).hexdigest():
             warn(
@@ -522,11 +522,11 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
                 "the error persists you may want to manually download and reference the file."
             )
         
-        start = time.time()
+        #start = time.time()
         all_text  = all_bytes.decode('utf-8')
         all_lines = all_text.split("\n")
         csv_rows  = csv_reader(all_lines)
-        print(time.time()-start)
+        #print(time.time()-start)
 
         simulation = ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
 
@@ -590,19 +590,19 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         if label_index is not None:
             metas[label_index] = metas[label_index].override(Metadata(None,True,None))
 
-        start = time.time()
+        #start = time.time()
         #first pass, loop through all rows. If meta is marked as ignore place an empty
         # tuple in the column array, if meta has an encoder already fit encode now, if
         #the encoder isn't fit place the string value in the column for later fitting.
         for row in itable:
             for r,col in zip(row, columns):
                 col.append(r)
-        print(time.time() - start)
+        #print(time.time() - start)
 
         feature_encodings: List[Sequence[Sequence[Hashable]] ] = []
         label_encodings  : List[Sequence[Sequence[Hashable]] ] = [] 
 
-        start = time.time()
+        #start = time.time()
         #second pass, loop through all columns. Now that we have the data in column arrays
         #we are able to fit any encoders that need fitting. After fitting we need to encode
         #these column's string values and turn our data back into rows for features and labels.
@@ -620,12 +620,12 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
         features = list(map(tuple,map(chain.from_iterable, zip(*feature_encodings)))) #type: ignore
         labels   = list(map(tuple,map(chain.from_iterable, zip(*label_encodings)))) #type: ignore
-        print(time.time() - start)
+        #print(time.time() - start)
 
-        start = time.time()
+        #start = time.time()
         states  = [ f if len(f) > 1 else f[0] for f in features ]
         actions = [ l if len(l) > 1 else l[0] for l in labels   ]
-        print(time.time()-start)
+        #print(time.time()-start)
 
         simulation = ClassificationSimulation(states, actions)
 
@@ -648,9 +648,9 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         states  = features
         actions = list(repeat(action_set, len(states)))
         
-        start = time.time()
+        #start = time.time()
         rewards = OneHotEncoder(action_set,False,True).encode(labels)
-        print(time.time() - start)
+        #print(time.time() - start)
 
         self._simulation = MemorySimulation(states, actions, rewards)        
 

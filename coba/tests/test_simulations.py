@@ -1,5 +1,7 @@
 import unittest
 
+import time
+
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple, cast, Dict
 
@@ -193,9 +195,6 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
     def test_simple_from_openml(self) -> None:
         #this test requires interet acess to download the data
 
-        simulation = ClassificationSimulation.from_openml(154)
-        return
-
         simulation = ClassificationSimulation.from_openml(1116)
 
         self.assertEqual(len(simulation.interactions), 6598)
@@ -215,6 +214,15 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
             self.assertIn(1, actual_rewards)
             self.assertIn(0, actual_rewards)
+
+    def test_large_from_openml(self) -> None:
+        #this test requires interet acess to download the data
+
+        start = time.time()
+        simulation = ClassificationSimulation.from_openml(154)
+        finish = time.time()
+
+        self.assertLess(finish-start, 40)
 
     def test_simple_from_csv(self) -> None:
         #this test requires interet acess to download the data
