@@ -1,5 +1,5 @@
 import unittest
-import time
+import timeit
 import math
 
 from abc import ABC, abstractmethod
@@ -87,17 +87,25 @@ class NumericEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
         self.assertTrue(encoder.is_fit)
 
-    def test_performance(self):
+    def test_performance_small_list(self):
 
         encoder   = NumericEncoder()
-        many_ones = ["1"]*1000000
+        many_ones = ["1"]*100
+        
+        time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=1000, number=4))
+        
+        #was approximately .000122
+        self.assertLess(time, .0002)
 
-        start = time.time()
-        encoder.encode(many_ones)
-        finish = time.time()
+    def test_performance_large_list(self):
 
-        print(finish-start)
-        self.assertLess(finish-start, 1.5)
+        encoder   = NumericEncoder()
+        many_ones = ["1"]*100000
+        
+        time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=100, number=1))
+        
+        #was approximately .0301
+        self.assertLess(time, .05)
 
     def test_not_numeric_string(self):
 
