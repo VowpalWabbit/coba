@@ -8,7 +8,7 @@ import json
 
 from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Sequence, Generic, TypeVar, Any, Optional, Hashable, Union, Dict, Tuple
+from typing import Sequence, Generic, TypeVar, Any, Optional, Hashable, Union, Dict, Tuple, cast
 
 T_out = TypeVar('T_out', bound=Hashable, covariant=True) 
 
@@ -194,10 +194,11 @@ class NumericEncoder(Encoder[float]):
         if not self.is_fit:
             raise Exception("This encoder must be fit before it can be used.")
 
-        #Somewhat surprisingly this seems to be a small bottleneck in ingest performance.
-        #The fastnumbers package seems like it could potentially provide around a 20% speed increase.
-        #https://pypi.org/project/fastnumbers
-        return [float(value) for value in values]
+        #The fastnumbers package seems like it could potentially provide around a 20% speed increase.        
+        if isinstance(values[0],str):
+            return [float(value) if cast(str,value).isnumeric() else float('nan') for value in values]
+        else:
+            return [float(value) for value in values]
 
 class OneHotEncoder(Encoder[Tuple[int,...]]):
     """An Encoder implementation that turns incoming values into a one hot representation."""

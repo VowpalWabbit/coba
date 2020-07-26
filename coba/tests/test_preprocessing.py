@@ -1,4 +1,6 @@
 import unittest
+import time
+import math
 
 from abc import ABC, abstractmethod
 from typing import Sequence, Tuple, cast, Any
@@ -84,6 +86,24 @@ class NumericEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
         encoder = NumericEncoder()
 
         self.assertTrue(encoder.is_fit)
+
+    def test_performance(self):
+
+        encoder   = NumericEncoder()
+        many_ones = ["1"]*1000000
+
+        start = time.time()
+        encoder.encode(many_ones)
+        finish = time.time()
+
+        print(finish-start)
+        self.assertLess(finish-start, 1.5)
+
+    def test_not_numeric_string(self):
+
+        actual = NumericEncoder().encode(["5 1"])[0]
+
+        self.assertTrue(math.isnan(actual))
 
 class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
