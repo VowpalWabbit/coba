@@ -172,23 +172,14 @@ class coba_config:
     _config: Optional[Dict[str,Any]] = None
     _search_paths = [Path("./.coba"), Path.home() / ".coba"]
 
-    @classmethod
-    def openml_api_key(cls) -> str:
-        return cls._get("openml_api_key")
+    for potential_path in _search_paths:
+        if potential_path.exists():
+            with open(potential_path) as fs:
+                _config = json.load(fs)
+            break
 
-    @classmethod
-    def _get(cls, key:str) -> Any:
+    if _config is None:
+        _config = {}
 
-        if cls._config is not None:
-            return cls._config[key]
-
-        for potential_path in cls._search_paths:
-            if potential_path.exists():
-                with open(potential_path) as fs:
-                    cls._config = json.load(fs)
-                break
-
-        if cls._config is not None:
-            return cls._config[key]
-
-        raise Exception("We were unable to find a coba config file")
+    openml_api_key: Optional[str] = _config.get("openml_api_key", None)
+    sim_cache_path: Optional[str] = _config.get("sim_cache_path", None)

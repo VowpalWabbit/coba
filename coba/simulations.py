@@ -16,6 +16,7 @@ import csv
 import json
 import urllib.request
 
+from pathlib import Path
 from collections import defaultdict
 from itertools import compress, repeat, count, chain
 from http.client import HTTPResponse
@@ -446,7 +447,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
         print(f"loading openml {data_id}... ", end='')
 
-        openml_api_key = coba_config.openml_api_key()
+        openml_api_key = coba_config.openml_api_key
 
         with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}?api_key={openml_api_key}')) as resp:
             data = json.loads(resp.read())["data_set_description"]
@@ -499,34 +500,68 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         is_disk =  not location.lower().startswith('http')
         is_http =      location.lower().startswith('http')
 
+        #try to load the given location from cache
+        if is_http and coba_config.sim_cache_path is not None:
+            dir_path = Path(coba_config.sim_cache_path).expanduser()
+            loc_md5  = md5(location.encode('utf-8')).hexdigest()
+            filename = f"{loc_md5}.csv"
+
+            gzip_file_path = dir_path / (filename + ".gz")
+            norm_file_path = dir_path / (filename        )
+
+            if gzip_file_path.exists():
+                location = str(gzip_file_path)
+                is_disk = True
+                is_http = False
+            elif norm_file_path.exists():
+                location = str(norm_file_path)
+                is_disk = True
+                is_http = False
+
         stream_manager: ContextManager[IO[bytes]]
 
         if is_disk:
-            stream_manager = open(location, 'rb', encoding='utf-8')
+            stream_manager = cast(IO[bytes],open(location, 'rb'))
         else:
-            http_request = urllib.request.Request(location, headers={'Accept-encoding':'gzip'})
+            http_request   = urllib.request.Request(location, headers={'Accept-encoding':'gzip'})
             stream_manager = closing(urllib.request.urlopen(http_request))
 
         with stream_manager as raw_stream:
 
             is_disk_gzip = is_disk and location.lower().endswith(".gz")
             is_http_gzip = is_http and cast(HTTPResponse, raw_stream).info().get('Content-Encoding') == "gzip"
+            is_gzip      = is_disk_gzip or is_http_gzip
+
+            raw_bytes = raw_stream.read()
+
+            #cache the file if we're loading an http file
+            if is_http and coba_config.sim_cache_path is not None:
+
+                dir_path = Path(coba_config.sim_cache_path).expanduser()
+                loc_md5  = md5(location.encode('utf-8')).hexdigest()
+                filename = f"{loc_md5}.csv{'.gz' if is_gzip else ''}"
+
+                file_path = dir_path / filename
+                
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+
+                with open(file_path, 'wb') as fs:
+                    fs.write(raw_bytes)
 
             #When testing loading all bytes into memory at once was moderately faster on average.
             #This does run the risk of causing problems though if the file is extremely large.
-            all_bytes = decompress(raw_stream.read()) if is_disk_gzip or is_http_gzip else raw_stream.read()
+            raw_bytes = decompress(raw_bytes) if is_gzip else raw_bytes
 
-        if md5_checksum is not None and md5_checksum != md5(all_bytes).hexdigest():
+        if md5_checksum is not None and md5_checksum != md5(raw_bytes).hexdigest():
             warn(
                 "The dataset did not match the expected checksum. This could be the result of network "
                 "errors or the file becoming corrupted. Please consider downloading the file again and if "
                 "the error persists you may want to manually download and reference the file."
             )
 
-        csv_rows = csv_reader(all_bytes.decode('utf-8').split("\n"))
+        csv_rows = csv_reader(raw_bytes.decode('utf-8').split("\n"))
         
-        del all_bytes
-        gc.collect()
+        del raw_bytes
 
         start = time.time()
         simulation = ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
