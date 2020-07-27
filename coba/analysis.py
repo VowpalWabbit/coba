@@ -10,6 +10,16 @@ class Plots():
     @staticmethod
     def standard_plot(results: Sequence[Result]) -> None:
 
+        def plot_stats(axes, label, stats):        
+            x = [ i+1           for i in range(len(stats)) ]
+            y = [ i.mean        for i in stats             ]
+            l = [ i.mean-i.SEM  for i in stats             ]
+            u = [ i.mean+i.SEM  for i in stats             ]
+
+            #axes.plot    (x,y, label=label)
+            axes.plot(x,y, label=label)
+            axes.fill_between(x, l, u, alpha = 0.25)
+
         check_matplotlib_support('Plots.standard_plot')
         import matplotlib.pyplot as plt #type: ignore 
 
@@ -18,15 +28,13 @@ class Plots():
         ax1 = fig.add_subplot(1,2,1) #type: ignore
         ax2 = fig.add_subplot(1,2,2) #type: ignore
 
-        for result in results:
-            ax1.plot([ i.mean for i in result .batch_stats], label=result.learner_name)
+        for result in results: plot_stats(ax1, result.learner_name, result.batch_stats)
 
         ax1.set_title("Reward by Batch Index")
         ax1.set_ylabel("Mean Reward")
         ax1.set_xlabel("Batch Index")
 
-        for result in results:
-            ax2.plot([ i.mean for i in result.cumulative_batch_stats], label=result.learner_name)
+        for result in results: plot_stats(ax2, result.learner_name, result.cumulative_batch_stats)
 
         ax2.set_title("Progressive Validation Reward")
         ax2.set_xlabel("Batch Index")

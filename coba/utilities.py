@@ -169,17 +169,24 @@ class OnlineMean():
 
 class coba_config:
 
-    _config: Optional[Dict[str,Any]] = None
     _search_paths = [Path("./.coba"), Path.home() / ".coba"]
 
-    for potential_path in _search_paths:
-        if potential_path.exists():
-            with open(potential_path) as fs:
-                _config = json.load(fs)
-            break
+    openml_api_key : Optional[str]
+    cache_directory: Optional[str]
 
-    if _config is None:
-        _config = {}
+    try:
 
-    openml_api_key: Optional[str] = _config.get("openml_api_key", None)
-    sim_cache_path: Optional[str] = _config.get("sim_cache_path", None)
+        config = {}
+
+        for potential_path in _search_paths:
+            if potential_path.exists():
+                with open(potential_path) as fs:
+                    config = json.load(fs)
+                break
+
+        openml_api_key: Optional[str]  = config.get("openml_api_key", None)
+        cache_directory: Optional[str] = config.get("cache_directory", None)
+
+    except:
+        openml_api_key = None
+        cache_directory = None

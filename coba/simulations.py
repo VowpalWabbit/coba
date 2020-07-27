@@ -179,7 +179,6 @@ class LazySimulation(Simulation[_S_out, _A_out]):
 
         return self
 
-
     @property
     def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
         """The interactions in this simulation.
@@ -445,19 +444,28 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             data_id: The unique identifier for a dataset stored on openml.
         """
 
-        print(f"loading openml {data_id}... ", end='')
+        print(f"   > loading openml {data_id}... ")
 
         openml_api_key = coba_config.openml_api_key
 
         with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}?api_key={openml_api_key}')) as resp:
-            data = json.loads(resp.read())["data_set_description"]
+            description = json.loads(resp.read())["data_set_description"]
+
+        if description['status'] == 'deactivated':
+            raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
+
+        with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}?api_key={openml_api_key}')) as resp:
+            tasks = json.loads(resp.read())["tasks"]["task"]
+
+        if not any(task["task_type_id"] == 1 for task in tasks ):
+            raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
 
         with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/features/{data_id}?api_key={openml_api_key}')) as resp:
-            meta = json.loads(resp.read())["data_features"]["feature"]
+            features = json.loads(resp.read())["data_features"]["feature"]
 
         defined_meta: Dict[str,Metadata] = {}
 
-        for m in meta:
+        for m in features:
 
             encoder: Encoder
 
@@ -471,8 +479,9 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
                 label   = m["is_target"] == "true",
                 encoder = encoder
             )
-
-        csv_url = f"http://www.openml.org/data/v1/get_csv/{data['file_id']}"
+        
+        file_id = description['file_id']
+        csv_url = f"http://www.openml.org/data/v1/get_csv/{file_id}"
 
         return ClassificationSimulation.from_csv(csv_url, defined_meta=defined_meta)
 
@@ -501,28 +510,27 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         is_http =      location.lower().startswith('http')
 
         #try to load the given location from cache
-        if is_http and coba_config.sim_cache_path is not None:
-            dir_path = Path(coba_config.sim_cache_path).expanduser()
+        if is_http and coba_config.cache_directory is not None:    
+            dir_path = Path(coba_config.cache_directory).expanduser()
             loc_md5  = md5(location.encode('utf-8')).hexdigest()
             filename = f"{loc_md5}.csv"
 
             gzip_file_path = dir_path / (filename + ".gz")
             norm_file_path = dir_path / (filename        )
 
-            if gzip_file_path.exists():
-                location = str(gzip_file_path)
+            if gzip_file_path.exists() or norm_file_path.exists():
                 is_disk = True
                 is_http = False
-            elif norm_file_path.exists():
-                location = str(norm_file_path)
-                is_disk = True
-                is_http = False
+
+            location = str(gzip_file_path) if gzip_file_path.exists() else str(norm_file_path)
 
         stream_manager: ContextManager[IO[bytes]]
 
         if is_disk:
+            print('     * loaded from disk...')
             stream_manager = cast(IO[bytes],open(location, 'rb'))
         else:
+            print('     * loaded from http...')
             http_request   = urllib.request.Request(location, headers={'Accept-encoding':'gzip'})
             stream_manager = closing(urllib.request.urlopen(http_request))
 
@@ -535,9 +543,9 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             raw_bytes = raw_stream.read()
 
             #cache the file if we're loading an http file
-            if is_http and coba_config.sim_cache_path is not None:
+            if is_http and coba_config.cache_directory is not None:
 
-                dir_path = Path(coba_config.sim_cache_path).expanduser()
+                dir_path = Path(coba_config.cache_directory).expanduser()
                 loc_md5  = md5(location.encode('utf-8')).hexdigest()
                 filename = f"{loc_md5}.csv{'.gz' if is_gzip else ''}"
 
@@ -567,7 +575,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         simulation = ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
         finish = time.time()
 
-        print(round(finish-start,2))
+        print(f"     * {round(finish-start,2)} seconds.")
 
         return simulation 
 

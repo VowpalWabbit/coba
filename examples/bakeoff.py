@@ -10,13 +10,13 @@ from coba.analysis  import Plots
 with open("./examples/data/full_bakeoff.json") as fs:
     json = fs.read()
 
-print("creating benchmark...")
+print(" - creating benchmark...")
 benchmark = UniversalBenchmark.from_json(json)
 
-print("creating learners...")
+print(" - creating learners...")
 learner_factories = [ lambda: RandomLearner(), lambda: EpsilonLearner(1/10), lambda: UcbTunedLearner(), lambda: VowpalLearner(bag=5) ]
 
-print("evaluating the learners...")
+print(" - evaluating learners...")    
 results = benchmark.evaluate(learner_factories)
 
 Plots.standard_plot(results)

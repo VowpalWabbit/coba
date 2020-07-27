@@ -1,9 +1,0 @@
-{
-    "templates"  : { "shuffled_openml_classification": { "seed":777, "type":"classification", "from": {"format":"openml", "id":"$id"} }},
-    "batches"    : { "count":51 },
-    "simulations": [
-        {"template":"shuffled_openml_classification", "$id":3   },
-        {"template":"shuffled_openml_classification", "$id":6   },
-        {"template":"shuffled_openml_classification", "$id":8   }
-    ]
-}

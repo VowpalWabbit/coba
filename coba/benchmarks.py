@@ -333,33 +333,36 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
         for sim_index, sim in enumerate(self._simulations):
 
-            if isinstance(sim, LazySimulation):
-                sim.load()
-                
-            batch_sizes = self._batch_sizes(len(sim.interactions))
-            n_interactions = sum(batch_sizes)
-
-            for factory, result in zip(learner_factories, learner_results):
-
-                sim_learner   = factory()
-                batch_index   = 0
-                batch_choices = []
-
-                for r in islice(sim.interactions, n_interactions):
-
-                    index = sim_learner.choose(r.state, r.actions)
-
-                    batch_choices.append(r.choices[index])
+            try:
+                if isinstance(sim, LazySimulation):
+                    sim.load()
                     
-                    if len(batch_choices) == batch_sizes[batch_index]:
-                        observations = sim.rewards(batch_choices)
-                        self._update_learner_and_result(sim_learner, result, sim_index, batch_index, observations)
+                batch_sizes = self._batch_sizes(len(sim.interactions))
+                n_interactions = sum(batch_sizes)
 
-                        batch_choices = []
-                        batch_index += 1
+                for factory, result in zip(learner_factories, learner_results):
 
-                observations = sim.rewards(batch_choices)
-                self._update_learner_and_result(sim_learner, result, sim_index, batch_index, observations)
+                    sim_learner   = factory()
+                    batch_index   = 0
+                    batch_choices = []
+
+                    for r in islice(sim.interactions, n_interactions):
+
+                        index = sim_learner.choose(r.state, r.actions)
+
+                        batch_choices.append(r.choices[index])
+                        
+                        if len(batch_choices) == batch_sizes[batch_index]:
+                            observations = sim.rewards(batch_choices)
+                            self._update_learner_and_result(sim_learner, result, sim_index, batch_index, observations)
+
+                            batch_choices = []
+                            batch_index += 1
+
+                    observations = sim.rewards(batch_choices)
+                    self._update_learner_and_result(sim_learner, result, sim_index, batch_index, observations)
+            except Exception as e:
+                print(f"     * {e}")
 
             if isinstance(sim, LazySimulation):
                 sim.unload()

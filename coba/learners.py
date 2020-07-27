@@ -28,7 +28,7 @@ class Learner(Generic[_S_in, _A_in], ABC):
     @abstractmethod
     def name(self) -> str:
         """ The name of the learner.
-        
+
         This value is used for descriptive purposes only when creating benchmark results.
         """
         ...
@@ -54,7 +54,7 @@ class Learner(Generic[_S_in, _A_in], ABC):
             An integer indicating the index of the selected action in the action set.
         """
         ...
-    
+
     @abstractmethod
     def learn(self, state: _S_in, action: _A_in, reward: Reward) -> None:
         """Learn about the result of an action that was taken in a state.
@@ -130,7 +130,7 @@ class RandomLearner(Learner[State, Action]):
     @property
     def name(self) -> str:
         """The name of the Learner.
-        
+
         See the base class for more information
         """  
         return "Random"
@@ -182,7 +182,7 @@ class EpsilonLearner(Learner[State, Action]):
     @property
     def name(self) -> str:
         """The name of the Learner.
-        
+
         See the base class for more information
         """
         return "Epislon-greedy"
@@ -351,7 +351,7 @@ class VowpalLearner(Learner[State, Action]):
 
 class UcbTunedLearner(Learner[State, Action]):
     """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
-    
+
     References:
         Auer, Peter, Nicolo Cesa-Bianchi, and Paul Fischer. "Finite-time analysis of 
         the multiarmed bandit problem." Machine learning 47.2-3 (2002): 235-256.
@@ -364,13 +364,13 @@ class UcbTunedLearner(Learner[State, Action]):
         self._s     : Dict[Action,int] = {}
         self._m     : Dict[Action,float] = {}
         self._v     : Dict[Action,OnlineVariance] = defaultdict(OnlineVariance)
-    
+
     @property
     def name(self) -> str:
         """The name of the Learner.
-        
+
         See the base class for more information
-        """  
+        """
         return "UCB"
 
     def choose(self, state: State, actions: Sequence[Action]) -> int:
@@ -393,7 +393,7 @@ class UcbTunedLearner(Learner[State, Action]):
             max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
             max_indexes = [i for i in range(len(values)) if values[i]==max_value]
             return random.choice(max_indexes)
-        
+
     def learn(self, state: State, action: Action, reward: Reward) -> None:
         """Smooth the observed reward into our current estimate of E[R|S,A].
 
@@ -445,5 +445,5 @@ class UcbTunedLearner(Learner[State, Action]):
             See the beginning of section 4 in the algorithm's paper for this equation.
         """
         ln = math.log; t = self._t; s = self._s[action]; var = self._v[action].variance
-        
+
         return var + math.sqrt(2*ln(t)/s)
