@@ -174,7 +174,7 @@ class coba_config:
 
     @classmethod
     def _get(cls, key:str) -> Any:
-        
+
         if cls._config is not None:
             return cls._config[key]
 
@@ -188,14 +188,3 @@ class coba_config:
             return cls._config[key]
 
         raise Exception("We were unable to find a coba config file")
-
-
-        
-        
-
-
-
-        
-        
-
-    
