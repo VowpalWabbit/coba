@@ -121,13 +121,10 @@ class StringEncoder(Encoder[str]):
         return StringEncoder(is_fit=True)
 
     def encode(self, values: Sequence[Any]) -> Sequence[str]:
-        """Encode the given value as a sequence of strings.
+        """Encode the given values as a sequence of strings.
 
         Args:
-            value: The value that needs to be encoded as a sequence of strings.
-
-        Returns:
-            The encoded value as a sequence of strings.
+            values: The values that needs to be encoded as a sequence of strings.
 
         Remarks:
             See the base class for more information.
@@ -179,13 +176,10 @@ class NumericEncoder(Encoder[float]):
         return NumericEncoder(is_fit=True)
 
     def encode(self, values: Sequence[Any]) -> Sequence[float]:
-        """Encode the given value as a sequence of floats.
+        """Encode the given values as a sequence of floats.
 
         Args:
             value: The value that needs to be encoded as a sequence of floats.
-
-        Returns:
-            The encoded value as a sequence of floats.
 
         Remarks:
             See the base class for more information.
@@ -298,6 +292,82 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             raise Exception("This encoder must be fit before it can be used.")
 
         return [ self._onehots[value] for value in values ]
+
+class FactorEncoder(Encoder[int]):
+    """An Encoder implementation that turns incoming values into factor representation."""
+
+    def __init__(self, fit_values: Sequence[Any] = [], error_if_unknown = False) -> None:
+        """Instantiate a OneHotEncoder.
+
+        Args:
+            fit_values: Provide the universe of values for encoding and set `is_fit==True`.
+            error_if_unknown: Indicates if an error is thrown when an unknown value is passed to `encode`
+                or if a sequence of all 0's with a length of the universe is returned.
+        """
+        self._fit_values       = fit_values
+        self._error_if_unknown = error_if_unknown
+        self._is_fit           = len(fit_values) > 0
+
+        if fit_values:
+            unknown_level = 0
+            known_levels  = [ i + 1 for i in range(len(fit_values)) ]                
+
+            keys_and_values = zip(fit_values, known_levels)
+            default_factory = lambda: unknown_level
+
+            self._levels: Dict[Any,int]
+
+            if self._error_if_unknown:
+                self._levels = dict(keys_and_values)
+            else:
+                self._levels = defaultdict(default_factory, keys_and_values)
+
+    @property
+    def is_fit(self) -> bool:
+        """Indicates if the encoder has been fit.
+
+        Remarks:
+            See the base class for more information.
+        """
+
+        return self._is_fit
+
+    def fit(self, values: Sequence[Any]) -> 'FactorEncoder':
+        """Determine how to encode from given training data.
+
+        Args:
+            values: A collection of values to use for determining the encoding.
+
+        Returns:
+            An Encoder that has been fit.
+
+        Remarks:
+            See the base class for more information.
+        """
+
+        if self.is_fit:
+            raise Exception("This encoder has already been fit.")
+
+        fit_values = sorted(set(values))
+
+        return FactorEncoder(
+            fit_values         = fit_values, 
+            error_if_unknown   = self._error_if_unknown)
+
+    def encode(self, values: Sequence[Any]) -> Sequence[int]:
+        """Encode the given values as a sequence factor levels.
+
+        Args:
+            values: The values that needs to be encoded as factor levels.
+
+        Remarks:
+            See the base class for more information.
+        """
+
+        if not self.is_fit:
+            raise Exception("This encoder must be fit before it can be used.")
+
+        return [ self._levels[value] for value in values ]
 
 class InferredEncoder(Encoder[Hashable]):
     """An Encoder implementation that looks at its given `fit` values and infers the best Encoder."""

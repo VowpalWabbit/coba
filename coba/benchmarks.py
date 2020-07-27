@@ -7,7 +7,6 @@ Todo:
     * Incorporate out of the box plots
 """
 
-
 import json
 import collections
 import math

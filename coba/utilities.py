@@ -79,6 +79,10 @@ class JsonTemplating():
                 scope = scopes.pop().copy()  #this could absolutely be made more memory-efficient if needed
 
                 if isinstance(node, collections.MutableMapping):
+
+                    if "template" in node and node["template"] not in templates:
+                        raise Exception(f"We were unable to find template '{node['template']}'.")
+
                     keys      = list(node.keys())
                     template  = templates[node.pop("template")] if "template" in node else cast(Dict[str,Any], {})
                     variables = { key:node.pop(key) for key in keys if key.startswith("$") }

@@ -11,7 +11,7 @@ from coba.simulations import (
     LambdaSimulation, ShuffleSimulation, LazySimulation
 )
 
-from coba.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata
+from coba.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata, FactorEncoder
 
 class Interaction_Tests(unittest.TestCase):
 
@@ -206,9 +206,9 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             hash(rnd.actions[0]) #make sure these are hashable
             hash(rnd.actions[1]) #make sure these are hashable
 
-            self.assertEqual(len(cast(Tuple,rnd.state)), 268)
-            self.assertIn(0, rnd.actions)
+            self.assertEqual(len(cast(Tuple,rnd.state)), 167)
             self.assertIn(1, rnd.actions)
+            self.assertIn(2, rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
             actual_rewards  = [ rwd[2] for rwd in simulation.rewards(rnd.choices) ]
@@ -222,21 +222,25 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         time = min(timeit.repeat(lambda:ClassificationSimulation.from_openml(154), repeat=1, number=1))
 
-        #was approximately 20
+        #print(time)
+
+        #was approximately 20 at best performance
         self.assertLess(time, 30)
-    
+
     def test_large_from_table(self) -> None:
 
         table        = [["1","0"]*15]*100000
         label_col    = 0
-        default_meta = Metadata(False,False, OneHotEncoder())
+        default_meta = Metadata(False,False, FactorEncoder(['1','0']))
+        defined_meta = { 2:Metadata(None,None,NumericEncoder()), 5:Metadata(None,None,NumericEncoder()) }
 
-        from_table = lambda:ClassificationSimulation.from_table(table, label_col, False, default_meta)
+        from_table = lambda:ClassificationSimulation.from_table(table, label_col, False, default_meta, defined_meta)
 
         time = min(timeit.repeat(from_table, repeat=2, number=1))
 
         print(time)
-        #was approximately 1.00
+
+        #was approximately 1.10 at best performance
         self.assertLess(time, 3)
 
     def test_simple_from_csv(self) -> None:

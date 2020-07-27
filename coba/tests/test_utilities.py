@@ -190,6 +190,5 @@ class OnlineMean_Tests(unittest.TestCase):
 
         self.assertAlmostEqual(online.mean, statistics.mean(batch))
 
-
 if __name__ == '__main__':
     unittest.main()

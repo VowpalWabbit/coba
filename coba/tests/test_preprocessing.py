@@ -5,7 +5,9 @@ import math
 from abc import ABC, abstractmethod
 from typing import Sequence, Tuple, cast, Any
 
-from coba.preprocessing import Metadata, Encoder, StringEncoder, NumericEncoder, OneHotEncoder, InferredEncoder
+from coba.preprocessing import (
+    Metadata, Encoder, StringEncoder, NumericEncoder, OneHotEncoder, InferredEncoder, FactorEncoder
+)
 
 class Encoder_Interface_Tests(ABC):
 
@@ -174,6 +176,9 @@ class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
         #was approximately 0.040
         self.assertLess(time, 1)
 
+class FactorEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
+    def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:
+        return FactorEncoder(), ["a","z","a","z","1"], ["1","a","z"], [1,2,3]
 
 class InferredNumeric_Tests(Encoder_Interface_Tests, unittest.TestCase):
 

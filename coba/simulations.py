@@ -11,10 +11,12 @@ Todo:
 """
 
 import gc
+import itertools
 import time
 import csv
 import json
 import urllib.request
+import sys
 
 from itertools import compress, repeat, count, chain
 from http.client import HTTPResponse
@@ -29,7 +31,7 @@ from typing import (
 )
 
 from coba import random as cb_random
-from coba.preprocessing import Metadata, OneHotEncoder, NumericEncoder, Encoder
+from coba.preprocessing import FactorEncoder, Metadata, OneHotEncoder, NumericEncoder, Encoder
 from coba.utilities import coba_config
 
 State  = Optional[Hashable]
@@ -462,7 +464,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             if m['data_type'] == 'numeric':
                 encoder = NumericEncoder()
             else:
-                encoder = OneHotEncoder(m['nominal_value'])
+                encoder = FactorEncoder(m['nominal_value'])
 
             defined_meta[m["name"]] = Metadata(
                 ignore  = m["is_ignore"] == "true" or m["is_row_identifier"] == "true",
@@ -521,10 +523,11 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
                 "errors or the file becoming corrupted. Please consider downloading the file again and if "
                 "the error persists you may want to manually download and reference the file."
             )
+
+        csv_rows = csv_reader(all_bytes.decode('utf-8').split("\n"))
         
-        all_text  = all_bytes.decode('utf-8')
-        all_lines = all_text.split("\n")
-        csv_rows  = csv_reader(all_lines)
+        del all_bytes
+        gc.collect()
 
         start = time.time()
         simulation = ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
@@ -558,7 +561,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         # For more info see https://www.python.org/dev/peps/pep-0533/
 
         DEFINITE_META  = Metadata[bool,bool,Encoder[Hashable]]
-        COLUMN_ENTRIES = List[Union[str,Sequence[Hashable]]]
+        COLUMN_ENTRIES = List[str]
         ENCODE_ENTRIES = List[Sequence[Hashable]]
 
         itable = filter(None, iter(table)) #filter out empty rows
@@ -599,25 +602,27 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         #after extensive testing I found that performing many loops with simple logic
         #was about 3 times faster than performing one or two loops with complex logic
 
+        is_not_ignores = [ not m.ignore                         for m in metas ]
+
+        #only keep not-ignored columns
+        itable    = map(lambda r: list(itertools.compress(r, is_not_ignores)), itable)
+        metas     = list(compress(metas, is_not_ignores))
+        columns   = list(compress(columns, is_not_ignores))
+        encodings = list(compress(encodings, is_not_ignores))
+
         #transform rows into columns
         for row in itable:
             for r,col in zip(row, columns):
                 col.append(r)
 
-        #only keep not-ignored columns
-        is_not_ignores = [not m.ignore for m in metas]
-        metas     = list(compress(metas, is_not_ignores))
-        columns   = list(compress(columns, is_not_ignores))
-        encodings = list(compress(encodings, is_not_ignores))
-
         #encode all columns
         for col, enc, m in zip(columns, encodings, metas):
             encoder = m.encoder if m.encoder.is_fit else m.encoder.fit(col)
 
-            if not isinstance(encoder, OneHotEncoder):
-                enc.extend([ (v,) for v in encoder.encode(col) ])
-            else:
+            if isinstance(encoder, OneHotEncoder):
                 enc.extend(encoder.encode(col))
+            else:
+                enc.extend([ (v,) for v in encoder.encode(col) ])
 
         #separate features and labels
         feature_encodings = compress(encodings, [not m.label for m in metas])
