@@ -178,7 +178,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         simulation = ClassificationSimulation.from_table(table, label_column)
 
-        self.assert_simulation_for_data(simulation, [(1,3),(0,6)], [2,5])
+        self.assert_simulation_for_data(simulation, [((1,),3),((0,),6)], [2,5])
 
     def test_from_table_explicit_onehot(self) -> None:
 
@@ -224,7 +224,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         #print(time)
 
-        #was approximately 20 at best performance
+        #was approximately 18 at best performance
         self.assertLess(time, 30)
 
     def test_large_from_table(self) -> None:
@@ -240,7 +240,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         print(time)
 
-        #was approximately 1.10 at best performance
+        #was approximately 0.6 at best performance
         self.assertLess(time, 3)
 
     def test_simple_from_csv(self) -> None:
@@ -249,7 +249,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         location     = "http://www.openml.org/data/v1/get_csv/53999"
         default_meta = Metadata(False, False, NumericEncoder())
         defined_meta: Dict[str,Metadata] = {
-            "class"            : Metadata(None, True, OneHotEncoder()), 
+            "class"            : Metadata(None, True, FactorEncoder()), 
             "molecule_name"    : Metadata(None, None, OneHotEncoder()),
             "ID"               : Metadata(True, None, None),
             "conformation_name": Metadata(True, None, None)
@@ -266,8 +266,8 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             hash(rnd.actions[1]) #make sure these are hashable
 
             self.assertEqual(len(cast(Tuple,rnd.state)), 268)
-            self.assertIn(0, rnd.actions)
             self.assertIn(1, rnd.actions)
+            self.assertIn(2, rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
             actual_rewards = [ rwd[2] for rwd in simulation.rewards(rnd.choices) ]
@@ -287,7 +287,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         simulation = ClassificationSimulation.from_json(json_val)
 
-        self.assert_simulation_for_data(simulation, [(1,1),(0,0)], ['2','5'])
+        self.assert_simulation_for_data(simulation, [(1,1),((0,0))], ['2','5'])
 
 class MemorySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 

@@ -81,6 +81,12 @@ class Encoder(ABC, Generic[T_out]):
         """
         ...
 
+    def fit_encode(self, values: Sequence[Any]) -> Sequence[T_out]:
+        if self.is_fit:
+            return self.encode(values)
+        else: 
+            return self.fit(values).encode(values)
+
 class StringEncoder(Encoder[str]):
     """An Encoder implementation that turns incoming values into string values."""
 
@@ -450,7 +456,6 @@ class Metadata(Generic[T_ignore, T_label, T_encoder]):
     def encoder(self) -> T_encoder:
         return self._encoder
 
-    
     def __init__(self, ignore: T_ignore, label: T_label, encoder: T_encoder) -> None:
         ...
         """Instantiate PartialMeta.

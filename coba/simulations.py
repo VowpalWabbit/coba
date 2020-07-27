@@ -11,13 +11,12 @@ Todo:
 """
 
 import gc
-import itertools
 import time
 import csv
 import json
 import urllib.request
-import sys
 
+from collections import defaultdict
 from itertools import compress, repeat, count, chain
 from http.client import HTTPResponse
 from warnings import warn
@@ -560,10 +559,6 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         # For more info see https://stackoverflow.com/q/29040534/1066291
         # For more info see https://www.python.org/dev/peps/pep-0533/
 
-        DEFINITE_META  = Metadata[bool,bool,Encoder[Hashable]]
-        COLUMN_ENTRIES = List[str]
-        ENCODE_ENTRIES = List[Sequence[Hashable]]
-
         itable = filter(None, iter(table)) #filter out empty rows
 
         #get first row to determine number of columns and
@@ -571,10 +566,6 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         first  = next(itable)
         n_col  = len(first)
         itable = chain([first], itable)
-
-        columns  : List[COLUMN_ENTRIES] = [ []           for _ in range(n_col) ]
-        metas    : List[DEFINITE_META ] = [ default_meta for _ in range(n_col) ]
-        encodings: List[ENCODE_ENTRIES] = [ []           for _ in range(n_col) ]
  
         header: Sequence[str] = next(itable) if has_header else []
 
@@ -587,52 +578,48 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         if any(map(lambda key: isinstance(key,str) and key not in header, defined_meta)):
             raise Exception("We were unable to find a meta column in the header row (or there was no header row).")
 
-        if label_meta is not None and label_meta.label == False:
-            raise Exception("A meta entry was provided for the label column that was explicitly marked as non-label.")
-
-        def to_column_index(key: Union[int,str]):
+        def index(key: Union[int,str]):
             return header.index(key) if isinstance(key,str) else key
 
-        defined_meta = { to_column_index(key):defined_meta[key] for key in defined_meta }
-        for key,meta in defined_meta.items(): metas[key] = metas[key].override(meta)
+        empty_meta = Metadata(None,None,None)
+        over_metas = defaultdict(lambda:empty_meta, { index(key):val for key,val in defined_meta.items() } )
+        metas      = [ default_meta.override(over_metas[i]) for i in range(n_col) ]
 
         if label_index is not None:
             metas[label_index] = metas[label_index].override(Metadata(None,True,None))
 
         #after extensive testing I found that performing many loops with simple logic
         #was about 3 times faster than performing one or two loops with complex logic
-
-        is_not_ignores = [ not m.ignore                         for m in metas ]
-
-        #only keep not-ignored columns
-        itable    = map(lambda r: list(itertools.compress(r, is_not_ignores)), itable)
-        metas     = list(compress(metas, is_not_ignores))
-        columns   = list(compress(columns, is_not_ignores))
-        encodings = list(compress(encodings, is_not_ignores))
+        
+        #extract necessary meta data one time
+        is_not_ignores = [ not m.ignore for m in metas ]
 
         #transform rows into columns
-        for row in itable:
-            for r,col in zip(row, columns):
-                col.append(r)
+        columns = list(zip(*itable))
+        
+        #remove ignored columns
+        metas   = list(compress(metas, is_not_ignores))
+        columns = list(compress(columns, is_not_ignores))
 
-        #encode all columns
-        for col, enc, m in zip(columns, encodings, metas):
-            encoder = m.encoder if m.encoder.is_fit else m.encoder.fit(col)
+        #create encoding groups according to column type
+        label_encodings  : List[Sequence[Hashable]] = []
+        feature_encodings: List[Sequence[Hashable]] = []
 
-            if isinstance(encoder, OneHotEncoder):
-                enc.extend(encoder.encode(col))
+        #encode columns and place in appropriate group
+        for col, m in zip(columns, metas):
+
+            encoding = label_encodings if m.label else feature_encodings
+
+            if isinstance(m.encoder, OneHotEncoder):
+                encoding.extend(list(zip(*m.encoder.fit_encode(col))))
             else:
-                enc.extend([ (v,) for v in encoder.encode(col) ])
-
-        #separate features and labels
-        feature_encodings = compress(encodings, [not m.label for m in metas])
-        label_encodings   = compress(encodings, [    m.label for m in metas])
+                encoding.append(m.encoder.fit_encode(col))
 
         #transform columns back into rows
-        features = list(map(tuple,map(chain.from_iterable, zip(*feature_encodings)))) #type: ignore
-        labels   = list(map(tuple,map(chain.from_iterable, zip(*label_encodings))))   #type: ignore
+        features = list(zip(*feature_encodings)) #type: ignore
+        labels   = list(zip(*label_encodings))   #type: ignore
 
-        #turn singular tuples into values
+        #turn singular tuples into their values
         states  = [ f if len(f) > 1 else f[0] for f in features ]
         actions = [ l if len(l) > 1 else l[0] for l in labels   ]
 
