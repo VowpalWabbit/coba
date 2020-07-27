@@ -1,6 +1,6 @@
-import time
 import math
 import random
+import timeit
 
 from itertools import count
 from typing import Iterator, Sequence
@@ -63,13 +63,11 @@ class Random_Tests(unittest.TestCase):
         return p
 
     def test_speed_of_randoms(self):
-        start = time.time()
-        numbers = coba.random.randoms(500000)
-        secs = time.time() - start
+        
+        time = min(timeit.repeat(lambda:coba.random.randoms(5000), repeat=200, number=1))
 
-        self.assertEqual(len(numbers), 500000)
-
-        self.assertLess(secs,1)
+        #was approximately 0.0025
+        self.assertLess(time,.005)
 
     def test_value_of_randoms(self):
 
@@ -83,13 +81,12 @@ class Random_Tests(unittest.TestCase):
 
     def test_speed_of_shuffle(self):
 
-        start = time.time()
-        coba.random.shuffle(list(range(500000)))
-        secs = time.time() - start
+        to_shuffle = list(range(50000))
 
-        print(secs)
-
-        self.assertLess(secs,2)
+        time = min(timeit.repeat(lambda:coba.random.shuffle(to_shuffle), repeat=20, number=1))
+        
+        #was approximately 0.057
+        self.assertLess(time,1)
 
     def test_value_of_shuffle(self):
 

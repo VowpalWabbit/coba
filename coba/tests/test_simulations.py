@@ -1,6 +1,6 @@
 import unittest
 
-import time
+import timeit
 
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple, cast, Dict
@@ -149,7 +149,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         simulation = ClassificationSimulation(features, labels)
 
         self.assert_simulation_for_data(simulation, features, labels)
-    
+
     def test_constructor_with_too_few_features(self) -> None:
         with self.assertRaises(AssertionError): 
             ClassificationSimulation([1], [1,1])
@@ -187,7 +187,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         table        = [['a' ,'b','c'],
                         ['s1','2','3'],
                         ['s2','5','6']]
-        
+
         simulation = ClassificationSimulation.from_table(table, default_meta=default_meta, defined_meta=defined_meta)
 
         self.assert_simulation_for_data(simulation, [(1,1),(0,0)], ['2','5'])
@@ -196,15 +196,16 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         #this test requires interet acess to download the data
 
         simulation = ClassificationSimulation.from_openml(1116)
-
+        #simulation = ClassificationSimulation.from_openml(273)
+        
         self.assertEqual(len(simulation.interactions), 6598)
 
         for rnd in simulation.interactions:
-            
+
             hash(rnd.state)      #make sure these are hashable
             hash(rnd.actions[0]) #make sure these are hashable
             hash(rnd.actions[1]) #make sure these are hashable
-            
+
             self.assertEqual(len(cast(Tuple,rnd.state)), 268)
             self.assertIn(0, rnd.actions)
             self.assertIn(1, rnd.actions)
@@ -215,14 +216,28 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             self.assertIn(1, actual_rewards)
             self.assertIn(0, actual_rewards)
 
+    @unittest.skip("much of what makes this openml set slow is now tested locally in `test_large_from_table`")
     def test_large_from_openml(self) -> None:
         #this test requires interet acess to download the data
 
-        start = time.time()
-        simulation = ClassificationSimulation.from_openml(154)
-        finish = time.time()
+        time = min(timeit.repeat(lambda:ClassificationSimulation.from_openml(154), repeat=1, number=1))
 
-        self.assertLess(finish-start, 40)
+        #was approximately 20
+        self.assertLess(time, 30)
+    
+    def test_large_from_table(self) -> None:
+
+        table        = [["1","0"]*15]*100000
+        label_col    = 0
+        default_meta = Metadata(False,False, OneHotEncoder())
+
+        from_table = lambda:ClassificationSimulation.from_table(table, label_col, False, default_meta)
+
+        time = min(timeit.repeat(from_table, repeat=2, number=1))
+
+        print(time)
+        #was approximately 1.00
+        self.assertLess(time, 3)
 
     def test_simple_from_csv(self) -> None:
         #this test requires interet acess to download the data

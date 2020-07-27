@@ -155,6 +155,26 @@ class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
         self.assertEqual(actual, expected)
 
+    def test_performance_fit_values(self):
+
+        fit_values = list(range(1000))
+
+        time = min(timeit.repeat(lambda:OneHotEncoder(fit_values), repeat=100, number = 1))
+
+        #was approximately 0.017
+        self.assertLess(time, .03)
+
+    def test_performance_encode(self):
+
+        encoder = OneHotEncoder(list(range(1000)))
+        to_encode = [100,200,300,400,-1]*100000
+
+        time = min(timeit.repeat(lambda:encoder.encode(to_encode), repeat=50, number = 1))
+
+        #was approximately 0.040
+        self.assertLess(time, 1)
+
+
 class InferredNumeric_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
     def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:

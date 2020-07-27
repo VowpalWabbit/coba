@@ -5,8 +5,8 @@ import json
 import collections
 
 from itertools import repeat
-from typing import Union, Dict, Any, cast, List, Mapping, MutableMapping
-
+from typing import Union, Dict, Any, cast, List, Mapping, MutableMapping, Optional
+from pathlib import Path
 
 def check_matplotlib_support(caller_name: str) -> None:
     """Raise ImportError with detailed error message if matplotlib is not installed.
@@ -162,3 +162,40 @@ class OnlineMean():
         alpha = 1/self._n
 
         self._mean = value if alpha == 1 else (1 - alpha) * self._mean + alpha * value
+
+class coba_config:
+
+    _config: Optional[Dict[str,Any]] = None
+    _search_paths = [Path("./.coba"), Path.home() / ".coba"]
+
+    @classmethod
+    def openml_api_key(cls) -> str:
+        return cls._get("openml_api_key")
+
+    @classmethod
+    def _get(cls, key:str) -> Any:
+        
+        if cls._config is not None:
+            return cls._config[key]
+
+        for potential_path in cls._search_paths:
+            if potential_path.exists():
+                with open(potential_path) as fs:
+                    cls._config = json.load(fs)
+                break
+
+        if cls._config is not None:
+            return cls._config[key]
+
+        raise Exception("We were unable to find a coba config file")
+
+
+        
+        
+
+
+
+        
+        
+
+    

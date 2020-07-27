@@ -8,7 +8,7 @@ import json
 
 from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Iterator, Sequence, Generic, TypeVar, Any, Optional, Hashable, Union, Dict, Tuple, cast
+from typing import Iterator, Sequence, Generic, TypeVar, Any, Optional, Hashable, Union, Dict, Tuple
 
 T_out = TypeVar('T_out', bound=Hashable, covariant=True) 
 
