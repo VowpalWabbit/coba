@@ -12,6 +12,7 @@ from coba.simulations import (
 )
 
 from coba.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata, FactorEncoder
+from coba.utilities import coba_config
 
 class Interaction_Tests(unittest.TestCase):
 
@@ -159,7 +160,6 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             ClassificationSimulation([1,1], [1])
 
     def test_from_table_inferred_numeric(self) -> None:
-
         label_column = 'b'
         table        = [['a','b','c'],
                         ['1','2','3'],
@@ -170,7 +170,6 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         self.assert_simulation_for_data(simulation, [(1,3),(4,6)],[2,5])
 
     def test_from_table_inferred_onehot(self) -> None:
-
         label_column = 'b'
         table        = [['a' ,'b','c'],
                         ['s1','2','3'],
@@ -181,7 +180,6 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         self.assert_simulation_for_data(simulation, [((1,),3),((0,),6)], [2,5])
 
     def test_from_table_explicit_onehot(self) -> None:
-
         default_meta = Metadata(False, False, OneHotEncoder())
         defined_meta = {'b': Metadata(None, True, StringEncoder()) }
         table        = [['a' ,'b','c'],
@@ -194,10 +192,11 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
     def test_simple_from_openml(self) -> None:
         #this test requires interet acess to download the data
+        coba_config.cache_directory = None
 
         simulation = ClassificationSimulation.from_openml(1116)
         #simulation = ClassificationSimulation.from_openml(273)
-        
+
         self.assertEqual(len(simulation.interactions), 6598)
 
         for rnd in simulation.interactions:

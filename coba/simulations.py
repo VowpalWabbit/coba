@@ -521,8 +521,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             if gzip_file_path.exists() or norm_file_path.exists():
                 is_disk = True
                 is_http = False
-
-            location = str(gzip_file_path) if gzip_file_path.exists() else str(norm_file_path)
+                location = str(gzip_file_path) if gzip_file_path.exists() else str(norm_file_path)
 
         stream_manager: ContextManager[IO[bytes]]
 
