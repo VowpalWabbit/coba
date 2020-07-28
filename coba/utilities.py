@@ -184,8 +184,8 @@ class coba_config:
                     config = json.load(fs)
                 break
 
-        openml_api_key: Optional[str]  = config.get("openml_api_key", None)
-        cache_directory: Optional[str] = config.get("cache_directory", None)
+        openml_api_key  = config.get("openml_api_key", None)
+        cache_directory = config.get("cache_directory", None)
 
     except:
         openml_api_key = None
