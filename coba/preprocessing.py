@@ -12,7 +12,7 @@ from typing import Iterator, Sequence, Generic, TypeVar, Any, Optional, Hashable
 
 T_out = TypeVar('T_out', bound=Hashable, covariant=True) 
 
-class Encoder(ABC, Generic[T_out]):
+class Encoder(ABC, Generic[T_out], ABC):
     """The interface for encoder implementations.
 
     Remarks:

@@ -13,28 +13,6 @@ from coba.simulations import (
     LambdaSimulation, ShuffleSimulation, LazySimulation
 )
 
-
-class Interaction_Tests(unittest.TestCase):
-
-    def test_constructor_no_state(self) -> None:
-        Interaction(None, [1, 2])
-
-    def test_constructor_state(self) -> None:
-        Interaction((1,2,3,4), [1, 2])
-
-    def test_state_correct_1(self) -> None:
-        self.assertEqual(None, Interaction(None, [1, 2]).state)
-
-    def test_actions_correct_1(self) -> None:
-        self.assertSequenceEqual([1, 2], Interaction(None, [1, 2]).actions)
-
-    def test_actions_correct_2(self) -> None:
-        self.assertSequenceEqual(["A", "B"], Interaction(None, ["A", "B"]).actions)
-
-    def test_actions_correct_3(self) -> None:
-        self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)]).actions)
-
-
 class Simulation_Interface_Tests(ABC):
 
     @abstractmethod
@@ -409,6 +387,27 @@ class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         self.assertIsNotNone(simulation._simulation)
         simulation.unload()
         self.assertIsNone(simulation._simulation)
+
+class Interaction_Tests(unittest.TestCase):
+
+    def test_constructor_no_state(self) -> None:
+        Interaction(None, [1, 2])
+
+    def test_constructor_state(self) -> None:
+        Interaction((1,2,3,4), [1, 2])
+
+    def test_state_correct_1(self) -> None:
+        self.assertEqual(None, Interaction(None, [1, 2]).state)
+
+    def test_actions_correct_1(self) -> None:
+        self.assertSequenceEqual([1, 2], Interaction(None, [1, 2]).actions)
+
+    def test_actions_correct_2(self) -> None:
+        self.assertSequenceEqual(["A", "B"], Interaction(None, ["A", "B"]).actions)
+
+    def test_actions_correct_3(self) -> None:
+        self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)]).actions)
+
 
 if __name__ == '__main__':
     unittest.main()
