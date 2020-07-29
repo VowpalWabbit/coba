@@ -103,27 +103,3 @@ class JsonTemplating():
                         scopes.append(child_scope)
         
         return root
-
-class coba_config:
-
-    _search_paths = [Path("./.coba"), Path.home() / ".coba"]
-
-    openml_api_key : Optional[str]
-    cache_directory: Optional[str]
-
-    try:
-
-        config = {}
-
-        for potential_path in _search_paths:
-            if potential_path.exists():
-                with open(potential_path) as fs:
-                    config = json.load(fs)
-                break
-
-        openml_api_key  = config.get("openml_api_key", None)
-        cache_directory = config.get("cache_directory", None)
-
-    except:
-        openml_api_key = None
-        cache_directory = None

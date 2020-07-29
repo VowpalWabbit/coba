@@ -15,24 +15,24 @@ import time
 import csv
 import json
 import urllib.request
+import gzip
 
 from pathlib import Path
 from collections import defaultdict
 from itertools import compress, repeat, count, chain
 from http.client import HTTPResponse
 from warnings import warn
-from gzip import  decompress
 from contextlib import closing
 from abc import ABC, abstractmethod
 from hashlib import md5
 from typing import (
     Optional, Iterable, Sequence, List, Union, Callable, TypeVar, 
-    Generic, Hashable, Dict, cast, Any, ContextManager, IO, Tuple
+    Generic, Hashable, Dict, cast, Any, Tuple
 )
 
 from coba import random as cb_random
 from coba.preprocessing import FactorEncoder, Metadata, OneHotEncoder, NumericEncoder, Encoder
-from coba.utilities import coba_config
+from coba.contexts import ExecutionContext
 
 State  = Optional[Hashable]
 Action = Hashable
@@ -446,7 +446,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
         print(f"   > loading openml {data_id}... ")
 
-        openml_api_key = coba_config.openml_api_key
+        openml_api_key = ExecutionContext.CobaConfig.openml_api_key
 
         with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}?api_key={openml_api_key}')) as resp:
             description = json.loads(resp.read())["data_set_description"]
@@ -506,58 +506,39 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             column_metas: Keys are column name or index, values are meta objects that override the default values.
         """
 
-        is_disk =  not location.lower().startswith('http')
-        is_http =      location.lower().startswith('http')
+        cachename = f"{md5(location.encode('utf-8')).hexdigest()}.csv"
 
-        #try to load the given location from cache
-        if is_http and coba_config.cache_directory is not None:    
-            dir_path = Path(coba_config.cache_directory).expanduser()
-            loc_md5  = md5(location.encode('utf-8')).hexdigest()
-            filename = f"{loc_md5}.csv"
+        is_cache =      cachename in ExecutionContext.FileCache 
+        is_disk  =  not location.lower().startswith('http') and not is_cache
+        is_http  =      location.lower().startswith('http') and not is_cache
 
-            gzip_file_path = dir_path / (filename + ".gz")
-            norm_file_path = dir_path / (filename        )
-
-            if gzip_file_path.exists() or norm_file_path.exists():
-                is_disk = True
-                is_http = False
-                location = str(gzip_file_path) if gzip_file_path.exists() else str(norm_file_path)
-
-        stream_manager: ContextManager[IO[bytes]]
-
-        if is_disk:
+        if is_cache:
+            print('     * loaded from cache...')
+            stream_manager = ExecutionContext.FileCache.get(cachename)
+        elif is_disk:
             print('     * loaded from disk...')
-            stream_manager = cast(IO[bytes],open(location, 'rb'))
+            stream_manager = open(location, 'rb')
         else:
             print('     * loaded from http...')
             http_request   = urllib.request.Request(location, headers={'Accept-encoding':'gzip'})
-            stream_manager = closing(urllib.request.urlopen(http_request))
+            stream_manager = urllib.request.urlopen(http_request)
 
         with stream_manager as raw_stream:
 
-            is_disk_gzip = is_disk and location.lower().endswith(".gz")
-            is_http_gzip = is_http and cast(HTTPResponse, raw_stream).info().get('Content-Encoding') == "gzip"
-            is_gzip      = is_disk_gzip or is_http_gzip
+            is_cache_gzip = False
+            is_disk_gzip  = is_disk and location.lower().endswith(".gz")
+            is_http_gzip  = is_http and cast(HTTPResponse, raw_stream).info().get('Content-Encoding') == "gzip"
+            is_gzip       = is_disk_gzip or is_http_gzip or is_cache_gzip
 
-            raw_bytes = raw_stream.read()
+            if is_http and is_gzip:
+                raw_stream = ExecutionContext.FileCache.put(cachename+".gz", raw_stream)
 
-            #cache the file if we're loading an http file
-            if is_http and coba_config.cache_directory is not None:
-
-                dir_path = Path(coba_config.cache_directory).expanduser()
-                loc_md5  = md5(location.encode('utf-8')).hexdigest()
-                filename = f"{loc_md5}.csv{'.gz' if is_gzip else ''}"
-
-                file_path = dir_path / filename
-                
-                file_path.parent.mkdir(parents=True, exist_ok=True)
-
-                with open(file_path, 'wb') as fs:
-                    fs.write(raw_bytes)
+            if is_http and not is_gzip:
+                raw_stream = ExecutionContext.FileCache.put(cachename, raw_stream)
 
             #When testing loading all bytes into memory at once was moderately faster on average.
             #This does run the risk of causing problems though if the file is extremely large.
-            raw_bytes = decompress(raw_bytes) if is_gzip else raw_bytes
+            raw_bytes = gzip.decompress(raw_stream.read()) if is_gzip else raw_stream.read()
 
         if md5_checksum is not None and md5_checksum != md5(raw_bytes).hexdigest():
             warn(

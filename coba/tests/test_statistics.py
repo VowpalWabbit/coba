@@ -3,23 +3,23 @@ import unittest
 from statistics import mean, variance
 from math import isnan
 
-from coba.statistics import Stats, OnlineVariance, OnlineMean
+from coba.statistics import SummaryStats, OnlineVariance, OnlineMean
 
 class Stats_Tests(unittest.TestCase):
     def test_from_values_multi_mean_is_correct_1(self):
-        stats = Stats.from_observations([1,1,3,3])
+        stats = SummaryStats.from_observations([1,1,3,3])
         self.assertEqual(2,stats.mean)
 
     def test_from_values_multi_mean_is_correct_2(self):
-        stats = Stats.from_observations([1,1,1,1])
+        stats = SummaryStats.from_observations([1,1,1,1])
         self.assertEqual(1,stats.mean)
 
     def test_from_values_single_mean_is_correct(self):
-        stats = Stats.from_observations([3])
+        stats = SummaryStats.from_observations([3])
         self.assertEqual(3,stats.mean)
 
     def test_from_values_empty_mean_is_correct(self):
-        stats = Stats.from_observations([])
+        stats = SummaryStats.from_observations([])
         self.assertTrue(isnan(stats.mean))
 
 class OnlineVariance_Tests(unittest.TestCase):

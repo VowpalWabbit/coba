@@ -5,8 +5,8 @@ import timeit
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple, cast, Dict
 
+from coba.contexts import ExecutionContext, NoneCache
 from coba.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata, FactorEncoder
-from coba.utilities import coba_config
 from coba.simulations import (
     State, Action, Reward, Interaction, Simulation, 
     ClassificationSimulation, MemorySimulation, 
@@ -90,8 +90,8 @@ class Simulation_Tests(unittest.TestCase):
         self.assertEqual(len(simulation.interactions), 2)
 
 class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
+
     def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Tuple[State,Action,Reward]]]]:
-        
         states      =  [1,2]
         action_sets = [[1,2], [1,2]]
         reward_sets = [[0,1], [1,0]]
@@ -192,7 +192,8 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
     def test_simple_from_openml(self) -> None:
         #this test requires interet acess to download the data
-        coba_config.cache_directory = None
+
+        ExecutionContext.FileCache = NoneCache()
 
         simulation = ClassificationSimulation.from_openml(1116)
         #simulation = ClassificationSimulation.from_openml(273)
@@ -219,6 +220,8 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
     def test_large_from_openml(self) -> None:
         #this test requires interet acess to download the data
 
+        ExecutionContext.FileCache = NoneCache()
+
         time = min(timeit.repeat(lambda:ClassificationSimulation.from_openml(154), repeat=1, number=1))
 
         #print(time)
@@ -244,6 +247,8 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
     def test_simple_from_csv(self) -> None:
         #this test requires interet acess to download the data
+
+        ExecutionContext.FileCache = NoneCache()
 
         location     = "http://www.openml.org/data/v1/get_csv/53999"
         default_meta = Metadata(False, False, NumericEncoder())

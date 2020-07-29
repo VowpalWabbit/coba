@@ -9,7 +9,6 @@ Todo:
 
 import json
 import collections
-import math
 
 from abc import ABC, abstractmethod
 from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, cast, Optional
@@ -19,7 +18,7 @@ from collections import defaultdict
 from coba.simulations import LazySimulation, Simulation, State, Action
 from coba.learners import Learner
 from coba.utilities import JsonTemplating
-from coba.statistics import Stats
+from coba.statistics import SummaryStats
 
 _S = TypeVar('_S', bound=State)
 _A = TypeVar('_A', bound=Action)
@@ -75,10 +74,10 @@ class Result:
 
         self._learner_name = learner_name if learner_name is not None else "Unknown"
 
-        self._sim_batch_stats: Dict[Tuple[int,int], Stats] = defaultdict(Stats)
-        self._batch_stats    : Dict[int           , Stats] = defaultdict(Stats)
-        self._sim_stats      : Dict[int           , Stats] = defaultdict(Stats)
-        self._prog_stats     : Dict[int           , Stats] = defaultdict(Stats)
+        self._sim_batch_stats: Dict[Tuple[int,int], SummaryStats] = defaultdict(SummaryStats)
+        self._batch_stats    : Dict[int           , SummaryStats] = defaultdict(SummaryStats)
+        self._sim_stats      : Dict[int           , SummaryStats] = defaultdict(SummaryStats)
+        self._prog_stats     : Dict[int           , SummaryStats] = defaultdict(SummaryStats)
 
         self._drop_first_batch = drop_first_batch
 
@@ -89,20 +88,20 @@ class Result:
         return self._learner_name
 
     @property
-    def sim_stats(self) -> Sequence[Stats]:
+    def sim_stats(self) -> Sequence[SummaryStats]:
         """Pre-calculated statistics for each simulation."""
         return [ self._sim_stats[key] for key in sorted(self._sim_stats)]
 
     @property
-    def batch_stats(self) -> Sequence[Stats]:
+    def batch_stats(self) -> Sequence[SummaryStats]:
         """Pre-calculated statistics for each batch index."""
         return [ self._batch_stats[key] for key in sorted(self._sim_stats)]
 
     @property
-    def cumulative_batch_stats(self) -> Sequence[Stats]:
+    def cumulative_batch_stats(self) -> Sequence[SummaryStats]:
         """Pre-calculated statistics where batches accumulate all prior batches as you go."""
 
-        cum_stats = Stats()
+        cum_stats = SummaryStats()
         stats     = []
 
         for key in self._batch_stats:
@@ -123,7 +122,7 @@ class Result:
         if (self._drop_first_batch and batch_index == 0) or len(rewards) == 0: 
             return
 
-        stats = Stats.from_observations(rewards)
+        stats = SummaryStats.from_observations(rewards)
 
         self._sim_batch_stats[(simulation_index, batch_index)].blend(stats)
         self._batch_stats[batch_index].blend(stats)
