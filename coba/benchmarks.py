@@ -17,7 +17,7 @@ from collections import defaultdict
 
 from coba.simulations import LazySimulation, Simulation, State, Action
 from coba.learners import Learner
-from coba.utilities import JsonTemplating
+from coba.contexts import ExecutionContext
 from coba.statistics import SummaryStats
 
 _S = TypeVar('_S', bound=State)
@@ -169,7 +169,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         else:
             config = json_val
 
-        config = JsonTemplating.parse(config)
+        config = ExecutionContext.TemplatingEngine.parse(config)
 
         is_singular = isinstance(config["simulations"], dict)
         sim_configs = config["simulations"] if not is_singular else [ config["simulations"] ]

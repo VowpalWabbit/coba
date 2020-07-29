@@ -1,15 +1,75 @@
 """The contexts module contains classes determining the context for shared functionality."""
 
 import json
+import copy
+import collections
 
+from itertools import repeat
 from gzip import compress, decompress
 from abc import ABC, abstractmethod
 from io import BytesIO
-from typing import Union, Generic, TypeVar, Dict, IO, Mapping, Any, Optional
+from typing import Union, Generic, TypeVar, Dict, IO, Mapping, Any, Optional, List, MutableMapping, cast
 from pathlib import Path
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")    
+
+class TemplatingEngine():
+    
+    @staticmethod
+    def parse(json_val:Union[str, Any]):
+        
+        root = json.loads(json_val) if isinstance(json_val, str) else json_val
+
+        if "templates" in root:
+
+            templates: Dict[str,Dict[str,Any]] = root.pop("templates")
+            nodes    : List[Any]               = [root]
+            scopes   : List[Dict[str,Any]]     = [{}]
+
+            def materialize_template(document: MutableMapping[str,Any], template: Mapping[str,Any]):
+
+                for key in template:
+                    if key in document:
+                        if isinstance(template[key], collections.Mapping) and isinstance(template[key], collections.Mapping):
+                            materialize_template(document[key],template[key])
+                    else:
+                        document[key] = template[key]
+            
+            def materialize_variables(document: MutableMapping[str,Any], variables: Mapping[str,Any]):
+                for key in document:
+                    if isinstance(document[key],str) and document[key] in variables:
+                        document[key] = variables[document[key]]
+
+            while len(nodes) > 0:
+                node  = nodes.pop()
+                scope = scopes.pop().copy()  #this could absolutely be made more memory-efficient if needed
+
+                if isinstance(node, collections.MutableMapping):
+
+                    if "template" in node and node["template"] not in templates:
+                        raise Exception(f"We were unable to find template '{node['template']}'.")
+
+                    keys      = list(node.keys())
+                    template  = templates[node.pop("template")] if "template" in node else cast(Dict[str,Any], {})
+                    variables = { key:node.pop(key) for key in keys if key.startswith("$") }
+
+                    template = copy.deepcopy(template)
+                    scope.update(variables)
+
+                    materialize_template(node, template)
+                    materialize_variables(node, scope)
+
+                    for child_node, child_scope in zip(node.values(), repeat(scope)):
+                        nodes.append(child_node)
+                        scopes.append(child_scope)
+                
+                if isinstance(node, collections.Sequence) and not isinstance(node, str):
+                    for child_node, child_scope in zip(node, repeat(scope)):
+                        nodes.append(child_node)
+                        scopes.append(child_scope)
+        
+        return root
 
 class CobaConfig():
     def __init__(self):
@@ -137,8 +197,9 @@ class ExecutionContext:
             [4] https://docs.python.org/3/library/contextvars.html
     """
     
-    CobaConfig: CobaConfig    = CobaConfig()
-    FileCache: CacheInterface = NoneCache()
+    TemplatingEngine: TemplatingEngine = TemplatingEngine()
+    CobaConfig      : CobaConfig     = CobaConfig()
+    FileCache       : CacheInterface = NoneCache()
 
     if CobaConfig.file_cache["type"] == "disk":
         FileCache = DiskCache(CobaConfig.file_cache["directory"])
