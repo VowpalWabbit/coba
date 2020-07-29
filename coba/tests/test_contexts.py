@@ -9,7 +9,7 @@ class TemplatingEngine_Tests(unittest.TestCase):
 
     def test_no_template_string_unchanged_2(self):
         actual = TemplatingEngine.parse('{"a":1}')
-        
+
         self.assertCountEqual(actual.keys(), ["a"])
         self.assertEqual(actual["a"], 1)
 

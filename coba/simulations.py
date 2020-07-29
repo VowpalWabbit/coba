@@ -17,7 +17,6 @@ import json
 import urllib.request
 import gzip
 
-from pathlib import Path
 from collections import defaultdict
 from itertools import compress, repeat, count, chain
 from http.client import HTTPResponse

@@ -15,10 +15,10 @@ _K = TypeVar("_K")
 _V = TypeVar("_V")    
 
 class TemplatingEngine():
-    
+
     @staticmethod
     def parse(json_val:Union[str, Any]):
-        
+
         root = json.loads(json_val) if isinstance(json_val, str) else json_val
 
         if "templates" in root:
@@ -35,7 +35,7 @@ class TemplatingEngine():
                             materialize_template(document[key],template[key])
                     else:
                         document[key] = template[key]
-            
+
             def materialize_variables(document: MutableMapping[str,Any], variables: Mapping[str,Any]):
                 for key in document:
                     if isinstance(document[key],str) and document[key] in variables:
@@ -63,12 +63,12 @@ class TemplatingEngine():
                     for child_node, child_scope in zip(node.values(), repeat(scope)):
                         nodes.append(child_node)
                         scopes.append(child_scope)
-                
+
                 if isinstance(node, collections.Sequence) and not isinstance(node, str):
                     for child_node, child_scope in zip(node, repeat(scope)):
                         nodes.append(child_node)
                         scopes.append(child_scope)
-        
+
         return root
 
 class CobaConfig():
@@ -117,7 +117,7 @@ class NoneCache(CacheInterface[_K, _V]):
 
     def __contains__(self, key: _K) -> bool:
         return False
-    
+
     def get(self, key: _K) -> _V:
         raise Exception("the key didn't exist in the cache")
 
@@ -146,7 +146,7 @@ class MemoryCache(CacheInterface[_K, _V]):
 class DiskCache(CacheInterface[str, IO[bytes]]):
     def __init__(self, path: Union[str, Path]) -> None:
         self._cache_dir = path if isinstance(path, Path) else Path(path).expanduser()
-    
+
     def __contains__(self, filename: str) -> bool:
         is_gzip = filename.endswith(".gz")
 
@@ -156,7 +156,7 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
 
     def get(self, filename: str) -> IO[bytes]:
         is_gzip = filename.endswith(".gz")
-        
+
         gzip_filename = filename + ("" if is_gzip else ".gz")
         gzip_bytes    = (self._cache_dir/gzip_filename).read_bytes()
 
@@ -176,14 +176,14 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
 
     def rmv(self, filename: str) -> None:
         is_gzip = filename.endswith(".gz")
-        
+
         gzip_filename = filename + ("" if is_gzip else ".gz")
 
         (self._cache_dir/gzip_filename).unlink()
 
 class ExecutionContext:
     """Create a global execution context to allow easy mocking and modification.
-    
+
     In short, So long as the same modulename is always used to import and the import
     always occurs on the same thread I'm fairly confident this pattern will always work.
 
@@ -191,18 +191,18 @@ class ExecutionContext:
         > While there seems concensus that multi-import doesn't repeat [1] it may if different modulenames are used [2]
             [1] https://stackoverflow.com/a/19077396/1066291
             [2] https://stackoverflow.com/q/13392038/1066291
-    
+
         > Python 3.7 added in explicit context management in [3,4] but this implementation is thread local only
             [3] https://www.python.org/dev/peps/pep-0567/
             [4] https://docs.python.org/3/library/contextvars.html
     """
-    
+
     TemplatingEngine: TemplatingEngine = TemplatingEngine()
     CobaConfig      : CobaConfig     = CobaConfig()
     FileCache       : CacheInterface = NoneCache()
 
     if CobaConfig.file_cache["type"] == "disk":
         FileCache = DiskCache(CobaConfig.file_cache["directory"])
-    
+
     if CobaConfig.file_cache["type"] == "memory":
         FileCache  = MemoryCache()
