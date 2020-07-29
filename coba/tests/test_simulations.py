@@ -408,6 +408,5 @@ class Interaction_Tests(unittest.TestCase):
     def test_actions_correct_3(self) -> None:
         self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)]).actions)
 
-
 if __name__ == '__main__':
     unittest.main()
