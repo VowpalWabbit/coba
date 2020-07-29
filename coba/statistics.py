@@ -67,11 +67,11 @@ class OnlineMean():
 
         self._mean = value if alpha == 1 else (1 - alpha) * self._mean + alpha * value
 
-class Stats:
+class SummaryStats:
     """A class to store summary statistics calculated from some sample."""
 
     @staticmethod
-    def from_observations(observations: Sequence[float]) -> 'Stats':
+    def from_observations(observations: Sequence[float]) -> 'SummaryStats':
         """Create a Stats class for some given sequence of values.
 
         Args:
@@ -90,7 +90,7 @@ class Stats:
         var  = online_var.variance
         SEM  = math.sqrt(var/N) if N > 0 else float('nan')
 
-        return Stats(N, mean, var, SEM)
+        return SummaryStats(N, mean, var, SEM)
 
     def __init__(self, N: int = 0, mean: float = float('nan'), variance:float = float('nan'), SEM: float = float('nan')):
         """Instantiate a Stats class.
@@ -127,7 +127,7 @@ class Stats:
         """The mean for some sample."""
         return self._SEM
 
-    def blend(self, stats: 'Stats') -> None: #type: ignore #(this error is a bug with pylance)
+    def blend(self, stats: 'SummaryStats') -> None: #type: ignore #(this error is a bug with pylance)
         """Calculate the stats that would come from blending two samples.
         
         Args:
@@ -171,6 +171,5 @@ class Stats:
         self._variance = total_var/total_N
         self._SEM      = math.sqrt(total_var)/total_N
 
-    def copy(self) -> 'Stats':
-        return Stats(self._N, self._mean, self._variance, self._SEM)
-
+    def copy(self) -> 'SummaryStats':
+        return SummaryStats(self._N, self._mean, self._variance, self._SEM)
