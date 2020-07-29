@@ -5,14 +5,14 @@ import timeit
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple, cast, Dict
 
+from coba.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata, FactorEncoder
+from coba.utilities import coba_config
 from coba.simulations import (
     State, Action, Reward, Interaction, Simulation, 
     ClassificationSimulation, MemorySimulation, 
     LambdaSimulation, ShuffleSimulation, LazySimulation
 )
 
-from coba.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata, FactorEncoder
-from coba.utilities import coba_config
 
 class Interaction_Tests(unittest.TestCase):
 

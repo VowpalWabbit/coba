@@ -16,7 +16,8 @@ from itertools import accumulate
 from collections import defaultdict
 
 from coba.simulations import State, Action, Reward
-from coba.utilities import OnlineVariance, check_vowpal_support
+from coba.utilities import check_vowpal_support
+from coba.statistics import OnlineVariance
 
 _S_in = TypeVar('_S_in', bound=State , contravariant=True)
 _A_in = TypeVar('_A_in', bound=Action, contravariant=True)

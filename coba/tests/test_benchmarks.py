@@ -1,27 +1,8 @@
 import unittest
 
-from math import isnan
-
 from coba.simulations import LambdaSimulation, LazySimulation
 from coba.learners import LambdaLearner
-from coba.benchmarks import Stats, Result, UniversalBenchmark
-
-class Stats_Tests(unittest.TestCase):
-    def test_from_values_multi_mean_is_correct_1(self):
-        stats = Stats.from_observations([1,1,3,3])
-        self.assertEqual(2,stats.mean)
-
-    def test_from_values_multi_mean_is_correct_2(self):
-        stats = Stats.from_observations([1,1,1,1])
-        self.assertEqual(1,stats.mean)
-
-    def test_from_values_single_mean_is_correct(self):
-        stats = Stats.from_observations([3])
-        self.assertEqual(3,stats.mean)
-
-    def test_from_values_empty_mean_is_correct(self):
-        stats = Stats.from_observations([])
-        self.assertTrue(isnan(stats.mean))
+from coba.benchmarks import Result, UniversalBenchmark
 
 class Result_Tests(unittest.TestCase):
 
