@@ -1,26 +1,61 @@
 import unittest
 
-from statistics import mean, variance
-from math import isnan
+from statistics import mean, variance, stdev
+from math import isnan, sqrt
 
 from coba.statistics import SummaryStats, OnlineVariance, OnlineMean
 
 class Stats_Tests(unittest.TestCase):
     def test_from_values_multi_mean_is_correct_1(self):
-        stats = SummaryStats.from_observations([1,1,3,3])
-        self.assertEqual(2,stats.mean)
+        observations      = [1,1,3,3]
+        expected_N        = len(observations)
+        expected_mean     = mean(observations)
+        expected_variance = variance(observations)
+        expected_SEM      = stdev(observations)/sqrt(len(observations))
+
+        actual_stats = SummaryStats.from_observations(observations)
+
+        self.assertEqual(actual_stats.N, expected_N)
+        self.assertEqual(actual_stats.mean, expected_mean)
+        self.assertEqual(actual_stats.variance, expected_variance)
+        self.assertEqual(actual_stats.SEM, expected_SEM)
 
     def test_from_values_multi_mean_is_correct_2(self):
-        stats = SummaryStats.from_observations([1,1,1,1])
-        self.assertEqual(1,stats.mean)
+        observations      = [1,1,1,1]
+        expected_N        = len(observations)
+        expected_mean     = mean(observations)
+        expected_variance = variance(observations)
+        expected_SEM      = stdev(observations)/sqrt(len(observations))
+
+        actual_stats = SummaryStats.from_observations(observations)
+
+        self.assertEqual(actual_stats.N, expected_N)
+        self.assertEqual(actual_stats.mean, expected_mean)
+        self.assertEqual(actual_stats.variance, expected_variance)
+        self.assertEqual(actual_stats.SEM, expected_SEM)
 
     def test_from_values_single_mean_is_correct(self):
-        stats = SummaryStats.from_observations([3])
-        self.assertEqual(3,stats.mean)
+        observations      = [3]
+        expected_N        = len(observations)
+        expected_mean     = mean(observations)
+
+        actual_stats = SummaryStats.from_observations(observations)
+
+        self.assertEqual(actual_stats.N, expected_N)
+        self.assertEqual(actual_stats.mean, expected_mean)
+        self.assertTrue(isnan(actual_stats.variance))
+        self.assertTrue(isnan(actual_stats.SEM))
 
     def test_from_values_empty_mean_is_correct(self):
-        stats = SummaryStats.from_observations([])
-        self.assertTrue(isnan(stats.mean))
+        observations = []
+        expected_N   = len(observations)
+
+        actual_stats = SummaryStats.from_observations(observations)
+
+        self.assertEqual(actual_stats.N, expected_N)
+        self.assertTrue(isnan(actual_stats.mean))
+        self.assertTrue(isnan(actual_stats.variance))
+        self.assertTrue(isnan(actual_stats.SEM))
 
 class OnlineVariance_Tests(unittest.TestCase):
 

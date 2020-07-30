@@ -2,9 +2,6 @@
 
 This module contains the abstract interface expected for Benchmark implementations. This 
 module also contains several Benchmark implementations and Result data transfer class.
-
-Todo:
-    * Incorporate out of the box plots
 """
 
 import json
@@ -12,7 +9,7 @@ import collections
 
 from abc import ABC, abstractmethod
 from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, cast, Optional
-from itertools import islice, count
+from itertools import islice, count, zip_longest
 from collections import defaultdict
 
 from coba.simulations import LazySimulation, Simulation, State, Action
@@ -24,109 +21,36 @@ _S = TypeVar('_S', bound=State)
 _A = TypeVar('_A', bound=Action)
 
 class Result:
-    """A class to contain the results of a benchmark evaluation."""
 
-    @staticmethod
-    def from_observations(observations: Sequence[Tuple[int,int,float]], drop_first_batch:bool=True) -> 'Result':
-        """Create a Result object from the provided observations. 
-
-        Args:
-            observations: A sequence of three valued tuples where each tuple represents the result of 
-                a single interaction in a benchmark evaluation. The first value in each tuple is a zero-based 
-                sim index. The second value in the tuple is a zero-based batch index. The final value
-                in the tuple is the amount of reward received after taking an action in an interaction.
-            drop_first_batch: An indicator determining if the first batch should be excluded from Result.
-        """
-        result = Result(drop_first_batch = drop_first_batch)
-
-        sim_batch_observations: List[float] = []
-        sim_index = None
-        batch_index = None
-
-        for observation in sorted(observations, key=lambda o: (o[0], o[1])):
-
-            if sim_index is None: sim_index = observation[0]
-            if batch_index is None: batch_index = observation[1]
-
-            if sim_index != observation[0] or batch_index != observation[1]:
-
-                result.add_observations(sim_index, batch_index, sim_batch_observations)
-
-                sim_index              = observation[0]
-                batch_index            = observation[1]
-                sim_batch_observations = []
-
-            sim_batch_observations.append(observation[2])
-
-        if sim_index is not None and batch_index is not None:
-            result.add_observations(sim_index, batch_index, sim_batch_observations)
-
-        return result
-
-    def __init__(self, learner_name: str = None, drop_first_batch=True):
-        """Instantiate a Result.
-
-        Args:
-            drop_first_batch: Indicates if the first batch in every simulation should be excluded from
-                Result. The first batch represents choices made without any learning and says relatively
-                little about a learner potentially biasing cumulative statistics siginificantly.
-        """
-
-        self._learner_name = learner_name if learner_name is not None else "Unknown"
-
-        self._sim_batch_stats: Dict[Tuple[int,int], SummaryStats] = defaultdict(SummaryStats)
-        self._batch_stats    : Dict[int           , SummaryStats] = defaultdict(SummaryStats)
-        self._sim_stats      : Dict[int           , SummaryStats] = defaultdict(SummaryStats)
-        self._prog_stats     : Dict[int           , SummaryStats] = defaultdict(SummaryStats)
-
-        self._drop_first_batch = drop_first_batch
+    def __init__(self, learner_name:str, simulation_index:int, batch_index: int, stats: SummaryStats) -> None:
+        self._learner_name     = learner_name
+        self._simulation_index = simulation_index
+        self._batch_index      = batch_index
+        self._stats            = stats
 
     @property
-    def learner_name(self) -> Optional[str]:
-        """A descriptive name for the learner used to Generate these results."""
-
+    def learner_name(self) -> str:
         return self._learner_name
 
     @property
-    def sim_stats(self) -> Sequence[SummaryStats]:
-        """Pre-calculated statistics for each simulation."""
-        return [ self._sim_stats[key] for key in sorted(self._sim_stats)]
+    def simulation_index(self) -> int:
+        return self._simulation_index
+    
+    @property
+    def batch_index(self) -> int:
+        return self._batch_index
 
     @property
-    def batch_stats(self) -> Sequence[SummaryStats]:
-        """Pre-calculated statistics for each batch index."""
-        return [ self._batch_stats[key] for key in sorted(self._sim_stats)]
+    def stats(self) -> SummaryStats:
+        return self._stats
 
-    @property
-    def cumulative_batch_stats(self) -> Sequence[SummaryStats]:
-        """Pre-calculated statistics where batches accumulate all prior batches as you go."""
-
-        cum_stats = SummaryStats()
-        stats     = []
-
-        for key in self._batch_stats:
-            cum_stats.blend(self._batch_stats[key])
-            stats.append(cum_stats.copy())
-
-        return stats
-
-    def add_observations(self, simulation_index: int, batch_index: int, rewards: Sequence[float]):
-        """Update result stats with a new set of batch observations.
-
-        Args:
-            simulation_index: A unique identifier for the simulation that rewards came from
-            batch_index: A unique identifier for the batch that rewards came from
-            rewards: The observed reward values for the given batch in a simulation
-        """
-
-        if (self._drop_first_batch and batch_index == 0) or len(rewards) == 0: 
-            return
-
-        stats = SummaryStats.from_observations(rewards)
-
-        self._sim_batch_stats[(simulation_index, batch_index)].blend(stats)
-        self._batch_stats[batch_index].blend(stats)
-        self._sim_stats[batch_index].blend(stats)
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "learner_name"    : self._learner_name,
+            "simulation_index": self._simulation_index,
+            "batch_index"     : self._batch_index,
+            "stats"           : self._stats
+        }
 
 class Benchmark(Generic[_S,_A], ABC):
     """The interface for Benchmark implementations."""
@@ -212,7 +136,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         self._batch_count = batch_count
         self._batch_size  = batch_size
 
-    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Sequence[Result]:
+    def evaluate(self, learner_factories):
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
@@ -222,45 +146,48 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             See the base class for more information.
         """
 
-        learner_results: List[Result] = [Result(name) for name in self._safe_names(learner_factories)]
+        results: List[Result] = []
 
-        for sim_index, sim in enumerate(self._simulations):
-
+        for simulation_index, simulation in enumerate(self._simulations):
             try:
-                if isinstance(sim, LazySimulation):
-                    sim.load()
+                if isinstance(simulation, LazySimulation):
+                    simulation.load()
                     
-                batch_sizes = self._batch_sizes(len(sim.interactions))
+                batch_sizes    = self._batch_sizes(len(simulation.interactions))
                 n_interactions = sum(batch_sizes)
 
-                for factory, result in zip(learner_factories, learner_results):
+                for learner_index, factory in enumerate(learner_factories):
 
-                    sim_learner   = factory()
+                    learner       = factory()
                     batch_index   = 0
                     batch_choices = []
 
-                    for r in islice(sim.interactions, n_interactions):
+                    for r in islice(simulation.interactions, n_interactions):
 
-                        index = sim_learner.choose(r.state, r.actions)
+                        action_index = learner.choose(r.state, r.actions)
+                        batch_choices.append(r.choices[action_index])
 
-                        batch_choices.append(r.choices[index])
-                        
                         if len(batch_choices) == batch_sizes[batch_index]:
-                            observations = sim.rewards(batch_choices)
-                            self._update_learner_and_result(sim_learner, result, sim_index, batch_index, observations)
+                            stats = SummaryStats()
+                            obs   = simulation.rewards(batch_choices)
+                            name  = self._safe_name(learner_index, learner)
+
+                            for (state,action,reward) in obs:
+                                learner.learn(state,action,reward)
+                                stats.add_observations([reward])
+
+                            results.append(Result(name, simulation_index, batch_index, stats))
 
                             batch_choices = []
                             batch_index += 1
 
-                    observations = sim.rewards(batch_choices)
-                    self._update_learner_and_result(sim_learner, result, sim_index, batch_index, observations)
             except Exception as e:
                 print(f"     * {e}")
 
-            if isinstance(sim, LazySimulation):
-                sim.unload()
+            if isinstance(simulation, LazySimulation):
+                simulation.unload()
 
-        return learner_results
+        return results
 
     def _batch_sizes(self, n_interactions: int) -> Sequence[int]:
 
@@ -296,27 +223,9 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         
         raise Exception("We were unable to determine batch size from the supplied parameters")
 
-    def _update_learner_and_result(self, 
-        learner: Learner[_S,_A],
-        result: Result,
-        sim_index:int, 
-        batch_index:int, 
-        results:Sequence[Tuple[_S,_A,float]]):
-
-        result.add_observations(sim_index, batch_index, [ batch_result[2] for batch_result in results ])
-
-        for (state,action,reward) in results:
-            learner.learn(state,action,reward)
-
-    def _safe_names(self, factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Sequence[Optional[str]]:
-
-        names: List[Optional[str]] = []
-
-        for factory in factories:
-            try:
-                names.append(factory().name)
-            except:
-                names.append(None)
-        
-        return names
+    def _safe_name(self, learner_index:int, learner: Learner) -> str:
+        try:
+            return learner.name
+        except:
+            return str(learner_index)
 

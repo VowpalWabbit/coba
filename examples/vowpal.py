@@ -10,8 +10,6 @@ from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTuned
 from coba.benchmarks import UniversalBenchmark
 from coba.analysis import Plots
 
-import matplotlib.pyplot as plt
-
 #define a simulation
 simulation = LambdaSimulation(900, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.uniform(a-2, a+2))
 

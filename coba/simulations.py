@@ -6,8 +6,7 @@ the type hints for State, Action and Reward. These type hints don't contain any 
 Rather, they simply make it possible to use static type checking for any project that desires 
 to do so.
 
-Todo:
-    * Add RegressionSimulation
+TODO Add RegressionSimulation
 """
 
 import gc

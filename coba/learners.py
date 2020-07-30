@@ -3,8 +3,7 @@
 This module contains the abstract interface expected for Learner implementations along
 with a number of Learner implementations out of the box for testing and baseline comparisons.
 
-Todo:
-    * Add VowpalAdfLearner
+TODO Add VowpalAdfLearner
 """
 
 import math
@@ -80,7 +79,8 @@ class LambdaLearner(Learner[_S_in, _A_in]):
 
     def __init__(self, 
                  choose: Callable[[_S_in, Sequence[_A_in]], int], 
-                 learn : Optional[Callable[[_S_in, _A_in, Reward],None]] = None) -> None:
+                 learn : Optional[Callable[[_S_in, _A_in, Reward],None]] = None,
+                 name  : str = "Lambda") -> None:
         """Instantiate LambdaLearner.
 
         Args:
@@ -90,6 +90,7 @@ class LambdaLearner(Learner[_S_in, _A_in]):
         """
         self._choose = choose
         self._learn  = learn
+        self._name   = name
 
     @property
     def name(self) -> str:
@@ -97,7 +98,7 @@ class LambdaLearner(Learner[_S_in, _A_in]):
         
         See the base class for more information
         """  
-        return "Lambda"
+        return self._name
 
     def choose(self, state: _S_in, actions: Sequence[_A_in]) -> int:
         """Choose via the provided lambda function.
