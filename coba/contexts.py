@@ -1,4 +1,8 @@
-"""The contexts module contains classes determining the context for shared functionality."""
+"""The contexts module contains classes determining the context for shared functionality.
+
+TODO Add unittests for CobaConfig.
+TODO Add unittests for all CacheInterface implementations.
+"""
 
 import json
 import copy
@@ -104,11 +108,11 @@ class CacheInterface(Generic[_K, _V], ABC):
         ...
 
     @abstractmethod
-    def put(self, key: _K, value: _V) -> None:
+    def put(self, key: _K, value: _V) -> _V:
         ...
 
     @abstractmethod
-    def rmv(self, key: _K, value: _V) -> None:
+    def rmv(self, key: _K) -> None:
         ...
 
 class NoneCache(CacheInterface[_K, _V]):
@@ -139,6 +143,8 @@ class MemoryCache(CacheInterface[_K, _V]):
 
     def put(self, key: _K, value: _V) -> _V:
         self._cache[key] = value
+
+        return value
 
     def rmv(self, key: _K):
         del self._cache[key]
