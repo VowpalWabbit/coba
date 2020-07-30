@@ -5,57 +5,51 @@ from math import isnan, sqrt
 
 from coba.statistics import SummaryStats, OnlineVariance, OnlineMean
 
+
+
+
 class Stats_Tests(unittest.TestCase):
-    def test_from_values_multi_mean_is_correct_1(self):
-        observations      = [1,1,3,3]
+
+    def _test_summary_stats_given_observations(self, actual_stats, observations):
+        
         expected_N        = len(observations)
-        expected_mean     = mean(observations)
-        expected_variance = variance(observations)
-        expected_SEM      = stdev(observations)/sqrt(len(observations))
-
-        actual_stats = SummaryStats.from_observations(observations)
+        expected_mean     = mean(observations)                          if len(observations) > 0 else float('nan')
+        expected_variance = variance(observations)                      if len(observations) > 1 else float('nan')
+        expected_SEM      = stdev(observations)/sqrt(len(observations)) if len(observations) > 1 else float('nan')
 
         self.assertEqual(actual_stats.N, expected_N)
-        self.assertEqual(actual_stats.mean, expected_mean)
-        self.assertEqual(actual_stats.variance, expected_variance)
-        self.assertEqual(actual_stats.SEM, expected_SEM)
+        
+        if len(observations) > 0:
+            self.assertEqual(actual_stats.mean, expected_mean)
+        else:
+            self.assertTrue(isnan(actual_stats.mean))
 
-    def test_from_values_multi_mean_is_correct_2(self):
-        observations      = [1,1,1,1]
-        expected_N        = len(observations)
-        expected_mean     = mean(observations)
-        expected_variance = variance(observations)
-        expected_SEM      = stdev(observations)/sqrt(len(observations))
+        if len(observations) > 1:
+            self.assertEqual(actual_stats.variance, expected_variance)
+            self.assertEqual(actual_stats.SEM, expected_SEM)
+        else:
+            self.assertTrue(isnan(actual_stats.variance))
+            self.assertTrue(isnan(actual_stats.SEM))
 
-        actual_stats = SummaryStats.from_observations(observations)
 
-        self.assertEqual(actual_stats.N, expected_N)
-        self.assertEqual(actual_stats.mean, expected_mean)
-        self.assertEqual(actual_stats.variance, expected_variance)
-        self.assertEqual(actual_stats.SEM, expected_SEM)
+    def test_from_observations(self):
 
-    def test_from_values_single_mean_is_correct(self):
-        observations      = [3]
-        expected_N        = len(observations)
-        expected_mean     = mean(observations)
+        for observations in [[1,1,3,3], [1,1,1,1], [3], [] ]:
+            actual_stats = SummaryStats.from_observations(observations)
+            self._test_summary_stats_given_observations(actual_stats, observations)
 
-        actual_stats = SummaryStats.from_observations(observations)
 
-        self.assertEqual(actual_stats.N, expected_N)
-        self.assertEqual(actual_stats.mean, expected_mean)
-        self.assertTrue(isnan(actual_stats.variance))
-        self.assertTrue(isnan(actual_stats.SEM))
+    def test_add_observations(self):
 
-    def test_from_values_empty_mean_is_correct(self):
-        observations = []
-        expected_N   = len(observations)
+        for observations in [[1,1,3,3], [1,1,1,1], [3], [] ]:
 
-        actual_stats = SummaryStats.from_observations(observations)
+            actual_stats = SummaryStats()
 
-        self.assertEqual(actual_stats.N, expected_N)
-        self.assertTrue(isnan(actual_stats.mean))
-        self.assertTrue(isnan(actual_stats.variance))
-        self.assertTrue(isnan(actual_stats.SEM))
+            for observation in observations:
+                actual_stats.add_observations([observation])
+
+            self._test_summary_stats_given_observations(actual_stats, observations)
+
 
 class OnlineVariance_Tests(unittest.TestCase):
 

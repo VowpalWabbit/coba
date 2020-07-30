@@ -197,9 +197,9 @@ class SummaryStats:
             self._online_mean.update(observation)
             self._online_variance.update(observation)
 
-        self._N    = len(observations)
-        self._mean = self._online_mean.mean
-        self._var  = self._online_variance.variance
-        self._SEM  = math.sqrt(self._var/self._N) if self._N > 0 else float('nan')
+        self._N    += len(observations)
+        self._mean  = self._online_mean.mean
+        self._var   = self._online_variance.variance
+        self._SEM   = math.sqrt(self._var/self._N) if self._N > 0 else float('nan')
 
         return self
