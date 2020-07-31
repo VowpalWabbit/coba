@@ -31,13 +31,13 @@ class Result:
         median_action_count: int,
         stats: SummaryStats) -> None:
 
-        self._learner_name      = learner_name
-        self._simulation_index  = simulation_index
-        self._batch_index       = batch_index
-        self._feature_count     = median_feature_count
-        self._action_count      = median_action_count
-        self._interaction_count = interaction_count
-        self._stats             = stats
+        self._learner_name         = learner_name
+        self._simulation_index     = simulation_index
+        self._batch_index          = batch_index
+        self._median_feature_count = median_feature_count
+        self._median_action_count  = median_action_count
+        self._interaction_count    = interaction_count
+        self._stats                = stats
 
     @property
     def learner_name(self) -> str:
@@ -57,11 +57,11 @@ class Result:
 
     @property
     def median_feature_count(self) -> int:
-        return self._feature_count
+        return self._median_feature_count
 
     @property
     def median_action_count(self) -> int:
-        return self._action_count
+        return self._median_action_count
 
     @property
     def stats(self) -> SummaryStats:
@@ -69,13 +69,13 @@ class Result:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "learner_name"     : self._learner_name,
-            "simulation_index" : self._simulation_index,
-            "batch_index"      : self._batch_index,
-            "feature_count"    : self._feature_count,
-            "action_count"     : self._action_count,
-            "interaction_count": self._interaction_count,
-            "stats"            : self._stats
+            "learner_name"        : self._learner_name,
+            "simulation_index"    : self._simulation_index,
+            "batch_index"         : self._batch_index,
+            "interaction_count"   : self._interaction_count,
+            "median_feature_count": self._median_feature_count,
+            "median_action_count" : self._median_action_count,
+            "stats"               : self._stats
         }
 
 class Benchmark(Generic[_S,_A], ABC):
