@@ -2,7 +2,7 @@
 import setuptools
 
 MAJOR               = 0
-MINOR               = 5
+MINOR               = 8
 MICRO               = 0
 VERSION             = f"{MAJOR}.{MINOR}.{MICRO}"
 
@@ -14,16 +14,15 @@ setuptools.setup(
     version=VERSION,
     author="Mark Rucker",
     author_email="rucker.mark@gmail.com",
-    description="A bandit algorithm benchmarking package",
+    description="A contextual bandit benchmarking package.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/mrucker/banditbenchmark",
+    url="https://github.com/mrucker/coba",
     license="BSD 3-Clause License",
-    packages=setuptools.find_packages(),
+    packages=["coba"],
     classifiers=[
-        "Intended Audience :: Science/Research",
-        'License :: OSI Approved :: BSD-3 License',
-        'Programming Language :: Python :: 3',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: BSD',
         'Programming Language :: Python :: 3.6'
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering"

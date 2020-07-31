@@ -7,6 +7,10 @@ __pycache__/
 *$py.class
 *.egg-info
 
+# Python build artifacts
+build/
+dist/
+
 # Editors
 .vscode/
 .idea/
