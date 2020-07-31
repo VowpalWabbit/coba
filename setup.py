@@ -21,11 +21,11 @@ setuptools.setup(
     license="BSD 3-Clause License",
     packages=["coba"],
     classifiers=[
-        'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: BSD',
-        'Programming Language :: Python :: 3.6'
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: BSD License",
+        "Programming Language :: Python :: 3.6",
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering"
     ],
-    python_requires='>=3.6',
+    python_requires=">=3.6",
 )
