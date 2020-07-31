@@ -2,6 +2,8 @@
 
 This module contains the abstract interface expected for Benchmark implementations. This 
 module also contains several Benchmark implementations and Result data transfer class.
+
+TODO Finish adding docstrings to Result
 """
 
 import json
@@ -137,15 +139,23 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             return UniversalBenchmark(simulations, batch_size=config["batches"]["size"])    
 
     @overload
-    def __init__(self, simulations: Sequence[Simulation[_S,_A]],*, batch_count: int) -> None:
+    def __init__(self, 
+        simulations: Sequence[Simulation[_S,_A]],
+        *, 
+        batch_count: int) -> None:
         ...
 
     @overload
-    def __init__(self, simulations: Sequence[Simulation[_S,_A]],*, batch_size: Union[int, Sequence[int], Callable[[int],int]]) -> None:
+    def __init__(self, 
+        simulations: Sequence[Simulation[_S,_A]],
+        *, 
+        batch_size: Union[int, Sequence[int], Callable[[int],int]]) -> None:
         ...
 
     def __init__(self,
-        simulations: Sequence[Simulation[_S,_A]], batch_count: int = None, batch_size : Union[int, Sequence[int], Callable[[int],int]] = None) -> None:
+        simulations: Sequence[Simulation[_S,_A]], 
+        batch_count: int = None, 
+        batch_size : Union[int, Sequence[int], Callable[[int],int]] = None) -> None:
         """Instantiate a UniversalBenchmark.
 
         Args:
