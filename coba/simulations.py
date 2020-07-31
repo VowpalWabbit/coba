@@ -78,9 +78,9 @@ class KeyedInteraction(Interaction[_S_out, _A_out]):
             state: The context in which the interaction is ocurring.
             actions: The actions available to take in the interaction.
         """
-        
+
         super().__init__(state,actions)
-        
+
         self._key = key
 
     @property
@@ -355,8 +355,9 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
     ClassificationSimulation turns labeled observations from a classification data set
     set, into interactions. For each interaction the feature set becomes the state and 
     all possible labels become the actions. Rewards for each interaction are created by 
-    assigning a reward of 1 to the correct label (action) for a feature set (state) and 
-    a value of 0 for all other labels (actions).
+    assigning a reward of 1 for taking the correct action (i.e., choosing the correct
+    label)) and a reward of 0 for taking any other action (i.e., choosing any of the
+    incorrect lables).
 
     Remark:
         This class when created from a data set will load all data into memory. Be careful when 
@@ -477,7 +478,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
                 label   = m["is_target"] == "true",
                 encoder = encoder
             )
-        
+
         file_id = description['file_id']
         csv_url = f"http://www.openml.org/data/v1/get_csv/{file_id}"
 
@@ -662,7 +663,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         actions = list(repeat(action_set, len(states)))
         rewards = OneHotEncoder(action_set,False,True).encode(labels)
 
-        self._simulation = MemorySimulation(states, actions, rewards)        
+        self._simulation = MemorySimulation(states, actions, rewards)
 
     @property
     def interactions(self) -> Sequence[KeyedInteraction[_S_out, _A_out]]:

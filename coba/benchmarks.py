@@ -8,11 +8,11 @@ import json
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Union, Sequence, List, Callable, Tuple, Generic, TypeVar, Dict, Any, overload, cast, Optional
-from itertools import islice, count, zip_longest
-from collections import defaultdict
+from typing import Union, Sequence, List, Callable, Generic, TypeVar, Dict, Any, overload, cast
+from itertools import islice, count
+from statistics import median
 
-from coba.simulations import LazySimulation, Simulation, State, Action
+from coba.simulations import Interaction, LazySimulation, Simulation, State, Action
 from coba.learners import Learner
 from coba.contexts import ExecutionContext
 from coba.statistics import SummaryStats
@@ -22,11 +22,22 @@ _A = TypeVar('_A', bound=Action)
 
 class Result:
 
-    def __init__(self, learner_name:str, simulation_index:int, batch_index: int, stats: SummaryStats) -> None:
-        self._learner_name     = learner_name
-        self._simulation_index = simulation_index
-        self._batch_index      = batch_index
-        self._stats            = stats
+    def __init__(self,
+        learner_name:str,
+        simulation_index:int,
+        batch_index: int,
+        interaction_count: int,
+        median_feature_count: int,
+        median_action_count: int,
+        stats: SummaryStats) -> None:
+
+        self._learner_name      = learner_name
+        self._simulation_index  = simulation_index
+        self._batch_index       = batch_index
+        self._feature_count     = median_feature_count
+        self._action_count      = median_action_count
+        self._interaction_count = interaction_count
+        self._stats             = stats
 
     @property
     def learner_name(self) -> str:
@@ -35,10 +46,22 @@ class Result:
     @property
     def simulation_index(self) -> int:
         return self._simulation_index
-    
+
     @property
     def batch_index(self) -> int:
         return self._batch_index
+
+    @property
+    def interaction_count(self) -> int:
+        return self._interaction_count
+
+    @property
+    def median_feature_count(self) -> int:
+        return self._feature_count
+
+    @property
+    def median_action_count(self) -> int:
+        return self._action_count
 
     @property
     def stats(self) -> SummaryStats:
@@ -46,10 +69,13 @@ class Result:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "learner_name"    : self._learner_name,
-            "simulation_index": self._simulation_index,
-            "batch_index"     : self._batch_index,
-            "stats"           : self._stats
+            "learner_name"     : self._learner_name,
+            "simulation_index" : self._simulation_index,
+            "batch_index"      : self._batch_index,
+            "feature_count"    : self._feature_count,
+            "action_count"     : self._action_count,
+            "interaction_count": self._interaction_count,
+            "stats"            : self._stats
         }
 
 class Benchmark(Generic[_S,_A], ABC):
@@ -136,23 +162,34 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         self._batch_count = batch_count
         self._batch_size  = batch_size
 
-    def evaluate(self, learner_factories):
+    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Sequence[Result]:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
             learner_factories: See the base class for more information.
-        
+
         Returns:
             See the base class for more information.
         """
+
+        def feature_count(i: Interaction) -> int:
+            return len(i.state) if isinstance(i.state,tuple) else 0 if i.state is None else 1
+
+        def action_count(i: Interaction) -> int:
+            return len(i.actions)
 
         results: List[Result] = []
 
         for simulation_index, simulation in enumerate(self._simulations):
             try:
+
                 if isinstance(simulation, LazySimulation):
                     simulation.load()
-                    
+
+                interaction_count    = len(simulation.interactions)
+                median_feature_count = cast(int,median([feature_count(i) for i in simulation.interactions]))
+                median_action_count  = cast(int,median([action_count(i) for i in simulation.interactions]))
+
                 batch_sizes    = self._batch_sizes(len(simulation.interactions))
                 n_interactions = sum(batch_sizes)
 
@@ -176,7 +213,15 @@ class UniversalBenchmark(Benchmark[_S,_A]):
                                 learner.learn(state,action,reward)
                                 stats.add_observations([reward])
 
-                            results.append(Result(name, simulation_index, batch_index, stats))
+                            results.append(Result(
+                                name, 
+                                simulation_index, 
+                                batch_index, 
+                                interaction_count, 
+                                median_feature_count, 
+                                median_action_count,
+                                stats
+                            ))
 
                             batch_choices = []
                             batch_index += 1
@@ -228,4 +273,3 @@ class UniversalBenchmark(Benchmark[_S,_A]):
             return learner.name
         except:
             return str(learner_index)
-
