@@ -297,7 +297,10 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         if not self.is_fit:
             raise Exception("This encoder must be fit before it can be used.")
 
-        return [ self._onehots[value] for value in values ]
+        try:
+            return [ self._onehots[value] for value in values ]
+        except KeyError as e:
+            raise Exception(f"We were unable to find {e} in {self._onehots.keys()}")
 
 class FactorEncoder(Encoder[int]):
     """An Encoder implementation that turns incoming values into factor representation."""
@@ -373,7 +376,10 @@ class FactorEncoder(Encoder[int]):
         if not self.is_fit:
             raise Exception("This encoder must be fit before it can be used.")
 
-        return [ self._levels[value] for value in values ]
+        try:
+            return [ self._levels[value] for value in values ]
+        except KeyError as e:
+            raise Exception(f"We were unable to find {e} in {self._levels.keys()}")
 
 class InferredEncoder(Encoder[Hashable]):
     """An Encoder implementation that looks at its given `fit` values and infers the best Encoder."""

@@ -471,7 +471,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
             if m['data_type'] == 'numeric':
                 encoder = NumericEncoder()
             else:
-                encoder = FactorEncoder(m['nominal_value'])
+                encoder = FactorEncoder(m['nominal_value'],error_if_unknown=True)
 
             defined_meta[m["name"]] = Metadata(
                 ignore  = m["is_ignore"] == "true" or m["is_row_identifier"] == "true",
