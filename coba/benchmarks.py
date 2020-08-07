@@ -14,12 +14,12 @@ from typing import Union, Sequence, List, Callable, Generic, TypeVar, Dict, Any,
 from itertools import islice, count
 from statistics import median
 
-from coba.simulations import Interaction, LazySimulation, Simulation, State, Action
+from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action
 from coba.learners import Learner
 from coba.contexts import ExecutionContext
 from coba.statistics import SummaryStats
 
-_S = TypeVar('_S', bound=State)
+_C = TypeVar('_C', bound=Context)
 _A = TypeVar('_A', bound=Action)
 
 class Result:
@@ -80,11 +80,11 @@ class Result:
             "stats"               : self._stats
         }
 
-class Benchmark(Generic[_S,_A], ABC):
+class Benchmark(Generic[_C,_A], ABC):
     """The interface for Benchmark implementations."""
 
     @abstractmethod
-    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Sequence[Result]:
+    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]]) -> Sequence[Result]:
         """Calculate the performance for a provided bandit Learner.
 
         Args:
@@ -102,7 +102,7 @@ class Benchmark(Generic[_S,_A], ABC):
         """
         ...
 
-class UniversalBenchmark(Benchmark[_S,_A]):
+class UniversalBenchmark(Benchmark[_C,_A]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
     @staticmethod
@@ -140,20 +140,20 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
     @overload
     def __init__(self, 
-        simulations: Sequence[Simulation[_S,_A]],
+        simulations: Sequence[Simulation[_C,_A]],
         *, 
         batch_count: int) -> None:
         ...
 
     @overload
     def __init__(self, 
-        simulations: Sequence[Simulation[_S,_A]],
+        simulations: Sequence[Simulation[_C,_A]],
         *, 
         batch_size: Union[int, Sequence[int], Callable[[int],int]]) -> None:
         ...
 
     def __init__(self,
-        simulations: Sequence[Simulation[_S,_A]], 
+        simulations: Sequence[Simulation[_C,_A]], 
         batch_count: int = None, 
         batch_size : Union[int, Sequence[int], Callable[[int],int]] = None) -> None:
         """Instantiate a UniversalBenchmark.
@@ -172,7 +172,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         self._batch_count = batch_count
         self._batch_size  = batch_size
 
-    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_S,_A]]]) -> Sequence[Result]:
+    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]]) -> Sequence[Result]:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
@@ -183,7 +183,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         """
 
         def feature_count(i: Interaction) -> int:
-            return len(i.state) if isinstance(i.state,tuple) else 0 if i.state is None else 1
+            return len(i.context) if isinstance(i.context,tuple) else 0 if i.context is None else 1
 
         def action_count(i: Interaction) -> int:
             return len(i.actions)
@@ -211,7 +211,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
 
                     for r in islice(simulation.interactions, n_interactions):
 
-                        action_index = learner.choose(r.state, r.actions)
+                        action_index = learner.choose(r.context, r.actions)
                         batch_choices.append(r.choices[action_index])
 
                         if len(batch_choices) == batch_sizes[batch_index]:
@@ -219,8 +219,8 @@ class UniversalBenchmark(Benchmark[_S,_A]):
                             obs   = simulation.rewards(batch_choices)
                             name  = self._safe_name(learner_index, learner)
 
-                            for (state,action,reward) in obs:
-                                learner.learn(state,action,reward)
+                            for (context,action,reward) in obs:
+                                learner.learn(context,action,reward)
                                 stats.add_observations([reward])
 
                             results.append(Result(
@@ -278,7 +278,7 @@ class UniversalBenchmark(Benchmark[_S,_A]):
         
         raise Exception("We were unable to determine batch size from the supplied parameters")
 
-    def _safe_name(self, learner_index:int, learner: Learner) -> str:
+    def _safe_name(self, learner_index:int, learner: Learner[_C,_A]) -> str:
         try:
             return learner.name
         except:

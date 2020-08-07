@@ -14,14 +14,14 @@ from typing import Callable, Sequence, Tuple, Optional, Dict, cast, Generic, Typ
 from itertools import accumulate
 from collections import defaultdict
 
-from coba.simulations import State, Action, Reward
+from coba.simulations import Context, Action, Reward
 from coba.utilities import check_vowpal_support
 from coba.statistics import OnlineVariance
 
-_S_in = TypeVar('_S_in', bound=State , contravariant=True)
-_A_in = TypeVar('_A_in', bound=Action, contravariant=True)
+_C_in = TypeVar('_C_in', bound=Context, contravariant=True)
+_A_in = TypeVar('_A_in', bound=Action , contravariant=True)
 
-class Learner(Generic[_S_in, _A_in], ABC):
+class Learner(Generic[_C_in, _A_in], ABC):
     """The interface for Learner implementations."""
 
     @property
@@ -34,17 +34,17 @@ class Learner(Generic[_S_in, _A_in], ABC):
         ...
 
     @abstractmethod
-    def choose(self, state: _S_in, actions: Sequence[_A_in]) -> int:
+    def choose(self, context: _C_in, actions: Sequence[_A_in]) -> int:
         """Choose which action to take.
 
         Args:
-            state: The current state. This argument will be None when playing 
+            context: The current context. This argument will be None when playing 
                 a multi-armed bandit simulation and will contain context features 
                 when playing a contextual bandit simulation. Context features could 
                 be an individual number (e.g. 1.34), a string (e.g., "hot"), or a 
                 tuple of strings and numbers (e.g., (1.34, "hot")) depending on the 
                 simulation being played.
-            actions: The current set of actions to choose from in the given state. 
+            actions: The current set of actions to choose from in the given context. 
                 Action sets can be lists of numbers (e.g., [1,2,3,4]), a list of 
                 strings (e.g. ["high", "medium", "low"]), or a list of lists such 
                 as in the case of movie recommendations (e.g., [["action", "oscar"], 
@@ -56,11 +56,11 @@ class Learner(Generic[_S_in, _A_in], ABC):
         ...
 
     @abstractmethod
-    def learn(self, state: _S_in, action: _A_in, reward: Reward) -> None:
-        """Learn about the result of an action that was taken in a state.
+    def learn(self, context: _C_in, action: _A_in, reward: Reward) -> None:
+        """Learn about the result of an action that was taken in a context.
 
         Args:
-            state: The current state. This argument will be None when playing 
+            context: The current context. This argument will be None when playing 
                 a multi-armed bandit simulation and will contain context features 
                 when playing a contextual bandit simulation. Context features could 
                 be an individual number (e.g. 1.34), a string (e.g., "hot"), or a 
@@ -70,16 +70,16 @@ class Learner(Generic[_S_in, _A_in], ABC):
                 An Action can be an individual number (e.g., 2), a string (e.g. 
                 "medium"), or a list of some combination of numbers or strings
                 (e.g., ["action", "oscar"]).
-            reward: the reward received for taking the given action in the given state.
+            reward: the reward received for taking the given action in the given context.
         """
         ...
 
-class LambdaLearner(Learner[_S_in, _A_in]):
+class LambdaLearner(Learner[_C_in, _A_in]):
     """A Learner implementation that chooses and learns according to provided lambda functions."""
 
     def __init__(self, 
-                 choose: Callable[[_S_in, Sequence[_A_in]], int], 
-                 learn : Optional[Callable[[_S_in, _A_in, Reward],None]] = None,
+                 choose: Callable[[_C_in, Sequence[_A_in]], int], 
+                 learn : Optional[Callable[[_C_in, _A_in, Reward],None]] = None,
                  name  : str = "Lambda") -> None:
         """Instantiate LambdaLearner.
 
@@ -100,33 +100,33 @@ class LambdaLearner(Learner[_S_in, _A_in]):
         """  
         return self._name
 
-    def choose(self, state: _S_in, actions: Sequence[_A_in]) -> int:
+    def choose(self, context: _C_in, actions: Sequence[_A_in]) -> int:
         """Choose via the provided lambda function.
 
         Args:
-            state: The state we're currently in. See the base class for more information.
+            context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
             The index of the selected action. See the base class for more information.
         """
 
-        return self._choose(state, actions)
+        return self._choose(context, actions)
 
-    def learn(self, state: _S_in, action: _A_in, reward: Reward) -> None:
+    def learn(self, context: _C_in, action: _A_in, reward: Reward) -> None:
         """Learn via the optional lambda function or learn nothing without a lambda function.
 
         Args:
-            state: The state we're learning about. See the base class for more information.
-            action: The action that was selected in the state. See the base class for more information.
+            context: The context we're learning about. See the base class for more information.
+            action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
         """
         if self._learn is None:
             pass
         else:
-            self._learn(state,action,reward)
+            self._learn(context,action,reward)
 
-class RandomLearner(Learner[State, Action]):
+class RandomLearner(Learner[Context, Action]):
     """A Learner implementation that selects an action at random and learns nothing."""
 
     @property
@@ -137,11 +137,11 @@ class RandomLearner(Learner[State, Action]):
         """  
         return "Random"
 
-    def choose(self, state: State, actions: Sequence[Action]) -> int:
+    def choose(self, context: Context, actions: Sequence[Action]) -> int:
         """Choose a random action from the action set.
         
         Args:
-            state: The state we're currently in. See the base class for more information.
+            context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
@@ -149,37 +149,37 @@ class RandomLearner(Learner[State, Action]):
         """
         return random.randint(0, len(actions)-1)
 
-    def learn(self, state: State, action: Action, reward: Reward) -> None:
+    def learn(self, context: Context, action: Action, reward: Reward) -> None:
         """Learns nothing.
 
         Args:
-            state: The state we're learning about. See the base class for more information.
-            action: The action that was selected in the state. See the base class for more information.
+            context: The context we're learning about. See the base class for more information.
+            action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
         """
 
         pass
 
-class EpsilonLearner(Learner[State, Action]):
-    """A learner using epsilon-greedy searching while smoothing observations into a state/state-action lookup table.
+class EpsilonLearner(Learner[Context, Action]):
+    """A learner using epsilon-greedy searching while smoothing observations into a context/context-action lookup table.
 
     Remarks:
         This algorithm does not use any function approximation to attempt to generalize observed rewards.
     """
 
-    def __init__(self, epsilon: float, default: Optional[float] = None, include_state: bool = False) -> None:
+    def __init__(self, epsilon: float, default: Optional[float] = None, include_context: bool = False) -> None:
         """Instantiate an EpsilonLearner.
 
         Args:
             epsilon: A value between 0 and 1. We explore with probability epsilon and exploit otherwise.
-            default: Our initial guess of the expected rewards for all state-action pairs.
-            include_state: If true lookups are a function of state-action otherwise they are a function of action.
+            default: Our initial guess of the expected rewards for all context-action pairs.
+            include_context: If true lookups are a function of context-action otherwise they are a function of action.
         """
 
         self._epsilon       = epsilon
-        self._include_state = include_state
-        self._N: Dict[Tuple[State, Action], int            ] = defaultdict(lambda: int(0 if default is None else 1))
-        self._Q: Dict[Tuple[State, Action], Optional[float]] = defaultdict(lambda: default)
+        self._include_context = include_context
+        self._N: Dict[Tuple[Context, Action], int            ] = defaultdict(lambda: int(0 if default is None else 1))
+        self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(lambda: default)
 
     @property
     def name(self) -> str:
@@ -189,11 +189,11 @@ class EpsilonLearner(Learner[State, Action]):
         """
         return "Epislon-greedy"
 
-    def choose(self, state: State, actions: Sequence[Action]) -> int:
+    def choose(self, context: Context, actions: Sequence[Action]) -> int:
         """Choose greedily with probability 1-epsilon. Choose a randomly with probability epsilon.
         
         Args:
-            state: The state we're currently in. See the base class for more information.
+            context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
@@ -201,23 +201,23 @@ class EpsilonLearner(Learner[State, Action]):
         """
         if(random.random() <= self._epsilon): return random.randint(0,len(actions)-1)
 
-        keys        = [ self._key(state,action) for action in actions ]
+        keys        = [ self._key(context,action) for action in actions ]
         values      = [ self._Q[key] for key in keys ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
 
         return random.choice(max_indexes)
 
-    def learn(self, state: State, action: Action, reward: Reward) -> None:
+    def learn(self, context: Context, action: Action, reward: Reward) -> None:
         """Smooth the observed reward into our current estimate of either E[R|S,A] or E[R|A].
 
         Args:
-            state: The state we're learning about. See the base class for more information.
-            action: The action that was selected in the state. See the base class for more information.
+            context: The context we're learning about. See the base class for more information.
+            action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
         """
 
-        key   = self._key(state,action)
+        key   = self._key(context,action)
         alpha = 1/(self._N[key]+1)
 
         old_Q = cast(float, 0 if self._Q[key] is None else self._Q[key])
@@ -225,10 +225,10 @@ class EpsilonLearner(Learner[State, Action]):
         self._Q[key] = (1-alpha) * old_Q + alpha * reward
         self._N[key] = self._N[key] + 1
 
-    def _key(self, state: State, action: Action) -> Tuple[State,Action]:
-        return (state, action) if self._include_state else (None, action)
+    def _key(self, context: Context, action: Action) -> Tuple[Context,Action]:
+        return (context, action) if self._include_context else (None, action)
 
-class VowpalLearner(Learner[State, Action]):
+class VowpalLearner(Learner[Context, Action]):
     """A learner using Vowpal Wabbit's contextual bandit command line interface.
 
     Remarks:
@@ -273,8 +273,8 @@ class VowpalLearner(Learner[State, Action]):
         if cover is not None:
             self._explore = f"--cover {cover}"
 
-        self._actions: Sequence[State]                  = []
-        self._prob   : Dict[Tuple[State,Action], float] = {}
+        self._actions: Sequence[Context]                  = []
+        self._prob   : Dict[Tuple[Context,Action], float] = {}
 
     @property
     def name(self) -> str:
@@ -284,11 +284,11 @@ class VowpalLearner(Learner[State, Action]):
         """  
         return "Vowpal"
 
-    def choose(self, state: State, actions: Sequence[Action]) -> int:
+    def choose(self, context: Context, actions: Sequence[Action]) -> int:
         """Choose an action according to the explor-exploit parameters passed into the contructor.
 
         Args:
-            state: The state we're currently in. See the base class for more information.
+            context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
@@ -304,54 +304,54 @@ class VowpalLearner(Learner[State, Action]):
             self._actions = actions
             self._vw_learner = self._vw(f"--cb_explore {len(actions)} -q UA  {self._explore} --quiet")
 
-        pmf = self._vw_learner.predict("| " + self._vw_format(state))
+        pmf = self._vw_learner.predict("| " + self._vw_format(context))
 
         cdf   = list(accumulate(pmf))
         rng   = random.random()
         index = [ rng < c for c in cdf].index(True)
 
-        self._prob[(state, actions[index])] = pmf[index]
+        self._prob[(context, actions[index])] = pmf[index]
 
         return index
 
-    def learn(self, state: State, action: Action, reward: Reward) -> None:
-        """Learn from the obsered reward for the given state action pair.
+    def learn(self, context: Context, action: Action, reward: Reward) -> None:
+        """Learn from the obsered reward for the given context action pair.
 
         Args:
-            state: The state we're learning about. See the base class for more information.
-            action: The action that was selected in the state. See the base class for more information.
+            context: The context we're learning about. See the base class for more information.
+            action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
         """
         
-        prob  = self._prob[(state,action)]
+        prob  = self._prob[(context,action)]
         cost  = -reward
 
-        vw_state  = self._vw_format(state)
+        vw_context  = self._vw_format(context)
         vw_action = str(self._actions.index(action)+1)
 
-        self._vw_learner.learn( vw_action + ":" + str(cost) + ":" + str(prob) + " | " + vw_state)
+        self._vw_learner.learn( vw_action + ":" + str(cost) + ":" + str(prob) + " | " + vw_context)
 
-    def _vw_format(self, state: State) -> str:
-        """convert state into the proper format for pyvw.
+    def _vw_format(self, context: Context) -> str:
+        """convert context into the proper format for pyvw.
         
         Args:
-            state: The state we wish to convert to pyvw representation.
+            context: The context we wish to convert to pyvw representation.
 
         Returns:
-            The state in pyvw representation.
+            The context in pyvw representation.
         """
-        if state is None:  return ""
+        if context is None:  return ""
 
-        if isinstance(state, (int,float,str)):
-            return str(state)
+        if isinstance(context, (int,float,str)):
+            return str(context)
 
-        #Right now if a state isn't one of the above types it
+        #Right now if a context isn't one of the above types it
         #has to be a tuple. The type checker doesn't know that,
         #however, so we tell it with the explicit cast below.
         #During runtime this cast will do nothing.
-        return " ". join(map(str, cast(tuple,state)))
+        return " ". join(map(str, cast(tuple,context)))
 
-class UcbTunedLearner(Learner[State, Action]):
+class UcbTunedLearner(Learner[Context, Action]):
     """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
 
     References:
@@ -375,11 +375,11 @@ class UcbTunedLearner(Learner[State, Action]):
         """
         return "UCB"
 
-    def choose(self, state: State, actions: Sequence[Action]) -> int:
+    def choose(self, context: Context, actions: Sequence[Action]) -> int:
         """Choose an action greedily according to the upper confidence bound estimates.
 
         Args:
-            state: The state we're currently in. See the base class for more information.
+            context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
@@ -396,12 +396,12 @@ class UcbTunedLearner(Learner[State, Action]):
             max_indexes = [i for i in range(len(values)) if values[i]==max_value]
             return random.choice(max_indexes)
 
-    def learn(self, state: State, action: Action, reward: Reward) -> None:
+    def learn(self, context: Context, action: Action, reward: Reward) -> None:
         """Smooth the observed reward into our current estimate of E[R|S,A].
 
         Args:
-            state: The state we're learning about. See the base class for more information.
-            action: The action that was selected in the state. See the base class for more information.
+            context: The context we're learning about. See the base class for more information.
+            action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
         """
         if action not in self._s:

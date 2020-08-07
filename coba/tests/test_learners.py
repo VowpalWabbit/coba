@@ -5,7 +5,7 @@ from typing import Tuple, List, cast
 from abc import ABC, abstractmethod
 
 from coba.utilities import check_vowpal_support
-from coba.simulations import State, Action
+from coba.simulations import Context, Action
 from coba.learners import Learner, RandomLearner, LambdaLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 
 class Learner_Interface_Tests(ABC):
@@ -14,11 +14,11 @@ class Learner_Interface_Tests(ABC):
     def _make_learner(self) -> Learner:
         ...
 
-    def _states_actions_pairs(self) -> List[Tuple[List[State],List[Action]]]:
-        states: List[State] = [None, 1, (1,2,3), "ABC", ("A","B","C"), ("A",2.,"C")]
+    def _contexts_actions_pairs(self) -> List[Tuple[List[Context],List[Action]]]:
+        contexts: List[Context] = [None, 1, (1,2,3), "ABC", ("A","B","C"), ("A",2.,"C")]
         actions: List[List[Action]] = [[1,2], [1,2,3,4], [(1,2),(3,4)], ["A","B","C"], ["A",2.]]
  
-        return [ (states,a) for a in actions ]
+        return [ (contexts,a) for a in actions ]
 
     def _n_samples(self) -> int:
         # If a learner's `choose()` function is non-deterministic then it is not
@@ -28,19 +28,19 @@ class Learner_Interface_Tests(ABC):
         return 1000
 
     def test_choose_index_in_actions_range(self) -> None:
-        for states, actions in self._states_actions_pairs():
+        for contexts, actions in self._contexts_actions_pairs():
             learner = self._make_learner()
-            for state in states:
+            for context in contexts:
                 for _ in range(self._n_samples()):
-                    choice = learner.choose(state, actions)
+                    choice = learner.choose(context, actions)
                     cast(unittest.TestCase, self).assertIn(choice, range(len(actions)))
 
     def test_learn_throws_no_exceptions(self) -> None:
-        for states,actions in self._states_actions_pairs():
+        for contexts,actions in self._contexts_actions_pairs():
             learner = self._make_learner()
-            for state in states:
+            for context in contexts:
                 try:
-                    learner.learn(state, actions[learner.choose(state,actions)], random.uniform(-2,2))
+                    learner.learn(context, actions[learner.choose(context,actions)], random.uniform(-2,2))
                 except:
                     cast(unittest.TestCase, self).fail("An exception was raised on a call to learn.")
 

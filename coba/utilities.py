@@ -38,4 +38,3 @@ def check_vowpal_support(caller_name: str) -> None:
             caller_name + " requires vowpalwabbit. You can "
             "install vowpalwabbit with `pip install vowpalwabbit`."
         ) from e
-

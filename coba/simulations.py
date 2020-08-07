@@ -2,7 +2,7 @@
 
 This module contains the abstract interface expected for bandit simulations along with the 
 class defining an Interaction within a bandit simulation. Additionally, this module also contains 
-the type hints for State, Action and Reward. These type hints don't contain any functionality. 
+the type hints for Context, Action and Reward. These type hints don't contain any functionality. 
 Rather, they simply make it possible to use static type checking for any project that desires 
 to do so.
 
@@ -32,54 +32,54 @@ from coba import random as cb_random
 from coba.preprocessing import FactorEncoder, Metadata, OneHotEncoder, NumericEncoder, Encoder
 from coba.contexts import ExecutionContext
 
-State  = Optional[Hashable]
-Action = Hashable
-Reward = float
-Key    = int 
-Choice = Tuple[Key,int]
+Context = Optional[Hashable]
+Action  = Hashable
+Reward  = float
+Key     = int 
+Choice  = Tuple[Key,int]
 
-_S_out = TypeVar('_S_out', bound=State, covariant=True)
+_C_out = TypeVar('_C_out', bound=Context, covariant=True)
 _A_out = TypeVar('_A_out', bound=Action, covariant=True)
 
-class Interaction(Generic[_S_out, _A_out]):
+class Interaction(Generic[_C_out, _A_out]):
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
-    def __init__(self, state: _S_out, actions: Sequence[_A_out]) -> None:
+    def __init__(self, context: _C_out, actions: Sequence[_A_out]) -> None:
         """Instantiate Interaction.
 
         Args
-            state: Features describing the interactions's state. Will be `None` for multi-armed bandit simulations.
+            context: Features describing the interactions's context. Will be `None` for multi-armed bandit simulations.
             actions: Features describing available actions in the interaction.
         """
 
         assert actions, "At least one action must be provided to interact"
 
-        self._state   = state
+        self._context   = context
         self._actions = actions
 
     @property
-    def state(self) -> _S_out:
-        """The interaction's state description."""
-        return self._state
+    def context(self) -> _C_out:
+        """The interaction's context description."""
+        return self._context
 
     @property
     def actions(self) -> Sequence[_A_out]:
         """The interactions's available actions."""
         return self._actions
 
-class KeyedInteraction(Interaction[_S_out, _A_out]):
+class KeyedInteraction(Interaction[_C_out, _A_out]):
     """An interaction that's been given a unique identifier."""
 
-    def __init__(self, key: Key, state: _S_out, actions: Sequence[_A_out]) -> None:
+    def __init__(self, key: Key, context: _C_out, actions: Sequence[_A_out]) -> None:
         """Instantiate a KeyedInteraction.
 
         Args:
             key: The unique key identifying the interaction.
-            state: The context in which the interaction is ocurring.
+            context: The context in which the interaction is ocurring.
             actions: The actions available to take in the interaction.
         """
 
-        super().__init__(state,actions)
+        super().__init__(context, actions)
 
         self._key = key
 
@@ -93,11 +93,11 @@ class KeyedInteraction(Interaction[_S_out, _A_out]):
         """A convenience method providing all possible choices in the expected reward format."""
         return list(zip(repeat(self._key), range(len(self._actions))))
 
-class Simulation(Generic[_S_out, _A_out], ABC):
+class Simulation(Generic[_C_out, _A_out], ABC):
     """The simulation interface."""
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'Simulation[State,Action]':
+    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'Simulation[Context, Action]':
         """Construct a Simulation object from JSON.
 
         Args:
@@ -109,11 +109,11 @@ class Simulation(Generic[_S_out, _A_out], ABC):
 
         config = json.loads(json_val) if isinstance(json_val,str) else json_val
 
-        no_shuffle  : Callable[[Simulation[State,Action]], Simulation] = lambda sim: sim
-        seed_shuffle: Callable[[Simulation[State,Action]], Simulation] = lambda sim: ShuffleSimulation(sim, config["seed"])
+        no_shuffle  : Callable[[Simulation[Context, Action]], Simulation] = lambda sim: sim
+        seed_shuffle: Callable[[Simulation[Context, Action]], Simulation] = lambda sim: ShuffleSimulation(sim, config["seed"])
 
-        lazy_loader: Callable[[Callable[[],Simulation[State,Action]]], Simulation] = lambda sim_factory: LazySimulation(sim_factory)
-        now_loader :Callable[[Callable[[],Simulation[State,Action]]], Simulation]  = lambda sim_factory: sim_factory()
+        lazy_loader: Callable[[Callable[[],Simulation[Context,Action]]], Simulation] = lambda sim_factory: LazySimulation(sim_factory)
+        now_loader : Callable[[Callable[[],Simulation[Context,Action]]], Simulation]  = lambda sim_factory: sim_factory()
 
         shuffler = seed_shuffle if "seed" in config and config["seed"] is not None else no_shuffle
         loader   = lazy_loader  if "lazy" in config and config["lazy"] == True     else now_loader
@@ -125,7 +125,7 @@ class Simulation(Generic[_S_out, _A_out], ABC):
 
     @property
     @abstractmethod
-    def interactions(self) -> Sequence[KeyedInteraction[_S_out, _A_out]]:
+    def interactions(self) -> Sequence[KeyedInteraction[_C_out, _A_out]]:
         """The sequence of interactions in a simulation.
 
         Remarks:
@@ -136,31 +136,31 @@ class Simulation(Generic[_S_out, _A_out], ABC):
         ...
     
     @abstractmethod
-    def rewards(self, choices: Sequence[Choice] ) -> Sequence[Tuple[_S_out, _A_out, Reward]]:
+    def rewards(self, choices: Sequence[Choice] ) -> Sequence[Tuple[_C_out, _A_out, Reward]]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Args:
             choices: A sequence of tuples containing an interaction key and an action index.
 
         Returns:
-            A sequence of tuples containing state, action, and reward for the requested 
+            A sequence of tuples containing context, action, and reward for the requested 
             interaction/action. This sequence will always align with the provided choices.
         """
         ...
 
-class LazySimulation(Simulation[_S_out, _A_out]):
+class LazySimulation(Simulation[_C_out, _A_out]):
     """A Simulation implementation which supports loading and unloading from memory.""" 
     
-    def __init__(self, sim_factory = Callable[[],Simulation[_S_out,_A_out]]) -> None:
+    def __init__(self, sim_factory = Callable[[],Simulation[_C_out,_A_out]]) -> None:
         """Instantiate a LazySimulation
         
         Args:
             sim_factory: A factory method for loading the simulation when requested.
         """
         self._sim_factory = sim_factory
-        self._simulation: Optional[Simulation[_S_out, _A_out]]  = None
+        self._simulation: Optional[Simulation[_C_out, _A_out]]  = None
 
-    def load(self) -> 'LazySimulation[_S_out,_A_out]':
+    def load(self) -> 'LazySimulation[_C_out,_A_out]':
         """Load the simulation into memory. If already loaded do nothing."""
         
         if self._simulation is None:
@@ -168,7 +168,7 @@ class LazySimulation(Simulation[_S_out, _A_out]):
 
         return self
 
-    def unload(self) -> 'LazySimulation[_S_out,_A_out]':
+    def unload(self) -> 'LazySimulation[_C_out,_A_out]':
         """Unload the simulation from memory."""
 
         if self._simulation is not None:
@@ -178,7 +178,7 @@ class LazySimulation(Simulation[_S_out, _A_out]):
         return self
 
     @property
-    def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
+    def interactions(self) -> Sequence[KeyedInteraction[_C_out,_A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -190,7 +190,7 @@ class LazySimulation(Simulation[_S_out, _A_out]):
         
         raise Exception("A LazySimulation must be loaded before it can be used.")
 
-    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_S_out, _A_out,Reward]]:
+    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_C_out, _A_out,Reward]]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
@@ -202,24 +202,24 @@ class LazySimulation(Simulation[_S_out, _A_out]):
 
         raise Exception("A LazySimulation must be loaded before it can be used.")
 
-class MemorySimulation(Simulation[_S_out, _A_out]):
-    """A Simulation implementation created from in memory sequences of states, actions and rewards."""
+class MemorySimulation(Simulation[_C_out, _A_out]):
+    """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
 
     def __init__(self, 
-        states: Sequence[_S_out], 
+        contexts: Sequence[_C_out], 
         action_sets: Sequence[Sequence[_A_out]], 
         reward_sets: Sequence[Sequence[Reward]]) -> None:
         """Instantiate a MemorySimulation.
 
         Args:
-            states: A collection of states to turn into a simulation.
+            contexts: A collection of contexts to turn into a simulation.
             action_sets: A collection of action sets to turn into a simulation
             reward_sets: A collection of reward sets to turn into a simulation 
         """
 
-        assert len(states) == len(action_sets) == len(reward_sets), "Mismatched lengths of states, actions and rewards"
+        assert len(contexts) == len(action_sets) == len(reward_sets), "Mismatched lengths of contexts, actions and rewards"
 
-        self._interactions = list(map(KeyedInteraction, count(), states, action_sets))
+        self._interactions = list(map(KeyedInteraction, count(), contexts, action_sets))
 
         choices = chain.from_iterable([ i.choices for i in self._interactions])
         rewards = chain.from_iterable(reward_sets)
@@ -227,7 +227,7 @@ class MemorySimulation(Simulation[_S_out, _A_out]):
         self._rewards = dict(zip(choices,rewards))
 
     @property
-    def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
+    def interactions(self) -> Sequence[KeyedInteraction[_C_out,_A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -235,26 +235,26 @@ class MemorySimulation(Simulation[_S_out, _A_out]):
         """
         return self._interactions
 
-    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_S_out, _A_out,Reward]]:
+    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_C_out, _A_out,Reward]]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
             See the Simulation base class for more information.
         """
 
-        out: List[Tuple[_S_out, _A_out, Reward]] = []
+        out: List[Tuple[_C_out, _A_out, Reward]] = []
 
         for choice in choices:
 
-            state  = self._interactions[choice[0]].state
-            action = self._interactions[choice[0]].actions[choice[1]]
+            context = self._interactions[choice[0]].context
+            action  = self._interactions[choice[0]].actions[choice[1]]
 
-            out.append((state, action, self._rewards[choice]))
+            out.append((context, action, self._rewards[choice]))
 
         return out
 
-class LambdaSimulation(Simulation[_S_out, _A_out]):
-    """A Simulation created from lambda functions that generate states, actions and rewards.
+class LambdaSimulation(Simulation[_C_out, _A_out]):
+    """A Simulation created from lambda functions that generate contexts, actions and rewards.
 
     Remarks:
         This implementation is useful for creating simulations from defined distributions.
@@ -262,35 +262,35 @@ class LambdaSimulation(Simulation[_S_out, _A_out]):
 
     def __init__(self,
                  n_interactions: int,
-                 state: Callable[[int],_S_out],
-                 action_set: Callable[[_S_out],Sequence[_A_out]], 
-                 reward: Callable[[_S_out,_A_out],Reward]) -> None:
+                 context: Callable[[int],_C_out],
+                 action_set: Callable[[_C_out],Sequence[_A_out]], 
+                 reward: Callable[[_C_out,_A_out],Reward]) -> None:
         """Instantiate a LambdaSimulation.
 
         Args:
             n_interactions: How many interactions the LambdaSimulation should have.
-            state: A function that should return a state given an index in `range(n_interactions)`.
-            action_set: A function that should return all valid actions for a given state.
-            reward: A function that should return the reward for a state and action.
+            context: A function that should return a context given an index in `range(n_interactions)`.
+            action_set: A function that should return all valid actions for a given context.
+            reward: A function that should return the reward for a context and action.
         """
 
-        states     : List[_S_out]           = []
+        contexts     : List[_C_out]           = []
         action_sets: List[Sequence[_A_out]] = []
         reward_sets: List[Sequence[Reward]] = []
 
         for i in range(n_interactions):
-            _state      = state(i)
-            _action_set = action_set(_state)
-            _reward_set = [reward(_state, _action) for _action in _action_set]
+            _context    = context(i)
+            _action_set = action_set(_context)
+            _reward_set = [reward(_context, _action) for _action in _action_set]
 
-            states     .append(_state)
+            contexts   .append(_context)
             action_sets.append(_action_set)
             reward_sets.append(_reward_set)
 
-        self._simulation = MemorySimulation(states, action_sets, reward_sets)
+        self._simulation = MemorySimulation(contexts, action_sets, reward_sets)
 
     @property
-    def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
+    def interactions(self) -> Sequence[KeyedInteraction[_C_out,_A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -298,7 +298,7 @@ class LambdaSimulation(Simulation[_S_out, _A_out]):
         """
         return self._simulation.interactions
 
-    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_S_out,_A_out,Reward]]:
+    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_C_out,_A_out,Reward]]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
@@ -307,7 +307,7 @@ class LambdaSimulation(Simulation[_S_out, _A_out]):
 
         return self._simulation.rewards(choices)
 
-class ShuffleSimulation(Simulation[_S_out, _A_out]):
+class ShuffleSimulation(Simulation[_C_out, _A_out]):
     """A simulation which created from an existing simulation by shuffling interactions.
 
     Remarks:
@@ -317,7 +317,7 @@ class ShuffleSimulation(Simulation[_S_out, _A_out]):
         according any given to seed regardless of the local Python execution environment.
     """
 
-    def __init__(self, simulation: Simulation[_S_out,_A_out], seed: Optional[int] = None):
+    def __init__(self, simulation: Simulation[_C_out,_A_out], seed: Optional[int] = None):
         """Instantiate a ShuffleSimulation
 
         Args:
@@ -331,7 +331,7 @@ class ShuffleSimulation(Simulation[_S_out, _A_out]):
         self._rewards      = simulation.rewards
 
     @property
-    def interactions(self) -> Sequence[KeyedInteraction[_S_out,_A_out]]:
+    def interactions(self) -> Sequence[KeyedInteraction[_C_out,_A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -340,7 +340,7 @@ class ShuffleSimulation(Simulation[_S_out, _A_out]):
 
         return self._interactions
 
-    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_S_out,_A_out,Reward]]:
+    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_C_out,_A_out,Reward]]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
@@ -349,11 +349,11 @@ class ShuffleSimulation(Simulation[_S_out, _A_out]):
 
         return self._rewards(choices)
 
-class ClassificationSimulation(Simulation[_S_out, _A_out]):
+class ClassificationSimulation(Simulation[_C_out, _A_out]):
     """A simulation created from classifier data with features and labels.
 
     ClassificationSimulation turns labeled observations from a classification data set
-    set, into interactions. For each interaction the feature set becomes the state and 
+    set, into interactions. For each interaction the feature set becomes the context and 
     all possible labels become the actions. Rewards for each interaction are created by 
     assigning a reward of 1 for taking the correct action (i.e., choosing the correct
     label)) and a reward of 0 for taking any other action (i.e., choosing any of the
@@ -367,7 +367,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
     """
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'ClassificationSimulation[State,Action]':
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'ClassificationSimulation[Context,Action]':
         """Construct a ClassificationSimulation object from JSON.
 
         Args:
@@ -436,7 +436,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         raise Exception("We were unable to recognize the provided data format.")
 
     @staticmethod
-    def from_openml(data_id:int) -> 'ClassificationSimulation[State,Action]':
+    def from_openml(data_id:int) -> 'ClassificationSimulation[Context,Action]':
         """Create a ClassificationSimulation from a given openml dataset id.
 
         Args:
@@ -492,7 +492,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader,
         has_header  : bool = True,
         default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
-        defined_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[State,Action]':
+        defined_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[Context,Action]':
         """Create a ClassificationSimulation given the location of a csv formatted dataset.
 
         Args:
@@ -564,7 +564,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         label_col   : Union[None,str,int] = None,
         has_header  : bool = True,
         default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
-        defined_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[State,Action]':
+        defined_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[Context,Action]':
         """Create a ClassifierSimulation from the rows contained in a csv formatted dataset.
 
         Args:
@@ -642,12 +642,12 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         labels   = list(zip(*label_encodings))   #type: ignore
 
         #turn singular tuples into their values
-        states  = [ f if len(f) > 1 else f[0] for f in features ]
+        contexts  = [ f if len(f) > 1 else f[0] for f in features ]
         actions = [ l if len(l) > 1 else l[0] for l in labels   ]
 
-        return ClassificationSimulation(states, actions)
+        return ClassificationSimulation(contexts, actions)
 
-    def __init__(self, features: Sequence[_S_out], labels: Sequence[_A_out]) -> None:
+    def __init__(self, features: Sequence[_C_out], labels: Sequence[_A_out]) -> None:
         """Instantiate a ClassificationSimulation.
 
         Args:
@@ -659,14 +659,14 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
 
         action_set = tuple(set(labels))
 
-        states  = features
-        actions = list(repeat(action_set, len(states)))
+        contexts  = features
+        actions = list(repeat(action_set, len(contexts)))
         rewards = OneHotEncoder(action_set,False,True).encode(labels)
 
-        self._simulation = MemorySimulation(states, actions, rewards)
+        self._simulation = MemorySimulation(contexts, actions, rewards)
 
     @property
-    def interactions(self) -> Sequence[KeyedInteraction[_S_out, _A_out]]:
+    def interactions(self) -> Sequence[KeyedInteraction[_C_out, _A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -674,7 +674,7 @@ class ClassificationSimulation(Simulation[_S_out, _A_out]):
         """
         return self._simulation.interactions
 
-    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_S_out, _A_out, Reward]]:
+    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_C_out, _A_out, Reward]]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
