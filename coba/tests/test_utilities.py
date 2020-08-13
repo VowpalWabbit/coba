@@ -1,6 +1,4 @@
-
 import unittest
-import json
 
 from coba.utilities import check_matplotlib_support, check_vowpal_support
 

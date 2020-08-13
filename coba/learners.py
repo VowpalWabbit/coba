@@ -419,41 +419,33 @@ class VowpalLearner(Learner[Context, Action]):
     def __init__(self, *, rnd: float, epsilon:float = 0.025, rnd_invlambda: float = 0.1, rnd_alpha:float = 0.1) -> None:
         ...
 
-    def __init__(self, *, 
-        epsilon: float = None, 
-        bag: int = None, 
-        cover: int = None, 
-        softmax: float = None,
-        rnd: float = None,
-        rnd_invlambda: float = 0.1,
-        rnd_alpha: float = 0.1,
-        force_tabular: bool = False) -> None:
+    def __init__(self, **kwargs) -> None:
         """Instantiate a VowpalLearner.
 
         See @overload signatures for more information.
         """
 
         check_vowpal_support('VowpalLearner.__init__')
-        from vowpalwabbit import pyvw #type: ignore #ignored due to mypy error
-        self._vw = pyvw.vw
+        from vowpalwabbit import pyvw #type: ignore #ignored due to mypy error    
 
-        if all(algorithm == None for algorithm in [bag, cover, softmax, rnd]):
-            epsilon = 0.1 if epsilon is None else epsilon 
-            self._algorithm = f"--epsilon {epsilon}"
+        #cover is only implemented in tabular mode so we force tabular if cover
+        force_tabular = ('cover' in kwargs) or kwargs.pop('force_tabular', False)
 
-        if bag is not None:
-            self._algorithm = f"--bag {bag}"
+        if all(algo not in kwargs for algo in ['bag','cover','softmax','rnd']):
+            kwargs['epsilon'] = kwargs.get('epsilon', 0.025)
 
-        if cover is not None:
-            self._algorithm = f"--cover {cover}"
+        if 'rnd' in kwargs:
+            kwargs['epsilon'      ] = kwargs.get('epsilon', 0.025)
+            kwargs['rnd_invlambda'] = kwargs.get('epsilon', 0.1)
+            kwargs['rnd_alpha'    ] = kwargs.get('epsilon', 0.1)
 
-        if softmax is not None:
-            self._algorithm = f"--softmax {softmax}"
+        self._algorithm  = " ".join(f"--{key} {value}" for key,value in kwargs.items())
+        
+        name_args = ",".join(f"{key}={value}" for key,value in kwargs.items())
+        name_mode = "TAB" if force_tabular else "ADF"
+        self._name = f"VW({name_args},{name_mode})"
 
-        if rnd is not None:
-            epsilon = 0.025 if epsilon is None else epsilon 
-            self._algorithm = f"--rnd {rnd} --epsilon {epsilon} --rnd_invlambda {rnd_invlambda} --rnd_alpha {rnd_alpha}"
-
+        self._vw_constructor                  = pyvw.vw
         self._actions      : Any              = None
         self._vw_learner   : pyvw.vw          = None
         self._prob         : Dict[int, float] = {}
@@ -465,7 +457,7 @@ class VowpalLearner(Learner[Context, Action]):
 
         See the base class for more information
         """  
-        return "Vowpal"
+        return self._name
 
     def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
         """Choose an action according to the explor-exploit parameters passed into the contructor.
@@ -493,7 +485,7 @@ class VowpalLearner(Learner[Context, Action]):
             self._mode = f"--cb_explore_adf"
 
         if self._vw_learner is None:
-            self._vw_learner = self._vw(f"{self._mode} {self._algorithm} --quiet")
+            self._vw_learner = self._vw_constructor(f"{self._mode} {self._algorithm} --quiet")
 
         if not self._force_tabular:
             self._actions[key] = actions

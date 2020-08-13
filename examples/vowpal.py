@@ -17,7 +17,12 @@ simulation = LambdaSimulation(900, lambda i: None, lambda s: [0,1,2,3,4], lambda
 benchmark = UniversalBenchmark([simulation]*15, batch_size=1)
 
 #create the learner factories
-learner_factories = [ lambda: RandomLearner(), lambda: EpsilonLearner(1/10), lambda: UcbTunedLearner(), lambda: VowpalLearner() ]
+learner_factories = [
+    lambda: RandomLearner(),
+    lambda: EpsilonLearner(1/10),
+    lambda: UcbTunedLearner(),
+    lambda: VowpalLearner()
+]
 
 #benchmark all three learners
 results = benchmark.evaluate(learner_factories)
