@@ -187,6 +187,19 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
 
         (self._cache_dir/gzip_filename).unlink()
 
+class LoggerInterface(ABC):
+    @abstractmethod
+    def log(self, message: str) -> None:
+        ...
+
+class ConsoleLogger(LoggerInterface):
+    def log(self, message: str) -> None:
+        print(message)
+
+class NoneLogger(LoggerInterface):
+    def log(self, message: str) -> None:
+        pass
+
 class ExecutionContext:
     """Create a global execution context to allow easy mocking and modification.
 
@@ -204,8 +217,9 @@ class ExecutionContext:
     """
 
     TemplatingEngine: TemplatingEngine = TemplatingEngine()
-    CobaConfig      : CobaConfig     = CobaConfig()
-    FileCache       : CacheInterface = NoneCache()
+    CobaConfig      : CobaConfig       = CobaConfig()
+    FileCache       : CacheInterface   = NoneCache()
+    Logger          : LoggerInterface  = ConsoleLogger()
 
     if CobaConfig.file_cache["type"] == "disk":
         FileCache = DiskCache(CobaConfig.file_cache["directory"])

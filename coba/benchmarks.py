@@ -11,12 +11,12 @@ import collections
 
 from abc import ABC, abstractmethod
 from typing import Union, Sequence, List, Callable, Generic, TypeVar, Dict, Any, overload, cast
-from itertools import islice, count
+from itertools import count, repeat, groupby
 from statistics import median
 
 from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action
 from coba.learners import Learner
-from coba.contexts import ExecutionContext
+from coba.execution import ExecutionContext
 from coba.statistics import SummaryStats
 
 _C = TypeVar('_C', bound=Context)
@@ -200,49 +200,61 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                 median_feature_count = cast(int,median([feature_count(i) for i in simulation.interactions]))
                 median_action_count  = cast(int,median([action_count(i) for i in simulation.interactions]))
 
-                batch_sizes    = self._batch_sizes(len(simulation.interactions))
-                n_interactions = sum(batch_sizes)
+                batch_sizes   = self._batch_sizes(len(simulation.interactions))
+                batch_indexes = iter(b for i, s in enumerate(batch_sizes) for b in repeat(i,s) )
 
-                for learner_index, factory in enumerate(learner_factories):
+                for learner_index, learner_factory in enumerate(learner_factories):
 
-                    learner       = factory()
-                    batch_index   = 0
-                    batch_choices = []
+                    batched_indexed_interactions = zip(batch_indexes,simulation.interactions)
 
-                    for r in islice(simulation.interactions, n_interactions):
+                    learner       = learner_factory()
 
-                        action_index = learner.choose(r.context, r.actions)
-                        batch_choices.append(r.choices[action_index])
+                    for batch_group in groupby(batched_indexed_interactions, lambda t: t[0]):
+                        
+                        keys     = []
+                        contexts = []
+                        choices  = []
+                        actions  = []
 
-                        if len(batch_choices) == batch_sizes[batch_index]:
-                            stats = SummaryStats()
-                            obs   = simulation.rewards(batch_choices)
-                            name  = self._safe_name(learner_index, learner)
+                        for _, i in batch_group[1]:
 
-                            for (context,action,reward) in obs:
-                                learner.learn(context,action,reward)
-                                stats.add_observations([reward])
+                            choice = learner.choose(i.key, i.context, i.actions)
 
-                            results.append(Result(
-                                name, 
-                                simulation_index, 
-                                batch_index, 
-                                interaction_count, 
-                                median_feature_count, 
-                                median_action_count,
-                                stats
-                            ))
+                            keys    .append(i.key)
+                            contexts.append(i.context)
+                            choices .append(choice)
+                            actions .append(i.actions[choice])
 
-                            batch_choices = []
-                            batch_index += 1
+                        rewards = simulation.rewards(list(zip(keys, choices)))
+                        stats   = SummaryStats.from_observations(rewards)
+                        name    = self._safe_name(learner_index, learner) #type: ignore #pylance indicates an incorrect error here
+
+                        for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
+                            learner.learn(key,context,action,reward)
+
+                        results.append(Result(
+                            name, 
+                            simulation_index, 
+                            batch_group[0], 
+                            interaction_count, 
+                            median_feature_count, 
+                            median_action_count,
+                            stats
+                        ))
 
             except Exception as e:
-                print(f"     * {e}")
+                ExecutionContext.Logger.log(f"     * {e}")
 
             if isinstance(simulation, LazySimulation):
                 simulation.unload()
 
         return results
+    
+    def _safe_name(self, learner_index:int, learner: Learner[_C,_A]) -> str:
+        try:
+            return learner.name
+        except:
+            return str(learner_index)
 
     def _batch_sizes(self, n_interactions: int) -> Sequence[int]:
 
@@ -277,9 +289,3 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             return batch_sizes
         
         raise Exception("We were unable to determine batch size from the supplied parameters")
-
-    def _safe_name(self, learner_index:int, learner: Learner[_C,_A]) -> str:
-        try:
-            return learner.name
-        except:
-            return str(learner_index)

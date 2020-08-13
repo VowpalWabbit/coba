@@ -5,9 +5,6 @@ from math import isnan, sqrt
 
 from coba.statistics import SummaryStats, OnlineVariance, OnlineMean
 
-
-
-
 class Stats_Tests(unittest.TestCase):
 
     def _test_summary_stats_given_observations(self, actual_stats, observations):

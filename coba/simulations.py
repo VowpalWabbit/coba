@@ -30,13 +30,13 @@ from typing import (
 
 from coba import random as cb_random
 from coba.preprocessing import FactorEncoder, Metadata, OneHotEncoder, NumericEncoder, Encoder
-from coba.contexts import ExecutionContext
+from coba.execution import ExecutionContext
 
 Context = Optional[Hashable]
 Action  = Hashable
 Reward  = float
 Key     = int 
-Choice  = Tuple[Key,int]
+Choice  = int
 
 _C_out = TypeVar('_C_out', bound=Context, covariant=True)
 _A_out = TypeVar('_A_out', bound=Action, covariant=True)
@@ -44,18 +44,20 @@ _A_out = TypeVar('_A_out', bound=Action, covariant=True)
 class Interaction(Generic[_C_out, _A_out]):
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
-    def __init__(self, context: _C_out, actions: Sequence[_A_out]) -> None:
+    def __init__(self, context: _C_out, actions: Sequence[_A_out], key: Key = 0) -> None:
         """Instantiate Interaction.
 
         Args
             context: Features describing the interactions's context. Will be `None` for multi-armed bandit simulations.
             actions: Features describing available actions in the interaction.
+            key    : A unique key assigned to this interaction.
         """
 
         assert actions, "At least one action must be provided to interact"
 
-        self._context   = context
+        self._context = context
         self._actions = actions
+        self._key     = key
 
     @property
     def context(self) -> _C_out:
@@ -66,32 +68,11 @@ class Interaction(Generic[_C_out, _A_out]):
     def actions(self) -> Sequence[_A_out]:
         """The interactions's available actions."""
         return self._actions
-
-class KeyedInteraction(Interaction[_C_out, _A_out]):
-    """An interaction that's been given a unique identifier."""
-
-    def __init__(self, key: Key, context: _C_out, actions: Sequence[_A_out]) -> None:
-        """Instantiate a KeyedInteraction.
-
-        Args:
-            key: The unique key identifying the interaction.
-            context: The context in which the interaction is ocurring.
-            actions: The actions available to take in the interaction.
-        """
-
-        super().__init__(context, actions)
-
-        self._key = key
-
+    
     @property
     def key(self) -> Key:
         """The unique key associated with the interaction."""
         return self._key
-
-    @property
-    def choices(self) -> Sequence[Choice]:
-        """A convenience method providing all possible choices in the expected reward format."""
-        return list(zip(repeat(self._key), range(len(self._actions))))
 
 class Simulation(Generic[_C_out, _A_out], ABC):
     """The simulation interface."""
@@ -125,7 +106,7 @@ class Simulation(Generic[_C_out, _A_out], ABC):
 
     @property
     @abstractmethod
-    def interactions(self) -> Sequence[KeyedInteraction[_C_out, _A_out]]:
+    def interactions(self) -> Sequence[Interaction[_C_out, _A_out]]:
         """The sequence of interactions in a simulation.
 
         Remarks:
@@ -136,7 +117,7 @@ class Simulation(Generic[_C_out, _A_out], ABC):
         ...
     
     @abstractmethod
-    def rewards(self, choices: Sequence[Choice] ) -> Sequence[Tuple[_C_out, _A_out, Reward]]:
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]] ) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Args:
@@ -178,7 +159,7 @@ class LazySimulation(Simulation[_C_out, _A_out]):
         return self
 
     @property
-    def interactions(self) -> Sequence[KeyedInteraction[_C_out,_A_out]]:
+    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -190,7 +171,7 @@ class LazySimulation(Simulation[_C_out, _A_out]):
         
         raise Exception("A LazySimulation must be loaded before it can be used.")
 
-    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_C_out, _A_out,Reward]]:
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
@@ -219,15 +200,15 @@ class MemorySimulation(Simulation[_C_out, _A_out]):
 
         assert len(contexts) == len(action_sets) == len(reward_sets), "Mismatched lengths of contexts, actions and rewards"
 
-        self._interactions = list(map(KeyedInteraction, count(), contexts, action_sets))
+        self._interactions = list(map(Interaction, contexts, action_sets, count()))
 
-        choices = chain.from_iterable([ i.choices for i in self._interactions])
+        choices = chain.from_iterable([ [ (i.key, a) for a in range(len(i.actions)) ] for i in self._interactions ])
         rewards = chain.from_iterable(reward_sets)
 
         self._rewards = dict(zip(choices,rewards))
 
     @property
-    def interactions(self) -> Sequence[KeyedInteraction[_C_out,_A_out]]:
+    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -235,23 +216,14 @@ class MemorySimulation(Simulation[_C_out, _A_out]):
         """
         return self._interactions
 
-    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_C_out, _A_out,Reward]]:
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
             See the Simulation base class for more information.
         """
 
-        out: List[Tuple[_C_out, _A_out, Reward]] = []
-
-        for choice in choices:
-
-            context = self._interactions[choice[0]].context
-            action  = self._interactions[choice[0]].actions[choice[1]]
-
-            out.append((context, action, self._rewards[choice]))
-
-        return out
+        return [ self._rewards[choice] for choice in choices]
 
 class LambdaSimulation(Simulation[_C_out, _A_out]):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
@@ -290,7 +262,7 @@ class LambdaSimulation(Simulation[_C_out, _A_out]):
         self._simulation = MemorySimulation(contexts, action_sets, reward_sets)
 
     @property
-    def interactions(self) -> Sequence[KeyedInteraction[_C_out,_A_out]]:
+    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -298,7 +270,7 @@ class LambdaSimulation(Simulation[_C_out, _A_out]):
         """
         return self._simulation.interactions
 
-    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_C_out,_A_out,Reward]]:
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
@@ -331,7 +303,7 @@ class ShuffleSimulation(Simulation[_C_out, _A_out]):
         self._rewards      = simulation.rewards
 
     @property
-    def interactions(self) -> Sequence[KeyedInteraction[_C_out,_A_out]]:
+    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -340,7 +312,7 @@ class ShuffleSimulation(Simulation[_C_out, _A_out]):
 
         return self._interactions
 
-    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_C_out,_A_out,Reward]]:
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
@@ -443,7 +415,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
             data_id: The unique identifier for a dataset stored on openml.
         """
 
-        print(f"   > loading openml {data_id}... ")
+        ExecutionContext.Logger.log(f"   > loading openml {data_id}... ")
 
         openml_api_key = ExecutionContext.CobaConfig.openml_api_key
 
@@ -512,13 +484,13 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         is_http  =      location.lower().startswith('http') and not is_cache
 
         if is_cache:
-            print('     * loaded from cache...')
+            ExecutionContext.Logger.log('     * loaded from cache...')
             stream_manager = ExecutionContext.FileCache.get(cachename)
         elif is_disk:
-            print('     * loaded from disk...')
+            ExecutionContext.Logger.log('     * loaded from disk...')
             stream_manager = open(location, 'rb')
         else:
-            print('     * loaded from http...')
+            ExecutionContext.Logger.log('     * loaded from http...')
             http_request   = urllib.request.Request(location, headers={'Accept-encoding':'gzip'})
             stream_manager = urllib.request.urlopen(http_request)
 
@@ -554,7 +526,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         simulation = ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
         finish = time.time()
 
-        print(f"     * {round(finish-start,2)} seconds.")
+        ExecutionContext.Logger.log(f"     * {round(finish-start,2)} seconds.")
 
         return simulation 
 
@@ -666,7 +638,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         self._simulation = MemorySimulation(contexts, actions, rewards)
 
     @property
-    def interactions(self) -> Sequence[KeyedInteraction[_C_out, _A_out]]:
+    def interactions(self) -> Sequence[Interaction[_C_out, _A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -674,7 +646,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         """
         return self._simulation.interactions
 
-    def rewards(self, choices: Sequence[Choice]) -> Sequence[Tuple[_C_out, _A_out, Reward]]:
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:

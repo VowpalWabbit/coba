@@ -31,18 +31,15 @@ class Learner_Interface_Tests(ABC):
         for contexts, actions in self._contexts_actions_pairs():
             learner = self._make_learner()
             for context in contexts:
-                for _ in range(self._n_samples()):
-                    choice = learner.choose(context, actions)
+                for i in range(self._n_samples()):
+                    choice = learner.choose(i, context, actions)
                     cast(unittest.TestCase, self).assertIn(choice, range(len(actions)))
 
     def test_learn_throws_no_exceptions(self) -> None:
         for contexts,actions in self._contexts_actions_pairs():
             learner = self._make_learner()
-            for context in contexts:
-                try:
-                    learner.learn(context, actions[learner.choose(context,actions)], random.uniform(-2,2))
-                except:
-                    cast(unittest.TestCase, self).fail("An exception was raised on a call to learn.")
+            for k, context in enumerate(contexts):
+                learner.learn(k, context, actions[learner.choose(k, context,actions)], random.uniform(-2,2))
 
 class RandomLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:

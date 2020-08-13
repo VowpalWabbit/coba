@@ -1,7 +1,7 @@
 import unittest
 import json
 
-from coba.contexts import TemplatingEngine
+from coba.execution import TemplatingEngine
 
 class TemplatingEngine_Tests(unittest.TestCase):
     def test_no_template_string_unchanged_1(self):

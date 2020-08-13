@@ -1,13 +1,15 @@
 import unittest
 
-import itertools
-
+from itertools import groupby
 from typing import Tuple
 
 from coba.simulations import LambdaSimulation, LazySimulation
 from coba.learners import LambdaLearner
 from coba.benchmarks import UniversalBenchmark, Result
 from coba.statistics import SummaryStats
+from coba.execution import ExecutionContext, NoneLogger
+
+ExecutionContext.Logger = NoneLogger()
 
 class UniversalBenchmark_Tests(unittest.TestCase):
 
@@ -15,7 +17,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_results = []
         key = lambda o: o[0:3]
-        for group in itertools.groupby(sorted(expected_obs, key=key), key):
+        for group in groupby(sorted(expected_obs, key=key), key):
             expected_results.append(Result(*group[0], *expected_sim_stats[group[0][1]], SummaryStats.from_observations([i[3] for i in group[1]])))
 
         self.assertEqual(len(actual_results), len(expected_results))

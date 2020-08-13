@@ -5,18 +5,23 @@ import timeit
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple, cast, Dict
 
-from coba.contexts import ExecutionContext, NoneCache
+from coba.execution import ExecutionContext, NoneCache, NoneLogger
 from coba.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata, FactorEncoder
 from coba.simulations import (
-    Context, Action, Reward, Interaction, Simulation, 
-    ClassificationSimulation, MemorySimulation, 
+    Context, Action, Reward, Key, Choice, Interaction, 
+    Simulation, ClassificationSimulation, MemorySimulation, 
     LambdaSimulation, ShuffleSimulation, LazySimulation
 )
+
+ExecutionContext.Logger = NoneLogger()
+
+def _choices(interaction: Interaction) -> Sequence[Tuple[Key,Choice]]:
+    return [  (interaction.key, a) for a in range(len(interaction.actions))]
 
 class Simulation_Interface_Tests(ABC):
 
     @abstractmethod
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Tuple[Context,Action,Reward]]]]:
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
         ...
 
     def test_interactions_is_correct(self) -> None:
@@ -29,7 +34,7 @@ class Simulation_Interface_Tests(ABC):
 
         for actual_inter, expected_inter, expected_rwd in zip(actual_inters, expected_inters, expected_rwds):
 
-            actual_reward = simulation.rewards(actual_inter.choices)
+            actual_reward = simulation.rewards(_choices(actual_inter))
 
             cast(unittest.TestCase, self).assertEqual(actual_inter.context, expected_inter.context)
             cast(unittest.TestCase, self).assertCountEqual(actual_inter.actions, expected_inter.actions)
@@ -41,8 +46,8 @@ class Simulation_Interface_Tests(ABC):
 
         for interaction1,interaction2 in zip(simulation.interactions, simulation.interactions):
 
-            interaction1_rewards = simulation.rewards(interaction1.choices)
-            interaction2_rewards = simulation.rewards(interaction2.choices)
+            interaction1_rewards = simulation.rewards(_choices(interaction1))
+            interaction2_rewards = simulation.rewards(_choices(interaction2))
 
             cast(unittest.TestCase, self).assertEqual(interaction1.context, interaction2.context)
             cast(unittest.TestCase, self).assertSequenceEqual(interaction1.actions, interaction2.actions)
@@ -69,15 +74,10 @@ class Simulation_Tests(unittest.TestCase):
 
 class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Tuple[Context,Action,Reward]]]]:
-        contexts    =  [1,2]
-        action_sets = [[1,2], [1,2]]
-        reward_sets = [[0,1], [1,0]]
-
-        contexts_actions_rewards = zip(contexts, action_sets, reward_sets)
-
-        expected_interactions  = list(map(Interaction[int,int], contexts, action_sets))
-        expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in contexts_actions_rewards]
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
+        
+        expected_interactions = [Interaction(1, [1,2]), Interaction(2, [1,2])]
+        expected_rewards = [[0,1], [1,0]]
 
         return ClassificationSimulation([1,2], [2,1]), expected_interactions, expected_rewards
 
@@ -97,12 +97,12 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         for f,l,i in zip(features, labels, simulation.interactions):
 
             expected_context = f
-            expected_rewards = [ (f, a, int(a == l)) for a in i.actions]
+            expected_rewards = [ int(a == l) for a in i.actions]
 
             actual_context = i.context
             actual_actions = i.actions
             
-            actual_reward  = simulation.rewards(i.choices)
+            actual_reward  = simulation.rewards(_choices(i))
 
             self.assertEqual(actual_context, expected_context)            
             self.assertSequenceEqual(actual_actions, expected_actions)
@@ -189,7 +189,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             self.assertIn(2, rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
-            actual_rewards  = [ rwd[2] for rwd in simulation.rewards(rnd.choices) ]
+            actual_rewards  = simulation.rewards(_choices(rnd))
 
             self.assertIn(1, actual_rewards)
             self.assertIn(0, actual_rewards)
@@ -218,7 +218,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         time = min(timeit.repeat(from_table, repeat=2, number=1))
 
-        print(time)
+        #print(time)
 
         #was approximately 0.6 at best performance
         self.assertLess(time, 3)
@@ -252,7 +252,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             self.assertIn(2, rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
-            actual_rewards = [ rwd[2] for rwd in simulation.rewards(rnd.choices) ]
+            actual_rewards = simulation.rewards(_choices(rnd))
 
             self.assertIn(1, actual_rewards)
             self.assertIn(0, actual_rewards)
@@ -273,44 +273,38 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
 class MemorySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Tuple[Context,Action,Reward]]]]:
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
         
         contexts    =  [1,2]
         action_sets = [[1,2,3], [4,5,6]]
         reward_sets = [[0,1,2], [2,3,4]]
 
-        contexts_actions_rewards = zip(contexts, action_sets, reward_sets)
-
-        expected_interactions  = list(map(Interaction[int,int],contexts,action_sets))
-        expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in contexts_actions_rewards]
-
         simulation = MemorySimulation(contexts, action_sets, reward_sets)
+
+        expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
+        expected_rewards      = reward_sets
 
         return simulation, expected_interactions, expected_rewards
 
 class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Tuple[Context,Action,Reward]]]]:
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
         
         contexts    =  [0,1]
         action_sets = [[1,2,3], [4,5,6]]
         reward_sets = [[1,2,3], [3,4,5]]
+
+        def S(i:int) -> int: return contexts[i]
+        def A(s:int) -> List[int]: return action_sets[s]
+        def R(s:int,a:int) -> int: return a-s
+
+        simulation = LambdaSimulation(2,S,A,R)
+
+        expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
+        expected_rewards      = reward_sets
         
-        contexts_actions_rewards = zip(contexts, action_sets, reward_sets)
 
-        expected_interactions  = list(map(Interaction[int,int],contexts,action_sets))
-        expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in contexts_actions_rewards]
-
-        def S(i:int) -> int:
-            return contexts[i]
-
-        def A(s:int) -> List[int]:
-            return action_sets[s]
-        
-        def R(s:int,a:int) -> int:
-            return a-s
-
-        return LambdaSimulation(2,S,A,R), expected_interactions, expected_rewards
+        return simulation, expected_interactions, expected_rewards
 
     def test_correct_number_of_interactions_created(self):
         def S(i:int) -> int:
@@ -328,18 +322,16 @@ class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
 class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Tuple[Context,Action,Reward]]]]:
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
 
         contexts    = [1,2]
         action_sets = [[1,2,3],[0,1,2]]
         reward_sets = [[0,1,2],[2,3,4]]
 
-        contexts_actions_rewards = zip(contexts, action_sets, reward_sets)
-
-        expected_interactions  = list(map(Interaction[int,int],contexts,action_sets))
-        expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in contexts_actions_rewards]
-
         simulation = MemorySimulation(contexts, action_sets, reward_sets)
+        
+        expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
+        expected_rewards      = reward_sets
 
         #with the seed set this test should always pass, if the test fails then it may mean
         #that randomization changed which would cause old results to no longer be reproducible
@@ -365,20 +357,18 @@ class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
 class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Tuple[Context,Action,Reward]]]]:
+    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
     
         contexts    =  [1,2]
         action_sets = [[1,2,3], [4,5,6]]
         reward_sets = [[0,1,2], [2,3,4]]
 
-        contexts_actions_rewards = zip(contexts, action_sets, reward_sets)
-
-        expected_interactions  = list(map(Interaction[int,int],contexts,action_sets))
-        expected_rewards = [ [(s,a,r) for a,r in zip(A,R)] for s, A, R in contexts_actions_rewards]
-
         simulation = LazySimulation[int,int](lambda: MemorySimulation(contexts, action_sets, reward_sets)).load()
 
-        return simulation, expected_interactions, expected_rewards    
+        expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
+        expected_rewards      = reward_sets
+
+        return simulation, expected_interactions, expected_rewards
 
     def test_unload_removes_simulation(self):
 

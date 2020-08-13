@@ -9,6 +9,10 @@ Remarks:
     according to integer seeds across all versions of Python. The standard implementation 
     of random within Python has had a few variations in implementation in the past and 
     could always change in the future, making randomization by seed potentially non-fixed.
+
+TODO: Add unit tests for randint
+TODO: Add unit tests for random
+TODO: Add unit tests for choice
 """
 
 import math
@@ -122,8 +126,13 @@ def seed(seed: Optional[int]) -> None:
 
     _random = Random(seed)
 
+def random() -> float:
+    """Generate a uniform random number in [0,1]."""
+
+    return randoms(1)[0]
+
 def randoms(n: int) -> Sequence[float]:
-    """Generate `n` random numbers in [0,1].
+    """Generate `n` uniform random numbers in [0,1].
 
     Args:
         n: How many random numbers should be generated.
@@ -133,6 +142,25 @@ def randoms(n: int) -> Sequence[float]:
     """
 
     return _random.randoms(n)
+
+def randint(a:int, b:int) -> int:
+    """Generate a uniform random integer in [a, b].
+    
+    Args:
+        a: The inclusive lower bound for the random integer.
+        b: The inclusive upper bound for the random integer.
+    """
+    
+    return (min(int( (b-a+1) * random()), b-1) + a)
+
+def choice(seq: Sequence[Any]) -> Any:
+    """Choose a random item from the given sequence.
+    
+    Args:
+        seq: The sequence to pick randomly from.
+    """
+    
+    return seq[randint(0, len(seq)-1)]
 
 def shuffle(array_like: Sequence[Any]) -> Sequence[Any]:
     """Shuffle the order of items in a sequence.
