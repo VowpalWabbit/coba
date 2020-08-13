@@ -3,7 +3,7 @@
 This module contains the abstract interface expected for Learner implementations along
 with a number of Learner implementations out of the box for testing and baseline comparisons.
 
-TODO Add VowpalAdfLearner
+TODO Add docstrings to VowpalLearner.__init__ overloads.
 """
 
 import math
@@ -523,7 +523,7 @@ class VowpalLearner(Learner[Context, Action]):
 
     def _vw_predict_format(self, context: Context, actions:Sequence[Action]) -> str:
         """Convert context and actions into the proper prediction format for vowpal wabbit.
-        
+
         Args:
             context: The context we wish to convert to vowpal wabbit representation.
             actions: The actions we wish to predict from.
@@ -542,21 +542,21 @@ class VowpalLearner(Learner[Context, Action]):
 
     def _vw_learn_format(self, key: Key, context: Context, action: Action, reward: float) -> str:
         prob    = self._prob.pop(key)
-        vw_actions = self._actions if self._force_tabular else self._actions.pop(key)
+        actions = self._actions if self._force_tabular else self._actions.pop(key)
 
         if self._force_tabular:
-            return f"{vw_actions.index(action)+1}:{-reward}:{prob} | {self._vw_features_format(context)}"
+            return f"{actions.index(action)+1}:{-reward}:{prob} | {self._vw_features_format(context)}"
         else:
             vw_context   = None if context is None else f"shared | {self._vw_features_format(context)}"
-            vw_rewards  = [ "" if a != action else f"0:{-reward}:{prob}" for a in vw_actions ]
-            vw_actions  = [ self._vw_features_format(a) for a in vw_actions]
+            vw_rewards  = [ "" if a != action else f"0:{-reward}:{prob}" for a in actions ]
+            vw_actions  = [ self._vw_features_format(a) for a in actions]
             vw_observed = [ f"{r} | {a}" for r,a in zip(vw_rewards,vw_actions) ]
 
             return "\n".join(filter(None,[vw_context, *vw_observed]))
 
     def _vw_features_format(self, features: Union[Context,Action]) -> str:
         """convert action features into the proper format for pyvw.
-        
+
         Args:
             features: The feature set we wish to convert to pyvw representation.
 
