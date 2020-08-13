@@ -201,7 +201,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                 median_action_count  = cast(int,median([action_count(i) for i in simulation.interactions]))
 
                 batch_sizes   = self._batch_sizes(len(simulation.interactions))
-                batch_indexes = iter(b for i, s in enumerate(batch_sizes) for b in repeat(i,s) )
+                batch_indexes = [b for i, s in enumerate(batch_sizes) for b in repeat(i,s)]
 
                 for learner_index, learner_factory in enumerate(learner_factories):
 

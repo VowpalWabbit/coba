@@ -224,7 +224,7 @@ class EpsilonLearner(Learner[Context, Action]):
 
     def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
         """Choose greedily with probability 1-epsilon. Choose a randomly with probability epsilon.
-        
+
         Args:
             key: The key identifying the interaction we are choosing for.
             context: The context we're currently in. See the base class for more information.
@@ -462,7 +462,7 @@ class VowpalLearner(Learner[Context, Action]):
     @property
     def name(self) -> str:
         """The name of the Learner.
-        
+
         See the base class for more information
         """  
         return "Vowpal"
