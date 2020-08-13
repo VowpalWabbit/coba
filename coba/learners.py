@@ -527,8 +527,8 @@ class VowpalLearner(Learner[Context, Action]):
         if self._force_tabular:
             return f"| {self._vw_features_format(context)}"
         else:
-            vw_context = None if context is None else f"shared | {self._vw_features_format(context)}"
-            vw_actions = [ f"| {self._vw_features_format(a)}" for a in actions]
+            vw_context = None if context is None else f"shared |s {self._vw_features_format(context)}"
+            vw_actions = [ f"|a {self._vw_features_format(a)}" for a in actions]
 
             return "\n".join(filter(None,[vw_context, *vw_actions]))
 
@@ -539,10 +539,10 @@ class VowpalLearner(Learner[Context, Action]):
         if self._force_tabular:
             return f"{actions.index(action)+1}:{-reward}:{prob} | {self._vw_features_format(context)}"
         else:
-            vw_context   = None if context is None else f"shared | {self._vw_features_format(context)}"
+            vw_context   = None if context is None else f"shared |s {self._vw_features_format(context)}"
             vw_rewards  = [ "" if a != action else f"0:{-reward}:{prob}" for a in actions ]
             vw_actions  = [ self._vw_features_format(a) for a in actions]
-            vw_observed = [ f"{r} | {a}" for r,a in zip(vw_rewards,vw_actions) ]
+            vw_observed = [ f"{r} |a {a}" for r,a in zip(vw_rewards,vw_actions) ]
 
             return "\n".join(filter(None,[vw_context, *vw_observed]))
 
