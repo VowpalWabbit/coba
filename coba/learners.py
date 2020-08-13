@@ -4,6 +4,7 @@ This module contains the abstract interface expected for Learner implementations
 with a number of Learner implementations out of the box for testing and baseline comparisons.
 
 TODO Add docstrings to VowpalLearner.__init__ overloads.
+TODO Improve docstrings for VowpalLearner.__init__ overloads (there appear to be a lot of tunable params I don't have).
 """
 
 import math
@@ -412,12 +413,20 @@ class VowpalLearner(Learner[Context, Action]):
         ...
 
     @overload
-    def __init__(self, *, softmax: float) -> None:
+    def __init__(self, *, softmax:float) -> None:
+        """Instantiate a VowpalLearner.
+
+        Args:
+            softmax: An exploration parameter with 0 indicating uniform exploration is desired and infinity
+                indicating that no exploration is desired (aka, greedy action selection only). For more info
+                see `lambda` at https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms.
+        """
         ...
 
-    @overload
-    def __init__(self, *, rnd: float, epsilon:float = 0.025, rnd_invlambda: float = 0.1, rnd_alpha:float = 0.1) -> None:
-        ...
+    #the pip version of pyvw doesn't currently include the rnd algorithm so we are commenting out this overload for now
+    #@overload
+    #def __init__(self, *, rnd: float, epsilon:float = 0.025, rnd_invlambda: float = 0.1, rnd_alpha:float = 0.1) -> None:
+    #    ...
 
     def __init__(self, **kwargs) -> None:
         """Instantiate a VowpalLearner.
@@ -429,21 +438,25 @@ class VowpalLearner(Learner[Context, Action]):
         from vowpalwabbit import pyvw #type: ignore #ignored due to mypy error    
 
         #cover is only implemented in tabular mode so we force tabular if cover
-        force_tabular = ('cover' in kwargs) or kwargs.pop('force_tabular', False)
+        force_tabular = 'cover' in kwargs or 'softmax' in kwargs or kwargs.pop('force_tabular', False)
 
-        if all(algo not in kwargs for algo in ['bag','cover','softmax','rnd']):
+        if all(exploration not in kwargs for exploration in ['bag','cover','softmax','rnd']):
             kwargs['epsilon'] = kwargs.get('epsilon', 0.025)
 
-        if 'rnd' in kwargs:
-            kwargs['epsilon'      ] = kwargs.get('epsilon', 0.025)
-            kwargs['rnd_invlambda'] = kwargs.get('epsilon', 0.1)
-            kwargs['rnd_alpha'    ] = kwargs.get('epsilon', 0.1)
-
-        self._algorithm  = " ".join(f"--{key} {value}" for key,value in kwargs.items())
-        
         name_args = ",".join(f"{key}={value}" for key,value in kwargs.items())
         name_mode = "TAB" if force_tabular else "ADF"
         self._name = f"VW({name_args},{name_mode})"
+
+        if 'softmax' in kwargs:
+            kwargs['lambda']  = kwargs['softmax']
+            kwargs['softmax'] = ''
+
+        #if 'rnd' in kwargs:
+        #    kwargs['epsilon'      ] = kwargs.get('epsilon', 0.025)
+        #    kwargs['rnd_invlambda'] = kwargs.get('epsilon', 0.1)
+        #    kwargs['rnd_alpha'    ] = kwargs.get('epsilon', 0.1)
+
+        self._exploration  = " ".join(f"--{key} {value}" for key,value in kwargs.items())
 
         self._vw_constructor                  = pyvw.vw
         self._actions      : Any              = None
@@ -477,15 +490,15 @@ class VowpalLearner(Learner[Context, Action]):
         """
 
         if self._vw_learner is None and self._force_tabular:
-            self._actions = actions
-            self._mode    = f"--cb_explore {len(actions)}"
+            self._actions   = actions
+            self._algorithm = f"--cb_explore {len(actions)}"
 
         if self._vw_learner is None and not self._force_tabular:
             self._actions = {}
-            self._mode = f"--cb_explore_adf"
+            self._algorithm = f"--cb_explore_adf"
 
         if self._vw_learner is None:
-            self._vw_learner = self._vw_constructor(f"{self._mode} {self._algorithm} --quiet")
+            self._vw_learner = self._vw_constructor(f"{self._algorithm} {self._exploration} --quiet")
 
         if not self._force_tabular:
             self._actions[key] = actions

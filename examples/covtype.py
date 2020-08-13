@@ -22,11 +22,11 @@ benchmark = UniversalBenchmark([sim], batch_size = lambda i: 100 + i*100)
 print("creating the learners...")
 learner_factories = [
     lambda: RandomLearner(),
-    lambda: EpsilonLearner(1/10),
+    lambda: EpsilonLearner(0.025),
     lambda: UcbTunedLearner(),
     lambda: VowpalLearner(epsilon=0.025),
     lambda: VowpalLearner(bag=5),
-    lambda: VowpalLearner(rnd=3)
+    lambda: VowpalLearner(softmax=1)
 ]
 
 print("evaluating the learners...")

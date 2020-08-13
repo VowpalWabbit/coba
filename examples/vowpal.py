@@ -19,12 +19,15 @@ benchmark = UniversalBenchmark([simulation]*15, batch_size=1)
 #create the learner factories
 learner_factories = [
     lambda: RandomLearner(),
-    lambda: EpsilonLearner(1/10),
+    lambda: EpsilonLearner(.025),
     lambda: UcbTunedLearner(),
-    lambda: VowpalLearner()
+    lambda: VowpalLearner(epsilon=0.025),
+    lambda: VowpalLearner(bag=3),
+    lambda: VowpalLearner(softmax=1)
 ]
 
-#benchmark all three learners
+#benchmark all learners
 results = benchmark.evaluate(learner_factories)
 
+#plot the learners
 Plots.standard_plot(results)
