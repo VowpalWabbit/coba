@@ -376,7 +376,7 @@ class VowpalLearner(Learner[Context, Action]):
     """
 
     @overload
-    def __init__(self, *, epsilon: float = 0.025, force_tabular: bool = False) -> None:
+    def __init__(self, *, epsilon: float = 0.025, is_adf: bool = True) -> None:
         """Instantiate a VowpalLearner.
 
         Args:
@@ -385,7 +385,7 @@ class VowpalLearner(Learner[Context, Action]):
         ...
     
     @overload
-    def __init__(self, *, bag: int, force_tabular: bool = False) -> None:
+    def __init__(self, *, bag: int, is_adf: bool = True) -> None:
         """Instantiate a VowpalLearner.
 
         Args:
@@ -437,14 +437,13 @@ class VowpalLearner(Learner[Context, Action]):
         check_vowpal_support('VowpalLearner.__init__')
         from vowpalwabbit import pyvw #type: ignore #ignored due to mypy error    
 
-        #cover is only implemented in tabular mode so we force tabular if cover
-        force_tabular = 'cover' in kwargs or 'softmax' in kwargs or kwargs.pop('force_tabular', False)
+        is_adf = False if 'cover' in kwargs else True if 'softmax' in kwargs else kwargs.pop('is_adf', True)
 
         if all(exploration not in kwargs for exploration in ['bag','cover','softmax','rnd']):
             kwargs['epsilon'] = kwargs.get('epsilon', 0.025)
 
         name_args = ",".join(f"{key}={value}" for key,value in kwargs.items())
-        name_mode = "TAB" if force_tabular else "ADF"
+        name_mode = "ADF" if is_adf else "not ADF"
         self._name = f"VW({name_args},{name_mode})"
 
         if 'softmax' in kwargs:
@@ -462,7 +461,7 @@ class VowpalLearner(Learner[Context, Action]):
         self._actions      : Any              = None
         self._vw_learner   : pyvw.vw          = None
         self._prob         : Dict[int, float] = {}
-        self._force_tabular: bool             = force_tabular
+        self._is_adf       : bool             = is_adf
 
     @property
     def name(self) -> str:
@@ -489,18 +488,18 @@ class VowpalLearner(Learner[Context, Action]):
             should use VowpalAdfLearner.
         """
 
-        if self._vw_learner is None and self._force_tabular:
+        if self._vw_learner is None and not self._is_adf:
             self._actions   = actions
             self._algorithm = f"--cb_explore {len(actions)}"
 
-        if self._vw_learner is None and not self._force_tabular:
+        if self._vw_learner is None and self._is_adf:
             self._actions = {}
             self._algorithm = f"--cb_explore_adf"
 
         if self._vw_learner is None:
             self._vw_learner = self._vw_constructor(f"{self._algorithm} {self._exploration} --quiet")
 
-        if not self._force_tabular:
+        if self._is_adf:
             self._actions[key] = actions
 
         pmf = self._vw_learner.predict(self._vw_predict_format(context, actions))
@@ -516,11 +515,10 @@ class VowpalLearner(Learner[Context, Action]):
         rng    = coba.random.random()
 
         choice = [ rng <= c for c in cdf].index(True)
-        action = actions[choice]
 
         self._prob[key] = pmf[choice]
 
-        return choice if not self._force_tabular else self._actions.index(action)
+        return choice if self._is_adf else self._actions.index(actions[choice])
 
     def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
         """Learn from the obsered reward for the given context action pair.
@@ -545,7 +543,7 @@ class VowpalLearner(Learner[Context, Action]):
             The proper format for vowpal wabbit prediction.
         """
 
-        if self._force_tabular:
+        if not self._is_adf:
             return f"| {self._vw_features_format(context)}"
         else:
             vw_context = None if context is None else f"shared |s {self._vw_features_format(context)}"
@@ -555,9 +553,9 @@ class VowpalLearner(Learner[Context, Action]):
 
     def _vw_learn_format(self, key: Key, context: Context, action: Action, reward: float) -> str:
         prob    = self._prob.pop(key)
-        actions = self._actions if self._force_tabular else self._actions.pop(key)
+        actions = self._actions if not self._is_adf else self._actions.pop(key)
 
-        if self._force_tabular:
+        if not self._is_adf:
             return f"{actions.index(action)+1}:{-reward}:{prob} | {self._vw_features_format(context)}"
         else:
             vw_context   = None if context is None else f"shared |s {self._vw_features_format(context)}"
