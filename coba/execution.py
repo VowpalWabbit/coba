@@ -7,16 +7,21 @@ TODO Add unittests for all CacheInterface implementations.
 import json
 import copy
 import collections
+import time
 
+from typing import Callable, ContextManager, Union, Generic, TypeVar, Dict, IO, Mapping, Any, Optional, List, MutableMapping, cast, Iterator
+
+from contextlib import contextmanager
 from itertools import repeat
 from gzip import compress, decompress
 from abc import ABC, abstractmethod
 from io import BytesIO
-from typing import Union, Generic, TypeVar, Dict, IO, Mapping, Any, Optional, List, MutableMapping, cast
 from pathlib import Path
+from datetime import datetime
+
 
 _K = TypeVar("_K")
-_V = TypeVar("_V")    
+_V = TypeVar("_V")
 
 class TemplatingEngine():
 
@@ -154,9 +159,7 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
         self._cache_dir = path if isinstance(path, Path) else Path(path).expanduser()
 
     def __contains__(self, filename: str) -> bool:
-        is_gzip = filename.endswith(".gz")
-
-        gzip_filename = filename + ("" if is_gzip else ".gz")
+        gzip_filename = filename if filename.endswith(".gz") else (filename + ".gz")
 
         return (self._cache_dir/gzip_filename).exists()
 
@@ -185,20 +188,72 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
 
         gzip_filename = filename + ("" if is_gzip else ".gz")
 
-        (self._cache_dir/gzip_filename).unlink()
+        if (self._cache_dir/gzip_filename).exists():
+            (self._cache_dir/gzip_filename).unlink()
 
 class LoggerInterface(ABC):
     @abstractmethod
-    def log(self, message: str) -> None:
+    def log(self, message: str, end:str = None) -> 'ContextManager[LoggerInterface]':
         ...
 
-class ConsoleLogger(LoggerInterface):
-    def log(self, message: str) -> None:
-        print(message)
+class UniversalLogger(LoggerInterface):
 
-class NoneLogger(LoggerInterface):
-    def log(self, message: str) -> None:
-        pass
+    def __init__(self, print_function: Callable[[str,Optional[str]],None]):
+        self._indent_cnt  = 0
+        self._is_newline  = True
+        self._print       = print_function
+        self._bullets     = collections.defaultdict(lambda: '~', enumerate(['','*','>','-','+','~'])) 
+        self._start_times = []
+
+    @contextmanager
+    def _with(self) -> Iterator[LoggerInterface]:
+        try:
+            self._indent_cnt += 1
+            self._start_times.append(time.time())
+
+            yield self
+
+            if not self._is_newline: self.log('')
+            self.log(f"finished after {round(time.time() - self._start_times.pop(), 2)} seconds")
+
+        except LoggedException as e:
+            raise #simply pass it along, no need to log it again
+
+        except Exception as e:
+            if not self._is_newline: self.log('')
+            self.log(f"unhandeled exception after {round(time.time() - self._start_times.pop(), 2)} seconds: {e}")
+            raise LoggedException from e
+
+        finally:
+            self._indent_cnt -= 1
+
+    def _prefix(self) -> str:
+        indent = '  ' * self._indent_cnt
+        bullet = self._bullets[self._indent_cnt]
+
+        return datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + indent + bullet + (' ' if bullet != '' else '')
+
+    def log(self, message: str, end: str = None) -> ContextManager[LoggerInterface]:
+        
+        if self._is_newline:
+            message = self._prefix() + message
+
+        self._print(message, end)
+
+        self._is_newline = (end is None or end == '\n')
+
+        return self._with()
+
+class ConsoleLogger(UniversalLogger):
+    def __init__(self) -> None:
+        super().__init__(print_function=lambda m,e: print(m,end=e))
+
+class NoneLogger(UniversalLogger):
+    def __init__(self) -> None:
+        super().__init__(print_function=lambda m,e: None)
+
+class LoggedException(Exception):
+    """An exception that has been logged but not handled."""
 
 class ExecutionContext:
     """Create a global execution context to allow easy mocking and modification.

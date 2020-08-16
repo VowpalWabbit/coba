@@ -30,7 +30,7 @@ from typing import (
 
 from coba import random as cb_random
 from coba.preprocessing import FactorEncoder, Metadata, OneHotEncoder, NumericEncoder, Encoder
-from coba.execution import ExecutionContext
+from coba.execution import ExecutionContext, LoggedException
 
 Context = Optional[Hashable]
 Action  = Hashable
@@ -415,41 +415,41 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
             data_id: The unique identifier for a dataset stored on openml.
         """
 
-        ExecutionContext.Logger.log(f"   > loading openml {data_id}... ")
+        with ExecutionContext.Logger.log(f"loading openml {data_id} meta... "):
 
-        openml_api_key = ExecutionContext.CobaConfig.openml_api_key
+            openml_api_key = ExecutionContext.CobaConfig.openml_api_key
 
-        with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}?api_key={openml_api_key}')) as resp:
-            description = json.loads(resp.read())["data_set_description"]
+            with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}?api_key={openml_api_key}')) as resp:
+                description = json.loads(resp.read())["data_set_description"]
 
-        if description['status'] == 'deactivated':
-            raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
+            if description['status'] == 'deactivated':
+                raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
 
-        with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}?api_key={openml_api_key}')) as resp:
-            tasks = json.loads(resp.read())["tasks"]["task"]
+            with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}?api_key={openml_api_key}')) as resp:
+                tasks = json.loads(resp.read())["tasks"]["task"]
 
-        if not any(task["task_type_id"] == 1 for task in tasks ):
-            raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
+            if not any(task["task_type_id"] == 1 for task in tasks ):
+                raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
 
-        with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/features/{data_id}?api_key={openml_api_key}')) as resp:
-            features = json.loads(resp.read())["data_features"]["feature"]
+            with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/features/{data_id}?api_key={openml_api_key}')) as resp:
+                features = json.loads(resp.read())["data_features"]["feature"]
 
-        defined_meta: Dict[str,Metadata] = {}
+            defined_meta: Dict[str,Metadata] = {}
 
-        for m in features:
+            for m in features:
 
-            encoder: Encoder
+                encoder: Encoder
 
-            if m['data_type'] == 'numeric':
-                encoder = NumericEncoder()
-            else:
-                encoder = FactorEncoder(m['nominal_value'],error_if_unknown=True)
+                if m['data_type'] == 'numeric':
+                    encoder = NumericEncoder()
+                else:
+                    encoder = FactorEncoder(m['nominal_value'],error_if_unknown=True)
 
-            defined_meta[m["name"]] = Metadata(
-                ignore  = m["is_ignore"] == "true" or m["is_row_identifier"] == "true",
-                label   = m["is_target"] == "true",
-                encoder = encoder
-            )
+                defined_meta[m["name"]] = Metadata(
+                    ignore  = m["is_ignore"] == "true" or m["is_row_identifier"] == "true",
+                    label   = m["is_target"] == "true",
+                    encoder = encoder
+                )
 
         file_id = description['file_id']
         csv_url = f"http://www.openml.org/data/v1/get_csv/{file_id}"
@@ -484,51 +484,44 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         is_http  =      location.lower().startswith('http') and not is_cache
 
         if is_cache:
-            ExecutionContext.Logger.log('     * loaded from cache...')
+            source         = "cache"
             stream_manager = ExecutionContext.FileCache.get(cachename)
         elif is_disk:
-            ExecutionContext.Logger.log('     * loaded from disk...')
+            source         = "disk"
             stream_manager = open(location, 'rb')
         else:
-            ExecutionContext.Logger.log('     * loaded from http...')
+            source         = "http"
             http_request   = urllib.request.Request(location, headers={'Accept-encoding':'gzip'})
             stream_manager = urllib.request.urlopen(http_request)
 
         with stream_manager as raw_stream:
 
-            is_cache_gzip = False
-            is_disk_gzip  = is_disk and location.lower().endswith(".gz")
-            is_http_gzip  = is_http and cast(HTTPResponse, raw_stream).info().get('Content-Encoding') == "gzip"
-            is_gzip       = is_disk_gzip or is_http_gzip or is_cache_gzip
+            with ExecutionContext.Logger.log(f'loading csv from {source}... ', end=''):
+                is_cache_gzip = False
+                is_disk_gzip  = is_disk and location.lower().endswith(".gz")
+                is_http_gzip  = is_http and cast(HTTPResponse, raw_stream).info().get('Content-Encoding') == "gzip"
+                is_gzip       = is_disk_gzip or is_http_gzip or is_cache_gzip
 
-            if is_http and is_gzip:
-                raw_stream = ExecutionContext.FileCache.put(cachename+".gz", raw_stream)
+                if is_gzip: cachename += ".gz"
+                if is_http: raw_stream = ExecutionContext.FileCache.put(cachename+".gz", raw_stream)
 
-            if is_http and not is_gzip:
-                raw_stream = ExecutionContext.FileCache.put(cachename, raw_stream)
+                #When testing loading all bytes into memory at once was moderately faster on average.
+                #This does run the risk of causing problems though if the file is extremely large.
+                raw_bytes = gzip.decompress(raw_stream.read()) if is_gzip else raw_stream.read()
 
-            #When testing loading all bytes into memory at once was moderately faster on average.
-            #This does run the risk of causing problems though if the file is extremely large.
-            raw_bytes = gzip.decompress(raw_stream.read()) if is_gzip else raw_stream.read()
-
-        if md5_checksum is not None and md5_checksum != md5(raw_bytes).hexdigest():
-            warn(
-                "The dataset did not match the expected checksum. This could be the result of network "
-                "errors or the file becoming corrupted. Please consider downloading the file again and if "
-                "the error persists you may want to manually download and reference the file."
-            )
+                if md5_checksum is not None and md5_checksum != md5(raw_bytes).hexdigest():
+                    ExecutionContext.FileCache.rmv(cachename)
+                    raise Exception(
+                        "The dataset did not match the expected checksum. This could be the result of network "
+                        "errors or the file becoming corrupted. Please consider downloading the file again and if "
+                        "the error persists you may want to manually download and reference the file.")
 
         csv_rows = csv_reader(raw_bytes.decode('utf-8').split("\n"))
-        
+
         del raw_bytes
 
-        start = time.time()
-        simulation = ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
-        finish = time.time()
-
-        ExecutionContext.Logger.log(f"     * {round(finish-start,2)} seconds.")
-
-        return simulation 
+        with ExecutionContext.Logger.log('encoding csv in memory... ', end=''):
+            return ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
 
     @staticmethod
     def from_table(

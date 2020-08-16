@@ -6,14 +6,15 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 from coba.benchmarks import UniversalBenchmark
 from coba.analysis import Plots
+from coba.execution import ExecutionContext
 
 with open("./examples/data/short_bakeoff.json") as fs:
     json = fs.read()
 
-print(" - creating benchmark...")
+ExecutionContext.Logger.log("creating benchmark...")
 benchmark = UniversalBenchmark.from_json(json)
 
-print(" - creating learners...")
+ExecutionContext.Logger.log("creating learners...")
 learner_factories = [
     lambda: RandomLearner(),
     lambda: EpsilonLearner(0.025),
@@ -23,7 +24,7 @@ learner_factories = [
     lambda: VowpalLearner(softmax=1)
 ]
 
-print(" - evaluating learners...")    
-results = benchmark.evaluate(learner_factories)
+with ExecutionContext.Logger.log("evaluating learners..."):
+    results = benchmark.evaluate(learner_factories)
 
 Plots.standard_plot(results)

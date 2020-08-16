@@ -16,7 +16,7 @@ from statistics import median
 
 from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action
 from coba.learners import Learner
-from coba.execution import ExecutionContext
+from coba.execution import ExecutionContext, LoggedException
 from coba.statistics import SummaryStats
 
 _C = TypeVar('_C', bound=Context)
@@ -192,9 +192,9 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         for simulation_index, simulation in enumerate(self._simulations):
             try:
-
                 if isinstance(simulation, LazySimulation):
-                    simulation.load()
+                    with ExecutionContext.Logger.log(f"loading simulation {simulation_index}..."):
+                        simulation.load()
 
                 interaction_count    = len(simulation.interactions)
                 median_feature_count = cast(int,median([feature_count(i) for i in simulation.interactions]))
@@ -203,45 +203,52 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                 batch_sizes   = self._batch_sizes(len(simulation.interactions))
                 batch_indexes = [b for index,size in enumerate(batch_sizes) for b in repeat(index,size)]
 
-                for learner_index, learner_factory in enumerate(learner_factories):
+                with ExecutionContext.Logger.log(f"evaluating learners on simulation {simulation_index}..."):
 
-                    learner = learner_factory()
+                    for learner_index, learner_factory in enumerate(learner_factories):
 
-                    for batch_group in groupby(zip(batch_indexes,simulation.interactions), lambda t: t[0]):
-
-                        keys     = []
-                        contexts = []
-                        choices  = []
-                        actions  = []
-
-                        for _, i in batch_group[1]:
-
-                            choice = learner.choose(i.key, i.context, i.actions)
-
-                            keys    .append(i.key)
-                            contexts.append(i.context)
-                            choices .append(choice)
-                            actions .append(i.actions[choice])
-
-                        rewards = simulation.rewards(list(zip(keys, choices)))
-                        stats   = SummaryStats.from_observations(rewards)
+                        learner = learner_factory()
                         name    = self._safe_name(learner_index, learner) #type: ignore #pylance indicates an incorrect error here
 
-                        for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
-                            learner.learn(key,context,action,reward)
+                        with ExecutionContext.Logger.log(f"evaluating {name}..."):
+                        
+                            for batch_group in groupby(zip(batch_indexes,simulation.interactions), lambda t: t[0]):
 
-                        results.append(Result(
-                            name, 
-                            simulation_index, 
-                            batch_group[0], 
-                            interaction_count, 
-                            median_feature_count, 
-                            median_action_count,
-                            stats
-                        ))
+                                keys     = []
+                                contexts = []
+                                choices  = []
+                                actions  = []
+
+                                for _, i in batch_group[1]:
+
+                                    choice = learner.choose(i.key, i.context, i.actions)
+
+                                    keys    .append(i.key)
+                                    contexts.append(i.context)
+                                    choices .append(choice)
+                                    actions .append(i.actions[choice])
+
+                                rewards = simulation.rewards(list(zip(keys, choices)))
+                                stats   = SummaryStats.from_observations(rewards)
+
+                                for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
+                                    learner.learn(key,context,action,reward)
+
+                                results.append(Result(
+                                    name, 
+                                    simulation_index, 
+                                    batch_group[0], 
+                                    interaction_count, 
+                                    median_feature_count, 
+                                    median_action_count,
+                                    stats
+                                ))
+
+            except LoggedException as e:
+                pass #if we've already logged it no need to do it again
 
             except Exception as e:
-                ExecutionContext.Logger.log(f"     * {e}")
+                ExecutionContext.Logger.log(f"unhandled exception: {e}")
 
             if isinstance(simulation, LazySimulation):
                 simulation.unload()

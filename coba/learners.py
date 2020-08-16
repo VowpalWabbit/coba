@@ -505,9 +505,17 @@ class VowpalLearner(Learner[Context, Action]):
 
         pmf = self._vw_learner.predict(self._vw_predict_format(context, actions))
 
+        assert len(pmf) == len(actions), "An incorrect number of action probabilites was returned by VW."
+        assert abs(sum(pmf)-1) < .03   , "An invalid PMF for action probabilites was returned by VW."
+
+        #make sure the pmf sums to 1
+        #otherwise it might be possible for us to not pick any action
+        pmf[-1] += abs(sum(pmf)-1)
+
         cdf    = list(accumulate(pmf))
         rng    = coba.random.random()
-        choice = [ rng < c for c in cdf].index(True)
+
+        choice = [ rng <= c for c in cdf].index(True)
         action = actions[choice]
 
         self._prob[key] = pmf[choice]
