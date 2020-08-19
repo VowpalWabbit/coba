@@ -359,7 +359,6 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
             return ClassificationSimulation.from_openml(config["id"])
 
         if config["format"] == "csv":
-
             location    : str           = config["location"]
             md5_checksum: Optional[str] = None
 
@@ -385,7 +384,6 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
             )
 
         if config["format"] == "table":
-
             table: Iterable[Sequence[str]] = config["table"]
 
             if "has_header" in config:

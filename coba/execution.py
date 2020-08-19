@@ -271,13 +271,13 @@ class ExecutionContext:
             [4] https://docs.python.org/3/library/contextvars.html
     """
 
-    TemplatingEngine: TemplatingEngine = TemplatingEngine()
-    CobaConfig      : CobaConfig       = CobaConfig()
-    FileCache       : CacheInterface   = NoneCache()
-    Logger          : LoggerInterface  = ConsoleLogger()
+    TemplatingEngine: TemplatingEngine               = TemplatingEngine()
+    CobaConfig      : CobaConfig                     = CobaConfig()
+    FileCache       : CacheInterface[str, IO[bytes]] = NoneCache()
+    Logger          : LoggerInterface                = ConsoleLogger()
 
     if CobaConfig.file_cache["type"] == "disk":
         FileCache = DiskCache(CobaConfig.file_cache["directory"])
 
     if CobaConfig.file_cache["type"] == "memory":
-        FileCache  = MemoryCache()
+        FileCache = MemoryCache[str, IO[bytes]]()
