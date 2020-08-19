@@ -6,8 +6,9 @@ from typing import Tuple
 from coba.simulations import LambdaSimulation, LazySimulation
 from coba.learners import LambdaLearner
 from coba.benchmarks import UniversalBenchmark, Result
-from coba.statistics import SummaryStats
 from coba.execution import ExecutionContext, NoneLogger
+from coba.statistics import BatchMeanEstimator
+
 
 ExecutionContext.Logger = NoneLogger()
 
@@ -18,7 +19,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         expected_results = []
         key = lambda o: o[0:3]
         for group in groupby(sorted(expected_obs, key=key), key):
-            expected_results.append(Result(*group[0], *expected_sim_stats[group[0][1]], SummaryStats.from_observations([i[3] for i in group[1]])))
+            expected_results.append(Result(*group[0], *expected_sim_stats[group[0][1]], BatchMeanEstimator([i[3] for i in group[1]])))
 
         self.assertEqual(len(actual_results), len(expected_results))
 
@@ -26,7 +27,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             self.assertEqual(actual_result.learner_name, expected_result.learner_name)
             self.assertEqual(actual_result.simulation_index, expected_result.simulation_index)
             self.assertEqual(actual_result.batch_index, expected_result.batch_index)
-            self.assertEqual(actual_result.stats.mean, expected_result.stats.mean)
+            self.assertEqual(actual_result.stats.estimate, expected_result.stats.estimate)
 
     def test_from_json(self):
         json = """{

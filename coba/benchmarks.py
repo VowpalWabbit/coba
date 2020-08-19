@@ -17,7 +17,7 @@ from statistics import median
 from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action
 from coba.learners import Learner
 from coba.execution import ExecutionContext, LoggedException
-from coba.statistics import SummaryStats
+from coba.statistics import BatchMeanEstimator, StatisticalEstimate
 
 _C = TypeVar('_C', bound=Context)
 _A = TypeVar('_A', bound=Action)
@@ -31,7 +31,7 @@ class Result:
         interaction_count: int,
         median_feature_count: int,
         median_action_count: int,
-        stats: SummaryStats) -> None:
+        stats: StatisticalEstimate) -> None:
 
         self._learner_name         = learner_name
         self._simulation_index     = simulation_index
@@ -66,8 +66,12 @@ class Result:
         return self._median_action_count
 
     @property
-    def stats(self) -> SummaryStats:
+    def stats(self) -> StatisticalEstimate:
         return self._stats
+
+    #def to_tuples():
+
+    #def to_pandas():
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -229,7 +233,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                                     actions .append(i.actions[choice])
 
                                 rewards = simulation.rewards(list(zip(keys, choices)))
-                                stats   = SummaryStats.from_observations(rewards)
+                                stats   = BatchMeanEstimator(rewards)
 
                                 for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
                                     learner.learn(key,context,action,reward)

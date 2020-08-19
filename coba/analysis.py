@@ -4,7 +4,7 @@ from collections import defaultdict
 from itertools import groupby
 from typing import Sequence, Callable, Tuple, List, Dict
 
-from coba.statistics import SummaryStats
+from coba.statistics import StatisticalEstimate, Aggregators
 from coba.utilities import check_matplotlib_support
 from coba.benchmarks import Result
 
@@ -14,21 +14,21 @@ class Plots():
     def standard_plot(results: Sequence[Result]) -> None:
 
         def plot_stats(axes, label, stats):
-            x = [ i+1           for i in range(len(stats)) ]
-            y = [ i.mean        for i in stats             ]
-            l = [ i.mean-i.SEM  for i in stats             ]
-            u = [ i.mean+i.SEM  for i in stats             ]
+            x = [ i+1                          for i in range(len(stats)) ]
+            y = [ s.estimate                   for s in stats             ]
+            l = [ s.estimate-s.standard_error  for s in stats             ]
+            u = [ s.estimate+s.standard_error  for s in stats             ]
 
             axes.plot(x,y, label=label)
             axes.fill_between(x, l, u, alpha = 0.25)
 
-        learner_stats: Dict[str,List[SummaryStats]] = defaultdict(list)
+        learner_stats: Dict[str,List[StatisticalEstimate]] = defaultdict(list)
 
         group_key: Callable[[Result], Tuple[str,int]] = lambda r: (r.learner_name, r.batch_index)
         for batch_group in groupby(sorted(results, key=group_key), key=group_key):
             learner_name = batch_group[0][0]
             batch_stats  = [result.stats for result in  batch_group[1]]
-            learner_stats[learner_name].append(SummaryStats.blend(batch_stats))
+            learner_stats[learner_name].append(Aggregators.weighted_mean(batch_stats))
 
         check_matplotlib_support('Plots.standard_plot')
         import matplotlib.pyplot as plt #type: ignore
@@ -38,13 +38,15 @@ class Plots():
         ax1 = fig.add_subplot(1,2,1) #type: ignore
         ax2 = fig.add_subplot(1,2,2) #type: ignore
 
-        for learner_name, stats in learner_stats.items(): plot_stats(ax1, learner_name, stats)
+        for learner_name, stats in learner_stats.items():
+            plot_stats(ax1, learner_name, stats)
 
         ax1.set_title("Reward by Batch Index")
         ax1.set_ylabel("Mean Reward")
         ax1.set_xlabel("Batch Index")
 
-        for learner_name, stats in learner_stats.items(): plot_stats(ax2, learner_name, SummaryStats.blend_cumulative(stats))
+        for learner_name, stats in learner_stats.items(): 
+            plot_stats(ax2, learner_name, [ Aggregators.weighted_mean(stats[0:i+1]) for i in range(len(stats)) ])
 
         ax2.set_title("Progressive Validation Reward")
         ax2.set_xlabel("Batch Index")

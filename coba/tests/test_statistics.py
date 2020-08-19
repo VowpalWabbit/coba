@@ -3,50 +3,33 @@ import unittest
 from statistics import mean, variance, stdev
 from math import isnan, sqrt
 
-from coba.statistics import SummaryStats, OnlineVariance, OnlineMean
+from coba.statistics import BatchMeanEstimator, OnlineVariance, OnlineMean
 
 class Stats_Tests(unittest.TestCase):
 
     def _test_summary_stats_given_observations(self, actual_stats, observations):
         
-        expected_N        = len(observations)
-        expected_mean     = mean(observations)                          if len(observations) > 0 else float('nan')
-        expected_variance = variance(observations)                      if len(observations) > 1 else float('nan')
-        expected_SEM      = stdev(observations)/sqrt(len(observations)) if len(observations) > 1 else float('nan')
+        expected_N              = len(observations)
+        expected_estimate       = mean(observations)                          if len(observations) > 0 else float('nan')
+        expected_standard_error = stdev(observations)/sqrt(len(observations)) if len(observations) > 1 else float('nan')
 
         self.assertEqual(actual_stats.N, expected_N)
         
         if len(observations) > 0:
-            self.assertEqual(actual_stats.mean, expected_mean)
+            self.assertEqual(actual_stats.estimate, expected_estimate)
         else:
-            self.assertTrue(isnan(actual_stats.mean))
+            self.assertTrue(isnan(actual_stats.estimate))
 
         if len(observations) > 1:
-            self.assertEqual(actual_stats.variance, expected_variance)
-            self.assertEqual(actual_stats.SEM, expected_SEM)
+            self.assertEqual(actual_stats.standard_error, expected_standard_error)
         else:
-            self.assertTrue(isnan(actual_stats.variance))
-            self.assertTrue(isnan(actual_stats.SEM))
-
+            self.assertTrue(isnan(actual_stats.standard_error))
 
     def test_from_observations(self):
-
+        
         for observations in [[1,1,3,3], [1,1,1,1], [3], [] ]:
-            actual_stats = SummaryStats.from_observations(observations)
+            actual_stats = BatchMeanEstimator(observations)
             self._test_summary_stats_given_observations(actual_stats, observations)
-
-
-    def test_add_observations(self):
-
-        for observations in [[1,1,3,3], [1,1,1,1], [3], [] ]:
-
-            actual_stats = SummaryStats()
-
-            for observation in observations:
-                actual_stats.add_observations([observation])
-
-            self._test_summary_stats_given_observations(actual_stats, observations)
-
 
 class OnlineVariance_Tests(unittest.TestCase):
 
