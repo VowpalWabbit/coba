@@ -203,7 +203,7 @@ class UniversalLogger(LoggerInterface):
         self._is_newline  = True
         self._print       = print_function
         self._bullets     = collections.defaultdict(lambda: '~', enumerate(['','*','>','-','+','~'])) 
-        self._start_times = []
+        self._start_times = cast(List[float],[])
 
     @contextmanager
     def _with(self) -> Iterator[LoggerInterface]:
