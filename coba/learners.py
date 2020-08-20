@@ -447,15 +447,9 @@ class VowpalLearner(Learner[Context, Action]):
         self._name = f"VW({name_args},{name_mode})"
 
         if 'softmax' in kwargs:
-            kwargs['lambda']  = kwargs['softmax']
-            kwargs['softmax'] = ''
-
-        #if 'rnd' in kwargs:
-        #    kwargs['epsilon'      ] = kwargs.get('epsilon', 0.025)
-        #    kwargs['rnd_invlambda'] = kwargs.get('epsilon', 0.1)
-        #    kwargs['rnd_alpha'    ] = kwargs.get('epsilon', 0.1)
-
-        self._exploration  = " ".join(f"--{key} {value}" for key,value in kwargs.items())
+            self._exploration = f"--softmax --lambda {kwargs['softmax']}"
+        else:
+            self._exploration  = " ".join(f"--{key} {value}" for key,value in kwargs.items())
 
         self._vw_constructor                  = pyvw.vw
         self._actions      : Any              = None

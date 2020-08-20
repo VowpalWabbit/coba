@@ -3,7 +3,7 @@
 def check_matplotlib_support(caller_name: str) -> None:
     """Raise ImportError with detailed error message if matplotlib is not installed.
 
-    Functionality requiring the matplotlib module should call this helper and then lazily import.
+    Functionality requiring matplotlib should call this helper and then lazily import.
 
     Args:    
         caller_name: The name of the caller that requires matplotlib.
@@ -23,7 +23,7 @@ def check_matplotlib_support(caller_name: str) -> None:
 def check_vowpal_support(caller_name: str) -> None:
     """Raise ImportError with detailed error message if vowpalwabbit is not installed.
 
-    Functionality requiring the vowpalwabbit module should call this helper and then lazily import.
+    Functionality requiring the vowpalwabbit should call this helper and then lazily import.
 
     Args:    
         caller_name: The name of the caller that requires matplotlib.
@@ -37,4 +37,23 @@ def check_vowpal_support(caller_name: str) -> None:
         raise ImportError(
             caller_name + " requires vowpalwabbit. You can "
             "install vowpalwabbit with `pip install vowpalwabbit`."
+        ) from e
+
+def check_pandas_support(caller_name: str) -> None:
+    """Raise ImportError with detailed error message if pandas is not installed.
+
+    Functionality requiring the pandas should call this helper and then lazily import.
+
+    Args:
+        caller_name: The name of the caller that requires pandas.
+
+    Remarks:
+        This pattern was inspired by sklearn (see coba.utilities.check_matplotlib_support for more information).
+    """
+    try:
+        import pandas # type: ignore
+    except ImportError as e:
+        raise ImportError(
+            caller_name + " requires pandas. You can "
+            "install pandas with `pip install pandas`."
         ) from e

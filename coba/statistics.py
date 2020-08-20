@@ -1,6 +1,6 @@
 """The statistics module contains algorithms and methods to calculate statistics.
 
-TODO Add unittests to make sure weighted_mean works correctly
+TODO Add unittests to make sure Aggregators works correctly
 """
 
 import math
@@ -99,7 +99,21 @@ class BatchMeanEstimator(StatisticalEstimate):
 
         super().__init__(N, estimate, standard_error)
 
-class Aggregators:
+    def __eq__(self, other) -> bool:
+
+        def nan_or_equal(val1,val2):
+            return (val1==val2) or (math.isnan(val1) and math.isnan(val2))
+
+        if isinstance(other, BatchMeanEstimator):
+            is_equal_N              = nan_or_equal(other.N, self.N)
+            is_equal_estimate       = nan_or_equal(other.estimate, self.estimate)
+            is_equal_standard_error = nan_or_equal(other.standard_error, self.standard_error)
+            
+            return is_equal_N and is_equal_estimate and is_equal_standard_error
+
+        return False
+
+class Aggregator:
     """Methods of aggregating statistics across simulations.
     
     Remarks:

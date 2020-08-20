@@ -3,86 +3,98 @@
 This module contains the abstract interface expected for Benchmark implementations. This 
 module also contains several Benchmark implementations and Result data transfer class.
 
-TODO Finish adding docstrings to Result
+TODO Add docstrings to Result
+TODO Write unit tests for Result
 """
 
 import json
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Union, Sequence, List, Callable, Generic, TypeVar, Dict, Any, overload, cast
+from typing import Tuple, Hashable, Union, Sequence, List, Callable, Generic, TypeVar, Dict, Any, overload, cast, NamedTuple
 from itertools import count, repeat, groupby
 from statistics import median
 
 from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action
 from coba.learners import Learner
 from coba.execution import ExecutionContext, LoggedException
-from coba.statistics import BatchMeanEstimator, StatisticalEstimate
+from coba.statistics import BatchMeanEstimator
 
 _C = TypeVar('_C', bound=Context)
 _A = TypeVar('_A', bound=Action)
+_K = TypeVar("_K", bound=Hashable)
+
+class Metadata(Generic[_K]):
+    def __init__(self):
+        self._columns: List[str]               = []
+        self._data   : Dict[_K, Dict[str,Any]] = {}
+
+    def add_data(self, key: _K, **kwargs) -> None:
+        new_columns = [col for col in kwargs if col not in self._columns]
+
+        if new_columns:
+            self._columns.extend(new_columns)
+            for data in self._data.values():
+                data.update(zip(new_columns, repeat(float('nan'))))
+
+        self._data[key] = collections.OrderedDict({key:kwargs.get(key,float('nan')) for key in self._columns})
+
+    def to_tuples(self) -> Sequence[Any]:
+        my_type = collections.namedtuple('_T', self._columns)
+        return [ my_type(**value) for value in self._data.values()]
+
+    def to_indexed_tuples(self) -> Dict[_K, Any]:
+        my_type = collections.namedtuple('_T', self._columns)
+        return { key:my_type(**value) for key,value in self._data.items() }
 
 class Result:
 
-    def __init__(self,
-        learner_name:str,
-        simulation_index:int,
-        batch_index: int,
-        interaction_count: int,
-        median_feature_count: int,
-        median_action_count: int,
-        stats: StatisticalEstimate) -> None:
+    def __init__(self) -> None:
+        self._simulation_metadata  = Metadata[int]()
+        self._learner_metadata     = Metadata[int]()
+        self._performance_metadata = Metadata[Tuple[int,int,int]]()
 
-        self._learner_name         = learner_name
-        self._simulation_index     = simulation_index
-        self._batch_index          = batch_index
-        self._median_feature_count = median_feature_count
-        self._median_action_count  = median_action_count
-        self._interaction_count    = interaction_count
-        self._stats                = stats
+    def add_simulation_metadata(self, simulation_id: int, **kwargs):
+        kwargs = collections.OrderedDict(kwargs)
+        kwargs["simulation_id"] = simulation_id
+        kwargs.move_to_end("simulation_id",last=False)
+        self._simulation_metadata.add_data(simulation_id, **kwargs)
 
-    @property
-    def learner_name(self) -> str:
-        return self._learner_name
+    def add_learner_metadata(self, learner_id:int, **kwargs):
+        kwargs = collections.OrderedDict(kwargs)
+        kwargs["learner_id"] = learner_id
+        kwargs.move_to_end("learner_id",last=False)
 
-    @property
-    def simulation_index(self) -> int:
-        return self._simulation_index
+        self._learner_metadata.add_data(learner_id, **kwargs)
 
-    @property
-    def batch_index(self) -> int:
-        return self._batch_index
+    def add_performance_metadata(self, learner_id:int, simulation_id:int, batch_id:int, **kwargs):
+        kwargs = collections.OrderedDict(kwargs)
+        kwargs["learner_id"]    = learner_id
+        kwargs["simulation_id"] = simulation_id
+        kwargs["batch_id"]      = batch_id
+        kwargs.move_to_end("batch_id", last=False)
+        kwargs.move_to_end("simulation_id", last=False)
+        kwargs.move_to_end("learner_id", last=False)
 
-    @property
-    def interaction_count(self) -> int:
-        return self._interaction_count
+        self._performance_metadata.add_data((simulation_id,learner_id,batch_id), **kwargs)
 
-    @property
-    def median_feature_count(self) -> int:
-        return self._median_feature_count
+    def to_tuples(self) -> Tuple[Sequence[Any], Sequence[Any], Sequence[Any]]:
 
-    @property
-    def median_action_count(self) -> int:
-        return self._median_action_count
+        return (
+            self._learner_metadata.to_tuples(),
+            self._simulation_metadata.to_tuples(),
+            self._performance_metadata.to_tuples()
+        )
 
-    @property
-    def stats(self) -> StatisticalEstimate:
-        return self._stats
+    def to_indexed_tuples(self) -> Tuple[Dict[int,Any], Dict[int,Any], Dict[Tuple[int,int,int],Any]]:
 
-    #def to_tuples():
+        return (
+            self._learner_metadata.to_indexed_tuples(),
+            self._simulation_metadata.to_indexed_tuples(),
+            self._performance_metadata.to_indexed_tuples()
+        )
 
     #def to_pandas():
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "learner_name"        : self._learner_name,
-            "simulation_index"    : self._simulation_index,
-            "batch_index"         : self._batch_index,
-            "interaction_count"   : self._interaction_count,
-            "median_feature_count": self._median_feature_count,
-            "median_action_count" : self._median_action_count,
-            "stats"               : self._stats
-        }
 
 class Benchmark(Generic[_C,_A], ABC):
     """The interface for Benchmark implementations."""
@@ -176,7 +188,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         self._batch_count = batch_count
         self._batch_size  = batch_size
 
-    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]]) -> Sequence[Result]:
+    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]]) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
@@ -192,7 +204,12 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         def action_count(i: Interaction) -> int:
             return len(i.actions)
 
-        results: List[Result] = []
+        result = Result()
+
+        for learner_index, learner in enumerate(f() for f in learner_factories):
+            result.add_learner_metadata(learner_index, 
+                name=self._safe_name(learner) #type: ignore #pylance incorrectly flags this as wrong
+            )
 
         for simulation_index, simulation in enumerate(self._simulations):
             try:
@@ -200,53 +217,48 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                     with ExecutionContext.Logger.log(f"loading simulation {simulation_index}..."):
                         simulation.load()
 
-                interaction_count    = len(simulation.interactions)
-                median_feature_count = cast(int,median([feature_count(i) for i in simulation.interactions]))
-                median_action_count  = cast(int,median([action_count(i) for i in simulation.interactions]))
-
                 batch_sizes   = self._batch_sizes(len(simulation.interactions))
                 batch_indexes = [b for index,size in enumerate(batch_sizes) for b in repeat(index,size)]
+
+                result.add_simulation_metadata(simulation_index, 
+                    interaction_count = sum(batch_sizes), 
+                    feature_count     = median([feature_count(i) for i in simulation.interactions]),
+                    action_count      = median([action_count(i) for i in simulation.interactions])
+                )
 
                 with ExecutionContext.Logger.log(f"evaluating learners on simulation {simulation_index}..."):
 
                     for learner_index, learner_factory in enumerate(learner_factories):
 
                         learner = learner_factory()
-                        name    = self._safe_name(learner_index, learner) #type: ignore #pylance indicates an incorrect error here
+                        name    = self._safe_name(learner) #type: ignore #pylance indicates an incorrect error here
 
                         with ExecutionContext.Logger.log(f"evaluating {name}..."):
-                        
-                            for batch_group in groupby(zip(batch_indexes,simulation.interactions), lambda t: t[0]):
+
+                            for batch in groupby(zip(batch_indexes,simulation.interactions), lambda t: t[0]):
+
+                                batch_index = batch[0]
 
                                 keys     = []
                                 contexts = []
                                 choices  = []
                                 actions  = []
 
-                                for _, i in batch_group[1]:
+                                for _, interaction in batch[1]:
 
-                                    choice = learner.choose(i.key, i.context, i.actions)
+                                    choice = learner.choose(interaction.key, interaction.context, interaction.actions)
 
-                                    keys    .append(i.key)
-                                    contexts.append(i.context)
+                                    keys    .append(interaction.key)
+                                    contexts.append(interaction.context)
                                     choices .append(choice)
-                                    actions .append(i.actions[choice])
+                                    actions .append(interaction.actions[choice])
 
-                                rewards = simulation.rewards(list(zip(keys, choices)))
-                                stats   = BatchMeanEstimator(rewards)
+                                rewards = simulation.rewards(list(zip(keys, choices))) 
 
                                 for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
                                     learner.learn(key,context,action,reward)
 
-                                results.append(Result(
-                                    name, 
-                                    simulation_index, 
-                                    batch_group[0], 
-                                    interaction_count, 
-                                    median_feature_count, 
-                                    median_action_count,
-                                    stats
-                                ))
+                                result.add_performance_metadata(learner_index, simulation_index, batch_index, mean_reward=BatchMeanEstimator(rewards))
 
             except LoggedException as e:
                 pass #if we've already logged it no need to do it again
@@ -257,13 +269,13 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             if isinstance(simulation, LazySimulation):
                 simulation.unload()
 
-        return results
+        return result
     
-    def _safe_name(self, learner_index:int, learner: Learner[_C,_A]) -> str:
+    def _safe_name(self, learner: Learner[_C,_A]) -> str:
         try:
             return learner.name
         except:
-            return str(learner_index)
+            return learner.__class__.__name__
 
     def _batch_sizes(self, n_interactions: int) -> Sequence[int]:
 
