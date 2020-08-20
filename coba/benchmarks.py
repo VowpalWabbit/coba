@@ -40,12 +40,11 @@ class Metadata(Generic[_K]):
         self._data[key] = collections.OrderedDict({key:kwargs.get(key,float('nan')) for key in self._columns})
 
     def to_tuples(self) -> Sequence[Any]:
-        my_type = collections.namedtuple('_T', self._columns)
-        return [ my_type(**value) for value in self._data.values()]
+        return list(self.to_indexed_tuples().values())
 
     def to_indexed_tuples(self) -> Dict[_K, Any]:
-        my_type = collections.namedtuple('_T', self._columns)
-        return { key:my_type(**value) for key,value in self._data.items() }
+        my_type = collections.namedtuple('_T', self._columns) #type: ignore #mypy doesn't like dynamic named tuples
+        return { key:my_type(**value) for key,value in self._data.items() } #type: ignore #mypy doesn't like dynamic named tuples
 
 class Result:
 
@@ -100,7 +99,7 @@ class Benchmark(Generic[_C,_A], ABC):
     """The interface for Benchmark implementations."""
 
     @abstractmethod
-    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]]) -> Sequence[Result]:
+    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]]) -> Result:
         """Calculate the performance for a provided bandit Learner.
 
         Args:
