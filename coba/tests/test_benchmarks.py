@@ -36,7 +36,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners     = [(0,"0")]
         expected_simulations  = [(0, 5, 1, 3)]
-        expected_performances = [ (0, 0, 0, BatchMeanEstimator([0,1,2,0,1]))]
+        expected_performances = [ (0, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -52,7 +52,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners     = [(0,"0")]
         expected_simulations  = [(0, 5, 1, 3)]
-        expected_performances = [ (0, 0, 0, BatchMeanEstimator([0,1,2])), (0, 0, 1, BatchMeanEstimator([0,1]))]
+        expected_performances = [ (0, 0, 0, 3, BatchMeanEstimator([0,1,2])), (0, 0, 1, 2, BatchMeanEstimator([0,1]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -68,7 +68,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners     = [(0,"0")]
         expected_simulations  = [(0, 4, 1, 3)]
-        expected_performances = [ (0, 0, 0, BatchMeanEstimator([0,1])), (0, 0, 1, BatchMeanEstimator([2,0]))]
+        expected_performances = [ (0, 0, 0, 2, BatchMeanEstimator([0,1])), (0, 0, 1, 2, BatchMeanEstimator([2,0]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -85,10 +85,10 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         expected_learners     = [(0,"0")]
         expected_simulations  = [(0, 8, 1, 3)]
         expected_performances = [
-            (0, 0, 0, BatchMeanEstimator([0])), 
-            (0, 0, 1, BatchMeanEstimator([1,2])),
-            (0, 0, 2, BatchMeanEstimator([0,1,2,0])),
-            (0, 0, 3, BatchMeanEstimator([1]))
+            (0, 0, 0, 1, BatchMeanEstimator([0])), 
+            (0, 0, 1, 2, BatchMeanEstimator([1,2])),
+            (0, 0, 2, 4, BatchMeanEstimator([0,1,2,0])),
+            (0, 0, 3, 1, BatchMeanEstimator([1]))
         ]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
@@ -106,7 +106,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners     = [(0,"0")]
         expected_simulations  = [(0, 5, 2, 3), (1, 4, 2, 3)]
-        expected_performances = [(0, 0, 0, BatchMeanEstimator([0,1,2,0,1])), (0, 1, 0, BatchMeanEstimator([3,4,5,3]))]
+        expected_performances = [(0, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1])), (0, 1, 0, 4, BatchMeanEstimator([3,4,5,3]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -123,7 +123,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners     = [(0,"0")]
         expected_simulations  = [(0, 6, 1, 3)]
-        expected_performances = [(0, 0, 0, BatchMeanEstimator([0,1,2,0])), (0, 0, 1, BatchMeanEstimator([1,2]))]
+        expected_performances = [(0, 0, 0, 4, BatchMeanEstimator([0,1,2,0])), (0, 0, 1, 2, BatchMeanEstimator([1,2]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -141,7 +141,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners     = [(0,"0"), (1,"1")]
         expected_simulations  = [(0, 5, 1, 3)]
-        expected_performances = [(0, 0, 0, BatchMeanEstimator([0,1,2,0,1])), (1, 0, 0, BatchMeanEstimator([0,1,2,0,1]))]
+        expected_performances = [(0, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1])), (1, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)

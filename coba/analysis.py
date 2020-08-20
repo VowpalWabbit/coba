@@ -2,9 +2,9 @@
 
 from collections import defaultdict
 from itertools import groupby
-from typing import Callable, Tuple, List, Dict, Any, Hashable
+from typing import List, Dict, Sequence, Tuple
 
-from coba.statistics import StatisticalEstimate, Aggregator
+from coba.statistics import StatisticalEstimate
 from coba.utilities import check_matplotlib_support
 from coba.benchmarks import Result
 
@@ -13,27 +13,37 @@ class Plots():
     @staticmethod
     def standard_plot(result: Result) -> None:
 
-        def plot_stats(axes, label, stats):
-            x = [ i+1                          for i in range(len(stats)) ]
-            y = [ s.estimate                   for s in stats             ]
-            l = [ s.estimate-s.standard_error  for s in stats             ]
-            u = [ s.estimate+s.standard_error  for s in stats             ]
+        def plot(axes, label, estimates):
+            x = [ i+1                          for i in range(len(estimates)) ]
+            y = [ e.estimate                   for e in estimates             ]
+            l = [ e.estimate-e.standard_error  for e in estimates             ]
+            u = [ e.estimate+e.standard_error  for e in estimates             ]
 
             axes.plot(x,y, label=label)
             axes.fill_between(x, l, u, alpha = 0.25)
+
+        def mean(weights: Sequence[float], means:Sequence[StatisticalEstimate]) -> StatisticalEstimate:
+            weighted_sum = sum([w*m for w,m in zip(weights,means)])
+            
+            if isinstance(weighted_sum, StatisticalEstimate):
+                return weighted_sum/sum(weights)
+            else:
+                return StatisticalEstimate(float('nan'), float('nan'))
 
         learners, _, performances = result.to_indexed_tuples()
 
         sorted_performances  = sorted(performances.values(), key=lambda r: (r.learner_id, r.batch_id))
         grouped_performances = groupby(sorted_performances, key=lambda r: (r.learner_id, r.batch_id))
 
-        learner_stats: Dict[str,List[StatisticalEstimate]] = defaultdict(list)
+        estimates: Dict[str,Tuple[List[float],List[StatisticalEstimate]]] = defaultdict(lambda: ([],[]))
 
         for batch_group in grouped_performances:
-            learner_name = learners[batch_group[0][0]].name
-            mean_rewards = [performance.mean_reward for performance in batch_group[1]]
-            mean_reward  = Aggregator.weighted_mean(mean_rewards)
-            learner_stats[learner_name].append(mean_reward)
+            name    = learners[batch_group[0][0]].name
+            group   = list(batch_group[1])
+            weights = [perf.N           for perf in group]
+            means   = [perf.mean_reward for perf in group]            
+            estimates[name][0].append(sum(weights))
+            estimates[name][1].append(mean(weights, means))
 
         check_matplotlib_support('Plots.standard_plot')
         import matplotlib.pyplot as plt #type: ignore
@@ -43,15 +53,15 @@ class Plots():
         ax1 = fig.add_subplot(1,2,1) #type: ignore
         ax2 = fig.add_subplot(1,2,2) #type: ignore
 
-        for learner_name, stats in learner_stats.items():
-            plot_stats(ax1, learner_name, stats)
+        for name, (weights, means) in estimates.items():
+            plot(ax1, name, means)
 
         ax1.set_title("Reward by Batch Index")
         ax1.set_ylabel("Mean Reward")
         ax1.set_xlabel("Batch Index")
 
-        for learner_name, stats in learner_stats.items(): 
-            plot_stats(ax2, learner_name, [ Aggregator.weighted_mean(stats[0:i+1]) for i in range(len(stats)) ])
+        for name, (weights, means) in estimates.items(): 
+            plot(ax2, name, [ mean(weights[0:i+1], means[0:i+1]) for i in range(len(means)) ])
 
         ax2.set_title("Progressive Validation Reward")
         ax2.set_xlabel("Batch Index")

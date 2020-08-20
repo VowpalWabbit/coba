@@ -258,7 +258,13 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                                 for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
                                     learner.learn(key,context,action,reward)
 
-                                result.add_performance_metadata(learner_index, simulation_index, batch_index, mean_reward=BatchMeanEstimator(rewards))
+                                result.add_performance_metadata(
+                                    learner_index,
+                                    simulation_index,
+                                    batch_index,
+                                    N           = len(rewards),
+                                    mean_reward = BatchMeanEstimator(rewards)
+                                )
 
             except LoggedException as e:
                 pass #if we've already logged it no need to do it again

@@ -1,11 +1,10 @@
 """The statistics module contains algorithms and methods to calculate statistics.
 
-TODO Add unittests to make sure Aggregators works correctly
+TODO Add unit tests to make sure StatisticalEstimate algebra works correctly
 """
 
-import math
-
-from typing import Sequence, Iterable
+from math import isnan, sqrt
+from typing import Sequence
 from statistics import mean, variance
 
 class OnlineVariance():
@@ -72,15 +71,25 @@ class OnlineMean():
         self._mean = value if alpha == 1 else (1 - alpha) * self._mean + alpha * value
 
 class StatisticalEstimate:
+    """An estimate of some statistic of interst along with useful additional statistics of that estimate.
 
-    def __init__(self, N:int, estimate:float, standard_error: float) -> None:
-        self._N              = N
+    Remarks:
+        In theory, if every StatisticalEstimate kept their entire sample then we could estimate values
+        empirically by mixing all samples into a single big pot and then recalculating mean, and SEM.
+        Unfortunately, this approach while simple has two drawbacks. First, COBA benchmarks would have 
+        memory memory complexity of O(n) where n is the number of interactions in the benchmark. Second, 
+        COBA would also have a computation complexity of O(n) everytime benchmark results are agreggated
+        since aggregation would require reiterating over all interaction rewards. There are downsides to not
+        taking the simple approach but the reduction in memory and compute complexity seems to be worth it. 
+
+        One notable downside of not taking the simple approach is that stats with N == 1 can be problematic since 
+        we won't have an estimate of their standard error. Below we handle this by using any standard error that is
+        available to us as a stand-in (see __add__). Ideally we won't be dealing with estimates from samples of N==1.
+    """
+
+    def __init__(self, estimate:float, standard_error: float) -> None:
         self._estimate       = estimate
         self._standard_error = standard_error
-
-    @property
-    def N(self) -> int:
-        return self._N
 
     @property
     def estimate(self) -> float:
@@ -90,98 +99,69 @@ class StatisticalEstimate:
     def standard_error(self) -> float:
         return self._standard_error
 
+    def __truediv__(self,other) -> 'StatisticalEstimate':
+        if isinstance(other, (int,float)):
+            return self * (1/other)
+
+        if isinstance(other, StatisticalEstimate):
+            raise Exception("We do not currently support division by StatisticalEstimate.")
+
+        raise Exception(f"Unable to divide StatisticalEstimate and {type(other).__name__}")
+
+    def __rtruediv__(self,other) -> 'StatisticalEstimate':
+        return self/other
+
+    def __mul__(self, other) -> 'StatisticalEstimate':
+        if isinstance(other, (int,float)):
+            return StatisticalEstimate(other*self.estimate, other*self.standard_error)
+        
+        if isinstance(other, StatisticalEstimate):
+            raise Exception("We do not currently support multiplication by StatisticalEstimate.")
+
+        raise Exception(f"Unable to multiply StatisticalEstimate and {type(other).__name__}")
+
+    def __rmul__(self, other) -> 'StatisticalEstimate':
+        return self * other
+
+    def __add__(self, other) -> 'StatisticalEstimate':
+        if isinstance(other, (int,float)):
+            return StatisticalEstimate(other+self.estimate, self.standard_error)
+
+        if isinstance(other, StatisticalEstimate):
+            if isnan(self.standard_error):
+                #since we don't know our own SE use other as a best guess...
+                standard_error = sqrt(other.standard_error**2 + other.standard_error**2)
+            elif isnan(other.standard_error):
+                #since we don't know other's SE use our own as a best guess...
+                standard_error = sqrt(self.standard_error**2 + self.standard_error**2)
+            else:
+                standard_error = sqrt(self.standard_error**2+other.standard_error**2)
+
+            return StatisticalEstimate(self.estimate+other.estimate, standard_error)
+
+        raise Exception(f"Unable to add StatisticalEstimate and {type(other).__name__}")
+
+    def __radd__(self, other) -> 'StatisticalEstimate':
+        return self + other
+
 class BatchMeanEstimator(StatisticalEstimate):
+    """Estimate the population mean from a batch of i.i.d. observations"""
 
     def __init__(self, sample: Sequence[float]) -> None:
-        N              = len(sample)
         estimate       = mean(sample) if len(sample) > 0 else float('nan')
-        standard_error = math.sqrt(variance(sample)/len(sample)) if len(sample) > 1 else float('nan')
+        standard_error = sqrt(variance(sample)/len(sample)) if len(sample) > 1 else float('nan')
 
-        super().__init__(N, estimate, standard_error)
+        super().__init__(estimate, standard_error)
 
     def __eq__(self, other) -> bool:
 
         def nan_or_equal(val1,val2):
-            return (val1==val2) or (math.isnan(val1) and math.isnan(val2))
+            return (val1==val2) or (isnan(val1) and isnan(val2))
 
         if isinstance(other, BatchMeanEstimator):
-            is_equal_N              = nan_or_equal(other.N, self.N)
             is_equal_estimate       = nan_or_equal(other.estimate, self.estimate)
             is_equal_standard_error = nan_or_equal(other.standard_error, self.standard_error)
             
-            return is_equal_N and is_equal_estimate and is_equal_standard_error
+            return is_equal_estimate and is_equal_standard_error
 
         return False
-
-class Aggregator:
-    """Methods of aggregating statistics across simulations.
-    
-    Remarks:
-        In theory, if every StatisticalEstimate kept their entire sample then we could estimate values
-        empirically by mixing all samples into a single big pot and then recalculating mean, and SEM.
-        Unfortunately, this approach while simple has two drawbacks. First, if a benchmark has many simulations
-        with many interactions this means that our package will always be memory constrained to O(n) where n is
-        the number of interactions in the benchmark. Second, our computation complexity would also be O(n) to
-        since blending simulation statistics would require relooping over all samples again. There are downsides to
-        not taking the simple approach but the reduction in memory and computational complexity seem to be worth it. 
-
-        One downside of not taking the simple approach is that stats with N == 1 can become problematic since we don't 
-        have an estimate of their standard error. Therefore we adjust for this below by dividing the standard error by 
-        (N - int(N==1)). This adjustment means that standard error can become biased but hopefully not by too much.
-    """
-    
-    @staticmethod
-    def unweighted_mean(stats: Iterable[StatisticalEstimate]) -> StatisticalEstimate:
-        """Calculate the unweighted mean and standard error from a collection of statistical estimates.
-
-        Args:
-            stats: Previously calculated statistical estimates that we wish to average.
-        
-        WARNING:
-            This was not done in an incredibly rigorous fashion. There are likely better means of estimating.
-        """
-
-        total_sum = 0.
-        total_var = 0.
-        total_N   = 0
-        total_no_se = 0 
-
-        for stat in stats:
-            total_N     += stat.N
-            total_sum   += stat.estimate * stat.N if not math.isnan(stat.estimate) else 0
-            total_var   += (stat.standard_error**2)*(stat.N**2) if not math.isnan(stat.standard_error) else 0
-            total_no_se += int(math.isnan(stat.standard_error))
-
-        N              = total_N
-        mean           = total_sum/total_N
-        standard_error = math.sqrt(total_var)/(total_N-total_no_se) if total_N-total_no_se > 0 else float('nan')
-
-        return StatisticalEstimate(N, mean, standard_error)
-
-    @staticmethod
-    def weighted_mean(stats: Iterable[StatisticalEstimate]) -> StatisticalEstimate:
-            """Calculate the mean statistic and stnadard error from a collection of statistical estimates.
-
-            Args:
-                stats: Previously calculated statistical estimates that we wish to average.
-            
-            WARNING:
-                This was not done in an incredibly rigorous fashion. There are likely better means of estimating.
-            """
-
-            total_sum = 0.
-            total_var = 0.
-            total_N   = 0
-            total_no_se = 0 
-
-            for stat in stats:
-                total_N     += stat.N
-                total_sum   += stat.estimate * stat.N if not math.isnan(stat.estimate) else 0
-                total_var   += (stat.standard_error**2)*(stat.N**2) if not math.isnan(stat.standard_error) else 0
-                total_no_se += int(math.isnan(stat.standard_error))
-
-            N              = total_N
-            mean           = total_sum/total_N
-            standard_error = math.sqrt(total_var)/(total_N-total_no_se) if total_N-total_no_se > 0 else float('nan')
-
-            return StatisticalEstimate(N, mean, standard_error)
