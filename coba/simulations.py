@@ -10,7 +10,6 @@ TODO Add RegressionSimulation
 """
 
 import gc
-import time
 import csv
 import json
 import urllib.request
@@ -19,7 +18,6 @@ import gzip
 from collections import defaultdict
 from itertools import compress, repeat, count, chain
 from http.client import HTTPResponse
-from warnings import warn
 from contextlib import closing
 from abc import ABC, abstractmethod
 from hashlib import md5
@@ -30,7 +28,7 @@ from typing import (
 
 from coba import random as cb_random
 from coba.preprocessing import FactorEncoder, Metadata, OneHotEncoder, NumericEncoder, Encoder
-from coba.execution import ExecutionContext, LoggedException
+from coba.execution import ExecutionContext
 
 Context = Optional[Hashable]
 Action  = Hashable

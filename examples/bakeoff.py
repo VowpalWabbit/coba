@@ -25,6 +25,6 @@ learner_factories = [
 ]
 
 with ExecutionContext.Logger.log("evaluating learners..."):
-    results = benchmark.evaluate(learner_factories)
+    result = benchmark.evaluate(learner_factories)
 
-Plots.standard_plot(results)
+Plots.standard_plot(result)

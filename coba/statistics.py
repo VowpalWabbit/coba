@@ -4,7 +4,7 @@ TODO Add unit tests to make sure StatisticalEstimate algebra works correctly
 """
 
 from math import isnan, sqrt
-from typing import Sequence
+from typing import Sequence, Union
 from statistics import mean, variance
 
 class OnlineVariance():
@@ -94,34 +94,13 @@ class StatisticalEstimate:
     @property
     def estimate(self) -> float:
         return self._estimate
-    
+
     @property
     def standard_error(self) -> float:
         return self._standard_error
 
-    def __truediv__(self,other) -> 'StatisticalEstimate':
-        if isinstance(other, (int,float)):
-            return self * (1/other)
-
-        if isinstance(other, StatisticalEstimate):
-            raise Exception("We do not currently support division by StatisticalEstimate.")
-
-        raise Exception(f"Unable to divide StatisticalEstimate and {type(other).__name__}")
-
-    def __rtruediv__(self,other) -> 'StatisticalEstimate':
-        return self/other
-
-    def __mul__(self, other) -> 'StatisticalEstimate':
-        if isinstance(other, (int,float)):
-            return StatisticalEstimate(other*self.estimate, other*self.standard_error)
-        
-        if isinstance(other, StatisticalEstimate):
-            raise Exception("We do not currently support multiplication by StatisticalEstimate.")
-
-        raise Exception(f"Unable to multiply StatisticalEstimate and {type(other).__name__}")
-
-    def __rmul__(self, other) -> 'StatisticalEstimate':
-        return self * other
+    def __hash__(self) -> int:
+        return hash((self._estimate, self._standard_error))
 
     def __add__(self, other) -> 'StatisticalEstimate':
         if isinstance(other, (int,float)):
@@ -144,6 +123,39 @@ class StatisticalEstimate:
     def __radd__(self, other) -> 'StatisticalEstimate':
         return self + other
 
+    def __sub__(self, other) -> 'StatisticalEstimate':
+        return self + (-other)
+
+    def __rsub__(self, other) -> 'StatisticalEstimate':
+        return (-self) + other
+
+    def __mul__(self, other) -> 'StatisticalEstimate':
+        if isinstance(other, (int,float)):
+            return StatisticalEstimate(other*self.estimate, other*self.standard_error)
+        
+        if isinstance(other, StatisticalEstimate):
+            raise Exception("We do not currently support multiplication by StatisticalEstimate.")
+
+        raise Exception(f"Unable to multiply StatisticalEstimate and {type(other).__name__}")
+
+    def __rmul__(self, other) -> 'StatisticalEstimate':
+        return self * other
+
+    def __truediv__(self,other) -> 'StatisticalEstimate':
+        if isinstance(other, (int,float)):
+            return self * (1/other)
+
+        if isinstance(other, StatisticalEstimate):
+            raise Exception("We do not currently support division by StatisticalEstimate.")
+
+        raise Exception(f"Unable to divide StatisticalEstimate and {type(other).__name__}")
+
+    def __rtruediv__(self,other) -> 'StatisticalEstimate':
+        return self/other
+
+    def __neg__(self) -> 'StatisticalEstimate':
+        return -1 * self
+
 class BatchMeanEstimator(StatisticalEstimate):
     """Estimate the population mean from a batch of i.i.d. observations"""
 
@@ -165,3 +177,9 @@ class BatchMeanEstimator(StatisticalEstimate):
             return is_equal_estimate and is_equal_standard_error
 
         return False
+
+def coba_mean(values:Sequence[Union[StatisticalEstimate,float]]) -> Union[StatisticalEstimate,float]:
+    return sum(values) / len(values)
+
+def coba_weighted_mean(weights:Sequence[float], values:Sequence[Union[StatisticalEstimate,float]]) -> Union[StatisticalEstimate,float]:
+    return sum([weight * value for weight,value in zip(weights,values) ]) / sum(weights)
