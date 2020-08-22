@@ -54,6 +54,18 @@ class Table_Tests(unittest.TestCase):
 
         self.assertSequenceEqual(actual_transactions,expected_transactions)
 
+    def test_table_contains(self):
+        table = Table(0)
+        table.add_row(0, a='A')
+        table.add_row((0,1,2), b='B')
+        table.add_row('a', c='C')
+
+        self.assertTrue(0 in table)
+        self.assertTrue((0,1,2) in table)
+        self.assertTrue('a' in table)
+        self.assertFalse('b' in table)
+        
+
 class Result_Tests(unittest.TestCase):
 
     def test_to_from_json(self):

@@ -70,6 +70,9 @@ class Table(JsonSerializable, Generic[_K]):
         transactions, self._transactions = self._transactions, []
         return transactions
 
+    def __contains__(self, item) -> bool:
+        return item in self._rows
+
     @staticmethod
     def __from_json_obj__(json_obj: Dict[str,Any]) -> 'Table[Hashable]':
         rows    = { literal_eval(key):value for key,value in json_obj['rows'].items() }
@@ -347,7 +350,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         self._batch_count = batch_count
         self._batch_size  = batch_size
 
-    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]]) -> Result:
+    def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]], transaction_file:str = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
@@ -363,7 +366,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         # I'm not sure which way is better. I think this code is more 
         # readable but perhaps harder for developers to debug or maintain?
         ec                   = UniversalBenchmark.EvaluationContext[_C,_A]()
-        ec.result            = Result()
+        ec.result            = Result(transactions_file=transaction_file)
         ec.learner_factories = learner_factories
 
         for ec.learner_index, ec.learner in enumerate(f() for f in learner_factories):
