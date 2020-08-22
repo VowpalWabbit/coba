@@ -26,6 +26,34 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(actual_table.to_tuples(), expected_table.to_tuples())
 
+    def test_save_transactions(self):
+        table = Table[int](save_transactions=True)
+
+        table.add_row(2, **{'A':1, 'B':2})
+        table.add_row(3, **{'A':1, 'C':2})
+        table.add_row(4, **{'A':1, 'D':StatisticalEstimate(1,2)})
+
+        actual_transactions = table.pop_transactions()
+        expected_transactions = [
+            (2, {'A':1, 'B':2}),
+            (3, {'A':1, 'C':2}),
+            (4, {'A':1, 'D':StatisticalEstimate(1,2)})
+        ]
+
+        self.assertSequenceEqual(actual_transactions,expected_transactions)
+
+    def test_no_save_transactions(self):
+        table = Table[int](save_transactions=False)
+
+        table.add_row(2, **{'A':1, 'B':2})
+        table.add_row(3, **{'A':1, 'C':2})
+        table.add_row(4, **{'A':1, 'D':StatisticalEstimate(1,2)})
+
+        actual_transactions = table.pop_transactions()
+        expected_transactions = []
+
+        self.assertSequenceEqual(actual_transactions,expected_transactions)
+
 class Result_Tests(unittest.TestCase):
 
     def test_to_from_json(self):
@@ -40,7 +68,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
-    def test_to_from_file(self):
+    def test_to_from_json_file(self):
         expected_result = Result(0)
         expected_result.add_learner_row(0,a='A')
         expected_result.add_simulation_row(0,b='B')
@@ -51,6 +79,39 @@ class Result_Tests(unittest.TestCase):
             actual_result = Result.from_json_file('test.json')
         finally:
             if Path('test.json').exists(): Path('test.json').unlink()
+
+        self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
+
+    def test_to_from_transaction_file_once(self):
+
+        try:
+            expected_result = Result(0, "transactions.log")
+            expected_result.add_learner_row(0,a='A')
+            expected_result.add_simulation_row(0,b='B')
+            expected_result.add_performance_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+
+            actual_result = Result(0, "transactions.log")
+        finally:
+            if Path('transactions.log').exists(): Path('transactions.log').unlink()
+
+        self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
+
+    def test_to_from_transaction_file_twice(self):
+
+        try:
+            expected_result = Result(0, "transactions.log")
+            expected_result.add_learner_row(0,a='A')
+            expected_result.add_simulation_row(0,b='B')
+            expected_result.add_performance_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+
+            expected_result = Result(0, "transactions.log")
+            expected_result.add_learner_row(1,a='z')
+            expected_result.add_simulation_row(1,b='q')
+            expected_result.add_performance_row(1,1,0,mean=BatchMeanEstimator([1,2,3,4,5]))
+
+            actual_result = Result(0, "transactions.log")
+        finally:
+            if Path('transactions.log').exists(): Path('transactions.log').unlink()
 
         self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 

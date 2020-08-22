@@ -33,14 +33,18 @@ _A = TypeVar('_A', bound=Action)
 _C_inner = TypeVar('_C_inner', bound=Context)
 _A_inner = TypeVar('_A_inner', bound=Action)
 
-
+Transaction = Tuple[_K, Dict[str,Any]]
 
 class Table(JsonSerializable, Generic[_K]):
 
-    def __init__(self, default: Any=float('nan')):
+    def __init__(self, default: Any=float('nan'), save_transactions: bool = False):
+        
         self._default = default
-        self._columns: List[str] = []
-        self._rows   : Dict[_K, Dict[str,Any]] = {}
+        self._save_transactions = save_transactions
+        
+        self._columns     : List[str]               = []
+        self._rows        : Dict[_K, Dict[str,Any]] = {}
+        self._transactions: List[Transaction[_K]]   = []
 
     def add_row(self, key: _K, **kwargs) -> None:
         new_columns = [col for col in kwargs if col not in self._columns]
@@ -50,6 +54,9 @@ class Table(JsonSerializable, Generic[_K]):
             for data in self._rows.values():
                 data.update(zip(new_columns, repeat(self._default)))
 
+        if self._save_transactions:
+            self._transactions.append((key, kwargs))
+
         self._rows[key] = collections.OrderedDict({key:kwargs.get(key,self._default) for key in self._columns})
 
     def to_tuples(self) -> Sequence[Any]:
@@ -58,6 +65,10 @@ class Table(JsonSerializable, Generic[_K]):
     def to_indexed_tuples(self) -> Dict[_K, Any]:
         my_type = collections.namedtuple('_T', self._columns) #type: ignore #mypy doesn't like dynamic named tuples
         return { key:my_type(**value) for key,value in self._rows.items() } #type: ignore #mypy doesn't like dynamic named tuples
+
+    def pop_transactions(self) -> Sequence[Transaction[_K]]:
+        transactions, self._transactions = self._transactions, []
+        return transactions
 
     @staticmethod
     def __from_json_obj__(json_obj: Dict[str,Any]) -> 'Table[Hashable]':
@@ -89,23 +100,33 @@ class Result(JsonSerializable):
     def to_json_file(self, filename:str) -> None:
         Path(filename).write_text(CobaJsonEncoder().encode(self))
 
-    def __init__(self, default:Any = float('nan')) -> None:
-        self._simulation_table  = Table[int](default)
-        self._learner_table     = Table[int](default)
-        self._performance_table = Table[Tuple[int,int,int]](default)
+    def __init__(self, default:Any = float('nan'), transactions_file:str = None) -> None:
 
-    def add_simulation_row(self, simulation_id: int, **kwargs):
-        kwargs = collections.OrderedDict(kwargs)
-        kwargs["simulation_id"] = simulation_id
-        kwargs.move_to_end("simulation_id",last=False)
-        self._simulation_table.add_row(simulation_id, **kwargs)
+        is_save_transactions = transactions_file is not None
+
+        self._learner_table     = Table[int]               (default, is_save_transactions)
+        self._simulation_table  = Table[int]               (default, is_save_transactions)
+        self._performance_table = Table[Tuple[int,int,int]](default, is_save_transactions)
+
+        self._transactions_path = None if transactions_file is None else Path(transactions_file)
+
+        if self._transactions_path is not None and self._transactions_path.exists():
+            self._load_transactions()
+
+        if self._transactions_path is not None and not self._transactions_path.exists():
+            self._transactions_path.touch()
 
     def add_learner_row(self, learner_id:int, **kwargs):
         kwargs = collections.OrderedDict(kwargs)
         kwargs["learner_id"] = learner_id
         kwargs.move_to_end("learner_id",last=False)
+        self._add_row(self._learner_table, learner_id, **kwargs)
 
-        self._learner_table.add_row(learner_id, **kwargs)
+    def add_simulation_row(self, simulation_id: int, **kwargs):
+        kwargs = collections.OrderedDict(kwargs)
+        kwargs["simulation_id"] = simulation_id
+        kwargs.move_to_end("simulation_id",last=False)
+        self._add_row(self._simulation_table, simulation_id, **kwargs)
 
     def add_performance_row(self, learner_id:int, simulation_id:int, batch_id:int, **kwargs):
         kwargs = collections.OrderedDict(kwargs)
@@ -114,9 +135,59 @@ class Result(JsonSerializable):
         kwargs["batch_id"]      = batch_id
         kwargs.move_to_end("batch_id", last=False)
         kwargs.move_to_end("simulation_id", last=False)
-        kwargs.move_to_end("learner_id", last=False)
+        kwargs.move_to_end("learner_id", last=False)        
+        self._add_row(self._performance_table, (simulation_id,learner_id,batch_id), **kwargs)
 
-        self._performance_table.add_row((simulation_id,learner_id,batch_id), **kwargs)
+    def _add_row(self, table: Table[_K], key:_K, **kwargs):
+        table.add_row(key, **kwargs)
+        self._write_transactions()
+
+    def _write_transactions(self):
+        if self._transactions_path is not None:
+            lines   = []
+            encoder = CobaJsonEncoder()
+            
+            for transaction in self._learner_table.pop_transactions():
+                lines.append(encoder.encode(["L",transaction]))
+
+            for transaction in self._simulation_table.pop_transactions():
+                lines.append(encoder.encode(["S",transaction]))
+
+            for transaction in self._performance_table.pop_transactions():
+                lines.append(encoder.encode(["P",transaction]))
+
+            with self._transactions_path.open("a") as f:
+                f.write("\n".join(lines+['']))
+    
+    def _load_transactions(self):
+        if self._transactions_path is not None:
+            decoder = CobaJsonDecoder()
+
+            lines = self._transactions_path.read_text().split("\n")
+
+            for line in [ l for l in lines if l != '']:
+                json_obj: Tuple[str,Transaction[Any]] = decoder.decode(line, [StatisticalEstimate])
+                
+                table: Union[Table[int], Table[Tuple[int,int,int]]]
+                key  : Any 
+
+                if json_obj[0] == "L":
+                    table = self._learner_table
+                    key   = json_obj[1][0]
+                elif json_obj[0] == "S":
+                    table = self._simulation_table
+                    key   = json_obj[1][0]
+                else:
+                    table = self._performance_table
+                    key   = tuple(json_obj[1][0])
+                    
+                table.add_row(key, **json_obj[1][1])
+
+            self._learner_table.pop_transactions()
+            self._simulation_table.pop_transactions()
+            self._performance_table.pop_transactions()
+
+            
 
     def to_tuples(self) -> Tuple[Sequence[Any], Sequence[Any], Sequence[Any]]:
         return (
