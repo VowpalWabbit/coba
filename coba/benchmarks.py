@@ -33,33 +33,33 @@ class Table(JsonSerializable, Generic[_K]):
     def __init__(self, default: Any=float('nan')):
         self._default = default
         self._columns: List[str] = []
-        self._data   : Dict[_K, Dict[str,Any]] = {}
+        self._rows   : Dict[_K, Dict[str,Any]] = {}
 
     def add_row(self, key: _K, **kwargs) -> None:
         new_columns = [col for col in kwargs if col not in self._columns]
 
         if new_columns:
             self._columns.extend(new_columns)
-            for data in self._data.values():
+            for data in self._rows.values():
                 data.update(zip(new_columns, repeat(self._default)))
 
-        self._data[key] = collections.OrderedDict({key:kwargs.get(key,self._default) for key in self._columns})
+        self._rows[key] = collections.OrderedDict({key:kwargs.get(key,self._default) for key in self._columns})
 
     def to_tuples(self) -> Sequence[Any]:
         return list(self.to_indexed_tuples().values())
 
     def to_indexed_tuples(self) -> Dict[_K, Any]:
         my_type = collections.namedtuple('_T', self._columns) #type: ignore #mypy doesn't like dynamic named tuples
-        return { key:my_type(**value) for key,value in self._data.items() } #type: ignore #mypy doesn't like dynamic named tuples
+        return { key:my_type(**value) for key,value in self._rows.items() } #type: ignore #mypy doesn't like dynamic named tuples
 
     @staticmethod
     def __from_json_obj__(json_obj: Dict[str,Any]) -> 'Table':
-        data    = { literal_eval(key):value for key,value in json_obj['data'].items() }
+        rows    = { literal_eval(key):value for key,value in json_obj['rows'].items() }
         columns = json_obj['columns']
 
         obj          = Table()
         obj._columns = columns
-        obj._data    = data
+        obj._rows    = rows
 
         return obj
 
@@ -69,7 +69,7 @@ class Table(JsonSerializable, Generic[_K]):
 
         return {
             'columns': self._columns,
-            'data'   : { literal_evalable(key):value for key,value in self._data.items() }
+            'rows'   : { literal_evalable(key):value for key,value in self._rows.items() }
         }
 
 class Result(JsonSerializable):

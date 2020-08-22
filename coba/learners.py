@@ -19,6 +19,7 @@ import coba.random
 from coba.simulations import Context, Action, Reward, Choice, Key
 from coba.utilities import check_vowpal_support
 from coba.statistics import OnlineVariance
+from coba.json import JsonSerializable
 
 _C_in = TypeVar('_C_in', bound=Context, contravariant=True)
 _A_in = TypeVar('_A_in', bound=Action , contravariant=True)
@@ -158,7 +159,7 @@ class LambdaLearner(Learner[_C_in, _A_in]):
         else:
             self._learn(index, context,action,reward)
 
-class RandomLearner(Learner[Context, Action]):
+class RandomLearner(JsonSerializable, Learner[Context, Action]):
     """A Learner implementation that selects an action at random and learns nothing."""
 
     @property
@@ -191,29 +192,37 @@ class RandomLearner(Learner[Context, Action]):
             action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
         """
-
         pass
 
-class EpsilonLearner(Learner[Context, Action]):
+    @staticmethod
+    def __from_json_obj__(obj:Dict[str,Any]) -> 'RandomLearner':
+        return RandomLearner()
+
+    def __to_json_obj__(self) -> Dict[str,Any]:
+        return { }
+ 
+class EpsilonLearner(JsonSerializable, Learner[Context, Action]):
     """A learner using epsilon-greedy searching while smoothing observations into a context/context-action lookup table.
 
     Remarks:
         This algorithm does not use any function approximation to attempt to generalize observed rewards.
     """
 
-    def __init__(self, epsilon: float, default: Optional[float] = None, include_context: bool = False) -> None:
+    def __init__(self, epsilon: float, init: Optional[float] = None, include_context: bool = False) -> None:
         """Instantiate an EpsilonLearner.
 
         Args:
             epsilon: A value between 0 and 1. We explore with probability epsilon and exploit otherwise.
-            default: Our initial guess of the expected rewards for all context-action pairs.
+            init: Our initial guess of the expected rewards for all context-action pairs.
             include_context: If true lookups are a function of context-action otherwise they are a function of action.
         """
 
-        self._epsilon       = epsilon
+        self._epsilon         = epsilon
+        self._init            = init
         self._include_context = include_context
-        self._N: Dict[Tuple[Context, Action], int            ] = defaultdict(lambda: int(0 if default is None else 1))
-        self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(lambda: default)
+
+        self._N: Dict[Tuple[Context, Action], int            ] = defaultdict(lambda: int(0 if init is None else 1))
+        self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(lambda: init)
 
     @property
     def name(self) -> str:
@@ -264,7 +273,14 @@ class EpsilonLearner(Learner[Context, Action]):
     def _key(self, context: Context, action: Action) -> Tuple[Context,Action]:
         return (context, action) if self._include_context else (None, action)
 
-class UcbTunedLearner(Learner[Context, Action]):
+    @staticmethod
+    def __from_json_obj__(obj:Dict[str,Any]) -> 'EpsilonLearner':
+        return EpsilonLearner(obj['epsilon'], obj['init'], obj['include_context'])
+
+    def __to_json_obj__(self) -> Dict[str,Any]:
+        return { 'epsilon': self._epsilon, 'init': self._init, 'include_context': self._include_context }
+
+class UcbTunedLearner(JsonSerializable, Learner[Context, Action]):
     """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
 
     References:
@@ -364,8 +380,15 @@ class UcbTunedLearner(Learner[Context, Action]):
         ln = math.log; t = self._t; s = self._s[action]; var = self._v[action].variance
 
         return var + math.sqrt(2*ln(t)/s)
+    
+    @staticmethod
+    def __from_json_obj__(obj:Dict[str,Any]) -> 'UcbTunedLearner':
+        return UcbTunedLearner()
 
-class VowpalLearner(Learner[Context, Action]):
+    def __to_json_obj__(self) -> Dict[str,Any]:
+        return { }
+
+class VowpalLearner(JsonSerializable, Learner[Context, Action]):
     """A learner using Vowpal Wabbit's contextual bandit command line interface.
 
     Remarks:
@@ -451,11 +474,12 @@ class VowpalLearner(Learner[Context, Action]):
         else:
             self._exploration  = " ".join(f"--{key} {value}" for key,value in kwargs.items())
 
-        self._vw_constructor                  = pyvw.vw
-        self._actions      : Any              = None
-        self._vw_learner   : pyvw.vw          = None
-        self._prob         : Dict[int, float] = {}
-        self._is_adf       : bool             = is_adf
+        self._kwargs                           = kwargs
+        self._vw_constructor                   = pyvw.vw
+        self._actions      : Any               = None
+        self._vw_learner   : Optional[pyvw.vw] = None
+        self._prob         : Dict[int, float]  = {}
+        self._is_adf       : bool              = is_adf
 
     @property
     def name(self) -> str:
@@ -596,3 +620,10 @@ class VowpalLearner(Learner[Context, Action]):
             the top of https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format for more info.
         """
         return f"{name}:{value}" if isinstance(value,(int,float)) else f"{value}"
+
+    @staticmethod
+    def __from_json_obj__(obj:Dict[str,Any]) -> 'VowpalLearner':
+        return VowpalLearner(**obj['kwargs'])
+
+    def __to_json_obj__(self) -> Dict[str,Any]:
+        return { 'kwargs': self._kwargs }

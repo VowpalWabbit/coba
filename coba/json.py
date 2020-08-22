@@ -24,7 +24,10 @@ class CobaJsonEncoder(json.JSONEncoder):
 
             all_bases = [c.__name__ for c in inspect.getmro(obj.__class__)]
             json_obj  = obj.__to_json_obj__()
-            json_obj['_types'] = all_bases[0:all_bases.index('JsonSerializable')]
+
+            JS_index = all_bases.index('JsonSerializable')
+
+            json_obj['__type__'] = all_bases[0] if JS_index == 1 else all_bases[0:JS_index]
 
             return json_obj
 
@@ -42,10 +45,11 @@ class CobaJsonDecoder(json.JSONDecoder):
 
     def object_hook(self, json_obj: Dict[str,Any]) -> Any:
 
-        types = json_obj.get('_types', [])
+        __type__  = json_obj.get('__type__', [])
+        __types__ = [__type__] if isinstance(__type__,str) else __type__
 
-        for tipe in types:
-            if tipe in self._known_types:
-                return self._known_types[tipe].__from_json_obj__(json_obj)
+        for __type__ in __types__:
+            if __type__ in self._known_types:
+                return self._known_types[__type__].__from_json_obj__(json_obj)
 
         return json_obj

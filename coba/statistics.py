@@ -172,7 +172,6 @@ class StatisticalEstimate(JsonSerializable):
             'standard_error': self._standard_error
         }
 
-
 class BatchMeanEstimator(StatisticalEstimate):
     """Estimate the population mean from a batch of i.i.d. observations"""
 

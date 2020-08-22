@@ -12,7 +12,8 @@ from coba.json import CobaJsonEncoder, CobaJsonDecoder
 
 ExecutionContext.Logger = NoneLogger()
 
-class Metadata_Tests(unittest.TestCase):
+class Table_Tests(unittest.TestCase):
+
     def test_to_from_json(self):
         expected_table = Table(0)
         expected_table.add_row(0, a='A')
@@ -26,6 +27,7 @@ class Metadata_Tests(unittest.TestCase):
         self.assertEqual(actual_table.to_tuples(), expected_table.to_tuples())
 
 class Result_Tests(unittest.TestCase):
+
     def test_to_from_json(self):
         expected_result = Result(0)
         expected_result.add_learner_row(0,a='A')
@@ -153,7 +155,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
         self.assertSequenceEqual(actual_performances, expected_performances)
-    
+
     def test_lazy_sim(self):
         sim1            = LazySimulation[int,int](lambda:LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a))
         benchmark       = UniversalBenchmark([sim1], batch_size=[4,2])
