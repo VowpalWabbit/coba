@@ -11,33 +11,39 @@ import json
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Tuple, Hashable, Union, Sequence, List, Callable, Generic, TypeVar, Dict, Any, overload, cast, NamedTuple
+from typing import Tuple, Hashable, Union, Sequence, List, Callable, Generic, TypeVar, Dict, Any, overload, cast
 from itertools import count, repeat, groupby
 from statistics import median
+from ast import literal_eval
+from pathlib import Path
 
 from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action
 from coba.learners import Learner
 from coba.execution import ExecutionContext, LoggedException
-from coba.statistics import BatchMeanEstimator
+from coba.statistics import BatchMeanEstimator, StatisticalEstimate
+from coba.utilities import check_pandas_support
+from coba.json import CobaJsonDecoder, CobaJsonEncoder, JsonSerializable
 
 _C = TypeVar('_C', bound=Context)
 _A = TypeVar('_A', bound=Action)
 _K = TypeVar("_K", bound=Hashable)
 
-class Metadata(Generic[_K]):
-    def __init__(self):
-        self._columns: List[str]               = []
+class Table(JsonSerializable, Generic[_K]):
+
+    def __init__(self, default: Any=float('nan')):
+        self._default = default
+        self._columns: List[str] = []
         self._data   : Dict[_K, Dict[str,Any]] = {}
 
-    def add_data(self, key: _K, **kwargs) -> None:
+    def add_row(self, key: _K, **kwargs) -> None:
         new_columns = [col for col in kwargs if col not in self._columns]
 
         if new_columns:
             self._columns.extend(new_columns)
             for data in self._data.values():
-                data.update(zip(new_columns, repeat(float('nan'))))
+                data.update(zip(new_columns, repeat(self._default)))
 
-        self._data[key] = collections.OrderedDict({key:kwargs.get(key,float('nan')) for key in self._columns})
+        self._data[key] = collections.OrderedDict({key:kwargs.get(key,self._default) for key in self._columns})
 
     def to_tuples(self) -> Sequence[Any]:
         return list(self.to_indexed_tuples().values())
@@ -46,27 +52,55 @@ class Metadata(Generic[_K]):
         my_type = collections.namedtuple('_T', self._columns) #type: ignore #mypy doesn't like dynamic named tuples
         return { key:my_type(**value) for key,value in self._data.items() } #type: ignore #mypy doesn't like dynamic named tuples
 
-class Result:
+    @staticmethod
+    def __from_json_obj__(json_obj: Dict[str,Any]) -> 'Table':
+        data    = { literal_eval(key):value for key,value in json_obj['data'].items() }
+        columns = json_obj['columns']
 
-    def __init__(self) -> None:
-        self._simulation_metadata  = Metadata[int]()
-        self._learner_metadata     = Metadata[int]()
-        self._performance_metadata = Metadata[Tuple[int,int,int]]()
+        obj          = Table()
+        obj._columns = columns
+        obj._data    = data
 
-    def add_simulation_metadata(self, simulation_id: int, **kwargs):
+        return obj
+
+    def __to_json_obj__(self) -> Dict[str,Any]:
+
+        literal_evalable = lambda key: str(key) if not isinstance(key, str) else f"'{key}'"
+
+        return {
+            'columns': self._columns,
+            'data'   : { literal_evalable(key):value for key,value in self._data.items() }
+        }
+
+class Result(JsonSerializable):
+
+    @staticmethod
+    def from_json_file(filename:str) -> 'Result':
+        needed_types = [Result, Table, StatisticalEstimate]
+        return CobaJsonDecoder().decode(Path(filename).read_text(), needed_types)
+
+    def to_json_file(self, filename:str) -> None:
+        Path(filename).write_text(CobaJsonEncoder().encode(self))
+
+    def __init__(self, default:Any = float('nan')) -> None:
+        self._simulation_table  = Table[int](default)
+        self._learner_table     = Table[int](default)
+        self._performance_table = Table[Tuple[int,int,int]](default)
+
+    def add_simulation_row(self, simulation_id: int, **kwargs):
         kwargs = collections.OrderedDict(kwargs)
         kwargs["simulation_id"] = simulation_id
         kwargs.move_to_end("simulation_id",last=False)
-        self._simulation_metadata.add_data(simulation_id, **kwargs)
+        self._simulation_table.add_row(simulation_id, **kwargs)
 
-    def add_learner_metadata(self, learner_id:int, **kwargs):
+    def add_learner_row(self, learner_id:int, **kwargs):
         kwargs = collections.OrderedDict(kwargs)
         kwargs["learner_id"] = learner_id
         kwargs.move_to_end("learner_id",last=False)
 
-        self._learner_metadata.add_data(learner_id, **kwargs)
+        self._learner_table.add_row(learner_id, **kwargs)
 
-    def add_performance_metadata(self, learner_id:int, simulation_id:int, batch_id:int, **kwargs):
+    def add_performance_row(self, learner_id:int, simulation_id:int, batch_id:int, **kwargs):
         kwargs = collections.OrderedDict(kwargs)
         kwargs["learner_id"]    = learner_id
         kwargs["simulation_id"] = simulation_id
@@ -75,25 +109,46 @@ class Result:
         kwargs.move_to_end("simulation_id", last=False)
         kwargs.move_to_end("learner_id", last=False)
 
-        self._performance_metadata.add_data((simulation_id,learner_id,batch_id), **kwargs)
+        self._performance_table.add_row((simulation_id,learner_id,batch_id), **kwargs)
 
     def to_tuples(self) -> Tuple[Sequence[Any], Sequence[Any], Sequence[Any]]:
-
         return (
-            self._learner_metadata.to_tuples(),
-            self._simulation_metadata.to_tuples(),
-            self._performance_metadata.to_tuples()
+            self._learner_table.to_tuples(),
+            self._simulation_table.to_tuples(),
+            self._performance_table.to_tuples()
         )
 
     def to_indexed_tuples(self) -> Tuple[Dict[int,Any], Dict[int,Any], Dict[Tuple[int,int,int],Any]]:
-
         return (
-            self._learner_metadata.to_indexed_tuples(),
-            self._simulation_metadata.to_indexed_tuples(),
-            self._performance_metadata.to_indexed_tuples()
+            self._learner_table.to_indexed_tuples(),
+            self._simulation_table.to_indexed_tuples(),
+            self._performance_table.to_indexed_tuples()
         )
 
-    #def to_pandas():
+    def to_pandas(self) -> Tuple[Any,Any,Any]:
+        check_pandas_support('abc')
+        import pandas as pd
+
+        l,s,p = self.to_tuples()
+
+        return pd.DataFrame(l), pd.DataFrame(s), pd.DataFrame(p)
+
+    @staticmethod
+    def __from_json_obj__(obj:Dict[str,Any]) -> 'Result':
+        result = Result()
+
+        result._simulation_table  = obj['simulation_table']
+        result._learner_table     = obj['learner_table']
+        result._performance_table = obj['performance_table']
+
+        return result
+
+    def __to_json_obj__(self) -> Dict[str,Any]:
+        return {
+            'simulation_table' : self._simulation_table,
+            'learner_table'    : self._learner_table,
+            'performance_table': self._performance_table
+        }
 
 class Benchmark(Generic[_C,_A], ABC):
     """The interface for Benchmark implementations."""
@@ -206,7 +261,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         result = Result()
 
         for learner_index, learner in enumerate(f() for f in learner_factories):
-            result.add_learner_metadata(learner_index, 
+            result.add_learner_row(learner_index, 
                 name=self._safe_name(learner) #type: ignore #pylance incorrectly flags this as wrong
             )
 
@@ -219,7 +274,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                 batch_sizes   = self._batch_sizes(len(simulation.interactions))
                 batch_indexes = [b for index,size in enumerate(batch_sizes) for b in repeat(index,size)]
 
-                result.add_simulation_metadata(simulation_index, 
+                result.add_simulation_row(simulation_index, 
                     interaction_count = sum(batch_sizes), 
                     feature_count     = median([feature_count(i) for i in simulation.interactions]),
                     action_count      = median([action_count(i) for i in simulation.interactions])
@@ -257,7 +312,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                                 for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
                                     learner.learn(key,context,action,reward)
 
-                                result.add_performance_metadata(
+                                result.add_performance_row(
                                     learner_index,
                                     simulation_index,
                                     batch_index,

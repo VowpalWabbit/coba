@@ -4,8 +4,10 @@ TODO Add unit tests to make sure StatisticalEstimate algebra works correctly
 """
 
 from math import isnan, sqrt
-from typing import Sequence, Union
+from typing import Sequence, Union, Dict, Any
 from statistics import mean, variance
+
+from coba.json import JsonSerializable
 
 class OnlineVariance():
     """Calculate sample variance in an online fashion.
@@ -70,7 +72,7 @@ class OnlineMean():
 
         self._mean = value if alpha == 1 else (1 - alpha) * self._mean + alpha * value
 
-class StatisticalEstimate:
+class StatisticalEstimate(JsonSerializable):
     """An estimate of some statistic of interst along with useful additional statistics of that estimate.
 
     Remarks:
@@ -98,9 +100,6 @@ class StatisticalEstimate:
     @property
     def standard_error(self) -> float:
         return self._standard_error
-
-    def __hash__(self) -> int:
-        return hash((self._estimate, self._standard_error))
 
     def __add__(self, other) -> 'StatisticalEstimate':
         if isinstance(other, (int,float)):
@@ -156,6 +155,24 @@ class StatisticalEstimate:
     def __neg__(self) -> 'StatisticalEstimate':
         return -1 * self
 
+    def __eq__(self, other) -> bool:
+        
+        eq = lambda a,b: (a == b) or (isnan(a) and isnan(b))
+        
+        return isinstance(other, StatisticalEstimate) and eq(self.estimate,other.estimate) and eq(self.standard_error,other.standard_error)
+
+    @staticmethod
+    def __from_json_obj__(json:Dict[str,Any]) -> 'StatisticalEstimate':
+        return StatisticalEstimate(json['estimate'], json['standard_error'])
+
+    def __to_json_obj__(self) -> Dict[str,Any]:
+        return {
+            '_type'         : 'StatisticalEstimate',
+            'estimate'      : self._estimate,
+            'standard_error': self._standard_error
+        }
+
+
 class BatchMeanEstimator(StatisticalEstimate):
     """Estimate the population mean from a batch of i.i.d. observations"""
 
@@ -164,19 +181,6 @@ class BatchMeanEstimator(StatisticalEstimate):
         standard_error = sqrt(variance(sample)/len(sample)) if len(sample) > 1 else float('nan')
 
         super().__init__(estimate, standard_error)
-
-    def __eq__(self, other) -> bool:
-
-        def nan_or_equal(val1,val2):
-            return (val1==val2) or (isnan(val1) and isnan(val2))
-
-        if isinstance(other, BatchMeanEstimator):
-            is_equal_estimate       = nan_or_equal(other.estimate, self.estimate)
-            is_equal_standard_error = nan_or_equal(other.standard_error, self.standard_error)
-            
-            return is_equal_estimate and is_equal_standard_error
-
-        return False
 
 def coba_mean(values:Sequence[Union[StatisticalEstimate,float]]) -> Union[StatisticalEstimate,float]:
     return sum(values) / len(values)

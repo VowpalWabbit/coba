@@ -1,5 +1,10 @@
 """Simple one-off utility methods with no clear home."""
 
+import json
+
+#from coba.statistics import StatisticalEstimate
+#from coba.benchmarks import Metadata, Result
+
 def check_matplotlib_support(caller_name: str) -> None:
     """Raise ImportError with detailed error message if matplotlib is not installed.
 

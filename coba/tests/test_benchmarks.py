@@ -1,14 +1,56 @@
 import unittest
 
 from typing import Tuple
+from pathlib import Path
 
 from coba.simulations import LambdaSimulation, LazySimulation
 from coba.learners import LambdaLearner
-from coba.benchmarks import UniversalBenchmark
+from coba.benchmarks import Table, UniversalBenchmark, Result
 from coba.execution import ExecutionContext, NoneLogger
-from coba.statistics import BatchMeanEstimator
+from coba.statistics import BatchMeanEstimator, StatisticalEstimate
+from coba.json import CobaJsonEncoder, CobaJsonDecoder
 
 ExecutionContext.Logger = NoneLogger()
+
+class Metadata_Tests(unittest.TestCase):
+    def test_to_from_json(self):
+        expected_table = Table(0)
+        expected_table.add_row(0, a='A')
+        expected_table.add_row((0,1,2), b='B')
+        expected_table.add_row('a', c='C')
+
+        json_txt = CobaJsonEncoder().encode(expected_table)
+
+        actual_table = CobaJsonDecoder().decode(json_txt, [Table])
+
+        self.assertEqual(actual_table.to_tuples(), expected_table.to_tuples())
+
+class Result_Tests(unittest.TestCase):
+    def test_to_from_json(self):
+        expected_result = Result(0)
+        expected_result.add_learner_row(0,a='A')
+        expected_result.add_simulation_row(0,b='B')
+        expected_result.add_performance_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+
+        json_txt = CobaJsonEncoder().encode(expected_result)
+
+        actual_result = CobaJsonDecoder().decode(json_txt, [Result, Table, StatisticalEstimate])
+
+        self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
+
+    def test_to_from_file(self):
+        expected_result = Result(0)
+        expected_result.add_learner_row(0,a='A')
+        expected_result.add_simulation_row(0,b='B')
+        expected_result.add_performance_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+
+        try:
+            expected_result.to_json_file('test.json')
+            actual_result = Result.from_json_file('test.json')
+        finally:
+            if Path('test.json').exists(): Path('test.json').unlink()
+
+        self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
 class UniversalBenchmark_Tests(unittest.TestCase):
 
