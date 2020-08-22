@@ -11,11 +11,14 @@ import json
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Tuple, Hashable, Union, Sequence, List, Callable, Generic, TypeVar, Dict, Any, overload, cast
 from itertools import count, repeat, groupby
 from statistics import median
 from ast import literal_eval
 from pathlib import Path
+from typing import (
+    Iterable, Tuple, Hashable, Union, Sequence, List, Callable, 
+    Generic, TypeVar, Dict, Any, overload, cast, Type
+)
 
 from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action
 from coba.learners import Learner
@@ -24,9 +27,13 @@ from coba.statistics import BatchMeanEstimator, StatisticalEstimate
 from coba.utilities import check_pandas_support
 from coba.json import CobaJsonDecoder, CobaJsonEncoder, JsonSerializable
 
+_K = TypeVar("_K", bound=Hashable)
 _C = TypeVar('_C', bound=Context)
 _A = TypeVar('_A', bound=Action)
-_K = TypeVar("_K", bound=Hashable)
+_C_inner = TypeVar('_C_inner', bound=Context)
+_A_inner = TypeVar('_A_inner', bound=Action)
+
+
 
 class Table(JsonSerializable, Generic[_K]):
 
@@ -53,11 +60,11 @@ class Table(JsonSerializable, Generic[_K]):
         return { key:my_type(**value) for key,value in self._rows.items() } #type: ignore #mypy doesn't like dynamic named tuples
 
     @staticmethod
-    def __from_json_obj__(json_obj: Dict[str,Any]) -> 'Table':
+    def __from_json_obj__(json_obj: Dict[str,Any]) -> 'Table[Hashable]':
         rows    = { literal_eval(key):value for key,value in json_obj['rows'].items() }
         columns = json_obj['columns']
 
-        obj          = Table()
+        obj          = Table[Hashable]()
         obj._columns = columns
         obj._rows    = rows
 
@@ -76,7 +83,7 @@ class Result(JsonSerializable):
 
     @staticmethod
     def from_json_file(filename:str) -> 'Result':
-        needed_types = [Result, Table, StatisticalEstimate]
+        needed_types: Sequence[Type[JsonSerializable]] = [Result, Table, StatisticalEstimate]
         return CobaJsonDecoder().decode(Path(filename).read_text(), needed_types)
 
     def to_json_file(self, filename:str) -> None:
@@ -127,7 +134,7 @@ class Result(JsonSerializable):
 
     def to_pandas(self) -> Tuple[Any,Any,Any]:
         check_pandas_support('abc')
-        import pandas as pd
+        import pandas as pd #type: ignore #mypy complains otherwise
 
         l,s,p = self.to_tuples()
 
@@ -175,23 +182,23 @@ class Benchmark(Generic[_C,_A], ABC):
 class UniversalBenchmark(Benchmark[_C,_A]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
-    class EvaluationContext:
+    class EvaluationContext(Generic[_C_inner,_A_inner]):
         """A class to maintain the state of the current evaluation."""
         result           : Result
-        simulations      : Sequence[Simulation[_C,_A]]
-        learner_factories: Sequence[Callable[[],Learner[_C,_A]]]
+        simulations      : Sequence[Simulation[_C_inner,_A_inner]]
+        learner_factories: Sequence[Callable[[],Learner[_C_inner,_A_inner]]]
         
         batch_sizes      : Sequence[int]
         batch_indexes    : Sequence[int]
         
         simulation_index: int
-        simulation      : Simulation[_C,_A]
+        simulation      : Simulation[_C_inner,_A_inner]
         
         learner_index   : int
-        learner         : Learner[_C,_A]
+        learner         : Learner[_C_inner,_A_inner]
 
         batch_index     : int
-        batch           : Iterable[Tuple[int,Interaction[_C,_A]]]
+        batch           : Iterable[Tuple[int,Interaction[_C_inner,_A_inner]]]
 
     @staticmethod
     def from_file(filename:str) -> 'UniversalBenchmark':
@@ -284,7 +291,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         # has the negative side-effect of making dependencies less clear
         # I'm not sure which way is better. I think this code is more 
         # readable but perhaps harder for developers to debug or maintain?
-        ec                   = UniversalBenchmark.EvaluationContext()
+        ec                   = UniversalBenchmark.EvaluationContext[_C,_A]()
         ec.result            = Result()
         ec.learner_factories = learner_factories
 

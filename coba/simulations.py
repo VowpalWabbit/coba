@@ -458,7 +458,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         location    : str,
         label_col   : Union[None,str,int] = None,
         md5_checksum: Optional[str] = None,
-        csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader,
+        csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader, #type: ignore #pylance complains
         has_header  : bool = True,
         default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
         defined_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[Context,Action]':

@@ -548,6 +548,9 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
             reward: The reward that was gained from the action. See the base class for more information.
         """
 
+        if self._vw_learner is None:
+            raise Exception("You must call `choose` before `learn` in order for vw to be fully initialized...")
+
         self._vw_learner.learn(self._vw_learn_format(key, context, action, reward))
 
     def _vw_predict_format(self, context: Context, actions:Sequence[Action]) -> str:

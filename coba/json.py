@@ -33,15 +33,20 @@ class CobaJsonEncoder(json.JSONEncoder):
 
         return super().default(obj)
 
-class CobaJsonDecoder(json.JSONDecoder):
+class CobaJsonDecoder:
 
     def __init__(self, *args, **kwargs):
-        super().__init__(object_hook=self.object_hook, *args, **kwargs)
+        self._decoder = json.JSONDecoder(object_hook=self.object_hook, *args, **kwargs)
 
     def decode(self, json_txt: str, types: Sequence[Type[JsonSerializable]] = []) -> Any:
 
-        self._known_types = { t.__name__:t for t in types }
-        return super().decode(json_txt)
+        #in order to avoid circular imports we can't actually import
+        #the types ourselves (since those types will likely also be importing this
+        # module). So, instead we rely on calling modules to provide us with all
+        # types that we need to decode a given json string with our types
+        self._known_types = { tipe.__name__:tipe for tipe in types }
+        
+        return self._decoder.decode(json_txt)
 
     def object_hook(self, json_obj: Dict[str,Any]) -> Any:
 
