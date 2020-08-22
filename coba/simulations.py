@@ -139,20 +139,21 @@ class LazySimulation(Simulation[_C_out, _A_out]):
         self._sim_factory = sim_factory
         self._simulation: Optional[Simulation[_C_out, _A_out]]  = None
 
-    def load(self) -> 'LazySimulation[_C_out,_A_out]':
+    def __enter__(self) -> 'LazySimulation[_C_out,_A_out]':
         """Load the simulation into memory. If already loaded do nothing."""
         
-        if self._simulation is None:
-            self._simulation = self._sim_factory()
+        with ExecutionContext.Logger.log(f"loading simulation..."):
+            if self._simulation is None:
+                self._simulation = self._sim_factory()
 
-        return self
+            return self
 
-    def unload(self) -> 'LazySimulation[_C_out,_A_out]':
+    def __exit__(self, exception_type, exception_value, traceback) -> 'LazySimulation[_C_out,_A_out]':
         """Unload the simulation from memory."""
 
         if self._simulation is not None:
             self._simulation = None
-            gc.collect()
+            gc.collect() #in case the simulation is large
 
         return self
 

@@ -11,7 +11,7 @@ import json
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Tuple, Hashable, Union, Sequence, List, Callable, Generic, TypeVar, Dict, Any, overload, cast
+from typing import Iterable, Tuple, Hashable, Union, Sequence, List, Callable, Generic, TypeVar, Dict, Any, overload, cast
 from itertools import count, repeat, groupby
 from statistics import median
 from ast import literal_eval
@@ -175,6 +175,33 @@ class Benchmark(Generic[_C,_A], ABC):
 class UniversalBenchmark(Benchmark[_C,_A]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
+    class EvaluationContext:
+        """A class to maintain the state of the current evaluation."""
+        result           : Result
+        simulations      : Sequence[Simulation[_C,_A]]
+        learner_factories: Sequence[Callable[[],Learner[_C,_A]]]
+        
+        batch_sizes      : Sequence[int]
+        batch_indexes    : Sequence[int]
+        
+        simulation_index: int
+        simulation      : Simulation[_C,_A]
+        
+        learner_index   : int
+        learner         : Learner[_C,_A]
+
+        batch_index     : int
+        batch           : Iterable[Tuple[int,Interaction[_C,_A]]]
+
+    @staticmethod
+    def from_file(filename:str) -> 'UniversalBenchmark':
+        suffix = Path(filename).suffix
+        
+        if suffix == ".json":
+            return UniversalBenchmark.from_json(Path(filename).read_text())
+
+        raise Exception(f"The provided file type ('{suffix}') is not a valid format for benchmark configuration")
+
     @staticmethod
     def from_json(json_val:Union[str, Dict[str,Any]]) -> 'UniversalBenchmark':
         """Create a UniversalBenchmark from configuration IO.
@@ -252,95 +279,94 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             See the base class for more information.
         """
 
-        def feature_count(i: Interaction) -> int:
-            return len(i.context) if isinstance(i.context,tuple) else 0 if i.context is None else 1
+        # using a context class to maintain the state of the evaluation
+        # reduces the amount of parameters we need to pass/maintain but
+        # has the negative side-effect of making dependencies less clear
+        # I'm not sure which way is better. I think this code is more 
+        # readable but perhaps harder for developers to debug or maintain?
+        ec                   = UniversalBenchmark.EvaluationContext()
+        ec.result            = Result()
+        ec.learner_factories = learner_factories
 
-        def action_count(i: Interaction) -> int:
-            return len(i.actions)
+        for ec.learner_index, ec.learner in enumerate(f() for f in learner_factories):
+            ec.result.add_learner_row(ec.learner_index, name=self._safe_name(ec.learner) )
 
-        result = Result()
+        self._process_simulations(ec)
+        
+        return ec.result
+    
+    #Begin evaluation classes. These are called in a waterfall pattern.
+    def _process_simulations(self, ec: 'UniversalBenchmark.EvaluationContext'):
+        for ec.simulation_index, ec.simulation in enumerate(self._simulations):
+            with ExecutionContext.Logger.log(f"processing simulation {ec.simulation_index}..."):
+                try:                    
+                    self._process_simulation(ec)
+                except LoggedException as e:
+                    pass #if we've already logged it no need to do it again
+                except Exception as e:
+                    ExecutionContext.Logger.log(f"unhandled exception: {e}")
 
-        for learner_index, learner in enumerate(f() for f in learner_factories):
-            result.add_learner_row(learner_index, 
-                name=self._safe_name(learner) #type: ignore #pylance incorrectly flags this as wrong
+    def _process_simulation(self, ec: 'UniversalBenchmark.EvaluationContext'):
+                
+        with self._lazy_simulation(ec.simulation) as ec.simulation:
+
+            ec.batch_sizes   = self._batch_sizes(len(ec.simulation.interactions))
+            ec.batch_indexes = [b for index,size in enumerate(ec.batch_sizes) for b in repeat(index,size)]
+            
+            ec.result.add_simulation_row(ec.simulation_index, 
+                interaction_count = sum(ec.batch_sizes), 
+                context_size      = median(self._context_sizes(ec.simulation)),
+                action_count      = median(self._action_counts(ec.simulation))
             )
 
-        for simulation_index, simulation in enumerate(self._simulations):
-            try:
-                if isinstance(simulation, LazySimulation):
-                    with ExecutionContext.Logger.log(f"loading simulation {simulation_index}..."):
-                        simulation.load()
+            self._process_learners(ec)
 
-                batch_sizes   = self._batch_sizes(len(simulation.interactions))
-                batch_indexes = [b for index,size in enumerate(batch_sizes) for b in repeat(index,size)]
+    def _process_learners(self, ec: 'UniversalBenchmark.EvaluationContext'):
+        with ExecutionContext.Logger.log(f"evaluating learners..."):
+            for ec.learner_index, ec.learner in enumerate(f() for f in ec.learner_factories):
+                self._process_learner(ec)
 
-                result.add_simulation_row(simulation_index, 
-                    interaction_count = sum(batch_sizes), 
-                    feature_count     = median([feature_count(i) for i in simulation.interactions]),
-                    action_count      = median([action_count(i) for i in simulation.interactions])
-                )
+    def _process_learner(self, ec: 'UniversalBenchmark.EvaluationContext'):
+        with ExecutionContext.Logger.log(f"evaluating {self._safe_name(ec.learner)}..."):
+            self._process_batches(ec)
 
-                with ExecutionContext.Logger.log(f"evaluating learners on simulation {simulation_index}..."):
+    def _process_batches(self, ec: 'UniversalBenchmark.EvaluationContext'):
+        for ec.batch_index, ec.batch in groupby(zip(ec.batch_indexes, ec.simulation.interactions), lambda t: t[0]):
+            self._process_batch(ec)
 
-                    for learner_index, learner_factory in enumerate(learner_factories):
+    def _process_batch(self, ec: 'UniversalBenchmark.EvaluationContext'):
+        keys     = []
+        contexts = []
+        choices  = []
+        actions  = []
 
-                        learner = learner_factory()
-                        name    = self._safe_name(learner) #type: ignore #pylance indicates an incorrect error here
+        for _, interaction in ec.batch:
 
-                        with ExecutionContext.Logger.log(f"evaluating {name}..."):
+            choice = ec.learner.choose(interaction.key, interaction.context, interaction.actions)
 
-                            for batch in groupby(zip(batch_indexes,simulation.interactions), lambda t: t[0]):
+            keys    .append(interaction.key)
+            contexts.append(interaction.context)
+            choices .append(choice)
+            actions .append(interaction.actions[choice])
 
-                                batch_index = batch[0]
+        rewards = ec.simulation.rewards(list(zip(keys, choices))) 
 
-                                keys     = []
-                                contexts = []
-                                choices  = []
-                                actions  = []
+        for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
+            ec.learner.learn(key,context,action,reward)
 
-                                for _, interaction in batch[1]:
+        ec.result.add_performance_row(
+            ec.learner_index,
+            ec.simulation_index,
+            ec.batch_index,
+            N           = len(rewards),
+            mean_reward = BatchMeanEstimator(rewards)
+        )
 
-                                    choice = learner.choose(interaction.key, interaction.context, interaction.actions)
-
-                                    keys    .append(interaction.key)
-                                    contexts.append(interaction.context)
-                                    choices .append(choice)
-                                    actions .append(interaction.actions[choice])
-
-                                rewards = simulation.rewards(list(zip(keys, choices))) 
-
-                                for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
-                                    learner.learn(key,context,action,reward)
-
-                                result.add_performance_row(
-                                    learner_index,
-                                    simulation_index,
-                                    batch_index,
-                                    N           = len(rewards),
-                                    mean_reward = BatchMeanEstimator(rewards)
-                                )
-
-            except LoggedException as e:
-                pass #if we've already logged it no need to do it again
-
-            except Exception as e:
-                ExecutionContext.Logger.log(f"unhandled exception: {e}")
-
-            if isinstance(simulation, LazySimulation):
-                simulation.unload()
-
-        return result
-    
-    def _safe_name(self, learner: Learner[_C,_A]) -> str:
-        try:
-            return learner.name
-        except:
-            return learner.__class__.__name__
-
+    #Begin utility classes
     def _batch_sizes(self, n_interactions: int) -> Sequence[int]:
 
         if self._batch_count is not None:
-            
+
             batches   = [int(float(n_interactions)/(self._batch_count))] * self._batch_count
             remainder = n_interactions % self._batch_count
             
@@ -370,3 +396,20 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             return batch_sizes
         
         raise Exception("We were unable to determine batch size from the supplied parameters")
+
+    def _safe_name(self, learner: Any) -> str:
+        try:
+            return learner.name
+        except:
+            return learner.__class__.__name__
+
+    def _lazy_simulation(self, simulation: Simulation) -> LazySimulation:
+        return simulation if isinstance(simulation, LazySimulation) else LazySimulation(lambda: simulation)
+
+    def _context_sizes(self, simulation: Simulation) -> Iterable[int]:
+        for context in [i.context for i in simulation.interactions]:
+            yield 0 if context is None else len(context) if isinstance(context,tuple) else 1
+    
+    def _action_counts(self, simulation: Simulation) -> Iterable[int]:
+        for actions in [i.actions for i in simulation.interactions]:
+            yield len(actions)

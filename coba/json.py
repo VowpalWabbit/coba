@@ -20,7 +20,7 @@ class CobaJsonEncoder(json.JSONEncoder):
 
     def default(self, obj):
 
-        if getattr(obj, "__to_json_obj__", None):
+        if hasattr(obj, "__to_json_obj__") and callable(obj.__to_json_obj__):
 
             all_bases = [c.__name__ for c in inspect.getmro(obj.__class__)]
             json_obj  = obj.__to_json_obj__()

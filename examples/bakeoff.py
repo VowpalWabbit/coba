@@ -8,11 +8,8 @@ from coba.benchmarks import UniversalBenchmark
 from coba.analysis import Plots
 from coba.execution import ExecutionContext
 
-with open("./examples/data/short_bakeoff.json") as fs:
-    json = fs.read()
-
 ExecutionContext.Logger.log("creating benchmark...")
-benchmark = UniversalBenchmark.from_json(json)
+benchmark = UniversalBenchmark.from_file("./examples/data/benchmark.json")
 
 ExecutionContext.Logger.log("creating learners...")
 learner_factories = [

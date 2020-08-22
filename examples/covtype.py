@@ -9,9 +9,7 @@ from coba.benchmarks import UniversalBenchmark
 from coba.analysis import Plots
 
 print("loading simulation data...")
-sim = ClassificationSimulation.from_csv("./examples/data/covtype.data", 54)
-#sim = ClassificationSimulation.from_openml(1116)
-#sim = ClassificationSimulation.from_openml(150)
+sim = ClassificationSimulation.from_openml(150)
 
 print("shuffling simulation data...")
 sim = ShuffleSimulation(sim)

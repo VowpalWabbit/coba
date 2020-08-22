@@ -363,20 +363,25 @@ class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         action_sets = [[1,2,3], [4,5,6]]
         reward_sets = [[0,1,2], [2,3,4]]
 
-        simulation = LazySimulation[int,int](lambda: MemorySimulation(contexts, action_sets, reward_sets)).load()
+        simulation = LazySimulation[int,int](lambda: MemorySimulation(contexts, action_sets, reward_sets)).__enter__()
 
         expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
         expected_rewards      = reward_sets
 
         return simulation, expected_interactions, expected_rewards
 
-    def test_unload_removes_simulation(self):
+    def test_with_removes_simulation(self):
 
-        simulation = cast(LazySimulation, self._make_simulation()[0])
+        contexts    =  [1,2]
+        action_sets = [[1,2,3], [4,5,6]]
+        reward_sets = [[0,1,2], [2,3,4]]
 
-        self.assertIsNotNone(simulation._simulation)
-        simulation.unload()
-        self.assertIsNone(simulation._simulation)
+        lazy_simulation = LazySimulation[int,int](lambda: MemorySimulation(contexts, action_sets, reward_sets))
+
+        with lazy_simulation as loaded_simulation:
+            self.assertIsNotNone(loaded_simulation._simulation)
+
+        self.assertIsNone(lazy_simulation._simulation)
 
 class Interaction_Tests(unittest.TestCase):
 
