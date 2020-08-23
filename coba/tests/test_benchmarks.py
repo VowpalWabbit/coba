@@ -70,15 +70,15 @@ class Result_Tests(unittest.TestCase):
 
     def test_has_batch_key(self):
         result = Result(0)
-        result.add_batch_row(0,1,2, a='A')
+        result.add_batch(0,1,2, a='A')
 
-        self.assertTrue(result.has_batch_key(0,1,2))
+        self.assertTrue(result.has_batch(0,1,2))
 
     def test_to_from_json(self):
         expected_result = Result(0)
-        expected_result.add_learner_row(0,a='A')
-        expected_result.add_simulation_row(0,b='B')
-        expected_result.add_batch_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+        expected_result.add_learner(0,a='A')
+        expected_result.add_simulation(0,b='B')
+        expected_result.add_batch(0,0,0,mean=BatchMeanEstimator([1,2,3]))
 
         json_txt = CobaJsonEncoder().encode(expected_result)
 
@@ -88,9 +88,9 @@ class Result_Tests(unittest.TestCase):
 
     def test_to_from_json_file(self):
         expected_result = Result(0)
-        expected_result.add_learner_row(0,a='A')
-        expected_result.add_simulation_row(0,b='B')
-        expected_result.add_batch_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+        expected_result.add_learner(0,a='A')
+        expected_result.add_simulation(0,b='B')
+        expected_result.add_batch(0,0,0,mean=BatchMeanEstimator([1,2,3]))
 
         try:
             expected_result.to_json_file('test.json')
@@ -104,9 +104,9 @@ class Result_Tests(unittest.TestCase):
 
         try:
             expected_result = Result(0, "transactions.log")
-            expected_result.add_learner_row(0,a='A')
-            expected_result.add_simulation_row(0,b='B')
-            expected_result.add_batch_row(0,1,2,mean=BatchMeanEstimator([1,2,3]))
+            expected_result.add_learner(0,a='A')
+            expected_result.add_simulation(0,b='B')
+            expected_result.add_batch(0,1,2,mean=BatchMeanEstimator([1,2,3]))
 
             actual_result = Result(0, "transactions.log")
         finally:
@@ -118,14 +118,14 @@ class Result_Tests(unittest.TestCase):
 
         try:
             expected_result = Result(0, "transactions.log")
-            expected_result.add_learner_row(0,a='A')
-            expected_result.add_simulation_row(0,b='B')
-            expected_result.add_batch_row(0,1,2,mean=BatchMeanEstimator([1,2,3]))
+            expected_result.add_learner(0,a='A')
+            expected_result.add_simulation(0,b='B')
+            expected_result.add_batch(0,1,2,mean=BatchMeanEstimator([1,2,3]))
 
             expected_result = Result(0, "transactions.log")
-            expected_result.add_learner_row(1,a='z')
-            expected_result.add_simulation_row(1,b='q')
-            expected_result.add_batch_row(1,1,0,mean=BatchMeanEstimator([1,2,3,4,5]))
+            expected_result.add_learner(1,a='z')
+            expected_result.add_simulation(1,b='q')
+            expected_result.add_batch(1,1,0,mean=BatchMeanEstimator([1,2,3,4,5]))
 
             actual_result = Result(0, "transactions.log")
         finally:
@@ -160,7 +160,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
 
         expected_learners     = [(0,"0")]
-        expected_simulations  = [(0, 5, 1, 3)]
+        expected_simulations  = [(0, 5, 1, 1, 3)]
         expected_performances = [ (0, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
@@ -176,7 +176,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
 
         expected_learners     = [(0,"0")]
-        expected_simulations  = [(0, 5, 1, 3)]
+        expected_simulations  = [(0, 5, 2, 1, 3)]
         expected_performances = [ (0, 0, 0, 3, BatchMeanEstimator([0,1,2])), (0, 0, 1, 2, BatchMeanEstimator([0,1]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
@@ -192,7 +192,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
 
         expected_learners     = [(0,"0")]
-        expected_simulations  = [(0, 4, 1, 3)]
+        expected_simulations  = [(0, 4, 2, 1, 3)]
         expected_performances = [ (0, 0, 0, 2, BatchMeanEstimator([0,1])), (0, 0, 1, 2, BatchMeanEstimator([2,0]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
@@ -208,12 +208,32 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
 
         expected_learners     = [(0,"0")]
-        expected_simulations  = [(0, 8, 1, 3)]
+        expected_simulations  = [(0, 8, 4, 1, 3)]
         expected_performances = [
             (0, 0, 0, 1, BatchMeanEstimator([0])), 
             (0, 0, 1, 2, BatchMeanEstimator([1,2])),
             (0, 0, 2, 4, BatchMeanEstimator([0,1,2,0])),
             (0, 0, 3, 1, BatchMeanEstimator([1]))
+        ]
+
+        self.assertSequenceEqual(actual_learners, expected_learners)
+        self.assertSequenceEqual(actual_simulations, expected_simulations)
+        self.assertSequenceEqual(actual_performances, expected_performances)
+
+    def test_ignore_first(self):
+        sim             = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: s%3, name="0")
+        benchmark       = UniversalBenchmark([sim], batch_size=[1, 2, 4, 1], ignore_first=True)
+
+        actual_results = benchmark.evaluate([learner_factory])
+        actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
+
+        expected_learners     = [(0,"0")]
+        expected_simulations  = [(0, 8, 3, 1, 3)]
+        expected_performances = [
+            (0, 0, 0, 2, BatchMeanEstimator([1,2])),
+            (0, 0, 1, 4, BatchMeanEstimator([0,1,2,0])),
+            (0, 0, 2, 1, BatchMeanEstimator([1]))
         ]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
@@ -230,7 +250,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
 
         expected_learners     = [(0,"0")]
-        expected_simulations  = [(0, 5, 2, 3), (1, 4, 2, 3)]
+        expected_simulations  = [(0, 5, 1, 2, 3), (1, 4, 1, 2, 3)]
         expected_performances = [(0, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1])), (0, 1, 0, 4, BatchMeanEstimator([3,4,5,3]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
@@ -247,7 +267,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
 
         expected_learners     = [(0,"0")]
-        expected_simulations  = [(0, 6, 1, 3)]
+        expected_simulations  = [(0, 6, 2, 1, 3)]
         expected_performances = [(0, 0, 0, 4, BatchMeanEstimator([0,1,2,0])), (0, 0, 1, 2, BatchMeanEstimator([1,2]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
@@ -265,7 +285,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
 
         expected_learners     = [(0,"0"), (1,"1")]
-        expected_simulations  = [(0, 5, 1, 3)]
+        expected_simulations  = [(0, 5, 1, 1, 3)]
         expected_performances = [(0, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1])), (1, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
@@ -288,7 +308,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             actual_learners,actual_simulations,actual_performances = second_results.to_tuples()
 
             expected_learners     = [(0,"0")]
-            expected_simulations  = [(0, 5, 1, 3)]
+            expected_simulations  = [(0, 5, 1, 1, 3)]
             expected_performances = [ (0, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
         finally:
             if Path('transactions.log').exists(): Path('transactions.log').unlink()            
@@ -313,7 +333,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             actual_learners,actual_simulations,actual_performances = second_results.to_tuples()
 
             expected_learners     = [(0,"0")]
-            expected_simulations  = [(0, 5, 1, 3)]
+            expected_simulations  = [(0, 5, 1, 1, 3)]
             expected_performances = [ (0, 0, 0, 2, BatchMeanEstimator([0,1]))]
         finally:
             if Path('transactions.log').exists(): Path('transactions.log').unlink()            
@@ -321,7 +341,6 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             self.assertSequenceEqual(actual_learners, expected_learners)
             self.assertSequenceEqual(actual_simulations, expected_simulations)
             self.assertSequenceEqual(actual_performances, expected_performances)
-
 
 if __name__ == '__main__':
     unittest.main()

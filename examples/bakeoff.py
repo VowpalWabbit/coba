@@ -20,9 +20,6 @@ learner_factories = [
 ]
 
 with ExecutionContext.Logger.log("evaluating learners..."):
-    result = benchmark.evaluate(learner_factories, "transactions.log")
+    result = benchmark.evaluate(learner_factories, "./examples/bakeoff_transactions.log")
 
-print(result.to_pandas()[2].groupby('simulation_id').aggregate(len))
-print(result.to_pandas()[2].groupby('learner_id').aggregate(len))
-
-#Plots.standard_plot(result)
+Plots.standard_plot(result)
