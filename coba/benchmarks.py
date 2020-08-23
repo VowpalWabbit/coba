@@ -107,9 +107,9 @@ class Result(JsonSerializable):
 
         is_save_transactions = transactions_file is not None
 
-        self._learner_table     = Table[int]               (default, is_save_transactions)
-        self._simulation_table  = Table[int]               (default, is_save_transactions)
-        self._performance_table = Table[Tuple[int,int,int]](default, is_save_transactions)
+        self._learner_table    = Table[int]               (default, is_save_transactions)
+        self._simulation_table = Table[int]               (default, is_save_transactions)
+        self._batch_table      = Table[Tuple[int,int,int]](default, is_save_transactions)
 
         self._transactions_path = None if transactions_file is None else Path(transactions_file)
 
@@ -131,15 +131,24 @@ class Result(JsonSerializable):
         kwargs.move_to_end("simulation_id",last=False)
         self._add_row(self._simulation_table, simulation_id, **kwargs)
 
-    def add_performance_row(self, learner_id:int, simulation_id:int, batch_id:int, **kwargs):
+    def add_batch_row(self, learner_id:int, simulation_id:int, batch_index:int, **kwargs):
         kwargs = collections.OrderedDict(kwargs)
         kwargs["learner_id"]    = learner_id
         kwargs["simulation_id"] = simulation_id
-        kwargs["batch_id"]      = batch_id
+        kwargs["batch_id"]      = batch_index
         kwargs.move_to_end("batch_id", last=False)
         kwargs.move_to_end("simulation_id", last=False)
         kwargs.move_to_end("learner_id", last=False)        
-        self._add_row(self._performance_table, (simulation_id,learner_id,batch_id), **kwargs)
+        self._add_row(self._batch_table, (simulation_id,learner_id,batch_index), **kwargs)
+
+    def has_learner_key(self, learner_id:int) -> bool:
+        return learner_id in self._learner_table
+    
+    def has_simulation_key(self, simulation_id:int) -> bool:
+        return simulation_id in self._simulation_table
+        
+    def has_batch_key(self, learner_id:int, simulation_id:int, batch_index:int) -> bool:
+        return (learner_id, simulation_id, batch_index) in self._batch_table
 
     def _add_row(self, table: Table[_K], key:_K, **kwargs):
         table.add_row(key, **kwargs)
@@ -156,8 +165,8 @@ class Result(JsonSerializable):
             for transaction in self._simulation_table.pop_transactions():
                 lines.append(encoder.encode(["S",transaction]))
 
-            for transaction in self._performance_table.pop_transactions():
-                lines.append(encoder.encode(["P",transaction]))
+            for transaction in self._batch_table.pop_transactions():
+                lines.append(encoder.encode(["B",transaction]))
 
             with self._transactions_path.open("a") as f:
                 f.write("\n".join(lines+['']))
@@ -181,29 +190,27 @@ class Result(JsonSerializable):
                     table = self._simulation_table
                     key   = json_obj[1][0]
                 else:
-                    table = self._performance_table
+                    table = self._batch_table
                     key   = tuple(json_obj[1][0])
                     
                 table.add_row(key, **json_obj[1][1])
 
             self._learner_table.pop_transactions()
             self._simulation_table.pop_transactions()
-            self._performance_table.pop_transactions()
-
-            
+            self._batch_table.pop_transactions()            
 
     def to_tuples(self) -> Tuple[Sequence[Any], Sequence[Any], Sequence[Any]]:
         return (
             self._learner_table.to_tuples(),
             self._simulation_table.to_tuples(),
-            self._performance_table.to_tuples()
+            self._batch_table.to_tuples()
         )
 
     def to_indexed_tuples(self) -> Tuple[Dict[int,Any], Dict[int,Any], Dict[Tuple[int,int,int],Any]]:
         return (
             self._learner_table.to_indexed_tuples(),
             self._simulation_table.to_indexed_tuples(),
-            self._performance_table.to_indexed_tuples()
+            self._batch_table.to_indexed_tuples()
         )
 
     def to_pandas(self) -> Tuple[Any,Any,Any]:
@@ -218,17 +225,17 @@ class Result(JsonSerializable):
     def __from_json_obj__(obj:Dict[str,Any]) -> 'Result':
         result = Result()
 
-        result._simulation_table  = obj['simulation_table']
-        result._learner_table     = obj['learner_table']
-        result._performance_table = obj['performance_table']
+        result._simulation_table = obj['simulation_table']
+        result._learner_table    = obj['learner_table']
+        result._batch_table      = obj['batch_table']
 
         return result
 
     def __to_json_obj__(self) -> Dict[str,Any]:
         return {
-            'simulation_table' : self._simulation_table,
-            'learner_table'    : self._learner_table,
-            'performance_table': self._performance_table
+            'simulation_table': self._simulation_table,
+            'learner_table'   : self._learner_table,
+            'batch_table'     : self._batch_table
         }
 
 class Benchmark(Generic[_C,_A], ABC):
@@ -370,7 +377,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         ec.learner_factories = learner_factories
 
         for ec.learner_index, ec.learner in enumerate(f() for f in learner_factories):
-            ec.result.add_learner_row(ec.learner_index, name=self._safe_name(ec.learner) )
+            if not ec.result.has_learner_key(ec.learner_index):
+                ec.result.add_learner_row(ec.learner_index, name=self._safe_name(ec.learner) )
 
         self._process_simulations(ec)
         
@@ -380,7 +388,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
     def _process_simulations(self, ec: 'UniversalBenchmark.EvaluationContext'):
         for ec.simulation_index, ec.simulation in enumerate(self._simulations):
             with ExecutionContext.Logger.log(f"processing simulation {ec.simulation_index}..."):
-                try:                    
+                try:
                     self._process_simulation(ec)
                 except LoggedException as e:
                     pass #if we've already logged it no need to do it again
@@ -394,11 +402,12 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             ec.batch_sizes   = self._batch_sizes(len(ec.simulation.interactions))
             ec.batch_indexes = [b for index,size in enumerate(ec.batch_sizes) for b in repeat(index,size)]
             
-            ec.result.add_simulation_row(ec.simulation_index, 
-                interaction_count = sum(ec.batch_sizes), 
-                context_size      = median(self._context_sizes(ec.simulation)),
-                action_count      = median(self._action_counts(ec.simulation))
-            )
+            if not ec.result.has_simulation_key(ec.simulation_index):
+                ec.result.add_simulation_row(ec.simulation_index, 
+                    interaction_count = sum(ec.batch_sizes), 
+                    context_size      = median(self._context_sizes(ec.simulation)),
+                    action_count      = median(self._action_counts(ec.simulation))
+                )
 
             self._process_learners(ec)
 
@@ -413,7 +422,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
     def _process_batches(self, ec: 'UniversalBenchmark.EvaluationContext'):
         for ec.batch_index, ec.batch in groupby(zip(ec.batch_indexes, ec.simulation.interactions), lambda t: t[0]):
-            self._process_batch(ec)
+            if not ec.result.has_batch_key(ec.learner_index, ec.simulation_index, ec.batch_index):
+                self._process_batch(ec)
 
     def _process_batch(self, ec: 'UniversalBenchmark.EvaluationContext'):
         keys     = []
@@ -435,7 +445,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
             ec.learner.learn(key,context,action,reward)
 
-        ec.result.add_performance_row(
+        ec.result.add_batch_row(
             ec.learner_index,
             ec.simulation_index,
             ec.batch_index,

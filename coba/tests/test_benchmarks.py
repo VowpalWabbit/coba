@@ -72,7 +72,7 @@ class Result_Tests(unittest.TestCase):
         expected_result = Result(0)
         expected_result.add_learner_row(0,a='A')
         expected_result.add_simulation_row(0,b='B')
-        expected_result.add_performance_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+        expected_result.add_batch_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
 
         json_txt = CobaJsonEncoder().encode(expected_result)
 
@@ -84,7 +84,7 @@ class Result_Tests(unittest.TestCase):
         expected_result = Result(0)
         expected_result.add_learner_row(0,a='A')
         expected_result.add_simulation_row(0,b='B')
-        expected_result.add_performance_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+        expected_result.add_batch_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
 
         try:
             expected_result.to_json_file('test.json')
@@ -100,7 +100,7 @@ class Result_Tests(unittest.TestCase):
             expected_result = Result(0, "transactions.log")
             expected_result.add_learner_row(0,a='A')
             expected_result.add_simulation_row(0,b='B')
-            expected_result.add_performance_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+            expected_result.add_batch_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
 
             actual_result = Result(0, "transactions.log")
         finally:
@@ -114,12 +114,12 @@ class Result_Tests(unittest.TestCase):
             expected_result = Result(0, "transactions.log")
             expected_result.add_learner_row(0,a='A')
             expected_result.add_simulation_row(0,b='B')
-            expected_result.add_performance_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+            expected_result.add_batch_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
 
             expected_result = Result(0, "transactions.log")
             expected_result.add_learner_row(1,a='z')
             expected_result.add_simulation_row(1,b='q')
-            expected_result.add_performance_row(1,1,0,mean=BatchMeanEstimator([1,2,3,4,5]))
+            expected_result.add_batch_row(1,1,0,mean=BatchMeanEstimator([1,2,3,4,5]))
 
             actual_result = Result(0, "transactions.log")
         finally:
@@ -263,6 +263,32 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
         self.assertSequenceEqual(actual_performances, expected_performances)
+
+    def test_tranaction_resume(self):
+        sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], name="0")
+        broken_factory  = lambda: LambdaLearner[int,int](lambda s,A: A[500], name="0")
+        benchmark       = UniversalBenchmark([sim], batch_count=1)
+
+        #the second time the broken_factory() shouldn't ever be used for learning or choosing
+        #because it already worked the first time and we are "resuming" benchmark from transaction.log
+
+        try:
+            first_results  = benchmark.evaluate([learner_factory], transaction_file="transactions.log")
+            second_results = benchmark.evaluate([broken_factory], transaction_file="transactions.log")
+
+            actual_learners,actual_simulations,actual_performances = second_results.to_tuples()
+
+            expected_learners     = [(0,"0")]
+            expected_simulations  = [(0, 5, 1, 3)]
+            expected_performances = [ (0, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
+        finally:
+            if Path('transactions.log').exists(): Path('transactions.log').unlink()            
+
+            self.assertSequenceEqual(actual_learners, expected_learners)
+            self.assertSequenceEqual(actual_simulations, expected_simulations)
+            self.assertSequenceEqual(actual_performances, expected_performances)
+
 
 if __name__ == '__main__':
     unittest.main()
