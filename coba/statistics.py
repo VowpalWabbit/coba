@@ -167,7 +167,6 @@ class StatisticalEstimate(JsonSerializable):
 
     def __to_json_obj__(self) -> Dict[str,Any]:
         return {
-            '_type'         : 'StatisticalEstimate',
             'estimate'      : self._estimate,
             'standard_error': self._standard_error
         }

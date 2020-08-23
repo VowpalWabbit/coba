@@ -38,7 +38,7 @@ class Plots():
         estimates: Dict[str,Tuple[List[float],List[StatisticalEstimate]]] = defaultdict(lambda: ([],[]))
 
         for batch_group in grouped_batches:
-            name    = learners[batch_group[0][0]].name
+            name    = learners[batch_group[0][0]].full_name
             group   = list(batch_group[1])
             weights = [perf.N           for perf in group]
             means   = [perf.mean_reward for perf in group]            

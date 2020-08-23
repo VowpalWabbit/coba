@@ -415,7 +415,10 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         for ec.learner_index, ec.learner in enumerate(f() for f in learner_factories):
             if not ec.result.has_learner(ec.learner_index):
-                ec.result.add_learner(ec.learner_index, name=self._safe_name(ec.learner) )
+                ec.result.add_learner(ec.learner_index, 
+                family    = self._safe_family(ec.learner),
+                full_name = self._full_name(ec.learner),
+                **self._safe_params(ec.learner))
 
         self._process_simulations(ec)
 
@@ -462,7 +465,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                     self._process_learner(ec)
 
     def _process_learner(self, ec: 'UniversalBenchmark.EvaluationContext'):
-        with ExecutionContext.Logger.log(f"evaluating {self._safe_name(ec.learner)}..."):
+        with ExecutionContext.Logger.log(f"evaluating {self._safe_family(ec.learner)}..."):
             self._process_batches(ec)
 
     def _process_batches(self, ec: 'UniversalBenchmark.EvaluationContext'):
@@ -536,11 +539,26 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         
         raise Exception("We were unable to determine batch size from the supplied parameters")
 
-    def _safe_name(self, learner: Any) -> str:
+    def _safe_family(self, learner: Any) -> str:
         try:
-            return learner.name
+            return learner.family
         except:
             return learner.__class__.__name__
+    
+    def _safe_params(self, learner: Any) -> Dict[str,Any]:
+        try:
+            return learner.params
+        except:
+            return {}
+
+    def _full_name(self, learner: Any) -> str:
+        family = self._safe_family(learner)
+        params = self._safe_params(learner)
+
+        if len(params) > 0:
+            return f"{family}({','.join(f'{k}={v}' for k,v in params.items())})"
+        else:
+            return family
 
     def _lazy_simulation(self, simulation: Simulation) -> LazySimulation:
         return simulation if isinstance(simulation, LazySimulation) else LazySimulation(lambda: simulation)

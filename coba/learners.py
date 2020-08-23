@@ -10,7 +10,7 @@ TODO Improve docstrings for VowpalLearner.__init__ overloads (there appear to be
 import math
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Sequence, Tuple, Optional, Dict, cast, Generic, TypeVar, overload, Union
+from typing import Any, Callable, Sequence, Tuple, Optional, Dict, cast, Generic, TypeVar, overload, Union, List
 from itertools import accumulate
 from collections import defaultdict
 from inspect import signature
@@ -29,8 +29,17 @@ class Learner(Generic[_C_in, _A_in], ABC):
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        """ The name of the learner.
+    def family(self) -> str:
+        """The family of the learner.
+
+        This value is used for descriptive purposes only when creating benchmark results.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def params(self) -> Dict[str,Any]:
+        """The parameters used to initialize the learner.
 
         This value is used for descriptive purposes when creating benchmark results.
         """
@@ -92,23 +101,27 @@ class LambdaLearner(Learner[_C_in, _A_in]):
     def __init__(self, 
                 choose: Callable[[_C_in, Sequence[_A_in]], Choice], 
                 learn : Optional[Callable[[_C_in, _A_in, Reward],None]] = None,
-                name  : str = "Lambda") -> None:
+                family: str = "Lambda",
+                params: Dict[str,Any] = {}) -> None:
         ...
     
     @overload
     def __init__(self, 
                  choose: Callable[[Key, _C_in, Sequence[_A_in]], Choice], 
                  learn : Optional[Callable[[Key, _C_in, _A_in, Reward],None]] = None,
-                 name  : str = "Lambda") -> None:
+                 family: str = "Lambda",
+                 params: Dict[str,Any] = {}) -> None:
         ...
 
-    def __init__(self, choose, learn = None, name: str = "Lambda") -> None:
+    def __init__(self, choose, learn = None, family: str = "Lambda", params: Dict[str,Any] = {}) -> None:
         """Instantiate LambdaLearner.
 
         Args:
-            chooser: a function matching the super().choose() signature. All parameters are passed straight through.
-            learner: a function matching the super().learn() signature. If provided all parameters are passed
+            chooser: A function matching the `super().choose()` signature. All parameters are passed straight through.
+            learner: A function matching the `super().learn()` signature. If provided all parameters are passed
                 straight through. If the function isn't provided then no learning occurs.
+            family: The family that the lambda learner belongs to.
+            params: The parameters used when creating the lambda learner.
         """
 
         if len(signature(choose).parameters) == 2:
@@ -121,15 +134,24 @@ class LambdaLearner(Learner[_C_in, _A_in]):
 
         self._choose = choose
         self._learn  = learn
-        self._name   = name
+        self._family = family
+        self._params = params
 
     @property
-    def name(self) -> str:
-        """The name of the Learner.
+    def family(self) -> str:
+        """The family of the learner.
         
         See the base class for more information
-        """  
-        return self._name
+        """
+        return self._family
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """The parameters of the learner.
+        
+        See the base class for more information
+        """
+        return self._params
 
     def choose(self, key: Key, context: _C_in, actions: Sequence[_A_in]) -> Choice:
         """Choose via the provided lambda function.
@@ -163,12 +185,20 @@ class RandomLearner(JsonSerializable, Learner[Context, Action]):
     """A Learner implementation that selects an action at random and learns nothing."""
 
     @property
-    def name(self) -> str:
-        """The name of the Learner.
+    def family(self) -> str:
+        """The name of the learner.
 
         See the base class for more information
         """  
         return "Random"
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """The parameters of the learner.
+        
+        See the base class for more information
+        """
+        return { }
 
     def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
         """Choose a random action from the action set.
@@ -225,12 +255,20 @@ class EpsilonLearner(JsonSerializable, Learner[Context, Action]):
         self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(lambda: init)
 
     @property
-    def name(self) -> str:
+    def family(self) -> str:
         """The name of the Learner.
 
         See the base class for more information
         """
-        return "Epislon-greedy"
+        return "epsilon-greedy"
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """The parameters of the learner.
+        
+        See the base class for more information
+        """
+        return {"epsilon": self._epsilon }
 
     def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
         """Choose greedily with probability 1-epsilon. Choose a randomly with probability epsilon.
@@ -297,12 +335,20 @@ class UcbTunedLearner(JsonSerializable, Learner[Context, Action]):
         self._v     : Dict[Action,OnlineVariance] = defaultdict(OnlineVariance)
 
     @property
-    def name(self) -> str:
-        """The name of the Learner.
+    def family(self) -> str:
+        """The family of the learner.
 
         See the base class for more information
         """
         return "UCB"
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """The parameters of the learner.
+        
+        See the base class for more information
+        """
+        return { }
 
     def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
         """Choose an action greedily according to the upper confidence bound estimates.
@@ -448,7 +494,7 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
 
     #the pip version of pyvw doesn't currently include the rnd algorithm so we are commenting out this overload for now
     #@overload
-    #def __init__(self, *, rnd: float, epsilon:float = 0.025, rnd_invlambda: float = 0.1, rnd_alpha:float = 0.1) -> None:
+    #def __init__(self, *, rnd: float, epsilon:float = 0, rnd_invlambda: float = 0.1, rnd_alpha:float = 0.1) -> None:
     #    ...
 
     def __init__(self, **kwargs) -> None:
@@ -462,12 +508,8 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
 
         is_adf = False if 'cover' in kwargs else True if 'softmax' in kwargs else kwargs.pop('is_adf', True)
 
-        if all(exploration not in kwargs for exploration in ['bag','cover','softmax','rnd']):
-            kwargs['epsilon'] = kwargs.get('epsilon', 0.025)
-
-        name_args = ",".join(f"{key}={value}" for key,value in kwargs.items())
-        name_mode = "ADF" if is_adf else "not ADF"
-        self._name = f"VW({name_args},{name_mode})"
+        if all(exploration not in kwargs for exploration in ['epsilon','bag','cover','softmax','rnd']):
+            kwargs['epsilon'] = 0.025
 
         if 'softmax' in kwargs:
             self._exploration = f"--softmax --lambda {kwargs['softmax']}"
@@ -482,12 +524,28 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
         self._is_adf       : bool              = is_adf
 
     @property
-    def name(self) -> str:
-        """The name of the Learner.
+    def family(self) -> str:
+        """The name of the learner.
 
         See the base class for more information
-        """  
-        return self._name
+        """
+        def exploration() -> List[str]:
+            for exploration in ['bag', 'cover', 'softmax', 'rnd']:
+                if exploration in self._kwargs: return [exploration]
+            return ['epsilon']
+
+        def algorithm() -> List[str]:
+            return ["ADF"] if self._is_adf else []
+
+        return "_".join(["vw"] + exploration() + algorithm())
+    
+    @property
+    def params(self) -> Dict[str, Any]:
+        """The parameters of the learner.
+        
+        See the base class for more information
+        """
+        return self._kwargs
 
     def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
         """Choose an action according to the explor-exploit parameters passed into the contructor.
