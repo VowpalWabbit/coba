@@ -8,10 +8,9 @@ from coba.benchmarks import UniversalBenchmark
 from coba.analysis import Plots
 from coba.execution import ExecutionContext
 
-ExecutionContext.Logger.log("creating benchmark...")
-benchmark = UniversalBenchmark.from_file("./examples/data/benchmark.json")
 
-ExecutionContext.Logger.log("creating learners...")
+benchmark = UniversalBenchmark.from_file("./examples/benchmark_short.json")
+
 learner_factories = [
     lambda: RandomLearner(),
     lambda: EpsilonLearner(0.025),
@@ -24,4 +23,7 @@ learner_factories = [
 with ExecutionContext.Logger.log("evaluating learners..."):
     result = benchmark.evaluate(learner_factories)
 
-Plots.standard_plot(result)
+print(result.to_pandas()[2].groupby('simulation_id').aggregate(len))
+print(result.to_pandas()[2].groupby('learner_id').aggregate(len))
+
+#Plots.standard_plot(result)

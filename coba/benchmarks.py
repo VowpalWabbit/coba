@@ -153,7 +153,7 @@ class Result(JsonSerializable):
         kwargs.move_to_end("batch_id", last=False)
         kwargs.move_to_end("simulation_id", last=False)
         kwargs.move_to_end("learner_id", last=False)        
-        self._add_row(self._batch_table, (simulation_id,learner_id,batch_index), **kwargs)
+        self._add_row(self._batch_table, (learner_id,simulation_id,batch_index), **kwargs)
 
     def has_learner_key(self, learner_id:int) -> bool:
         return learner_id in self._learner_table

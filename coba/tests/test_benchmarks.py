@@ -68,6 +68,12 @@ class Table_Tests(unittest.TestCase):
 
 class Result_Tests(unittest.TestCase):
 
+    def test_has_batch_key(self):
+        result = Result(0)
+        result.add_batch_row(0,1,2, a='A')
+
+        self.assertTrue(result.has_batch_key(0,1,2))
+
     def test_to_from_json(self):
         expected_result = Result(0)
         expected_result.add_learner_row(0,a='A')
@@ -100,7 +106,7 @@ class Result_Tests(unittest.TestCase):
             expected_result = Result(0, "transactions.log")
             expected_result.add_learner_row(0,a='A')
             expected_result.add_simulation_row(0,b='B')
-            expected_result.add_batch_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+            expected_result.add_batch_row(0,1,2,mean=BatchMeanEstimator([1,2,3]))
 
             actual_result = Result(0, "transactions.log")
         finally:
@@ -114,7 +120,7 @@ class Result_Tests(unittest.TestCase):
             expected_result = Result(0, "transactions.log")
             expected_result.add_learner_row(0,a='A')
             expected_result.add_simulation_row(0,b='B')
-            expected_result.add_batch_row(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+            expected_result.add_batch_row(0,1,2,mean=BatchMeanEstimator([1,2,3]))
 
             expected_result = Result(0, "transactions.log")
             expected_result.add_learner_row(1,a='z')
