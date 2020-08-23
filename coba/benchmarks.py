@@ -450,8 +450,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
     def _process_batches(self, ec: 'UniversalBenchmark.EvaluationContext'):
         for ec.batch_index, ec.batch in groupby(zip(ec.batch_indexes, ec.simulation.interactions), lambda t: t[0]):
-            if not ec.result.has_batch_key(ec.learner_index, ec.simulation_index, ec.batch_index):
-                self._process_batch(ec)
+            self._process_batch(ec)
 
     def _process_batch(self, ec: 'UniversalBenchmark.EvaluationContext'):
         keys     = []
@@ -463,6 +462,9 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             ec.batch_index -= 1
 
         if ec.batch_index == -1:
+            return
+
+        if ec.result.has_batch_key(ec.learner_index, ec.simulation_index, ec.batch_index):
             return
 
         for _, interaction in ec.batch:

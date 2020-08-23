@@ -8,7 +8,6 @@ from coba.benchmarks import UniversalBenchmark
 from coba.analysis import Plots
 from coba.execution import ExecutionContext
 
-
 benchmark = UniversalBenchmark.from_file("./examples/benchmark_short.json")
 
 learner_factories = [
@@ -21,7 +20,7 @@ learner_factories = [
 ]
 
 with ExecutionContext.Logger.log("evaluating learners..."):
-    result = benchmark.evaluate(learner_factories)
+    result = benchmark.evaluate(learner_factories, "transactions.log")
 
 print(result.to_pandas()[2].groupby('simulation_id').aggregate(len))
 print(result.to_pandas()[2].groupby('learner_id').aggregate(len))

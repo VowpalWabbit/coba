@@ -55,7 +55,7 @@ class Table_Tests(unittest.TestCase):
         self.assertSequenceEqual(actual_transactions,expected_transactions)
 
     def test_table_contains(self):
-        table = Table(0)
+        table = Table("test",0)
         table.add_row(0, a='A')
         table.add_row((0,1,2), b='B')
         table.add_row('a', c='C')
@@ -272,7 +272,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         self.assertSequenceEqual(actual_simulations, expected_simulations)
         self.assertSequenceEqual(actual_performances, expected_performances)
 
-    def test_tranaction_resume(self):
+    def test_tranaction_resume_1(self):
         sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], name="0")
         broken_factory  = lambda: LambdaLearner[int,int](lambda s,A: A[500], name="0")
@@ -290,6 +290,31 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             expected_learners     = [(0,"0")]
             expected_simulations  = [(0, 5, 1, 3)]
             expected_performances = [ (0, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
+        finally:
+            if Path('transactions.log').exists(): Path('transactions.log').unlink()            
+
+            self.assertSequenceEqual(actual_learners, expected_learners)
+            self.assertSequenceEqual(actual_simulations, expected_simulations)
+            self.assertSequenceEqual(actual_performances, expected_performances)
+
+    def test_tranaction_resume_2(self):
+        sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], name="0")
+        broken_factory  = lambda: LambdaLearner[int,int](lambda s,A: A[500], name="0")
+        benchmark       = UniversalBenchmark([sim], batch_count=2, ignore_first=True)
+
+        #the second time the broken_factory() shouldn't ever be used for learning or choosing
+        #because it already worked the first time and we are "resuming" benchmark from transaction.log
+
+        try:
+            first_results  = benchmark.evaluate([learner_factory], transaction_file="transactions.log")
+            second_results = benchmark.evaluate([broken_factory], transaction_file="transactions.log")
+
+            actual_learners,actual_simulations,actual_performances = second_results.to_tuples()
+
+            expected_learners     = [(0,"0")]
+            expected_simulations  = [(0, 5, 1, 3)]
+            expected_performances = [ (0, 0, 0, 2, BatchMeanEstimator([0,1]))]
         finally:
             if Path('transactions.log').exists(): Path('transactions.log').unlink()            
 
