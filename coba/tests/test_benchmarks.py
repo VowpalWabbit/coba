@@ -1,6 +1,6 @@
 import unittest
 
-from typing import Tuple
+from typing import Tuple, Hashable
 from pathlib import Path
 
 from coba.simulations import LambdaSimulation, LazySimulation
@@ -15,7 +15,7 @@ ExecutionContext.Logger = NoneLogger()
 class Table_Tests(unittest.TestCase):
 
     def test_to_from_json(self):
-        expected_table = Table(0)
+        expected_table = Table[Hashable]("test", 0)
         expected_table.add_row(0, a='A')
         expected_table.add_row((0,1,2), b='B')
         expected_table.add_row('a', c='C')
@@ -27,7 +27,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(actual_table.to_tuples(), expected_table.to_tuples())
 
     def test_save_transactions(self):
-        table = Table[int](save_transactions=True)
+        table = Table[int]("test", save_transactions=True)
 
         table.add_row(2, **{'A':1, 'B':2})
         table.add_row(3, **{'A':1, 'C':2})
@@ -43,7 +43,7 @@ class Table_Tests(unittest.TestCase):
         self.assertSequenceEqual(actual_transactions,expected_transactions)
 
     def test_no_save_transactions(self):
-        table = Table[int](save_transactions=False)
+        table = Table[int]("test", save_transactions=False)
 
         table.add_row(2, **{'A':1, 'B':2})
         table.add_row(3, **{'A':1, 'C':2})

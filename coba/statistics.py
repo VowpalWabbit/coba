@@ -172,6 +172,12 @@ class StatisticalEstimate(JsonSerializable):
             'standard_error': self._standard_error
         }
 
+    def __str__(self) -> str:
+        return str({'Estimate': self._estimate, 'SE': self._standard_error})
+
+    def __repr__(self) -> str:
+        return str(self)
+
 class BatchMeanEstimator(StatisticalEstimate):
     """Estimate the population mean from a batch of i.i.d. observations"""
 

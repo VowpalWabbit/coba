@@ -37,8 +37,9 @@ Transaction = Tuple[_K, Dict[str,Any]]
 
 class Table(JsonSerializable, Generic[_K]):
 
-    def __init__(self, default: Any=float('nan'), save_transactions: bool = False):
+    def __init__(self, name:str, default: Any=float('nan'), save_transactions: bool = False):
         
+        self._name    = name
         self._default = default
         self._save_transactions = save_transactions
         
@@ -63,8 +64,14 @@ class Table(JsonSerializable, Generic[_K]):
         return list(self.to_indexed_tuples().values())
 
     def to_indexed_tuples(self) -> Dict[_K, Any]:
-        my_type = collections.namedtuple('_T', self._columns) #type: ignore #mypy doesn't like dynamic named tuples
+        my_type = collections.namedtuple(self._name, self._columns) #type: ignore #mypy doesn't like dynamic named tuples
         return { key:my_type(**value) for key,value in self._rows.items() } #type: ignore #mypy doesn't like dynamic named tuples
+
+    def to_pandas(self) -> Any:
+        check_pandas_support('Table.to_pandas')
+        import pandas as pd #type: ignore #mypy complains otherwise
+
+        return pd.DataFrame(self.to_tuples())
 
     def pop_transactions(self) -> Sequence[Transaction[_K]]:
         transactions, self._transactions = self._transactions, []
@@ -73,12 +80,18 @@ class Table(JsonSerializable, Generic[_K]):
     def __contains__(self, item) -> bool:
         return item in self._rows
 
+    def __str__(self) -> str:
+        return str({"Table": self._name, "Columns": self._columns, "Rows": len(self._rows)})
+
+    def __repr__(self) -> str:
+        return str(self)
+
     @staticmethod
     def __from_json_obj__(json_obj: Dict[str,Any]) -> 'Table[Hashable]':
         rows    = { literal_eval(key):value for key,value in json_obj['rows'].items() }
         columns = json_obj['columns']
 
-        obj          = Table[Hashable]()
+        obj          = Table[Hashable](json_obj['name'])
         obj._columns = columns
         obj._rows    = rows
 
@@ -89,6 +102,7 @@ class Table(JsonSerializable, Generic[_K]):
         literal_evalable = lambda key: str(key) if not isinstance(key, str) else f"'{key}'"
 
         return {
+            'name'   : self._name,
             'columns': self._columns,
             'rows'   : { literal_evalable(key):value for key,value in self._rows.items() }
         }
@@ -107,9 +121,9 @@ class Result(JsonSerializable):
 
         is_save_transactions = transactions_file is not None
 
-        self._learner_table    = Table[int]               (default, is_save_transactions)
-        self._simulation_table = Table[int]               (default, is_save_transactions)
-        self._batch_table      = Table[Tuple[int,int,int]](default, is_save_transactions)
+        self._learner_table    = Table[int]               ("Learners", default, is_save_transactions)
+        self._simulation_table = Table[int]               ("Simulations", default, is_save_transactions)
+        self._batch_table      = Table[Tuple[int,int,int]]("Batches", default, is_save_transactions)
 
         self._transactions_path = None if transactions_file is None else Path(transactions_file)
 
@@ -214,12 +228,11 @@ class Result(JsonSerializable):
         )
 
     def to_pandas(self) -> Tuple[Any,Any,Any]:
-        check_pandas_support('abc')
-        import pandas as pd #type: ignore #mypy complains otherwise
-
-        l,s,p = self.to_tuples()
-
-        return pd.DataFrame(l), pd.DataFrame(s), pd.DataFrame(p)
+        return (
+            self._learner_table.to_pandas(),
+            self._simulation_table.to_pandas(),
+            self._batch_table.to_pandas()
+        )
 
     @staticmethod
     def __from_json_obj__(obj:Dict[str,Any]) -> 'Result':
@@ -237,6 +250,16 @@ class Result(JsonSerializable):
             'learner_table'   : self._learner_table,
             'batch_table'     : self._batch_table
         }
+
+    def __str__(self) -> str:
+        return str({
+            "Learners": len(self._learner_table._rows),
+            "Simulations": len(self._simulation_table._rows),
+            "Batches": len(self._batch_table._rows)
+        })
+
+    def __repr__(self) -> str:
+        return str(self)
 
 class Benchmark(Generic[_C,_A], ABC):
     """The interface for Benchmark implementations."""
