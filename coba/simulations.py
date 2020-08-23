@@ -554,7 +554,6 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         header: Sequence[str] = next(itable) if has_header else []
 
         label_index = header.index(label_col) if label_col in header else label_col if isinstance(label_col,int) else None  # type: ignore
-        label_meta  = defined_meta.get(label_col, defined_meta.get(label_index, None)) #type: ignore
 
         if isinstance(label_col, str) and label_col not in header:
             raise Exception("We were unable to find the label column in the header row (or there was no header row).")

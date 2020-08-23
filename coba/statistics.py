@@ -173,7 +173,7 @@ class StatisticalEstimate(JsonSerializable):
         }
 
     def __str__(self) -> str:
-        return str({'Estimate': self._estimate, 'SE': self._standard_error})
+        return str({'Est': round(self._estimate,4), 'SE': round(self._standard_error,4)})
 
     def __repr__(self) -> str:
         return str(self)

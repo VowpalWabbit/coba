@@ -30,14 +30,14 @@ class Plots():
             else:
                 return StatisticalEstimate(float('nan'), float('nan'))
 
-        learners, _, performances = result.to_indexed_tuples()
+        learners, _, batches = result.to_indexed_tuples()
 
-        sorted_performances  = sorted(performances.values(), key=lambda r: (r.learner_id, r.batch_id))
-        grouped_performances = groupby(sorted_performances, key=lambda r: (r.learner_id, r.batch_id))
+        sorted_batches  = sorted(batches.values(), key=lambda r: (r.learner_id, r.batch_id))
+        grouped_batches = groupby(sorted_batches , key=lambda r: (r.learner_id, r.batch_id))
 
         estimates: Dict[str,Tuple[List[float],List[StatisticalEstimate]]] = defaultdict(lambda: ([],[]))
 
-        for batch_group in grouped_performances:
+        for batch_group in grouped_batches:
             name    = learners[batch_group[0][0]].name
             group   = list(batch_group[1])
             weights = [perf.N           for perf in group]
