@@ -342,28 +342,31 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         simulations = [ Simulation.from_json(sim_config) for sim_config in sim_configs ]
 
         if "count" in config["batches"]:
-            return UniversalBenchmark(simulations, batch_count=config["batches"]["count"])
+            return UniversalBenchmark(simulations, batch_count=config["batches"]["count"], ignore_first=config["ignore_first"])
         else:
-            return UniversalBenchmark(simulations, batch_size=config["batches"]["size"])    
+            return UniversalBenchmark(simulations, batch_size=config["batches"]["size"], ignore_first=config["ignore_first"])
 
     @overload
     def __init__(self, 
         simulations: Sequence[Simulation[_C,_A]],
         *, 
-        batch_count: int) -> None:
+        batch_count: int,
+        ignore_first:bool = True) -> None:
         ...
 
     @overload
     def __init__(self, 
         simulations: Sequence[Simulation[_C,_A]],
         *, 
-        batch_size: Union[int, Sequence[int], Callable[[int],int]]) -> None:
+        batch_size: Union[int, Sequence[int], Callable[[int],int]],
+        ignore_first: bool = True) -> None:
         ...
 
     def __init__(self,
-        simulations: Sequence[Simulation[_C,_A]], 
-        batch_count: int = None, 
-        batch_size : Union[int, Sequence[int], Callable[[int],int]] = None) -> None:
+        simulations : Sequence[Simulation[_C,_A]], 
+        batch_count : int = None, 
+        batch_size  : Union[int, Sequence[int], Callable[[int],int]] = None,
+        ignore_first: bool = True) -> None:
         """Instantiate a UniversalBenchmark.
 
         Args:
@@ -374,11 +377,13 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                 batch_size is a sequence of integers then `sum(batch_size)` interactions will be 
                 pulled from simulations and batched according to the sequence. If batch_size is a 
                 function then simulation run until completion with batch_size determined by function.
+            ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
         """
 
-        self._simulations = simulations
-        self._batch_count = batch_count
-        self._batch_size  = batch_size
+        self._simulations  = simulations
+        self._batch_count  = batch_count
+        self._batch_size   = batch_size
+        self._ignore_first = ignore_first
 
     def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]], transaction_file:str = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
@@ -453,6 +458,12 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         contexts = []
         choices  = []
         actions  = []
+
+        if self._ignore_first:
+            ec.batch_index -= 1
+
+        if ec.batch_index == -1:
+            return
 
         for _, interaction in ec.batch:
 
