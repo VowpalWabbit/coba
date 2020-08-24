@@ -1,15 +1,12 @@
 """The contexts module contains classes determining the context for shared functionality.
 
 TODO Add unittests for CobaConfig.
-TODO Add unittests for all CacheInterface implementations.
 """
 
 import json
 import copy
 import collections
 import time
-
-from typing import Callable, ContextManager, Union, Generic, TypeVar, Dict, IO, Mapping, Any, Optional, List, MutableMapping, cast, Iterator
 
 from contextlib import contextmanager
 from itertools import repeat
@@ -18,15 +15,31 @@ from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
 from datetime import datetime
-
+from typing import (
+    Callable, ContextManager, Union, Generic, TypeVar, Dict, 
+    IO, Mapping, Any, Optional, List, MutableMapping, cast, Iterator
+)
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
 
 class TemplatingEngine():
-
+    """This class materializes templates within benchmark json files.
+    
+    The templating engine works as follows: 
+        1. Look in the root object for a "templates" object. Templates should be be objects themselves
+        with hard coded values and variables. Variable values are indicated by beginning with a $.
+        2. Recursively walk through the remainder of the children from the root. For every object found
+        check to see if it has a "template" value. 
+        3. For every object found with a "template" value defined materialize all of that template's static
+        values into this object. If an object has a static variable defined that is also in the template give
+        preference to the local object's value.
+        4. Assign any defined variables to the template as well (i.e., those values that start with a $). 
+        5. Keep defined variables in context while walking child objects in case they are needed as well.
+    """
+    
     @staticmethod
-    def parse(json_val:Union[str, Any]):
+    def parse(json_val:Union[str, Dict[str,Any]]):
 
         root = json.loads(json_val) if isinstance(json_val, str) else json_val
 
@@ -81,7 +94,11 @@ class TemplatingEngine():
         return root
 
 class CobaConfig():
+    """A helper class to find and load coba config files.""" 
+
     def __init__(self):
+        """Instantiate a CobaConfig class."""
+        
         search_paths = [Path("./.coba"), Path.home() / ".coba"]
 
         config = {}
@@ -103,7 +120,8 @@ class CobaConfig():
         return self._config.get("file_cache", {"type":"none"})        
 
 class CacheInterface(Generic[_K, _V], ABC):
-
+    """The interface for a cacher."""
+    
     @abstractmethod
     def __contains__(self, key: _K) -> bool:
         ...
@@ -155,8 +173,20 @@ class MemoryCache(CacheInterface[_K, _V]):
         del self._cache[key]
 
 class DiskCache(CacheInterface[str, IO[bytes]]):
+    """A cache that writes to disk.
     
+    Internally the DiskCache compresses all given bytes before storing them to disk
+    in order to conserve space. If one wishes to pass in compressed bytes or wishes
+    wishes to get compressed bytes from the cache they can indicate this by appending 
+    .gz to the end of the given filename.
+    """
+
     def __init__(self, path: Union[str, Path]) -> None:
+        """Instantiate a DiskCache.
+        
+        Args:
+            path: The path to the directory where all files will be cached
+        """
         self._cache_dir = path if isinstance(path, Path) else Path(path).expanduser()
         self._cache_dir.parent.mkdir(parents=True, exist_ok=True)
 
@@ -164,6 +194,15 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
         return self._private_path(filename).exists()
 
     def get(self, filename: str) -> IO[bytes]:
+        """Get a filename from the cache.
+        
+        If the requested filename has a .gz suffix the returned bytes will be compressed. If
+        the requested filename does not end with .gz the returned bytes will not be compressed.
+
+        Args:
+            filename: Requested filename to retreive from the cache.
+        """
+
         requested_gz   = filename.endswith(".gz")
         resource_path  = self._private_path(filename)
         resource_bytes = resource_path.read_bytes()
@@ -172,6 +211,16 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
         return BytesIO(response_bytes)
 
     def put(self, filename: str, value: IO[bytes]) -> IO[bytes]:
+        """Put a filename and its bytes into the cache.
+        
+        If the given filename has a .gz suffix the given bytes are assumed to be compressed. If
+        the given filename does not end with .gz the given bytes are assumed to not be compressed.
+
+        Args:
+            filename: The filename to store in the cache.
+            value: The bytes that should be cached for the given filename.
+        """
+
 
         received_gz = filename.endswith(".gz")
         resource_path = self._private_path(filename)
@@ -185,6 +234,12 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
         return BytesIO(received_bytes)
 
     def rmv(self, filename: str) -> None:
+        """Remove a filename from the cache.
+
+        Args:
+            filename: The filename to remove from the cache.
+        """
+
         resource_path = self._private_path(filename)
         if resource_path.exists(): resource_path.unlink()
 
@@ -194,15 +249,28 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
     def _private_path(self, filename: str) -> Path:
         return self._cache_dir/self._private_name(filename)
 
-
 class LoggerInterface(ABC):
+    """The interface for a Logger"""
     @abstractmethod
     def log(self, message: str, end:str = None) -> 'ContextManager[LoggerInterface]':
         ...
 
 class UniversalLogger(LoggerInterface):
+    """A simple implementation of the LoggerInterface.
+    
+    This logger allows for its print_function to be overriden. This logger also supports
+    logging levels via a context returned with the log command. All logs that occur within
+    that context will be indented and written as sublists.
+
+    """
 
     def __init__(self, print_function: Callable[[str,Optional[str]],None]):
+        """Instantiate a UniversalLogger.
+
+        Args:
+            print_function: The function that will be called to 'print' any message
+                given to the logger.
+        """
         self._indent_cnt  = 0
         self._is_newline  = True
         self._print       = print_function
@@ -238,7 +306,17 @@ class UniversalLogger(LoggerInterface):
         return datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + indent + bullet + (' ' if bullet != '' else '')
 
     def log(self, message: str, end: str = None) -> ContextManager[LoggerInterface]:
+        """Log a message.
         
+        Args:
+            message: The message that should be logged.
+            end: The string that should be written at the end of the given message.
+
+        Returns:
+            A ContextManager that maintains the indentation level of the logger.
+            Calling `__enter__` on the manager increases the indentation the loggers 
+            indentation while calling `__exit__` decreases the logger's indentation.
+        """
         if self._is_newline:
             message = self._prefix() + message
 
@@ -249,10 +327,12 @@ class UniversalLogger(LoggerInterface):
         return self._with()
 
 class ConsoleLogger(UniversalLogger):
+    """An implementation of the UniversalLogger that writes to console."""
     def __init__(self) -> None:
         super().__init__(print_function=lambda m,e: print(m,end=e))
 
 class NoneLogger(UniversalLogger):
+    """An implementation of the UniversalLogger that writes to nowhere."""
     def __init__(self) -> None:
         super().__init__(print_function=lambda m,e: None)
 

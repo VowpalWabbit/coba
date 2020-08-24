@@ -7,6 +7,14 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Sequence, Type
 
 class JsonSerializable(ABC):
+    """An interface for coba types that can convert to and from json.
+    
+    The built in JSON decoder/encoder expects objects. Therefore our interface
+    merely does the work necessary to get coba types into formats that the built
+    in encoder/decoder can work with and doesn't actually convert all the way to
+    and from json text itself.
+    """
+    
     @abstractmethod
     def __to_json_obj__(self) -> Dict[str,Any]:
         ...
@@ -17,8 +25,11 @@ class JsonSerializable(ABC):
         ...
 
 class CobaJsonEncoder(json.JSONEncoder):
-
+    """A json encoder that works with JsonSerializable to encode coba types."""
+    
     def default(self, obj):
+        """Use JsonSerializable to convert coba types to json."""
+
 
         if hasattr(obj, "__to_json_obj__") and callable(obj.__to_json_obj__):
 
@@ -34,16 +45,26 @@ class CobaJsonEncoder(json.JSONEncoder):
         return super().default(obj)
 
 class CobaJsonDecoder:
+    """A json decoder that works with JsonSerializable to decode coba types."""
 
     def __init__(self, *args, **kwargs):
+        """Instantiate a CobaJsonDecoder."""
         self._decoder = json.JSONDecoder(object_hook=self.object_hook, *args, **kwargs)
 
     def decode(self, json_txt: str, types: Sequence[Type[JsonSerializable]] = []) -> Any:
+        """Decode json text into objects.
+        
+        Args:
+            json_txt: The json text we wish to decode into objects.
+            types: A sequence of types that we may need to use while decoding.
 
-        #in order to avoid circular imports we can't actually import
-        #the types ourselves (since those types will likely also be importing this
-        # module). So, instead we rely on calling modules to provide us with all
-        # types that we need to decode a given json string with our types
+        Remarks:
+            Because of circular imports we can't actually import COBA types directly
+            since many coba classes already import CobaJsonDecoder themselves. So, 
+            we instead rely on calling modules to provide us with all types that we 
+            need at any given time to decode a given json string with coba types.
+        """
+
         self._known_types = { tipe.__name__:tipe for tipe in types }
         
         return self._decoder.decode(json_txt)

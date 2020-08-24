@@ -5,7 +5,7 @@ from pathlib import Path
 
 from coba.simulations import LambdaSimulation, LazySimulation
 from coba.learners import LambdaLearner
-from coba.benchmarks import Table, UniversalBenchmark, Result
+from coba.benchmarks import ResultDiskWriter, ResultMemoryWriter, ResultWriter, Table, UniversalBenchmark, Result
 from coba.execution import ExecutionContext, NoneLogger
 from coba.statistics import BatchMeanEstimator, StatisticalEstimate
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
@@ -26,34 +26,6 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(actual_table.to_tuples(), expected_table.to_tuples())
 
-    def test_save_transactions(self):
-        table = Table[int]("test", save_transactions=True)
-
-        table.add_row(2, **{'A':1, 'B':2})
-        table.add_row(3, **{'A':1, 'C':2})
-        table.add_row(4, **{'A':1, 'D':StatisticalEstimate(1,2)})
-
-        actual_transactions = table.pop_transactions()
-        expected_transactions = [
-            (2, {'A':1, 'B':2}),
-            (3, {'A':1, 'C':2}),
-            (4, {'A':1, 'D':StatisticalEstimate(1,2)})
-        ]
-
-        self.assertSequenceEqual(actual_transactions,expected_transactions)
-
-    def test_no_save_transactions(self):
-        table = Table[int]("test", save_transactions=False)
-
-        table.add_row(2, **{'A':1, 'B':2})
-        table.add_row(3, **{'A':1, 'C':2})
-        table.add_row(4, **{'A':1, 'D':StatisticalEstimate(1,2)})
-
-        actual_transactions = table.pop_transactions()
-        expected_transactions = []
-
-        self.assertSequenceEqual(actual_transactions,expected_transactions)
-
     def test_table_contains(self):
         table = Table("test",0)
         table.add_row(0, a='A')
@@ -68,16 +40,18 @@ class Table_Tests(unittest.TestCase):
 class Result_Tests(unittest.TestCase):
 
     def test_has_batch_key(self):
-        result = Result(0)
-        result.add_batch(0,1,2, a='A')
+        writer = ResultMemoryWriter(0)
+        writer.write_batch(0,1,2, a='A')
+        result = Result.from_result_writer(writer)
 
         self.assertTrue(result.has_batch(0,1,2))
 
     def test_to_from_json(self):
-        expected_result = Result(0)
-        expected_result.add_learner(0,a='A')
-        expected_result.add_simulation(0,b='B')
-        expected_result.add_batch(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+        writer = ResultMemoryWriter(0)
+        writer.write_learner(0,a='A')
+        writer.write_simulation(0,b='B')
+        writer.write_batch(0,1,2,mean=BatchMeanEstimator([1,2,3]))
+        expected_result = Result.from_result_writer(writer)
 
         json_txt = CobaJsonEncoder().encode(expected_result)
 
@@ -86,10 +60,12 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
     def test_to_from_json_file(self):
-        expected_result = Result(0)
-        expected_result.add_learner(0,a='A')
-        expected_result.add_simulation(0,b='B')
-        expected_result.add_batch(0,0,0,mean=BatchMeanEstimator([1,2,3]))
+        writer = ResultMemoryWriter(0)
+        writer.write_learner(0,a='A')
+        writer.write_simulation(0,b='B')
+        writer.write_batch(0,1,2,mean=BatchMeanEstimator([1,2,3]))
+
+        expected_result = Result.from_result_writer(writer)
 
         try:
             expected_result.to_json_file('.test/test.json')
@@ -101,13 +77,20 @@ class Result_Tests(unittest.TestCase):
 
     def test_to_from_transaction_file_once(self):
 
-        try:
-            expected_result = Result(0, ".test/transactions.log")
-            expected_result.add_learner(0,a='A')
-            expected_result.add_simulation(0,b='B')
-            expected_result.add_batch(0,1,2,mean=BatchMeanEstimator([1,2,3]))
+        def write_result(writer: ResultWriter)-> None:
+            writer.write_learner(0,a='A')
+            writer.write_simulation(0,b='B')
+            writer.write_batch(0,1,2,mean=BatchMeanEstimator([1,2,3]))
 
-            actual_result = Result(0, ".test/transactions.log")
+        try:
+            disk_writer = ResultDiskWriter(".test/transactions.log")
+            memory_writer = ResultMemoryWriter(0)
+            
+            write_result(disk_writer)
+            write_result(memory_writer)
+
+            expected_result = Result.from_result_writer(memory_writer,0)
+            actual_result = Result.from_result_writer(disk_writer,0)
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
 
@@ -115,18 +98,29 @@ class Result_Tests(unittest.TestCase):
 
     def test_to_from_transaction_file_twice(self):
 
+        def write_first_result(writer: ResultWriter)-> None:
+            writer.write_learner(0,a='A')
+            writer.write_simulation(0,b='B')
+            writer.write_batch(0,1,2,mean=BatchMeanEstimator([1,2,3]))
+
+        def write_second_result(writer: ResultWriter)-> None:
+            writer.write_learner(0,a='z')
+            writer.write_simulation(0,b='q')
+            writer.write_batch(1,1,0,mean=BatchMeanEstimator([1,2,3,4,5]))
+
         try:
-            expected_result = Result(0, ".test/transactions.log")
-            expected_result.add_learner(0,a='A')
-            expected_result.add_simulation(0,b='B')
-            expected_result.add_batch(0,1,2,mean=BatchMeanEstimator([1,2,3]))
+            disk_writer1 = ResultDiskWriter(".test/transactions.log")
+            disk_writer2 = ResultDiskWriter(".test/transactions.log")
+            memory_writer = ResultMemoryWriter(0)
+            
+            write_first_result(disk_writer1)
+            write_second_result(disk_writer2)
 
-            expected_result = Result(0, ".test/transactions.log")
-            expected_result.add_learner(1,a='z')
-            expected_result.add_simulation(1,b='q')
-            expected_result.add_batch(1,1,0,mean=BatchMeanEstimator([1,2,3,4,5]))
+            write_first_result(memory_writer)
+            write_second_result(memory_writer)
 
-            actual_result = Result(0, ".test/transactions.log")
+            actual_result = Result.from_transaction_file(".test/transactions.log",0)
+            expected_result = Result.from_result_writer(memory_writer)
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
 
@@ -312,9 +306,9 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()            
 
-            self.assertSequenceEqual(actual_learners, expected_learners)
-            self.assertSequenceEqual(actual_simulations, expected_simulations)
-            self.assertSequenceEqual(actual_performances, expected_performances)
+        self.assertSequenceEqual(actual_learners, expected_learners)
+        self.assertSequenceEqual(actual_simulations, expected_simulations)
+        self.assertSequenceEqual(actual_performances, expected_performances)
 
     def test_tranaction_resume_2(self):
         sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
@@ -337,9 +331,9 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()            
 
-            self.assertSequenceEqual(actual_learners, expected_learners)
-            self.assertSequenceEqual(actual_simulations, expected_simulations)
-            self.assertSequenceEqual(actual_performances, expected_performances)
+        self.assertSequenceEqual(actual_learners, expected_learners)
+        self.assertSequenceEqual(actual_simulations, expected_simulations)
+        self.assertSequenceEqual(actual_performances, expected_performances)
 
 if __name__ == '__main__':
     unittest.main()
