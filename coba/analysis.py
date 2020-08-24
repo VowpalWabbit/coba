@@ -11,7 +11,7 @@ from coba.benchmarks import Result
 class Plots():
 
     @staticmethod
-    def standard_plot(result: Result, weighted: bool = True, show_err: bool = True) -> None:
+    def standard_plot(result: Result, weighted: bool = True) -> None:
 
         def plot(axes, label, estimates):
             x = [ i+1                          for i in range(len(estimates)) ]
@@ -21,8 +21,8 @@ class Plots():
 
             axes.plot(x,y, label=label)
             
-            if show_err:
-                axes.fill_between(x, l, u, alpha = 0.25)
+            #if show_err:
+            #axes.fill_between(x, l, u, alpha = 0.25)
 
         def mean(means:Sequence[StatisticalEstimate], weights: Sequence[float] = None) -> StatisticalEstimate:
             
