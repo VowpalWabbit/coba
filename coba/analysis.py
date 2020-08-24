@@ -11,7 +11,7 @@ from coba.benchmarks import Result
 class Plots():
 
     @staticmethod
-    def standard_plot(result: Result, weighted: bool = True) -> None:
+    def standard_plot(result: Result, weighted: bool = True, show_err: bool = True) -> None:
 
         def plot(axes, label, estimates):
             x = [ i+1                          for i in range(len(estimates)) ]
@@ -20,14 +20,16 @@ class Plots():
             u = [ e.estimate+e.standard_error  for e in estimates             ]
 
             axes.plot(x,y, label=label)
-            axes.fill_between(x, l, u, alpha = 0.25)
+            
+            if show_err:
+                axes.fill_between(x, l, u, alpha = 0.25)
 
-        def mean(weights: Sequence[float], means:Sequence[StatisticalEstimate]) -> StatisticalEstimate:
+        def mean(means:Sequence[StatisticalEstimate], weights: Sequence[float] = None) -> StatisticalEstimate:
             
             if len(means) == 0:
                 return StatisticalEstimate(float('nan'), float('nan'))
 
-            if weighted:
+            if weighted and weights is not None:
                 num = sum([w*m for w,m in zip(weights,means)])
                 den = sum(weights)
             else:
@@ -52,7 +54,7 @@ class Plots():
             weights = [ perf.N if weighted else 1 for perf in group ]
             means   = [ perf.mean_reward          for perf in group ]            
             estimates[name][0].append(sum(weights))
-            estimates[name][1].append(mean(weights, means))
+            estimates[name][1].append(mean(means, weights))
 
         check_matplotlib_support('Plots.standard_plot')
         import matplotlib.pyplot as plt #type: ignore
@@ -70,7 +72,7 @@ class Plots():
         ax1.set_xlabel("Batch Index")
 
         for name, (weights, means) in estimates.items(): 
-            plot(ax2, name, [ mean(weights[0:i+1], means[0:i+1]) for i in range(len(means)) ])
+            plot(ax2, name, [ mean(means[0:i+1], weights[0:i+1]) for i in range(len(means)) ])
 
         ax2.set_title("Progressive Validation Reward")
         ax2.set_xlabel("Batch Index")
