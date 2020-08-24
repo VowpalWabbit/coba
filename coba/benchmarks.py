@@ -361,6 +361,13 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         *, 
         batch_count: int,
         ignore_first:bool = True) -> None:
+        """Instantiate a UniversalBenchmark.
+        
+        Args:
+            simulations: A sequence of simulations to benchmark against.
+            batch_count: How many batches per simulation to make during evaluation (batch_size will be spread evenly).
+            ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
+        """
         ...
 
     @overload
@@ -370,24 +377,23 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         batch_size: Union[int, Sequence[int], Callable[[int],int]],
         ignore_first: bool = True) -> None:
         ...
+        """Instantiate a UniversalBenchmark.
+
+            Args:
+                simulations: A sequence of simulations to benchmark against.
+                batch_size: An indication of how large every batch should be. If batch_size is an integer
+                    then simulations will run until completion with batches of the given size. If 
+                    batch_size is a sequence of integers then `sum(batch_size)` interactions will be 
+                    pulled from simulations and batched according to the sequence. If batch_size is a 
+                    function of batch index then each batch size will be determined by a call to the function.
+                ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
+        """
 
     def __init__(self,
         simulations : Sequence[Simulation[_C,_A]], 
         batch_count : int = None, 
         batch_size  : Union[int, Sequence[int], Callable[[int],int]] = None,
         ignore_first: bool = True) -> None:
-        """Instantiate a UniversalBenchmark.
-
-        Args:
-            simulations: A sequence of simulations to benchmark against.
-            batch_count: How many interaction batches per simulation (batch_size will be spread evenly).
-            batch_size: An indication of how large every batch should be. If batch_size is an integer
-                then simulations will run until completion with batch sizes of the given int. If 
-                batch_size is a sequence of integers then `sum(batch_size)` interactions will be 
-                pulled from simulations and batched according to the sequence. If batch_size is a 
-                function then simulation run until completion with batch_size determined by function.
-            ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
-        """
 
         self._simulations  = simulations
         self._batch_count  = batch_count

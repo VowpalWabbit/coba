@@ -155,41 +155,45 @@ class MemoryCache(CacheInterface[_K, _V]):
         del self._cache[key]
 
 class DiskCache(CacheInterface[str, IO[bytes]]):
+    
     def __init__(self, path: Union[str, Path]) -> None:
         self._cache_dir = path if isinstance(path, Path) else Path(path).expanduser()
+        self._cache_dir.parent.mkdir(parents=True, exist_ok=True)
 
     def __contains__(self, filename: str) -> bool:
-        gzip_filename = filename if filename.endswith(".gz") else (filename + ".gz")
-
-        return (self._cache_dir/gzip_filename).exists()
+        return self._private_path(filename).exists()
 
     def get(self, filename: str) -> IO[bytes]:
-        is_gzip = filename.endswith(".gz")
+        requested_gz   = filename.endswith(".gz")
+        resource_path  = self._private_path(filename)
+        resource_bytes = resource_path.read_bytes()
+        response_bytes = resource_bytes if requested_gz else decompress(resource_bytes)
 
-        gzip_filename = filename + ("" if is_gzip else ".gz")
-        gzip_bytes    = (self._cache_dir/gzip_filename).read_bytes()
-
-        return BytesIO(gzip_bytes if is_gzip else decompress(gzip_bytes))
+        return BytesIO(response_bytes)
 
     def put(self, filename: str, value: IO[bytes]) -> IO[bytes]:
-        is_gzip = filename.endswith(".gz")
 
-        gzip_filename = filename + ("" if is_gzip else ".gz")
-        gzip_bytes    = value.read() if is_gzip else compress(value.read())
+        received_gz = filename.endswith(".gz")
+        resource_path = self._private_path(filename)
 
-        (self._cache_dir/gzip_filename).parent.mkdir(parents=True, exist_ok=True)
-        (self._cache_dir/gzip_filename).touch()
-        (self._cache_dir/gzip_filename).write_bytes(gzip_bytes)
+        received_bytes = value.read()
+        resource_bytes = received_bytes if received_gz else compress(received_bytes)
 
-        return self.get(filename)
+        resource_path.touch()
+        resource_path.write_bytes(resource_bytes)
+
+        return BytesIO(received_bytes)
 
     def rmv(self, filename: str) -> None:
-        is_gzip = filename.endswith(".gz")
+        resource_path = self._private_path(filename)
+        if resource_path.exists(): resource_path.unlink()
 
-        gzip_filename = filename + ("" if is_gzip else ".gz")
+    def _private_name(self, filename: str) -> str:
+        return filename if filename.endswith(".gz") else (filename + ".gz")
 
-        if (self._cache_dir/gzip_filename).exists():
-            (self._cache_dir/gzip_filename).unlink()
+    def _private_path(self, filename: str) -> Path:
+        return self._cache_dir/self._private_name(filename)
+
 
 class LoggerInterface(ABC):
     @abstractmethod

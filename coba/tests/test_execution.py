@@ -1,7 +1,11 @@
 import unittest
 import json
 
-from coba.execution import TemplatingEngine, UniversalLogger
+from gzip import compress, decompress
+from pathlib import Path
+from io import BytesIO
+
+from coba.execution import DiskCache, TemplatingEngine, UniversalLogger
 
 class TemplatingEngine_Tests(unittest.TestCase):
     def test_no_template_string_unchanged_1(self):
@@ -112,12 +116,62 @@ class UniversalLogger_Tests(unittest.TestCase):
         self.assertEqual(actual_prints[7][0][20:], 'g')
         self.assertEqual(actual_prints[7][1]     , None)
 
-        #self.assertEqual(actual_prints[0], ('a','b'))
-        #self.assertEqual(actual_prints[1], ('c',None))
-        #self.assertEqual(actual_prints[2], ('  *d',None))
-        #self.assertEqual(actual_prints[3], ('    >e',None))
-        #self.assertEqual(actual_prints[4], ('  *f',None))
-        #self.assertEqual(actual_prints[5], ('g',None))
+class DiskCache_Tests(unittest.TestCase):
+
+    def setUp(self):
+        if Path(".test/test.csv.gz").exists():
+            Path(".test/test.csv.gz").unlink()
+
+    def tearDown(self) -> None:
+        if Path(".test/test.csv.gz").exists():
+            Path(".test/test.csv.gz").unlink()
+
+    def test_write_csv_to_cache(self):
+
+        cache = DiskCache(".test")
+
+        self.assertFalse("test.csv"    in cache)
+        self.assertFalse("test.csv.gz" in cache)
+
+        cache.put("test.csv", BytesIO(b"test"))
+
+        self.assertTrue("test.csv"    in cache)
+        self.assertTrue("test.csv.gz" in cache)
+
+        self.assertEqual(           cache.get("test.csv"   ).read() .decode('utf8'), "test")
+        self.assertEqual(decompress(cache.get("test.csv.gz").read()).decode('utf8'), "test")
+
+    def test_write_gz_to_cache(self):
+
+        cache = DiskCache(".test")
+
+        self.assertFalse("test.csv"    in cache)
+        self.assertFalse("test.csv.gz" in cache)
+
+        cache.put("test.csv.gz", BytesIO(compress(b"test")))
+
+        self.assertTrue("test.csv"    in cache)
+        self.assertTrue("test.csv.gz" in cache)
+
+        self.assertEqual(           cache.get("test.csv"   ).read() .decode('utf8'), "test")
+        self.assertEqual(decompress(cache.get("test.csv.gz").read()).decode('utf8'), "test")
+    
+    def test_rmv_csv_from_cache(self):
+
+        cache = DiskCache(".test/")
+
+        self.assertFalse("test.csv"    in cache)
+        self.assertFalse("test.csv.gz" in cache)
+
+        cache.put("test.csv", BytesIO(b"test"))
+
+        self.assertTrue("test.csv"    in cache)
+        self.assertTrue("test.csv.gz" in cache)
+
+        cache.rmv("test.csv")
+
+        self.assertFalse("test.csv"    in cache)
+        self.assertFalse("test.csv.gz" in cache)
 
 if __name__ == '__main__':
     unittest.main()

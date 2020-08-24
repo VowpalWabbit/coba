@@ -500,7 +500,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
                 is_gzip       = is_disk_gzip or is_http_gzip or is_cache_gzip
 
                 if is_gzip: cachename += ".gz"
-                if is_http: raw_stream = ExecutionContext.FileCache.put(cachename+".gz", raw_stream)
+                if is_http: raw_stream = ExecutionContext.FileCache.put(cachename, raw_stream)
 
                 #When testing loading all bytes into memory at once was moderately faster on average.
                 #This does run the risk of causing problems though if the file is extremely large.
