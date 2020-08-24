@@ -17,7 +17,7 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  Coba is...
  
  * ... *light-weight* (it has no dependencies to get started)
- * ... *distributed* (it was built to work on the web across devices with caching, api-keys, checksums and more built in)
+ * ... *distributed* (it was built to work across the web with caching, api-key support, checksums and more)
  * ... verbose (it has customizable, hierarchical logging for meaningful, readable feedback on log running jobs)
  * ... robust (benchmarks write every action to file so they can always be resumed whenever your system crashes)
  * ... just-in-time (no resources are loaded until needed, and they are released immediately to keep memory small)
