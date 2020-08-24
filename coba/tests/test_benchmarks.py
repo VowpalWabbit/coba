@@ -64,7 +64,6 @@ class Table_Tests(unittest.TestCase):
         self.assertTrue((0,1,2) in table)
         self.assertTrue('a' in table)
         self.assertFalse('b' in table)
-        
 
 class Result_Tests(unittest.TestCase):
 
@@ -93,43 +92,43 @@ class Result_Tests(unittest.TestCase):
         expected_result.add_batch(0,0,0,mean=BatchMeanEstimator([1,2,3]))
 
         try:
-            expected_result.to_json_file('test.json')
-            actual_result = Result.from_json_file('test.json')
+            expected_result.to_json_file('.test/test.json')
+            actual_result = Result.from_json_file('.test/test.json')
         finally:
-            if Path('test.json').exists(): Path('test.json').unlink()
+            if Path('.test/test.json').exists(): Path('.test/test.json').unlink()
 
         self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
     def test_to_from_transaction_file_once(self):
 
         try:
-            expected_result = Result(0, "transactions.log")
+            expected_result = Result(0, ".test/transactions.log")
             expected_result.add_learner(0,a='A')
             expected_result.add_simulation(0,b='B')
             expected_result.add_batch(0,1,2,mean=BatchMeanEstimator([1,2,3]))
 
-            actual_result = Result(0, "transactions.log")
+            actual_result = Result(0, ".test/transactions.log")
         finally:
-            if Path('transactions.log').exists(): Path('transactions.log').unlink()
+            if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
 
         self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
     def test_to_from_transaction_file_twice(self):
 
         try:
-            expected_result = Result(0, "transactions.log")
+            expected_result = Result(0, ".test/transactions.log")
             expected_result.add_learner(0,a='A')
             expected_result.add_simulation(0,b='B')
             expected_result.add_batch(0,1,2,mean=BatchMeanEstimator([1,2,3]))
 
-            expected_result = Result(0, "transactions.log")
+            expected_result = Result(0, ".test/transactions.log")
             expected_result.add_learner(1,a='z')
             expected_result.add_simulation(1,b='q')
             expected_result.add_batch(1,1,0,mean=BatchMeanEstimator([1,2,3,4,5]))
 
-            actual_result = Result(0, "transactions.log")
+            actual_result = Result(0, ".test/transactions.log")
         finally:
-            if Path('transactions.log').exists(): Path('transactions.log').unlink()
+            if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
 
         self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
@@ -302,8 +301,8 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         #because it already worked the first time and we are "resuming" benchmark from transaction.log
 
         try:
-            first_results  = benchmark.evaluate([learner_factory], transaction_file="transactions.log")
-            second_results = benchmark.evaluate([broken_factory], transaction_file="transactions.log")
+            first_results  = benchmark.evaluate([learner_factory], ".test/transactions.log")
+            second_results = benchmark.evaluate([broken_factory], ".test/transactions.log")
 
             actual_learners,actual_simulations,actual_performances = second_results.to_tuples()
 
@@ -311,7 +310,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             expected_simulations  = [(0, 5, 1, 1, 3)]
             expected_performances = [ (0, 0, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
         finally:
-            if Path('transactions.log').exists(): Path('transactions.log').unlink()            
+            if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()            
 
             self.assertSequenceEqual(actual_learners, expected_learners)
             self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -327,8 +326,8 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         #because it already worked the first time and we are "resuming" benchmark from transaction.log
 
         try:
-            first_results  = benchmark.evaluate([learner_factory], transaction_file="transactions.log")
-            second_results = benchmark.evaluate([broken_factory], transaction_file="transactions.log")
+            first_results  = benchmark.evaluate([learner_factory], ".test/transactions.log")
+            second_results = benchmark.evaluate([broken_factory], ".test/transactions.log")
 
             actual_learners,actual_simulations,actual_performances = second_results.to_tuples()
 
@@ -336,7 +335,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             expected_simulations  = [(0, 5, 1, 1, 3)]
             expected_performances = [ (0, 0, 0, 2, BatchMeanEstimator([0,1]))]
         finally:
-            if Path('transactions.log').exists(): Path('transactions.log').unlink()            
+            if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()            
 
             self.assertSequenceEqual(actual_learners, expected_learners)
             self.assertSequenceEqual(actual_simulations, expected_simulations)

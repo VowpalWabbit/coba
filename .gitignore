@@ -1,6 +1,3 @@
-#folder where unit tests write files to
-.test/*
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
