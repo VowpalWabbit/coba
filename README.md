@@ -1,6 +1,6 @@
 # Coba
 
-An agile and collaborative benchmarking framework for contextual bandit research.
+An agile, collaborative benchmarking framework for contextual bandit research.
 
 ### How do you benchmark?
 
@@ -12,7 +12,18 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
 
 # The Coba Way
  
- Coba was built from the ground up to answer the three questions above with a yes.
+ Coba was built from the ground up to do all that and more.
+ 
+ Coba is...
+ 
+ * ... light-weight (it has no dependencies to get started)
+ * ... distributed (it was built to work on the web with data and resources across devices)
+ * ... verbose (it has customizable logging for log running jobs)
+ * ... robust (benchmarks write every action to file so they can always be resumed if your system crashes)
+ * ... just-in-time (no resources are loaded until needed, and then they are released immediately to manage memory)
+ * ... a duck? (coba relies only on duck-typing so no inheritance is needed to implement our interfaces)
+ 
+ But don't take our word for it. We encourage you to look at the code yourself, and more documentation will be coming soon.
  
  ## Adding New Data Sets
  
