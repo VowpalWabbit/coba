@@ -76,10 +76,10 @@ class Learner:
         ...
 ```
  
- ## Creating and Sharing new Benchmarks
+ ## Creating and Sharing Benchmarks
  
  Benchmarks are created using a json configuration file. In the configuration file one defines the data sets to include in the benchmark, the location of the datasets, how to break the datasets into batches, what random seed to use and if the data sets should be randomized. By placing all these characteristics into a single configuration file creating, modifying and sharing benchmarks is simply a matter of editing this file and emailing it to another researcher.
  
  ## Examples
  
- To demonstrate how to use the package an examples directory is included with a number of demonstraints. Additionally one short and one long benchmark has been included to show the flexibility of the benchmark configuration file.
+ An examples directory is included in the repository with a number of code demonstrations and benchmark demonstrations. These examples show how to create benchmarks, evaluate learners against them and plot the results.
