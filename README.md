@@ -28,7 +28,7 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  
  If more customization is needed than what is offered above then a new simulation class can be created. Implementing such a class requires no inheritance or complex registration. One simply has to satisfy Coba's `Simulation` interface as shown below (with `Interaction` included for reference):
  
-```
+```python
 class Simulation:
  
     @property
@@ -61,7 +61,7 @@ class Interaction:
  
  A number of algorithms have been implemented out of the box including epsilon-greedy, VowpalWabbit bagging, VowpWabbit softmax, VowpalWabbit cover, VowpalWabbit RND and upper confidence bounding. Adding algorithms is simply a matter of satisfying the `Learner` interface as shown below:
  
-```
+```python
 class Learner:
     """The interface for Learner implementations."""
 
@@ -79,6 +79,19 @@ class Learner:
  ## Creating and Sharing Benchmarks
  
  Benchmarks are created using a json configuration file. In the configuration file one defines the data sets to include in the benchmark, the location of the datasets, how to break the datasets into batches, what random seed to use and if the data sets should be randomized. By placing all these characteristics into a single configuration file creating, modifying and sharing benchmarks is simply a matter of editing this file and emailing it to another researcher.
+ 
+```json
+ {
+    "templates"   : { "shuffled_openml_classification": { "seed":777, "type":"classification", "from": {"format":"openml", "id":"$id"} }},
+    "batches"     : { "count":51 },
+    "ignore_first": true,
+    "simulations" : [
+        {"template":"shuffled_openml_classification", "$id":3},
+        {"template":"shuffled_openml_classification", "$id":6},
+        {"template":"shuffled_openml_classification", "$id":8}
+    ]
+}
+```
  
  ## Examples
  
