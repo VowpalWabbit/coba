@@ -32,8 +32,8 @@ class Plots():
 
         learners, _, batches = result.to_indexed_tuples()
 
-        sorted_batches  = sorted(batches.values(), key=lambda r: (r.learner_id, r.batch_id))
-        grouped_batches = groupby(sorted_batches , key=lambda r: (r.learner_id, r.batch_id))
+        sorted_batches  = sorted(batches.values(), key=lambda r: (r.learner_id, r.batch_index))
+        grouped_batches = groupby(sorted_batches , key=lambda r: (r.learner_id, r.batch_index))
 
         estimates: Dict[str,Tuple[List[float],List[StatisticalEstimate]]] = defaultdict(lambda: ([],[]))
 
