@@ -3,7 +3,116 @@ import unittest
 from statistics import mean, variance, stdev
 from math import isnan, sqrt
 
-from coba.statistics import BatchMeanEstimator, OnlineVariance, OnlineMean
+from coba.statistics import BatchMeanEstimator, OnlineVariance, OnlineMean, StatisticalEstimate
+
+class StatisticalEstimate_Tests(unittest.TestCase):
+
+    def test_addition_of_estimate(self) -> None:
+        a = StatisticalEstimate(1,2)
+        b = StatisticalEstimate(1,3)
+
+        actual = a+b
+        expected = StatisticalEstimate(2, sqrt(4+9))
+
+        self.assertEqual(actual, expected)
+
+    def test_subtraction_of_estimate(self) -> None:
+        a = StatisticalEstimate(1,2)
+        b = StatisticalEstimate(1,3)
+
+        actual = a-b
+        expected = StatisticalEstimate(0, sqrt(4+9))
+
+        self.assertEqual(actual, expected)
+
+    def test_negation_of_estimate(self) -> None:
+        a = StatisticalEstimate(1,2)
+
+        actual = -a
+        expected = StatisticalEstimate(-1, 2)
+
+        self.assertEqual(actual, expected)
+
+    def test_addition_of_scalar(self) -> None:
+        a = StatisticalEstimate(1,2)
+        
+        l_actual = 2.2 + a
+        r_actual = a + 2.2
+        expected = StatisticalEstimate(3.2, 2)
+
+        self.assertEqual(l_actual, expected)
+        self.assertEqual(r_actual, expected)
+
+    def test_subtraction_of_scalar(self) -> None:
+        a = StatisticalEstimate(1,2)
+        
+        l_actual = 2.2 - a
+        r_actual = a - 2.2
+        l_expected = StatisticalEstimate(+1.2, 2)
+        r_expected = StatisticalEstimate(-1.2, 2)
+
+        self.assertEqual(l_actual, l_expected)
+        self.assertEqual(r_actual, r_expected)
+
+    def test_multiplication_by_scalar(self) -> None:
+        a = StatisticalEstimate(1,2)
+        
+        l_actual = 2 * a
+        r_actual = a * 2
+        expected = StatisticalEstimate(2,4)
+
+        self.assertEqual(l_actual, expected)
+        self.assertEqual(r_actual, expected)
+
+    def test_division_by_scalar(self) -> None:
+        a = StatisticalEstimate(1,2)
+
+        r_actual = a / 2
+        expected = StatisticalEstimate(1/2,1)
+
+        self.failUnlessRaises(Exception, lambda: 2/a)
+        self.assertEqual(r_actual, expected)
+
+    def test_sum_of_estimates(self) -> None:
+
+        a1 = StatisticalEstimate(1,2)
+        a2 = StatisticalEstimate(2,3)
+        a3 = StatisticalEstimate(3,4)
+        a4 = StatisticalEstimate(4,5)
+
+        actual = a1+a2+a3+a4
+
+        self.assertEqual(actual.estimate, sum([1,2,3,4]))
+        self.assertEqual(actual.standard_error, sqrt(sum([4,9,16,25])))
+
+    def test_mean_of_estimates(self) -> None:
+
+        a = StatisticalEstimate(1,2)
+
+        actual = (a+a+a+a)/4
+
+        self.assertEqual(actual.estimate, 1)
+        self.assertEqual(actual.standard_error, 2/sqrt(4))
+
+    def test_weighted_mean_of_estimates(self) -> None:
+
+        a1 = StatisticalEstimate(1,2)
+        a2 = StatisticalEstimate(2,3)
+        a3 = StatisticalEstimate(3,4)
+        a4 = StatisticalEstimate(4,5)
+
+        w1 = 1
+        w2 = 2
+        w3 = 3
+        w4 = 4
+
+        actual = (w1*a1+w2*a2+w3*a3+w4*a4)/(w1+w2+w3+w4)
+
+        expected_estimate       = (1+4+9+16)/10
+        expected_standard_error = sqrt((1*4+4*9+9*16+16*25)/100)
+
+        self.assertEqual(actual.estimate, expected_estimate)
+        self.assertEqual(actual.standard_error, expected_standard_error)
 
 class BatchMeanEstimator_Tests(unittest.TestCase):
 

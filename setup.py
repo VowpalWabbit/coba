@@ -1,9 +1,9 @@
 # type: ignore
 import setuptools
 
-MAJOR               = 0
-MINOR               = 8
-MICRO               = 1
+MAJOR               = 1
+MINOR               = 0
+MICRO               = 0
 VERSION             = f"{MAJOR}.{MINOR}.{MICRO}"
 
 with open("README.md", "r") as f:
@@ -17,7 +17,7 @@ setuptools.setup(
     description="A contextual bandit benchmarking package.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/mrucker/coba",
+    url="https://github.com/VowpalWabbit/coba",
     license="BSD 3-Clause License",
     packages=["coba"],
     classifiers=[

@@ -1,11 +1,9 @@
-"""The statistics module contains algorithms and methods to calculate statistics.
+"""The statistics module contains algorithms and methods to calculate statistics."""
 
-TODO Add unit tests to make sure StatisticalEstimate algebra works correctly
-"""
-
-from math import isnan, sqrt
+from math import isnan, sqrt, isclose
 from typing import Sequence, Union, Dict, Any
 from statistics import mean, variance
+from numbers import Number
 
 from coba.json import JsonSerializable
 
@@ -87,6 +85,10 @@ class StatisticalEstimate(JsonSerializable):
         One notable downside of not taking the simple approach is that stats with N == 1 can be problematic since 
         we won't have an estimate of their standard error. Below we handle this by using any standard error that is
         available to us as a stand-in (see __add__). Ideally we won't be dealing with estimates from samples of N==1.
+
+        WARNING!!! The algebra of random variables implemented below assumes every StatisticalEstimate is independent
+        WARNING!!! The algebra of random variables implemented below assumes every StatisticalEstimate is independent
+        WARNING!!! The algebra of random variables implemented below assumes every StatisticalEstimate is independent
     """
 
     def __init__(self, estimate:float, standard_error: float) -> None:
@@ -101,8 +103,11 @@ class StatisticalEstimate(JsonSerializable):
     def standard_error(self) -> float:
         return self._standard_error
 
+    def __hash__(self):
+        return hash((self._estimate, self._standard_error))
+
     def __add__(self, other) -> 'StatisticalEstimate':
-        if isinstance(other, (int,float)):
+        if issubclass(type(other), Number):
             return StatisticalEstimate(other+self.estimate, self.standard_error)
 
         if isinstance(other, StatisticalEstimate):
@@ -129,7 +134,7 @@ class StatisticalEstimate(JsonSerializable):
         return (-self) + other
 
     def __mul__(self, other) -> 'StatisticalEstimate':
-        if isinstance(other, (int,float)):
+        if issubclass(type(other), Number):
             return StatisticalEstimate(other*self.estimate, other*self.standard_error)
         
         if isinstance(other, StatisticalEstimate):
@@ -141,7 +146,7 @@ class StatisticalEstimate(JsonSerializable):
         return self * other
 
     def __truediv__(self,other) -> 'StatisticalEstimate':
-        if isinstance(other, (int,float)):
+        if issubclass(type(other), Number):
             return self * (1/other)
 
         if isinstance(other, StatisticalEstimate):
@@ -150,14 +155,14 @@ class StatisticalEstimate(JsonSerializable):
         raise Exception(f"Unable to divide StatisticalEstimate and {type(other).__name__}")
 
     def __rtruediv__(self,other) -> 'StatisticalEstimate':
-        return self/other
+        raise Exception(f"Unable to divide by a StatisticalEstimate.")
 
     def __neg__(self) -> 'StatisticalEstimate':
-        return -1 * self
+        return StatisticalEstimate(-self._estimate, self._standard_error)
 
     def __eq__(self, other) -> bool:
         
-        eq = lambda a,b: (a == b) or (isnan(a) and isnan(b))
+        eq = lambda a,b: isclose(a,b) or (isnan(a) and isnan(b))
         
         return isinstance(other, StatisticalEstimate) and eq(self.estimate,other.estimate) and eq(self.standard_error,other.standard_error)
 
