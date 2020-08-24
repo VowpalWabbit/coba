@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from itertools import groupby
-from typing import List, Dict, Sequence, Tuple
+from typing import List, Dict, Sequence, Tuple, cast
 
 from coba.statistics import StatisticalEstimate
 from coba.utilities import check_matplotlib_support
@@ -11,7 +11,7 @@ from coba.benchmarks import Result
 class Plots():
 
     @staticmethod
-    def standard_plot(result: Result) -> None:
+    def standard_plot(result: Result, weighted: bool = True) -> None:
 
         def plot(axes, label, estimates):
             x = [ i+1                          for i in range(len(estimates)) ]
@@ -23,12 +23,21 @@ class Plots():
             axes.fill_between(x, l, u, alpha = 0.25)
 
         def mean(weights: Sequence[float], means:Sequence[StatisticalEstimate]) -> StatisticalEstimate:
-            weighted_sum = sum([w*m for w,m in zip(weights,means)])
             
-            if isinstance(weighted_sum, StatisticalEstimate):
-                return weighted_sum/sum(weights)
-            else:
+            if len(means) == 0:
                 return StatisticalEstimate(float('nan'), float('nan'))
+
+            if weighted:
+                num = sum([w*m for w,m in zip(weights,means)])
+                den = sum(weights)
+            else:
+                num = sum(means)
+                den = len(means)
+
+            #the only way this isn't a StatisticalEstimate is if
+            #len(means) == 0 which is impossible because we take 
+            #care of it above.
+            return cast(StatisticalEstimate, num)/den
 
         learners, _, batches = result.to_indexed_tuples()
 
@@ -40,8 +49,8 @@ class Plots():
         for batch_group in grouped_batches:
             name    = learners[batch_group[0][0]].full_name
             group   = list(batch_group[1])
-            weights = [perf.N           for perf in group]
-            means   = [perf.mean_reward for perf in group]            
+            weights = [ perf.N if weighted else 1 for perf in group ]
+            means   = [ perf.mean_reward          for perf in group ]            
             estimates[name][0].append(sum(weights))
             estimates[name][1].append(mean(weights, means))
 

@@ -1,24 +1,85 @@
-# Bandit Benchmarking
+# Coba
 
-This repository contains python modules designed to benchmark the performance of contextual bandit algorithms.
+An agile and collaborative benchmarking framework for contextual bandit research.
 
-# Core Modules
+### How do you benchmark?
 
-The package has three core modules:
- 1. simulations -- This module contains contextual bandit simulations with context, actions and rewards for those actions.
- 2. learners -- This module contains common contextual bandit algorithms such as epsilon-greedy and upper confidence bound.
- 3. benchmarks -- This module uses simulations to determine how well a learner performs and compare to other learners.
+Think for a second about the last time you benchmarked an algorithm or dataset and ask yourself
 
-# Core Interfaces
+ 1. Was it easy to add new data sets?
+ 2. Was it easy to add new algorithms?
+ 3. Was it easy to create, run and share benchmarks?
+
+# The Coba Way
  
-In order to make the package testable and extensible it has been built around three simple interfaces.
-
- 1. The simulation interface
- 2. The learner interface
- 3. The benchmark interface
+ Coba was built from the ground up to answer the three questions above with a yes.
  
-For most users the only interface that they will ever need to implement on their own is the learner interface. Implementing the learner interface on a custom algorithm allows one to leverage all simulations and benchmarks provided by the package to collect performance metrics.
+ ## Adding New Data Sets
+ 
+ ### Creating Simulations From Classification Data Sets
+ 
+ Classification data sets are an easy way to quickly evaluate CB algorithms. So long as the data set is in CSV format it can easily be turned into a contextual bandit simulation with `ClassificationSimulation.from_csv`. This method works both with local files and files available over http. When requesting over http Coba even allows you to cache a version of the file locally for fast re-runs later.
+ 
+ ### Creating Simulations From Generative Models
+ 
+ Certain domains have well defined models that an agent has to make decisions within. To add datasets from these domains one can use `LambdaSimulation` to define random functions that returns contexts, actions and rewards according to any defined distribution. 
+ 
+ ### Creating Custom Simulations From Scratch
+ 
+ If more customization is needed than what is offered above then a new simulation class can be created. Implementing such a class requires no inheritance or complex registration. One simply has to satisfy Coba's `Simulation` interface as shown below (with `Interaction` included for reference):
+ 
+```
+class Simulation:
+ 
+    @property
+    def interactions(self) -> Sequence[Interaction]:
+        """The sequence of interactions in a simulation."""
+        ...
+    
+    def rewards(self, choices: Sequence[Tuple[Key,int]] ) -> Sequence[float]:
+        """The observed rewards for interactions (identified by key) and their selected action indexes."""
+        ...
+    
+class Interaction:
+    @property
+    def context(self) -> Hashable:
+        """The interaction's context description."""
+        ...
 
-# Learning More
+    @property
+    def actions(self) -> Sequence[Hashable]:
+        """The interactions's available actions."""
+        ...
+    
+    @property
+    def key(self) -> Key:
+        """A unique key identifying the interaction."""
+        ...
+```
 
-For those who wish to learn more the source code is perhaps the best place to start. All modules and classes have detailed docstrings and unittests.
+ ## Adding New Algorithms
+ 
+ A number of algorithms have been implemented out of the box including epsilon-greedy, VowpalWabbit bagging, VowpWabbit softmax, VowpalWabbit cover, VowpalWabbit RND and upper confidence bounding. Adding algorithms is simply a matter of satisfying the `Learner` interface as shown below:
+ 
+```
+class Learner:
+    """The interface for Learner implementations."""
+
+    @abstractmethod
+    def choose(self, key: int, context: Hashable, actions: Sequence[Hashable]) -> int:
+        """Choose which action index to take."""
+        ...
+
+    @abstractmethod
+    def learn(self, key: int, context: Hashable, action: Hashable, reward: float) -> None:
+        """Learn about the result of an action that was taken in a context.
+        ...
+```
+ 
+ ## Creating and Sharing new Benchmarks
+ 
+ Benchmarks are created using a json configuration file. In the configuration file one defines the data sets to include in the benchmark, the location of the datasets, how to break the datasets into batches, what random seed to use and if the data sets should be randomized. By placing all these characteristics into a single configuration file creating, modifying and sharing benchmarks is simply a matter of editing this file and emailing it to another researcher.
+ 
+ ## Examples
+ 
+ To demonstrate how to use the package an examples directory is included with a number of demonstraints. Additionally one short and one long benchmark has been included to show the flexibility of the benchmark configuration file.

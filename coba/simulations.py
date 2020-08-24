@@ -69,7 +69,7 @@ class Interaction(Generic[_C_out, _A_out]):
     
     @property
     def key(self) -> Key:
-        """The unique key associated with the interaction."""
+        """A unique key identifying the interaction."""
         return self._key
 
 class Simulation(Generic[_C_out, _A_out], ABC):
