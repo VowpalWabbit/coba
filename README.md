@@ -80,7 +80,7 @@ class Learner:
  
  Benchmarks are created using a json configuration file. In the configuration file one defines the data sets to include in the benchmark, the location of the datasets, how to break the datasets into batches, what random seed to use and if the data sets should be randomized. By placing all these characteristics into a single configuration file creating, modifying and sharing benchmarks is simply a matter of editing this file and emailing it to another researcher.
  
-```json
+```javascript
  {
     "templates"   : { "shuffled_openml_classification": { "seed":777, "type":"classification", "from": {"format":"openml", "id":"$id"} }},
     "batches"     : { "count":51 },
