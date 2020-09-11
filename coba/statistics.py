@@ -1,9 +1,10 @@
 """The statistics module contains algorithms and methods to calculate statistics."""
 
-from math import isnan, sqrt, isclose
-from typing import Sequence, Union, Dict, Any
+from math import isnan, sqrt, isclose, trunc, ceil, floor
 from statistics import mean, variance
-from numbers import Number
+from numbers import Real, Rational, Complex
+from fractions import Fraction
+from typing import Sequence, Union, Dict, Any, overload, cast
 
 from coba.json import JsonSerializable
 
@@ -70,7 +71,7 @@ class OnlineMean():
 
         self._mean = value if alpha == 1 else (1 - alpha) * self._mean + alpha * value
 
-class StatisticalEstimate(JsonSerializable):
+class StatisticalEstimate(Rational, JsonSerializable):
     """An estimate of some statistic of interst along with useful additional statistics of that estimate.
 
     Remarks:
@@ -89,11 +90,28 @@ class StatisticalEstimate(JsonSerializable):
         WARNING!!! The algebra of random variables implemented below assumes every StatisticalEstimate is independent
         WARNING!!! The algebra of random variables implemented below assumes every StatisticalEstimate is independent
         WARNING!!! The algebra of random variables implemented below assumes every StatisticalEstimate is independent
+
+        For more information on creating numerical types in Python see https://docs.python.org/3.6/library/numbers.html 
     """
 
+    @overload
+    def __init__(self, estimate: 'StatisticalEstimate') -> None:
+        ...
+
     def __init__(self, estimate:float, standard_error: float) -> None:
-        self._estimate       = estimate
-        self._standard_error = standard_error
+        ...
+
+    def __init__(self, estimate:Union['StatisticalEstimate', Fraction, float], standard_error: float=None) -> None:
+        if isinstance(estimate, Fraction) and isinstance(estimate.numerator, StatisticalEstimate):
+            new_estimate = cast(StatisticalEstimate, estimate.numerator) / estimate.denominator
+            self._estimate       = new_estimate._estimate
+            self._standard_error = new_estimate._standard_error
+        elif isinstance(estimate, StatisticalEstimate):
+            self._estimate       = estimate._estimate
+            self._standard_error = estimate._standard_error
+        else:
+            self._estimate       = float(estimate)
+            self._standard_error = standard_error
 
     @property
     def estimate(self) -> float:
@@ -103,68 +121,166 @@ class StatisticalEstimate(JsonSerializable):
     def standard_error(self) -> float:
         return self._standard_error
 
+    #Region: Rational interface
+    @property
+    def numerator(self) -> 'StatisticalEstimate':
+        if isinstance(self.estimate, int):
+            n,d = self.estimate,1
+        else:
+            n,d = self.estimate.as_integer_ratio()
+        
+        return StatisticalEstimate(n, d*self.standard_error)
+
+    @property
+    def denominator(self) -> int:
+        if isinstance(self.estimate, int):
+            return 1
+        else:
+            return self.estimate.as_integer_ratio()[1]
+
+    def __bool__(self) -> bool:
+        return True
+
+    def __complex__(self) -> 'complex':
+        return complex(self.estimate)
+
+    def __int__(self) -> int:
+        return int(self.estimate)
+
+    def __float__(self) -> float:
+        return float(self.estimate)
+
+    def __trunc__(self) -> int:
+        return trunc(self.estimate)
+
+    def __floor__(self) -> int:
+        return floor(self.estimate)
+
+    def __ceil__(self) -> int:
+        return ceil(self.estimate)
+
+    def __abs__(self) -> float:
+        return abs(self.estimate)
+
+    def __round__(self, ndigits: None) -> int:
+        return round(self.estimate, ndigits)
+
     def __hash__(self):
         return hash((self._estimate, self._standard_error))
 
-    def __add__(self, other) -> 'StatisticalEstimate':
-        if issubclass(type(other), Number):
-            return StatisticalEstimate(other+self.estimate, self.standard_error)
+    def __neg__(self) -> 'StatisticalEstimate':
+        return StatisticalEstimate(-self._estimate, self._standard_error)
 
+    def __pos__(self) -> 'StatisticalEstimate':
+        return self
+
+    def __add__(self, other: Any) -> 'StatisticalEstimate':
         if isinstance(other, StatisticalEstimate):
             if isnan(self.standard_error):
                 #since we don't know our own SE use other as a best guess...
-                standard_error = sqrt(other.standard_error**2 + other.standard_error**2)
+                standard_error = sqrt(2)*other.standard_error
             elif isnan(other.standard_error):
                 #since we don't know other's SE use our own as a best guess...
-                standard_error = sqrt(self.standard_error**2 + self.standard_error**2)
+                standard_error = sqrt(2)*self.standard_error
             else:
                 standard_error = sqrt(self.standard_error**2+other.standard_error**2)
 
             return StatisticalEstimate(self.estimate+other.estimate, standard_error)
 
-        raise Exception(f"Unable to add StatisticalEstimate and {type(other).__name__}")
+        if isinstance(other, Real):
+            return StatisticalEstimate(other+self.estimate, self.standard_error)
 
-    def __radd__(self, other) -> 'StatisticalEstimate':
+        return NotImplemented
+
+    def __radd__(self, other: Any) -> 'StatisticalEstimate':
         return self + other
 
-    def __sub__(self, other) -> 'StatisticalEstimate':
-        return self + (-other)
+    def __sub__(self, other: Any) -> 'StatisticalEstimate':
+        if isinstance(other, Complex):
+            return self + (-other)
 
-    def __rsub__(self, other) -> 'StatisticalEstimate':
+        return NotImplemented
+
+    def __rsub__(self, other: Any) -> 'StatisticalEstimate':
         return (-self) + other
 
-    def __mul__(self, other) -> 'StatisticalEstimate':
-        if issubclass(type(other), Number):
-            return StatisticalEstimate(other*self.estimate, other*self.standard_error)
-        
+    def __mul__(self, other: Any) -> 'StatisticalEstimate':
         if isinstance(other, StatisticalEstimate):
-            raise Exception("We do not currently support multiplication by StatisticalEstimate.")
+            raise TypeError("We do not currently support multiplication of StatisticalEstimate by StatisticalEstimate.")
 
-        raise Exception(f"Unable to multiply StatisticalEstimate and {type(other).__name__}")
+        if isinstance(other, Real):
+            return StatisticalEstimate(other*self.estimate, other*self.standard_error)
 
-    def __rmul__(self, other) -> 'StatisticalEstimate':
+        return NotImplemented
+
+    def __rmul__(self, other: Any) -> 'StatisticalEstimate':
         return self * other
 
-    def __truediv__(self,other) -> 'StatisticalEstimate':
-        if issubclass(type(other), Number):
+    def __truediv__(self, other: Any) -> 'StatisticalEstimate':
+        if isinstance(other, StatisticalEstimate):
+            raise TypeError("We do not currently support division of StatisticalEstimate by StatisticalEstimate.")
+
+        if isinstance(other, Real):
             return self * (1/other)
 
+        return NotImplemented
+
+    def __rtruediv__(self, other: Any) -> 'StatisticalEstimate':
+        raise TypeError("We do not currently support division by StatisticalEstimate.")
+
+    def __floordiv__(self, other: Any) -> Union['StatisticalEstimate',int]:
+        if self.estimate % other == 0:
+            #in this case floordiv is being used to protect against floating point
+            #errors and not to actually change the distribution of the random variable
+            new_estimate = self/other
+            return StatisticalEstimate(floor(new_estimate._estimate), new_estimate._standard_error)
+        else:
+            return floor(self/other)
+            
+            
+
+    def __rfloordiv__(self, other: Any) -> int:
+        return floor(other/self)
+
+    def __mod__(self, other: Any) -> float:
         if isinstance(other, StatisticalEstimate):
-            raise Exception("We do not currently support division by StatisticalEstimate.")
+            raise TypeError("We do not currently support modulo of StatisticalEstimate by StatisticalEstimate.")
 
-        raise Exception(f"Unable to divide StatisticalEstimate and {type(other).__name__}")
+        if isinstance(other, Real):
+            return self.estimate % other
 
-    def __rtruediv__(self,other) -> 'StatisticalEstimate':
-        raise Exception(f"Unable to divide by a StatisticalEstimate.")
+        return NotImplemented
 
-    def __neg__(self) -> 'StatisticalEstimate':
-        return StatisticalEstimate(-self._estimate, self._standard_error)
+    def __rmod__(self, other: Any) -> float:
+        raise TypeError("We do not currently support modulo by StatisticalEstimate.")
+
+    def __pow__(self, exponent: Any) -> Any:
+        raise TypeError("We do not currently support multiplication of StatisticalEstimate by StatisticalEstimate.")
+
+    def __rpow__(self, base: Any) -> Any:
+        raise TypeError("We do not currently support exponentiation by StatisticalEstimate.")
+
+    def __lt__(self, other: Any) -> bool:
+        return NotImplemented
+
+    def __le__(self, other: Any) -> bool:
+        return NotImplemented
 
     def __eq__(self, other) -> bool:
-        
+
         eq = lambda a,b: isclose(a,b) or (isnan(a) and isnan(b))
-        
+
         return isinstance(other, StatisticalEstimate) and eq(self.estimate,other.estimate) and eq(self.standard_error,other.standard_error)
+
+    def __ne__(self, other: Any) -> bool:
+        return not self == other
+
+    def __gt__(self, other: Any) -> bool:
+        return NotImplemented
+
+    def __ge__(self, other: Any) -> bool:
+        return NotImplemented 
+    #Region: Rational Interface
 
     @staticmethod
     def __from_json_obj__(json:Dict[str,Any]) -> 'StatisticalEstimate':
@@ -190,9 +306,3 @@ class BatchMeanEstimator(StatisticalEstimate):
         standard_error = sqrt(variance(sample)/len(sample)) if len(sample) > 1 else float('nan')
 
         super().__init__(estimate, standard_error)
-
-def coba_mean(values:Sequence[Union[StatisticalEstimate,float]]) -> Union[StatisticalEstimate,float]:
-    return sum(values) / len(values)
-
-def coba_weighted_mean(weights:Sequence[float], values:Sequence[Union[StatisticalEstimate,float]]) -> Union[StatisticalEstimate,float]:
-    return sum([weight * value for weight,value in zip(weights,values) ]) / sum(weights)

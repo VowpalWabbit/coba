@@ -85,7 +85,7 @@ class StatisticalEstimate_Tests(unittest.TestCase):
         self.assertEqual(actual.estimate, sum([1,2,3,4]))
         self.assertEqual(actual.standard_error, sqrt(sum([4,9,16,25])))
 
-    def test_mean_of_estimates(self) -> None:
+    def test_mean_direct_of_estimates(self) -> None:
 
         a = StatisticalEstimate(1,2)
 
@@ -94,7 +94,16 @@ class StatisticalEstimate_Tests(unittest.TestCase):
         self.assertEqual(actual.estimate, 1)
         self.assertEqual(actual.standard_error, 2/sqrt(4))
 
-    def test_weighted_mean_of_estimates(self) -> None:
+    def test_mean_statistics_of_estimates(self) -> None:
+
+        a = StatisticalEstimate(1,2)
+
+        actual = mean([a,a,a,a]) #type: ignore
+
+        self.assertEqual(actual.estimate, 1)
+        self.assertEqual(actual.standard_error, 2/sqrt(4))
+
+    def test_mean_weighted_of_estimates(self) -> None:
 
         a1 = StatisticalEstimate(1,2)
         a2 = StatisticalEstimate(2,3)
