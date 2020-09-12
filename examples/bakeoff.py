@@ -22,4 +22,4 @@ learner_factories = [
 with ExecutionContext.Logger.log("evaluating learners..."):
     result = benchmark.evaluate(learner_factories, "./examples/bakeoff_transactions.log")
 
-Plots.standard_plot(result, weighted=True)
+Plots.standard_plot(result)

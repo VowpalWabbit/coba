@@ -84,8 +84,9 @@ class StatisticalEstimate(Rational, JsonSerializable):
         taking the simple approach but the reduction in memory and compute complexity seems to be worth it. 
 
         One notable downside of not taking the simple approach is that stats with N == 1 can be problematic since 
-        we won't have an estimate of their standard error. Below we handle this by using any standard error that is
-        available to us as a stand-in (see __add__). Ideally we won't be dealing with estimates from samples of N==1.
+        we won't have an estimate of their standard error. Ideally we won't be dealing with estimates from samples 
+        of N==1, but in the case that we the NaN transfers through algebras. Attempts at determining an appropriate
+        default always caused unintended consequences.
 
         WARNING!!! The algebra of random variables implemented below assumes every StatisticalEstimate is independent
         WARNING!!! The algebra of random variables implemented below assumes every StatisticalEstimate is independent
@@ -173,19 +174,14 @@ class StatisticalEstimate(Rational, JsonSerializable):
 
     def __add__(self, other: Any) -> 'StatisticalEstimate':
         if isinstance(other, StatisticalEstimate):
-            if isnan(self.standard_error):
-                #since we don't know our own SE use other as a best guess...
-                standard_error = sqrt(2)*other.standard_error
-            elif isnan(other.standard_error):
-                #since we don't know other's SE use our own as a best guess...
-                standard_error = sqrt(2)*self.standard_error
-            else:
-                standard_error = sqrt(self.standard_error**2+other.standard_error**2)
-
-            return StatisticalEstimate(self.estimate+other.estimate, standard_error)
+            estimate       = self.estimate+other.estimate
+            standard_error = sqrt(self.standard_error**2+other.standard_error**2)
+            return StatisticalEstimate(estimate,standard_error)
 
         if isinstance(other, Real):
-            return StatisticalEstimate(other+self.estimate, self.standard_error)
+            estimate       = self.estimate + other
+            standard_error = self.standard_error
+            return StatisticalEstimate(estimate,standard_error)
 
         return NotImplemented
 
@@ -301,5 +297,8 @@ class BatchMeanEstimator(StatisticalEstimate):
     def __init__(self, sample: Sequence[float]) -> None:
         estimate       = mean(sample) if len(sample) > 0 else float('nan')
         standard_error = sqrt(variance(sample)/len(sample)) if len(sample) > 1 else float('nan')
+
+        if standard_error > 1:
+            print(standard_error)
 
         super().__init__(estimate, standard_error)

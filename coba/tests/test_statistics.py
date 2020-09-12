@@ -16,6 +16,15 @@ class StatisticalEstimate_Tests(unittest.TestCase):
 
         self.assertEqual(actual, expected)
 
+    def test_addition_of_estimate_nan(self) -> None:
+        a = StatisticalEstimate(1,2)
+        b = StatisticalEstimate(1,float('nan'))
+
+        actual   = a+b
+        expected = StatisticalEstimate(2, float('nan'))
+
+        self.assertEqual(actual, expected)
+
     def test_subtraction_of_estimate(self) -> None:
         a = StatisticalEstimate(1,2)
         b = StatisticalEstimate(1,3)

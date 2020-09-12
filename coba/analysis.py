@@ -1,8 +1,10 @@
 """The analysis module contains functionality to help with analyzing Results."""
 
+from math import isnan
 from collections import defaultdict
 from itertools import groupby
 from typing import List, Dict, Sequence, Tuple, cast
+
 
 from coba.statistics import StatisticalEstimate
 from coba.utilities import check_matplotlib_support
@@ -11,7 +13,7 @@ from coba.benchmarks import Result
 class Plots():
 
     @staticmethod
-    def standard_plot(result: Result, weighted: bool = True) -> None:
+    def standard_plot(result: Result, show_err=True, weighted: bool=False) -> None:
 
         def plot(axes, label, estimates):
             x = [ i+1                          for i in range(len(estimates)) ]
@@ -21,40 +23,46 @@ class Plots():
 
             axes.plot(x,y, label=label)
             
-            #if show_err:
-            #axes.fill_between(x, l, u, alpha = 0.25)
+            if show_err:
+                axes.fill_between(x, l, u, alpha = 0.25)
 
-        def mean(means:Sequence[StatisticalEstimate], weights: Sequence[float] = None) -> StatisticalEstimate:
+        def mean(values: Sequence[StatisticalEstimate], weights: Sequence[float] = None) -> StatisticalEstimate:
             
-            if len(means) == 0:
+            if len(values) == 0:
                 return StatisticalEstimate(float('nan'), float('nan'))
 
-            if weighted and weights is not None:
-                num = sum([w*m for w,m in zip(weights,means)])
+            if weights is not None:
+                num = sum([w*m for w,m in zip(weights,values)])
                 den = sum(weights)
             else:
-                num = sum(means)
-                den = len(means)
+                num = sum(values)
+                den = len(values)
 
             #the only way this isn't a StatisticalEstimate is if
             #len(means) == 0 which is impossible because we take 
             #care of it above.
-            return cast(StatisticalEstimate, num)/den
+            return cast(StatisticalEstimate, num/den)
 
         learners, _, batches = result.to_indexed_tuples()
 
-        sorted_batches  = sorted(batches.values(), key=lambda r: (r.learner_id, r.batch_index))
-        grouped_batches = groupby(sorted_batches , key=lambda r: (r.learner_id, r.batch_index))
+        filter_predicate = lambda batch: (not isnan(batch.mean_reward.standard_error) or not show_err)
+        group_key        = lambda batch: (batch.learner_id, batch.batch_index)
+
+        filtered_batches = filter(filter_predicate, batches.values())
+        sorted_batches   = sorted(filtered_batches, key=group_key)
+        grouped_batches  = groupby(sorted_batches , key=group_key)
 
         estimates: Dict[str,Tuple[List[float],List[StatisticalEstimate]]] = defaultdict(lambda: ([],[]))
 
-        for batch_group in grouped_batches:
-            name    = learners[batch_group[0][0]].full_name
-            group   = list(batch_group[1])
-            weights = [ perf.N if weighted else 1 for perf in group ]
-            means   = [ perf.mean_reward          for perf in group ]            
+        for (learner_id, batch_index), group_iter in grouped_batches:
+            name  = learners[learner_id].full_name
+            group = list(group_iter)
+
+            weights = [ perf.N           for perf in group ]
+            rewards = [ perf.mean_reward for perf in group ]
+
             estimates[name][0].append(sum(weights))
-            estimates[name][1].append(mean(means, weights))
+            estimates[name][1].append(mean(rewards, weights if weighted else None))
 
         check_matplotlib_support('Plots.standard_plot')
         import matplotlib.pyplot as plt #type: ignore
@@ -64,15 +72,15 @@ class Plots():
         ax1 = fig.add_subplot(1,2,1) #type: ignore
         ax2 = fig.add_subplot(1,2,2) #type: ignore
 
-        for name, (weights, means) in estimates.items():
-            plot(ax1, name, means)
+        for name, (weights, rewards) in estimates.items():
+            plot(ax1, name, rewards)
 
         ax1.set_title("Reward by Batch Index")
         ax1.set_ylabel("Mean Reward")
         ax1.set_xlabel("Batch Index")
 
-        for name, (weights, means) in estimates.items(): 
-            plot(ax2, name, [ mean(means[0:i+1], weights[0:i+1]) for i in range(len(means)) ])
+        for name, (weights, rewards) in estimates.items(): 
+            plot(ax2, name, [ mean(rewards[0:i+1], weights[0:i+1]) for i in range(len(rewards)) ])
 
         ax2.set_title("Progressive Validation Reward")
         ax2.set_xlabel("Batch Index")

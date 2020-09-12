@@ -8,8 +8,9 @@ __pycache__/
 build/
 dist/
 
-#transaction files
-*.log
+#ignored examples files
+examples/bakeoff_result.json
+examples/bakeoff_transactions.log
 
 # Editors
 .vscode/
