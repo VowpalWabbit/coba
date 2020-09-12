@@ -103,6 +103,17 @@ class StatisticalEstimate_Tests(unittest.TestCase):
         self.assertEqual(actual.estimate, 1)
         self.assertEqual(actual.standard_error, 2/sqrt(4))
 
+    def test_mean_pandas_of_estimates(self) -> None:
+
+        import pandas as pd
+        
+        a  = StatisticalEstimate(1,2)
+        df = pd.DataFrame({'a':[a,a,a,a]})
+
+        actual = df['a'].mean()
+
+        self.assertEqual(actual, 1)
+
     def test_mean_weighted_of_estimates(self) -> None:
 
         a1 = StatisticalEstimate(1,2)

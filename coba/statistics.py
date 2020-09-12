@@ -101,14 +101,11 @@ class StatisticalEstimate(Rational, JsonSerializable):
     def __init__(self, estimate:float, standard_error: float) -> None:
         ...
 
-    def __init__(self, estimate:Union['StatisticalEstimate', Fraction, float], standard_error: float=None) -> None:
+    def __init__(self, estimate:Union['StatisticalEstimate', Fraction, float], standard_error: float = float('nan')) -> None:
         if isinstance(estimate, Fraction) and isinstance(estimate.numerator, StatisticalEstimate):
-            new_estimate = cast(StatisticalEstimate, estimate.numerator) / estimate.denominator
-            self._estimate       = new_estimate._estimate
-            self._standard_error = new_estimate._standard_error
+            self.__init__(cast(StatisticalEstimate, estimate.numerator / estimate.denominator))
         elif isinstance(estimate, StatisticalEstimate):
-            self._estimate       = estimate._estimate
-            self._standard_error = estimate._standard_error
+            self.__init__(estimate._estimate, estimate._standard_error)
         else:
             self._estimate       = float(estimate)
             self._standard_error = standard_error
