@@ -30,4 +30,4 @@ learner_factories = [
 results = benchmark.evaluate(learner_factories)
 
 #plot the learners
-Plots.standard_plot(results)
+Plots.standard_plot(results, show_err=False)

@@ -7,6 +7,7 @@ from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTuned
 from coba.benchmarks import UniversalBenchmark
 from coba.analysis import Plots
 from coba.execution import ExecutionContext
+from coba.statistics import StatisticalEstimate
 
 benchmark = UniversalBenchmark.from_file("./examples/benchmark_short.json")
 

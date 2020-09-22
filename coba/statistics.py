@@ -1,9 +1,10 @@
 """The statistics module contains algorithms and methods to calculate statistics."""
 
+import collections
+
 from math import isnan, sqrt, isclose, trunc, ceil, floor
 from statistics import mean, variance
 from numbers import Real, Rational, Complex
-from fractions import Fraction
 from typing import Sequence, Union, Dict, Any, overload, cast
 
 from coba.json import JsonSerializable
@@ -99,16 +100,25 @@ class StatisticalEstimate(Rational, JsonSerializable):
     def __init__(self, estimate: 'StatisticalEstimate') -> None:
         ...
 
-    def __init__(self, estimate:float, standard_error: float) -> None:
+    def __init__(self, estimate: Rational, standard_error: float = float('nan')) -> None:
         ...
 
-    def __init__(self, estimate:Union['StatisticalEstimate', Fraction, float], standard_error: float = float('nan')) -> None:
-        if isinstance(estimate, Fraction) and isinstance(estimate.numerator, StatisticalEstimate):
-            self.__init__(cast(StatisticalEstimate, estimate.numerator / estimate.denominator))
-        elif isinstance(estimate, StatisticalEstimate):
-            self.__init__(estimate._estimate, estimate._standard_error)
+    def __init__(self, estimate:float, standard_error: float = float('nan')) -> None:
+        ...
+
+    def __init__(self, estimate:Union['StatisticalEstimate', Rational, float], standard_error: float = float('nan')) -> None:
+        
+        if isinstance(estimate, Rational):
+            unpacked_estimate = cast(Union[StatisticalEstimate, float], estimate.numerator/estimate.denominator)
         else:
-            self._estimate       = float(estimate)
+            unpacked_estimate = estimate
+
+        if isinstance(unpacked_estimate, StatisticalEstimate):
+            assert isnan(standard_error) or standard_error == unpacked_estimate._standard_error, "Conflicting errors were given"
+            self._estimate       = unpacked_estimate._estimate
+            self._standard_error = unpacked_estimate._standard_error
+        else:
+            self._estimate       = unpacked_estimate
             self._standard_error = standard_error
 
     @property
@@ -228,9 +238,7 @@ class StatisticalEstimate(Rational, JsonSerializable):
             new_estimate = self/other
             return StatisticalEstimate(floor(new_estimate._estimate), new_estimate._standard_error)
         else:
-            return floor(self/other)
-            
-            
+            return floor(self/other)            
 
     def __rfloordiv__(self, other: Any) -> int:
         return floor(other/self)
@@ -240,7 +248,7 @@ class StatisticalEstimate(Rational, JsonSerializable):
             raise TypeError("We do not currently support modulo of StatisticalEstimate by StatisticalEstimate.")
 
         if isinstance(other, Real):
-            return self.estimate % other
+            return int(self.estimate % other)
 
         return NotImplemented
 
@@ -294,11 +302,17 @@ class StatisticalEstimate(Rational, JsonSerializable):
 class BatchMeanEstimator(StatisticalEstimate):
     """Estimate the population mean from a batch of i.i.d. observations"""
 
-    def __init__(self, sample: Sequence[float]) -> None:
-        estimate       = mean(sample) if len(sample) > 0 else float('nan')
-        standard_error = sqrt(variance(sample)/len(sample)) if len(sample) > 1 else float('nan')
+    @overload
+    def __init__(self, given: StatisticalEstimate) -> None:
+        ...
 
-        if standard_error > 1:
-            print(standard_error)
+    def __init__(self, given: Sequence[float]) -> None:
+        ...
 
-        super().__init__(estimate, standard_error)
+    def __init__(self, given) -> None:
+        if isinstance(given, collections.Sequence):
+            estimate       = mean(given) if len(given) > 0 else float('nan')
+            standard_error = sqrt(variance(given)/len(given)) if len(given) > 1 else float('nan')
+            super().__init__(estimate, standard_error)
+        else:
+            super().__init__(given)

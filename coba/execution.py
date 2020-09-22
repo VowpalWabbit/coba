@@ -286,17 +286,22 @@ class UniversalLogger(LoggerInterface):
             yield self
 
             if not self._is_newline: self.log('')
-            self.log(f"finished after {round(time.time() - self._start_times.pop(), 2)} seconds")
+            self.log(f"finished after {round(time.time() - self._start_times[-1], 2)} seconds")
 
-        except LoggedException as e:
+        except KeyboardInterrupt:
+            raise
+
+        except LoggedException:
             raise #simply pass it along, no need to log it again
 
         except Exception as e:
             if not self._is_newline: self.log('')
-            self.log(f"unhandeled exception after {round(time.time() - self._start_times.pop(), 2)} seconds: {e}")
+            self.log(f"exception after {round(time.time() - self._start_times[-1], 2)} seconds: {e}")
+
             raise LoggedException from e
 
         finally:
+            self._start_times.pop()
             self._indent_cnt -= 1
 
     def _prefix(self) -> str:
@@ -325,6 +330,8 @@ class UniversalLogger(LoggerInterface):
         self._is_newline = (end is None or end == '\n')
 
         return self._with()
+
+
 
 class ConsoleLogger(UniversalLogger):
     """An implementation of the UniversalLogger that writes to console."""

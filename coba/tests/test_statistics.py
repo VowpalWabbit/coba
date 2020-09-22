@@ -2,6 +2,8 @@ import unittest
 
 from statistics import mean, variance, stdev
 from math import isnan, sqrt
+from fractions import Fraction
+from numbers import Rational
 
 from coba.statistics import BatchMeanEstimator, OnlineVariance, OnlineMean, StatisticalEstimate
 
@@ -82,7 +84,7 @@ class StatisticalEstimate_Tests(unittest.TestCase):
         self.failUnlessRaises(Exception, lambda: 2/a)
         self.assertEqual(r_actual, expected)
 
-    def test_sum_of_estimates(self) -> None:
+    def test_sum(self) -> None:
 
         a1 = StatisticalEstimate(1,2)
         a2 = StatisticalEstimate(2,3)
@@ -94,7 +96,21 @@ class StatisticalEstimate_Tests(unittest.TestCase):
         self.assertEqual(actual.estimate, sum([1,2,3,4]))
         self.assertEqual(actual.standard_error, sqrt(sum([4,9,16,25])))
 
-    def test_mean_direct_of_estimates(self) -> None:
+    def test_fraction_1(self) -> None:
+        e = StatisticalEstimate(1.1,1.1)
+        f = Fraction(e)
+
+        self.assertIsInstance(f.numerator, Rational)
+        self.assertIsInstance(f.denominator, Rational)
+
+    def test_fraction_2(self) -> None:
+        e = StatisticalEstimate(1.1,1.1)
+        f = Fraction(e.numerator, e.denominator)
+
+        self.assertIsInstance(f.numerator, Rational)
+        self.assertIsInstance(f.denominator, Rational)
+
+    def test_direct_mean(self) -> None:
 
         a = StatisticalEstimate(1,2)
 
@@ -103,7 +119,7 @@ class StatisticalEstimate_Tests(unittest.TestCase):
         self.assertEqual(actual.estimate, 1)
         self.assertEqual(actual.standard_error, 2/sqrt(4))
 
-    def test_mean_statistics_of_estimates(self) -> None:
+    def test_statistics_mean_1(self) -> None:
 
         a = StatisticalEstimate(1,2)
 
@@ -111,8 +127,17 @@ class StatisticalEstimate_Tests(unittest.TestCase):
 
         self.assertEqual(actual.estimate, 1)
         self.assertEqual(actual.standard_error, 2/sqrt(4))
+    
+    def test_statistics_mean_2(self) -> None:
 
-    def test_mean_pandas_of_estimates(self) -> None:
+        a = StatisticalEstimate(1.1,2.1)
+
+        actual = mean([a,a,a,a]) #type: ignore
+
+        self.assertEqual(actual.estimate, 1.1)
+        self.assertEqual(actual.standard_error, 2.1/sqrt(4))
+
+    def test_pandas_mean(self) -> None:
 
         import pandas as pd
         
@@ -123,7 +148,7 @@ class StatisticalEstimate_Tests(unittest.TestCase):
 
         self.assertEqual(actual, 1)
 
-    def test_mean_weighted_of_estimates(self) -> None:
+    def test_weighted_mean(self) -> None:
 
         a1 = StatisticalEstimate(1,2)
         a2 = StatisticalEstimate(2,3)
@@ -161,6 +186,13 @@ class BatchMeanEstimator_Tests(unittest.TestCase):
                 self.assertEqual(actual_stats.standard_error, expected_standard_error)
             else:
                 self.assertTrue(isnan(actual_stats.standard_error))
+
+    def test_from_statistical_estimate(self):
+        a = StatisticalEstimate(1,1)
+        b = BatchMeanEstimator(a)
+
+        self.assertEqual(b.estimate, 1)
+        self.assertEqual(b.standard_error, 1)
 
 class OnlineVariance_Tests(unittest.TestCase):
 

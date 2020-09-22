@@ -21,4 +21,4 @@ learner_factories = [lambda: RandomLearner(), lambda: EpsilonLearner(1/10), lamb
 #benchmark all three learner factories
 results = benchmark.evaluate(learner_factories)
 
-Plots.standard_plot(results)
+Plots.standard_plot(results, show_err=False)

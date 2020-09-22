@@ -306,11 +306,13 @@ class Result(JsonSerializable):
         )
 
     def to_pandas(self) -> Tuple[Any,Any,Any]:
-        return (
-            self._learner_table.to_pandas(),
-            self._simulation_table.to_pandas(),
-            self._batch_table.to_pandas()
-        )
+        l = self._learner_table.to_pandas()
+        s = self._simulation_table.to_pandas()
+        b = self._batch_table.to_pandas()
+
+        b.reward = b.reward.astype('float')
+
+        return (l,s,b)
 
     @staticmethod
     def __from_json_obj__(obj:Dict[str,Any]) -> 'Result':
@@ -429,14 +431,16 @@ class UniversalBenchmark(Benchmark[_C,_A]):
     def __init__(self, 
         simulations: Sequence[Simulation[_C,_A]],
         *, 
-        batch_count: int,
-        ignore_first:bool = True) -> None:
+        batch_count : int,
+        ignore_first: bool = True,
+        pass_except : bool = True) -> None:
         """Instantiate a UniversalBenchmark.
         
         Args:
             simulations: A sequence of simulations to benchmark against.
             batch_count: How many batches per simulation to make during evaluation (batch_size will be spread evenly).
             ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
+            pass_except: Determines if exceptions during benchmark evaluation are passed or raised.
         """
         ...
 
@@ -445,7 +449,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         simulations: Sequence[Simulation[_C,_A]],
         *, 
         batch_size: Union[int, Sequence[int], Callable[[int],int]],
-        ignore_first: bool = True) -> None:
+        ignore_first: bool = True,
+        pass_except : bool = True) -> None:
         ...
         """Instantiate a UniversalBenchmark.
 
@@ -457,13 +462,15 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                     pulled from simulations and batched according to the sequence. If batch_size is a 
                     function of batch index then each batch size will be determined by a call to the function.
                 ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
+                pass_except: Determines if exceptions during benchmark evaluation are passed or raised.
         """
 
     def __init__(self,
         simulations : Sequence[Simulation[_C,_A]], 
         batch_count : int = None, 
         batch_size  : Union[int, Sequence[int], Callable[[int],int]] = None,
-        ignore_first: bool = True) -> None:
+        ignore_first: bool = True,
+        pass_except : bool = True) -> None:
         """Instantiate a UniversalBenchmark.
         
         See the overloads for more information.
@@ -473,6 +480,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         self._batch_count  = batch_count
         self._batch_size   = batch_size
         self._ignore_first = ignore_first
+        self._pass_except  = pass_except
 
     def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]], transaction_file:str = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
@@ -497,13 +505,13 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             ec.result_writer   = ResultDiskWriter(transaction_file)
         else:
             ec.restored_result = Result()
-            ec.result_writer     = ResultMemoryWriter()
+            ec.result_writer   = ResultMemoryWriter()
 
         for ec.learner_index, ec.learner in enumerate(f() for f in learner_factories):
             if not ec.restored_result.has_learner(ec.learner_index):
                 ec.result_writer.write_learner(ec.learner_index, 
                     family    = self._safe_family(ec.learner),
-                    full_name = self._full_name(ec.learner),
+                    full_name = self._safe_full(ec.learner),
                     **self._safe_params(ec.learner)
                 )
 
@@ -518,9 +526,15 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                 try:
                     self._process_simulation(ec)
                     ec.restored_result.rmv_batches(ec.simulation_index)
+                
+                except KeyboardInterrupt:
+                    raise
+
                 except LoggedException as e:
-                    pass #if we've already logged it no need to do it again
+                    if not self._pass_except: raise 
+                
                 except Exception as e:
+                    if not self._pass_except: raise 
                     ExecutionContext.Logger.log(f"unhandled exception: {e}")
 
     def _process_simulation(self, ec: 'UniversalBenchmark.EvaluationContext'):
@@ -553,7 +567,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                     self._process_learner(ec)
 
     def _process_learner(self, ec: 'UniversalBenchmark.EvaluationContext'):
-        with ExecutionContext.Logger.log(f"evaluating {self._safe_family(ec.learner)}..."):
+        with ExecutionContext.Logger.log(f"evaluating {self._safe_full(ec.learner)}..."):
             self._process_batches(ec)
 
     def _process_batches(self, ec: 'UniversalBenchmark.EvaluationContext'):
@@ -573,6 +587,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
             choice = ec.learner.choose(interaction.key, interaction.context, interaction.actions)
 
+            assert choice in range(len(interaction.actions)), "An invalid action was chosen by the learner"
+
             keys    .append(interaction.key)
             contexts.append(interaction.context)
             choices .append(choice)
@@ -588,8 +604,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                 ec.learner_index,
                 ec.simulation_index,
                 ec.batch_index,
-                N           = len(rewards),
-                mean_reward = BatchMeanEstimator(rewards)
+                N      = len(rewards),
+                reward = BatchMeanEstimator(rewards)
             )
 
     #Begin utility classes
@@ -639,7 +655,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         except:
             return {}
 
-    def _full_name(self, learner: Any) -> str:
+    def _safe_full(self, learner: Any) -> str:
         family = self._safe_family(learner)
         params = self._safe_params(learner)
 
