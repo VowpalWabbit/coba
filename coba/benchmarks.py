@@ -271,8 +271,8 @@ class Result(JsonSerializable):
     def get_learner(self, learner_id:int) -> Dict[str,Any]:
         return self._learner_table._rows[learner_id]
 
-    def get_simulation(self, simulation_id:int) -> Any:
-        return self._simulation_table.to_indexed_tuples()[simulation_id]
+    def get_simulation(self, simulation_id:int) -> Dict[str,Any]:
+        return self._simulation_table._rows[simulation_id]
 
     def get_batch(self, learner_id:int, simulation_id:int, batch_index:int) -> Dict[str,Any]:
         return self._batch_table._rows[(learner_id, simulation_id, batch_index)]
@@ -285,8 +285,10 @@ class Result(JsonSerializable):
 
     def rmv_batches(self, simulation_id:int):
 
+        if not simulation_id in self._simulation_table: return
+
         n_learners = len(self._learner_table._rows)
-        n_batches  = self.get_simulation(simulation_id).batch_count
+        n_batches  = self.get_simulation(simulation_id)['batch_count']
 
         for batch_key in [ (l,simulation_id,b) for l in range(n_learners) for b in range(n_batches)]:
             self._batch_table.rmv_row(batch_key)
@@ -681,4 +683,4 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             yield len(actions)
 
     def _max_batch_index(self, simulation_id, result:Result) -> int:
-        return result.get_simulation(simulation_id).batch_count-1 if result.has_simulation(simulation_id) else -1
+        return result.get_simulation(simulation_id)['batch_count']-1 if result.has_simulation(simulation_id) else -1
