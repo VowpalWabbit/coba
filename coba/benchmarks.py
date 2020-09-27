@@ -522,7 +522,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
     #Begin evaluation classes. These are called in a waterfall pattern.
     def _process_simulations(self, ec: 'UniversalBenchmark.EvaluationContext'):
         for ec.simulation_index, ec.simulation in enumerate(self._simulations):
-            with ExecutionContext.Logger.log(f"processing simulation {ec.simulation_index}..."):
+            with ExecutionContext.Logger.log(f"evaluating simulation {ec.simulation_index}..."):
                 try:
                     self._process_simulation(ec)
                     ec.restored_result.rmv_batches(ec.simulation_index)
@@ -549,10 +549,15 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             ec.batch_sizes   = self._batch_sizes(len(ec.simulation.interactions))
             ec.batch_indexes = [b for index,size in enumerate(ec.batch_sizes) for b in repeat(index,size)]
 
+            assert not any([ s == 0 for s in ec.batch_sizes]), "The simulation was not large enough to fill all batches."
+
             if not ec.restored_result.has_simulation(ec.simulation_index):
+                
+                int_ignore_first = int(self._ignore_first)
+
                 ec.result_writer.write_simulation(ec.simulation_index,
-                    interaction_count = sum(ec.batch_sizes),
-                    batch_count       = len(ec.batch_sizes) - int(self._ignore_first),
+                    interaction_count = sum(ec.batch_sizes[int_ignore_first:]),
+                    batch_count       = len(ec.batch_sizes[int_ignore_first:]),
                     context_size      = median(self._context_sizes(ec.simulation)),
                     action_count      = median(self._action_counts(ec.simulation))
                 )

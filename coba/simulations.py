@@ -26,7 +26,7 @@ from typing import (
     Generic, Hashable, Dict, cast, Any, Tuple
 )
 
-from coba import random as cb_random
+import coba.random as cb_random
 from coba.preprocessing import FactorEncoder, Metadata, OneHotEncoder, NumericEncoder, Encoder
 from coba.execution import ExecutionContext
 
