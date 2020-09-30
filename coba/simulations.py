@@ -27,7 +27,7 @@ from typing import (
 )
 
 import coba.random as cb_random
-from coba.preprocessing import FactorEncoder, Metadata, OneHotEncoder, NumericEncoder, Encoder
+from coba.preprocessing import FactorEncoder, FullMeta, PartMeta, OneHotEncoder, NumericEncoder, Encoder
 from coba.execution import ExecutionContext
 
 Context = Optional[Hashable]
@@ -148,14 +148,14 @@ class LazySimulation(Simulation[_C_out, _A_out]):
 
             return self
 
-    def __exit__(self, exception_type, exception_value, traceback) -> 'LazySimulation[_C_out,_A_out]':
+    def __exit__(self, exception_type, exception_value, traceback) -> bool:
         """Unload the simulation from memory."""
 
         if self._simulation is not None:
             self._simulation = None
             gc.collect() #in case the simulation is large
 
-        return self
+        return False
 
     @property
     def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
@@ -350,9 +350,9 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
 
         config = json.loads(json_val) if isinstance(json_val,str) else json_val
 
-        has_header  : bool                        = True
-        default_meta: Metadata[bool,bool,Encoder] = Metadata.default()
-        defined_meta: Dict[Any, Metadata]         = {}
+        has_header  : bool                = True
+        default_meta: FullMeta            = FullMeta()
+        defined_meta: Dict[Any, PartMeta] = {}
 
         if config["format"] == "openml":
             return ClassificationSimulation.from_openml(config["id"])
@@ -368,11 +368,11 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
                 has_header = config["has_header"]
 
             if "column_default" in config:
-                default_meta = cast(Metadata[bool,bool,Encoder], Metadata.from_json(config["column_default"]))
+                default_meta =  FullMeta.from_json(config["column_default"])
 
             if "column_overrides" in config:
                 for key,value in config["column_overrides"].items():
-                    defined_meta[key] = Metadata.from_json(value)
+                    defined_meta[key] = PartMeta.from_json(value)
 
             return ClassificationSimulation.from_csv(
                 location     = location,
@@ -389,11 +389,11 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
                 has_header = config["has_header"]
 
             if "column_default" in config:
-                default_meta = cast(Metadata[bool,bool,Encoder], Metadata.from_json(config["column_default"]))
+                default_meta = FullMeta.from_json(config["column_default"])
 
             if "column_overrides" in config:
                 for key,value in config["column_overrides"].items():
-                    defined_meta[key] = Metadata.from_json(value)
+                    defined_meta[key] = PartMeta.from_json(value)
 
             return ClassificationSimulation.from_table(
                 table        = table,
@@ -431,7 +431,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
             with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/features/{data_id}?api_key={openml_api_key}')) as resp:
                 features = json.loads(resp.read())["data_features"]["feature"]
 
-            defined_meta: Dict[str,Metadata] = {}
+            defined_meta: Dict[str,PartMeta] = {}
 
             for m in features:
 
@@ -442,7 +442,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
                 else:
                     encoder = FactorEncoder(m['nominal_value'],error_if_unknown=True)
 
-                defined_meta[m["name"]] = Metadata(
+                defined_meta[m["name"]] = PartMeta(
                     ignore  = m["is_ignore"] == "true" or m["is_row_identifier"] == "true",
                     label   = m["is_target"] == "true",
                     encoder = encoder
@@ -460,8 +460,8 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         md5_checksum: Optional[str] = None,
         csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader, #type: ignore #pylance complains
         has_header  : bool = True,
-        default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
-        defined_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[Context,Action]':
+        default_meta: FullMeta = FullMeta(),
+        defined_meta: Dict[Any,PartMeta] = {}) -> 'ClassificationSimulation[Context,Action]':
         """Create a ClassificationSimulation given the location of a csv formatted dataset.
 
         Args:
@@ -525,8 +525,8 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         table       : Iterable[Sequence[str]],
         label_col   : Union[None,str,int] = None,
         has_header  : bool = True,
-        default_meta: Metadata[bool,bool,Encoder] = Metadata.default(),
-        defined_meta: Dict[Any,Metadata] = {}) -> 'ClassificationSimulation[Context,Action]':
+        default_meta: FullMeta = FullMeta(),
+        defined_meta: Dict[Any, PartMeta] = {}) -> 'ClassificationSimulation[Context,Action]':
         """Create a ClassifierSimulation from the rows contained in a csv formatted dataset.
 
         Args:
@@ -564,12 +564,11 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         def index(key: Union[int,str]):
             return header.index(key) if isinstance(key,str) else key
 
-        empty_meta = Metadata(None,None,None)
-        over_metas = defaultdict(lambda:empty_meta, { index(key):val for key,val in defined_meta.items() } )
+        over_metas = defaultdict(PartMeta, { index(key):val for key,val in defined_meta.items() } )
         metas      = [ default_meta.override(over_metas[i]) for i in range(n_col) ]
 
         if label_index is not None:
-            metas[label_index] = metas[label_index].override(Metadata(None,True,None))
+            metas[label_index] = metas[label_index].override(PartMeta(label=True))
 
         #after extensive testing I found that performing many loops with simple logic
         #was about 3 times faster than performing one or two loops with complex logic

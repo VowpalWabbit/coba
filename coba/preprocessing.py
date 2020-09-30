@@ -10,7 +10,7 @@ import json
 
 from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Iterator, Sequence, Generic, TypeVar, Any, Optional, Hashable, Union, Dict, Tuple
+from typing import Iterator, Optional, Sequence, Generic, TypeVar, Any, Hashable, Union, Dict, Tuple
 
 T_out = TypeVar('T_out', bound=Hashable, covariant=True) 
 
@@ -422,35 +422,12 @@ class InferredEncoder(Encoder[Hashable]):
 
         raise Exception("This encoder must be fit before it can be used.")
 
-T_ignore  = TypeVar('T_ignore' , bound = Optional[bool]   , covariant=True) 
-T_label   = TypeVar('T_label'  , bound = Optional[bool]   , covariant=True) 
-T_encoder = TypeVar('T_encoder', bound = Optional[Encoder], covariant=True)
+T_ignore  = TypeVar('T_ignore' ) 
+T_label   = TypeVar('T_label'  ) 
+T_encoder = TypeVar('T_encoder')
 
 class Metadata(Generic[T_ignore, T_label, T_encoder]):
     """A storage class for Optional meta information describing features."""
-
-    @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'Metadata':
-        """Construct a Metadata object from JSON.
-
-        Args:
-            json_val: Either a json string or the decoded json object.
-
-        Returns:
-            The Metadata representation of the given JSON string or object.
-        """
-
-        config = json.loads(json_val) if isinstance(json_val,str) else json_val
-
-        ignore  = None if "ignore"   not in config else config["ignore"]
-        label   = None if "label"    not in config else config["label" ]
-        encoder = None if "encoding" not in config else Encoder.from_json(config["encoding"])
-
-        return Metadata(ignore,label,encoder)
-
-    @staticmethod
-    def default() -> 'Metadata[bool,bool,Encoder]':
-        return Metadata(False,False,InferredEncoder())
 
     @property
     def ignore(self) -> T_ignore:
@@ -465,7 +442,6 @@ class Metadata(Generic[T_ignore, T_label, T_encoder]):
         return self._encoder
 
     def __init__(self, ignore: T_ignore, label: T_label, encoder: T_encoder) -> None:
-        ...
         """Instantiate PartialMeta.
 
         Args:
@@ -501,3 +477,68 @@ class Metadata(Generic[T_ignore, T_label, T_encoder]):
         encoder = override.encoder if override.encoder is not None else self.encoder
 
         return Metadata[T_ignore, T_label, T_encoder](ignore, label, encoder)
+
+class PartMeta(Metadata[Optional[bool], Optional[bool], Optional[Encoder]]):
+    """A storage class for partial meta information describing features."""
+
+    @staticmethod
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'PartMeta':
+        """Construct a PartMeta object from JSON.
+
+        Args:
+            json_val: Either a json string or the decoded json object.
+
+        Returns:
+            The PartMeta representation of the given JSON string or object.
+        """
+
+        config = json.loads(json_val) if isinstance(json_val,str) else json_val
+
+        ignore  = None if "ignore"   not in config else config["ignore"]
+        label   = None if "label"    not in config else config["label" ]
+        encoder = None if "encoding" not in config else Encoder.from_json(config["encoding"])
+
+        return PartMeta(ignore,label,encoder)
+
+    def __init__(self, ignore: bool = None, label: bool = None, encoder: Encoder = None):
+        """Instantiate FullMeta.
+
+        Args:
+            ignore: Indicates if the feature should be ignored.
+            label: Indicates if the feature should be regarded as a supervised label
+            encoder: The Encoder that should be used when ingesting features.
+        """
+
+        super().__init__(ignore, label, encoder)
+
+class FullMeta(Metadata[bool, bool, Encoder]):
+    """A storage class for full meta information describing features."""
+
+    @staticmethod
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'FullMeta':
+        """Construct a FullMeta object from JSON.
+
+        Args:
+            json_val: Either a json string or the decoded json object.
+
+        Returns:
+            The FullMeta representation of the given JSON string or object.
+        """
+
+        part_meta = PartMeta.from_json(json_val)
+
+        if part_meta.ignore is not None and part_meta.label is not None and part_meta.encoder is not None:
+            return FullMeta(part_meta.ignore, part_meta.label, part_meta.encoder)
+        
+        raise Exception("FullMeta JSON must define 'ignore', 'label' and 'encoder'")
+
+    def __init__(self, ignore: bool = False, label: bool = False, encoder: Encoder = StringEncoder()):
+        """Instantiate FullMeta.
+
+        Args:
+            ignore: Indicates if the feature should be ignored.
+            label: Indicates if the feature should be regarded as a supervised label
+            encoder: The Encoder that should be used when ingesting features.
+        """
+
+        super().__init__(ignore, label, encoder)

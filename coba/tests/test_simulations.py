@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple, cast, Dict
 
 from coba.execution import ExecutionContext, NoneCache, NoneLogger
-from coba.preprocessing import Metadata, NumericEncoder, OneHotEncoder, StringEncoder, Metadata, FactorEncoder
+from coba.preprocessing import FullMeta, InferredEncoder, Metadata, NumericEncoder, OneHotEncoder, PartMeta, StringEncoder, Metadata, FactorEncoder
 from coba.simulations import (
     Context, Action, Reward, Key, Choice, Interaction, 
     Simulation, ClassificationSimulation, MemorySimulation, 
@@ -139,27 +139,29 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
     def test_from_table_inferred_numeric(self) -> None:
         label_column = 'b'
+        default_meta = FullMeta(False,False,InferredEncoder())
         table        = [['a','b','c'],
                         ['1','2','3'],
                         ['4','5','6']]
 
-        simulation = ClassificationSimulation.from_table(table,label_column)
+        simulation = ClassificationSimulation.from_table(table, label_column, default_meta=default_meta)
 
         self.assert_simulation_for_data(simulation, [(1,3),(4,6)],[2,5])
 
     def test_from_table_inferred_onehot(self) -> None:
         label_column = 'b'
+        default_meta = FullMeta(False,False,InferredEncoder())
         table        = [['a' ,'b','c'],
                         ['s1','2','3'],
                         ['s2','5','6']]
 
-        simulation = ClassificationSimulation.from_table(table, label_column)
+        simulation = ClassificationSimulation.from_table(table, label_column, default_meta=default_meta)
 
         self.assert_simulation_for_data(simulation, [((1,),3),((0,),6)], [2,5])
 
     def test_from_table_explicit_onehot(self) -> None:
-        default_meta = Metadata(False, False, OneHotEncoder())
-        defined_meta = {'b': Metadata(None, True, StringEncoder()) }
+        default_meta = FullMeta(False, False, OneHotEncoder())
+        defined_meta = {'b': PartMeta(None, True, StringEncoder()) }
         table        = [['a' ,'b','c'],
                         ['s1','2','3'],
                         ['s2','5','6']]
@@ -211,8 +213,8 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         table        = [["1","0"]*15]*100000
         label_col    = 0
-        default_meta = Metadata(False,False, FactorEncoder(['1','0']))
-        defined_meta = { 2:Metadata(None,None,NumericEncoder()), 5:Metadata(None,None,NumericEncoder()) }
+        default_meta = FullMeta(False,False, FactorEncoder(['1','0']))
+        defined_meta = { 2:PartMeta(None,None,NumericEncoder()), 5:PartMeta(None,None,NumericEncoder()) }
 
         from_table = lambda:ClassificationSimulation.from_table(table, label_col, False, default_meta, defined_meta)
 
@@ -229,12 +231,12 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
         ExecutionContext.FileCache = NoneCache()
 
         location     = "http://www.openml.org/data/v1/get_csv/53999"
-        default_meta = Metadata(False, False, NumericEncoder())
-        defined_meta: Dict[str,Metadata] = {
-            "class"            : Metadata(None, True, FactorEncoder()), 
-            "molecule_name"    : Metadata(None, None, OneHotEncoder()),
-            "ID"               : Metadata(True, None, None),
-            "conformation_name": Metadata(True, None, None)
+        default_meta = FullMeta(False, False, NumericEncoder())
+        defined_meta = {
+            "class"            : PartMeta(None, True, FactorEncoder()), 
+            "molecule_name"    : PartMeta(None, None, OneHotEncoder()),
+            "ID"               : PartMeta(True, None, None),
+            "conformation_name": PartMeta(True, None, None)
         }
         md5_checksum = "4fbb00ba35dd05a29be1f52b7e0faeb6"
 
@@ -382,6 +384,18 @@ class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
             self.assertIsNotNone(loaded_simulation._simulation)
 
         self.assertIsNone(lazy_simulation._simulation)
+
+    def test_with_doesnt_supress_exception(self):
+        
+        contexts    =  [1,2]
+        action_sets = [[1,2,3], [4,5,6]]
+        reward_sets = [[0,1,2], [2,3,4]]
+
+        lazy_simulation = LazySimulation[int,int](lambda: MemorySimulation(contexts, action_sets, reward_sets))
+
+        with self.assertRaises(Exception) as context:
+            with lazy_simulation as loaded_simulation:
+                raise Exception("ex")
 
 class Interaction_Tests(unittest.TestCase):
 
