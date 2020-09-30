@@ -432,17 +432,17 @@ class UniversalBenchmark(Benchmark[_C,_A]):
     @overload
     def __init__(self, 
         simulations: Sequence[Simulation[_C,_A]],
-        *, 
+        *,
         batch_count : int,
         ignore_first: bool = True,
-        pass_except : bool = True) -> None:
+        ignore_raise: bool = True) -> None:
         """Instantiate a UniversalBenchmark.
         
         Args:
             simulations: A sequence of simulations to benchmark against.
             batch_count: How many batches per simulation to make during evaluation (batch_size will be spread evenly).
             ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
-            pass_except: Determines if exceptions during benchmark evaluation are passed or raised.
+            ignore_raise: Determines if exceptions during benchmark evaluation are passed or raised.
         """
         ...
 
@@ -450,9 +450,9 @@ class UniversalBenchmark(Benchmark[_C,_A]):
     def __init__(self, 
         simulations: Sequence[Simulation[_C,_A]],
         *, 
-        batch_size: Union[int, Sequence[int], Callable[[int],int]],
+        batch_size  : Union[int, Sequence[int], Callable[[int],int]],
         ignore_first: bool = True,
-        pass_except : bool = True) -> None:
+        ignore_raise: bool = True) -> None:
         ...
         """Instantiate a UniversalBenchmark.
 
@@ -464,15 +464,16 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                     pulled from simulations and batched according to the sequence. If batch_size is a 
                     function of batch index then each batch size will be determined by a call to the function.
                 ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
-                pass_except: Determines if exceptions during benchmark evaluation are passed or raised.
+                raise_except: Determines if exceptions during benchmark evaluation are passed or raised.
         """
 
     def __init__(self,
         simulations : Sequence[Simulation[_C,_A]], 
+        *,
         batch_count : int = None, 
         batch_size  : Union[int, Sequence[int], Callable[[int],int]] = None,
         ignore_first: bool = True,
-        pass_except : bool = True) -> None:
+        ignore_raise: bool = True) -> None:
         """Instantiate a UniversalBenchmark.
         
         See the overloads for more information.
@@ -482,7 +483,27 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         self._batch_count  = batch_count
         self._batch_size   = batch_size
         self._ignore_first = ignore_first
-        self._pass_except  = pass_except
+        self._ignore_raise = ignore_raise
+
+    def ignore_raise(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
+
+        if self._batch_count is not None:
+            return UniversalBenchmark(self._simulations, batch_count=self._batch_count, ignore_first=self._ignore_first, ignore_raise=value)
+
+        if self._batch_size is not None:
+            return UniversalBenchmark(self._simulations, batch_size=self._batch_size, ignore_first=self._ignore_first, ignore_raise=value)
+
+        raise Exception("An invalid instantiation of UniversalBenchmark occured")
+
+    def ignore_first(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
+
+        if self._batch_count is not None:
+            return UniversalBenchmark(self._simulations, batch_count=self._batch_count, ignore_first=value, ignore_raise=self._ignore_raise)
+
+        if self._batch_size is not None:
+            return UniversalBenchmark(self._simulations, batch_size=self._batch_size, ignore_first=value, ignore_raise=self._ignore_raise)
+
+        raise Exception("An invalid instantiation of UniversalBenchmark occured")
 
     def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]], transaction_file:str = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
@@ -528,16 +549,14 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                 try:
                     self._process_simulation(ec)
                     ec.restored_result.rmv_batches(ec.simulation_index)
-                
+
                 except KeyboardInterrupt:
                     raise
-
                 except LoggedException as e:
-                    if not self._pass_except: raise 
-                
+                    if not self._ignore_raise: raise
                 except Exception as e:
-                    if not self._pass_except: raise 
                     ExecutionContext.Logger.log(f"unhandled exception: {e}")
+                    if not self._ignore_raise: raise
 
     def _process_simulation(self, ec: 'UniversalBenchmark.EvaluationContext'):
 
