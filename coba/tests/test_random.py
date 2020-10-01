@@ -192,7 +192,7 @@ class Random_Tests(unittest.TestCase):
 
         obs_count = defaultdict(int)
 
-        n_samples = 500
+        n_samples = 5000
         expected  = n_samples/6
 
         for i in range(n_samples):
@@ -201,10 +201,9 @@ class Random_Tests(unittest.TestCase):
         chi_squared = sum([ (observed - expected)**2/expected for observed in obs_count.values() ])
         
         #assuming degrees of freedom equals 5 (this will change if lower or upper are changed above)
-        #then chi_squared >= 11 would cause us to reject the null (that is, that the distribution isn't biased)
+        #then chi_squared >= 15 would cause us to reject the null incorrectly less than 1% of the time
 
-        self.assertLess(chi_squared, 11)
-        
+        self.assertLess(chi_squared, 15)        
 
 if __name__ == '__main__':
     unittest.main()
