@@ -552,11 +552,9 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
                 except KeyboardInterrupt:
                     raise
-                except LoggedException as e:
-                    if not self._ignore_raise: raise
                 except Exception as e:
-                    ExecutionContext.Logger.log(f"unhandled exception: {e}")
-                    if not self._ignore_raise: raise
+                    ExecutionContext.Logger.log_exception(e, "unhandled exception:")
+                    if not self._ignore_raise: raise e
 
     def _process_simulation(self, ec: 'UniversalBenchmark.EvaluationContext'):
 

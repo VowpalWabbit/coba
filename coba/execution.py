@@ -251,8 +251,13 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
 
 class LoggerInterface(ABC):
     """The interface for a Logger"""
+    
     @abstractmethod
     def log(self, message: str, end:str = None) -> 'ContextManager[LoggerInterface]':
+        ...
+
+    @abstractmethod
+    def log_exception(self, exception:Exception, preamble: str = '') -> None:
         ...
 
 class UniversalLogger(LoggerInterface):
@@ -291,14 +296,14 @@ class UniversalLogger(LoggerInterface):
         except KeyboardInterrupt:
             raise
 
-        except LoggedException:
-            raise #simply pass it along, no need to log it again
-
         except Exception as e:
-            if not self._is_newline: self.log('')
-            self.log(f"exception after {round(time.time() - self._start_times[-1], 2)} seconds: {e}")
-
-            raise LoggedException from e
+            # we don't want to mask any information so we're not using the formally
+            # defined exception chaining syntax (e.g., `raise LoggedException from e`)
+            # instead we add our own dunder attribute to indicate that the exception has
+            # been logged. This is friendlier when debugging since some Python debuggers
+            # don't ever look at the __cause__ attribute set by the explicit syntax
+            self.log_exception(e, f"exception after {round(time.time() - self._start_times[-1], 2)} seconds:")
+            raise e
 
         finally:
             self._start_times.pop()
@@ -331,6 +336,13 @@ class UniversalLogger(LoggerInterface):
 
         return self._with()
 
+    def log_exception(self, exception: Exception, preamble:str = "") -> None:
+        """log an exception if it hasn't already been logged."""
+
+        if not hasattr(exception, '__logged__'):
+            setattr(exception, '__logged__', True)
+            if not self._is_newline: self.log('')
+            self.log(f"{preamble} {exception}".strip())
 
 
 class ConsoleLogger(UniversalLogger):
