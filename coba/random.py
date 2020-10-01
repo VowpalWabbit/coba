@@ -10,7 +10,6 @@ Remarks:
     of random within Python has had a few variations in implementation in the past and 
     could always change in the future, making randomization by seed potentially non-fixed.
 
-TODO: Add unit tests for randint
 TODO: Add unit tests for random
 TODO: Add unit tests for choice
 """
@@ -150,8 +149,8 @@ def randint(a:int, b:int) -> int:
         a: The inclusive lower bound for the random integer.
         b: The inclusive upper bound for the random integer.
     """
-    
-    return (min(int( (b-a+1) * random()), b-1) + a)
+
+    return min(int((b-a+1) * random()), b-a) + a
 
 def choice(seq: Sequence[Any]) -> Any:
     """Choose a random item from the given sequence.

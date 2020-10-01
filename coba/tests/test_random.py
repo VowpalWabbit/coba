@@ -2,6 +2,7 @@ import math
 import random
 import timeit
 
+from collections import defaultdict
 from itertools import count
 from typing import Iterator, Sequence
 
@@ -95,7 +96,7 @@ class Random_Tests(unittest.TestCase):
         self.assertEqual(len(numbers), 500000)
         self.assertNotEqual(numbers, list(range(500000)))
 
-    def test_random_repetability(self):
+    def test_randoms_repetability(self):
 
         coba.random.seed(10)
 
@@ -111,7 +112,7 @@ class Random_Tests(unittest.TestCase):
         for actual,expected in zip(actual_random_numbers,expected_random_numbers):
             self.assertAlmostEqual(actual,expected)
 
-    def test_random_is_uniform_0_1(self):
+    def test_randoms_is_uniform_0_1(self):
         #this test will fail maybe 1% of the time
         
         walks = 2000
@@ -156,6 +157,54 @@ class Random_Tests(unittest.TestCase):
             print(f"\n{std_failure_rate}")
 
         self.assertLess((coba_failure_rate-std_failure_rate)/std_failure_rate , .1)
+
+    def test_randint_is_bound_correctly_1(self):
+        observed_ints = set()
+
+        for i in range(100):
+            observed_ints.add(coba.random.randint(0,2))
+
+        self.assertIn(0, observed_ints)
+        self.assertIn(1, observed_ints)
+        self.assertIn(2, observed_ints)
+
+    def test_randint_is_bound_correctly_1(self):
+        observed_ints = set()
+
+        for i in range(100):
+            observed_ints.add(coba.random.randint(0,2))
+
+        self.assertIn(0, observed_ints)
+        self.assertIn(1, observed_ints)
+        self.assertIn(2, observed_ints)
+
+    def test_randint_is_bound_correctly_2(self):
+        observed_ints = set()
+
+        for i in range(100):
+            observed_ints.add(coba.random.randint(-3,-1))
+
+        self.assertIn(-3, observed_ints)
+        self.assertIn(-2, observed_ints)
+        self.assertIn(-1, observed_ints)
+
+    def test_randint_is_uniform(self):
+
+        obs_count = defaultdict(int)
+
+        n_samples = 500
+        expected  = n_samples/6
+
+        for i in range(n_samples):
+            obs_count[coba.random.randint(1,6)] += 1
+
+        chi_squared = sum([ (observed - expected)**2/expected for observed in obs_count.values() ])
+        
+        #assuming degrees of freedom equals 5 (this will change if lower or upper are changed above)
+        #then chi_squared >= 11 would cause us to reject the null (that is, that the distribution isn't biased)
+
+        self.assertLess(chi_squared, 11)
+        
 
 if __name__ == '__main__':
     unittest.main()
