@@ -3,7 +3,8 @@
 This module contains the abstract interface expected for Benchmark implementations. This 
 module also contains several Benchmark implementations and Result data transfer class.
 
-TODO Add unit tests for all batchers and Remove unit tests for several batchers from Benchmark_Tests
+TODO Add unit tests for all Batchers and Remove unit tests for several batchers from Benchmark_Tests
+TODO Add docstrings to Batchers
 """
 
 import math
