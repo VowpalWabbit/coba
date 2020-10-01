@@ -5,7 +5,7 @@ from pathlib import Path
 
 from coba.simulations import LambdaSimulation, LazySimulation
 from coba.learners import LambdaLearner
-from coba.benchmarks import ResultDiskWriter, ResultMemoryWriter, ResultWriter, Table, UniversalBenchmark, Result
+from coba.benchmarks import CountBatcher, SizeBatcher, SizesBatcher, ResultDiskWriter, ResultMemoryWriter, ResultWriter, Table, UniversalBenchmark, Result
 from coba.execution import ExecutionContext, NoneLogger
 from coba.statistics import BatchMeanEstimator, StatisticalEstimate
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
@@ -147,7 +147,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
     def test_batch_count_1(self):
         sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], family="0")
-        benchmark       = UniversalBenchmark([sim], batch_count=1, ignore_first=False, ignore_raise=False)
+        benchmark       = UniversalBenchmark([sim], CountBatcher(1), ignore_first=False, ignore_raise=False)
 
         actual_results = benchmark.evaluate([learner_factory])
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
@@ -163,7 +163,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
     def test_batch_count_2(self):
         sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], family="0")
-        benchmark       = UniversalBenchmark([sim], batch_count=2, ignore_first=False, ignore_raise=False)
+        benchmark       = UniversalBenchmark([sim], CountBatcher(2), ignore_first=False, ignore_raise=False)
 
         actual_results = benchmark.evaluate([learner_factory])
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
@@ -179,7 +179,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
     def test_batch_size_1(self):
         sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: s%3, family="0")
-        benchmark       = UniversalBenchmark([sim], batch_size=2, ignore_first=False, ignore_raise=False)
+        benchmark       = UniversalBenchmark([sim], SizeBatcher(2), ignore_first=False, ignore_raise=False)
 
         actual_results = benchmark.evaluate([learner_factory])
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
@@ -195,7 +195,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
     def test_batch_size_2(self):
         sim             = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: s%3, family="0")
-        benchmark       = UniversalBenchmark([sim], batch_size=[1, 2, 4, 1], ignore_first=False, ignore_raise=False)
+        benchmark       = UniversalBenchmark([sim], SizesBatcher([1, 2, 4, 1]), ignore_first=False, ignore_raise=False)
 
         actual_results = benchmark.evaluate([learner_factory])
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
@@ -216,7 +216,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
     def test_ignore_first(self):
         sim             = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: s%3, family="0")
-        benchmark       = UniversalBenchmark([sim], batch_size=[1, 2, 4, 1], ignore_first=True, ignore_raise=False)
+        benchmark       = UniversalBenchmark([sim], SizesBatcher([1, 2, 4, 1]), ignore_first=True, ignore_raise=False)
 
         actual_results = benchmark.evaluate([learner_factory])
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
@@ -237,7 +237,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         sim1            = LambdaSimulation(5, lambda i: (i,i), lambda s: [0,1,2], lambda s,a: a)
         sim2            = LambdaSimulation(4, lambda i: (i,i), lambda s: [3,4,5], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[Tuple[int,int],int](lambda s,A: s[0]%3, family="0")
-        benchmark       = UniversalBenchmark([sim1,sim2], batch_count=1, ignore_first=False, ignore_raise=False)
+        benchmark       = UniversalBenchmark([sim1,sim2], CountBatcher(1), ignore_first=False, ignore_raise=False)
 
         actual_results = benchmark.evaluate([learner_factory])
         actual_learners,actual_simulations,actual_performances = actual_results.to_tuples()
@@ -252,7 +252,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
     def test_lazy_sim(self):
         sim1            = LazySimulation[int,int](lambda:LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s, a: a))
-        benchmark       = UniversalBenchmark([sim1], batch_size=[4,2], ignore_first=False, ignore_raise=False)
+        benchmark       = UniversalBenchmark([sim1], SizesBatcher([4,2]), ignore_first=False, ignore_raise=False)
         learner_factory = lambda: LambdaLearner[int,int](lambda s, A: s%3, family="0")
         
         actual_results = benchmark.evaluate([learner_factory])
@@ -271,7 +271,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         sim              = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory1 = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], family="0")
         learner_factory2 = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], family="1")
-        benchmark        = UniversalBenchmark([sim], batch_count=1, ignore_first=False, ignore_raise=False)
+        benchmark        = UniversalBenchmark([sim], CountBatcher(1), ignore_first=False, ignore_raise=False)
 
         actual_results = benchmark.evaluate([learner_factory1, learner_factory2])
 
@@ -289,7 +289,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], family="0")
         broken_factory  = lambda: LambdaLearner[int,int](lambda s,A: A[500], family="0")
-        benchmark       = UniversalBenchmark([sim], batch_count=1, ignore_first=False)
+        benchmark       = UniversalBenchmark([sim], CountBatcher(1), ignore_first=False)
 
         #the second time the broken_factory() shouldn't ever be used for learning or choosing
         #because it already worked the first time and we are "resuming" benchmark from transaction.log
@@ -314,7 +314,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], family="0")
         broken_factory  = lambda: LambdaLearner[int,int](lambda s,A: A[500], family="0")
-        benchmark       = UniversalBenchmark([sim], batch_count=2, ignore_first=True)
+        benchmark       = UniversalBenchmark([sim], CountBatcher(2), ignore_first=True)
 
         #the second time the broken_factory() shouldn't ever be used for learning or choosing
         #because it already worked the first time and we are "resuming" benchmark from transaction.log
@@ -340,7 +340,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         sim2            = LambdaSimulation(1, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], family="0")
         broken_factory  = lambda: LambdaLearner[int,int](lambda s,A: A[500], family="0")
-        benchmark       = UniversalBenchmark([sim1,sim2], batch_count=2, ignore_first=True)
+        benchmark       = UniversalBenchmark([sim1,sim2], CountBatcher(2), ignore_first=True)
 
         #the second time the broken_factory() shouldn't ever be used for learning or choosing
         #because it already worked the first time and we are "resuming" benchmark from transaction.log

@@ -2,8 +2,11 @@
 
 This module contains the abstract interface expected for Benchmark implementations. This 
 module also contains several Benchmark implementations and Result data transfer class.
+
+TODO Add unit tests for all batchers and Remove unit tests for several batchers from Benchmark_Tests
 """
 
+import math
 import json
 import collections
 
@@ -14,7 +17,7 @@ from ast import literal_eval
 from pathlib import Path
 from typing import (
     Iterable, Tuple, Hashable, Union, Sequence, List, Callable, 
-    Generic, TypeVar, Dict, Any, overload, cast, Type
+    Generic, TypeVar, Dict, Any, cast, Type
 )
 
 from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action
@@ -341,6 +344,64 @@ class Result(JsonSerializable):
     def __repr__(self) -> str:
         return str(self)
 
+class Batcher(ABC):
+    @abstractmethod
+    def batch_sizes(self, n_interactions:int) -> Sequence[int]:
+        ...
+
+class CountBatcher(Batcher):
+    def __init__(self, batch_count:int, max_interactions: float = math.inf) -> None:
+        self._batch_count      = batch_count
+        self._max_interactions = max_interactions
+
+    def batch_sizes(self, n_interactions: int) -> Sequence[int]:
+        if n_interactions < self._batch_count:
+            return []
+
+        n_interactions = int(min(n_interactions, self._max_interactions))
+
+        batches   = [int(float(n_interactions)/(self._batch_count))] * self._batch_count
+        remainder = n_interactions - sum(batches)
+        for i in range(remainder): batches[int(i*len(batches)/remainder)] += 1
+
+        return batches
+
+class SizeBatcher(Batcher):
+    def __init__(self, batch_size:int) -> None:
+        self._batch_size = batch_size
+
+    def batch_sizes(self, n_interactions: int) -> Sequence[int]:
+        if self._batch_size > n_interactions:
+            return []
+
+        return [self._batch_size] * int(n_interactions/self._batch_size)
+
+class SizesBatcher(Batcher):
+    def __init__(self, batch_sizes: Sequence[int]) -> None:
+        self._batch_sizes = batch_sizes
+
+    def batch_sizes(self, n_interactions: int) -> Sequence[int]:
+        if sum(self._batch_sizes) > n_interactions:
+            return []
+
+        return self._batch_sizes
+
+class LambdaBatcher(Batcher):
+    def __init__(self, batch_lambda: Callable[[int], int]) -> None:
+        self._batch_lambda = batch_lambda
+
+    def batch_sizes(self, n_interactions: int) -> Sequence[int]:
+
+        batches = []
+        
+        for size in (self._batch_lambda(i) for i in count()):
+            if sum(batches)+size > n_interactions: 
+                break
+            else:
+                batches.append(size)
+        
+        return batches
+
 class Benchmark(Generic[_C,_A], ABC):
     """The interface for Benchmark implementations."""
 
@@ -424,86 +485,45 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         simulations = [ Simulation.from_json(sim_config) for sim_config in sim_configs ]
 
-        if "count" in config["batches"]:
-            return UniversalBenchmark(simulations, batch_count=config["batches"]["count"], ignore_first=config["ignore_first"])
+        if "count" in config["batches"] and "max" in config["batches"]:
+            batcher = CountBatcher(config["batches"]["count"], config["batches"]["max"])
+        elif "count" in config["batches"] and "max" not in config["batches"]:
+            batcher = CountBatcher(config["batches"]["count"])
+        elif "size" in config["batches"]:
+            batcher = SizeBatcher(config["batches"]["size"])
+        elif "sizes" in config["batches"]:
+            batcher = SizesBatcher(config["batches"]["sizes"])
         else:
-            return UniversalBenchmark(simulations, batch_size=config["batches"]["size"], ignore_first=config["ignore_first"])
+            raise Exception("we were unable to determine an appropriate batching rule for the benchmark.")
 
-    @overload
-    def __init__(self, 
-        simulations: Sequence[Simulation[_C,_A]],
-        *,
-        batch_count : int,
-        ignore_first: bool = True,
-        ignore_raise: bool = True) -> None:
-        """Instantiate a UniversalBenchmark.
-        
-        Args:
-            simulations: A sequence of simulations to benchmark against.
-            batch_count: How many batches per simulation to make during evaluation (batch_size will be spread evenly).
-            ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
-            ignore_raise: Determines if exceptions during benchmark evaluation are passed or raised.
-        """
-        ...
-
-    @overload
-    def __init__(self, 
-        simulations: Sequence[Simulation[_C,_A]],
-        *, 
-        batch_size  : Union[int, Sequence[int], Callable[[int],int]],
-        ignore_first: bool = True,
-        ignore_raise: bool = True) -> None:
-        ...
-        """Instantiate a UniversalBenchmark.
-
-            Args:
-                simulations: A sequence of simulations to benchmark against.
-                batch_size: An indication of how large every batch should be. If batch_size is an integer
-                    then simulations will run until completion with batches of the given size. If 
-                    batch_size is a sequence of integers then `sum(batch_size)` interactions will be 
-                    pulled from simulations and batched according to the sequence. If batch_size is a 
-                    function of batch index then each batch size will be determined by a call to the function.
-                ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
-                raise_except: Determines if exceptions during benchmark evaluation are passed or raised.
-        """
+        return UniversalBenchmark(simulations, batcher, ignore_first=config["ignore_first"])
 
     def __init__(self,
         simulations : Sequence[Simulation[_C,_A]], 
-        *,
-        batch_count : int = None, 
-        batch_size  : Union[int, Sequence[int], Callable[[int],int]] = None,
+        batcher: Batcher,
         ignore_first: bool = True,
         ignore_raise: bool = True) -> None:
         """Instantiate a UniversalBenchmark.
+
+        Args:
+            simulations: A sequence of simulations to benchmark against.
+            batcher: Determines how each simulation is broken into evaluation/learning batches.
+            ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
+            raise_except: Determines if exceptions during benchmark evaluation are passed or raised.
         
         See the overloads for more information.
         """
 
         self._simulations  = simulations
-        self._batch_count  = batch_count
-        self._batch_size   = batch_size
+        self._batcher      = batcher
         self._ignore_first = ignore_first
         self._ignore_raise = ignore_raise
 
     def ignore_raise(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
-
-        if self._batch_count is not None:
-            return UniversalBenchmark(self._simulations, batch_count=self._batch_count, ignore_first=self._ignore_first, ignore_raise=value)
-
-        if self._batch_size is not None:
-            return UniversalBenchmark(self._simulations, batch_size=self._batch_size, ignore_first=self._ignore_first, ignore_raise=value)
-
-        raise Exception("An invalid instantiation of UniversalBenchmark occured")
+        return UniversalBenchmark(self._simulations, self._batcher, ignore_first=self._ignore_first, ignore_raise=value)
 
     def ignore_first(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
-
-        if self._batch_count is not None:
-            return UniversalBenchmark(self._simulations, batch_count=self._batch_count, ignore_first=value, ignore_raise=self._ignore_raise)
-
-        if self._batch_size is not None:
-            return UniversalBenchmark(self._simulations, batch_size=self._batch_size, ignore_first=value, ignore_raise=self._ignore_raise)
-
-        raise Exception("An invalid instantiation of UniversalBenchmark occured")
+        return UniversalBenchmark(self._simulations, self._batcher, ignore_first=value, ignore_raise=self._ignore_raise)
 
     def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]], transaction_file:str = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
@@ -565,10 +585,10 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             return # we already have all the batches done so we can skip this simulation
 
         with self._lazy_simulation(ec.simulation) as ec.simulation:
-            ec.batch_sizes   = self._batch_sizes(len(ec.simulation.interactions))
+            ec.batch_sizes   = self._batcher.batch_sizes(len(ec.simulation.interactions))
             ec.batch_indexes = [b for index,size in enumerate(ec.batch_sizes) for b in repeat(index,size)]
 
-            assert not any([ s == 0 for s in ec.batch_sizes]), "The simulation was not large enough to fill all batches."
+            if len(ec.batch_sizes) == 0: raise Exception("The simulation was not large enough to fill all batches.")
 
             if not ec.restored_result.has_simulation(ec.simulation_index):
                 
@@ -633,40 +653,6 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             )
 
     #Begin utility classes
-    def _batch_sizes(self, n_interactions: int) -> Sequence[int]:
-
-        if self._batch_count is not None:
-
-            batches   = [int(float(n_interactions)/(self._batch_count))] * self._batch_count
-            remainder = n_interactions % self._batch_count
-            
-            if remainder > 0:
-                spacing = float(self._batch_count)/remainder
-                for i in range(remainder): batches[int(i*spacing)] += 1
-
-            return batches
-        
-        if isinstance(self._batch_size, int): 
-            return [self._batch_size] * int(float(n_interactions)/self._batch_size)
-
-        if isinstance(self._batch_size, collections.Sequence): 
-            return self._batch_size
-
-        if callable(self._batch_size):
-            batch_size_iter        = (self._batch_size(i) for i in count())
-            next_batch_size        = next(batch_size_iter)
-            remaining_interactions = n_interactions
-            batch_sizes: List[int] = []
-
-            while remaining_interactions > next_batch_size:
-                batch_sizes.append(next_batch_size)
-                remaining_interactions -= next_batch_size
-                next_batch_size  = next(batch_size_iter)
-            
-            return batch_sizes
-        
-        raise Exception("We were unable to determine batch size from the supplied parameters")
-
     def _safe_family(self, learner: Any) -> str:
         try:
             return learner.family
