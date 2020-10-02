@@ -591,11 +591,12 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         for col, m in zip(columns, metas):
 
             encoding = label_encodings if m.label else feature_encodings
+            encoder  = m.encoder if m.encoder.is_fit else m.encoder.fit(col)
 
-            if isinstance(m.encoder, OneHotEncoder):
-                encoding.extend(list(zip(*m.encoder.fit_encode(col))))
+            if isinstance(encoder, OneHotEncoder):
+                encoding.extend(list(zip(*encoder.encode(col))))
             else:
-                encoding.append(m.encoder.fit_encode(col))
+                encoding.append(encoder.encode(col))
 
         #transform columns back into rows
         features = list(zip(*feature_encodings)) #type: ignore
@@ -617,12 +618,13 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
 
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
-        action_set = tuple(set(labels))
+        action_set = list(set(labels))
 
-        contexts  = features
-        actions = list(repeat(action_set, len(contexts)))
-        rewards = OneHotEncoder(action_set,False,True).encode(labels)
+        contexts = features
+        actions  = list(repeat(OneHotEncoder(action_set).encode(action_set), len(contexts)))
+        rewards  = OneHotEncoder(action_set).encode(labels)
 
+        self._action_set = action_set
         self._simulation = MemorySimulation(contexts, actions, rewards)
 
     @property

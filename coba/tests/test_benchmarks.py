@@ -340,7 +340,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         sim2            = LambdaSimulation(1, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
         learner_factory = lambda: LambdaLearner[int,int](lambda s,A: A[s%3], family="0")
         broken_factory  = lambda: LambdaLearner[int,int](lambda s,A: A[500], family="0")
-        benchmark       = UniversalBenchmark([sim1,sim2], CountBatcher(2), ignore_first=True)
+        benchmark       = UniversalBenchmark([sim1,sim2], CountBatcher(2,2), ignore_first=True)
 
         #the second time the broken_factory() shouldn't ever be used for learning or choosing
         #because it already worked the first time and we are "resuming" benchmark from transaction.log

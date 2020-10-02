@@ -41,7 +41,7 @@ class Learner(Generic[_C_in, _A_in], ABC):
     def params(self) -> Dict[str,Any]:
         """The parameters used to initialize the learner.
 
-        This value is used for descriptive purposes when creating benchmark results.
+        This value is used for descriptive purposes only when creating benchmark results.
         """
         ...
 
@@ -351,7 +351,7 @@ class UcbTunedLearner(JsonSerializable, Learner[Context, Action]):
         return { }
 
     def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
-        """Choose an action greedily according to the upper confidence bound estimates.
+        """Choose an action greedily by the upper confidence bound estimates.
 
         Args:
             key: The key identifying the interaction we are choosing for.
@@ -373,7 +373,7 @@ class UcbTunedLearner(JsonSerializable, Learner[Context, Action]):
             return coba.random.choice(max_indexes)
 
     def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
-        """Smooth the observed reward into our current estimate of E[R|S,A].
+        """Smooth the observed reward into our current estimate of E[R|A].
 
         Args:
             key: The key identifying the interaction this observed reward came from.
@@ -459,7 +459,7 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
 
         Args:
             bag: An integer value greater than 0. This value determines how many separate policies will be
-                learned. Each policy will be learned from bootstrap aggregation making each policy unique. 
+                learned. Each policy will be learned from bootstrap aggregation, making each policy unique. 
                 For each choice one policy will be selected according to a uniform distribution and followed.
         """
         ...
@@ -548,7 +548,7 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
         return self._kwargs
 
     def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
-        """Choose an action according to the explor-exploit parameters passed into the contructor.
+        """Choose an action according to the VowpalWabbit parameters passed into the contructor.
 
         Args:
             key: The key identifying the interaction we are choosing for.
@@ -557,11 +557,6 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
 
         Returns:
             The index of the selected action. See the base class for more information.
-
-        Remarks:
-            We assume that the action set passed in is always the same. This restriction
-            is forced on us by Vowpal Wabbit. If your action set is not static then you
-            should use VowpalAdfLearner.
         """
 
         if self._vw_learner is None and not self._is_adf:
@@ -573,7 +568,7 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
             self._algorithm = f"--cb_explore_adf"
 
         if self._vw_learner is None:
-            self._vw_learner = self._vw_constructor(f"{self._algorithm} {self._exploration} --quiet")
+            self._vw_learner = self._vw_constructor(f"{self._algorithm} {self._exploration} --quiet --cubic ssa -q sa --ignore_linear s")
 
         if self._is_adf:
             self._actions[key] = actions
@@ -585,7 +580,7 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
 
         #make sure the pmf sums to 1
         #otherwise it might be possible for us to not pick any action
-        pmf[-1] += abs(sum(pmf)-1)
+        pmf[-1] += 1-sum(pmf)
 
         cdf    = list(accumulate(pmf))
         rng    = coba.random.random()
@@ -645,7 +640,7 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
             return "\n".join(filter(None,[vw_context, *vw_observed]))
 
     def _vw_features_format(self, features: Union[Context,Action]) -> str:
-        """convert action features into the proper format for pyvw.
+        """convert features into the proper format for pyvw.
 
         Args:
             features: The feature set we wish to convert to pyvw representation.
@@ -676,8 +671,7 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
 
         Remarks:
             In feature formatting we prepend a "key" to each feature. This makes it possible
-            to compare features across actions in an ADF setting (which is the only setting where
-            we'd be sending action features to vowpal wabbit). See the definition of `Features` at 
+            to compare features across actions/contexts. See the definition of `Features` at 
             the top of https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format for more info.
         """
         return f"{name}:{value}" if isinstance(value,(int,float)) else f"{value}"

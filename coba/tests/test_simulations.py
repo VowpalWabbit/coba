@@ -76,7 +76,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
     def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
         
-        expected_interactions = [Interaction(1, [1,2]), Interaction(2, [1,2])]
+        expected_interactions = [Interaction(1, [(1,0),(0,1)]), Interaction(2, [(1,0),(0,1)])]
         expected_rewards = [[0,1], [1,0]]
 
         return ClassificationSimulation([1,2], [2,1]), expected_interactions, expected_rewards
@@ -85,9 +85,11 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         self.assertEqual(len(simulation.interactions), len(features))
 
+        labels = OneHotEncoder(simulation._action_set).encode(labels)
+
         #first we make sure that all the labels are included 
         #in the first interactions actions without any concern for order
-        self.assertCountEqual(simulation.interactions[0].actions, tuple(set(labels)))
+        self.assertCountEqual(simulation.interactions[0].actions, set(labels))
 
         #then we set our expected actions to the first interaction
         #to make sure that every interaction has the exact same actions
@@ -102,11 +104,11 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             actual_context = i.context
             actual_actions = i.actions
             
-            actual_reward  = simulation.rewards(_choices(i))
+            actual_rewards  = simulation.rewards(_choices(i))
 
             self.assertEqual(actual_context, expected_context)            
             self.assertSequenceEqual(actual_actions, expected_actions)
-            self.assertSequenceEqual(actual_reward, expected_rewards)
+            self.assertSequenceEqual(actual_rewards, expected_rewards)
 
     def test_constructor_with_good_features_and_labels1(self) -> None:
         features   = [1,2,3,4]
@@ -157,7 +159,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         simulation = ClassificationSimulation.from_table(table, label_column, default_meta=default_meta)
 
-        self.assert_simulation_for_data(simulation, [((1,),3),((0,),6)], [2,5])
+        self.assert_simulation_for_data(simulation, [(1,0,3),(0,1,6)], [2,5])
 
     def test_from_table_explicit_onehot(self) -> None:
         default_meta = FullMeta(False, False, OneHotEncoder())
@@ -168,7 +170,7 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         simulation = ClassificationSimulation.from_table(table, default_meta=default_meta, defined_meta=defined_meta)
 
-        self.assert_simulation_for_data(simulation, [(1,1),(0,0)], ['2','5'])
+        self.assert_simulation_for_data(simulation, [(1,0,1,0),(0,1,0,1)], ['2','5'])
 
     def test_simple_from_openml(self) -> None:
         #this test requires interet acess to download the data
@@ -187,8 +189,8 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             hash(rnd.actions[1]) #make sure these are hashable
 
             self.assertEqual(len(cast(Tuple,rnd.context)), 167)
-            self.assertIn(1, rnd.actions)
-            self.assertIn(2, rnd.actions)
+            self.assertIn((1,0), rnd.actions)
+            self.assertIn((0,1), rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
             actual_rewards  = simulation.rewards(_choices(rnd))
@@ -250,8 +252,8 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             hash(rnd.actions[1]) #make sure these are hashable
 
             self.assertEqual(len(cast(Tuple,rnd.context)), 268)
-            self.assertIn(1, rnd.actions)
-            self.assertIn(2, rnd.actions)
+            self.assertIn((1,0), rnd.actions)
+            self.assertIn((0,1), rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
             actual_rewards = simulation.rewards(_choices(rnd))
@@ -265,13 +267,13 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
             "format"          : "table",
             "table"           : [["a","b","c"], ["s1","2","3"], ["s2","5","6"]],
             "has_header"      : true,
-            "column_default"  : { "ignore":false, "label":false, "encoding":"onehot" },
+            "column_default"  : { "ignore":false, "label":false, "encoding":"factor" },
             "column_overrides": { "b": { "label":true, "encoding":"string" } }
         }'''
 
         simulation = ClassificationSimulation.from_json(json_val)
 
-        self.assert_simulation_for_data(simulation, [(1,1),((0,0))], ['2','5'])
+        self.assert_simulation_for_data(simulation, [(1,1),(2,2)], ['2','5'])
 
 class MemorySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 

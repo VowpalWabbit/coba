@@ -168,7 +168,7 @@ class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
     def test_performance_encode(self):
 
-        encoder = OneHotEncoder(list(range(1000)))
+        encoder = OneHotEncoder(list(range(1000)), error_if_unknown=False )
         to_encode = [100,200,300,400,-1]*100000
 
         time = min(timeit.repeat(lambda:encoder.encode(to_encode), repeat=50, number = 1))

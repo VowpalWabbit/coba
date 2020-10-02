@@ -38,6 +38,7 @@ class Encoder(Generic[T_out], ABC):
         if json_val == "onehot"  : return OneHotEncoder()
         if json_val == "string"  : return StringEncoder()
         if json_val == "inferred": return InferredEncoder()
+        if json_val == "factor"  : return FactorEncoder()
 
         raise Exception('We were unable to determine the appropriate encoder from json')
 
@@ -213,7 +214,7 @@ class NumericEncoder(Encoder[float]):
 class OneHotEncoder(Encoder[Tuple[int,...]]):
     """An Encoder implementation that turns incoming values into a one hot representation."""
 
-    def __init__(self, fit_values: Sequence[Any] = [], singular_if_binary: bool = True, error_if_unknown = False) -> None:
+    def __init__(self, fit_values: Sequence[Any] = [], singular_if_binary: bool = False, error_if_unknown = True) -> None:
         """Instantiate a OneHotEncoder.
 
         Args:
@@ -308,7 +309,7 @@ class FactorEncoder(Encoder[int]):
     """An Encoder implementation that turns incoming values into factor representation."""
 
     def __init__(self, fit_values: Sequence[Any] = [], error_if_unknown = False) -> None:
-        """Instantiate a OneHotEncoder.
+        """Instantiate a FactorEncoder.
 
         Args:
             fit_values: Provide the universe of values for encoding and set `is_fit==True`.

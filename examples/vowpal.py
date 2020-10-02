@@ -7,14 +7,14 @@ import random
 
 from coba.simulations import LambdaSimulation
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
-from coba.benchmarks import UniversalBenchmark
+from coba.benchmarks import SizeBatcher, UniversalBenchmark
 from coba.analysis import Plots
 
 #define a simulation
 simulation = LambdaSimulation(900, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.uniform(a-2, a+2))
 
 #define a benchmark: this benchmark replays the simulation 15 times
-benchmark = UniversalBenchmark([simulation]*15, batch_size=1)
+benchmark = UniversalBenchmark([simulation]*15, SizeBatcher(1))
 
 #create the learner factories
 learner_factories = [
@@ -23,7 +23,7 @@ learner_factories = [
     lambda: UcbTunedLearner(),
     lambda: VowpalLearner(epsilon=0.025),
     lambda: VowpalLearner(bag=3),
-    lambda: VowpalLearner(softmax=1)
+    lambda: VowpalLearner(softmax=3.5)
 ]
 
 #benchmark all learners

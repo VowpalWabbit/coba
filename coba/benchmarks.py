@@ -351,12 +351,13 @@ class Batcher(ABC):
         ...
 
 class CountBatcher(Batcher):
-    def __init__(self, batch_count:int, max_interactions: float = math.inf) -> None:
+    def __init__(self, batch_count:int, min_interactions:float = 0, max_interactions: float = math.inf) -> None:
         self._batch_count      = batch_count
         self._max_interactions = max_interactions
+        self._min_interactions = min_interactions
 
     def batch_sizes(self, n_interactions: int) -> Sequence[int]:
-        if n_interactions < self._batch_count:
+        if n_interactions < self._min_interactions:
             return []
 
         n_interactions = int(min(n_interactions, self._max_interactions))
@@ -486,10 +487,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         simulations = [ Simulation.from_json(sim_config) for sim_config in sim_configs ]
 
-        if "count" in config["batches"] and "max" in config["batches"]:
-            batcher = CountBatcher(config["batches"]["count"], config["batches"]["max"])
-        elif "count" in config["batches"] and "max" not in config["batches"]:
-            batcher = CountBatcher(config["batches"]["count"])
+        if "count" in config["batches"]:
+            batcher = CountBatcher(config["batches"]["count"], config["batches"].get("min",0), config["batches"].get("max",math.inf))
         elif "size" in config["batches"]:
             batcher = SizeBatcher(config["batches"]["size"])
         elif "sizes" in config["batches"]:
@@ -589,7 +588,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             ec.batch_sizes   = self._batcher.batch_sizes(len(ec.simulation.interactions))
             ec.batch_indexes = [b for index,size in enumerate(ec.batch_sizes) for b in repeat(index,size)]
 
-            if len(ec.batch_sizes) == 0: raise Exception("The simulation was not large enough to fill all batches.")
+            if len(ec.batch_sizes) == 0: 
+                raise Exception(f"{len(ec.simulation.interactions)} interactions were not enough to create eval batches.")
 
             if not ec.restored_result.has_simulation(ec.simulation_index):
                 
