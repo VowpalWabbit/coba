@@ -5,6 +5,7 @@ from math import isnan, sqrt
 from fractions import Fraction
 from numbers import Rational
 
+from coba.utilities import check_pandas_support
 from coba.statistics import BatchMeanEstimator, OnlineVariance, OnlineMean, StatisticalEstimate
 
 class StatisticalEstimate_Tests(unittest.TestCase):
@@ -139,7 +140,8 @@ class StatisticalEstimate_Tests(unittest.TestCase):
 
     def test_pandas_mean(self) -> None:
 
-        import pandas as pd
+        check_pandas_support("coba.tests.test_statistics.test_pandas_mean")
+        import pandas as pd #type: ignore #ignored so that mypy won't complain
         
         a  = StatisticalEstimate(1,2)
         df = pd.DataFrame({'a':[a,a,a,a]})

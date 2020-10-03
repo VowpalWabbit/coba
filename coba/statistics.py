@@ -100,9 +100,11 @@ class StatisticalEstimate(Rational, JsonSerializable):
     def __init__(self, estimate: 'StatisticalEstimate') -> None:
         ...
 
+    @overload
     def __init__(self, estimate: Rational, standard_error: float = float('nan')) -> None:
         ...
 
+    @overload
     def __init__(self, estimate:float, standard_error: float = float('nan')) -> None:
         ...
 
@@ -114,9 +116,9 @@ class StatisticalEstimate(Rational, JsonSerializable):
             unpacked_estimate = estimate
 
         if isinstance(unpacked_estimate, StatisticalEstimate):
-            assert isnan(standard_error) or standard_error == unpacked_estimate._standard_error, "Conflicting errors were given"
-            self._estimate       = unpacked_estimate._estimate
-            self._standard_error = unpacked_estimate._standard_error
+            assert isnan(standard_error) or standard_error == unpacked_estimate.standard_error, "Conflicting standard_errors were given"
+            self._estimate       = unpacked_estimate.estimate
+            self._standard_error = unpacked_estimate.standard_error
         else:
             self._estimate       = unpacked_estimate
             self._standard_error = standard_error
@@ -170,7 +172,7 @@ class StatisticalEstimate(Rational, JsonSerializable):
     def __abs__(self) -> float:
         return abs(self.estimate)
 
-    def __round__(self, ndigits: None) -> int:
+    def __round__(self, ndigits=None) -> Any:
         return round(self.estimate, ndigits)
 
     def __hash__(self):
@@ -306,6 +308,7 @@ class BatchMeanEstimator(StatisticalEstimate):
     def __init__(self, given: StatisticalEstimate) -> None:
         ...
 
+    @overload
     def __init__(self, given: Sequence[float]) -> None:
         ...
 

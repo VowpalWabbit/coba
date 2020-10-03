@@ -148,14 +148,12 @@ class LazySimulation(Simulation[_C_out, _A_out]):
 
             return self
 
-    def __exit__(self, exception_type, exception_value, traceback) -> bool:
+    def __exit__(self, exception_type, exception_value, traceback) -> None:
         """Unload the simulation from memory."""
 
         if self._simulation is not None:
             self._simulation = None
             gc.collect() #in case the simulation is large
-
-        return False
 
     @property
     def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
@@ -320,7 +318,7 @@ class ShuffleSimulation(Simulation[_C_out, _A_out]):
 
         return self._rewards(choices)
 
-class ClassificationSimulation(Simulation[_C_out, _A_out]):
+class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
     """A simulation created from classifier data with features and labels.
 
     ClassificationSimulation turns labeled observations from a classification data set
@@ -338,7 +336,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
     """
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'ClassificationSimulation[Context,Action]':
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'ClassificationSimulation[Context]':
         """Construct a ClassificationSimulation object from JSON.
 
         Args:
@@ -405,7 +403,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         raise Exception("We were unable to recognize the provided data format.")
 
     @staticmethod
-    def from_openml(data_id:int) -> 'ClassificationSimulation[Context,Action]':
+    def from_openml(data_id:int) -> 'ClassificationSimulation[Context]':
         """Create a ClassificationSimulation from a given openml dataset id.
 
         Args:
@@ -461,7 +459,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader, #type: ignore #pylance complains
         has_header  : bool = True,
         default_meta: FullMeta = FullMeta(),
-        defined_meta: Dict[Any,PartMeta] = {}) -> 'ClassificationSimulation[Context,Action]':
+        defined_meta: Dict[Any,PartMeta] = {}) -> 'ClassificationSimulation[Context]':
         """Create a ClassificationSimulation given the location of a csv formatted dataset.
 
         Args:
@@ -526,7 +524,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         label_col   : Union[None,str,int] = None,
         has_header  : bool = True,
         default_meta: FullMeta = FullMeta(),
-        defined_meta: Dict[Any, PartMeta] = {}) -> 'ClassificationSimulation[Context,Action]':
+        defined_meta: Dict[Any, PartMeta] = {}) -> 'ClassificationSimulation[Context]':
         """Create a ClassifierSimulation from the rows contained in a csv formatted dataset.
 
         Args:
@@ -608,7 +606,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
 
         return ClassificationSimulation(contexts, actions)
 
-    def __init__(self, features: Sequence[_C_out], labels: Sequence[_A_out]) -> None:
+    def __init__(self, features: Sequence[_C_out], labels: Sequence[Action]) -> None:
         """Instantiate a ClassificationSimulation.
 
         Args:
@@ -628,7 +626,7 @@ class ClassificationSimulation(Simulation[_C_out, _A_out]):
         self._simulation = MemorySimulation(contexts, actions, rewards)
 
     @property
-    def interactions(self) -> Sequence[Interaction[_C_out, _A_out]]:
+    def interactions(self) -> Sequence[Interaction[_C_out, Tuple[int,...]]]:
         """The interactions in this simulation.
 
         Remarks:

@@ -394,7 +394,7 @@ class LambdaBatcher(Batcher):
 
     def batch_sizes(self, n_interactions: int) -> Sequence[int]:
 
-        batches = []
+        batches: List[int] = []
         
         for size in (self._batch_lambda(i) for i in count()):
             if sum(batches)+size > n_interactions: 
@@ -486,6 +486,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                 sim_config["lazy"] = True
 
         simulations = [ Simulation.from_json(sim_config) for sim_config in sim_configs ]
+
+        batcher: Batcher
 
         if "count" in config["batches"]:
             batcher = CountBatcher(config["batches"]["count"], config["batches"].get("min",0), config["batches"].get("max",math.inf))

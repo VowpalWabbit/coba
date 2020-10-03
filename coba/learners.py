@@ -564,7 +564,7 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
             self._algorithm = f"--cb_explore {len(actions)}"
 
         if self._vw_learner is None and self._is_adf:
-            self._actions = {}
+            self._actions   = {}
             self._algorithm = f"--cb_explore_adf"
 
         if self._vw_learner is None:
@@ -578,12 +578,12 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
         assert len(pmf) == len(actions), "An incorrect number of action probabilites was returned by VW."
         assert abs(sum(pmf)-1) < .03   , "An invalid PMF for action probabilites was returned by VW."
 
-        #make sure the pmf sums to 1
-        #otherwise it might be possible for us to not pick any action
+        #make sure the pmf sums to 1 otherwise
+        #it will be possible to not pick any action
         pmf[-1] += 1-sum(pmf)
 
-        cdf    = list(accumulate(pmf))
-        rng    = coba.random.random()
+        cdf = list(accumulate(pmf))
+        rng = coba.random.random()
 
         choice = [ rng <= c for c in cdf].index(True)
 

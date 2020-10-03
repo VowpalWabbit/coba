@@ -168,16 +168,6 @@ class Random_Tests(unittest.TestCase):
         self.assertIn(1, observed_ints)
         self.assertIn(2, observed_ints)
 
-    def test_randint_is_bound_correctly_1(self):
-        observed_ints = set()
-
-        for i in range(100):
-            observed_ints.add(coba.random.randint(0,2))
-
-        self.assertIn(0, observed_ints)
-        self.assertIn(1, observed_ints)
-        self.assertIn(2, observed_ints)
-
     def test_randint_is_bound_correctly_2(self):
         observed_ints = set()
 
