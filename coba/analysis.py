@@ -18,7 +18,7 @@ class Plots():
 
         def _mean(weights, rewards) -> StatisticalEstimate:
             if weighted:
-                return mean([w*r for w,r in zip(weights,rewards)])
+                return mean([w*r for w,r in zip(weights,rewards)]) #type: ignore
             else:
                 return mean(rewards)
 
@@ -98,6 +98,6 @@ class Plots():
         ax2.set_position([box2.x0, box2.y0 + box2.height * scale, box2.width, box2.height * (1-scale)])
 
         # Put a legend below current axis
-        fig.legend(*ax1.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .175), fancybox=True, ncol=3) #type: ignore
+        fig.legend(*ax1.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .175), fancybox=True, ncol=2) #type: ignore
 
         plt.show()

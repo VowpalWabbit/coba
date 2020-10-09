@@ -2,24 +2,21 @@
 
 This module contains the abstract interface expected for Learner implementations along
 with a number of Learner implementations out of the box for testing and baseline comparisons.
-
-TODO Add docstrings to VowpalLearner.__init__ overloads.
-TODO Improve docstrings for VowpalLearner.__init__ overloads (there appear to be a lot of tunable params I don't have).
 """
 
 import math
+import collections
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Sequence, Tuple, Optional, Dict, cast, Generic, TypeVar, overload, Union, List
-from itertools import accumulate
+from typing import Any, Callable, Sequence, Tuple, Optional, Dict, cast, Generic, TypeVar, overload, Union, List, Type
 from collections import defaultdict
 from inspect import signature
 
 import coba.random
+import coba.vowpal as VW
+
 from coba.simulations import Context, Action, Reward, Choice, Key
-from coba.utilities import check_vowpal_support
 from coba.statistics import OnlineVariance
-from coba.json import JsonSerializable
 
 _C_in = TypeVar('_C_in', bound=Context, contravariant=True)
 _A_in = TypeVar('_A_in', bound=Action , contravariant=True)
@@ -181,12 +178,15 @@ class LambdaLearner(Learner[_C_in, _A_in]):
         else:
             self._learn(index, context,action,reward)
 
-class RandomLearner(JsonSerializable, Learner[Context, Action]):
+class RandomLearner(Learner[Context, Action]):
     """A Learner implementation that selects an action at random and learns nothing."""
+
+    def __init__(self, seed: Optional[int] = None):
+        self._random = coba.random.Random(seed)
 
     @property
     def family(self) -> str:
-        """The name of the learner.
+        """The family of the learner.
 
         See the base class for more information
         """  
@@ -211,7 +211,7 @@ class RandomLearner(JsonSerializable, Learner[Context, Action]):
         Returns:
             The index of the selected action. See the base class for more information.
         """
-        return coba.random.randint(0, len(actions)-1)
+        return self._random.randint(0, len(actions)-1)
 
     def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
         """Learns nothing.
@@ -223,22 +223,15 @@ class RandomLearner(JsonSerializable, Learner[Context, Action]):
             reward: The reward that was gained from the action. See the base class for more information.
         """
         pass
-
-    @staticmethod
-    def __from_json_obj__(obj:Dict[str,Any]) -> 'RandomLearner':
-        return RandomLearner()
-
-    def __to_json_obj__(self) -> Dict[str,Any]:
-        return { }
  
-class EpsilonLearner(JsonSerializable, Learner[Context, Action]):
+class EpsilonLearner(Learner[Context, Action]):
     """A learner using epsilon-greedy searching while smoothing observations into a context/context-action lookup table.
 
     Remarks:
         This algorithm does not use any function approximation to attempt to generalize observed rewards.
     """
 
-    def __init__(self, epsilon: float, init: Optional[float] = None, include_context: bool = False) -> None:
+    def __init__(self, epsilon: float, init: Optional[float] = None, include_context: bool = False, seed: Optional[int] = None) -> None:
         """Instantiate an EpsilonLearner.
 
         Args:
@@ -250,13 +243,14 @@ class EpsilonLearner(JsonSerializable, Learner[Context, Action]):
         self._epsilon         = epsilon
         self._init            = init
         self._include_context = include_context
+        self._random          = coba.random.Random(seed)
 
         self._N: Dict[Tuple[Context, Action], int            ] = defaultdict(lambda: int(0 if init is None else 1))
         self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(lambda: init)
 
     @property
     def family(self) -> str:
-        """The name of the Learner.
+        """The family of the learner.
 
         See the base class for more information
         """
@@ -281,14 +275,14 @@ class EpsilonLearner(JsonSerializable, Learner[Context, Action]):
         Returns:
             The index of the selected action. See the base class for more information.
         """
-        if(coba.random.random() <= self._epsilon): return coba.random.randint(0,len(actions)-1)
+        if(self._random.random() <= self._epsilon): return self._random.randint(0,len(actions)-1)
 
         keys        = [ self._key(context,action) for action in actions ]
         values      = [ self._Q[key] for key in keys ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
 
-        return coba.random.choice(max_indexes)
+        return self._random.choice(max_indexes)
 
     def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
         """Smooth the observed reward into our current estimate of either E[R|S,A] or E[R|A].
@@ -311,21 +305,14 @@ class EpsilonLearner(JsonSerializable, Learner[Context, Action]):
     def _key(self, context: Context, action: Action) -> Tuple[Context,Action]:
         return (context, action) if self._include_context else (None, action)
 
-    @staticmethod
-    def __from_json_obj__(obj:Dict[str,Any]) -> 'EpsilonLearner':
-        return EpsilonLearner(obj['epsilon'], obj['init'], obj['include_context'])
-
-    def __to_json_obj__(self) -> Dict[str,Any]:
-        return { 'epsilon': self._epsilon, 'init': self._init, 'include_context': self._include_context }
-
-class UcbTunedLearner(JsonSerializable, Learner[Context, Action]):
+class UcbTunedLearner(Learner[Context, Action]):
     """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
 
     References:
         Auer, Peter, Nicolo Cesa-Bianchi, and Paul Fischer. "Finite-time analysis of 
         the multiarmed bandit problem." Machine learning 47.2-3 (2002): 235-256.
     """
-    def __init__(self):
+    def __init__(self, seed: int = None):
         """Instantiate a UcbTunedLearner."""
 
         self._init_a: int = 0
@@ -333,6 +320,8 @@ class UcbTunedLearner(JsonSerializable, Learner[Context, Action]):
         self._s     : Dict[Action,int] = {}
         self._m     : Dict[Action,float] = {}
         self._v     : Dict[Action,OnlineVariance] = defaultdict(OnlineVariance)
+        
+        self._random = coba.random.Random(seed)
 
     @property
     def family(self) -> str:
@@ -370,7 +359,7 @@ class UcbTunedLearner(JsonSerializable, Learner[Context, Action]):
             values      = [ self._m[a] + self._Avg_R_UCB(a) if a in self._m else None for a in actions ]
             max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
             max_indexes = [i for i in range(len(values)) if values[i]==max_value]
-            return coba.random.choice(max_indexes)
+            return self._random.choice(max_indexes)
 
     def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
         """Smooth the observed reward into our current estimate of E[R|A].
@@ -425,16 +414,9 @@ class UcbTunedLearner(JsonSerializable, Learner[Context, Action]):
         """
         ln = math.log; t = self._t; s = self._s[action]; var = self._v[action].variance
 
-        return var + math.sqrt(2*ln(t)/s)
+        return var + math.sqrt(2*ln(t)/s)    
     
-    @staticmethod
-    def __from_json_obj__(obj:Dict[str,Any]) -> 'UcbTunedLearner':
-        return UcbTunedLearner()
-
-    def __to_json_obj__(self) -> Dict[str,Any]:
-        return { }
-
-class VowpalLearner(JsonSerializable, Learner[Context, Action]):
+class VowpalLearner(Learner[Context, Action]):
     """A learner using Vowpal Wabbit's contextual bandit command line interface.
 
     Remarks:
@@ -445,18 +427,16 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
     """
 
     @overload
-    def __init__(self, *, epsilon: float = 0.025, is_adf: bool = True) -> None:
+    def __init__(self, *, epsilon: float, is_adf: bool = True, seed:int = None) -> None:
         """Instantiate a VowpalLearner.
-
         Args:
             epsilon: A value between 0 and 1. If provided exploration will follow epsilon-greedy.
         """
         ...
     
     @overload
-    def __init__(self, *, bag: int, is_adf: bool = True) -> None:
+    def __init__(self, *, bag: int, is_adf: bool = True, seed:int = None) -> None:
         """Instantiate a VowpalLearner.
-
         Args:
             bag: An integer value greater than 0. This value determines how many separate policies will be
                 learned. Each policy will be learned from bootstrap aggregation, making each policy unique. 
@@ -465,15 +445,13 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
         ...
 
     @overload
-    def __init__(self, *, cover: int) -> None:
+    def __init__(self, *, cover: int, seed:int = None) -> None:
         """Instantiate a VowpalLearner.
-
         Args:
             cover: An integer value greater than 0. This value value determines how many separate policies will be
                 learned. These policies are learned in such a way to explicitly optimize policy diversity in order
                 to control exploration. For each choice one policy will be selected according to a uniform distribution
                 and followed. For more information on this algorithm see Agarwal et al. (2014).
-
         References:
             Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming 
             the monster: A fast and simple algorithm for contextual bandits." In International Conference on 
@@ -482,9 +460,8 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
         ...
 
     @overload
-    def __init__(self, *, softmax:float) -> None:
+    def __init__(self, *, softmax:float, seed:int = None) -> None:
         """Instantiate a VowpalLearner.
-
         Args:
             softmax: An exploration parameter with 0 indicating uniform exploration is desired and infinity
                 indicating that no exploration is desired (aka, greedy action selection only). For more info
@@ -492,60 +469,64 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
         """
         ...
 
-    #the pip version of pyvw doesn't currently include the rnd algorithm so we are commenting out this overload for now
-    #@overload
-    #def __init__(self, *, rnd: float, epsilon:float = 0, rnd_invlambda: float = 0.1, rnd_alpha:float = 0.1) -> None:
-    #    ...
+    @overload
+    def __init__(self,
+        learning: VW.Fixed,
+        exploration: Union[VW.EpsilonGreedy, VW.Bagging, VW.Cover], *, seed:int = None) -> None:
+        ...
+    
+    @overload
+    def __init__(self,
+        learning: VW.Fluid,
+        exploration: Union[VW.EpsilonGreedy, VW.Softmax, VW.Bagging], *, seed:int = None) -> None:
+        ...
 
-    def __init__(self, **kwargs) -> None:
-        """Instantiate a VowpalLearner.
+    def __init__(self, 
+        learning: Union[VW.Fixed,VW.Fluid] = VW.Fluid(),
+        exploration: Union[VW.EpsilonGreedy, VW.Softmax, VW.Bagging, VW.Cover] = VW.EpsilonGreedy(0.025),
+        **kwargs) -> None:
+        """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
-        See @overload signatures for more information.
-        """
+        if 'epsilon' in kwargs:
+            self._learning = VW.Fluid() if kwargs.get('is_adf',True) else VW.Fixed()
+            self._exploration = VW.EpsilonGreedy(kwargs['epsilon'])
 
-        check_vowpal_support('VowpalLearner.__init__')
-        from vowpalwabbit import pyvw #type: ignore #ignored due to mypy error    
+        elif 'softmax' in kwargs:
+            self._learning = VW.Fluid()
+            self._exploration = VW.Softmax(kwargs['softmax'])
 
-        is_adf = False if 'cover' in kwargs else True if 'softmax' in kwargs else kwargs.pop('is_adf', True)
-
-        if all(exploration not in kwargs for exploration in ['epsilon','bag','cover','softmax','rnd']):
-            kwargs['epsilon'] = 0.025
-
-        if 'softmax' in kwargs:
-            self._exploration = f"--softmax --lambda {kwargs['softmax']}"
+        elif 'bag' in kwargs:
+            self._learning = VW.Fluid() if kwargs.get('is_adf',True) else VW.Fixed()
+            self._exploration = VW.Bagging(kwargs['bag'])
+        
+        elif 'cover' in kwargs:
+            self._learning = VW.Fixed()
+            self._exploration = VW.Cover(kwargs['cover'])
+        
         else:
-            self._exploration  = " ".join(f"--{key} {value}" for key,value in kwargs.items())
+            self._learning = learning
+            self._exploration = exploration
 
-        self._kwargs                           = kwargs
-        self._vw_constructor                   = pyvw.vw
-        self._actions      : Any               = None
-        self._vw_learner   : Optional[pyvw.vw] = None
-        self._prob         : Dict[int, float]  = {}
-        self._is_adf       : bool              = is_adf
+        self._probs: Dict[Key, float] = {}
+        self._actions = self._new_actions(learning)
 
+        self._vw = VW.Wrapper(learning.formatter, seed=kwargs.get('seed', None))
+    
     @property
     def family(self) -> str:
-        """The name of the learner.
+        """The family of the learner.
 
         See the base class for more information
         """
-        def exploration() -> List[str]:
-            for exploration in ['bag', 'cover', 'softmax', 'rnd']:
-                if exploration in self._kwargs: return [exploration]
-            return ['epsilon']
-
-        def algorithm() -> List[str]:
-            return ["ADF"] if self._is_adf else []
-
-        return "_".join(["vw"] + exploration() + algorithm())
+        return f"vw_{self._learning.__class__.__name__}_{self._exploration.__class__.__name__}"
     
     @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
         
         See the base class for more information
-        """
-        return self._kwargs
+        """        
+        return {**self._learning.params(), **self._exploration.params()}
 
     def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
         """Choose an action according to the VowpalWabbit parameters passed into the contructor.
@@ -556,40 +537,22 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
+        
             The index of the selected action. See the base class for more information.
         """
 
-        if self._vw_learner is None and not self._is_adf:
-            self._actions   = actions
-            self._algorithm = f"--cb_explore {len(actions)}"
+        if not self._vw.created:
+            self._vw.create(self._learning.flags(actions) + " " + self._exploration.flags())        
 
-        if self._vw_learner is None and self._is_adf:
-            self._actions   = {}
-            self._algorithm = f"--cb_explore_adf"
+        choice, prob = self._vw.choose(context, actions)
 
-        if self._vw_learner is None:
-            self._vw_learner = self._vw_constructor(f"{self._algorithm} {self._exploration} --quiet --cubic ssa -q sa --ignore_linear s")
-
-        if self._is_adf:
-            self._actions[key] = actions
-
-        pmf = self._vw_learner.predict(self._vw_predict_format(context, actions))
-
-        assert len(pmf) == len(actions), "An incorrect number of action probabilites was returned by VW."
-        assert abs(sum(pmf)-1) < .03   , "An invalid PMF for action probabilites was returned by VW."
-
-        #make sure the pmf sums to 1 otherwise
-        #it will be possible to not pick any action
-        pmf[-1] += 1-sum(pmf)
-
-        cdf = list(accumulate(pmf))
-        rng = coba.random.random()
-
-        choice = [ rng <= c for c in cdf].index(True)
-
-        self._prob[key] = pmf[choice]
-
-        return choice if self._is_adf else self._actions.index(actions[choice])
+        self._set_actions(key,actions)
+        self._probs[key] = prob
+        
+        if isinstance(self._learning, VW.Fixed):
+            return actions.index(self._actions[choice])
+        else:
+            return choice
 
     def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
         """Learn from the obsered reward for the given context action pair.
@@ -601,84 +564,26 @@ class VowpalLearner(JsonSerializable, Learner[Context, Action]):
             reward: The reward that was gained from the action. See the base class for more information.
         """
 
-        if self._vw_learner is None:
-            raise Exception("You must call `choose` before `learn` in order for vw to be fully initialized...")
+        actions = self._get_actions(key)
+        prob = self._probs[key]        
 
-        self._vw_learner.learn(self._vw_learn_format(key, context, action, reward))
+        self._vw.learn(prob, actions, context, action, reward)
 
-    def _vw_predict_format(self, context: Context, actions:Sequence[Action]) -> str:
-        """Convert context and actions into the proper prediction format for vowpal wabbit.
-
-        Args:
-            context: The context we wish to convert to vowpal wabbit representation.
-            actions: The actions we wish to predict from.
-
-        Returns:
-            The proper format for vowpal wabbit prediction.
-        """
-
-        if not self._is_adf:
-            return f"| {self._vw_features_format(context)}"
+    def _new_actions(self, learning) -> Any:
+        if isinstance(learning, VW.Fixed):
+            return []
         else:
-            vw_context = None if context is None else f"shared |s {self._vw_features_format(context)}"
-            vw_actions = [ f"|a {self._vw_features_format(a)}" for a in actions]
+            return {}
 
-            return "\n".join(filter(None,[vw_context, *vw_actions]))
+    def _set_actions(self, key, actions) -> None:
+        if self._actions == []:
+            self._actions = actions
 
-    def _vw_learn_format(self, key: Key, context: Context, action: Action, reward: float) -> str:
-        prob    = self._prob.pop(key)
-        actions = self._actions if not self._is_adf else self._actions.pop(key)
+        if isinstance(self._actions, collections.MutableMapping):
+            self._actions[key] = actions
 
-        if not self._is_adf:
-            return f"{actions.index(action)+1}:{-reward}:{prob} | {self._vw_features_format(context)}"
+    def _get_actions(self, key) -> Sequence[Action]:
+        if isinstance(self._actions, collections.MutableMapping) :
+            return self._actions.pop(key)
         else:
-            vw_context   = None if context is None else f"shared |s {self._vw_features_format(context)}"
-            vw_rewards  = [ "" if a != action else f"0:{-reward}:{prob}" for a in actions ]
-            vw_actions  = [ self._vw_features_format(a) for a in actions]
-            vw_observed = [ f"{r} |a {a}" for r,a in zip(vw_rewards,vw_actions) ]
-
-            return "\n".join(filter(None,[vw_context, *vw_observed]))
-
-    def _vw_features_format(self, features: Union[Context,Action]) -> str:
-        """convert features into the proper format for pyvw.
-
-        Args:
-            features: The feature set we wish to convert to pyvw representation.
-
-        Returns:
-            The context in pyvw representation.
-
-        Remarks:
-            Note, using the enumeration index for action features below only works if all actions
-            have the same number of features. If some actions simply leave out features in their
-            feature array a more advanced method may need to be implemented in the future...
-        """
-
-        if not isinstance(features, tuple):
-            features = (features,)
-
-        if isinstance(features, tuple):
-            return " ". join([ self._vw_feature_format(i,f) for i,f in enumerate(features) if f is not None ])
-
-        raise Exception("We were unable to determine an appropriate vw context format.")
-
-    def _vw_feature_format(self, name: Any, value: Any) -> str:
-        """Convert a feature into the proper format for pyvw.
-
-        Args:
-            name: The name of the feature.
-            value: The value of the feature.
-
-        Remarks:
-            In feature formatting we prepend a "key" to each feature. This makes it possible
-            to compare features across actions/contexts. See the definition of `Features` at 
-            the top of https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format for more info.
-        """
-        return f"{name}:{value}" if isinstance(value,(int,float)) else f"{value}"
-
-    @staticmethod
-    def __from_json_obj__(obj:Dict[str,Any]) -> 'VowpalLearner':
-        return VowpalLearner(**obj['kwargs'])
-
-    def __to_json_obj__(self) -> Dict[str,Any]:
-        return { 'kwargs': self._kwargs }
+            return self._actions

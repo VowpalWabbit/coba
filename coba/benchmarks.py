@@ -673,7 +673,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         params = self._safe_params(learner)
 
         if len(params) > 0:
-            return f"{family}({','.join(f'{k}={v}' for k,v in params.items())})"
+            return f"{family}({','.join(f'{k}={v}' if k != '' else f'{v}' for k,v in params.items())})"
         else:
             return family
 

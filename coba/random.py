@@ -16,6 +16,7 @@ TODO: Add unit tests for choice
 
 import math
 import random as std_random
+import itertools
 
 from typing import Optional, Sequence, Any, List
 
@@ -81,6 +82,39 @@ class Random:
 
         return l
 
+    def random(self) -> float:
+        return self.randoms(1)[0]
+
+    def randint(self, a:int, b:int) -> int:
+        """Generate a uniform random integer in [a, b].
+        
+        Args:
+            a: The inclusive lower bound for the random integer.
+            b: The inclusive upper bound for the random integer.
+        """
+
+        return min(int((b-a+1) * self.random()), b-a) + a
+
+    def choice(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Any:
+        """Choose a random item from the given sequence.
+        
+        Args:
+            seq: The sequence to pick randomly from.
+            weights: The proportion by which seq is selected from.
+        """
+        
+        if weights is None:
+            return seq[self.randint(0, len(seq)-1)]
+        else:
+
+            if sum(weights) == 0:
+                raise ValueError("The sume of weights cannot be zero.")
+
+            cdf = list(itertools.accumulate(weights))
+            rng = self.random() * sum(weights)
+
+            return [ rng <= c for c in cdf].index(True)
+
     def _next(self, n: int) -> Sequence[int]:
         """Generate `n` uniform random numbers in [0,m-1]
 
@@ -128,7 +162,7 @@ def seed(seed: Optional[int]) -> None:
 def random() -> float:
     """Generate a uniform random number in [0,1]."""
 
-    return randoms(1)[0]
+    return _random.random()
 
 def randoms(n: int) -> Sequence[float]:
     """Generate `n` uniform random numbers in [0,1].
@@ -149,17 +183,18 @@ def randint(a:int, b:int) -> int:
         a: The inclusive lower bound for the random integer.
         b: The inclusive upper bound for the random integer.
     """
+    
+    return _random.randint(a,b)
 
-    return min(int((b-a+1) * random()), b-a) + a
-
-def choice(seq: Sequence[Any]) -> Any:
+def choice(seq: Sequence[Any], weights:Sequence[float]=None) -> Any:
     """Choose a random item from the given sequence.
     
     Args:
         seq: The sequence to pick randomly from.
+        weights: The proportion by which seq is selected from.
     """
     
-    return seq[randint(0, len(seq)-1)]
+    return _random.choice(seq, weights)
 
 def shuffle(array_like: Sequence[Any]) -> Sequence[Any]:
     """Shuffle the order of items in a sequence.

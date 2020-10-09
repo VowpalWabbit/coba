@@ -1,4 +1,4 @@
-"""The contexts module contains classes determining the context for shared functionality.
+"""The execution module contains classes determining the context in which COBA executes.
 
 TODO Add unittests for CobaConfig.
 """

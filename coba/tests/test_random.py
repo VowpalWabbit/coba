@@ -100,17 +100,13 @@ class Random_Tests(unittest.TestCase):
 
         coba.random.seed(10)
 
-        actual_random_numbers = coba.random.randoms(5)
-        expected_random_numbers = [
-            0.08635475773956139,
-            0.18061295168531402,
-            0.16033128757060625,
-            0.9826165502729048,
-            0.14168352553777724,
-        ]
+        actual_random_numbers_1 = coba.random.randoms(5)
 
-        for actual,expected in zip(actual_random_numbers,expected_random_numbers):
-            self.assertAlmostEqual(actual,expected)
+        coba.random.seed(10)
+
+        actual_random_numbers_2 = coba.random.randoms(5)
+
+        self.assertSequenceEqual(actual_random_numbers_1, actual_random_numbers_2)
 
     def test_randoms_is_uniform_0_1(self):
         #this test will fail maybe 1% of the time

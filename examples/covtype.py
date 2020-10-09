@@ -8,16 +8,9 @@ from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTuned
 from coba.benchmarks import LambdaBatcher, UniversalBenchmark
 from coba.analysis import Plots
 
-print("loading simulation data...")
-sim = ClassificationSimulation.from_openml(150)
+simulation = ShuffleSimulation(ClassificationSimulation.from_openml(150))
+benchmark  = UniversalBenchmark([simulation], LambdaBatcher(lambda i: 100 + i*100))
 
-print("shuffling simulation data...")
-sim = ShuffleSimulation(sim)
-
-print("defining the benchmark...")
-benchmark = UniversalBenchmark([sim], LambdaBatcher(lambda i: 100 + i*100))
-
-print("creating the learners...")
 learner_factories = [
     lambda: RandomLearner(),
     lambda: EpsilonLearner(0.025),
@@ -27,7 +20,6 @@ learner_factories = [
     lambda: VowpalLearner(softmax=3.5)
 ]
 
-print("evaluating the learners...")
 results = benchmark.evaluate(learner_factories)
 
 Plots.standard_plot(results)
