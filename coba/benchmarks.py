@@ -431,7 +431,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
     class EvaluationContext(Generic[_C_inner,_A_inner]):
         """A class to maintain the state of the current evaluation."""
-        restored_result: Result 
+        restored_result  : Result 
         result_writer    : ResultWriter
         simulations      : Sequence[Simulation[_C_inner,_A_inner]]
         learner_factories: Sequence[Callable[[],Learner[_C_inner,_A_inner]]]
