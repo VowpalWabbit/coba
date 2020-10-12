@@ -42,7 +42,9 @@ _A_out = TypeVar('_A_out', bound=Action, covariant=True)
 class Interaction(Generic[_C_out, _A_out]):
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
-    def __init__(self, context: _C_out, actions: Sequence[_A_out], key: Key = 0) -> None:
+    #this is a problem with pylance compaining about covariance in constructor so we have to type ignore it. 
+    #See this ticket in mypy for more info https://github.com/python/mypy/issues/2850
+    def __init__(self, context: _C_out, actions: Sequence[_A_out], key: Key = 0) -> None: #type: ignore
         """Instantiate Interaction.
 
         Args
@@ -277,13 +279,13 @@ class LambdaSimulation(Simulation[_C_out, _A_out]):
         return self._simulation.rewards(choices)
 
 class ShuffleSimulation(Simulation[_C_out, _A_out]):
-    """A simulation which created from an existing simulation by shuffling interactions.
+    """A simulation created from an existing simulation by shuffling interactions.
 
     Remarks:
         Shuffling is applied one time upon creation and after that interaction order is fixed.
         Shuffling does not change the original simulation's interaction order or copy the
-        original interactions in memory. Shuffling is guaranteed to be deterministic 
-        according any given to seed regardless of the local Python execution environment.
+        original interactions. Shuffling is guaranteed to be deterministic according to seed
+        regardless of the local Python execution environment.
     """
 
     def __init__(self, simulation: Simulation[_C_out,_A_out], seed: Optional[int] = None):
@@ -297,6 +299,45 @@ class ShuffleSimulation(Simulation[_C_out, _A_out]):
         cb_random.seed(seed)
 
         self._interactions = cb_random.shuffle(simulation.interactions)
+        self._rewards      = simulation.rewards
+
+    @property
+    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+        """The interactions in this simulation.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+
+        return self._interactions
+
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
+
+        Remarks:
+            See the Simulation base class for more information.        
+        """
+
+        return self._rewards(choices)
+
+class SelectSimulation(Simulation[_C_out, _A_out]):
+    """A simulation created from an existing simulation by selecting specific interactions.
+
+    Remarks:
+        SelectSimulation does not change or copy the original simulation's interactions.
+    """
+
+    def __init__(self, 
+        simulation: Simulation[_C_out,_A_out], 
+        selector: Callable[[Sequence[Interaction[_C_out,_A_out]]], Sequence[Interaction[_C_out,_A_out]]]):
+        """Instantiate a FilterSimulation
+
+        Args:
+            simulation: The simulation we which to shuffle interaction order for.
+            selector: A function selecting which interactions to keep from the given simulation.
+        """
+
+        self._interactions = selector(simulation.interactions)
         self._rewards      = simulation.rewards
 
     @property

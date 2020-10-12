@@ -477,8 +477,10 @@ class VowpalLearner(Learner[Context, Action]):
     
     @overload
     def __init__(self,
-        learning: VW.Fluid,
-        exploration: Union[VW.EpsilonGreedy, VW.Softmax, VW.Bagging], *, seed:int = None) -> None:
+        learning: VW.Fluid = VW.Fluid(),
+        exploration: Union[VW.EpsilonGreedy, VW.Softmax, VW.Bagging] = VW.EpsilonGreedy(0.025), 
+        *, 
+        seed:int = None) -> None:
         ...
 
     def __init__(self, 
@@ -487,12 +489,15 @@ class VowpalLearner(Learner[Context, Action]):
         **kwargs) -> None:
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
+        self._learning: Union[VW.Fixed,VW.Fluid]
+        self._exploration: Union[VW.EpsilonGreedy, VW.Softmax, VW.Bagging, VW.Cover]
+
         if 'epsilon' in kwargs:
-            self._learning = VW.Fluid() if kwargs.get('is_adf',True) else VW.Fixed()
+            self._learning    = VW.Fluid() if kwargs.get('is_adf',True) else VW.Fixed()
             self._exploration = VW.EpsilonGreedy(kwargs['epsilon'])
 
         elif 'softmax' in kwargs:
-            self._learning = VW.Fluid()
+            self._learning   = VW.Fluid()
             self._exploration = VW.Softmax(kwargs['softmax'])
 
         elif 'bag' in kwargs:

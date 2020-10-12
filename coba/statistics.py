@@ -133,9 +133,14 @@ class StatisticalEstimate(Rational, JsonSerializable):
 
     #Region: Rational interface
     @property
-    def numerator(self) -> 'StatisticalEstimate':
+    def numerator(self) -> 'StatisticalEstimate': #type: ignore
+        #mypy doesn't like this. In theory typeshed says super().numerator should return an int.
+        #the only way we can really satisfy that is if we define a `class IntegerEstimate(int)`
+        #and return that here instead of `StatisticalEstimate` and maybe rename StatisticalEstimate
+        #in that case to FloatEstimate.
+        
         if isinstance(self.estimate, int):
-            n,d = self.estimate,1
+            n,d = self.estimate, 1
         else:
             n,d = self.estimate.as_integer_ratio()
         
