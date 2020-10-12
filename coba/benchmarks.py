@@ -20,7 +20,7 @@ from typing import (
     Generic, TypeVar, Dict, Any, cast, Type, Optional
 )
 
-from coba.simulations import Interaction, LazySimulation, ShuffleSimulation, Simulation, Context, Action
+from coba.simulations import Interaction, LazySimulation, SelectSimulation, ShuffleSimulation, Simulation, Context, Action
 from coba.learners import Learner, SafeLearner
 from coba.execution import ExecutionContext
 from coba.statistics import BatchMeanEstimator, StatisticalEstimate
@@ -675,7 +675,9 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         if ec.simulation_seed is None:
             ec.simulation_shuffled = ec.simulation_original
         else:
+            
             ec.simulation_shuffled = ShuffleSimulation(ec.simulation_original, ec.simulation_seed)
+            ec.simulation_shuffled = SelectSimulation(ec.simulation_shuffled, lambda i: i[0:sum(ec.batch_sizes)])
         self._process_learners(ec)
 
     def _process_learners(self, ec: 'UniversalBenchmark.EvaluationContext'):
