@@ -4,12 +4,12 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
 from build.lib.coba.benchmarks import SizeBatcher
-from coba.simulations import ClassificationSimulation, ShuffleSimulation
+from coba.simulations import ClassificationSimulation, LazySimulation
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 from coba.benchmarks import UniversalBenchmark, SizeBatcher
 from coba.analysis import Plots
 
-simulation = ShuffleSimulation(ClassificationSimulation.from_openml(150))
+simulation = LazySimulation(lambda:ClassificationSimulation.from_openml(150))
 benchmark  = UniversalBenchmark([simulation], SizeBatcher(1, max_interactions=5000), shuffle_seeds=list(range(10)))
 
 learner_factories = [

@@ -528,7 +528,7 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
 
         with stream_manager as raw_stream:
 
-            with ExecutionContext.Logger.log(f'loading csv from {source}... ', end=''):
+            with ExecutionContext.Logger.log(f'loading csv from {source}... '):
                 is_cache_gzip = False
                 is_disk_gzip  = is_disk and location.lower().endswith(".gz")
                 is_http_gzip  = is_http and cast(HTTPResponse, raw_stream).info().get('Content-Encoding') == "gzip"
@@ -552,7 +552,7 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
 
         del raw_bytes
 
-        with ExecutionContext.Logger.log('encoding csv in memory... ', end=''):
+        with ExecutionContext.Logger.log('encoding csv in memory... '):
             return ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
 
     @staticmethod
