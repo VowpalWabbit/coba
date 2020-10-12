@@ -6,7 +6,8 @@ from abc import ABC, abstractmethod
 from typing import Sequence, Tuple, cast, Any
 
 from coba.preprocessing import (
-    FullMeta, Metadata, Encoder, PartMeta, StringEncoder, NumericEncoder, OneHotEncoder, InferredEncoder, FactorEncoder
+    FullMeta, Metadata, Encoder, PartMeta, StringEncoder, NumericEncoder, 
+    OneHotEncoder, InferredEncoder, FactorEncoder
 )
 
 class Encoder_Interface_Tests(ABC):

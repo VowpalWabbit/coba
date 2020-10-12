@@ -26,6 +26,7 @@ from coba.execution import ExecutionContext
 from coba.statistics import BatchMeanEstimator, StatisticalEstimate
 from coba.utilities import check_pandas_support
 from coba.json import CobaJsonDecoder, CobaJsonEncoder, JsonSerializable
+from coba.data import AsyncFileWriter
 
 _K = TypeVar("_K", bound=Hashable)
 _C = TypeVar('_C', bound=Context)
@@ -166,10 +167,14 @@ class ResultWriter(ABC):
 
         self._write("B", key, row)
 
+    def __enter__(self) -> 'ResultWriter':
+        return self
 
+    def __exit__(self, exception_type, exception_value, traceback) -> None:
+        pass
 
     @abstractmethod
-    def _write(self, name: str, key: Hashable, row: Dict[str,Any]):
+    def _write(self, name: str, key: Hashable, row: Dict[str,Any]) -> None:
         ...
 
 class ResultDiskWriter(ResultWriter):
@@ -178,11 +183,21 @@ class ResultDiskWriter(ResultWriter):
         self._json_encoder = CobaJsonEncoder()
         self._transactions_path = Path(filename)
         self._transactions_path.touch()
+        self._async_file_writer = AsyncFileWriter(self._transactions_path, 'a')
+
+    def __enter__(self) -> 'ResultDiskWriter':
+        self._async_file_writer.open()
+        return self
+
+    def __exit__(self, exception_type, exception_value, traceback) -> None:
+        self._async_file_writer.close()
+
+    def flush(self) -> None:
+        self._async_file_writer.flush()
 
     def _write(self, name: str, key: Hashable, row: Dict[str,Any]):
-        with open(self._transactions_path, "a") as f:
-            f.write(self._json_encoder.encode([name,(key,row)]))
-            f.write("\n")
+        self._async_file_writer.async_write(self._json_encoder.encode([name,(key,row)]))
+        self._async_file_writer.async_write("\n")
 
 class ResultMemoryWriter(ResultWriter):
 
@@ -590,15 +605,17 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         if n_restored_learners > 0 and n_restored_learners != len(learner_factories):
             raise Exception("The number of learners differs from the transaction log.")
 
-        #write number of learners, number of simulations, batcher, shuffle seeds and ignore first
-        #make sure all these variables are the same. If they've changed then fail gracefully.
+        with ec.result_writer:
 
-        if n_restored_learners == 0:
-            for learner_index, learner_factory in enumerate(learner_factories):
-                learner = SafeLearner(learner_factory())
-                ec.result_writer.write_learner(learner_index, family = learner.family, full_name = learner.full_name, **learner.params)
+            #write number of learners, number of simulations, batcher, shuffle seeds and ignore first
+            #make sure all these variables are the same. If they've changed then fail gracefully.
 
-        self._process_simulations(ec)
+            if n_restored_learners == 0:
+                for learner_index, learner_factory in enumerate(learner_factories):
+                    learner = SafeLearner(learner_factory())
+                    ec.result_writer.write_learner(learner_index, family = learner.family, full_name = learner.full_name, **learner.params)
+
+            self._process_simulations(ec)
 
         return Result.from_result_writer(ec.result_writer)
 

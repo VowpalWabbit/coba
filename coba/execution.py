@@ -14,12 +14,12 @@ from contextlib import contextmanager
 from itertools import repeat
 from gzip import compress, decompress
 from abc import ABC, abstractmethod
-from io import BytesIO, IOBase
+from io import BytesIO
 from pathlib import Path
 from datetime import datetime
 from typing import (
     Callable, ContextManager, Union, Generic, TypeVar, Dict, 
-    IO, Mapping, Any, Optional, List, MutableMapping, cast, Iterator
+    IO, Mapping, Any, Optional, List, MutableMapping, cast, Iterator,
 )
 
 _K = TypeVar("_K")
@@ -387,7 +387,7 @@ class ExecutionContext:
         FileCache = MemoryCache[str, IO[bytes]]()
 
 @contextmanager
-def redirect_stderr(to: IOBase):
+def redirect_stderr(to: IO[str]):
     """Redirect stdout for both C and Python.
 
     Remarks:
@@ -403,10 +403,10 @@ def redirect_stderr(to: IOBase):
 
     def _redirect_stderr(redirect_stderr_fd):
         
-        #first we close Python's stderr. It should be noted that this
+        #first we flush Python's stderr. It should be noted that this
         #doesn't close the file descriptor (i.e., sys.stderr.fileno())
-        #this only closes Python's wrapper around the stderr_fd
-        sys.stderr.close()
+        #or Python's wrapper around the stderr_fd.
+        sys.stderr.flush()
     
         # next we change the stderr_fd to point to the
         # file contained in the redirect_stderr_fd.
@@ -415,11 +415,10 @@ def redirect_stderr(to: IOBase):
         # to be ways to flush C buffers from Python 
         # but I'm not sure it is worth it given the
         # amount of complexity it adds to the code.
+        # This change also means that sys.stderr now
+        # points to a new file since sys.stderr points
+        # to whatever file is at stderr_fd
         os.dup2(redirect_stderr_fd, stderr_fd)
-
-        # finally re-open Python's stderr wrapper
-        # with it pointing to the file at stderr_fd
-        sys.stderr = os.fdopen(stderr_fd, 'w')
 
     # when we dup there are now two fd's
     # pointing to the same file. Closing

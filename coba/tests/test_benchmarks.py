@@ -82,19 +82,19 @@ class Result_Tests(unittest.TestCase):
     def test_to_from_transaction_file_once(self):
 
         def write_result(writer: ResultWriter)-> None:
-            writer.write_learner(0,a='A')
-            writer.write_simulation(0,b='B')
-            writer.write_batch(0,1,None,2,mean=BatchMeanEstimator([1,2,3]))
+            writer.write_learner(0, a='A')
+            writer.write_simulation(0, b='B')
+            writer.write_batch(0, 1, None, 2, mean=BatchMeanEstimator([1,2,3]))
 
         try:
-            disk_writer = ResultDiskWriter(".test/transactions.log")
-            memory_writer = ResultMemoryWriter(0)
-            
-            write_result(disk_writer)
-            write_result(memory_writer)
+            with ResultDiskWriter(".test/transactions.log") as disk_writer:
+                write_result(disk_writer)
 
-            expected_result = Result.from_result_writer(memory_writer,0)
-            actual_result = Result.from_result_writer(disk_writer,0)
+            with ResultMemoryWriter(0) as memory_writer:
+                write_result(memory_writer)
+
+                expected_result = Result.from_result_writer(memory_writer,0)
+                actual_result   = Result.from_result_writer(disk_writer,0)
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
 
@@ -113,17 +113,17 @@ class Result_Tests(unittest.TestCase):
             writer.write_batch(1,1,None,0,mean=BatchMeanEstimator([1,2,3,4,5]))
 
         try:
-            disk_writer1 = ResultDiskWriter(".test/transactions.log")
-            disk_writer2 = ResultDiskWriter(".test/transactions.log")
-            memory_writer = ResultMemoryWriter(0)
-            
-            write_first_result(disk_writer1)
-            write_second_result(disk_writer2)
+            with ResultDiskWriter(".test/transactions.log") as disk_writer1:
+                write_first_result(disk_writer1)
 
-            write_first_result(memory_writer)
-            write_second_result(memory_writer)
+            with ResultDiskWriter(".test/transactions.log") as disk_writer2:
+                write_second_result(disk_writer2)
+                    
+            with ResultMemoryWriter(0) as memory_writer:
+                write_first_result(memory_writer)
+                write_second_result(memory_writer)
 
-            actual_result = Result.from_transaction_file(".test/transactions.log",0)
+            actual_result   = Result.from_transaction_file(".test/transactions.log",0)
             expected_result = Result.from_result_writer(memory_writer)
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
@@ -263,7 +263,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
             expected_simulations = [(0, 5, 1, 1, 1, 3)]
             expected_batches     = [(0, 0, None, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
         finally:
-            if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()            
+            if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)

@@ -76,7 +76,6 @@ class VowpalLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
             #tests or the VowpalLearner and think something is wrong
             #so we return a different learner for the sake of passing
             return RandomLearner()
-        
 
 if __name__ == '__main__':
     unittest.main()
