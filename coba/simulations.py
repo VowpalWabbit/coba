@@ -90,17 +90,13 @@ class Simulation(Generic[_C_out, _A_out], ABC):
 
         config = json.loads(json_val) if isinstance(json_val,str) else json_val
 
-        no_shuffle  : Callable[[Simulation[Context, Action]], Simulation] = lambda sim: sim
-        seed_shuffle: Callable[[Simulation[Context, Action]], Simulation] = lambda sim: ShuffleSimulation(sim, config["seed"])
-
         lazy_loader: Callable[[Callable[[],Simulation[Context,Action]]], Simulation] = lambda sim_factory: LazySimulation(sim_factory)
-        now_loader : Callable[[Callable[[],Simulation[Context,Action]]], Simulation]  = lambda sim_factory: sim_factory()
+        now_loader : Callable[[Callable[[],Simulation[Context,Action]]], Simulation] = lambda sim_factory: sim_factory()
 
-        shuffler = seed_shuffle if "seed" in config and config["seed"] is not None else no_shuffle
-        loader   = lazy_loader  if "lazy" in config and config["lazy"] == True     else now_loader
+        loader = lazy_loader if config.get("lazy", True) else now_loader
 
         if config["type"] == "classification":
-            return  loader(lambda: shuffler(ClassificationSimulation.from_json(config["from"])))
+            return  loader(lambda: ClassificationSimulation.from_json(config["from"]))
 
         raise Exception("We were unable to recognize the provided simulation type")
 
@@ -453,7 +449,7 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
 
         with ExecutionContext.Logger.log(f"loading openml {data_id} meta... "):
 
-            openml_api_key = ExecutionContext.CobaConfig.openml_api_key
+            openml_api_key = ExecutionContext.Config.openml_api_key
 
             with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}?api_key={openml_api_key}')) as resp:
                 description = json.loads(resp.read())["data_set_description"]

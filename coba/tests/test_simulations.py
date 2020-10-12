@@ -60,8 +60,8 @@ class Simulation_Tests(unittest.TestCase):
 
     def test_from_json(self):
         json_val = ''' {
-            "seed": 1283,
             "type": "classification",
+            "lazy": false,
             "from": {
                 "format"          : "table",
                 "table"           : [["a","b","c"], ["s1","2","3"], ["s2","5","6"]],

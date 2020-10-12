@@ -1,10 +1,11 @@
 {
-    "templates"   : { "shuffled_openml_classification": { "seed": 777, "type":"classification", "from": {"format":"openml", "id":"$id"} }},
+    "templates"   : { "openml_classification": { "type":"classification", "from": {"format":"openml", "id":"$id"} }},
     "batches"     : { "count":51 },
+    "shuffle"     : [777],
     "ignore_first": true,
     "simulations" : [
-        {"template":"shuffled_openml_classification", "$id":3   },
-        {"template":"shuffled_openml_classification", "$id":6   },
-        {"template":"shuffled_openml_classification", "$id":8   }
+        {"template":"openml_classification", "$id":3   },
+        {"template":"openml_classification", "$id":6   },
+        {"template":"openml_classification", "$id":8   }
     ]
 }

@@ -9,19 +9,19 @@ from coba.execution import DiskCache, TemplatingEngine, UniversalLogger
 
 class TemplatingEngine_Tests(unittest.TestCase):
     def test_no_template_string_unchanged_1(self):
-        self.assertEqual(TemplatingEngine.parse("[1,2,3]"), [1,2,3])
+        self.assertEqual(TemplatingEngine().parse("[1,2,3]"), [1,2,3])
 
     def test_no_template_string_unchanged_2(self):
-        actual = TemplatingEngine.parse('{"a":1}')
+        actual = TemplatingEngine().parse('{"a":1}')
 
         self.assertCountEqual(actual.keys(), ["a"])
         self.assertEqual(actual["a"], 1)
 
     def test_no_template_object_unchanged_1(self):
-        self.assertEqual(TemplatingEngine.parse(json.loads("[1,2,3]")), [1,2,3])
+        self.assertEqual(TemplatingEngine().parse(json.loads("[1,2,3]")), [1,2,3])
 
     def test_no_template_object_unchanged2(self):
-        actual = TemplatingEngine.parse(json.loads('{"a":1}'))
+        actual = TemplatingEngine().parse(json.loads('{"a":1}'))
 
         self.assertCountEqual(actual.keys(), ["a"])
         self.assertEqual(actual["a"], 1)
@@ -36,7 +36,7 @@ class TemplatingEngine_Tests(unittest.TestCase):
             ]
         }"""
 
-        actual = TemplatingEngine.parse(json_str)
+        actual = TemplatingEngine().parse(json_str)
 
         self.assertCountEqual(actual.keys(), ["batches", "simulations"])
         self.assertCountEqual(actual["batches"], ["count"])

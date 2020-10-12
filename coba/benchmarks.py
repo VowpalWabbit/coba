@@ -3,7 +3,6 @@
 This module contains the abstract interface expected for Benchmark implementations. This 
 module also contains several Benchmark implementations and Result data transfer class.
 
-TODO Add unit tests for all Batchers and Remove unit tests for several batchers from Benchmark_Tests
 TODO Add docstrings to Batchers
 """
 
@@ -12,18 +11,18 @@ import json
 import collections
 
 from abc import ABC, abstractmethod
-from itertools import count, repeat, groupby
+from itertools import count, repeat, groupby, product
 from statistics import median
 from ast import literal_eval
 from pathlib import Path
 from typing import (
     Iterable, Tuple, Hashable, Union, Sequence, List, Callable, 
-    Generic, TypeVar, Dict, Any, cast, Type
+    Generic, TypeVar, Dict, Any, cast, Type, Optional
 )
 
-from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action
-from coba.learners import Learner
-from coba.execution import ExecutionContext, LoggedException
+from coba.simulations import Interaction, LazySimulation, ShuffleSimulation, Simulation, Context, Action
+from coba.learners import Learner, SafeLearner
+from coba.execution import ExecutionContext
 from coba.statistics import BatchMeanEstimator, StatisticalEstimate
 from coba.utilities import check_pandas_support
 from coba.json import CobaJsonDecoder, CobaJsonEncoder, JsonSerializable
@@ -47,8 +46,8 @@ class Table(JsonSerializable, Generic[_K]):
         self._name    = name
         self._default = default
 
-        self._columns     : List[str]               = []
-        self._rows        : Dict[_K, Dict[str,Any]] = {}
+        self._columns: List[str]               = []
+        self._rows   : Dict[_K, Dict[str,Any]] = {}
 
     def add_row(self, key: _K, **kwargs) -> None:
         """Add an indexed row of data to the table.
@@ -68,7 +67,6 @@ class Table(JsonSerializable, Generic[_K]):
             self._columns.extend(new_columns)
             for data in self._rows.values():
                 data.update(zip(new_columns, repeat(self._default)))
-
         
         self._rows[key] = collections.OrderedDict({key:kwargs.get(key,self._default) for key in self._columns})
 
@@ -123,7 +121,7 @@ class Table(JsonSerializable, Generic[_K]):
             'rows'   : { literal_evalable(key):value for key,value in self._rows.items() }
         }
 
-class ResultWriter:
+class ResultWriter(ABC):
 
     def write_learner(self, learner_id:int, **kwargs):
         """Write learner metadata row to Result.
@@ -133,36 +131,46 @@ class ResultWriter:
             kwargs: The metadata to store about the learner.
         """
 
-        items = [("learner_id",learner_id)] + list(kwargs.items())  #type:ignore
-        self._write("L", learner_id, collections.OrderedDict(items))
+        key       = learner_id
+        key_items = [(cast(str,"learner_id"),learner_id)]
+        row       = collections.OrderedDict(key_items + list(kwargs.items()))
+
+        self._write("L", key, row)
 
     def write_simulation(self, simulation_id: int, **kwargs):
         """Write simulation metadata row to Result.
         
         Args:
-            simulation_id: The primary key for the given simulation.
+            simulation_index: The index of the simulation in the benchmark's simulations.
+            simulation_seed: The seed used to shuffle the simulation before evaluation.
             kwargs: The metadata to store about the learner.
-        """    
-        items = [("simulation_id",simulation_id)] + list(kwargs.items())  #type:ignore
-        self._write("S", simulation_id, collections.OrderedDict(items))
+        """
+        key       = simulation_id
+        key_items = [(cast(str,"simulation_id"),simulation_id)]
+        row       = collections.OrderedDict(key_items + list(kwargs.items()))
 
-    def write_batch(self, learner_id:int, simulation_id:int, batch_index:int, **kwargs):
+        self._write("S", key, row)
+
+    def write_batch(self, learner_id:int, simulation_id:int, seed: Optional[int], batch_index:int, **kwargs):
         """Write batch metadata row to Result.
-        
+
         Args:
             learner_id: The primary key for the learner we observed the batch for.
             simulation_id: The primary key for the simulation the batch came from.
             batch_index: The index of the batch within the simulation.
             kwargs: The metadata to store about the batch.
         """
-        key       = (learner_id, simulation_id, batch_index)
-        key_items = [("learner_id",learner_id), ("simulation_id",simulation_id), ("batch_index",batch_index)]
+        key       = (learner_id, simulation_id, seed, batch_index)
+        key_items = [("learner_id",learner_id), ("simulation_id",simulation_id), ("seed", seed), ("batch_index",batch_index)]
         row       = collections.OrderedDict(key_items + list(kwargs.items()))
 
         self._write("B", key, row)
 
+
+
+    @abstractmethod
     def _write(self, name: str, key: Hashable, row: Dict[str,Any]):
-        pass
+        ...
 
 class ResultDiskWriter(ResultWriter):
 
@@ -179,9 +187,9 @@ class ResultDiskWriter(ResultWriter):
 class ResultMemoryWriter(ResultWriter):
 
     def __init__(self, default: Any = float('nan')) -> None:
-        self._learner_table    = Table[int]               ("Learners"   , default)
-        self._simulation_table = Table[int]               ("Simulations", default)
-        self._batch_table      = Table[Tuple[int,int,int]]("Batches"    , default)
+        self._learner_table    = Table[int]                             ("Learners"   , default)
+        self._simulation_table = Table[int]                             ("Simulations", default)
+        self._batch_table      = Table[Tuple[int,int,Optional[int],int]]("Batches"    , default)
 
     def _write(self, name: str, key: Any, row: Dict[str,Any]):
         if name == "L":
@@ -217,16 +225,16 @@ class Result(JsonSerializable):
         if not Path(filename).exists(): return Result()
 
         decoder          = CobaJsonDecoder()
-        learner_table    = Table[int]               ("Learners"   , default)
-        simulation_table = Table[int]               ("Simulations", default)
-        batch_table      = Table[Tuple[int,int,int]]("Batches"    , default)
+        learner_table    = Table[int]                             ("Learners"   , default)
+        simulation_table = Table[int]                             ("Simulations", default)
+        batch_table      = Table[Tuple[int,int,Optional[int],int]]("Batches"    , default)
 
         lines = Path(filename).read_text().split("\n")
 
         for line in [ l for l in lines if l != '']:
             json_obj: Tuple[str,Tuple[Any, Dict[str,Any]]] = decoder.decode(line, [StatisticalEstimate])
 
-            table: Union[Table[int], Table[Tuple[int,int,int]]]
+            table: Union[Table[int], Table[Tuple[int,int,Optional[int],int]]]
             key  : Any 
 
             if json_obj[0] == "L":
@@ -254,14 +262,14 @@ class Result(JsonSerializable):
         Path(filename).write_text(CobaJsonEncoder().encode(self))
 
     def __init__(self, 
-        learner_table: Table[int] = None, 
+        learner_table   : Table[int] = None, 
         simulation_table: Table[int] = None, 
-        batch_table:Table[Tuple[int,int,int]] = None) -> None:
+        batch_table     : Table[Tuple[int,int,Optional[int],int]] = None) -> None:
         """Instantiate a Result class."""
 
-        self._learner_table = Table[int]("Learners") if learner_table is None else learner_table
-        self._simulation_table = Table[int]("Simulations") if simulation_table is None else simulation_table
-        self._batch_table = Table[Tuple[int,int,int]]("Batches") if batch_table is None else batch_table
+        self._learner_table    = learner_table    if learner_table    else Table[int]("Learners")
+        self._simulation_table = simulation_table if simulation_table else Table[int]("Simulations")
+        self._batch_table      = batch_table      if batch_table      else Table[Tuple[int,int,Optional[int],int]]("Batches")
 
     def has_learner(self, learner_id:int) -> bool:
         return learner_id in self._learner_table
@@ -269,8 +277,8 @@ class Result(JsonSerializable):
     def has_simulation(self, simulation_id:int) -> bool:
         return simulation_id in self._simulation_table
 
-    def has_batch(self, learner_id:int, simulation_id:int, batch_index:int) -> bool:
-        return (learner_id, simulation_id, batch_index) in self._batch_table
+    def has_batch(self, learner_id:int, simulation_id:int, seed:Optional[int], batch_index:int) -> bool:
+        return (learner_id, simulation_id, seed, batch_index) in self._batch_table
 
     def get_learner(self, learner_id:int) -> Dict[str,Any]:
         return self._learner_table._rows[learner_id]
@@ -278,8 +286,8 @@ class Result(JsonSerializable):
     def get_simulation(self, simulation_id:int) -> Dict[str,Any]:
         return self._simulation_table._rows[simulation_id]
 
-    def get_batch(self, learner_id:int, simulation_id:int, batch_index:int) -> Dict[str,Any]:
-        return self._batch_table._rows[(learner_id, simulation_id, batch_index)]
+    def get_batch(self, learner_id:int, simulation_id:int, seed:Optional[int], batch_index:int) -> Dict[str,Any]:
+        return self._batch_table._rows[(learner_id, simulation_id, seed, batch_index)]
 
     def rmv_learner(self, learner_id:int):
         self._learner_table.rmv_row(learner_id)
@@ -288,14 +296,8 @@ class Result(JsonSerializable):
         self._simulation_table.rmv_row(simulation_id)
 
     def rmv_batches(self, simulation_id:int):
-
         if not simulation_id in self._simulation_table: return
-
-        n_learners = len(self._learner_table._rows)
-        n_batches  = self.get_simulation(simulation_id)['batch_count']
-
-        for batch_key in [ (l,simulation_id,b) for l in range(n_learners) for b in range(n_batches)]:
-            self._batch_table.rmv_row(batch_key)
+        for key in [ key for key in self._batch_table._rows if key[1] == simulation_id ]: self._batch_table.rmv_row(key)
 
     def to_tuples(self) -> Tuple[Sequence[Any], Sequence[Any], Sequence[Any]]:
         return (
@@ -304,7 +306,7 @@ class Result(JsonSerializable):
             self._batch_table.to_tuples()
         )
 
-    def to_indexed_tuples(self) -> Tuple[Dict[int,Any], Dict[int,Any], Dict[Tuple[int,int,int],Any]]:
+    def to_indexed_tuples(self) -> Tuple[Dict[int,Any], Dict[int,Any], Dict[Tuple[int,int,Optional[int],int],Any]]:
         return (
             self._learner_table.to_indexed_tuples(),
             self._simulation_table.to_indexed_tuples(),
@@ -346,12 +348,33 @@ class Result(JsonSerializable):
         return str(self)
 
 class Batcher(ABC):
+
+    @staticmethod
+    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'Batcher':
+
+        config = json.loads(json_val) if isinstance(json_val,str) else json_val
+
+        if "count" in config:
+            return CountBatcher.from_json(config)
+        elif "size" in config:
+            return SizeBatcher.from_json(config)
+        elif "sizes" in config:
+            return SizesBatcher.from_json(config)
+        else:
+            raise Exception("we were unable to determine an appropriate batching rule for the benchmark.")
+
     @abstractmethod
     def batch_sizes(self, n_interactions:int) -> Sequence[int]:
         ...
 
 class CountBatcher(Batcher):
-    def __init__(self, batch_count:int, min_interactions:float = 0, max_interactions: float = math.inf) -> None:
+
+    @staticmethod
+    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'CountBatcher':
+        config = json.loads(json_val) if isinstance(json_val,str) else json_val
+        return CountBatcher(config["count"], config.get("min",0), config.get("max",math.inf))
+
+    def __init__(self, batch_count:int, min_interactions:float = 1, max_interactions: float = math.inf) -> None:
         self._batch_count      = batch_count
         self._max_interactions = max_interactions
         self._min_interactions = min_interactions
@@ -369,16 +392,33 @@ class CountBatcher(Batcher):
         return batches
 
 class SizeBatcher(Batcher):
-    def __init__(self, batch_size:int) -> None:
-        self._batch_size = batch_size
+
+    @staticmethod
+    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'SizeBatcher':
+        config = json.loads(json_val) if isinstance(json_val,str) else json_val
+        return SizeBatcher(config["size"], config.get("min",0), config.get("max",math.inf))
+
+    def __init__(self, batch_size:int, min_interactions:float = 1, max_interactions: float = math.inf) -> None:
+        self._batch_size       = batch_size
+        self._max_interactions = max_interactions
+        self._min_interactions = min_interactions
 
     def batch_sizes(self, n_interactions: int) -> Sequence[int]:
-        if self._batch_size > n_interactions:
+        if n_interactions < self._min_interactions:
             return []
+
+        n_interactions = int(min(n_interactions, self._max_interactions))
 
         return [self._batch_size] * int(n_interactions/self._batch_size)
 
 class SizesBatcher(Batcher):
+
+    @staticmethod
+    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'SizesBatcher':
+        
+        config = json.loads(json_val) if isinstance(json_val,str) else json_val
+        return SizesBatcher(config["sizes"])
+
     def __init__(self, batch_sizes: Sequence[int]) -> None:
         self._batch_sizes = batch_sizes
 
@@ -439,11 +479,13 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         batch_sizes      : Sequence[int]
         batch_indexes    : Sequence[int]
 
-        simulation_index: int
-        simulation      : Simulation[_C_inner,_A_inner]
+        simulation_seed    : Optional[int]
+        simulation_index   : int
+        simulation_original: Simulation[_C_inner,_A_inner]
+        simulation_shuffled: Simulation[_C_inner,_A_inner]
 
         learner_index   : int
-        learner         : Learner[_C_inner,_A_inner]
+        learner         : SafeLearner[_C_inner,_A_inner]
 
         batch_index     : int
         batch           : Iterable[Tuple[int,Interaction[_C_inner,_A_inner]]]
@@ -475,57 +517,48 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         else:
             config = json_val
 
-        config = ExecutionContext.TemplatingEngine.parse(config)
+        config = ExecutionContext.Templating.parse(config)
 
-        is_singular = isinstance(config["simulations"], dict)
-        sim_configs = config["simulations"] if not is_singular else [ config["simulations"] ]
+        if not isinstance(config["simulations"], collections.Sequence):
+            config["simulations"] = [ config["simulations"] ]
 
-        #by default load simulations lazily
-        for sim_config in sim_configs:
-            if "lazy" not in sim_config:
-                sim_config["lazy"] = True
+        simulations  = [ Simulation.from_json(sim_config) for sim_config in config["simulations"] ]
+        batcher      = Batcher.from_json(config.get("batches","{'size': 1}"))
+        ignore_first = config.get("ignore_first", True)
+        ignore_raise = config.get("ignore_raise", True)
+        shuffle      = config.get("seeds", [None])
 
-        simulations = [ Simulation.from_json(sim_config) for sim_config in sim_configs ]
-
-        batcher: Batcher
-
-        if "count" in config["batches"]:
-            batcher = CountBatcher(config["batches"]["count"], config["batches"].get("min",0), config["batches"].get("max",math.inf))
-        elif "size" in config["batches"]:
-            batcher = SizeBatcher(config["batches"]["size"])
-        elif "sizes" in config["batches"]:
-            batcher = SizesBatcher(config["batches"]["sizes"])
-        else:
-            raise Exception("we were unable to determine an appropriate batching rule for the benchmark.")
-
-        return UniversalBenchmark(simulations, batcher, ignore_first=config["ignore_first"])
+        return UniversalBenchmark(simulations, batcher, ignore_first, ignore_raise, shuffle)
 
     def __init__(self,
         simulations : Sequence[Simulation[_C,_A]], 
         batcher: Batcher,
         ignore_first: bool = True,
-        ignore_raise: bool = True) -> None:
+        ignore_raise: bool = True,
+        shuffle_seeds: Sequence[Optional[int]] = [None]) -> None:
         """Instantiate a UniversalBenchmark.
 
         Args:
             simulations: A sequence of simulations to benchmark against.
             batcher: Determines how each simulation is broken into evaluation/learning batches.
             ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
-            raise_except: Determines if exceptions during benchmark evaluation are passed or raised.
+            ignore_raise: Determines if exceptions during benchmark evaluation are raised or simply logged.
+            shuffle_seeds: A sequence of seeds to shuffle simulations by when evaluating. None means no shuffle.
         
         See the overloads for more information.
         """
 
-        self._simulations  = simulations
-        self._batcher      = batcher
-        self._ignore_first = ignore_first
-        self._ignore_raise = ignore_raise
+        self._simulations   = simulations
+        self._batcher       = batcher
+        self._ignore_first  = ignore_first
+        self._ignore_raise  = ignore_raise
+        self._shuffle_seeds = shuffle_seeds
 
     def ignore_raise(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
-        return UniversalBenchmark(self._simulations, self._batcher, ignore_first=self._ignore_first, ignore_raise=value)
+        return UniversalBenchmark(self._simulations, self._batcher, self._ignore_first, value, self._shuffle_seeds)
 
     def ignore_first(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
-        return UniversalBenchmark(self._simulations, self._batcher, ignore_first=value, ignore_raise=self._ignore_raise)
+        return UniversalBenchmark(self._simulations, self._batcher, value, self._ignore_raise, self._shuffle_seeds)
 
     def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]], transaction_file:str = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
@@ -552,13 +585,18 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             ec.restored_result = Result()
             ec.result_writer   = ResultMemoryWriter()
 
-        for ec.learner_index, ec.learner in enumerate(f() for f in learner_factories):
-            if not ec.restored_result.has_learner(ec.learner_index):
-                ec.result_writer.write_learner(ec.learner_index, 
-                    family    = self._safe_family(ec.learner),
-                    full_name = self._safe_full(ec.learner),
-                    **self._safe_params(ec.learner)
-                )
+        n_restored_learners = len(ec.restored_result._learner_table._rows)
+
+        if n_restored_learners > 0 and n_restored_learners != len(learner_factories):
+            raise Exception("The number of learners differs from the transaction log.")
+
+        #write number of learners, number of simulations, batcher, shuffle seeds and ignore first
+        #make sure all these variables are the same. If they've changed then fail gracefully.
+
+        if n_restored_learners == 0:
+            for learner_index, learner_factory in enumerate(learner_factories):
+                learner = SafeLearner(learner_factory())
+                ec.result_writer.write_learner(learner_index, family = learner.family, full_name = learner.full_name, **learner.params)
 
         self._process_simulations(ec)
 
@@ -566,12 +604,13 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
     #Begin evaluation classes. These are called in a waterfall pattern.
     def _process_simulations(self, ec: 'UniversalBenchmark.EvaluationContext'):
-        for ec.simulation_index, ec.simulation in enumerate(self._simulations):
+        
+        for ec.simulation_index, ec.simulation_original in enumerate(self._simulations):
+            
             with ExecutionContext.Logger.log(f"evaluating simulation {ec.simulation_index}..."):
                 try:
                     self._process_simulation(ec)
                     ec.restored_result.rmv_batches(ec.simulation_index)
-
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:
@@ -580,45 +619,60 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
     def _process_simulation(self, ec: 'UniversalBenchmark.EvaluationContext'):
 
-        max_batch_index  = self._max_batch_index(ec.simulation_index, ec.restored_result)
-        max_batch_tuples = zip(range(len(ec.learner_factories)), repeat(ec.simulation_index), repeat(max_batch_index))
-
-        if all(ec.restored_result.has_batch(*max_batch_tuple) for max_batch_tuple in max_batch_tuples):
+        if self._simulation_is_finished_in_restored_results_for_all_seeds_and_learners(ec):
+            ExecutionContext.Logger.log("simulation already fully evaluated in the transaction log")
             return # we already have all the batches done so we can skip this simulation
+        else:
+            with self._lazy_simulation(ec.simulation_original) as ec.simulation_original:
 
-        with self._lazy_simulation(ec.simulation) as ec.simulation:
-            ec.batch_sizes   = self._batcher.batch_sizes(len(ec.simulation.interactions))
-            ec.batch_indexes = [b for index,size in enumerate(ec.batch_sizes) for b in repeat(index,size)]
+                ec.batch_sizes   = self._batcher.batch_sizes(len(ec.simulation_original.interactions))
+                ec.batch_indexes = [b for index,size in enumerate(ec.batch_sizes) for b in repeat(index,size)]
 
-            if len(ec.batch_sizes) == 0: 
-                raise Exception(f"{len(ec.simulation.interactions)} interactions were not enough to create eval batches.")
+                if not ec.restored_result.has_simulation(ec.simulation_index):
+                    ec.result_writer.write_simulation(ec.simulation_index,
+                        interaction_count = sum(ec.batch_sizes[int(self._ignore_first):]),
+                        batch_count       = len(ec.batch_sizes[int(self._ignore_first):]),
+                        seed_count        = len(self._shuffle_seeds),
+                        context_size      = int(median(self._context_sizes(ec.simulation_original))),
+                        action_count      = int(median(self._action_counts(ec.simulation_original)))
+                    )
 
-            if not ec.restored_result.has_simulation(ec.simulation_index):
+                if len(ec.batch_sizes) == 0:
+                    ExecutionContext.Logger.log(f"Unable to create batches from {len(ec.simulation_original.interactions)} interactions.")
                 
-                int_ignore_first = int(self._ignore_first)
+                if len(ec.batch_sizes) > 0:
+                    self._process_simulation_seeds(ec)
 
-                ec.result_writer.write_simulation(ec.simulation_index,
-                    interaction_count = sum(ec.batch_sizes[int_ignore_first:]),
-                    batch_count       = len(ec.batch_sizes[int_ignore_first:]),
-                    context_size      = median(self._context_sizes(ec.simulation)),
-                    action_count      = median(self._action_counts(ec.simulation))
-                )
+    def _process_simulation_seeds(self, ec: 'UniversalBenchmark.EvaluationContext'):
 
-            self._process_learners(ec)
+        if len(self._shuffle_seeds) == 1:
+            ec.simulation_seed = self._shuffle_seeds[0]
+            self._process_simulation_seed(ec)
+
+        if len(self._shuffle_seeds) > 1:
+            for ec.simulation_seed in self._shuffle_seeds:
+                with ExecutionContext.Logger.log(f"evaluating seed {ec.simulation_seed}..."):
+                    self._process_simulation_seed(ec)
+
+    def _process_simulation_seed(self, ec: 'UniversalBenchmark.EvaluationContext'):
+        if ec.simulation_seed is None:
+            ec.simulation_shuffled = ec.simulation_original
+        else:
+            ec.simulation_shuffled = ShuffleSimulation(ec.simulation_original, ec.simulation_seed)
+        self._process_learners(ec)
 
     def _process_learners(self, ec: 'UniversalBenchmark.EvaluationContext'):
         with ExecutionContext.Logger.log(f"evaluating learners..."):
-            max_batch_index  = self._max_batch_index(ec.simulation_index, ec.restored_result)
-            for ec.learner_index, ec.learner in enumerate(f() for f in ec.learner_factories):
-                if not ec.restored_result.has_batch(ec.learner_index, ec.simulation_index, max_batch_index):
+            for ec.learner_index, ec.learner in enumerate(SafeLearner(f()) for f in ec.learner_factories):
+                if not self._simulation_seed_learner_is_finished_in_restored_results(ec):
                     self._process_learner(ec)
 
     def _process_learner(self, ec: 'UniversalBenchmark.EvaluationContext'):
-        with ExecutionContext.Logger.log(f"evaluating {self._safe_full(ec.learner)}..."):
+        with ExecutionContext.Logger.log(f"evaluating {ec.learner.full_name}..."):
             self._process_batches(ec)
 
     def _process_batches(self, ec: 'UniversalBenchmark.EvaluationContext'):
-        for ec.batch_index, ec.batch in groupby(zip(ec.batch_indexes, ec.simulation.interactions), lambda t: t[0]):
+        for ec.batch_index, ec.batch in groupby(zip(ec.batch_indexes, ec.simulation_shuffled.interactions), lambda t: t[0]):
             self._process_batch(ec)
 
     def _process_batch(self, ec: 'UniversalBenchmark.EvaluationContext'):
@@ -641,41 +695,62 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             choices .append(choice)
             actions .append(interaction.actions[choice])
 
-        rewards = ec.simulation.rewards(list(zip(keys, choices))) 
+        rewards = ec.simulation_shuffled.rewards(list(zip(keys, choices))) 
 
         for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
             ec.learner.learn(key,context,action,reward)
 
-        if ec.batch_index >= 0:
+        if ec.batch_index >= 0 and not ec.restored_result.has_batch(ec.learner_index, ec.simulation_index, ec.simulation_seed, ec.batch_index):
             ec.result_writer.write_batch(
                 ec.learner_index,
                 ec.simulation_index,
+                ec.simulation_seed,
                 ec.batch_index,
                 N      = len(rewards),
                 reward = BatchMeanEstimator(rewards)
             )
 
     #Begin utility classes
-    def _safe_family(self, learner: Any) -> str:
-        try:
-            return learner.family
-        except:
-            return learner.__class__.__name__
-    
-    def _safe_params(self, learner: Any) -> Dict[str,Any]:
-        try:
-            return learner.params
-        except:
-            return {}
+    def _simulation_is_finished_in_restored_results_for_all_seeds_and_learners(self, ec: 'UniversalBenchmark.EvaluationContext') -> bool:
 
-    def _safe_full(self, learner: Any) -> str:
-        family = self._safe_family(learner)
-        params = self._safe_params(learner)
+        if not ec.restored_result.has_simulation(ec.simulation_index):
+            return False #this simulation has never been processed
 
-        if len(params) > 0:
-            return f"{family}({','.join(f'{k}={v}' if k != '' else f'{v}' for k,v in params.items())})"
-        else:
-            return family
+        restored_simulation = ec.restored_result.get_simulation(ec.simulation_index)
+
+        if restored_simulation['batch_count'] == 0:
+            return True #this simulation was previously processed and found to be too small to batch
+        
+        n_learners = len(ec.learner_factories)
+        n_batches  = restored_simulation['batch_count']
+
+        fully_evaluated_batch_count = n_learners * len(self._shuffle_seeds) * n_batches
+        restored_batch_count  = 0
+
+        for learner_index, shuffle_seed, batch_index in  product(range(n_learners), self._shuffle_seeds, range(n_batches)):
+            restored_batch_count += int(ec.restored_result.has_batch(learner_index, ec.simulation_index, shuffle_seed, batch_index))
+
+        # true if all batches were evaluated previously
+        return restored_batch_count == fully_evaluated_batch_count
+
+    def _simulation_seed_learner_is_finished_in_restored_results(self, ec: 'UniversalBenchmark.EvaluationContext') -> bool:
+
+        if not ec.restored_result.has_simulation(ec.simulation_index):
+            return False #this simulation has never been processed
+
+        restored_simulation = ec.restored_result.get_simulation(ec.simulation_index)
+
+        if restored_simulation['batch_count'] == 0:
+            return True #this simulation was previously processed and found to be too small to batch
+
+        fully_evaluated_batch_count = restored_simulation['batch_count']
+        restored_batch_count        = 0
+
+        for batch_index in  range(restored_simulation['batch_count']):
+            restored_batch_count += int(ec.restored_result.has_batch(ec.learner_index, ec.simulation_index, ec.simulation_seed, batch_index))
+
+        # true if all batches were evaluated previously
+        return restored_batch_count == fully_evaluated_batch_count
 
     def _lazy_simulation(self, simulation: Simulation) -> LazySimulation:
         return simulation if isinstance(simulation, LazySimulation) else LazySimulation(lambda: simulation)
@@ -687,6 +762,3 @@ class UniversalBenchmark(Benchmark[_C,_A]):
     def _action_counts(self, simulation: Simulation) -> Iterable[int]:
         for actions in [i.actions for i in simulation.interactions]:
             yield len(actions)
-
-    def _max_batch_index(self, simulation_id, result:Result) -> int:
-        return result.get_simulation(simulation_id)['batch_count']-1 if result.has_simulation(simulation_id) else -1

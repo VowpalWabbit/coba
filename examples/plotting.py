@@ -16,7 +16,7 @@ random = coba.random.Random(10)
 simulation = LambdaSimulation(300, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.randint(a-2,a+2))
 
 #define a benchmark: this benchmark replays the simulation 15 times
-benchmark = UniversalBenchmark([simulation]*10, SizeBatcher(1))
+benchmark = UniversalBenchmark([simulation], SizeBatcher(1), shuffle_seeds=list(range(20)))
 
 #create the learner factories
 learner_factories = [

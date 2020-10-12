@@ -7,12 +7,14 @@ import json
 import copy
 import collections
 import time
+import sys
+import os
 
 from contextlib import contextmanager
 from itertools import repeat
 from gzip import compress, decompress
 from abc import ABC, abstractmethod
-from io import BytesIO
+from io import BytesIO, IOBase
 from pathlib import Path
 from datetime import datetime
 from typing import (
@@ -23,7 +25,7 @@ from typing import (
 _K = TypeVar("_K")
 _V = TypeVar("_V")
 
-class TemplatingEngine():
+class TemplatingEngine:
     """This class materializes templates within benchmark json files.
     
     The templating engine works as follows: 
@@ -38,8 +40,7 @@ class TemplatingEngine():
         5. Keep defined variables in context while walking child objects in case they are needed as well.
     """
     
-    @staticmethod
-    def parse(json_val:Union[str, Dict[str,Any]]):
+    def parse(self, json_val:Union[str, Dict[str,Any]]):
 
         root = json.loads(json_val) if isinstance(json_val, str) else json_val
 
@@ -374,13 +375,63 @@ class ExecutionContext:
             [4] https://docs.python.org/3/library/contextvars.html
     """
 
-    TemplatingEngine: TemplatingEngine               = TemplatingEngine()
-    CobaConfig      : CobaConfig                     = CobaConfig()
-    FileCache       : CacheInterface[str, IO[bytes]] = NoneCache()
-    Logger          : LoggerInterface                = ConsoleLogger()
+    Templating : TemplatingEngine               = TemplatingEngine()
+    Config     : CobaConfig                     = CobaConfig()
+    FileCache  : CacheInterface[str, IO[bytes]] = NoneCache()
+    Logger     : LoggerInterface                = ConsoleLogger()
 
-    if CobaConfig.file_cache["type"] == "disk":
-        FileCache = DiskCache(CobaConfig.file_cache["directory"])
+    if Config.file_cache["type"] == "disk":
+        FileCache = DiskCache(Config.file_cache["directory"])
 
-    if CobaConfig.file_cache["type"] == "memory":
+    if Config.file_cache["type"] == "memory":
         FileCache = MemoryCache[str, IO[bytes]]()
+
+@contextmanager
+def redirect_stderr(to: IOBase):
+    """Redirect stdout for both C and Python.
+
+    Remarks:
+        This code comes from https://stackoverflow.com/a/17954769/1066291. Because this modifies
+        global pointers this code is not "thread-safe". This limitation is also true of the built-in
+        Python modules such as `contextlib.redirect_stdout` and `contextlib.redirect_stderr`. See
+        https://docs.python.org/3/library/contextlib.html#contextlib.redirect_stdout for more info.
+    """
+    
+    #we assume that this fd is the same
+    #one that is used by our C library
+    stderr_fd = sys.stderr.fileno()
+
+    def _redirect_stderr(redirect_stderr_fd):
+        
+        #first we close Python's stderr. It should be noted that this
+        #doesn't close the file descriptor (i.e., sys.stderr.fileno())
+        #this only closes Python's wrapper around the stderr_fd
+        sys.stderr.close()
+    
+        # next we change the stderr_fd to point to the
+        # file contained in the redirect_stderr_fd.
+        # If C has anything buffered for stderr it
+        # will now go to the new fd. There do appear
+        # to be ways to flush C buffers from Python 
+        # but I'm not sure it is worth it given the
+        # amount of complexity it adds to the code.
+        os.dup2(redirect_stderr_fd, stderr_fd)
+
+        # finally re-open Python's stderr wrapper
+        # with it pointing to the file at stderr_fd
+        sys.stderr = os.fdopen(stderr_fd, 'w')
+
+    # when we dup there are now two fd's
+    # pointing to the same file. Closing
+    # one of these doesn't close the other.
+    # therefore it is on us to close the
+    # duplicate fd we make here before ending.
+    old_stderr_fd = os.dup(stderr_fd)
+    new_stderr_fd = to.fileno()
+
+    try:
+        _redirect_stderr(new_stderr_fd)
+        yield # allow code to be run with the redirected stderr
+    finally:
+        _redirect_stderr(old_stderr_fd) 
+        os.close(old_stderr_fd)

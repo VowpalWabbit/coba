@@ -3,13 +3,14 @@ This is an example script that creates a ClassificationSimulation using the cove
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
+from build.lib.coba.benchmarks import SizeBatcher
 from coba.simulations import ClassificationSimulation, ShuffleSimulation
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
-from coba.benchmarks import LambdaBatcher, UniversalBenchmark
+from coba.benchmarks import UniversalBenchmark, SizeBatcher
 from coba.analysis import Plots
 
 simulation = ShuffleSimulation(ClassificationSimulation.from_openml(150))
-benchmark  = UniversalBenchmark([simulation], LambdaBatcher(lambda i: 100 + i*100))
+benchmark  = UniversalBenchmark([simulation], SizeBatcher(1, max_interactions=5000), shuffle_seeds=list(range(10)))
 
 learner_factories = [
     lambda: RandomLearner(),

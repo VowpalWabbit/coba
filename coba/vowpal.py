@@ -3,9 +3,11 @@
 TODO Add unittests
 """
 
+from os import devnull
 from typing import Any, Dict, Tuple, Union, Sequence
 
 import coba.random
+from coba.execution import redirect_stderr
 from coba.utilities import check_vowpal_support
 from coba.simulations import Context, Action, Choice
 
@@ -53,7 +55,15 @@ class Wrapper:
         
         seed_flag     = f"--random_seed {self._seed}" if self._seed is not None else ""
         self._created = True
-        self._vw      = self._vw_init(flags + f" --quiet {seed_flag}")
+
+        # vowpal has an annoying warning that is written to stderr whether or not we provide
+        # the --quiet flag. Therefore, we temporarily redirect all stderr output to null so that
+        # this warning isn't shown during creation. It should be noted this isn't thread-safe
+        # so if you are here because of strange problems with threads we may just need to suck
+        # it up and accept that there will be an obnoxious warning message.
+        with open(devnull, 'w') as f:
+            with redirect_stderr(f):
+                self._vw = self._vw_init(flags + f" --quiet {seed_flag}")
 
     def choose(self, context, actions) -> Tuple[Choice, float]:
         pmf  = self._vw.predict(self._format.predict(context, actions))
