@@ -9,6 +9,7 @@ import collections
 import time
 import sys
 import os
+import traceback
 
 from contextlib import contextmanager
 from itertools import repeat
@@ -304,7 +305,7 @@ class UniversalLogger(LoggerInterface):
             # been logged. This is friendlier when debugging since some Python debuggers
             # don't ever look at the __cause__ attribute set by the explicit syntax
             self.log_exception(e, f"exception after {round(time.time() - self._start_times[-1], 2)} seconds:")
-            raise e
+            raise
 
         finally:
             self._start_times.pop()
@@ -337,13 +338,14 @@ class UniversalLogger(LoggerInterface):
 
         return self._with()
 
-    def log_exception(self, exception: Exception, preamble:str = "") -> None:
+    def log_exception(self, ex: Exception, preamble:str = "") -> None:
         """log an exception if it hasn't already been logged."""
 
-        if not hasattr(exception, '__logged__'):
-            setattr(exception, '__logged__', True)
+        if not hasattr(ex, '__logged__'):
+            setattr(ex, '__logged__', True)
+            
             if not self._is_newline: self.log('')
-            self.log(f"{preamble} {exception}".strip())
+            self.log(f"{preamble} {''.join(traceback.TracebackException.from_exception(ex).format())}".lstrip())
 
 
 class ConsoleLogger(UniversalLogger):

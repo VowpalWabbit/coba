@@ -1,5 +1,7 @@
+
 import unittest
 import json
+import traceback
 
 from gzip import compress, decompress
 from pathlib import Path
@@ -118,19 +120,18 @@ class UniversalLogger_Tests(unittest.TestCase):
 
     def test_log_exception_1(self):
         actual_prints = []
-        exception = Exception("Test Exception")
 
         logger = UniversalLogger(print_function = lambda m,e: actual_prints.append((m,e)))
 
-        logger.log_exception(exception)
+        try:
+            raise Exception("Test Exception")
+        except Exception as ex:
+            logger.log_exception(ex)
 
-        self.assertTrue(hasattr(exception, '__logged__'))
-        self.assertEqual(actual_prints[0][0][20:], "Test Exception")
-        self.assertEqual(actual_prints[0][1], None)
-
-        logger.log_exception(exception)
-
-        self.assertEqual(len(actual_prints), 1)
+            self.assertTrue(hasattr(ex, '__logged__'))
+            self.assertEqual(actual_prints[0][0][20:], traceback.format_exc())
+            self.assertEqual(actual_prints[0][1], None)
+            self.assertEqual(len(actual_prints), 1)
 
     def test_log_exception_2(self):
         actual_prints = []
@@ -141,34 +142,14 @@ class UniversalLogger_Tests(unittest.TestCase):
         logger.log('a', end='b')
         logger.log_exception(exception)
 
-        self.assertTrue(hasattr(exception, '__logged__'))
-        self.assertEqual(actual_prints[0][0][20:], "a")
-        self.assertEqual(actual_prints[0][1]     , "b")
-        self.assertEqual(actual_prints[1][0][20:], '')
-        self.assertEqual(actual_prints[1][1]     , None)
-        self.assertEqual(actual_prints[2][0][20:], "Test Exception")
-        self.assertEqual(actual_prints[2][1], None)
-
-        logger.log_exception(exception)
-
-    def test_log_exception_3(self):
-        actual_prints = []
-        exception = Exception("Test Exception")
-
-        logger = UniversalLogger(print_function = lambda m,e: actual_prints.append((m,e)))
-
-        try:
-            with logger.log('a', end='b'):
-                raise exception
-        except:
-            pass
+        expected_msg = ''.join(traceback.TracebackException.from_exception(exception).format())
 
         self.assertTrue(hasattr(exception, '__logged__'))
         self.assertEqual(actual_prints[0][0][20:], "a")
         self.assertEqual(actual_prints[0][1]     , "b")
         self.assertEqual(actual_prints[1][0][20:], '')
         self.assertEqual(actual_prints[1][1]     , None)
-        self.assertEqual(actual_prints[2][0][53:], "Test Exception")
+        self.assertEqual(actual_prints[2][0][20:], expected_msg)
         self.assertEqual(actual_prints[2][1], None)
 
         logger.log_exception(exception)

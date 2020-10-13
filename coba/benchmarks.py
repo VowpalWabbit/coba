@@ -32,6 +32,7 @@ from coba.random import Random
 _K  = TypeVar("_K", bound=Hashable)
 _C  = TypeVar('_C', bound=Context)
 _A  = TypeVar('_A', bound=Action)
+_T  = TypeVar('_T')
 
 class Table(JsonSerializable, Generic[_K]):
     """A container class for storing tabular data."""
@@ -551,38 +552,36 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             #make sure all these variables are the same. If they've changed then fail gracefully.                    
 
             for simulation in self._make_simulations(self._simulations, restored, results):
-                try:
-                    for learner in self._make_learners(learner_factories, simulation, restored, results):
-                        for batch in enumerate(simulation.batches):
-                            self._process_batch(simulation, learner, batch, restored, results)
-                    restored.rmv_batches(simulation.index) # to reduce memory in case we restore a large log
-                except KeyboardInterrupt:
-                    raise
-                except Exception as e:
-                    ExecutionContext.Logger.log_exception(e, "unhandled exception:")
-                    if not self._ignore_raise: raise e
+                self._handle_exceptions(
+                    lambda: self._process_simulation(simulation, learner_factories, restored, results)
+                )
 
         return Result.from_result_writer(results)
 
     def _make_simulations(self, simulations, restored, results) -> Iterable[BenchmarkSimulation[_C, _A]]:
         for index, simulation in enumerate(simulations):
+            try:
+                if self._simulation_finished_in_restored(restored, index): continue
 
-            if self._simulation_finished_in_restored(restored, index): continue
+                with self._lazy_simulation(simulation) as loaded_simulation:
 
-            with self._lazy_simulation(simulation) as loaded_simulation:
+                    batch_sizes = self._batcher.batch_sizes(len(loaded_simulation.interactions))
 
-                batch_sizes = self._batcher.batch_sizes(len(loaded_simulation.interactions))
+                    if not restored.has_simulation(index):
+                        results.write_simulation(index,
+                            interaction_count = sum(batch_sizes[int(self._ignore_first):]),
+                            batch_count       = len(batch_sizes[int(self._ignore_first):]),
+                            seed_count        = len(self._seeds),
+                            context_size      = int(median(self._context_sizes(loaded_simulation))),
+                            action_count      = int(median(self._action_counts(loaded_simulation)))
+                        )
 
-                if not restored.has_simulation(index):
-                    results.write_simulation(index,
-                        interaction_count = sum(batch_sizes[int(self._ignore_first):]),
-                        batch_count       = len(batch_sizes[int(self._ignore_first):]),
-                        seed_count        = len(self._seeds),
-                        context_size      = int(median(self._context_sizes(loaded_simulation))),
-                        action_count      = int(median(self._action_counts(loaded_simulation)))
-                    )
-
-                for seed in self._seeds: yield BenchmarkSimulation(index, seed, batch_sizes, simulation)
+                    for seed in self._seeds: yield BenchmarkSimulation(index, seed, batch_sizes, simulation)
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                ExecutionContext.Logger.log_exception(e, "unhandled exception:")
+                if not self._ignore_raise: raise e
 
     def _make_learners(self, factories, simulation, restored, results) -> Iterable[BenchmarkLearner[_C,_A]]:
         for learner in map(BenchmarkLearner, *zip(*enumerate(factories))):
@@ -594,7 +593,21 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             if not self._simulation_learner_finished_in_restored(restored, simulation, learner.index):
                 yield learner
 
-    def _process_batch(self, simulation, learner, batch, restored, results):
+    def _process_simulation(self, simulation, factories, restored, results):
+
+        for learner in self._make_learners(factories, simulation, restored, results):
+            ExecutionContext.Logger.log(f"Processing simulation ({simulation.index},{simulation.seed}) with {learner.full_name}")
+            self._handle_exceptions(
+                lambda: self._process_learner(simulation, learner, restored, results)
+            )
+
+        restored.rmv_batches(simulation.index) # to reduce memory in case we restore a large log
+
+    def _process_learner(self, simulation, learner, restored, results)-> None:
+        for batch in enumerate(simulation.batches):
+            self._process_batch(simulation, learner, batch, restored, results)
+
+    def _process_batch(self, simulation, learner, batch, restored, results) -> None:
         
         batch_index        = batch[0]
         batch_interactions = batch[1]
@@ -628,6 +641,15 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             results.write_batch(learner.index, simulation.index, simulation.seed, batch_index, **row)
 
     #Begin utility classes
+    def _handle_exceptions(self, func: Callable[[], _T]) -> _T:
+        try:
+            func()
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            ExecutionContext.Logger.log_exception(e, "unhandled exception:")
+            if not self._ignore_raise: raise e
+
     def _simulation_finished_in_restored(self, restored_result: Result, simulation_index: int) -> bool:
 
         if not restored_result.has_simulation(simulation_index):
