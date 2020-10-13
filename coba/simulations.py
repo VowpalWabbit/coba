@@ -7,6 +7,7 @@ Rather, they simply make it possible to use static type checking for any project
 to do so.
 
 TODO Add RegressionSimulation
+TODO Figure out LazySimulation vs JsonSimulation
 """
 
 import gc
@@ -16,7 +17,7 @@ import urllib.request
 import gzip
 
 from collections import defaultdict
-from itertools import compress, repeat, count, chain, groupby
+from itertools import compress, repeat, count, chain
 from http.client import HTTPResponse
 from contextlib import closing
 from abc import ABC, abstractmethod
@@ -78,7 +79,7 @@ class Simulation(Generic[_C_out, _A_out], ABC):
     """The simulation interface."""
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'Simulation[Context, Action]':
+    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'JsonSimulation[Context, Action]':
         """Construct a Simulation object from JSON.
 
         Args:
@@ -88,17 +89,7 @@ class Simulation(Generic[_C_out, _A_out], ABC):
             The Simulation representation of the given JSON string or object.
         """
 
-        config = json.loads(json_val) if isinstance(json_val,str) else json_val
-
-        lazy_loader: Callable[[Callable[[],Simulation[Context,Action]]], Simulation] = lambda sim_factory: LazySimulation(sim_factory)
-        now_loader : Callable[[Callable[[],Simulation[Context,Action]]], Simulation] = lambda sim_factory: sim_factory()
-
-        loader = lazy_loader if config.get("lazy", True) else now_loader
-
-        if config["type"] == "classification":
-            return  loader(lambda: ClassificationSimulation.from_json(config["from"]))
-
-        raise Exception("We were unable to recognize the provided simulation type")
+        return JsonSimulation(json_val)
 
     @property
     @abstractmethod
@@ -124,6 +115,62 @@ class Simulation(Generic[_C_out, _A_out], ABC):
             interaction/action. This sequence will always align with the provided choices.
         """
         ...
+
+class JsonSimulation(Simulation[_C_out, _A_out]):
+    """A Simulation implementation which supports loading and unloading from json representations.""" 
+    
+    def __init__(self, json_val) -> None:
+        """Instantiate a JsonSimulation
+
+        Args:
+            json: A json representation that can be turned into a simulation when needed.
+        """
+
+        self._json_obj = json.loads(json_val) if isinstance(json_val,str) else json_val
+        self._simulation: Optional[Simulation[_C_out, _A_out]]  = None
+
+    def __enter__(self) -> 'JsonSimulation[_C_out,_A_out]':
+        """Load the simulation into memory. If already loaded do nothing."""
+
+        with ExecutionContext.Logger.log(f"loading simulation..."):
+            if self._simulation is None and self._json_obj["type"] == "classification":
+                self._simulation = ClassificationSimulation.from_json(self._json_obj["from"])
+            else:
+                raise Exception("We were unable to recognize the provided simulation type")
+
+            return self
+
+    def __exit__(self, exception_type, exception_value, traceback) -> None:
+        """Unload the simulation from memory."""
+
+        if self._simulation is not None:
+            self._simulation = None
+            gc.collect() #in case the simulation is large
+
+    @property
+    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+        """The interactions in this simulation.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+
+        if self._simulation is not None:
+            return self._simulation.interactions
+        
+        raise Exception("A JsonSimulation must be loaded before it can be used.")
+
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+        
+        if self._simulation is not None:
+            return self._simulation.rewards(choices)
+
+        raise Exception("A JsonSimulation must be loaded before it can be used.")
 
 class LazySimulation(Simulation[_C_out, _A_out]):
     """A Simulation implementation which supports loading and unloading from memory.""" 
@@ -163,7 +210,7 @@ class LazySimulation(Simulation[_C_out, _A_out]):
 
         if self._simulation is not None:
             return self._simulation.interactions
-        
+
         raise Exception("A LazySimulation must be loaded before it can be used.")
 
     def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:

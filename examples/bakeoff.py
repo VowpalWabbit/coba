@@ -19,7 +19,8 @@ learner_factories = [
     lambda: VowpalLearner(softmax=1, seed=10)
 ]
 
-with ExecutionContext.Logger.log("evaluating learners..."):
-    result = benchmark.evaluate(learner_factories)
+if __name__ == '__main__':
+    with ExecutionContext.Logger.log("evaluating learners..."):
+        results = benchmark.evaluate(learner_factories)
 
-Plots.standard_plot(result)
+    Plots.standard_plot(results, show_err=False)

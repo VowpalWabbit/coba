@@ -1,6 +1,7 @@
 """The execution module contains classes determining the context in which COBA executes.
 
 TODO Add unittests for CobaConfig.
+TODO Figure out real logging that works on multiple threads
 """
 
 import json

@@ -1,7 +1,7 @@
 {
     "templates"   : { "openml_classification": { "type":"classification", "from": {"format":"openml", "id":"$id"} }},
     "batches"     : { "count":51 },
-    "shuffle"     : [777],
+    "shuffle"     : [777,888,999,1010,1111,1212],
     "ignore_first": true,
     "simulations" : [
         {"template":"openml_classification", "$id":3   },

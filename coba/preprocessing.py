@@ -3,6 +3,7 @@
 Remarks:
     This module is used primarily for the creation of simulations from data sets.
 
+TODO Decide where the Batchers should go
 TODO InferredEncoder needs a lot of love. Currently its inferences are quite bad.
 """
 

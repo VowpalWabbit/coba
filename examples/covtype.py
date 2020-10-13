@@ -3,24 +3,27 @@ This is an example script that creates a ClassificationSimulation using the cove
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
-from coba.simulations import ClassificationSimulation, LazySimulation
+from coba.simulations import JsonSimulation
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 from coba.benchmarks import UniversalBenchmark
 from coba.preprocessing import SizeBatcher
 from coba.analysis import Plots
+from coba.execution import ExecutionContext
 
-simulation = LazySimulation(lambda:ClassificationSimulation.from_openml(150))
-benchmark  = UniversalBenchmark([simulation], SizeBatcher(1, max_interactions=5000), shuffle_seeds=list(range(10)))
+simulation = JsonSimulation('{ "type":"classification", "from": { "format":"openml", "id":150 } }')
+benchmark  = UniversalBenchmark([simulation], SizeBatcher(2, max_interactions=5000), shuffle_seeds=list(range(10)))
 
 learner_factories = [
-    lambda: RandomLearner(),
-    lambda: EpsilonLearner(0.025),
-    lambda: UcbTunedLearner(),
-    lambda: VowpalLearner(epsilon=0.025),
-    lambda: VowpalLearner(bag=5),
-    lambda: VowpalLearner(softmax=3.5)
+    lambda: RandomLearner(seed=10),
+    lambda: EpsilonLearner(0.025,seed=10),
+    lambda: UcbTunedLearner(seed=10),
+    lambda: VowpalLearner(epsilon=0.025,seed=10),
+    lambda: VowpalLearner(bag=5,seed=10),
+    lambda: VowpalLearner(softmax=3.5,seed=10)
 ]
 
-results = benchmark.evaluate(learner_factories)
+if __name__ == '__main__':
+    with ExecutionContext.Logger.log("evaluating learners..."):
+        results = benchmark.evaluate(learner_factories)
 
-Plots.standard_plot(results)
+    Plots.standard_plot(results)

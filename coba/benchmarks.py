@@ -18,9 +18,9 @@ from typing import (
     Iterable, Tuple, Hashable, Union, Sequence, List, Callable, 
     Generic, TypeVar, Dict, Any, cast, Type, Optional
 )
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 
-from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action, Key, Choice, Reward
+from coba.simulations import Interaction, LazySimulation, JsonSimulation, Simulation, Context, Action, Key, Choice, Reward
 from coba.preprocessing import Batcher
 from coba.learners import Learner
 from coba.execution import ExecutionContext
@@ -401,7 +401,7 @@ class BenchmarkSimulation(Simulation[_C, _A]):
         self._interactions = Random(seed).shuffle(simulation.interactions) if seed else simulation.interactions
         self._interactions = self._interactions[0:sum(batch_sizes)]
         
-        if isinstance(simulation, LazySimulation):
+        if isinstance(simulation, (LazySimulation, JsonSimulation)):
             self._rewards = simulation._simulation.rewards
         else:
             self._rewards = simulation.rewards
@@ -561,7 +561,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         mp = self._max_processes if self._max_processes else ExecutionContext.Config.max_processes
 
-        with results, ThreadPoolExecutor(mp) as exe:
+        with results:
             if n_restored_learners == 0:
                 for learner in map(BenchmarkLearner, *zip(*enumerate(learner_factories))):
                     if not restored.has_learner(learner.index):
@@ -571,10 +571,18 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             #write number of learners, number of simulations, batcher, shuffle seeds and ignore first
             #make sure all these variables are the same. If they've changed then fail gracefully.                    
 
-            for simulation in self._make_simulations(self._simulations, restored, results):
-                self._handle_exceptions(
-                    lambda: self._process_simulation(exe, simulation, learner_factories, restored, results)
-                )
+            tasks = self._make_tasks(self._simulations, learner_factories, restored, results)
+
+            if mp == 1:
+                for task_results in map(self._process_task, tasks, repeat(restored)):
+                    for key, row in filter(None,task_results):
+                        results.write_batch(*key, **row)
+
+            if mp > 1:
+                with ProcessPoolExecutor(mp) as exe: 
+                    for task_results in exe.map(self._process_task, tasks, repeat(restored)):
+                        for key, row in filter(None,task_results):
+                            results.write_batch(*key, **row)
 
         return Result.from_result_writer(results)
 
@@ -603,71 +611,59 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                 ExecutionContext.Logger.log_exception(e, "unhandled exception:")
                 if not self._ignore_raise: raise e
 
-    def _make_learners(self, factories, simulation, restored, results) -> Iterable[BenchmarkLearner[_C,_A]]:
+    def _make_learners(self, simulation, factories, restored, results) -> Iterable[BenchmarkLearner[_C,_A]]:
         for learner in map(BenchmarkLearner, *zip(*enumerate(factories))):
             if not self._simulation_learner_finished_in_restored(restored, simulation, learner.index):
                 yield learner
 
-    def _process_simulation(self, exe, simulation, factories, restored, results):
+    def _make_tasks(self, simulations, factories, restored, results) -> Iterable[Tuple[BenchmarkSimulation, Learner]]:
+        for simulation in self._make_simulations(simulations, restored, results):
+            for learner in self._make_learners(simulation, factories, restored, results):
+                yield (simulation,learner)
+            #restored.rmv_batches(simulation.index) # to reduce memory in case we restore a large log
+        
+    def _process_task(self, task, restored):
+        result = []
+        for batch in enumerate(task[0].batches):
+            result.append(self._process_batch(task[0], task[1], batch, restored))
+        return result
 
-        for learner in self._make_learners(factories, simulation, restored, results):
-            ExecutionContext.Logger.log(f"Processing simulation ({simulation.index},{simulation.seed}) with {learner.full_name}")
-            self._handle_exceptions(
-                #lambda: self._process_learner(simulation, learner, restored, results)
-                lambda: exe.submit(self._process_learner, simulation, learner, restored, results)
-            )
+    def _process_batch(self, simulation, learner, batch, restored):
+        batch_index        = batch[0]
+        batch_interactions = batch[1]
+        
+        keys     = []
+        contexts = []
+        choices  = []
+        actions  = []
 
-        restored.rmv_batches(simulation.index) # to reduce memory in case we restore a large log
+        if self._ignore_first:
+            batch_index -= 1
 
-    def _process_learner(self, simulation, learner, restored, results)-> None:
-        for batch in enumerate(simulation.batches):
-            self._process_batch(simulation, learner, batch, restored, results)
+        for interaction in batch_interactions:
 
-    def _process_batch(self, simulation, learner, batch, restored, results) -> None:
-        try:
-            batch_index        = batch[0]
-            batch_interactions = batch[1]
-            
-            keys     = []
-            contexts = []
-            choices  = []
-            actions  = []
+            choice = learner.choose(interaction.key, interaction.context, interaction.actions)
 
-            if self._ignore_first:
-                batch_index -= 1
+            assert choice in range(len(interaction.actions)), "An invalid action was chosen by the learner"
 
-            for interaction in batch_interactions:
+            keys    .append(interaction.key)
+            contexts.append(interaction.context)
+            choices .append(choice)
+            actions .append(interaction.actions[choice])
 
-                choice = learner.choose(interaction.key, interaction.context, interaction.actions)
+        rewards = simulation.rewards(list(zip(keys, choices))) 
 
-                assert choice in range(len(interaction.actions)), "An invalid action was chosen by the learner"
+        for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
+            learner.learn(key,context,action,reward)
 
-                keys    .append(interaction.key)
-                contexts.append(interaction.context)
-                choices .append(choice)
-                actions .append(interaction.actions[choice])
-
-            rewards = simulation.rewards(list(zip(keys, choices))) 
-
-            for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
-                learner.learn(key,context,action,reward)
-
-            if batch_index >= 0 and not restored.has_batch(learner.index, simulation.index, simulation.seed, batch_index):
-                row = {"N":len(rewards), "reward":BatchMeanEstimator(rewards)}
-                results.write_batch(learner.index, simulation.index, simulation.seed, batch_index, **row)
-        except Exception as e:
-            pass
+        if batch_index >= 0 and not restored.has_batch(learner.index, simulation.index, simulation.seed, batch_index):
+            key = (learner.index, simulation.index, simulation.seed, batch_index)
+            row = {"N":len(rewards), "reward":BatchMeanEstimator(rewards)}
+            return (key,row)
+        else:
+            return None
 
     #Begin utility classes
-    def _handle_exceptions(self, func: Callable[[], _T]) -> _T:
-        try:
-            func()
-        except KeyboardInterrupt:
-            raise
-        except Exception as e:
-            ExecutionContext.Logger.log_exception(e, "unhandled exception:")
-            if not self._ignore_raise: raise e
-
     def _simulation_finished_in_restored(self, restored_result: Result, simulation_index: int) -> bool:
 
         if not restored_result.has_simulation(simulation_index):
@@ -704,8 +700,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         # true if all batches were evaluated previously
         return restored_batch_count == fully_evaluated_batch_count
 
-    def _lazy_simulation(self, simulation: Simulation) -> LazySimulation:
-        return simulation if isinstance(simulation, LazySimulation) else LazySimulation(lambda: simulation)
+    def _lazy_simulation(self, simulation: Simulation) -> Union[LazySimulation,JsonSimulation]:
+        return simulation if isinstance(simulation, (LazySimulation, JsonSimulation)) else LazySimulation(lambda: simulation)
 
     def _context_sizes(self, simulation: Simulation) -> Iterable[int]:
         for context in [i.context for i in simulation.interactions]:

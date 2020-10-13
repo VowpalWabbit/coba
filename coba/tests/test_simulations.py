@@ -61,7 +61,6 @@ class Simulation_Tests(unittest.TestCase):
     def test_from_json(self):
         json_val = ''' {
             "type": "classification",
-            "lazy": false,
             "from": {
                 "format"          : "table",
                 "table"           : [["a","b","c"], ["s1","2","3"], ["s2","5","6"]],
@@ -71,9 +70,8 @@ class Simulation_Tests(unittest.TestCase):
             }
         } '''
 
-        simulation = Simulation.from_json(json_val)
-
-        self.assertEqual(len(simulation.interactions), 2)
+        with Simulation.from_json(json_val) as simulation:
+            self.assertEqual(len(simulation.interactions), 2)
 
 class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
@@ -370,7 +368,7 @@ class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         action_sets = [[1,2,3], [4,5,6]]
         reward_sets = [[0,1,2], [2,3,4]]
 
-        simulation = LazySimulation[int,int](lambda: MemorySimulation(contexts, action_sets, reward_sets)).__enter__()
+        simulation = LazySimulation(lambda: MemorySimulation(contexts, action_sets, reward_sets)).__enter__()
 
         expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
         expected_rewards      = reward_sets
@@ -383,7 +381,7 @@ class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         action_sets = [[1,2,3], [4,5,6]]
         reward_sets = [[0,1,2], [2,3,4]]
 
-        lazy_simulation = LazySimulation[int,int](lambda: MemorySimulation(contexts, action_sets, reward_sets))
+        lazy_simulation = LazySimulation(lambda: MemorySimulation(contexts, action_sets, reward_sets))
 
         with lazy_simulation as loaded_simulation:
             self.assertIsNotNone(loaded_simulation._simulation)
@@ -396,7 +394,7 @@ class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         action_sets = [[1,2,3], [4,5,6]]
         reward_sets = [[0,1,2], [2,3,4]]
 
-        lazy_simulation = LazySimulation[int,int](lambda: MemorySimulation(contexts, action_sets, reward_sets))
+        lazy_simulation = LazySimulation(lambda: MemorySimulation(contexts, action_sets, reward_sets))
 
         with self.assertRaises(Exception) as context:
             with lazy_simulation as loaded_simulation:

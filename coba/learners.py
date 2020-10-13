@@ -231,7 +231,7 @@ class EpsilonLearner(Learner[Context, Action]):
         This algorithm does not use any function approximation to attempt to generalize observed rewards.
     """
 
-    def __init__(self, epsilon: float, init: Optional[float] = None, include_context: bool = False, seed: Optional[int] = None) -> None:
+    def __init__(self, epsilon: float, include_context: bool = False, seed: Optional[int] = None) -> None:
         """Instantiate an EpsilonLearner.
 
         Args:
@@ -241,12 +241,11 @@ class EpsilonLearner(Learner[Context, Action]):
         """
 
         self._epsilon         = epsilon
-        self._init            = init
         self._include_context = include_context
         self._random          = coba.random.Random(seed)
 
-        self._N: Dict[Tuple[Context, Action], int            ] = defaultdict(lambda: int(0 if init is None else 1))
-        self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(lambda: init)
+        self._N: Dict[Tuple[Context, Action], int            ] = defaultdict(int)
+        self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(int)
 
     @property
     def family(self) -> str:
