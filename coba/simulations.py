@@ -16,7 +16,7 @@ import urllib.request
 import gzip
 
 from collections import defaultdict
-from itertools import compress, repeat, count, chain
+from itertools import compress, repeat, count, chain, groupby
 from http.client import HTTPResponse
 from contextlib import closing
 from abc import ABC, abstractmethod
@@ -27,7 +27,7 @@ from typing import (
 )
 
 import coba.random as cb_random
-from coba.preprocessing import FactorEncoder, FullMeta, PartMeta, OneHotEncoder, NumericEncoder, Encoder
+from coba.preprocessing import FactorEncoder, FullMeta, PartMeta, OneHotEncoder, NumericEncoder, Encoder, Batcher
 from coba.execution import ExecutionContext
 
 Context = Optional[Hashable]
@@ -182,7 +182,7 @@ class MemorySimulation(Simulation[_C_out, _A_out]):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
 
     def __init__(self, 
-        contexts: Sequence[_C_out], 
+        contexts   : Sequence[_C_out], 
         action_sets: Sequence[Sequence[_A_out]], 
         reward_sets: Sequence[Sequence[Reward]]) -> None:
         """Instantiate a MemorySimulation.
@@ -229,9 +229,9 @@ class LambdaSimulation(Simulation[_C_out, _A_out]):
 
     def __init__(self,
                  n_interactions: int,
-                 context: Callable[[int],_C_out],
+                 context   : Callable[[int],_C_out],
                  action_set: Callable[[_C_out],Sequence[_A_out]], 
-                 reward: Callable[[_C_out,_A_out],Reward]) -> None:
+                 reward    : Callable[[_C_out,_A_out],Reward]) -> None:
         """Instantiate a LambdaSimulation.
 
         Args:
@@ -241,7 +241,7 @@ class LambdaSimulation(Simulation[_C_out, _A_out]):
             reward: A function that should return the reward for a context and action.
         """
 
-        contexts     : List[_C_out]           = []
+        contexts   : List[_C_out]           = []
         action_sets: List[Sequence[_A_out]] = []
         reward_sets: List[Sequence[Reward]] = []
 
@@ -284,7 +284,7 @@ class ShuffleSimulation(Simulation[_C_out, _A_out]):
         regardless of the local Python execution environment.
     """
 
-    def __init__(self, simulation: Simulation[_C_out,_A_out], seed: Optional[int] = None):
+    def __init__(self, simulation: Simulation[_C_out,_A_out], seed: Optional[int]):
         """Instantiate a ShuffleSimulation
 
         Args:
@@ -292,49 +292,12 @@ class ShuffleSimulation(Simulation[_C_out, _A_out]):
             seed: The seed we wish to use in determining the shuffle order.
         """
 
-        cb_random.seed(seed)
+        if seed is None:
+            self._interactions = simulation.interactions
+        else:
+            self._interactions = cb_random.Random(seed).shuffle(simulation.interactions)
 
-        self._interactions = cb_random.shuffle(simulation.interactions)
-        self._rewards      = simulation.rewards
-
-    @property
-    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
-        """The interactions in this simulation.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-
-        return self._interactions
-
-    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
-
-        Remarks:
-            See the Simulation base class for more information.        
-        """
-
-        return self._rewards(choices)
-
-class SelectSimulation(Simulation[_C_out, _A_out]):
-    """A simulation created from an existing simulation by selecting specific interactions.
-
-    Remarks:
-        SelectSimulation does not change or copy the original simulation's interactions.
-    """
-
-    def __init__(self, 
-        simulation: Simulation[_C_out,_A_out], 
-        selector: Callable[[Sequence[Interaction[_C_out,_A_out]]], Sequence[Interaction[_C_out,_A_out]]]):
-        """Instantiate a FilterSimulation
-
-        Args:
-            simulation: The simulation we which to shuffle interaction order for.
-            selector: A function selecting which interactions to keep from the given simulation.
-        """
-
-        self._interactions = selector(simulation.interactions)
-        self._rewards      = simulation.rewards
+        self._rewards = simulation.rewards
 
     @property
     def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:

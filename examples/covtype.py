@@ -3,10 +3,10 @@ This is an example script that creates a ClassificationSimulation using the cove
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
-from build.lib.coba.benchmarks import SizeBatcher
 from coba.simulations import ClassificationSimulation, LazySimulation
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
-from coba.benchmarks import UniversalBenchmark, SizeBatcher
+from coba.benchmarks import UniversalBenchmark
+from coba.preprocessing import SizeBatcher
 from coba.analysis import Plots
 
 simulation = LazySimulation(lambda:ClassificationSimulation.from_openml(150))

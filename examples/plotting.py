@@ -6,7 +6,8 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 import coba.random
 from coba.simulations import LambdaSimulation
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
-from coba.benchmarks import SizeBatcher, UniversalBenchmark
+from coba.benchmarks import UniversalBenchmark
+from coba.preprocessing import SizeBatcher
 from coba.analysis import Plots
 
 #make sure the simulation is repeatable

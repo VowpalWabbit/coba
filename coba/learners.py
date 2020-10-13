@@ -91,39 +91,6 @@ class Learner(Generic[_C_in, _A_in], ABC):
         """
         ...
 
-class SafeLearner(Learner[_C_in, _A_in]):
-    """A wrapper class to safely handle learners which may not match the learner interface."""
-    
-    def __init__(self, unsafe_learner: Learner[_C_in, _A_in]) -> None:
-        self._unsafe_learner = unsafe_learner
-
-    @property
-    def family(self) -> str:
-        try:
-            return self._unsafe_learner.family
-        except:
-            return self._unsafe_learner.__class__.__name__
-
-    @property
-    def params(self) -> Dict[str,Any]:
-        try:
-            return self._unsafe_learner.params
-        except:
-            return {}
-
-    @property
-    def full_name(self) -> str:
-        if len(self.params) > 0:
-            return f"{self.family}({','.join(f'{k}={v}' if k != '' else f'{v}' for k,v in self.params.items())})"
-        else:
-            return self.family
-
-    def choose(self, key: Key, context: _C_in, actions: Sequence[_A_in]) -> Choice:
-        return self._unsafe_learner.choose(key, context, actions)
-    
-    def learn(self, key: Key, context: _C_in, action: _A_in, reward: Reward) -> None:
-        self._unsafe_learner.learn(key, context, action, reward)
-
 class LambdaLearner(Learner[_C_in, _A_in]):
     """A Learner implementation that chooses and learns according to provided lambda functions."""
 

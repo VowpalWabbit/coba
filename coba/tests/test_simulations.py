@@ -11,8 +11,8 @@ from coba.preprocessing import (
     OneHotEncoder, StringEncoder, FactorEncoder
 )
 from coba.simulations import (
-    Reward, Key, Choice, Interaction, SelectSimulation, 
-    Simulation, ClassificationSimulation, MemorySimulation, 
+    Reward, Key, Choice, Interaction, Simulation,
+    ClassificationSimulation, MemorySimulation, 
     LambdaSimulation, ShuffleSimulation, LazySimulation
 )
 
@@ -350,7 +350,7 @@ class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         action_sets = [[1,2,3], [4,5,6]]
         reward_sets = [[0,1,2], [2,3,4]]
 
-        simulation = ShuffleSimulation(MemorySimulation(contexts,action_sets,reward_sets))
+        simulation = ShuffleSimulation(MemorySimulation(contexts,action_sets,reward_sets), 0)
 
         self.assertEqual(len(simulation.interactions),2)
 
@@ -361,53 +361,6 @@ class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         simulation.interactions[1]._context = 3
 
         self.assertEqual(sum(1 for r in simulation.interactions if r.context == 3),2)
-
-class SelectSimulation_Tests(unittest.TestCase):
-
-    def test_interactions_1(self):
-
-        contexts    =  [1,2]
-        action_sets = [[1,2,3], [4,5,6]]
-        reward_sets = [[0,1,2], [2,3,4]]
-
-        def selector(interactions:Sequence[Interaction[int,int]]) -> Sequence[Interaction[int,int]]:
-            return interactions[0:1]
-
-        original_simulation = MemorySimulation(contexts, action_sets, reward_sets)
-        select_simulation   = SelectSimulation(original_simulation, selector)
-
-        self.assertEqual(len(select_simulation.interactions), 1)
-        self.assertEqual(len(original_simulation.interactions), 2)
-
-        self.assertEqual(select_simulation.interactions[0].context, contexts[0])
-        self.assertEqual(select_simulation.interactions[0].actions, action_sets[0])
-        self.assertEqual(select_simulation.rewards(_choices(select_simulation.interactions[0])), reward_sets[0])
-
-        #make sure we copied the pointers to the original interactions
-        original_simulation._interactions = []
-
-        self.assertEqual(select_simulation.interactions[0].context, contexts[0])
-        self.assertEqual(select_simulation.interactions[0].actions, action_sets[0])
-        self.assertEqual(select_simulation.rewards(_choices(select_simulation.interactions[0])), reward_sets[0])
-
-    def test_interactions_2(self):
-
-        contexts    =  [1,2]
-        action_sets = [[1,2,3], [4,5,6]]
-        reward_sets = [[0,1,2], [2,3,4]]
-
-        def selector(interactions:Sequence[Interaction[int,int]]) -> Sequence[Interaction[int,int]]:
-            return interactions[0:1]
-
-        original_simulation = MemorySimulation(contexts, action_sets, reward_sets)
-        select_simulation   = SelectSimulation(original_simulation, selector)
-
-        #make sure we copied the pointers to the original interactions
-        original_simulation._interactions = []
-
-        self.assertEqual(select_simulation.interactions[0].context, contexts[0])
-        self.assertEqual(select_simulation.interactions[0].actions, action_sets[0])
-        self.assertEqual(select_simulation.rewards(_choices(select_simulation.interactions[0])), reward_sets[0])
 
 class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
 
