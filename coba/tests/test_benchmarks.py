@@ -146,6 +146,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         benchmark = UniversalBenchmark.from_json(json)
 
         self.assertFalse(benchmark._ignore_first)
+        self.assertEqual(benchmark._seeds, [1283])
         self.assertEqual(len(benchmark._simulations),1)
         self.assertIsInstance(benchmark._simulations[0],LazySimulation)
 

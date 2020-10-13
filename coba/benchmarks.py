@@ -493,7 +493,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         batcher      = Batcher.from_json(config.get("batches","{'size': 1}"))
         ignore_first = config.get("ignore_first", True)
         ignore_raise = config.get("ignore_raise", True)
-        shuffle      = config.get("seeds", [None])
+        shuffle      = config.get("shuffle", [None])
 
         return UniversalBenchmark(simulations, batcher, ignore_first, ignore_raise, shuffle)
 
@@ -548,6 +548,12 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         with results:
 
+            if n_restored_learners == 0:
+                for learner in map(BenchmarkLearner, *zip(*enumerate(learner_factories))):
+                    if not restored.has_learner(learner.index):
+                        learner_row = {"family":learner.family, "full_name": learner.full_name, **learner.params}
+                        results.write_learner(learner.index, **learner_row)
+
             #write number of learners, number of simulations, batcher, shuffle seeds and ignore first
             #make sure all these variables are the same. If they've changed then fail gracefully.                    
 
@@ -585,11 +591,6 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
     def _make_learners(self, factories, simulation, restored, results) -> Iterable[BenchmarkLearner[_C,_A]]:
         for learner in map(BenchmarkLearner, *zip(*enumerate(factories))):
-
-            if not restored.has_learner(learner.index):
-                learner_row = {"family":learner.family, "full_name": learner.full_name, **learner.params}
-                results.write_learner(learner.index, **learner_row)
-
             if not self._simulation_learner_finished_in_restored(restored, simulation, learner.index):
                 yield learner
 
