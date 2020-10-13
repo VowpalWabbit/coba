@@ -10,7 +10,7 @@ import json
 import collections
 
 from abc import ABC, abstractmethod
-from itertools import count, repeat, groupby, product, islice, accumulate
+from itertools import repeat, product, islice, accumulate
 from statistics import median
 from ast import literal_eval
 from pathlib import Path
@@ -18,6 +18,7 @@ from typing import (
     Iterable, Tuple, Hashable, Union, Sequence, List, Callable, 
     Generic, TypeVar, Dict, Any, cast, Type, Optional
 )
+from concurrent.futures import ThreadPoolExecutor
 
 from coba.simulations import Interaction, LazySimulation, Simulation, Context, Action, Key, Choice, Reward
 from coba.preprocessing import Batcher
@@ -106,7 +107,7 @@ class Table(JsonSerializable, Generic[_K]):
         rows    = { literal_eval(key):value for key,value in json_obj['rows'].items() }
         columns = json_obj['columns']
 
-        obj          = Table[Hashable](json_obj['name'])
+        obj          = Table(json_obj['name'])
         obj._columns = columns
         obj._rows    = rows
 
@@ -202,9 +203,9 @@ class ResultDiskWriter(ResultWriter):
 class ResultMemoryWriter(ResultWriter):
 
     def __init__(self, default: Any = float('nan')) -> None:
-        self._learner_table    = Table[int]                             ("Learners"   , default)
-        self._simulation_table = Table[int]                             ("Simulations", default)
-        self._batch_table      = Table[Tuple[int,int,Optional[int],int]]("Batches"    , default)
+        self._learner_table   :Table[int]                              = Table("Learners"   , default)
+        self._simulation_table:Table[int]                              = Table("Simulations", default)
+        self._batch_table     :Table[Tuple[int,int,Optional[int],int]] = Table("Batches"    , default)
 
     def _write(self, name: str, key: Any, row: Dict[str,Any]):
         if name == "L":
@@ -239,10 +240,11 @@ class Result(JsonSerializable):
         
         if filename is None or not Path(filename).exists(): return Result()
 
-        decoder          = CobaJsonDecoder()
-        learner_table    = Table[int]                             ("Learners"   , default)
-        simulation_table = Table[int]                             ("Simulations", default)
-        batch_table      = Table[Tuple[int,int,Optional[int],int]]("Batches"    , default)
+        decoder = CobaJsonDecoder()
+
+        learner_table   :Table[int]                              = Table("Learners"   , default)
+        simulation_table:Table[int]                              = Table("Simulations", default)
+        batch_table     :Table[Tuple[int,int,Optional[int],int]] = Table("Batches"    , default)
 
         lines = Path(filename).read_text().split("\n")
 
@@ -282,9 +284,9 @@ class Result(JsonSerializable):
         batch_table     : Table[Tuple[int,int,Optional[int],int]] = None) -> None:
         """Instantiate a Result class."""
 
-        self._learner_table    = learner_table    if learner_table    else Table[int]("Learners")
-        self._simulation_table = simulation_table if simulation_table else Table[int]("Simulations")
-        self._batch_table      = batch_table      if batch_table      else Table[Tuple[int,int,Optional[int],int]]("Batches")
+        self._learner_table   :Table[int]                              = learner_table    if learner_table    else Table("Learners")
+        self._simulation_table:Table[int]                              = simulation_table if simulation_table else Table("Simulations")
+        self._batch_table     :Table[Tuple[int,int,Optional[int],int]] = batch_table      if batch_table      else Table("Batches")
 
     def has_learner(self, learner_id:int) -> bool:
         return learner_id in self._learner_table
@@ -398,7 +400,11 @@ class BenchmarkSimulation(Simulation[_C, _A]):
 
         self._interactions = Random(seed).shuffle(simulation.interactions) if seed else simulation.interactions
         self._interactions = self._interactions[0:sum(batch_sizes)]
-        self._rewards      = simulation.rewards
+        
+        if isinstance(simulation, LazySimulation):
+            self._rewards = simulation._simulation.rewards
+        else:
+            self._rewards = simulation.rewards
 
     @property
     def batches(self) -> Iterable[Iterable[Interaction[_C, _A]]]:
@@ -502,7 +508,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         batcher: Batcher,
         ignore_first: bool = True,
         ignore_raise: bool = True,
-        shuffle_seeds: Sequence[Optional[int]] = [None]) -> None:
+        shuffle_seeds: Sequence[Optional[int]] = [None],
+        max_processes: int = None) -> None:
         """Instantiate a UniversalBenchmark.
 
         Args:
@@ -511,6 +518,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
             ignore_raise: Determines if exceptions during benchmark evaluation are raised or simply logged.
             shuffle_seeds: A sequence of seeds to shuffle simulations by when evaluating. None means no shuffle.
+            max_processes: The maximum number of process to spawn while evaluating the benchmark. This value will
+                override any value that is in a coba config file.
         
         See the overloads for more information.
         """
@@ -520,12 +529,16 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         self._ignore_first  = ignore_first
         self._ignore_raise  = ignore_raise
         self._seeds         = shuffle_seeds
+        self._max_processes = max_processes
 
     def ignore_raise(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
-        return UniversalBenchmark(self._simulations, self._batcher, self._ignore_first, value, self._seeds)
+        return UniversalBenchmark(self._simulations, self._batcher, self._ignore_first, value, self._seeds, self._max_processes)
 
     def ignore_first(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
-        return UniversalBenchmark(self._simulations, self._batcher, value, self._ignore_raise, self._seeds)
+        return UniversalBenchmark(self._simulations, self._batcher, value, self._ignore_raise, self._seeds, self._max_processes)
+
+    def core_count(self, value:int) -> 'UniversalBenchmark[_C,_A]':
+        return UniversalBenchmark(self._simulations, self._batcher, self._ignore_first, self._ignore_raise, self._seeds, value)
 
     def evaluate(self, learner_factories: Sequence[Callable[[],Learner[_C,_A]]], transaction_log:str = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
@@ -546,8 +559,9 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         if n_restored_learners > 0 and n_restored_learners != n_given_learners:
             raise Exception("The number of learners differs from the transaction log.")
 
-        with results:
+        mp = self._max_processes if self._max_processes else ExecutionContext.Config.max_processes
 
+        with results, ThreadPoolExecutor(mp) as exe:
             if n_restored_learners == 0:
                 for learner in map(BenchmarkLearner, *zip(*enumerate(learner_factories))):
                     if not restored.has_learner(learner.index):
@@ -559,7 +573,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
             for simulation in self._make_simulations(self._simulations, restored, results):
                 self._handle_exceptions(
-                    lambda: self._process_simulation(simulation, learner_factories, restored, results)
+                    lambda: self._process_simulation(exe, simulation, learner_factories, restored, results)
                 )
 
         return Result.from_result_writer(results)
@@ -594,12 +608,13 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             if not self._simulation_learner_finished_in_restored(restored, simulation, learner.index):
                 yield learner
 
-    def _process_simulation(self, simulation, factories, restored, results):
+    def _process_simulation(self, exe, simulation, factories, restored, results):
 
         for learner in self._make_learners(factories, simulation, restored, results):
             ExecutionContext.Logger.log(f"Processing simulation ({simulation.index},{simulation.seed}) with {learner.full_name}")
             self._handle_exceptions(
-                lambda: self._process_learner(simulation, learner, restored, results)
+                #lambda: self._process_learner(simulation, learner, restored, results)
+                lambda: exe.submit(self._process_learner, simulation, learner, restored, results)
             )
 
         restored.rmv_batches(simulation.index) # to reduce memory in case we restore a large log
@@ -609,37 +624,39 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             self._process_batch(simulation, learner, batch, restored, results)
 
     def _process_batch(self, simulation, learner, batch, restored, results) -> None:
-        
-        batch_index        = batch[0]
-        batch_interactions = batch[1]
-        
-        keys     = []
-        contexts = []
-        choices  = []
-        actions  = []
+        try:
+            batch_index        = batch[0]
+            batch_interactions = batch[1]
+            
+            keys     = []
+            contexts = []
+            choices  = []
+            actions  = []
 
-        if self._ignore_first:
-            batch_index -= 1
+            if self._ignore_first:
+                batch_index -= 1
 
-        for interaction in batch_interactions:
+            for interaction in batch_interactions:
 
-            choice = learner.choose(interaction.key, interaction.context, interaction.actions)
+                choice = learner.choose(interaction.key, interaction.context, interaction.actions)
 
-            assert choice in range(len(interaction.actions)), "An invalid action was chosen by the learner"
+                assert choice in range(len(interaction.actions)), "An invalid action was chosen by the learner"
 
-            keys    .append(interaction.key)
-            contexts.append(interaction.context)
-            choices .append(choice)
-            actions .append(interaction.actions[choice])
+                keys    .append(interaction.key)
+                contexts.append(interaction.context)
+                choices .append(choice)
+                actions .append(interaction.actions[choice])
 
-        rewards = simulation.rewards(list(zip(keys, choices))) 
+            rewards = simulation.rewards(list(zip(keys, choices))) 
 
-        for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
-            learner.learn(key,context,action,reward)
+            for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
+                learner.learn(key,context,action,reward)
 
-        if batch_index >= 0 and not restored.has_batch(learner.index, simulation.index, simulation.seed, batch_index):
-            row = {"N":len(rewards), "reward":BatchMeanEstimator(rewards)}
-            results.write_batch(learner.index, simulation.index, simulation.seed, batch_index, **row)
+            if batch_index >= 0 and not restored.has_batch(learner.index, simulation.index, simulation.seed, batch_index):
+                row = {"N":len(rewards), "reward":BatchMeanEstimator(rewards)}
+                results.write_batch(learner.index, simulation.index, simulation.seed, batch_index, **row)
+        except Exception as e:
+            pass
 
     #Begin utility classes
     def _handle_exceptions(self, func: Callable[[], _T]) -> _T:

@@ -119,7 +119,11 @@ class CobaConfig():
 
     @property
     def file_cache(self) -> Mapping[str,Any]:
-        return self._config.get("file_cache", {"type":"none"})        
+        return self._config.get("file_cache", {"type":"none"})
+
+    @property
+    def max_processes(self) -> int:
+        return self._config.get("max_processes", 1)
 
 class CacheInterface(Generic[_K, _V], ABC):
     """The interface for a cacher."""
@@ -386,7 +390,7 @@ class ExecutionContext:
         FileCache = DiskCache(Config.file_cache["directory"])
 
     if Config.file_cache["type"] == "memory":
-        FileCache = MemoryCache[str, IO[bytes]]()
+        FileCache = MemoryCache()
 
 @contextmanager
 def redirect_stderr(to: IO[str]):

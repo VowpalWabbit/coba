@@ -479,7 +479,7 @@ class Metadata(Generic[T_ignore, T_label, T_encoder]):
         label   = override.label   if override.label   is not None else self.label
         encoder = override.encoder if override.encoder is not None else self.encoder
 
-        return Metadata[T_ignore, T_label, T_encoder](ignore, label, encoder)
+        return Metadata(ignore, label, encoder)
 
 class PartMeta(Metadata[Optional[bool], Optional[bool], Optional[Encoder]]):
     """A storage class for partial meta information describing features."""

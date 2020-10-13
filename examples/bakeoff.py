@@ -8,18 +8,18 @@ from coba.benchmarks import UniversalBenchmark
 from coba.analysis import Plots
 from coba.execution import ExecutionContext
 
-benchmark = UniversalBenchmark.from_file("./examples/benchmark_long.json")
+benchmark = UniversalBenchmark.from_file("./examples/benchmark_short.json")
 
 learner_factories = [
-    lambda: RandomLearner(),
-    lambda: EpsilonLearner(0.025),
-    lambda: UcbTunedLearner(),
-    lambda: VowpalLearner(epsilon=0.025),
-    lambda: VowpalLearner(bag=5),
-    lambda: VowpalLearner(softmax=1)
+    lambda: RandomLearner(seed=10),
+    lambda: EpsilonLearner(0.025, seed=10),
+    lambda: UcbTunedLearner(seed=10),
+    lambda: VowpalLearner(epsilon=0.025, seed=10),
+    lambda: VowpalLearner(bag=5, seed=10),
+    lambda: VowpalLearner(softmax=1, seed=10)
 ]
 
 with ExecutionContext.Logger.log("evaluating learners..."):
-    result = benchmark.evaluate(learner_factories, "./examples/bakeoff_transactions.log")
+    result = benchmark.evaluate(learner_factories)
 
 Plots.standard_plot(result)
