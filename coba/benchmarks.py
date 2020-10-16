@@ -9,6 +9,7 @@ TODO Add docstrings to Batchers
 import json
 import collections
 
+from statistics import mean
 from abc import ABC, abstractmethod
 from itertools import repeat, product, islice, accumulate
 from statistics import median
@@ -16,7 +17,7 @@ from ast import literal_eval
 from pathlib import Path
 from typing import (
     Iterable, Tuple, Hashable, Union, Sequence, List, Callable, 
-    Generic, TypeVar, Dict, Any, cast, Type, Optional
+    Generic, TypeVar, Dict, Any, cast, Optional
 )
 from concurrent.futures import ProcessPoolExecutor
 
@@ -24,7 +25,6 @@ from coba.simulations import Interaction, LazySimulation, JsonSimulation, Simula
 from coba.preprocessing import Batcher
 from coba.learners import Learner
 from coba.execution import ExecutionContext
-from coba.statistics import BatchMeanEstimator, StatisticalEstimate
 from coba.utilities import check_pandas_support
 from coba.json import CobaJsonDecoder, CobaJsonEncoder, JsonSerializable
 from coba.data import AsyncFileWriter
@@ -657,7 +657,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         if batch_index >= 0 and not restored.has_batch(learner.index, simulation.index, simulation.seed, batch_index):
             key = (learner.index, simulation.index, simulation.seed, batch_index)
-            row = {"N":len(rewards), "reward":BatchMeanEstimator(rewards)}
+            row = {"N":len(rewards), "reward":mean(rewards)}
             return (key,row)
         else:
             return None

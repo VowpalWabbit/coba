@@ -1,11 +1,11 @@
 import unittest
 
 from pathlib import Path
+from statistics import mean
 
 from coba.simulations import LambdaSimulation, LazySimulation, JsonSimulation
 from coba.learners import LambdaLearner
 from coba.execution import ExecutionContext, NoneLogger
-from coba.statistics import BatchMeanEstimator, StatisticalEstimate
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
 from coba.preprocessing import CountBatcher, SizesBatcher
 from coba.benchmarks import (
@@ -53,7 +53,7 @@ class Result_Tests(unittest.TestCase):
         writer = ResultMemoryWriter(0)
         writer.write_learner(0,a='A')
         writer.write_simulation(0,b='B')
-        writer.write_batch(0,1,1,2,mean=BatchMeanEstimator([1,2,3]))
+        writer.write_batch(0,1,1,2,reward=mean([1,2,3]))
         
         expected_result = Result.from_result_writer(writer)
 
@@ -67,7 +67,7 @@ class Result_Tests(unittest.TestCase):
         writer = ResultMemoryWriter(0)
         writer.write_learner(0,a='A')
         writer.write_simulation(0,b='B')
-        writer.write_batch(0,1,None,2,mean=BatchMeanEstimator([1,2,3]))
+        writer.write_batch(0,1,None,2,reward=mean([1,2,3]))
 
         expected_result = Result.from_result_writer(writer)
 
@@ -84,7 +84,7 @@ class Result_Tests(unittest.TestCase):
         def write_result(writer: ResultWriter)-> None:
             writer.write_learner(0, a='A')
             writer.write_simulation(0, b='B')
-            writer.write_batch(0, 1, None, 2, mean=BatchMeanEstimator([1,2,3]))
+            writer.write_batch(0, 1, None, 2, reward=mean([1,2,3]))
 
         try:
             with ResultDiskWriter(".test/transactions.log") as disk_writer:
@@ -105,12 +105,12 @@ class Result_Tests(unittest.TestCase):
         def write_first_result(writer: ResultWriter)-> None:
             writer.write_learner(0,a='A')
             writer.write_simulation(0,b='B')
-            writer.write_batch(0,1,None,2,mean=BatchMeanEstimator([1,2,3]))
+            writer.write_batch(0,1,None,2,reward=mean([1,2,3]))
 
         def write_second_result(writer: ResultWriter)-> None:
             writer.write_learner(0,a='z')
             writer.write_simulation(0,b='q')
-            writer.write_batch(1,1,None,0,mean=BatchMeanEstimator([1,2,3,4,5]))
+            writer.write_batch(1,1,None,0,reward=mean([1,2,3,4,5]))
 
         try:
             with ResultDiskWriter(".test/transactions.log") as disk_writer1:
@@ -159,7 +159,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners    = [(0,"0","0")]
         expected_simulations = [(0, 5, 1, 1, 2, 3), (1, 4, 1, 1, 2, 3)]
-        expected_batches     = [(0, 0, None, 0, 5, BatchMeanEstimator([0,1,2,0,1])), (0, 1, None, 0, 4, BatchMeanEstimator([3,4,5,3]))]
+        expected_batches     = [(0, 0, None, 0, 5, mean([0,1,2,0,1])), (0, 1, None, 0, 4, mean([3,4,5,3]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -174,7 +174,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners    = [(0,"0","0")]
         expected_simulations = [(0, 2, 1, 2, 2, 3)]
-        expected_batches     = [(0, 0, 1, 0, 2, BatchMeanEstimator([1,0])), (0, 0, 4, 0, 2, BatchMeanEstimator([2,0]))]
+        expected_batches     = [(0, 0, 1, 0, 2, mean([1,0])), (0, 0, 4, 0, 2, mean([2,0]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -190,7 +190,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners    = [(0,"0","0")]
         expected_simulations = [(0, 5, 1, 1, 2, 3), (1, 0, 0, 1, 2, 3)]
-        expected_batches     = [(0, 0, None, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
+        expected_batches     = [(0, 0, None, 0, 5, mean([0,1,2,0,1]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -205,7 +205,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners    = [(0,"0","0")]
         expected_simulations = [(0, 2, 1, 1, 1, 3)]
-        expected_batches     = [(0, 0, None, 0, 2, BatchMeanEstimator([1,2]))]
+        expected_batches     = [(0, 0, None, 0, 2, mean([1,2]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -220,7 +220,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
         expected_learners    = [(0,"0","0")]
         expected_simulations = [(0, 5, 1, 1, 1, 3)]
-        expected_batches     = [(0, 0, None, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
+        expected_batches     = [(0, 0, None, 0, 5, mean([0,1,2,0,1]))]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
         self.assertSequenceEqual(actual_simulations, expected_simulations)
@@ -238,8 +238,8 @@ class UniversalBenchmark_Tests(unittest.TestCase):
         expected_learners     = [(0,"0","0"), (1,"1","1")]
         expected_simulations  = [(0, 5, 1, 1, 1, 3)]
         expected_batches = [
-            (0, 0, None, 0, 5, BatchMeanEstimator([0,1,2,0,1])), 
-            (1, 0, None, 0, 5, BatchMeanEstimator([0,1,2,0,1]))
+            (0, 0, None, 0, 5, mean([0,1,2,0,1])), 
+            (1, 0, None, 0, 5, mean([0,1,2,0,1]))
         ]
 
         self.assertSequenceEqual(actual_learners, expected_learners)
@@ -262,7 +262,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
             expected_learners    = [(0,"0","0")]
             expected_simulations = [(0, 5, 1, 1, 1, 3)]
-            expected_batches     = [(0, 0, None, 0, 5, BatchMeanEstimator([0,1,2,0,1]))]
+            expected_batches     = [(0, 0, None, 0, 5, mean([0,1,2,0,1]))]
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
 
@@ -287,7 +287,7 @@ class UniversalBenchmark_Tests(unittest.TestCase):
 
             expected_learners     = [(0,"0","0")]
             expected_simulations  = [(0, 2, 1, 1, 1, 3)]
-            expected_performances = [ (0, 0, None, 0, 2, BatchMeanEstimator([0,1]))]
+            expected_performances = [ (0, 0, None, 0, 2, mean([0,1]))]
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()            
 
