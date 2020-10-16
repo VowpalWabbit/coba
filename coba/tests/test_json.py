@@ -9,11 +9,11 @@ class SimpleJsonSerializable(JsonSerializable):
     def __init__(self, a) -> None:
         self._a = a
 
-    def __to_json_obj__(self) -> Dict[str,Any]:
+    def __to_json__(self) -> Dict[str,Any]:
         return { 'a': self._a}
 
     @staticmethod
-    def __from_json_obj__(obj: Dict[str,Any]) -> 'SimpleJsonSerializable':
+    def __from_json__(obj: Dict[str,Any]) -> 'SimpleJsonSerializable':
         return SimpleJsonSerializable(obj['a'])
 
 class JsonEncoder_Tests(unittest.TestCase):
@@ -36,13 +36,13 @@ class JsonDecoder_Tests(unittest.TestCase):
 
     def test_simple_decode(self):
         json_txt = '{"a": 1, "__type__": "SimpleJsonSerializable"}'
-        obj = CobaJsonDecoder().decode(json_txt, [SimpleJsonSerializable])
+        obj = CobaJsonDecoder(types=[SimpleJsonSerializable]).decode(json_txt)
 
         self.assertEqual(obj._a, 1)
 
     def test_nested_decode(self):
         json_txt = '{"a": {"a": 1, "__type__": "SimpleJsonSerializable"}, "__type__": "SimpleJsonSerializable"}'
-        obj = CobaJsonDecoder().decode(json_txt, [SimpleJsonSerializable])
+        obj = CobaJsonDecoder(types=[SimpleJsonSerializable]).decode(json_txt)
 
         self.assertEqual(obj._a._a, 1)
 

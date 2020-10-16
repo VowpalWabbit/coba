@@ -103,7 +103,7 @@ class Table(JsonSerializable, Generic[_K]):
         return str(self)
 
     @staticmethod
-    def __from_json_obj__(json_obj: Dict[str,Any]) -> 'Table[Hashable]':
+    def __from_json__(json_obj: Dict[str,Any]) -> 'Table[Hashable]':
         rows    = { literal_eval(key):value for key,value in json_obj['rows'].items() }
         columns = json_obj['columns']
 
@@ -113,7 +113,7 @@ class Table(JsonSerializable, Generic[_K]):
 
         return obj
 
-    def __to_json_obj__(self) -> Dict[str,Any]:
+    def __to_json__(self) -> Dict[str,Any]:
 
         literal_evalable = lambda key: str(key) if not isinstance(key, str) else f"'{key}'"
 
@@ -249,7 +249,7 @@ class Result(JsonSerializable):
         lines = Path(filename).read_text().split("\n")
 
         for line in [ l for l in lines if l != '']:
-            json_obj: Tuple[str,Tuple[Any, Dict[str,Any]]] = decoder.decode(line, [StatisticalEstimate])
+            json_obj: Tuple[str,Tuple[Any, Dict[str,Any]]] = decoder.decode(line)
 
             table: Union[Table[int], Table[Tuple[int,int,Optional[int],int]]]
             key  : Any 
@@ -271,8 +271,7 @@ class Result(JsonSerializable):
     @staticmethod
     def from_json_file(filename:str) -> 'Result':
         """Create a Result from a json file."""
-        needed_types: Sequence[Type[JsonSerializable]] = [Result, Table, StatisticalEstimate]
-        return CobaJsonDecoder().decode(Path(filename).read_text(), needed_types)
+        return CobaJsonDecoder().decode(Path(filename).read_text())
 
     def to_json_file(self, filename:str) -> None:
         """Write a Result to a json file."""
@@ -340,14 +339,14 @@ class Result(JsonSerializable):
         return (l,s,b)
 
     @staticmethod
-    def __from_json_obj__(obj:Dict[str,Any]) -> 'Result':
+    def __from_json__(obj:Dict[str,Any]) -> 'Result':
         return Result(
             obj['learner_table'],
             obj['simulation_table'],
             obj['batch_table']
         )
 
-    def __to_json_obj__(self) -> Dict[str,Any]:
+    def __to_json__(self) -> Dict[str,Any]:
         return {
             'simulation_table': self._simulation_table,
             'learner_table'   : self._learner_table,

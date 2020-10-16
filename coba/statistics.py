@@ -291,10 +291,10 @@ class StatisticalEstimate(Rational, JsonSerializable):
     #Region: Rational Interface
 
     @staticmethod
-    def __from_json_obj__(json:Dict[str,Any]) -> 'StatisticalEstimate':
+    def __from_json__(json:Dict[str,Any]) -> 'StatisticalEstimate':
         return StatisticalEstimate(json['estimate'], json['standard_error'])
 
-    def __to_json_obj__(self) -> Dict[str,Any]:
+    def __to_json__(self) -> Dict[str,Any]:
         return {
             'estimate'      : self._estimate,
             'standard_error': self._standard_error

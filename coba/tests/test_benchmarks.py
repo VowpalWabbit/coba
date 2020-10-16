@@ -1,6 +1,5 @@
 import unittest
 
-from typing import  Hashable, cast
 from pathlib import Path
 
 from coba.simulations import LambdaSimulation, LazySimulation, JsonSimulation
@@ -26,7 +25,7 @@ class Table_Tests(unittest.TestCase):
 
         json_txt = CobaJsonEncoder().encode(expected_table)
 
-        actual_table = CobaJsonDecoder().decode(json_txt, [Table])
+        actual_table = CobaJsonDecoder().decode(json_txt)
 
         self.assertEqual(actual_table.to_tuples(), expected_table.to_tuples())
 
@@ -60,7 +59,7 @@ class Result_Tests(unittest.TestCase):
 
         json_txt = CobaJsonEncoder().encode(expected_result)
 
-        actual_result = CobaJsonDecoder().decode(json_txt, [Result, Table, StatisticalEstimate])
+        actual_result = CobaJsonDecoder().decode(json_txt)
 
         self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
@@ -80,7 +79,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
-    def test_to_from_transaction_file_once(self):
+    def test_to_from_transaction_log_once(self):
 
         def write_result(writer: ResultWriter)-> None:
             writer.write_learner(0, a='A')
@@ -101,7 +100,7 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
-    def test_to_from_transaction_file_twice(self):
+    def test_to_from_transaction_log_twice(self):
 
         def write_first_result(writer: ResultWriter)-> None:
             writer.write_learner(0,a='A')

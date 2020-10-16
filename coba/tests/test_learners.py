@@ -42,13 +42,6 @@ class Learner_Interface_Tests(ABC):
             for k, context in enumerate(contexts):
                 learner.learn(k, context, actions[learner.choose(k, context,actions)], random.uniform(-2,2))
 
-    def test_to_from_json(self) -> None:
-        learner = self._make_learner()
-
-        if isinstance(learner, JsonSerializable):
-            a = CobaJsonEncoder().encode(learner)
-            b = CobaJsonDecoder().decode(a)
-
 class RandomLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
         return RandomLearner()
@@ -59,7 +52,7 @@ class LambdaLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
 
 class EpsilonLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
-        return EpsilonLearner(1/10, 0)
+        return EpsilonLearner(1/10)
 
 class UcbTunedLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
