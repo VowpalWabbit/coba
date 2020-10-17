@@ -61,8 +61,7 @@ class Wrapper:
         # this warning isn't shown during creation. It should be noted this isn't thread-safe
         # so if you are here because of strange problems with threads we may just need to suck
         # it up and accept that there will be an obnoxious warning message.
-        with open(devnull, 'w') as f:
-            with redirect_stderr(f):
+        with open(devnull, 'w') as f, redirect_stderr(f):
                 self._vw = self._vw_init(flags + f" --quiet {seed_flag}")
 
     def choose(self, context, actions) -> Tuple[Choice, float]:
