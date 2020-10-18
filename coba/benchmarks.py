@@ -385,85 +385,85 @@ class Benchmark(Generic[_C,_A], ABC):
         """
         ...
 
-class BenchmarkSimulation(Simulation[_C, _A]):
-    
-    def __init__(self, 
-        index       :int, 
-        seed        : Optional[int], 
-        batch_sizes : Sequence[int],
-        simulation  : Simulation[_C,_A]) -> None:
-
-        self.index        = index
-        self.seed         = seed
-        self.batch_slices = list(accumulate([0] + list(batch_sizes)))
-
-        self._interactions = Random(seed).shuffle(simulation.interactions) if seed else simulation.interactions
-        self._interactions = self._interactions[0:sum(batch_sizes)]
-        
-        if isinstance(simulation, (LazySimulation, JsonSimulation)):
-            self._rewards = simulation._simulation.rewards
-        else:
-            self._rewards = simulation.rewards
-
-    @property
-    def batches(self) -> Iterable[Iterable[Interaction[_C, _A]]]:
-        for i in range(len(self.batch_slices)-1):
-            yield islice(self._interactions, self.batch_slices[i], self.batch_slices[i+1])
-
-    @property
-    def interactions(self) -> Sequence[Interaction[_C, _A]]:
-        return self._interactions
-
-    def rewards(self, choices: Sequence[Tuple[Key, Choice]]) -> Sequence[Reward]:
-        return self._rewards(choices)
-
-class BenchmarkLearner(Learner[_C, _A]):
-    
-    def __init__(self, index:int, factory: Callable[[],Learner[_C,_A]]) -> None:
-        self.index = index
-        learner = factory()
-        
-        try:
-            self._family = learner.family
-        except:
-            self._family = learner.__class__.__name__
-
-        try:
-            self._params = learner.params
-        except:
-            self._params =  {}
-
-        if len(self.params) > 0:
-            self._full_name = f"{self.family}({','.join(f'{k}={v}' for k,v in self.params.items())})"
-        else:
-            self._full_name = self.family
-
-        self._choose = learner.choose
-        self._learn  = learner.learn
-
-    @property
-    def family(self) -> str:
-        return self._family
-
-    @property
-    def params(self) -> Dict[str,Any]:
-        return self._params
-
-    @property
-    def full_name(self) -> str:
-        return self._full_name
-
-    def choose(self, key: Key, context: _C, actions: Sequence[_A]) -> Choice:
-        return self._choose(key, context, actions)
-    
-    def learn(self, key: Key, context: _C, action: _A, reward: Reward) -> None:
-        self._learn(key, context, action, reward)
-
 class UniversalBenchmark(Benchmark[_C,_A]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
+    class _Simulation(Simulation[Context, Action]):
+        
+        def __init__(self, 
+            index       :int, 
+            seed        : Optional[int], 
+            batch_sizes : Sequence[int],
+            simulation  : Simulation[Context,Action]) -> None:
+
+            self.index        = index
+            self.seed         = seed
+            self.batch_slices = list(accumulate([0] + list(batch_sizes)))
+
+            self._interactions = Random(seed).shuffle(simulation.interactions) if seed else simulation.interactions
+            self._interactions = self._interactions[0:sum(batch_sizes)]
+            
+            if isinstance(simulation, (LazySimulation, JsonSimulation)):
+                self._rewards = simulation._simulation.rewards
+            else:
+                self._rewards = simulation.rewards
+
+        @property
+        def batches(self) -> Iterable[Iterable[Interaction[Context, Action]]]:
+            for i in range(len(self.batch_slices)-1):
+                yield islice(self._interactions, self.batch_slices[i], self.batch_slices[i+1])
+
+        @property
+        def interactions(self) -> Sequence[Interaction[Context, Action]]:
+            return self._interactions
+
+        def rewards(self, choices: Sequence[Tuple[Key, Choice]]) -> Sequence[Reward]:
+            return self._rewards(choices)
+
+    class _Learner(Learner[Context, Action]):
+        
+        def __init__(self, index:int, factory: Callable[[],Learner[Context,Action]]) -> None:
+            self.index = index
+            learner = factory()
+            
+            try:
+                self._family = learner.family
+            except:
+                self._family = learner.__class__.__name__
+
+            try:
+                self._params = learner.params
+            except:
+                self._params =  {}
+
+            if len(self.params) > 0:
+                self._full_name = f"{self.family}({','.join(f'{k}={v}' for k,v in self.params.items())})"
+            else:
+                self._full_name = self.family
+
+            self._choose = learner.choose
+            self._learn  = learner.learn
+
+        @property
+        def family(self) -> str:
+            return self._family
+
+        @property
+        def params(self) -> Dict[str,Any]:
+            return self._params
+
+        @property
+        def full_name(self) -> str:
+            return self._full_name
+
+        def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
+            return self._choose(key, context, actions)
+        
+        def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
+            self._learn(key, context, action, reward)
+
     @staticmethod
-    def from_file(filename:str) -> 'UniversalBenchmark':
+    def from_file(filename:str) -> 'UniversalBenchmark[Context,Action]':
         """Instantiate a Benchmark from a config file."""
 
         suffix = Path(filename).suffix
@@ -474,7 +474,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         raise Exception(f"The provided file type ('{suffix}') is not a valid format for benchmark configuration")
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'UniversalBenchmark':
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'UniversalBenchmark[Context,Action]':
         """Create a UniversalBenchmark from json text or object.
 
         Args:
@@ -562,7 +562,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         with results:
             if n_restored_learners == 0:
-                for learner in map(BenchmarkLearner, *zip(*enumerate(learner_factories))):
+                for learner in map(UniversalBenchmark._Learner, *zip(*enumerate(learner_factories))):
                     if not restored.has_learner(learner.index):
                         learner_row = {"family":learner.family, "full_name": learner.full_name, **learner.params}
                         results.write_learner(learner.index, **learner_row)
@@ -585,7 +585,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         return Result.from_result_writer(results)
 
-    def _make_simulations(self, simulations, restored, results) -> Iterable[BenchmarkSimulation[_C, _A]]:
+    def _make_simulations(self, simulations, restored, results) -> 'Iterable[UniversalBenchmark._Simulation]':
         for index, simulation in enumerate(simulations):
             try:
                 if self._simulation_finished_in_restored(restored, index): continue
@@ -603,19 +603,19 @@ class UniversalBenchmark(Benchmark[_C,_A]):
                             action_count      = int(median(self._action_counts(loaded_simulation)))
                         )
 
-                    for seed in self._seeds: yield BenchmarkSimulation(index, seed, batch_sizes, simulation)
+                    for seed in self._seeds: yield UniversalBenchmark._Simulation(index, seed, batch_sizes, simulation)
             except KeyboardInterrupt:
                 raise
             except Exception as e:
                 ExecutionContext.Logger.log_exception(e, "unhandled exception:")
                 if not self._ignore_raise: raise e
 
-    def _make_learners(self, simulation, factories, restored, results) -> Iterable[BenchmarkLearner[_C,_A]]:
-        for learner in map(BenchmarkLearner, *zip(*enumerate(factories))):
+    def _make_learners(self, simulation, factories, restored, results) -> 'Iterable[UniversalBenchmark._Learner]':
+        for learner in map(UniversalBenchmark._Learner, *zip(*enumerate(factories))):
             if not self._simulation_learner_finished_in_restored(restored, simulation, learner.index):
                 yield learner
 
-    def _make_tasks(self, simulations, factories, restored, results) -> Iterable[Tuple[BenchmarkSimulation, Learner]]:
+    def _make_tasks(self, simulations, factories, restored, results) -> 'Iterable[Tuple[UniversalBenchmark._Simulation, Learner]]':
         for simulation in self._make_simulations(simulations, restored, results):
             for learner in self._make_learners(simulation, factories, restored, results):
                 yield (simulation,learner)
