@@ -79,7 +79,7 @@ class Simulation(Generic[_C_out, _A_out], ABC):
     """The simulation interface."""
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'JsonSimulation[Context, Action]':
+    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'Simulation[Context,Action]':
         """Construct a Simulation object from JSON.
 
         Args:
@@ -102,7 +102,7 @@ class Simulation(Generic[_C_out, _A_out], ABC):
             it would be possible for it to only allow enumeration one time.
         """
         ...
-    
+
     @abstractmethod
     def rewards(self, choices: Sequence[Tuple[Key,Choice]] ) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
@@ -116,7 +116,7 @@ class Simulation(Generic[_C_out, _A_out], ABC):
         """
         ...
 
-class JsonSimulation(Simulation[_C_out, _A_out]):
+class JsonSimulation(Simulation[Context, Action]):
     """A Simulation implementation which supports loading and unloading from json representations.""" 
     
     def __init__(self, json_val) -> None:
@@ -127,9 +127,9 @@ class JsonSimulation(Simulation[_C_out, _A_out]):
         """
 
         self._json_obj = json.loads(json_val) if isinstance(json_val,str) else json_val
-        self._simulation: Optional[Simulation[_C_out, _A_out]]  = None
+        self._simulation: Optional[Simulation[Context, Action]]  = None
 
-    def __enter__(self) -> 'JsonSimulation[_C_out,_A_out]':
+    def __enter__(self) -> 'JsonSimulation':
         """Load the simulation into memory. If already loaded do nothing."""
 
         with ExecutionContext.Logger.log(f"loading simulation..."):
@@ -148,7 +148,7 @@ class JsonSimulation(Simulation[_C_out, _A_out]):
             gc.collect() #in case the simulation is large
 
     @property
-    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+    def interactions(self) -> Sequence[Interaction[Context,Action]]:
         """The interactions in this simulation.
 
         Remarks:

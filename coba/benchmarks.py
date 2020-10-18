@@ -103,7 +103,7 @@ class Table(JsonSerializable, Generic[_K]):
         return str(self)
 
     @staticmethod
-    def __from_json__(json_obj: Dict[str,Any]) -> 'Table[Hashable]':
+    def __from_json__(json_obj: Dict[str,Any]) -> 'Table':
         rows    = { literal_eval(key):value for key,value in json_obj['rows'].items() }
         columns = json_obj['columns']
 
