@@ -20,7 +20,7 @@ class Plots():
             if show_sd:
                 ls = [ y-math.sqrt(v) for y,v in zip(ys,vs) ]
                 us = [ y+math.sqrt(v) for y,v in zip(ys,vs) ]
-                axes.fill_between(xs, ls, us, alpha = 0.05)
+                axes.fill_between(xs, ls, us, alpha = 0.1)
 
             if show_err:
                 # I don't really understand what this is... For each x our distribution
