@@ -1,75 +1,56 @@
 """The data module contains core classes and types for reading and writing data sources."""
 
-from queue import Queue
-from threading import Thread
-from typing import Optional, IO
+from abc import abstractmethod, ABC
+from build.lib.coba.json import CobaJsonDecoder
+from pathlib import Path
+from typing import Any, List, Iterable
 
-class AsyncFileWriter():
-    """A file writing class that marshalls all writes to a single thread for thread safety."""
+from coba.json import CobaJsonEncoder
 
-    def __init__(self, *args) -> None:
-        """Instantiate an AsyncFileWriter.
-        
-        Args:
-            *args: A sequence of that will be passed to `open` to open a file for writing.
-        """
-        self._args                         = args
-        self._open_file: Optional[IO[str]] = None
-        self._sentinel                     = None
+class ReadWrite(ABC):
+    @abstractmethod
+    def write(self, obj:Any) -> None:
+        ...
 
-    def __enter__(self) -> 'AsyncFileWriter':
-        self.open()
-        return self
+    @abstractmethod
+    def read(self) -> Iterable[Any]:
+        ...
 
-    def __exit__(self, exception_type, exception_value, traceback) -> None:
-        self.close()
+class DiskReadWrite(ReadWrite):
+    
+    def __init__(self, filename:str):
+        self._json_encoder = CobaJsonEncoder()
+        self._json_decoder = CobaJsonDecoder()
+        self._filepath     = Path(filename)
+        self._filepath.touch()
 
-    def open(self) -> None:
-        """Open the AsyncFileWriter."""
+    def write(self, obj: Any) -> None:
+        with open(self._filepath, "a") as f:
+            f.write(self._json_encoder.encode(obj))
+            f.write("\n")
+    
+    def read(self) -> Iterable[Any]:
+        with open(self._filepath, "r") as f:
+            for line in f.readlines():
+                yield self._json_decoder.decode(line)
 
-        if self._open_file is not None:
-            raise Exception("The AsyncFileWriter has already been opened.")
+class MemoryReadWrite(ReadWrite):
+    def __init__(self, memory: List[Any] = None):
+        self._memory = memory if memory else []
 
-        self._open_file = open(*self._args)
-        self._queue: 'Queue[Optional[str]]' = Queue()
-        Thread(name = "AsyncFileWriter", target=self._internal_write).start() 
+    def write(self, obj:Any) -> None:
+        self._memory.append(obj)
 
-    def close(self) -> None:
-        """Close the AsyncFileWriter."""
+    def read(self) -> Iterable[Any]:
+        return self._memory
 
-        self._queue.put(self._sentinel)
-        
-        self.flush()
+class QueueReadWrite(ReadWrite):
+    def __init__(self, queue: Any) -> None:
+        self._queue = queue
 
-        if self._open_file is not None:
-            self._open_file.close()
-            self._open_file = None
+    def write(self, obj:Any) -> None:
+        self._queue.put(obj)
 
-    def async_write(self, data:str) -> None:
-        """Write data to file asynchronously.
-        
-        Args:
-            data: The data we'd like to write to file.
-        """
-
-        if self._open_file is None:
-            raise Exception("The AsyncFileWriter is not currently open for writing")
-
-        self._queue.put(data)
-
-    def flush(self) -> None:
-        self._queue.join()
-
-    def _internal_write(self):
-        while True:
-            
-            data = self._queue.get(block=True)
-
-            if data == self._sentinel:
-                self._queue.task_done()
-                break
-            
-            if data is not None:
-                self._open_file.write(data)
-            
-            self._queue.task_done()
+    def read(self) -> Iterable[Any]:
+        while not self._queue.empty():
+            yield self._queue.get()

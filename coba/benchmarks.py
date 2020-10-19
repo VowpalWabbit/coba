@@ -27,13 +27,64 @@ from coba.learners import Learner
 from coba.execution import ExecutionContext
 from coba.utilities import check_pandas_support
 from coba.json import CobaJsonDecoder, CobaJsonEncoder, JsonSerializable
-from coba.data import AsyncFileWriter
+from coba.data import ReadWrite, DiskReadWrite, MemoryReadWrite
 from coba.random import Random
 
 _K  = TypeVar("_K", bound=Hashable)
 _C  = TypeVar('_C', bound=Context)
 _A  = TypeVar('_A', bound=Action)
 _T  = TypeVar('_T')
+
+class TransactionReadWrite:
+
+    def __init__(self, readwrite: ReadWrite):
+        self._readwrite = readwrite
+
+    def write_learner(self, learner_id:int, **kwargs):
+        """Write learner metadata row to Result.
+        
+        Args:
+            learner_id: The primary key for the given learner.
+            kwargs: The metadata to store about the learner.
+        """
+
+        key       = learner_id
+        key_items = [(cast(str,"learner_id"),learner_id)]
+        row       = collections.OrderedDict(key_items + list(kwargs.items()))
+
+        self._readwrite.write(["L", key, row])
+
+    def write_simulation(self, simulation_id: int, **kwargs):
+        """Write simulation metadata row to Result.
+        
+        Args:
+            simulation_index: The index of the simulation in the benchmark's simulations.
+            simulation_seed: The seed used to shuffle the simulation before evaluation.
+            kwargs: The metadata to store about the learner.
+        """
+        key       = simulation_id
+        key_items = [(cast(str,"simulation_id"),simulation_id)]
+        row       = collections.OrderedDict(key_items + list(kwargs.items()))
+
+        self._readwrite.write(["S", key, row])
+
+    def write_batch(self, learner_id:int, simulation_id:int, seed: Optional[int], batch_index:int, **kwargs):
+        """Write batch metadata row to Result.
+
+        Args:
+            learner_id: The primary key for the learner we observed the batch for.
+            simulation_id: The primary key for the simulation the batch came from.
+            batch_index: The index of the batch within the simulation.
+            kwargs: The metadata to store about the batch.
+        """
+        key       = (learner_id, simulation_id, seed, batch_index)
+        key_items = [("learner_id",learner_id), ("simulation_id",simulation_id), ("seed", seed), ("batch_index",batch_index)]
+        row       = collections.OrderedDict(key_items + list(kwargs.items()))
+
+        self._readwrite.write(["B", key, row])
+
+    def read(self) -> Iterable[Any]:
+        return self._readwrite.read()
 
 class Table(JsonSerializable, Generic[_K]):
     """A container class for storing tabular data."""
@@ -123,149 +174,42 @@ class Table(JsonSerializable, Generic[_K]):
             'rows'   : { literal_evalable(key):value for key,value in self._rows.items() }
         }
 
-class ResultWriter(ABC):
-
-    def write_learner(self, learner_id:int, **kwargs):
-        """Write learner metadata row to Result.
-        
-        Args:
-            learner_id: The primary key for the given learner.
-            kwargs: The metadata to store about the learner.
-        """
-
-        key       = learner_id
-        key_items = [(cast(str,"learner_id"),learner_id)]
-        row       = collections.OrderedDict(key_items + list(kwargs.items()))
-
-        self._write("L", key, row)
-
-    def write_simulation(self, simulation_id: int, **kwargs):
-        """Write simulation metadata row to Result.
-        
-        Args:
-            simulation_index: The index of the simulation in the benchmark's simulations.
-            simulation_seed: The seed used to shuffle the simulation before evaluation.
-            kwargs: The metadata to store about the learner.
-        """
-        key       = simulation_id
-        key_items = [(cast(str,"simulation_id"),simulation_id)]
-        row       = collections.OrderedDict(key_items + list(kwargs.items()))
-
-        self._write("S", key, row)
-
-    def write_batch(self, learner_id:int, simulation_id:int, seed: Optional[int], batch_index:int, **kwargs):
-        """Write batch metadata row to Result.
-
-        Args:
-            learner_id: The primary key for the learner we observed the batch for.
-            simulation_id: The primary key for the simulation the batch came from.
-            batch_index: The index of the batch within the simulation.
-            kwargs: The metadata to store about the batch.
-        """
-        key       = (learner_id, simulation_id, seed, batch_index)
-        key_items = [("learner_id",learner_id), ("simulation_id",simulation_id), ("seed", seed), ("batch_index",batch_index)]
-        row       = collections.OrderedDict(key_items + list(kwargs.items()))
-
-        self._write("B", key, row)
-
-    def __enter__(self) -> 'ResultWriter':
-        return self
-
-    def __exit__(self, exception_type, exception_value, traceback) -> None:
-        pass
-
-    @abstractmethod
-    def _write(self, name: str, key: Hashable, row: Dict[str,Any]) -> None:
-        ...
-
-class ResultDiskWriter(ResultWriter):
-
-    def __init__(self, filename:str) -> None:
-        self._json_encoder = CobaJsonEncoder()
-        self._transactions_path = Path(filename)
-        self._transactions_path.touch()
-        self._async_file_writer = AsyncFileWriter(self._transactions_path, 'a')
-
-    def __enter__(self) -> 'ResultDiskWriter':
-        self._async_file_writer.open()
-        return self
-
-    def __exit__(self, exception_type, exception_value, traceback) -> None:
-        self._async_file_writer.close()
-
-    def flush(self) -> None:
-        self._async_file_writer.flush()
-
-    def _write(self, name: str, key: Hashable, row: Dict[str,Any]):
-        self._async_file_writer.async_write(self._json_encoder.encode([name,(key,row)]))
-        self._async_file_writer.async_write("\n")
-
-class ResultMemoryWriter(ResultWriter):
-
-    def __init__(self, default: Any = float('nan')) -> None:
-        self._learner_table   :Table[int]                              = Table("Learners"   , default)
-        self._simulation_table:Table[int]                              = Table("Simulations", default)
-        self._batch_table     :Table[Tuple[int,int,Optional[int],int]] = Table("Batches"    , default)
-
-    def _write(self, name: str, key: Any, row: Dict[str,Any]):
-        if name == "L":
-            self._learner_table.add_row(key, **row)
-
-        if name == "S":
-            self._simulation_table.add_row(key, **row)
-
-        if name == "B":
-            self._batch_table.add_row(key, **row)
-
 class Result(JsonSerializable):
     """A class for creating and returning the result of a Benchmark evaluation."""
 
     @staticmethod
-    def from_result_writer(result_writer: ResultWriter, default: Any = float('nan')) -> 'Result':
-        if isinstance(result_writer, ResultMemoryWriter):
-            return Result(
-                result_writer._learner_table, 
-                result_writer._simulation_table, 
-                result_writer._batch_table
-            )
-        
-        if isinstance(result_writer, ResultDiskWriter):
-            return Result.from_transaction_log(str(result_writer._transactions_path), default)
-
-        raise Exception(f"The given result_writer ({result_writer.__class__.__name__}) wasn't recognized.")
-
-    @staticmethod
-    def from_transaction_log(filename:Optional[str], default: Any = float('nan')) -> 'Result':
+    def from_transaction_log(filename: str = None, default: Any = float('nan')) -> 'Result':
         """Create a Result from a transaction file."""
         
         if filename is None or not Path(filename).exists(): return Result()
 
         decoder = CobaJsonDecoder()
+        lines   = Path(filename).read_text().split("\n")
+        
+        return Result.from_transactions([decoder.decode(l) for l in lines if l != ''], default)
 
+    @staticmethod
+    def from_transactions(transactions: Iterable[Tuple[str,Any,Dict[str,Any]]], default: Any = float('nan')) -> 'Result':
         learner_table   :Table[int]                              = Table("Learners"   , default)
         simulation_table:Table[int]                              = Table("Simulations", default)
         batch_table     :Table[Tuple[int,int,Optional[int],int]] = Table("Batches"    , default)
 
-        lines = Path(filename).read_text().split("\n")
-
-        for line in [ l for l in lines if l != '']:
-            json_obj: Tuple[str,Tuple[Any, Dict[str,Any]]] = decoder.decode(line)
-
+        for transaction in transactions:
             table: Union[Table[int], Table[Tuple[int,int,Optional[int],int]]]
             key  : Any 
 
-            if json_obj[0] == "L":
+            if transaction[0] == "L":
                 table = learner_table
-                key   = json_obj[1][0]
-            elif json_obj[0] == "S":
+                key   = transaction[1]
+            elif transaction[0] == "S":
                 table = simulation_table
-                key   = json_obj[1][0]
+                key   = transaction[1]
             else:
                 table = batch_table
-                key   = tuple(json_obj[1][0])
+                key   = tuple(transaction[1])
 
-            table.add_row(key, **json_obj[1][1])
-        
+            table.add_row(key, **transaction[2])
+
         return Result(learner_table, simulation_table, batch_table)
 
     @staticmethod
@@ -549,8 +493,9 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             See the base class for more information.
         """
         
-        restored = Result.from_transaction_log(transaction_log)
-        results  = ResultDiskWriter(transaction_log) if transaction_log else ResultMemoryWriter()
+        restored     = Result.from_transaction_log(transaction_log)
+        readwrite    = DiskReadWrite(transaction_log) if transaction_log else MemoryReadWrite()
+        transactions = TransactionReadWrite(readwrite)
 
         n_restored_learners = len(restored._learner_table._rows)
         n_given_learners    = len(learner_factories)
@@ -560,30 +505,29 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         mp = self._max_processes if self._max_processes else ExecutionContext.Config.max_processes
 
-        with results:
-            if n_restored_learners == 0:
-                for learner in map(UniversalBenchmark._Learner, *zip(*enumerate(learner_factories))):
-                    if not restored.has_learner(learner.index):
-                        learner_row = {"family":learner.family, "full_name": learner.full_name, **learner.params}
-                        results.write_learner(learner.index, **learner_row)
+        if n_restored_learners == 0:
+            for learner in map(UniversalBenchmark._Learner, *zip(*enumerate(learner_factories))):
+                if not restored.has_learner(learner.index):
+                    learner_row = {"family":learner.family, "full_name": learner.full_name, **learner.params}
+                    transactions.write_learner(learner.index, **learner_row)
 
-            #write number of learners, number of simulations, batcher, shuffle seeds and ignore first
-            #make sure all these variables are the same. If they've changed then fail gracefully.                    
+        #write number of learners, number of simulations, batcher, shuffle seeds and ignore first
+        #make sure all these variables are the same. If they've changed then fail gracefully.                    
 
-            tasks = self._make_tasks(self._simulations, learner_factories, restored, results)
+        tasks = self._make_tasks(self._simulations, learner_factories, restored, transactions)
 
-            if mp == 1:
-                for task_results in map(self._process_task, tasks, repeat(restored)):
+        if mp == 1:
+            for task_results in map(self._process_task, tasks, repeat(restored)):
+                for key, row in filter(None,task_results):
+                    transactions.write_batch(*key, **row)
+
+        if mp > 1:
+            with ProcessPoolExecutor(mp) as exe: 
+                for task_results in exe.map(self._process_task, tasks, repeat(restored)):
                     for key, row in filter(None,task_results):
-                        results.write_batch(*key, **row)
+                        transactions.write_batch(*key, **row)
 
-            if mp > 1:
-                with ProcessPoolExecutor(mp) as exe: 
-                    for task_results in exe.map(self._process_task, tasks, repeat(restored)):
-                        for key, row in filter(None,task_results):
-                            results.write_batch(*key, **row)
-
-        return Result.from_result_writer(results)
+        return Result.from_transactions(transactions.read())
 
     def _make_simulations(self, simulations, restored, results) -> 'Iterable[UniversalBenchmark._Simulation]':
         for index, simulation in enumerate(simulations):

@@ -9,7 +9,6 @@ from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTuned
 from coba.benchmarks import UniversalBenchmark
 from coba.preprocessing import SizeBatcher
 from coba.analysis import Plots
-from coba.execution import ExecutionContext
 
 if __name__ == '__main__':
     #make sure the simulation is repeatable
@@ -31,7 +30,7 @@ if __name__ == '__main__':
         lambda: VowpalLearner(softmax=3.5, seed=10)
     ]
 
-    with ExecutionContext.Logger.log("evaluating learners..."):
-        results = benchmark.ignore_raise(False).evaluate(learner_factories)
+
+    results = benchmark.ignore_raise(False).evaluate(learner_factories)
 
     Plots.standard_plot(results, show_err=False)

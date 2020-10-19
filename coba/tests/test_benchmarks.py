@@ -8,10 +8,8 @@ from coba.learners import LambdaLearner
 from coba.execution import ExecutionContext, NoneLogger
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
 from coba.preprocessing import CountBatcher, SizesBatcher
-from coba.benchmarks import (
-    ResultDiskWriter, 
-    ResultMemoryWriter, ResultWriter, Table, UniversalBenchmark, Result
-)
+from coba.benchmarks import TransactionReadWrite, Table, UniversalBenchmark, Result
+from coba.data import DiskReadWrite, MemoryReadWrite
 
 ExecutionContext.Logger = NoneLogger()
 
@@ -43,19 +41,19 @@ class Table_Tests(unittest.TestCase):
 class Result_Tests(unittest.TestCase):
 
     def test_has_batch_key(self):
-        writer = ResultMemoryWriter(0)
+        writer = TransactionReadWrite(MemoryReadWrite())
         writer.write_batch(0,1,None,2, a='A')
-        result = Result.from_result_writer(writer)
+        result = Result.from_transactions(writer.read())
 
         self.assertTrue(result.has_batch(0,1,None,2))
 
     def test_to_from_json(self):
-        writer = ResultMemoryWriter(0)
+        writer = TransactionReadWrite(MemoryReadWrite())
         writer.write_learner(0,a='A')
         writer.write_simulation(0,b='B')
         writer.write_batch(0,1,1,2,reward=mean([1,2,3]))
         
-        expected_result = Result.from_result_writer(writer)
+        expected_result = Result.from_transactions(writer.read())
 
         json_txt = CobaJsonEncoder().encode(expected_result)
 
@@ -64,12 +62,12 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
     def test_to_from_json_file(self):
-        writer = ResultMemoryWriter(0)
+        writer = TransactionReadWrite(MemoryReadWrite())
         writer.write_learner(0,a='A')
         writer.write_simulation(0,b='B')
         writer.write_batch(0,1,None,2,reward=mean([1,2,3]))
 
-        expected_result = Result.from_result_writer(writer)
+        expected_result = Result.from_transactions(writer.read())
 
         try:
             expected_result.to_json_file('.test/test.json')
@@ -81,20 +79,20 @@ class Result_Tests(unittest.TestCase):
 
     def test_to_from_transaction_log_once(self):
 
-        def write_result(writer: ResultWriter)-> None:
+        def write_result(writer: TransactionReadWrite)-> None:
             writer.write_learner(0, a='A')
             writer.write_simulation(0, b='B')
             writer.write_batch(0, 1, None, 2, reward=mean([1,2,3]))
 
         try:
-            with ResultDiskWriter(".test/transactions.log") as disk_writer:
-                write_result(disk_writer)
+            disk   = TransactionReadWrite(DiskReadWrite(".test/transactions.log"))
+            memory = TransactionReadWrite(MemoryReadWrite()) 
+            
+            write_result(disk)
+            write_result(memory)
 
-            with ResultMemoryWriter(0) as memory_writer:
-                write_result(memory_writer)
-
-                expected_result = Result.from_result_writer(memory_writer,0)
-                actual_result   = Result.from_result_writer(disk_writer,0)
+            expected_result = Result.from_transactions(memory.read(),0)
+            actual_result   = Result.from_transactions(disk.read(),0)
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
 
@@ -102,29 +100,30 @@ class Result_Tests(unittest.TestCase):
 
     def test_to_from_transaction_log_twice(self):
 
-        def write_first_result(writer: ResultWriter)-> None:
+        def write_first_result(writer: TransactionReadWrite)-> None:
             writer.write_learner(0,a='A')
             writer.write_simulation(0,b='B')
             writer.write_batch(0,1,None,2,reward=mean([1,2,3]))
 
-        def write_second_result(writer: ResultWriter)-> None:
+        def write_second_result(writer: TransactionReadWrite)-> None:
             writer.write_learner(0,a='z')
             writer.write_simulation(0,b='q')
             writer.write_batch(1,1,None,0,reward=mean([1,2,3,4,5]))
 
         try:
-            with ResultDiskWriter(".test/transactions.log") as disk_writer1:
-                write_first_result(disk_writer1)
+            disk1   = TransactionReadWrite(DiskReadWrite(".test/transactions.log"))
+            disk2   = TransactionReadWrite(DiskReadWrite(".test/transactions.log"))
+            memory = TransactionReadWrite(MemoryReadWrite()) 
 
-            with ResultDiskWriter(".test/transactions.log") as disk_writer2:
-                write_second_result(disk_writer2)
+            write_first_result(disk1)
+            write_second_result(disk2)
                     
-            with ResultMemoryWriter(0) as memory_writer:
-                write_first_result(memory_writer)
-                write_second_result(memory_writer)
+            
+            write_first_result(memory)
+            write_second_result(memory)
 
             actual_result   = Result.from_transaction_log(".test/transactions.log",0)
-            expected_result = Result.from_result_writer(memory_writer)
+            expected_result = Result.from_transactions(memory.read())
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
 
