@@ -2,8 +2,6 @@
 
 This module contains the abstract interface expected for Benchmark implementations. This 
 module also contains several Benchmark implementations and Result data transfer class.
-
-TODO Add docstrings to Batchers
 """
 
 import json
@@ -16,8 +14,8 @@ from itertools import repeat, product, islice, accumulate
 from statistics import median
 from pathlib import Path
 from typing import (
-    Iterable, Tuple, Hashable, Union, Sequence, List,
-    Callable, Generic, TypeVar, Dict, Any, cast, Optional, overload
+    Iterable, Tuple, Hashable, Union, Sequence, Callable, 
+    Generic, TypeVar, Dict, Any, cast, Optional
 )
 
 from coba.simulations import Interaction, LazySimulation, JsonSimulation, Simulation, Context, Action, Key, Choice, Reward
@@ -103,72 +101,46 @@ class Result:
         for transaction in transactions:
             
             if transaction[0] == "L":
-                result._learner_table.add_row(**transaction[1])
+                result.learners.add_row(**transaction[1])
             
             if transaction[0] == "S":
-                result._simulation_table.add_row(**transaction[1])
+                result.simulations.add_row(**transaction[1])
             
             if transaction[0] == "B":
-                result._batch_table.add_row(**transaction[1])
+                result.batches.add_row(**transaction[1])
 
         return result
 
     def __init__(self) -> None:
         """Instantiate a Result class."""
 
-        self._learner_table    = Table("Learners"   , ['learner_id'])
-        self._simulation_table = Table("Simulations", ['simulation_id'])
-        self._batch_table      = Table("Batches"    , ['learner_id', 'simulation_id', 'seed', 'batch_index'])
-
-    def has_learner(self, learner_id:int) -> bool:
-        return learner_id in self._learner_table
-
-    def has_simulation(self, simulation_id:int) -> bool:
-        return simulation_id in self._simulation_table
-
-    def has_batch(self, learner_id:int, simulation_id:int, seed:Optional[int], batch_index:int) -> bool:
-        return (learner_id, simulation_id, seed, batch_index) in self._batch_table
-
-    def get_learner(self, learner_id:int) -> Dict[str,Any]:
-        return self._learner_table.get_row(learner_id)
-
-    def get_simulation(self, simulation_id:int) -> Dict[str,Any]:
-        return self._simulation_table.get_row(simulation_id)
-
-    def get_batch(self, learner_id:int, simulation_id:int, seed:Optional[int], batch_index:int) -> Dict[str,Any]:
-        return self._batch_table.get_row((learner_id, simulation_id, seed, batch_index))
-    
-    def rmv_batches(self, simulation_id:int):
-        if not simulation_id in self._simulation_table: return
-        self._batch_table.rmv_where(simulation_id=simulation_id)        
+        self.learners    = Table("Learners"   , ['learner_id'])
+        self.simulations = Table("Simulations", ['simulation_id'])
+        self.batches     = Table("Batches"    , ['learner_id', 'simulation_id', 'seed', 'batch_index'])
 
     def to_tuples(self) -> Tuple[Sequence[Any], Sequence[Any], Sequence[Any]]:
         return (
-            self._learner_table.to_tuples(),
-            self._simulation_table.to_tuples(),
-            self._batch_table.to_tuples()
+            self.learners.to_tuples(),
+            self.simulations.to_tuples(),
+            self.batches.to_tuples()
         )
 
     def to_indexed_tuples(self) -> Tuple[Dict[Hashable,Any], Dict[Hashable,Any], Dict[Hashable,Any]]:
         return (
-            self._learner_table.to_indexed_tuples(),
-            self._simulation_table.to_indexed_tuples(),
-            self._batch_table.to_indexed_tuples()
+            self.learners.to_indexed_tuples(),
+            self.simulations.to_indexed_tuples(),
+            self.batches.to_indexed_tuples()
         )
 
     def to_pandas(self) -> Tuple[Any,Any,Any]:
-        l = self._learner_table.to_pandas()
-        s = self._simulation_table.to_pandas()
-        b = self._batch_table.to_pandas()
+        l = self.learners.to_pandas()
+        s = self.simulations.to_pandas()
+        b = self.batches.to_pandas()
 
         return (l,s,b)
 
     def __str__(self) -> str:
-        return str({
-            "Learners": len(self._learner_table._rows),
-            "Simulations": len(self._simulation_table._rows),
-            "Batches": len(self._batch_table._rows)
-        })
+        return str({ "Learners": len(self.learners), "Simulations": len(self.simulations), "Batches": len(self.batches) })
 
     def __repr__(self) -> str:
         return str(self)
@@ -363,7 +335,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         readwrite    = DiskReadWrite(transaction_log) if transaction_log else MemoryReadWrite()
         transactions = TransactionReadWrite(readwrite)
 
-        n_restored_learners = len(restored._learner_table._rows)
+        n_restored_learners = len(restored.learners._rows)
         n_given_learners    = len(learner_factories)
 
         if n_restored_learners > 0 and n_restored_learners != n_given_learners:
@@ -373,9 +345,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         if n_restored_learners == 0:
             for learner in map(UniversalBenchmark._Learner, *zip(*enumerate(learner_factories))):
-                if not restored.has_learner(learner.index):
-                    learner_row = {"family":learner.family, "full_name": learner.full_name, **learner.params}
-                    transactions.write_learner(learner.index, **learner_row)
+                learner_row = {"family":learner.family, "full_name": learner.full_name, **learner.params}
+                transactions.write_learner(learner.index, **learner_row)
 
         #write number of learners, number of simulations, batcher, shuffle seeds and ignore first
         #make sure all these variables are the same. If they've changed then fail gracefully.                    
@@ -404,7 +375,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
                     batch_sizes = self._batcher.batch_sizes(len(loaded_simulation.interactions))
 
-                    if not restored.has_simulation(index):
+                    if index not in restored.simulations:
                         results.write_simulation(index,
                             interaction_count = sum(batch_sizes[int(self._ignore_first):]),
                             batch_count       = len(batch_sizes[int(self._ignore_first):]),
@@ -429,7 +400,6 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         for simulation in self._make_simulations(simulations, restored, results):
             for learner in self._make_learners(simulation, factories, restored, results):
                 yield (simulation,learner)
-            #restored.rmv_batches(simulation.index) # to reduce memory in case we restore a large log
         
     def _process_task(self, task, restored):
         result = []
@@ -465,7 +435,9 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
             learner.learn(key,context,action,reward)
 
-        if batch_index >= 0 and not restored.has_batch(learner.index, simulation.index, simulation.seed, batch_index):
+        batch_key = (learner.index, simulation.index, simulation.seed, batch_index)
+
+        if batch_index >= 0 and batch_key not in restored.batches:
             key = (learner.index, simulation.index, simulation.seed, batch_index)
             row = {"N":len(rewards), "reward":mean(rewards)}
             return (key,row)
@@ -473,29 +445,30 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             return None
 
     #Begin utility classes
-    def _simulation_finished_in_restored(self, restored_result: Result, simulation_index: int) -> bool:
+    def _simulation_finished_in_restored(self, restored: Result, simulation_index: int) -> bool:
 
-        if not restored_result.has_simulation(simulation_index):
+        if simulation_index not in restored.simulations:
             return False #this simulation has never been processed
 
-        n_learners = len(restored_result._learner_table._rows)
-        n_batches  = restored_result.get_simulation(simulation_index)['batch_count']
+        n_learners = len(restored.learners._rows)
+        n_batches  = restored.simulations.get_row(simulation_index)['batch_count']
         n_seeds    = len(self._seeds)
 
         total_batch_count    = n_learners * 1 * n_seeds * n_batches
         restored_batch_count = 0
 
         for learner_index, shuffle_seed, batch_index in product(range(n_learners), self._seeds, range(n_batches)):
-            restored_batch_count += int(restored_result.has_batch(learner_index, simulation_index, shuffle_seed, batch_index))
+            batch_key = (learner_index, simulation_index, shuffle_seed, batch_index)
+            restored_batch_count += int(batch_key in restored.batches)
 
         return restored_batch_count == total_batch_count
 
     def _simulation_learner_finished_in_restored(self, restored, simulation, learner_index) -> bool:
 
-        if not restored.has_simulation(simulation.index):
+        if simulation.index not in restored.simulations:
             return False #this simulation has never been processed
 
-        restored_simulation = restored.get_simulation(simulation.index)
+        restored_simulation = restored.simulations.get_row(simulation.index)
 
         if restored_simulation['batch_count'] == 0:
             return True #this simulation was previously processed and found to be too small to batch
@@ -504,7 +477,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         restored_batch_count        = 0
 
         for batch_index in range(restored_simulation['batch_count']):
-            restored_batch_count += int(restored.has_batch(learner_index, simulation.index, simulation.seed, batch_index))
+            batch_key = (learner_index, simulation.index, simulation.seed, batch_index)
+            restored_batch_count += int(batch_key in restored.batches)
 
         # true if all batches were evaluated previously
         return restored_batch_count == fully_evaluated_batch_count

@@ -30,7 +30,6 @@ if __name__ == '__main__':
         lambda: VowpalLearner(softmax=3.5, seed=10)
     ]
 
-
     results = benchmark.ignore_raise(False).evaluate(learner_factories)
 
     Plots.standard_plot(results, show_err=False)

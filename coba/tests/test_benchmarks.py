@@ -20,7 +20,7 @@ class Result_Tests(unittest.TestCase):
         writer.write_batch(0,1,None,2, a='A')
         result = Result.from_transactions(writer.read())
 
-        self.assertTrue(result.has_batch(0,1,None,2))
+        self.assertTrue( (0,1,None,2) in result.batches)
 
     def test_to_from_transaction_log_once(self):
 

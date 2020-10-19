@@ -108,6 +108,10 @@ class Table:
     def __repr__(self) -> str:
         return str(self)
 
+    def __len__(self) -> int:
+        return len(self._rows)
+
+
 class ReadWrite(ABC):
     @abstractmethod
     def write(self, obj:Any) -> None:
