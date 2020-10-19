@@ -2,7 +2,6 @@
 
 import math
 
-from coba.statistics import StatisticalEstimate
 from collections import defaultdict
 from itertools import groupby
 
@@ -38,14 +37,6 @@ class Plots():
                 us = [ y+math.sqrt(v/n) for y,v,n in zip(ys,vs,ns) ]
                 axes.fill_between(xs, ls, us, alpha = 0.1)
 
-        def _reward(batch):
-            #For backwards compatability. Can be removed in future updates.
-            if ('mean_reward' in batch._fields):
-                return batch.mean_reward.estimate
-            if isinstance(batch.reward, StatisticalEstimate):
-                return batch.reward.estimate
-            return batch.reward
-
         learners, _, batches = result.to_indexed_tuples()
 
         learner_index_key = lambda batch: (batch.learner_id, batch.batch_index)
@@ -74,7 +65,7 @@ class Plots():
                 inmean     = OnlineMean()
                 invariance = OnlineVariance()
 
-                for N, reward in [ (b.N, _reward(b)) for b in index_batches]:
+                for N, reward in [ (b.N, b.reward) for b in index_batches]:
                     
                     max_batch_N = max(N, max_batch_N)
                     

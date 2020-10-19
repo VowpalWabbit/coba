@@ -6,9 +6,8 @@ from statistics import mean
 from coba.simulations import LambdaSimulation, LazySimulation, JsonSimulation
 from coba.learners import LambdaLearner
 from coba.execution import ExecutionContext, NoneLogger
-from coba.json import CobaJsonEncoder, CobaJsonDecoder
 from coba.preprocessing import CountBatcher, SizesBatcher
-from coba.benchmarks import TransactionReadWrite, UniversalBenchmark, Result
+from coba.benchmarks import TransactionLog, UniversalBenchmark, Result
 from coba.data import DiskReadWrite, MemoryReadWrite
 
 ExecutionContext.Logger = NoneLogger()
@@ -16,22 +15,24 @@ ExecutionContext.Logger = NoneLogger()
 class Result_Tests(unittest.TestCase):
 
     def test_has_batch_key(self):
-        writer = TransactionReadWrite(MemoryReadWrite())
-        writer.write_batch(0,1,None,2, a='A')
-        result = Result.from_transactions(writer.read())
+        memory = TransactionLog(MemoryReadWrite())
+        
+        memory.write_batch(0,1,None,2, a='A')
+        
+        result = Result.from_transactions(memory.read())
 
         self.assertTrue( (0,1,None,2) in result.batches)
 
     def test_to_from_transaction_log_once(self):
 
-        def write_result(writer: TransactionReadWrite)-> None:
+        def write_result(writer: TransactionLog)-> None:
             writer.write_learner(0, a='A')
             writer.write_simulation(0, b='B')
             writer.write_batch(0, 1, None, 2, reward=mean([1,2,3]))
 
         try:
-            disk   = TransactionReadWrite(DiskReadWrite(".test/transactions.log"))
-            memory = TransactionReadWrite(MemoryReadWrite()) 
+            disk   = TransactionLog(DiskReadWrite(".test/transactions.log"))
+            memory = TransactionLog(MemoryReadWrite()) 
             
             write_result(disk)
             write_result(memory)
@@ -45,29 +46,28 @@ class Result_Tests(unittest.TestCase):
 
     def test_to_from_transaction_log_twice(self):
 
-        def write_first_result(writer: TransactionReadWrite)-> None:
+        def write_first_result(writer: TransactionLog)-> None:
             writer.write_learner(0,a='A')
             writer.write_simulation(0,b='B')
             writer.write_batch(0,1,None,2,reward=mean([1,2,3]))
 
-        def write_second_result(writer: TransactionReadWrite)-> None:
+        def write_second_result(writer: TransactionLog)-> None:
             writer.write_learner(0,a='z')
             writer.write_simulation(0,b='q')
             writer.write_batch(1,1,None,0,reward=mean([1,2,3,4,5]))
 
         try:
-            disk1   = TransactionReadWrite(DiskReadWrite(".test/transactions.log"))
-            disk2   = TransactionReadWrite(DiskReadWrite(".test/transactions.log"))
-            memory = TransactionReadWrite(MemoryReadWrite()) 
+            disk1  = TransactionLog(DiskReadWrite(".test/transactions.log"))
+            disk2  = TransactionLog(DiskReadWrite(".test/transactions.log"))
+            memory = TransactionLog(MemoryReadWrite()) 
 
             write_first_result(disk1)
             write_second_result(disk2)
-                    
-            
+
             write_first_result(memory)
             write_second_result(memory)
 
-            actual_result   = Result.from_transaction_log(".test/transactions.log")
+            actual_result   = Result.from_transactions(disk2.read())
             expected_result = Result.from_transactions(memory.read())
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()

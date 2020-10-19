@@ -3,12 +3,63 @@
 import collections
 
 from abc import abstractmethod, ABC
-from build.lib.coba.json import CobaJsonDecoder
 from pathlib import Path
 from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload
 
 from coba.utilities import check_pandas_support
-from coba.json import CobaJsonEncoder
+from coba.json import CobaJsonEncoder, CobaJsonDecoder
+
+class Reader(ABC):
+    @abstractmethod
+    def read(self) -> Iterable[Any]:
+        ...
+
+class Writer(ABC):
+    @abstractmethod
+    def write(self, obj:Any) -> None:
+        ...
+
+class ReadWrite(Reader, Writer):
+    pass
+
+class DiskReadWrite(ReadWrite):
+    
+    def __init__(self, filename:str):
+        self._json_encoder = CobaJsonEncoder()
+        self._json_decoder = CobaJsonDecoder()
+        self._filepath     = Path(filename)
+        self._filepath.touch()
+
+    def write(self, obj: Any) -> None:
+        with open(self._filepath, "a") as f:
+            f.write(self._json_encoder.encode(obj))
+            f.write("\n")
+
+    def read(self) -> Iterable[Any]:
+        with open(self._filepath, "r") as f:
+            for line in f.readlines():
+                yield self._json_decoder.decode(line)
+
+class MemoryReadWrite(ReadWrite):
+    def __init__(self, memory: List[Any] = None):
+        self._memory = memory if memory else []
+
+    def write(self, obj:Any) -> None:
+        self._memory.append(obj)
+
+    def read(self) -> Iterable[Any]:
+        return self._memory
+
+class QueueReadWrite(ReadWrite):
+    def __init__(self, queue: Any) -> None:
+        self._queue = queue
+
+    def write(self, obj:Any) -> None:
+        self._queue.put(obj)
+
+    def read(self) -> Iterable[Any]:
+        while not self._queue.empty():
+            yield self._queue.get()
 
 class Table:
     """A container class for storing tabular data."""
@@ -27,31 +78,13 @@ class Table:
 
         self._rows: Dict[Hashable, Sequence[Any]] = {}
 
-    @overload
-    def add_row(self, *row) -> None:
-        """Add a row of data to the table. The row must contain all primary columns.
-        
-        Arg:
-            row: The row of data in ordered `value` format. The value order must match `Table.columns`.
-        """
-        ...
-
-    @overload
-    def add_row(self, **kwrow) -> None:
-        """Add a row of data to the table. The row must contain all primary columns.
-        
-        Arg:
-            kwrow: The row of data in `column_name`:`value` format.
-        """
-        ...
-
     def add_row(self, *row, **kwrow) -> None:
         """Add a row of data to the table. The row must contain all primary columns."""
 
         if kwrow:
             self._columns.extend([col for col in kwrow if col not in self._columns])
-            row = [ kwrow.get(col, self._default) for col in self._columns ]
-        
+            
+        row = list(row) + [ kwrow.get(col, self._default) for col in self._columns[len(row):] ]
         self._rows[row[0] if len(self._primary) == 1 else tuple(row[0:len(self._primary)])] = row
 
     def get_row(self, key: Hashable) -> Dict[str,Any]:
@@ -110,52 +143,3 @@ class Table:
 
     def __len__(self) -> int:
         return len(self._rows)
-
-
-class ReadWrite(ABC):
-    @abstractmethod
-    def write(self, obj:Any) -> None:
-        ...
-
-    @abstractmethod
-    def read(self) -> Iterable[Any]:
-        ...
-
-class DiskReadWrite(ReadWrite):
-    
-    def __init__(self, filename:str):
-        self._json_encoder = CobaJsonEncoder()
-        self._json_decoder = CobaJsonDecoder()
-        self._filepath     = Path(filename)
-        self._filepath.touch()
-
-    def write(self, obj: Any) -> None:
-        with open(self._filepath, "a") as f:
-            f.write(self._json_encoder.encode(obj))
-            f.write("\n")
-    
-    def read(self) -> Iterable[Any]:
-        with open(self._filepath, "r") as f:
-            for line in f.readlines():
-                yield self._json_decoder.decode(line)
-
-class MemoryReadWrite(ReadWrite):
-    def __init__(self, memory: List[Any] = None):
-        self._memory = memory if memory else []
-
-    def write(self, obj:Any) -> None:
-        self._memory.append(obj)
-
-    def read(self) -> Iterable[Any]:
-        return self._memory
-
-class QueueReadWrite(ReadWrite):
-    def __init__(self, queue: Any) -> None:
-        self._queue = queue
-
-    def write(self, obj:Any) -> None:
-        self._queue.put(obj)
-
-    def read(self) -> Iterable[Any]:
-        while not self._queue.empty():
-            yield self._queue.get()

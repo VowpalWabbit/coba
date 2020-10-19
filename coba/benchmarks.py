@@ -22,19 +22,33 @@ from coba.simulations import Interaction, LazySimulation, JsonSimulation, Simula
 from coba.preprocessing import Batcher
 from coba.learners import Learner
 from coba.execution import ExecutionContext
-from coba.json import CobaJsonDecoder
+from coba.json import CobaJsonDecoder, CobaJsonEncoder
 from coba.data import ReadWrite, DiskReadWrite, MemoryReadWrite, Table
 from coba.random import Random
 
 _C  = TypeVar('_C', bound=Context)
 _A  = TypeVar('_A', bound=Action)
 
-class TransactionReadWrite:
+class TransactionLog:
 
     def __init__(self, readwrite: ReadWrite):
         self._readwrite = readwrite
 
-    def write_learner(self, learner_id:int, **kwargs):
+    def write_version(self, version):
+        self._readwrite.write(['version', version])
+
+    def write_benchmark(self, n_learners, n_simulations, n_seeds, batcher, ignore_first) -> None:
+        data = {
+            "n_learners"   :n_learners,
+            "n_simulations":n_simulations,
+            "n_seeds"      :n_seeds,
+            "batcher"      : batcher, 
+            "ignore_first" : ignore_first
+        }
+        
+        self._readwrite.write(['benchmark',data])
+
+    def write_learner(self, learner_id:int, **kwargs) -> None:
         """Write learner metadata row to Result.
         
         Args:
@@ -47,7 +61,7 @@ class TransactionReadWrite:
 
         self._readwrite.write(["L", row])
 
-    def write_simulation(self, simulation_id: int, **kwargs):
+    def write_simulation(self, simulation_id: int, **kwargs) -> None:
         """Write simulation metadata row to Result.
         
         Args:
@@ -55,13 +69,12 @@ class TransactionReadWrite:
             simulation_seed: The seed used to shuffle the simulation before evaluation.
             kwargs: The metadata to store about the learner.
         """
-        key       = simulation_id
         key_items = [(cast(str,"simulation_id"),simulation_id)]
         row       = collections.OrderedDict(key_items + list(kwargs.items()))
 
         self._readwrite.write(["S", row])
 
-    def write_batch(self, learner_id:int, simulation_id:int, seed: Optional[int], batch_index:int, **kwargs):
+    def write_batch(self, learner_id:int, simulation_id:int, seed: Optional[int], batch_index:int, **kwargs) -> None:
         """Write batch metadata row to Result.
 
         Args:
@@ -70,23 +83,83 @@ class TransactionReadWrite:
             batch_index: The index of the batch within the simulation.
             kwargs: The metadata to store about the batch.
         """
-        key       = (learner_id, simulation_id, seed, batch_index)
-        key_items = [("learner_id",learner_id), ("simulation_id",simulation_id), ("seed", seed), ("batch_index",batch_index)]
-        row       = collections.OrderedDict(key_items + list(kwargs.items()))
-
-        self._readwrite.write(["B", row])
+        
+        self._readwrite.write(["B", [learner_id, simulation_id, seed, batch_index], kwargs])
 
     def read(self) -> Iterable[Any]:
         return self._readwrite.read()
+
+class TransactionLogPromote:
+    
+    @staticmethod
+    def current_version() -> int:
+        return 1
+    
+    @staticmethod
+    def to_next_version(transactions: Sequence[Any], version:int) -> Tuple[Sequence[Any], int]:
+        if version == 0:
+            new_transactions = []
+
+            new_transactions.append(["version",1])
+
+            for transaction in transactions:
+                
+                if transaction[0] == "B":
+                    key_columns = ['learner_id', 'simulation_id', 'seed', 'batch_index']
+                    
+                    index  = [ transaction[1][1][k] for k in key_columns ]
+                    values = transaction[1][1]
+                    
+                    for key_column in key_columns: del values[key_column]
+                    
+                    if 'reward' in values:
+                        values['reward'] = values['reward'].estimate
+                    
+                    if 'mean_reward' in values:
+                        values['reward'] = values['mean_reward'].estimate
+                        del values['mean_reward']
+
+                    new_transactions.append([transaction[0], index, values])
+                else:
+                    new_transactions.append([transaction[0], transaction[1][1]])
+
+            return new_transactions, 1
+
+        raise Exception('Attempted to promote beyond current transaction version.')
+
+    @staticmethod
+    def promote_if_old_version(filename:Optional[str]) -> None:
+
+        if filename is None or not Path(filename).exists(): return
+
+        decoder = CobaJsonDecoder()
+        encoder = CobaJsonEncoder()
+
+        with open(filename, 'r') as f: first_line = decoder.decode(f.readline().strip())
+        
+        version = 0 if first_line[0] != 'version' else first_line[1]
+
+        if version < TransactionLogPromote.current_version():
+            transactions = [decoder.decode(l) for l in Path(filename).read_text().split("\n") if l != '']
+
+            while version < TransactionLogPromote.current_version():
+                transactions,version = TransactionLogPromote.to_next_version(transactions,version)
+
+            with open(Path(filename), 'w') as f:
+                for transaction in transactions:
+                    f.write(encoder.encode(transaction))
+                    f.write("\n")
 
 class Result:
     """A class for creating and returning the result of a Benchmark evaluation."""
 
     @staticmethod
-    def from_transaction_log(filename: str = None) -> 'Result':
+    def from_transaction_log(filename: Optional[str]) -> 'Result':
         """Create a Result from a transaction file."""
         
         if filename is None or not Path(filename).exists(): return Result()
+
+        TransactionLogPromote.promote_if_old_version(filename)
 
         decoder = CobaJsonDecoder()
         lines   = Path(filename).read_text().split("\n")
@@ -94,28 +167,31 @@ class Result:
         return Result.from_transactions([decoder.decode(l) for l in lines if l != ''])
 
     @staticmethod
-    def from_transactions(transactions: Iterable[Tuple[str,Dict[str,Any]]]) -> 'Result':
+    def from_transactions(transactions: Iterable[Any]) -> 'Result':
 
         result = Result()
 
         for transaction in transactions:
-            
-            if transaction[0] == "L":
-                result.learners.add_row(**transaction[1])
-            
-            if transaction[0] == "S":
-                result.simulations.add_row(**transaction[1])
-            
-            if transaction[0] == "B":
-                result.batches.add_row(**transaction[1])
+            if transaction[0] == "version": result.version = transaction[1]
+            if transaction[0] == "benchmark": result.benchmark = transaction[1]
+            if transaction[0] == "L": result.learners.add_row(**transaction[1])
+            if transaction[0] == "S": result.simulations.add_row(**transaction[1])
+            if transaction[0] == "B": result.batches.add_row(*transaction[1], **transaction[2])
 
         return result
 
     def __init__(self) -> None:
         """Instantiate a Result class."""
 
+        self.version     = None
+        self.benchmark   = {}
         self.learners    = Table("Learners"   , ['learner_id'])
         self.simulations = Table("Simulations", ['simulation_id'])
+        
+        #Warning, if you change the order of the columns for batches then:
+        # 1. TransactionLogPromote.current_version() will need to be bumped to version 2
+        # 2. TransactionLogPromote.to_next_version() will need to promote version 1 to 2
+        # 3. TransactionLog.write_batch will need to be modified to write in new order
         self.batches     = Table("Batches"    , ['learner_id', 'simulation_id', 'seed', 'batch_index'])
 
     def to_tuples(self) -> Tuple[Sequence[Any], Sequence[Any], Sequence[Any]]:
@@ -330,26 +406,35 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         Returns:
             See the base class for more information.
         """
-        
+
         restored     = Result.from_transaction_log(transaction_log)
-        readwrite    = DiskReadWrite(transaction_log) if transaction_log else MemoryReadWrite()
-        transactions = TransactionReadWrite(readwrite)
+        transactions = TransactionLog(DiskReadWrite(transaction_log) if transaction_log else MemoryReadWrite())
 
-        n_restored_learners = len(restored.learners._rows)
         n_given_learners    = len(learner_factories)
+        n_given_simulations = len(self._simulations)
+        n_given_seeds       = len(self._seeds)
+        given_batcher       = self._batcher.__class__.__name__
+        ignore_first        = self._ignore_first
 
-        if n_restored_learners > 0 and n_restored_learners != n_given_learners:
-            raise Exception("The number of learners differs from the transaction log.")
+        if restored.version is None:
+            transactions.write_version(TransactionLogPromote.current_version())
 
-        mp = self._max_processes if self._max_processes else ExecutionContext.Config.max_processes
+        if len(restored.benchmark) == 0:
+            transactions.write_benchmark(n_given_learners, n_given_simulations, n_given_seeds, given_batcher, ignore_first)
 
-        if n_restored_learners == 0:
+        if len(restored.learners) == 0:
             for learner in map(UniversalBenchmark._Learner, *zip(*enumerate(learner_factories))):
                 learner_row = {"family":learner.family, "full_name": learner.full_name, **learner.params}
                 transactions.write_learner(learner.index, **learner_row)
 
-        #write number of learners, number of simulations, batcher, shuffle seeds and ignore first
-        #make sure all these variables are the same. If they've changed then fail gracefully.                    
+        if len(restored.benchmark) != 0:
+            assert n_given_learners    == restored.benchmark['n_learners'   ], "The currently evaluating benchmark doesn't match the given transaction log"
+            assert n_given_simulations == restored.benchmark['n_simulations'], "The currently evaluating benchmark doesn't match the given transaction log"
+            assert n_given_seeds       == restored.benchmark['n_seeds'      ], "The currently evaluating benchmark doesn't match the given transaction log"
+            assert given_batcher       == restored.benchmark['batcher'      ], "The currently evaluating benchmark doesn't match the given transaction log"
+            assert ignore_first        == restored.benchmark['ignore_first' ], "The currently evaluating benchmark doesn't match the given transaction log"
+
+        mp = self._max_processes if self._max_processes else ExecutionContext.Config.max_processes
 
         tasks = self._make_tasks(self._simulations, learner_factories, restored, transactions)
 
