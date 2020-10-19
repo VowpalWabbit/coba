@@ -9,31 +9,27 @@ TODO Add docstrings to Batchers
 import json
 import collections
 
+from concurrent.futures import ProcessPoolExecutor
 from statistics import mean
 from abc import ABC, abstractmethod
 from itertools import repeat, product, islice, accumulate
 from statistics import median
-from ast import literal_eval
 from pathlib import Path
 from typing import (
-    Iterable, Tuple, Hashable, Union, Sequence, List, Callable, 
-    Generic, TypeVar, Dict, Any, cast, Optional
+    Iterable, Tuple, Hashable, Union, Sequence, List,
+    Callable, Generic, TypeVar, Dict, Any, cast, Optional, overload
 )
-from concurrent.futures import ProcessPoolExecutor
 
 from coba.simulations import Interaction, LazySimulation, JsonSimulation, Simulation, Context, Action, Key, Choice, Reward
 from coba.preprocessing import Batcher
 from coba.learners import Learner
 from coba.execution import ExecutionContext
-from coba.utilities import check_pandas_support
-from coba.json import CobaJsonDecoder, CobaJsonEncoder, JsonSerializable
-from coba.data import ReadWrite, DiskReadWrite, MemoryReadWrite
+from coba.json import CobaJsonDecoder
+from coba.data import ReadWrite, DiskReadWrite, MemoryReadWrite, Table
 from coba.random import Random
 
-_K  = TypeVar("_K", bound=Hashable)
 _C  = TypeVar('_C', bound=Context)
 _A  = TypeVar('_A', bound=Action)
-_T  = TypeVar('_T')
 
 class TransactionReadWrite:
 
@@ -48,11 +44,10 @@ class TransactionReadWrite:
             kwargs: The metadata to store about the learner.
         """
 
-        key       = learner_id
         key_items = [(cast(str,"learner_id"),learner_id)]
         row       = collections.OrderedDict(key_items + list(kwargs.items()))
 
-        self._readwrite.write(["L", key, row])
+        self._readwrite.write(["L", row])
 
     def write_simulation(self, simulation_id: int, **kwargs):
         """Write simulation metadata row to Result.
@@ -66,7 +61,7 @@ class TransactionReadWrite:
         key_items = [(cast(str,"simulation_id"),simulation_id)]
         row       = collections.OrderedDict(key_items + list(kwargs.items()))
 
-        self._readwrite.write(["S", key, row])
+        self._readwrite.write(["S", row])
 
     def write_batch(self, learner_id:int, simulation_id:int, seed: Optional[int], batch_index:int, **kwargs):
         """Write batch metadata row to Result.
@@ -81,104 +76,16 @@ class TransactionReadWrite:
         key_items = [("learner_id",learner_id), ("simulation_id",simulation_id), ("seed", seed), ("batch_index",batch_index)]
         row       = collections.OrderedDict(key_items + list(kwargs.items()))
 
-        self._readwrite.write(["B", key, row])
+        self._readwrite.write(["B", row])
 
     def read(self) -> Iterable[Any]:
         return self._readwrite.read()
 
-class Table(JsonSerializable, Generic[_K]):
-    """A container class for storing tabular data."""
-
-    def __init__(self, name:str, default: Any=float('nan')):
-        """Instantiate a Table.
-        
-        Args:
-            name: The name of the table.
-            default: The default values to fill in missing values with
-        """
-        self._name    = name
-        self._default = default
-
-        self._columns: List[str]               = []
-        self._rows   : Dict[_K, Dict[str,Any]] = {}
-
-    def add_row(self, key: _K, **kwargs) -> None:
-        """Add an indexed row of data to the table.
-        
-        Arg:
-            key: A lookup index for the row in the table
-            kwargs: The row of data in `column_name`:`value` format.
-
-        Remarks:
-            When a row is added all rows are updated (including the added row
-            if necessary) to make sure that all rows have the same columns.
-
-        """
-        new_columns = [col for col in kwargs if col not in self._columns]
-
-        if new_columns:
-            self._columns.extend(new_columns)
-            for data in self._rows.values():
-                data.update(zip(new_columns, repeat(self._default)))
-        
-        self._rows[key] = collections.OrderedDict({key:kwargs.get(key,self._default) for key in self._columns})
-
-    def rmv_row(self, key: _K) -> None:
-        self._rows.pop(key, None)
-
-    def to_tuples(self) -> Sequence[Any]:
-        """Convert a table into a sequence of namedtuples."""
-        return list(self.to_indexed_tuples().values())
-
-    def to_indexed_tuples(self) -> Dict[_K, Any]:
-        """Convert a table into a mapping of keys to tuples."""
-
-        my_type = collections.namedtuple(self._name, self._columns) #type: ignore #mypy doesn't like dynamic named tuples
-        return { key:my_type(**value) for key,value in self._rows.items() } #type: ignore #mypy doesn't like dynamic named tuples
-
-    def to_pandas(self) -> Any:
-        """Convert a table into a pandas dataframe."""
-
-        check_pandas_support('Table.to_pandas')
-        import pandas as pd #type: ignore #mypy complains otherwise
-
-        return pd.DataFrame(self.to_tuples())
-
-    def __contains__(self, item) -> bool:
-        return item in self._rows
-
-    def __str__(self) -> str:
-        return str({"Table": self._name, "Columns": self._columns, "Rows": len(self._rows)})
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    @staticmethod
-    def __from_json__(json_obj: Dict[str,Any]) -> 'Table':
-        rows    = { literal_eval(key):value for key,value in json_obj['rows'].items() }
-        columns = json_obj['columns']
-
-        obj          = Table(json_obj['name'])
-        obj._columns = columns
-        obj._rows    = rows
-
-        return obj
-
-    def __to_json__(self) -> Dict[str,Any]:
-
-        literal_evalable = lambda key: str(key) if not isinstance(key, str) else f"'{key}'"
-
-        return {
-            'name'   : self._name,
-            'columns': self._columns,
-            'rows'   : { literal_evalable(key):value for key,value in self._rows.items() }
-        }
-
-class Result(JsonSerializable):
+class Result:
     """A class for creating and returning the result of a Benchmark evaluation."""
 
     @staticmethod
-    def from_transaction_log(filename: str = None, default: Any = float('nan')) -> 'Result':
+    def from_transaction_log(filename: str = None) -> 'Result':
         """Create a Result from a transaction file."""
         
         if filename is None or not Path(filename).exists(): return Result()
@@ -186,50 +93,32 @@ class Result(JsonSerializable):
         decoder = CobaJsonDecoder()
         lines   = Path(filename).read_text().split("\n")
         
-        return Result.from_transactions([decoder.decode(l) for l in lines if l != ''], default)
+        return Result.from_transactions([decoder.decode(l) for l in lines if l != ''])
 
     @staticmethod
-    def from_transactions(transactions: Iterable[Tuple[str,Any,Dict[str,Any]]], default: Any = float('nan')) -> 'Result':
-        learner_table   :Table[int]                              = Table("Learners"   , default)
-        simulation_table:Table[int]                              = Table("Simulations", default)
-        batch_table     :Table[Tuple[int,int,Optional[int],int]] = Table("Batches"    , default)
+    def from_transactions(transactions: Iterable[Tuple[str,Dict[str,Any]]]) -> 'Result':
+
+        result = Result()
 
         for transaction in transactions:
-            table: Union[Table[int], Table[Tuple[int,int,Optional[int],int]]]
-            key  : Any 
-
+            
             if transaction[0] == "L":
-                table = learner_table
-                key   = transaction[1]
-            elif transaction[0] == "S":
-                table = simulation_table
-                key   = transaction[1]
-            else:
-                table = batch_table
-                key   = tuple(transaction[1])
+                result._learner_table.add_row(**transaction[1])
+            
+            if transaction[0] == "S":
+                result._simulation_table.add_row(**transaction[1])
+            
+            if transaction[0] == "B":
+                result._batch_table.add_row(**transaction[1])
 
-            table.add_row(key, **transaction[2])
+        return result
 
-        return Result(learner_table, simulation_table, batch_table)
-
-    @staticmethod
-    def from_json_file(filename:str) -> 'Result':
-        """Create a Result from a json file."""
-        return CobaJsonDecoder().decode(Path(filename).read_text())
-
-    def to_json_file(self, filename:str) -> None:
-        """Write a Result to a json file."""
-        Path(filename).write_text(CobaJsonEncoder().encode(self))
-
-    def __init__(self, 
-        learner_table   : Table[int] = None, 
-        simulation_table: Table[int] = None, 
-        batch_table     : Table[Tuple[int,int,Optional[int],int]] = None) -> None:
+    def __init__(self) -> None:
         """Instantiate a Result class."""
 
-        self._learner_table   :Table[int]                              = learner_table    if learner_table    else Table("Learners")
-        self._simulation_table:Table[int]                              = simulation_table if simulation_table else Table("Simulations")
-        self._batch_table     :Table[Tuple[int,int,Optional[int],int]] = batch_table      if batch_table      else Table("Batches")
+        self._learner_table    = Table("Learners"   , ['learner_id'])
+        self._simulation_table = Table("Simulations", ['simulation_id'])
+        self._batch_table      = Table("Batches"    , ['learner_id', 'simulation_id', 'seed', 'batch_index'])
 
     def has_learner(self, learner_id:int) -> bool:
         return learner_id in self._learner_table
@@ -241,23 +130,17 @@ class Result(JsonSerializable):
         return (learner_id, simulation_id, seed, batch_index) in self._batch_table
 
     def get_learner(self, learner_id:int) -> Dict[str,Any]:
-        return self._learner_table._rows[learner_id]
+        return self._learner_table.get_row(learner_id)
 
     def get_simulation(self, simulation_id:int) -> Dict[str,Any]:
-        return self._simulation_table._rows[simulation_id]
+        return self._simulation_table.get_row(simulation_id)
 
     def get_batch(self, learner_id:int, simulation_id:int, seed:Optional[int], batch_index:int) -> Dict[str,Any]:
-        return self._batch_table._rows[(learner_id, simulation_id, seed, batch_index)]
-
-    def rmv_learner(self, learner_id:int):
-        self._learner_table.rmv_row(learner_id)
+        return self._batch_table.get_row((learner_id, simulation_id, seed, batch_index))
     
-    def rmv_simulation(self, simulation_id:int):
-        self._simulation_table.rmv_row(simulation_id)
-
     def rmv_batches(self, simulation_id:int):
         if not simulation_id in self._simulation_table: return
-        for key in [ key for key in self._batch_table._rows if key[1] == simulation_id ]: self._batch_table.rmv_row(key)
+        self._batch_table.rmv_where(simulation_id=simulation_id)        
 
     def to_tuples(self) -> Tuple[Sequence[Any], Sequence[Any], Sequence[Any]]:
         return (
@@ -266,7 +149,7 @@ class Result(JsonSerializable):
             self._batch_table.to_tuples()
         )
 
-    def to_indexed_tuples(self) -> Tuple[Dict[int,Any], Dict[int,Any], Dict[Tuple[int,int,Optional[int],int],Any]]:
+    def to_indexed_tuples(self) -> Tuple[Dict[Hashable,Any], Dict[Hashable,Any], Dict[Hashable,Any]]:
         return (
             self._learner_table.to_indexed_tuples(),
             self._simulation_table.to_indexed_tuples(),
@@ -278,24 +161,7 @@ class Result(JsonSerializable):
         s = self._simulation_table.to_pandas()
         b = self._batch_table.to_pandas()
 
-        b.reward = b.reward.astype('float')
-
         return (l,s,b)
-
-    @staticmethod
-    def __from_json__(obj:Dict[str,Any]) -> 'Result':
-        return Result(
-            obj['learner_table'],
-            obj['simulation_table'],
-            obj['batch_table']
-        )
-
-    def __to_json__(self) -> Dict[str,Any]:
-        return {
-            'simulation_table': self._simulation_table,
-            'learner_table'   : self._learner_table,
-            'batch_table'     : self._batch_table
-        }
 
     def __str__(self) -> str:
         return str({

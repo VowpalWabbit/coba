@@ -8,35 +8,10 @@ from coba.learners import LambdaLearner
 from coba.execution import ExecutionContext, NoneLogger
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
 from coba.preprocessing import CountBatcher, SizesBatcher
-from coba.benchmarks import TransactionReadWrite, Table, UniversalBenchmark, Result
+from coba.benchmarks import TransactionReadWrite, UniversalBenchmark, Result
 from coba.data import DiskReadWrite, MemoryReadWrite
 
 ExecutionContext.Logger = NoneLogger()
-
-class Table_Tests(unittest.TestCase):
-
-    def test_to_from_json(self):
-        expected_table = Table("test", 0)
-        expected_table.add_row(0, a='A')
-        expected_table.add_row((0,1,2), b='B')
-        expected_table.add_row('a', c='C')
-
-        json_txt = CobaJsonEncoder().encode(expected_table)
-
-        actual_table = CobaJsonDecoder().decode(json_txt)
-
-        self.assertEqual(actual_table.to_tuples(), expected_table.to_tuples())
-
-    def test_table_contains(self):
-        table = Table("test",0)
-        table.add_row(0, a='A')
-        table.add_row((0,1,2), b='B')
-        table.add_row('a', c='C')
-
-        self.assertTrue(0 in table)
-        self.assertTrue((0,1,2) in table)
-        self.assertTrue('a' in table)
-        self.assertFalse('b' in table)
 
 class Result_Tests(unittest.TestCase):
 
@@ -46,36 +21,6 @@ class Result_Tests(unittest.TestCase):
         result = Result.from_transactions(writer.read())
 
         self.assertTrue(result.has_batch(0,1,None,2))
-
-    def test_to_from_json(self):
-        writer = TransactionReadWrite(MemoryReadWrite())
-        writer.write_learner(0,a='A')
-        writer.write_simulation(0,b='B')
-        writer.write_batch(0,1,1,2,reward=mean([1,2,3]))
-        
-        expected_result = Result.from_transactions(writer.read())
-
-        json_txt = CobaJsonEncoder().encode(expected_result)
-
-        actual_result = CobaJsonDecoder().decode(json_txt)
-
-        self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
-
-    def test_to_from_json_file(self):
-        writer = TransactionReadWrite(MemoryReadWrite())
-        writer.write_learner(0,a='A')
-        writer.write_simulation(0,b='B')
-        writer.write_batch(0,1,None,2,reward=mean([1,2,3]))
-
-        expected_result = Result.from_transactions(writer.read())
-
-        try:
-            expected_result.to_json_file('.test/test.json')
-            actual_result = Result.from_json_file('.test/test.json')
-        finally:
-            if Path('.test/test.json').exists(): Path('.test/test.json').unlink()
-
-        self.assertEqual(actual_result.to_tuples(), expected_result.to_tuples())
 
     def test_to_from_transaction_log_once(self):
 
@@ -91,8 +36,8 @@ class Result_Tests(unittest.TestCase):
             write_result(disk)
             write_result(memory)
 
-            expected_result = Result.from_transactions(memory.read(),0)
-            actual_result   = Result.from_transactions(disk.read(),0)
+            expected_result = Result.from_transactions(memory.read())
+            actual_result   = Result.from_transactions(disk.read())
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
 
@@ -122,7 +67,7 @@ class Result_Tests(unittest.TestCase):
             write_first_result(memory)
             write_second_result(memory)
 
-            actual_result   = Result.from_transaction_log(".test/transactions.log",0)
+            actual_result   = Result.from_transaction_log(".test/transactions.log")
             expected_result = Result.from_transactions(memory.read())
         finally:
             if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()

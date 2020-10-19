@@ -4,7 +4,7 @@ import json
 import inspect
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Sequence, Type
+from typing import Dict, Any
 
 class JsonSerializable(ABC):
     """An interface for coba types that can convert to and from json.
@@ -56,12 +56,9 @@ class CobaJsonDecoder:
         # we instead rely on calling modules to provide us with all types that we 
         # need at any given time to decode a given json string with coba types.
         from coba.statistics import StatisticalEstimate
-        from coba.benchmarks import Table, Result
 
         self._known_types = { 
             "StatisticalEstimate": StatisticalEstimate,
-            "Table"              : Table,
-            "Result"             : Result
         }
 
         for tipe in types: self._known_types[tipe.__name__] = tipe

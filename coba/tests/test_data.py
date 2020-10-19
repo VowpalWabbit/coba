@@ -1,47 +1,51 @@
 import unittest
 
-from pathlib import Path
+from coba.data import Table
 
-from coba.data import AsyncFileWriter
+class Table_Tests(unittest.TestCase):
 
-class Data_Tests(unittest.TestCase):
-    
-    def test_async_write(self):
-        writer = AsyncFileWriter(".test/async.txt", 'a')
+    def test_add_row(self):
+        table = Table("test", ['a'])
 
-        try:
-            writer.open()
+        table.add_row(a='A', b='B')
+        table.add_row(a='a', b='B')
 
-            writer.async_write('line 0')
-            writer.async_write('\n')
-            writer.async_write('line 1')
-            writer.async_write('\n')
+        self.assertTrue('A' in table)
+        self.assertTrue('a' in table)
+        self.assertTrue({'a':'A'} in table)
+        self.assertTrue({'a':'a'} in table)
 
-            writer.close()
+        self.assertEqual(table.get_row('a'), {'a':'a', 'b':'B'})
+        self.assertEqual(table.get_row('A'), {'a':'A', 'b':'B'})
 
-            with open(".test/async.txt", "r") as f:
-                lines = f.readlines()
+    def test_update_row(self):
+        table = Table("test", ['a'])
 
-            self.assertEqual(lines[0], "line 0\n")
-            self.assertEqual(lines[1], "line 1\n")
+        table.add_row(a='a', b='B')
+        table.add_row('a','C')
 
-        finally:
-            if Path(".test/async.txt").exists(): Path(".test/async.txt").unlink()
+        self.assertTrue('a' in table)
+        self.assertTrue({'a':'a'} in table)
+        self.assertFalse({'a':'C'} in table)
 
-    def test_open_exception(self):
+        self.assertEqual(table.get_row('a'), {'a':'a', 'b':'C'})
 
-        try:
-            with self.assertRaises(Exception):
-                with AsyncFileWriter(".test/async.txt", 'a') as writer:
-                    writer.open()
-                    writer.open()
-        finally:
-            if Path(".test/async.txt").exists(): Path(".test/async.txt").unlink()
+    def test_to_indexed_tuples(self):
+        table = Table("test", ['a'])
 
-    def test_async_write_exception(self):
-        writer = AsyncFileWriter(".test/async.txt", 'a')
-        with self.assertRaises(Exception):
-            writer.async_write("a")
+        table.add_row(a='A', b='B')
+        table.add_row(a='a', b='b')
+
+        t = table.to_indexed_tuples()
+
+        self.assertTrue('a' in t)
+        self.assertTrue('A' in t)
+
+        self.assertEqual(t['a'].a, 'a')
+        self.assertEqual(t['a'].b, 'b')
+
+        self.assertEqual(t['A'].a, 'A')
+        self.assertEqual(t['A'].b, 'B')
 
 if __name__ == '__main__':
     unittest.main()
