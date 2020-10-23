@@ -4,6 +4,7 @@ This module contains the abstract interface expected for Benchmark implementatio
 module also contains several Benchmark implementations and Result data transfer class.
 """
 
+import math
 import itertools
 import json
 import collections
@@ -15,11 +16,11 @@ from statistics import median
 from pathlib import Path
 from typing import (
     Iterable, Tuple, Union, Sequence, Callable, 
-    Generic, TypeVar, Dict, Any, cast, Optional
+    Generic, TypeVar, Dict, Any, cast, Optional, overload
 )
 
 from coba.simulations import LazySimulation, JsonSimulation, Simulation, Context, Action
-from coba.preprocessing import Batcher
+from coba.preprocessing import Batcher, CountBatcher, SizeBatcher, SizesBatcher
 from coba.learners import Learner
 from coba.execution import ExecutionContext
 from coba.data import Pipe, MemorySink, MemorySource, StopPipe, Filter, DiskSource, DiskSink, JsonEncode, JsonDecode, Table
@@ -320,7 +321,7 @@ class TransactionIsNew(Filter):
 
             yield item
  
-class Factory(Generic[_C_out, _A_out]):
+class LearnerFactory(Generic[_C_out, _A_out]):
     def __init__(self, ctor: Callable[...,Learner[_C_out,_A_out]], *args, **kwargs) -> None:
         self._ctor   = ctor
         self._args   = args
@@ -333,7 +334,7 @@ class Benchmark(Generic[_C,_A], ABC):
     """The interface for Benchmark implementations."""
 
     @abstractmethod
-    def evaluate(self, factories: Sequence[Factory[_C,_A]]) -> Result:
+    def evaluate(self, factories: Sequence[LearnerFactory[_C,_A]]) -> Result:
         """Calculate the performance for a provided bandit Learner.
 
         Args:
@@ -377,7 +378,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         """
 
         if isinstance(json_val, str):
-            config = cast(Dict[str,Any],json.loads(json_val))
+            config = cast(Dict[str,Any], json.loads(json_val))
         else:
             config = json_val
 
@@ -392,46 +393,101 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         ignore_raise = config.get("ignore_raise", True)
         shuffle      = config.get("shuffle", [None])
 
-        return UniversalBenchmark(simulations, batcher, ignore_first, ignore_raise, shuffle)
+        return UniversalBenchmark(simulations, batcher, ignore_first=ignore_first, ignore_raise=ignore_raise, shuffle_seeds=shuffle)
 
-    def __init__(self,
+    @overload
+    def __init__(self, 
         simulations : Sequence[Simulation[_C,_A]], 
-        batcher: Batcher,
+        *,
+        batch_count: int,
+        min_interactions: float = 1,
+        max_interactions: float = math.inf,
         ignore_first: bool = True,
         ignore_raise: bool = True,
         shuffle_seeds: Sequence[Optional[int]] = [None],
-        max_processes: int = None) -> None:
+        max_processes: int = None) -> None: ...
+
+    @overload
+    def __init__(self, 
+        simulations : Sequence[Simulation[_C,_A]], 
+        *,
+        batch_sizes: Sequence[int],
+        ignore_first: bool = True,
+        ignore_raise: bool = True,
+        shuffle_seeds: Sequence[Optional[int]] = [None],
+        max_processes: int = None) -> None: ...
+
+    @overload
+    def __init__(self, 
+        simulations : Sequence[Simulation[_C,_A]],
+        *,
+        batch_size: int,
+        min_interactions: float = 1,
+        max_interactions: float = math.inf,
+        ignore_first: bool = True,
+        ignore_raise: bool = True,
+        shuffle_seeds: Sequence[Optional[int]] = [None],
+        max_processes: int = None) -> None: ...
+
+    @overload
+    def __init__(self,
+        simulations : Sequence[Simulation[_C,_A]], 
+        batcher: Batcher,
+        *,
+        ignore_first: bool = True,
+        ignore_raise: bool = True,
+        shuffle_seeds: Sequence[Optional[int]] = [None],
+        max_processes: int = None) -> None: ...
+
+    def __init__(self,*args, **kwargs) -> None:
         """Instantiate a UniversalBenchmark.
 
         Args:
-            simulations: A sequence of simulations to benchmark against.
-            batcher: Determines how each simulation is broken into evaluation/learning batches.
-            ignore_first: Determines if the first batch should be ignored since no learning has occured yet.
-            ignore_raise: Determines if exceptions during benchmark evaluation are raised or simply logged.
-            shuffle_seeds: A sequence of seeds to shuffle simulations by when evaluating. None means no shuffle.
-            max_processes: The maximum number of process to spawn while evaluating the benchmark. This value will
-                override any value that is in a coba config file.
+            simulations: The sequence of simulations to benchmark against.
+            batcher: How each simulation is broken into evaluation batches.
+            ignore_first: Should the first batch should be excluded from Result .
+            ignore_raise: Should exceptions be raised or logged during evaluation.
+            shuffle_seeds: A sequence of seeds for interaction shuffling. None means no shuffle.
+            max_processes: The number of process to spawn during evalution (overrides coba config).
         
         See the overloads for more information.
         """
 
-        self._simulations   = simulations
-        self._batcher       = batcher
-        self._ignore_first  = ignore_first
-        self._ignore_raise  = ignore_raise
-        self._seeds         = shuffle_seeds
-        self._max_processes = max_processes
+        self._simulations = args[0]
+        
+        if 'batch_count' in kwargs:
+            self._batcher = CountBatcher(
+                kwargs['batch_count'],
+                kwargs.get('min_interactions',1),
+                kwargs.get('max_interactions', math.inf))
+        elif 'batch_size' in kwargs:
+            self._batcher = SizeBatcher(
+                kwargs['batch_size'],
+                kwargs.get('min_interactions',1),
+                kwargs.get('max_interactions', math.inf))
+        elif 'batch_sizes' in kwargs:
+            self._batcher = SizesBatcher(kwargs['batch_sizes'])
+        else:
+            self._batcher = args[1]
+
+        self._ignore_first  = kwargs.get('ignore_first', True)
+        self._ignore_raise  = kwargs.get('ignore_raise', True)
+        self._seeds         = kwargs.get('shuffle_seeds', [None])
+        self._max_processes = kwargs.get('max_processes', 1)
 
     def ignore_raise(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
-        return UniversalBenchmark(self._simulations, self._batcher, self._ignore_first, value, self._seeds, self._max_processes)
+        self._ignore_raise = value
+        return self
 
     def ignore_first(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
-        return UniversalBenchmark(self._simulations, self._batcher, value, self._ignore_raise, self._seeds, self._max_processes)
+        self._ignore_first = value
+        return self
 
-    def core_count(self, value:int) -> 'UniversalBenchmark[_C,_A]':
-        return UniversalBenchmark(self._simulations, self._batcher, self._ignore_first, self._ignore_raise, self._seeds, value)
+    def max_processes(self, value:int) -> 'UniversalBenchmark[_C,_A]':
+        self._max_processes = value
+        return self
 
-    def evaluate(self, factories: Sequence[Factory[_C,_A]], transaction_log:str = None) -> Result:
+    def evaluate(self, factories: Sequence[LearnerFactory[_C,_A]], transaction_log:str = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:

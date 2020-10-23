@@ -6,8 +6,7 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 import coba.random
 from coba.simulations import LambdaSimulation
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
-from coba.benchmarks import UniversalBenchmark, Factory
-from coba.preprocessing import SizeBatcher
+from coba.benchmarks import UniversalBenchmark, LearnerFactory
 from coba.analysis import Plots
 from coba.execution import ExecutionContext
 
@@ -23,16 +22,16 @@ if __name__ == '__main__':
     ]
 
     #define a benchmark: this benchmark replays the simulation 15 times
-    benchmark = UniversalBenchmark(simulations, SizeBatcher(1), shuffle_seeds=list(range(10)))
+    benchmark = UniversalBenchmark(simulations, batch_size = 1, shuffle_seeds=[ i for i in range(10)])
 
     #create the learner factories
     learner_factories = [
-        Factory(RandomLearner, seed=10),
-        Factory(EpsilonLearner, .025, seed=10),
-        Factory(UcbTunedLearner, seed=10),
-        Factory(VowpalLearner, epsilon=0.025, seed=10),
-        Factory(VowpalLearner, bag=3, seed=10),
-        Factory(VowpalLearner, softmax=3.5, seed=10)
+        LearnerFactory(RandomLearner, seed=10),
+        LearnerFactory(EpsilonLearner, .025, seed=10),
+        LearnerFactory(UcbTunedLearner, seed=10),
+        LearnerFactory(VowpalLearner, epsilon=0.025, seed=10),
+        LearnerFactory(VowpalLearner, bag=3, seed=10),
+        LearnerFactory(VowpalLearner, softmax=3.5, seed=10)
     ]
 
     with ExecutionContext.Logger.log("RUNNING"):
