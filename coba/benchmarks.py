@@ -14,11 +14,11 @@ from itertools import product, islice, accumulate, groupby
 from statistics import median
 from pathlib import Path
 from typing import (
-    Iterable, Tuple, Hashable, Union, Sequence, Callable, 
+    Iterable, Tuple, Union, Sequence, Callable, 
     Generic, TypeVar, Dict, Any, cast, Optional
 )
 
-from coba.simulations import Interaction, LazySimulation, JsonSimulation, Simulation, Context, Action, Key, Choice, Reward
+from coba.simulations import LazySimulation, JsonSimulation, Simulation, Context, Action
 from coba.preprocessing import Batcher
 from coba.learners import Learner
 from coba.execution import ExecutionContext
@@ -287,6 +287,8 @@ class TransactionPromote(Filter):
                         if 'mean_reward' in values:
                             values['reward'] = values['mean_reward'].estimate
                             del values['mean_reward']
+
+                        values['reward'] = round(values['reward', 5])
 
                         promoted_items.append([transaction[0], index, values])
 
