@@ -405,7 +405,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         ignore_first: bool = True,
         ignore_raise: bool = True,
         shuffle_seeds: Sequence[Optional[int]] = [None],
-        max_processes: int = None) -> None: ...
+        processes: int = None,
+        maxtasksperchild: int = None) -> None: ...
 
     @overload
     def __init__(self, 
@@ -415,7 +416,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         ignore_first: bool = True,
         ignore_raise: bool = True,
         shuffle_seeds: Sequence[Optional[int]] = [None],
-        max_processes: int = None) -> None: ...
+        processes: int = None,
+        maxtasksperchild: int = None) -> None: ...
 
     @overload
     def __init__(self, 
@@ -427,7 +429,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         ignore_first: bool = True,
         ignore_raise: bool = True,
         shuffle_seeds: Sequence[Optional[int]] = [None],
-        max_processes: int = None) -> None: ...
+        processes: int = None,
+        maxtasksperchild: int = None) -> None: ...
 
     @overload
     def __init__(self,
@@ -437,7 +440,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         ignore_first: bool = True,
         ignore_raise: bool = True,
         shuffle_seeds: Sequence[Optional[int]] = [None],
-        max_processes: int = None) -> None: ...
+        processes: int = None,
+        maxtasksperchild: int = None) -> None: ...
 
     def __init__(self,*args, **kwargs) -> None:
         """Instantiate a UniversalBenchmark.
@@ -448,7 +452,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             ignore_first: Should the first batch should be excluded from Result .
             ignore_raise: Should exceptions be raised or logged during evaluation.
             shuffle_seeds: A sequence of seeds for interaction shuffling. None means no shuffle.
-            max_processes: The number of process to spawn during evalution (overrides coba config).
+            processes: The number of process to spawn during evalution (overrides coba config).
+            maxtasksperchild: The number of tasks each process will perform before a refresh.
         
         See the overloads for more information.
         """
@@ -472,10 +477,11 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         else:
             self._batcher = args[1]
 
-        self._ignore_first  = kwargs.get('ignore_first', True)
-        self._ignore_raise  = kwargs.get('ignore_raise', True)
-        self._seeds         = kwargs.get('shuffle_seeds', [None])
-        self._max_processes = kwargs.get('max_processes', 1)
+        self._ignore_first     = kwargs.get('ignore_first', True)
+        self._ignore_raise     = kwargs.get('ignore_raise', True)
+        self._seeds            = kwargs.get('shuffle_seeds', [None])
+        self._processes        = kwargs.get('processes', None)
+        self._maxtasksperchild = kwargs.get('maxtasksperchild', None)
 
     def ignore_raise(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
         self._ignore_raise = value
@@ -485,8 +491,12 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         self._ignore_first = value
         return self
 
-    def max_processes(self, value:int) -> 'UniversalBenchmark[_C,_A]':
-        self._max_processes = value
+    def processes(self, value:int) -> 'UniversalBenchmark[_C,_A]':
+        self._processes = value
+        return self
+
+    def maxtasksperchild(self, value:int) -> 'UniversalBenchmark[_C,_A]':
+        self._maxtasksperchild = value
         return self
 
     def evaluate(self, factories: Sequence[LearnerFactory[_C,_A]], transaction_log:str = None) -> Result:
@@ -546,7 +556,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             assert given_batcher       == restored.benchmark['batcher'      ], "The currently evaluating benchmark doesn't match the given transaction log"
             assert ignore_first        == restored.benchmark['ignore_first' ], "The currently evaluating benchmark doesn't match the given transaction log"
 
-        mp = self._max_processes if self._max_processes else ExecutionContext.Config.max_processes
+        mp = self._processes if self._processes else ExecutionContext.Config.processes
 
         transaction_sink.write(preamble_transactions)
         Pipe.join(task_source, [task_to_transactions, transactions_are_new], transaction_sink).run(mp)

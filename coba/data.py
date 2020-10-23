@@ -12,7 +12,7 @@ TODO: Add unit tests for all Sources
 
 import collections
 
-from multiprocessing import Manager, Process
+from multiprocessing import Manager, Process, Pool
 from abc import abstractmethod, ABC
 from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload
 
@@ -123,56 +123,31 @@ class Pipe:
             if len(self._filters) == 0:
                 raise Exception("There was nothing to multi-process within the pipe.")
 
-            with Manager() as manager:
+            with Pool(max_processes) as pool, Manager() as manager:
 
-                in_queue  = manager.Queue() #type: ignore
                 out_queue = manager.Queue() #type: ignore
-
-                in_sink   = QueueSink(in_queue)
-                in_source = QueueSource(in_queue)
 
                 out_sink   = QueueSink(out_queue)
                 out_source = QueueSource(out_queue)
 
-                producer = Pipe.join(self._source, in_sink)
-                filters  = Pipe.join(in_source, self._filters, out_sink)
-                consumer = Pipe.join(out_source, self._sink)
+                filters_sink = Pipe.join(self._filters, out_sink)
+                remerge_pipe = Pipe.join(out_source, self._sink)
 
                 is_writing_to_memory = isinstance(self._sink, MemorySink) or isinstance(self._sink, Pipe.FiltersSink) and isinstance(self._sink._sink, MemorySink) 
 
-                # We could handle memory writing without creating this special case by writing to a shared list. 
-                # The shared list sink would look something like `MemorySink(manager.list())`. Unfortunately, this
-                # control flow is much slower as we have to shuffle all transactions between processes twice, once
-                # from filters to the consumer process and once from the consumer process back to the main process.
-                # Therefore, in the special case we write below we avoid the second process shuffle by writing all
-                # transactions produced by the filters directly into the main process.
                 if is_writing_to_memory:
-                    filter_processes = [ Process(target = filters.run) for _ in range(max_processes) ]
-
-                    for p in filter_processes: p.start()
-
-                    producer.run()
-
-                    for _ in range(max_processes): in_queue.put(None)
-                    for p in filter_processes: p.join()
+                    pool.map(filters_sink.write, map(lambda i: [i], self._source.read()))
 
                     out_queue.put(None)
-                    consumer.run()
+                    remerge_pipe.run()
                 else:
-                    filter_processes = [ Process(target = filters.run) for _ in range(max_processes) ]
-                    consumer_process =   Process(target = consumer.run)
+                    remerge_process = Process(target = remerge_pipe.run)
 
-                    consumer_process.start()
-                    for p in filter_processes: p.start()
-
-                    producer.run()
-
-                    #fill the input queue with poison pills to stop filter processes
-                    for _ in range(max_processes): in_queue.put(None)
-                    for p in filter_processes: p.join()
+                    remerge_process.start()
+                    pool.map(filters_sink.write, map(lambda i: [i], self._source.read()))
 
                     out_queue.put(None)
-                    consumer_process.join()
+                    remerge_process.join()
 
 class JsonEncode(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:

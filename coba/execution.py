@@ -123,8 +123,8 @@ class CobaConfig():
         return self._config.get("file_cache", {"type":"none"})
 
     @property
-    def max_processes(self) -> int:
-        return self._config.get("max_processes", 1)
+    def processes(self) -> int:
+        return self._config.get("processes", 1)
 
 class CacheInterface(Generic[_K, _V], ABC):
     """The interface for a cacher."""
