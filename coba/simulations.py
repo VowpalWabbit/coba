@@ -79,7 +79,7 @@ class Simulation(Generic[_C_out, _A_out], ABC):
     """The simulation interface."""
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'Simulation[Context,Action]':
+    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'JsonSimulation':
         """Construct a Simulation object from JSON.
 
         Args:
@@ -383,7 +383,7 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
     """
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'ClassificationSimulation[Context]':
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'ClassificationSimulation[Context]': #type:ignore
         """Construct a ClassificationSimulation object from JSON.
 
         Args:

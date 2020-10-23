@@ -253,7 +253,10 @@ class EpsilonLearner(Learner[Context, Action]):
 
         See the base class for more information
         """
-        return "epsilon-greedy"
+        if self._include_context:
+            return "cb_epsilongreedy"
+        else:
+            return "bandit_epsilongreedy"
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -328,7 +331,7 @@ class UcbTunedLearner(Learner[Context, Action]):
 
         See the base class for more information
         """
-        return "UCB"
+        return "bandit_UCB"
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -432,7 +435,7 @@ class VowpalLearner(Learner[Context, Action]):
             epsilon: A value between 0 and 1. If provided exploration will follow epsilon-greedy.
         """
         ...
-    
+
     @overload
     def __init__(self, *, bag: int, is_adf: bool = True, seed:int = None) -> None:
         """Instantiate a VowpalLearner.
@@ -470,42 +473,42 @@ class VowpalLearner(Learner[Context, Action]):
 
     @overload
     def __init__(self,
-        learning: VW.Fixed,
-        exploration: Union[VW.EpsilonGreedy, VW.Bagging, VW.Cover], *, seed:int = None) -> None:
+        learning: VW.cb_explore,
+        exploration: Union[VW.epsilongreedy, VW.bagging, VW.cover], *, seed:int = None) -> None:
         ...
     
     @overload
     def __init__(self,
-        learning: VW.Fluid = VW.Fluid(),
-        exploration: Union[VW.EpsilonGreedy, VW.Softmax, VW.Bagging] = VW.EpsilonGreedy(0.025), 
+        learning: VW.cb_explore_adf = VW.cb_explore_adf(),
+        exploration: Union[VW.epsilongreedy, VW.softmax, VW.bagging] = VW.epsilongreedy(0.025), 
         *, 
         seed:int = None) -> None:
         ...
 
     def __init__(self, 
-        learning: Union[VW.Fixed,VW.Fluid] = VW.Fluid(),
-        exploration: Union[VW.EpsilonGreedy, VW.Softmax, VW.Bagging, VW.Cover] = VW.EpsilonGreedy(0.025),
+        learning: Union[VW.cb_explore,VW.cb_explore_adf] = VW.cb_explore_adf(),
+        exploration: Union[VW.epsilongreedy, VW.softmax, VW.bagging, VW.cover] = VW.epsilongreedy(0.025),
         **kwargs) -> None:
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
-        self._learning: Union[VW.Fixed,VW.Fluid]
-        self._exploration: Union[VW.EpsilonGreedy, VW.Softmax, VW.Bagging, VW.Cover]
+        self._learning: Union[VW.cb_explore,VW.cb_explore_adf]
+        self._exploration: Union[VW.epsilongreedy, VW.softmax, VW.bagging, VW.cover]
 
         if 'epsilon' in kwargs:
-            self._learning    = VW.Fluid() if kwargs.get('is_adf',True) else VW.Fixed()
-            self._exploration = VW.EpsilonGreedy(kwargs['epsilon'])
+            self._learning    = VW.cb_explore_adf() if kwargs.get('is_adf',True) else VW.cb_explore()
+            self._exploration = VW.epsilongreedy(kwargs['epsilon'])
 
         elif 'softmax' in kwargs:
-            self._learning   = VW.Fluid()
-            self._exploration = VW.Softmax(kwargs['softmax'])
+            self._learning   = VW.cb_explore_adf()
+            self._exploration = VW.softmax(kwargs['softmax'])
 
         elif 'bag' in kwargs:
-            self._learning = VW.Fluid() if kwargs.get('is_adf',True) else VW.Fixed()
-            self._exploration = VW.Bagging(kwargs['bag'])
+            self._learning = VW.cb_explore_adf() if kwargs.get('is_adf',True) else VW.cb_explore()
+            self._exploration = VW.bagging(kwargs['bag'])
         
         elif 'cover' in kwargs:
-            self._learning = VW.Fixed()
-            self._exploration = VW.Cover(kwargs['cover'])
+            self._learning = VW.cb_explore()
+            self._exploration = VW.cover(kwargs['cover'])
         
         else:
             self._learning = learning
@@ -514,7 +517,7 @@ class VowpalLearner(Learner[Context, Action]):
         self._probs: Dict[Key, float] = {}
         self._actions = self._new_actions(learning)
 
-        self._vw = VW.Wrapper(learning.formatter, seed=kwargs.get('seed', None))
+        self._vw = VW.pyvw_Wrapper(learning.formatter, seed=kwargs.get('seed', None))
     
     @property
     def family(self) -> str:
@@ -553,7 +556,7 @@ class VowpalLearner(Learner[Context, Action]):
         self._set_actions(key,actions)
         self._probs[key] = prob
         
-        if isinstance(self._learning, VW.Fixed):
+        if isinstance(self._learning, VW.cb_explore):
             return actions.index(self._actions[choice])
         else:
             return choice
@@ -574,7 +577,7 @@ class VowpalLearner(Learner[Context, Action]):
         self._vw.learn(prob, actions, context, action, reward)
 
     def _new_actions(self, learning) -> Any:
-        if isinstance(learning, VW.Fixed):
+        if isinstance(learning, VW.cb_explore):
             return []
         else:
             return {}

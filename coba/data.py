@@ -1,65 +1,242 @@
-"""The data module contains core classes and types for reading and writing data sources."""
+"""The data module contains core classes and types for reading and writing data sources.
+
+TODO: Add docstrings for Pipe
+TODO: Add unit tests for all Pipe
+
+TODO: Add docstrings for all Sinks
+TODO: Add unit tests for all Sinks
+
+TODO: Add docstrings for all Sources
+TODO: Add unit tests for all Sources
+"""
 
 import collections
 
+from multiprocessing import Manager, Process
 from abc import abstractmethod, ABC
-from pathlib import Path
 from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload
 
 from coba.utilities import check_pandas_support
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
 
-class Reader(ABC):
+class Source(ABC):
     @abstractmethod
     def read(self) -> Iterable[Any]:
         ...
 
-class Writer(ABC):
+class Sink(ABC):
+
     @abstractmethod
-    def write(self, obj:Any) -> None:
+    def write(self, items:Iterable[Any]) -> None:
         ...
 
-class ReadWrite(Reader, Writer):
+class Filter(ABC):
+    @abstractmethod
+    def filter(self, items:Iterable[Any]) -> Iterable[Any]:
+        ...
+
+class StopPipe(Exception):
     pass
 
-class DiskReadWrite(ReadWrite):
+class Pipe:
+
+    class SourceFilters(Source):
+        def __init__(self, source: Source, filters: Iterable[Filter]) -> None:
+            self._source = source
+            self._filters = filters
+        
+        def read(self) -> Iterable[Any]:
+            items = self._source.read()
+
+            for filt in self._filters:
+                items = filt.filter(items)
+
+            return items
+
+    class FiltersSink(Sink):
+        def __init__(self, filters: Iterable[Filter], sink: Sink) -> None:
+            self._filters = filters
+            self._sink    = sink
+
+        def write(self, items: Iterable[Any]):
+            
+            for filt in self._filters:
+                items = filt.filter(items)
+
+            self._sink.write(items)
+
+    @overload
+    @staticmethod
+    def join(source: Source, filters: Iterable[Filter]) -> Source:
+        ...
     
+    @overload
+    @staticmethod
+    def join(filters: Iterable[Filter], sink: Sink) -> Sink:
+        ...
+
+    @overload
+    @staticmethod
+    def join(source: Source, sink: Sink) -> 'Pipe':
+        ...
+
+    @overload
+    @staticmethod
+    def join(source: Source, filters: Iterable[Filter], sink: Sink) -> 'Pipe':
+        ...
+
+    @staticmethod #type: ignore
+    def join(*args):
+        if len(args) == 3:
+            return Pipe(*args)
+
+        if len(args) == 2:
+            if isinstance(args[1], collections.Sequence):
+                return Pipe.SourceFilters(args[0], args[1])
+            elif isinstance(args[0], collections.Sequence):
+                return Pipe.FiltersSink(args[0], args[1])
+            else:
+                return Pipe(args[0], [], args[1])
+
+        raise Exception("An unknown pipe was joined.")
+
+    def __init__(self, source: Source, filters: Sequence[Filter], sink: Sink) -> None:
+        self._source  = source
+        self._filters = filters
+        self._sink    = sink
+
+    def run(self, max_processes=1) -> None:
+
+        if max_processes == 1:
+            try:
+                items = self._source.read()
+
+                for filt in self._filters:
+                    items = filt.filter(items)
+
+                self._sink.write(items)
+
+            except StopPipe:
+                pass
+        else:
+
+            if len(self._filters) == 0:
+                raise Exception("There was nothing to multi-process within the pipe.")
+
+            with Manager() as manager:
+
+                in_queue  = manager.Queue() #type: ignore
+                out_queue = manager.Queue() #type: ignore
+
+                in_sink   = QueueSink(in_queue)
+                in_source = QueueSource(in_queue)
+
+                out_sink   = QueueSink(out_queue)
+                out_source = QueueSource(out_queue)
+
+                producer = Pipe.join(self._source, in_sink)
+                filters  = Pipe.join(in_source, self._filters, out_sink)
+                consumer = Pipe.join(out_source, self._sink)
+
+                is_writing_to_memory = isinstance(self._sink, MemorySink) or isinstance(self._sink, Pipe.FiltersSink) and isinstance(self._sink._sink, MemorySink) 
+
+                # We could handle memory writing without creating this special case by writing to a shared list. 
+                # The shared list sink would look something like `MemorySink(manager.list())`. Unfortunately, this
+                # control flow is much slower as we have to shuffle all transactions between processes twice, once
+                # from filters to the consumer process and once from the consumer process back to the main process.
+                # Therefore, in the special case we write below we avoid the second process shuffle by writing all
+                # transactions produced by the filters directly into the main process.
+                if is_writing_to_memory:
+                    filter_processes = [ Process(target = filters.run) for _ in range(max_processes) ]
+
+                    for p in filter_processes: p.start()
+
+                    producer.run()
+
+                    for _ in range(max_processes): in_queue.put(None)
+                    for p in filter_processes: p.join()
+
+                    out_queue.put(None)
+                    consumer.run()
+                else:
+                    filter_processes = [ Process(target = filters.run) for _ in range(max_processes) ]
+                    consumer_process =   Process(target = consumer.run)
+
+                    consumer_process.start()
+                    for p in filter_processes: p.start()
+
+                    producer.run()
+
+                    #fill the input queue with poison pills to stop filter processes
+                    for _ in range(max_processes): in_queue.put(None)
+                    for p in filter_processes: p.join()
+
+                    out_queue.put(None)
+                    consumer_process.join()
+
+class JsonEncode(Filter):
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        encoder = CobaJsonEncoder()
+        for item in items: yield encoder.encode(item)
+
+class JsonDecode(Filter):
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        decoder = CobaJsonDecoder()
+        for item in items: yield decoder.decode(item)
+
+class DiskSource(Source):
     def __init__(self, filename:str):
-        self._json_encoder = CobaJsonEncoder()
-        self._json_decoder = CobaJsonDecoder()
-        self._filepath     = Path(filename)
-        self._filepath.touch()
+        self.filename = filename
 
-    def write(self, obj: Any) -> None:
-        with open(self._filepath, "a") as f:
-            f.write(self._json_encoder.encode(obj))
-            f.write("\n")
+    def read(self) -> Iterable[str]:
+        with open(self.filename, "r+") as f:
+            for line in f:
+                yield line
 
-    def read(self) -> Iterable[Any]:
-        with open(self._filepath, "r") as f:
-            for line in f.readlines():
-                yield self._json_decoder.decode(line)
+class DiskSink(Sink):
+    def __init__(self, filename:str, mode:str='a+'):
+        self.filename = filename
+        self._mode    = mode
 
-class MemoryReadWrite(ReadWrite):
-    def __init__(self, memory: List[Any] = None):
-        self._memory = memory if memory else []
+    def write(self, items: Iterable[str]) -> None:
+        with open(self.filename, self._mode) as f:
+            for item in items: f.write(item + '\n')
 
-    def write(self, obj:Any) -> None:
-        self._memory.append(obj)
+class MemorySource(Source):
+    def __init__(self, source: Iterable[Any] = None):
+        self._source = source if source is not None else []
 
     def read(self) -> Iterable[Any]:
-        return self._memory
+        return self._source
 
-class QueueReadWrite(ReadWrite):
-    def __init__(self, queue: Any) -> None:
-        self._queue = queue
+class MemorySink(Sink):
+    def __init__(self, sink: List[Any] = None):
+        self.items = sink if sink is not None else []
 
-    def write(self, obj:Any) -> None:
-        self._queue.put(obj)
+    def write(self, items: Iterable[Any]) -> None:
+        for item in items:
+            self.items.append(item)
+
+class QueueSource(Source):
+    def __init__(self, source: Any, poison=None) -> None:
+        self._queue  = source
+        self._poison = None
 
     def read(self) -> Iterable[Any]:
-        while not self._queue.empty():
-            yield self._queue.get()
+        while True:
+            item = self._queue.get()
+
+            if item == self._poison:
+                raise StopPipe()
+
+            yield item
+
+class QueueSink(Sink):
+    def __init__(self, sink: Any) -> None:
+        self._queue = sink
+
+    def write(self, items:Iterable[Any]) -> None:
+        for item in items: self._queue.put(item)
 
 class Table:
     """A container class for storing tabular data."""
@@ -76,7 +253,7 @@ class Table:
         self._columns = list(primary)
         self._default = default
 
-        self._rows: Dict[Hashable, Sequence[Any]] = {}
+        self.rows: Dict[Hashable, Sequence[Any]] = {}
 
     def add_row(self, *row, **kwrow) -> None:
         """Add a row of data to the table. The row must contain all primary columns."""
@@ -84,29 +261,36 @@ class Table:
         if kwrow:
             self._columns.extend([col for col in kwrow if col not in self._columns])
             
-        row = list(row) + [ kwrow.get(col, self._default) for col in self._columns[len(row):] ]
-        self._rows[row[0] if len(self._primary) == 1 else tuple(row[0:len(self._primary)])] = row
+        row = row + tuple( kwrow.get(col, self._default) for col in self._columns[len(row):] )
+        self.rows[row[0] if len(self._primary) == 1 else tuple(row[0:len(self._primary)])] = row
 
     def get_row(self, key: Hashable) -> Dict[str,Any]:
-        row = self._rows[key]
+        row = self.rows[key]
         row = list(row) + [self._default] * (len(self._columns) - len(row))
 
         return {k:v for k,v in zip(self._columns,row)}
 
     def rmv_row(self, key: Hashable) -> None:
-        self._rows.pop(key, None)
+        self.rows.pop(key, None)
+
+    def get_where(self, **kwrow) -> Iterable[Dict[str,Any]]:
+        idx_val = [ (self._columns.index(col), val) for col,val in kwrow.items() ]
+
+        for key,row in self.rows.items():
+            if all( row[i]==v for i,v in idx_val):
+                yield {k:v for k,v in zip(self._columns,row)}
 
     def rmv_where(self, **kwrow) -> None:
 
         idx_val = [ (self._columns.index(col), val) for col,val in kwrow.items() ]
         rmv_keys  = []
 
-        for key,row in self._rows.items():
+        for key,row in self.rows.items():
             if all( row[i]==v for i,v in idx_val):
                 rmv_keys.append(key)
 
         for key in rmv_keys: 
-            del self._rows[key] 
+            del self.rows[key] 
 
     def to_tuples(self) -> Sequence[Any]:
         """Convert a table into a sequence of namedtuples."""
@@ -116,9 +300,9 @@ class Table:
         """Convert a table into a mapping of keys to tuples."""
 
         my_type = collections.namedtuple(self._name, self._columns) #type: ignore #mypy doesn't like dynamic named tuples
-        my_type.__new__.__defaults__ = (self._default, ) * len(self._columns)
+        my_type.__new__.__defaults__ = (self._default, ) * len(self._columns) #type: ignore #mypy doesn't like dynamic named tuples
         
-        return { key:my_type(*value) for key,value in self._rows.items() } #type: ignore #mypy doesn't like dynamic named tuples
+        return { key:my_type(*value) for key,value in self.rows.items() } #type: ignore #mypy doesn't like dynamic named tuples
 
     def to_pandas(self) -> Any:
         """Convert a table into a pandas dataframe."""
@@ -133,13 +317,13 @@ class Table:
         if isinstance(primary, collections.Mapping):
             primary = list(primary.values())[0] if len(self._primary) == 1 else tuple([primary[col] for col in self._primary])
 
-        return primary in self._rows
+        return primary in self.rows
 
     def __str__(self) -> str:
-        return str({"Table": self._name, "Columns": self._columns, "Rows": len(self._rows)})
+        return str({"Table": self._name, "Columns": self._columns, "Rows": len(self.rows)})
 
     def __repr__(self) -> str:
         return str(self)
 
     def __len__(self) -> int:
-        return len(self._rows)
+        return len(self.rows)

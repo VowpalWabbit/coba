@@ -368,7 +368,7 @@ class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         action_sets = [[1,2,3], [4,5,6]]
         reward_sets = [[0,1,2], [2,3,4]]
 
-        simulation = LazySimulation(lambda: MemorySimulation(contexts, action_sets, reward_sets)).__enter__()
+        simulation: Simulation = LazySimulation(lambda: MemorySimulation(contexts, action_sets, reward_sets)).__enter__()
 
         expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
         expected_rewards      = reward_sets

@@ -4,6 +4,7 @@ import math
 
 from collections import defaultdict
 from itertools import groupby
+from typing import cast, Dict, List
 
 from coba.utilities import check_matplotlib_support
 from coba.benchmarks import Result
@@ -45,13 +46,13 @@ class Plots():
 
         max_batch_N = 0
 
-        indexes     = defaultdict(list)
-        incounts    = defaultdict(list)
-        inmeans     = defaultdict(list)
-        invariances = defaultdict(list)
-        cucounts    = defaultdict(list)
-        cumeans     = defaultdict(list)
-        cuvariances = defaultdict(list)
+        indexes     = cast(Dict[int,List[int  ]], defaultdict(list))
+        incounts    = cast(Dict[int,List[int  ]], defaultdict(list))
+        inmeans     = cast(Dict[int,List[float]], defaultdict(list))
+        invariances = cast(Dict[int,List[float]], defaultdict(list))
+        cucounts    = cast(Dict[int,List[int  ]], defaultdict(list))
+        cumeans     = cast(Dict[int,List[float]], defaultdict(list))
+        cuvariances = cast(Dict[int,List[float]], defaultdict(list))
 
         for learner_id, learner_batches in grouped_batches:
 

@@ -127,7 +127,11 @@ class Random_Tests(unittest.TestCase):
         self.assertLess((coba_failure_rate-std_failure_rate)/std_failure_rate, .25)
 
     def test_shuffle_is_truly_random_and_independent_of_order(self):
-
+        # this test uses a hypthoesis test taken from the link below. This test is expected
+        # have a certain number of "false positives". So if this test simply failed once and passes
+        # every time after you can simply ignore the failure as one of those "false positives".
+        # https://www.itl.nist.gov/div898/software/dataplot/refman1/auxillar/cusumtes.htm
+        
         walks = 1000
         steps = 50
 

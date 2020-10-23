@@ -11,7 +11,7 @@ from coba.execution import redirect_stderr
 from coba.utilities import check_vowpal_support
 from coba.simulations import Context, Action, Choice
 
-class FixedFormatter:
+class cb_explore_Formatter:
     @staticmethod
     def predict(context, actions) -> str:
         return f"|s {_features_format(context)}"
@@ -20,7 +20,7 @@ class FixedFormatter:
     def learn(prob, actions, context: Context, action: Action, reward: float) -> str:
         return f"{actions.index(action)+1}:{-reward}:{prob} |s {_features_format(context)}"
 
-class FluidFormatter:
+class cb_explore_adf_Formatter:
     @staticmethod
     def predict(context: Context, actions:Sequence[Action]) -> str:
         vw_context = None if context is None else f"shared |s {_features_format(context)}"
@@ -35,8 +35,8 @@ class FluidFormatter:
         vw_observed = [ f"{r} |a {a}" for r,a in zip(vw_rewards,vw_actions) ]
         return "\n".join(filter(None,[vw_context, *vw_observed]))
 
-class Wrapper:
-    def __init__(self, format, seed=None) -> None:
+class pyvw_Wrapper:
+    def __init__(self, format: Union[cb_explore_Formatter, cb_explore_adf_Formatter], seed: int = None) -> None:
         check_vowpal_support('VowpalLearner.__init__')
         from vowpalwabbit import pyvw #type: ignore #ignored due to mypy error
 
@@ -78,7 +78,7 @@ class Wrapper:
     def learn(self, actions, prob, context, action, reward):
         self._vw.learn(self._format.learn(actions, prob, context, action, reward))
 
-class Fixed:
+class cb_explore:
     """A Vowpal Learner that assumes there is a fixed set of actions (aka, `--cb_explore`)."""
 
     def __init__(self, interactions:Sequence[str] = ["ssa", "sa"], ignore_linear: Sequence[str] = ["s"]) -> None:
@@ -98,10 +98,10 @@ class Fixed:
         return f"--cb_explore {n_actions} {inter_flags} {ignore_flags}"
 
     @property
-    def formatter(self) -> FixedFormatter:
-        return FixedFormatter()
+    def formatter(self) -> cb_explore_Formatter:
+        return cb_explore_Formatter()
 
-class Fluid:
+class cb_explore_adf:
     """A Vowpal Learner that makes no assumptions regarding actions (aka, `--cb_explore_adf`)."""
 
     def __init__(self, interactions: Sequence[str] = ["ssa", "sa"], ignore_linear: Sequence[str] = ["s"]) -> None:
@@ -119,10 +119,10 @@ class Fluid:
         return f"--cb_explore_adf {inter_flags} {ignore_flags}"
 
     @property
-    def formatter(self) -> FluidFormatter:
-        return FluidFormatter()
+    def formatter(self) -> cb_explore_adf_Formatter:
+        return cb_explore_adf_Formatter()
 
-class EpsilonGreedy:
+class epsilongreedy:
     """A Vowpal exploration algorithm."""
 
     def __init__(self, epsilon:float = 0.025) -> None:
@@ -142,7 +142,7 @@ class EpsilonGreedy:
 
         return f"--epsilon {self._epsilon}"
 
-class Softmax:
+class softmax:
     """A Vowpal exploration algorithm that heuristically considers confidence."""
 
     def __init__(self, lamda:float) -> None:
@@ -163,7 +163,7 @@ class Softmax:
 
         return f"--softmax --lambda {self.lamda}"
 
-class Cover:
+class cover:
     """A Vowpal exploration algorithm with theoretical optimal guarantees."""
 
     def __init__(self, n_policies:int) -> None:
@@ -190,7 +190,7 @@ class Cover:
 
         return f"--cover {self._n_policies}"
 
-class Bagging:
+class bagging:
     """A Vowpal exploration algorithm utilizing bootstrap aggregation."""
 
     def __init__(self, n_policies:int) -> None:
