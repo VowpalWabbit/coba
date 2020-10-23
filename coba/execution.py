@@ -125,6 +125,10 @@ class CobaConfig():
     @property
     def processes(self) -> int:
         return self._config.get("processes", 1)
+    
+    @property
+    def maxtasksperchild(self) -> Optional[int]:
+        return self._config.get("maxtasksperchild", None)
 
 class CacheInterface(Generic[_K, _V], ABC):
     """The interface for a cacher."""

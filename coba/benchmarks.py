@@ -557,9 +557,10 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             assert ignore_first        == restored.benchmark['ignore_first' ], "The currently evaluating benchmark doesn't match the given transaction log"
 
         mp = self._processes if self._processes else ExecutionContext.Config.processes
+        mt = self._maxtasksperchild if self._maxtasksperchild else ExecutionContext.Config.maxtasksperchild
 
         transaction_sink.write(preamble_transactions)
-        Pipe.join(task_source, [task_to_transactions, transactions_are_new], transaction_sink).run(mp)
+        Pipe.join(task_source, [task_to_transactions, transactions_are_new], transaction_sink).run(mp,mt)
 
         if isinstance(transaction_sink, Pipe.FiltersSink):
             transaction_sink = transaction_sink._sink

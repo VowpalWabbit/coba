@@ -105,9 +105,9 @@ class Pipe:
         self._filters = filters
         self._sink    = sink
 
-    def run(self, max_processes=1) -> None:
+    def run(self, processes=1, maxtasksperchild=None) -> None:
 
-        if max_processes == 1:
+        if processes == 1:
             try:
                 items = self._source.read()
 
@@ -123,7 +123,7 @@ class Pipe:
             if len(self._filters) == 0:
                 raise Exception("There was nothing to multi-process within the pipe.")
 
-            with Pool(max_processes) as pool, Manager() as manager:
+            with Pool(processes, maxtasksperchild=maxtasksperchild) as pool, Manager() as manager:
 
                 out_queue = manager.Queue() #type: ignore
 
