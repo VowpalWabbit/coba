@@ -190,7 +190,7 @@ class RandomLearner(Learner[Context, Action]):
 
         See the base class for more information
         """  
-        return "Random"
+        return "random"
 
     @property
     def params(self) -> Dict[str, Any]:

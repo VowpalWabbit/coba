@@ -78,19 +78,6 @@ class Interaction(Generic[_C_out, _A_out]):
 class Simulation(Generic[_C_out, _A_out], ABC):
     """The simulation interface."""
 
-    @staticmethod
-    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'JsonSimulation':
-        """Construct a Simulation object from JSON.
-
-        Args:
-            json_val: Either a json string or the decoded json object.
-
-        Returns:
-            The Simulation representation of the given JSON string or object.
-        """
-
-        return JsonSimulation(json_val)
-
     @property
     @abstractmethod
     def interactions(self) -> Sequence[Interaction[_C_out, _A_out]]:
@@ -383,7 +370,7 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
     """
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'ClassificationSimulation[Context]': #type:ignore
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'ClassificationSimulation[Context]':
         """Construct a ClassificationSimulation object from JSON.
 
         Args:

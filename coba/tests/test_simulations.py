@@ -11,7 +11,7 @@ from coba.preprocessing import (
     OneHotEncoder, StringEncoder, FactorEncoder
 )
 from coba.simulations import (
-    Reward, Key, Choice, Interaction, Simulation,
+    JsonSimulation, Reward, Key, Choice, Interaction, Simulation,
     ClassificationSimulation, MemorySimulation, 
     LambdaSimulation, ShuffleSimulation, LazySimulation
 )
@@ -56,9 +56,8 @@ class Simulation_Interface_Tests(ABC):
             cast(unittest.TestCase, self).assertSequenceEqual(interaction1.actions, interaction2.actions)
             cast(unittest.TestCase, self).assertSequenceEqual(interaction1_rewards, interaction2_rewards)
 
-class Simulation_Tests(unittest.TestCase):
-
-    def test_from_json(self):
+class JsonSimulation_Tests(unittest.TestCase):
+    def test_simple_init(self):
         json_val = ''' {
             "type": "classification",
             "from": {
@@ -70,7 +69,7 @@ class Simulation_Tests(unittest.TestCase):
             }
         } '''
 
-        with Simulation.from_json(json_val) as simulation:
+        with JsonSimulation(json_val) as simulation:
             self.assertEqual(len(simulation.interactions), 2)
 
 class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):

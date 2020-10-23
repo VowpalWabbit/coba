@@ -387,7 +387,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         if not isinstance(config["simulations"], collections.Sequence):
             config["simulations"] = [ config["simulations"] ]
 
-        simulations  = [ Simulation.from_json(sim_config) for sim_config in config["simulations"] ]
+        simulations  = [ JsonSimulation(sim_config) for sim_config in config["simulations"] ]
         batcher      = Batcher.from_json(config.get("batches","{'size': 1}"))
         ignore_first = config.get("ignore_first", True)
         ignore_raise = config.get("ignore_raise", True)
@@ -455,6 +455,8 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         self._simulations = args[0]
         
+        self._batcher: Batcher
+
         if 'batch_count' in kwargs:
             self._batcher = CountBatcher(
                 kwargs['batch_count'],
