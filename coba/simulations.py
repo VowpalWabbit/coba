@@ -14,20 +14,19 @@ import gc
 import csv
 import json
 import urllib.request
-import gzip
 
 from collections import defaultdict
 from itertools import compress, repeat, count, chain
-from http.client import HTTPResponse
 from contextlib import closing
 from abc import ABC, abstractmethod
-from hashlib import md5
 from typing import (
     Optional, Iterable, Sequence, List, Union, Callable, TypeVar, 
-    Generic, Hashable, Dict, cast, Any, Tuple
+    Generic, Hashable, Dict, Any, Tuple
 )
 
 import coba.random as cb_random
+
+from coba.data import HttpSource, DiskSource
 from coba.preprocessing import FactorEncoder, FullMeta, PartMeta, OneHotEncoder, NumericEncoder, Encoder
 from coba.execution import ExecutionContext
 
@@ -506,48 +505,9 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
             column_metas: Keys are column name or index, values are meta objects that override the default values.
         """
 
-        cachename = f"{md5(location.encode('utf-8')).hexdigest()}.csv"
+        source = DiskSource(location) if not location.lower().startswith('http') else HttpSource(location, md5_checksum)
 
-        is_cache =      cachename in ExecutionContext.FileCache 
-        is_disk  =  not location.lower().startswith('http') and not is_cache
-        is_http  =      location.lower().startswith('http') and not is_cache
-
-        if is_cache:
-            source         = "cache"
-            stream_manager = ExecutionContext.FileCache.get(cachename)
-        elif is_disk:
-            source         = "disk"
-            stream_manager = open(location, 'rb')
-        else:
-            source         = "http"
-            http_request   = urllib.request.Request(location, headers={'Accept-encoding':'gzip'})
-            stream_manager = urllib.request.urlopen(http_request)
-
-        with stream_manager as raw_stream:
-
-            with ExecutionContext.Logger.log(f'loading csv from {source}... '):
-                is_cache_gzip = False
-                is_disk_gzip  = is_disk and location.lower().endswith(".gz")
-                is_http_gzip  = is_http and cast(HTTPResponse, raw_stream).info().get('Content-Encoding') == "gzip"
-                is_gzip       = is_disk_gzip or is_http_gzip or is_cache_gzip
-
-                if is_gzip: cachename += ".gz"
-                if is_http: raw_stream = ExecutionContext.FileCache.put(cachename, raw_stream)
-
-                #When testing loading all bytes into memory at once was moderately faster on average.
-                #This does run the risk of causing problems though if the file is extremely large.
-                raw_bytes = gzip.decompress(raw_stream.read()) if is_gzip else raw_stream.read()
-
-                if md5_checksum is not None and md5_checksum != md5(raw_bytes).hexdigest():
-                    ExecutionContext.FileCache.rmv(cachename)
-                    raise Exception(
-                        "The dataset did not match the expected checksum. This could be the result of network "
-                        "errors or the file becoming corrupted. Please consider downloading the file again and if "
-                        "the error persists you may want to manually download and reference the file.")
-
-        csv_rows = csv_reader(raw_bytes.decode('utf-8').split("\n"))
-
-        del raw_bytes
+        csv_rows = list(csv_reader(source.read()))
 
         with ExecutionContext.Logger.log('encoding csv in memory... '):
             return ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)

@@ -7,13 +7,11 @@ TODO Decide where the Batchers should go
 TODO InferredEncoder needs a lot of love. Currently its inferences are quite bad.
 """
 
-import math
 import json
 
-from itertools import count
 from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Iterator, Optional, Sequence, Generic, TypeVar, Any, Hashable, Union, Dict, Tuple, Callable, List
+from typing import Iterator, Optional, Sequence, Generic, TypeVar, Any, Hashable, Union, Dict, Tuple
 
 T_out = TypeVar('T_out', bound=Hashable, covariant=True) 
 

@@ -12,10 +12,15 @@ TODO: Add unit tests for all Sources
 
 import collections
 
+from hashlib import md5
+from gzip import decompress
+from urllib.request import Request, urlopen
 from multiprocessing import Manager, Process, Pool
 from abc import abstractmethod, ABC
+from io import BytesIO
 from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload
 
+from coba.execution import ExecutionContext
 from coba.utilities import check_pandas_support
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
 
@@ -213,6 +218,38 @@ class QueueSink(Sink):
     def write(self, items:Iterable[Any]) -> None:
         for item in items: self._queue.put(item)
 
+class HttpSource(Source):
+    def __init__(self, url: str, checksum: str = None, cachename: str = None) -> None:
+        self._url       = url
+        self._checksum  = checksum
+        self._cachename = cachename if cachename else  f"{md5(self._url.encode('utf-8')).hexdigest()}"
+
+    def read(self) -> Iterable[str]:
+
+        if self._cachename in ExecutionContext.FileCache:
+            with ExecutionContext.Logger.log(f'loading from cache... '):
+                for line in ExecutionContext.FileCache.get(self._cachename).readlines():
+                    yield line.decode('utf-8')
+
+        else:
+            with urlopen(Request(self._url, headers={'Accept-encoding':'gzip'})) as response:
+
+                if response.info().get('Content-Encoding') == "gzip":
+                    bites = decompress(response.read())
+                else:
+                    bites = response.read()
+
+                if self._checksum is not None and md5(bites).hexdigest() != self._checksum:
+                    raise Exception(
+                        "The dataset did not match the expected checksum. This could be the result of network "
+                        "errors or the file becoming corrupted. Please consider downloading the file again and if "
+                        "the error persists you may want to manually download and reference the file.")
+
+                response = ExecutionContext.FileCache.put(self._cachename, BytesIO(bites))
+
+                for line in response.readlines():
+                    yield line.decode('utf-8')
+
 class Table:
     """A container class for storing tabular data."""
 
@@ -236,7 +273,7 @@ class Table:
         if kwrow:
             self._columns.extend([col for col in kwrow if col not in self._columns])
             
-        row = row + tuple( kwrow.get(col, self._default) for col in self._columns[len(row):] )
+        row = row + tuple( kwrow.get(col, self._default) for col in self._columns[len(row):] ) #type:ignore
         self.rows[row[0] if len(self._primary) == 1 else tuple(row[0:len(self._primary)])] = row
 
     def get_row(self, key: Hashable) -> Dict[str,Any]:
