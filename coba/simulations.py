@@ -505,7 +505,10 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
             column_metas: Keys are column name or index, values are meta objects that override the default values.
         """
 
-        source = DiskSource(location) if not location.lower().startswith('http') else HttpSource(location, md5_checksum)
+        if not location.lower().startswith('http'):
+            source = DiskSource(location) 
+        else: 
+            source = HttpSource(location, md5_checksum, ".csv")
 
         csv_rows = list(csv_reader(source.read()))
 

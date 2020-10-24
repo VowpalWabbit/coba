@@ -219,10 +219,10 @@ class QueueSink(Sink):
         for item in items: self._queue.put(item)
 
 class HttpSource(Source):
-    def __init__(self, url: str, checksum: str = None, cachename: str = None) -> None:
+    def __init__(self, url: str, checksum: str = None, file_extension: str = None) -> None:
         self._url       = url
         self._checksum  = checksum
-        self._cachename = cachename if cachename else  f"{md5(self._url.encode('utf-8')).hexdigest()}"
+        self._cachename = f"{md5(self._url.encode('utf-8')).hexdigest()}{file_extension}"
 
     def read(self) -> Iterable[str]:
 
@@ -232,23 +232,24 @@ class HttpSource(Source):
                     yield line.decode('utf-8')
 
         else:
-            with urlopen(Request(self._url, headers={'Accept-encoding':'gzip'})) as response:
+            with ExecutionContext.Logger.log(f'loading from http... '):
+                with urlopen(Request(self._url, headers={'Accept-encoding':'gzip'})) as response:
 
-                if response.info().get('Content-Encoding') == "gzip":
-                    bites = decompress(response.read())
-                else:
-                    bites = response.read()
+                    if response.info().get('Content-Encoding') == "gzip":
+                        bites = decompress(response.read())
+                    else:
+                        bites = response.read()
 
-                if self._checksum is not None and md5(bites).hexdigest() != self._checksum:
-                    raise Exception(
-                        "The dataset did not match the expected checksum. This could be the result of network "
-                        "errors or the file becoming corrupted. Please consider downloading the file again and if "
-                        "the error persists you may want to manually download and reference the file.")
+                    if self._checksum is not None and md5(bites).hexdigest() != self._checksum:
+                        raise Exception(
+                            "The dataset did not match the expected checksum. This could be the result of network "
+                            "errors or the file becoming corrupted. Please consider downloading the file again and if "
+                            "the error persists you may want to manually download and reference the file.")
 
-                response = ExecutionContext.FileCache.put(self._cachename, BytesIO(bites))
+                    response = ExecutionContext.FileCache.put(self._cachename, BytesIO(bites))
 
-                for line in response.readlines():
-                    yield line.decode('utf-8')
+                    for line in response.readlines():
+                        yield line.decode('utf-8')
 
 class Table:
     """A container class for storing tabular data."""
