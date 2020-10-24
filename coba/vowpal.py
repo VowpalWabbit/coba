@@ -230,7 +230,7 @@ def _features_format(features: Union[Context,Action]) -> str:
         features = (features,)
 
     if isinstance(features, tuple):
-        return " ". join([_feature_format(i,f) for i,f in enumerate(features) if f is not None ])
+        return " ". join([_feature_format(i,f) for i,f in enumerate(features) if f is not None and f != 0 ])
 
     raise Exception("We were unable to determine an appropriate vw context format.")
 
@@ -246,4 +246,5 @@ def _feature_format(name: Any, value: Any) -> str:
         to compare features across actions/contexts. See the definition of `Features` at 
         the top of https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format for more info.
     """
+
     return f"{name}:{value}" if isinstance(value,(int,float)) else f"{value}"
