@@ -627,19 +627,3 @@ class SizesBatcher(Batcher):
             return []
 
         return self._batch_sizes
-
-class LambdaBatcher(Batcher):
-    def __init__(self, batch_lambda: Callable[[int], int]) -> None:
-        self._batch_lambda = batch_lambda
-
-    def batch_sizes(self, n_interactions: int) -> Sequence[int]:
-
-        batches: List[int] = []
-        
-        for size in (self._batch_lambda(i) for i in count()):
-            if sum(batches)+size > n_interactions: 
-                break
-            else:
-                batches.append(size)
-        
-        return batches
