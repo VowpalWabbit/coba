@@ -28,7 +28,7 @@ from typing import (
 )
 
 import coba.random as cb_random
-from coba.preprocessing import FactorEncoder, FullMeta, PartMeta, OneHotEncoder, NumericEncoder, Encoder, Batcher
+from coba.preprocessing import FactorEncoder, FullMeta, PartMeta, OneHotEncoder, NumericEncoder, Encoder
 from coba.execution import ExecutionContext
 
 Context = Optional[Hashable]

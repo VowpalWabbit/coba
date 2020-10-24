@@ -7,8 +7,7 @@ from typing import Sequence, Tuple, cast, Any
 
 from coba.preprocessing import (
     FullMeta, Metadata, Encoder, PartMeta, StringEncoder, NumericEncoder, 
-    OneHotEncoder, InferredEncoder, FactorEncoder, Batcher, CountBatcher,
-    SizeBatcher, SizesBatcher
+    OneHotEncoder, InferredEncoder, FactorEncoder
 )
 
 class Encoder_Interface_Tests(ABC):
@@ -319,104 +318,6 @@ class FullMeta_Tests(unittest.TestCase):
         self.assertEqual(actual_meta.ignore , expected_ignore )
         self.assertEqual(actual_meta.label  , expected_label  ) 
         self.assertIsInstance(actual_meta.encoder, expected_encoder)
-
-
-class CountBatcher_Tests(unittest.TestCase):
-
-    def test_from_json_1(self):
-        batcher = CountBatcher.from_json('{"count":3, "min":9, "max":12}')
-        self.assertEqual(batcher._batch_count, 3)
-        self.assertEqual(batcher._min_interactions, 9)
-        self.assertEqual(batcher._max_interactions, 12)
-    
-    def test_from_json_2(self):
-        batcher = cast(CountBatcher,Batcher.from_json('{"count":3, "min":9, "max":12}'))
-        self.assertIsInstance(batcher, CountBatcher)
-        self.assertEqual(batcher._batch_count, 3)
-        self.assertEqual(batcher._min_interactions, 9)
-        self.assertEqual(batcher._max_interactions, 12)
-
-    def test_batch_sizes_sans_min_max(self):
-        self.assertEqual(CountBatcher(3).batch_sizes(0), [])
-        self.assertEqual(CountBatcher(3).batch_sizes(1), [1,0,0])
-        self.assertEqual(CountBatcher(3).batch_sizes(2), [1,1,0])
-        self.assertEqual(CountBatcher(3).batch_sizes(3), [1,1,1])
-        self.assertEqual(CountBatcher(3).batch_sizes(4), [2,1,1])
-        self.assertEqual(CountBatcher(3).batch_sizes(5), [2,2,1])
-        self.assertEqual(CountBatcher(3).batch_sizes(6), [2,2,2])
-
-    def test_batch_sizes_with_min_sans_max(self):
-        self.assertEqual(CountBatcher(3,9).batch_sizes(8 ), [])
-        self.assertEqual(CountBatcher(3,9).batch_sizes(9 ), [3,3,3])
-        self.assertEqual(CountBatcher(3,9).batch_sizes(10), [4,3,3])
-        self.assertEqual(CountBatcher(3,9).batch_sizes(11), [4,4,3])
-        self.assertEqual(CountBatcher(3,9).batch_sizes(12), [4,4,4])
-
-    def test_batch_sizes_with_min_max(self):
-        self.assertEqual(CountBatcher(3,9,11).batch_sizes(8 ), [])
-        self.assertEqual(CountBatcher(3,9,11).batch_sizes(9 ), [3,3,3])
-        self.assertEqual(CountBatcher(3,9,11).batch_sizes(10), [4,3,3])
-        self.assertEqual(CountBatcher(3,9,11).batch_sizes(11), [4,4,3])
-        self.assertEqual(CountBatcher(3,9,11).batch_sizes(12), [4,4,3])
-
-class SizeBatcher_Tests(unittest.TestCase):
-
-    def test_from_json_1(self):
-        batcher = SizeBatcher.from_json('{"size":3, "min":9, "max":12}')
-        self.assertEqual(batcher._batch_size, 3)
-        self.assertEqual(batcher._min_interactions, 9)
-        self.assertEqual(batcher._max_interactions, 12)
-
-    def test_from_json_2(self):
-        batcher = cast(SizeBatcher,Batcher.from_json('{"size":3, "min":9, "max":12}'))
-        self.assertIsInstance(batcher, SizeBatcher)
-        self.assertEqual(batcher._batch_size, 3)
-        self.assertEqual(batcher._min_interactions, 9)
-        self.assertEqual(batcher._max_interactions, 12)
-
-    def test_batch_sizes_sans_min_max(self):
-        self.assertEqual(SizeBatcher(1).batch_sizes(0), [])
-        self.assertEqual(SizeBatcher(1).batch_sizes(1), [1])
-        self.assertEqual(SizeBatcher(1).batch_sizes(2), [1,1])
-        self.assertEqual(SizeBatcher(1).batch_sizes(3), [1,1,1])
-        self.assertEqual(SizeBatcher(2).batch_sizes(4), [2,2])
-        self.assertEqual(SizeBatcher(2).batch_sizes(5), [2,2])
-        self.assertEqual(SizeBatcher(2).batch_sizes(6), [2,2,2])
-
-    def test_batch_sizes_with_min_sans_max(self):
-        self.assertEqual(SizeBatcher(3,9).batch_sizes(8 ), [])
-        self.assertEqual(SizeBatcher(3,9).batch_sizes(9 ), [3,3,3])
-        self.assertEqual(SizeBatcher(3,9).batch_sizes(10), [3,3,3])
-        self.assertEqual(SizeBatcher(3,9).batch_sizes(11), [3,3,3])
-        self.assertEqual(SizeBatcher(3,9).batch_sizes(12), [3,3,3,3])
-
-    def test_batch_sizes_with_min_max(self):
-        self.assertEqual(SizeBatcher(3,9,11).batch_sizes(8 ), [])
-        self.assertEqual(SizeBatcher(3,9,11).batch_sizes(9 ), [3,3,3])
-        self.assertEqual(SizeBatcher(3,9,11).batch_sizes(10), [3,3,3])
-        self.assertEqual(SizeBatcher(3,9,11).batch_sizes(11), [3,3,3])
-        self.assertEqual(SizeBatcher(3,9,11).batch_sizes(12), [3,3,3])
-
-class SizesBatcher_Tests(unittest.TestCase):
-
-    def test_from_json_1(self):
-        batcher = SizesBatcher.from_json('{"sizes":[1,1,1]}')
-        self.assertEqual(batcher._batch_sizes, [1,1,1])
-
-    def test_from_json_2(self):
-        batcher = cast(SizesBatcher,Batcher.from_json('{"sizes":[1,1,1]}'))
-        self.assertIsInstance(batcher, SizesBatcher)
-        self.assertEqual(batcher._batch_sizes, [1,1,1])
-
-    def test_batch_sizes(self):
-        self.assertEqual(SizesBatcher([1,1,1]).batch_sizes(0), [])
-        self.assertEqual(SizesBatcher([1,1,1]).batch_sizes(1), [])
-        self.assertEqual(SizesBatcher([1,1,1]).batch_sizes(2), [])
-        self.assertEqual(SizesBatcher([1,1,1]).batch_sizes(3), [1,1,1])
-        self.assertEqual(SizesBatcher([1,1,1]).batch_sizes(4), [1,1,1])
-        self.assertEqual(SizesBatcher([1,1,1]).batch_sizes(5), [1,1,1])
-        self.assertEqual(SizesBatcher([1,1,1]).batch_sizes(6), [1,1,1])
-
 
 if __name__ == '__main__':
     unittest.main()
