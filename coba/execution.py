@@ -199,7 +199,7 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
             path: The path to the directory where all files will be cached
         """
         self._cache_dir = path if isinstance(path, Path) else Path(path).expanduser()
-        self._cache_dir.parent.mkdir(parents=True, exist_ok=True)
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
 
     def __contains__(self, filename: str) -> bool:
         return self._private_path(filename).exists()

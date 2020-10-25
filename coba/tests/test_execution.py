@@ -2,6 +2,7 @@
 import unittest
 import json
 import traceback
+import shutil
 
 from gzip import compress, decompress
 from pathlib import Path
@@ -171,6 +172,26 @@ class DiskCache_Tests(unittest.TestCase):
     def tearDown(self) -> None:
         if Path(".test/test.csv.gz").exists():
             Path(".test/test.csv.gz").unlink()
+
+    def test_creates_directory(self):
+        try:
+            cache = DiskCache(".test/folder1/folder2")
+            
+            cache.put("test.csv", BytesIO(b"test"))
+            self.assertTrue("test.csv"    in cache)
+
+        finally:
+            if Path(".test/folder1/folder2/test.csv.gz").exists():
+                Path(".test/folder1/folder2/test.csv.gz").unlink()
+            
+            if Path(".test/folder1/folder2/").exists():
+                Path(".test/folder1/folder2/").rmdir()
+            
+            if Path(".test/folder1/").exists():
+                Path(".test/folder1/").rmdir()
+            
+
+
 
     def test_write_csv_to_cache(self):
 
