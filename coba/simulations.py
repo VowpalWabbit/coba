@@ -385,7 +385,7 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
 
         if config["format"] == "openml":
             with ExecutionContext.Logger.log(f"loading openml {config['id']}..."):
-                return ClassificationSimulation.from_openml(config["id"])
+                return ClassificationSimulation.from_openml(config["id"], config.get("md5_checksum", None))
 
         if config["format"] == "csv":
             location    : str           = config["location"]
@@ -435,7 +435,7 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
         raise Exception("We were unable to recognize the provided data format.")
 
     @staticmethod
-    def from_openml(data_id:int) -> 'ClassificationSimulation[Context]':
+    def from_openml(data_id:int, md5_checksum:str = None) -> 'ClassificationSimulation[Context]':
         """Create a ClassificationSimulation from a given openml dataset id.
 
         Args:
@@ -470,7 +470,7 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
 
         csv_url = f"http://www.openml.org/data/v1/get_csv/{descr['file_id']}"
 
-        return ClassificationSimulation.from_csv(csv_url, defined_meta=defined_meta)
+        return ClassificationSimulation.from_csv(csv_url, md5_checksum=md5_checksum, defined_meta=defined_meta)
 
     @staticmethod
     def from_csv(
@@ -517,7 +517,7 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
             label_col: Either the column index or the header name for the label column.
             has_header: Indicates if the first row in the table contains column names
             default_meta: The default meta values for all columns unless explictly overridden with column_metas.
-            column_metas: Keys are column name or index, values are meta objects that override the default values.
+            defined_meta: Keys are column name or index, values are meta objects that override the default values.
         """
 
         # In theory we don't have to load the whole file up front. However, in practice,

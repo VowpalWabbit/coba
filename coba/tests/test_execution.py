@@ -177,7 +177,7 @@ class DiskCache_Tests(unittest.TestCase):
         try:
             cache = DiskCache(".test/folder1/folder2")
             
-            cache.put("test.csv", BytesIO(b"test"))
+            cache.put("test.csv", b"test")
             self.assertTrue("test.csv"    in cache)
 
         finally:
@@ -198,47 +198,24 @@ class DiskCache_Tests(unittest.TestCase):
         cache = DiskCache(".test")
 
         self.assertFalse("test.csv"    in cache)
-        self.assertFalse("test.csv.gz" in cache)
+        cache.put("test.csv", b"test")
+        self.assertTrue("test.csv" in cache)
 
-        cache.put("test.csv", BytesIO(b"test"))
-
-        self.assertTrue("test.csv"    in cache)
-        self.assertTrue("test.csv.gz" in cache)
-
-        self.assertEqual(           cache.get("test.csv"   ).read() .decode('utf8'), "test")
-        self.assertEqual(decompress(cache.get("test.csv.gz").read()).decode('utf8'), "test")
-
-    def test_write_gz_to_cache(self):
-
-        cache = DiskCache(".test")
-
-        self.assertFalse("test.csv"    in cache)
-        self.assertFalse("test.csv.gz" in cache)
-
-        cache.put("test.csv.gz", BytesIO(compress(b"test")))
-
-        self.assertTrue("test.csv"    in cache)
-        self.assertTrue("test.csv.gz" in cache)
-
-        self.assertEqual(           cache.get("test.csv"   ).read() .decode('utf8'), "test")
-        self.assertEqual(decompress(cache.get("test.csv.gz").read()).decode('utf8'), "test")
+        self.assertEqual(cache.get("test.csv"), b"test")
     
     def test_rmv_csv_from_cache(self):
 
         cache = DiskCache(".test/")
 
         self.assertFalse("test.csv"    in cache)
-        self.assertFalse("test.csv.gz" in cache)
-
-        cache.put("test.csv", BytesIO(b"test"))
-
+        
+        cache.put("test.csv", b"test")
+        
         self.assertTrue("test.csv"    in cache)
-        self.assertTrue("test.csv.gz" in cache)
 
         cache.rmv("test.csv")
 
         self.assertFalse("test.csv"    in cache)
-        self.assertFalse("test.csv.gz" in cache)
 
 if __name__ == '__main__':
     unittest.main()

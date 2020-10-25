@@ -142,7 +142,7 @@ class CacheInterface(Generic[_K, _V], ABC):
         ...
 
     @abstractmethod
-    def put(self, key: _K, value: _V) -> _V:
+    def put(self, key: _K, value: _V) -> None:
         ...
 
     @abstractmethod
@@ -159,8 +159,8 @@ class NoneCache(CacheInterface[_K, _V]):
     def get(self, key: _K) -> _V:
         raise Exception("the key didn't exist in the cache")
 
-    def put(self, key: _K, value: _V) -> _V:
-        return value
+    def put(self, key: _K, value: _V) -> None:
+        pass
 
     def rmv(self, key: _K):
         pass
@@ -175,21 +175,16 @@ class MemoryCache(CacheInterface[_K, _V]):
     def get(self, key: _K) -> _V:
         return self._cache[key]
 
-    def put(self, key: _K, value: _V) -> _V:
+    def put(self, key: _K, value: _V) -> None:
         self._cache[key] = value
 
-        return value
-
-    def rmv(self, key: _K):
+    def rmv(self, key: _K) -> None:
         del self._cache[key]
 
-class DiskCache(CacheInterface[str, IO[bytes]]):
-    """A cache that writes to disk.
+class DiskCache(CacheInterface[str, bytes]):
+    """A cache that writes bytes to disk.
     
-    Internally the DiskCache compresses all given bytes before storing them to disk
-    in order to conserve space. If one wishes to pass in compressed bytes or wishes
-    wishes to get compressed bytes from the cache they can indicate this by appending 
-    .gz to the end of the given filename.
+    The DiskCache compresses all values before storing in order to conserve space.
     """
 
     def __init__(self, path: Union[str, Path]) -> None:
@@ -202,47 +197,27 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
         self._cache_dir.mkdir(parents=True, exist_ok=True)
 
     def __contains__(self, filename: str) -> bool:
-        return self._private_path(filename).exists()
+        return self._cache_path(filename).exists()
 
-    def get(self, filename: str) -> IO[bytes]:
+    def get(self, filename: str) -> bytes:
         """Get a filename from the cache.
-        
-        If the requested filename has a .gz suffix the returned bytes will be compressed. If
-        the requested filename does not end with .gz the returned bytes will not be compressed.
 
         Args:
             filename: Requested filename to retreive from the cache.
         """
 
-        requested_gz   = filename.endswith(".gz")
-        resource_path  = self._private_path(filename)
-        resource_bytes = resource_path.read_bytes()
-        response_bytes = resource_bytes if requested_gz else decompress(resource_bytes)
+        return decompress(self._cache_path(filename).read_bytes())
 
-        return BytesIO(response_bytes)
-
-    def put(self, filename: str, value: IO[bytes]) -> IO[bytes]:
+    def put(self, filename: str, value: bytes):
         """Put a filename and its bytes into the cache.
         
-        If the given filename has a .gz suffix the given bytes are assumed to be compressed. If
-        the given filename does not end with .gz the given bytes are assumed to not be compressed.
-
         Args:
             filename: The filename to store in the cache.
             value: The bytes that should be cached for the given filename.
         """
 
-
-        received_gz = filename.endswith(".gz")
-        resource_path = self._private_path(filename)
-
-        received_bytes = value.read()
-        resource_bytes = received_bytes if received_gz else compress(received_bytes)
-
-        resource_path.touch()
-        resource_path.write_bytes(resource_bytes)
-
-        return BytesIO(received_bytes)
+        self._cache_path(filename).touch()
+        self._cache_path(filename).write_bytes(compress(value))
 
     def rmv(self, filename: str) -> None:
         """Remove a filename from the cache.
@@ -251,14 +226,13 @@ class DiskCache(CacheInterface[str, IO[bytes]]):
             filename: The filename to remove from the cache.
         """
 
-        resource_path = self._private_path(filename)
-        if resource_path.exists(): resource_path.unlink()
+        if self._cache_path(filename).exists(): self._cache_path(filename).unlink()
 
-    def _private_name(self, filename: str) -> str:
-        return filename if filename.endswith(".gz") else (filename + ".gz")
+    def _cache_name(self, filename: str) -> str:
+        return filename + ".gz"
 
-    def _private_path(self, filename: str) -> Path:
-        return self._cache_dir/self._private_name(filename)
+    def _cache_path(self, filename: str) -> Path:
+        return self._cache_dir/self._cache_name(filename)
 
 class LoggerInterface(ABC):
     """The interface for a Logger"""
@@ -360,7 +334,6 @@ class UniversalLogger(LoggerInterface):
 
             self.log(f"{preamble}\n\n{tb}\n  {msg}")
 
-
 class ConsoleLogger(UniversalLogger):
     """An implementation of the UniversalLogger that writes to console."""
     def __init__(self) -> None:
@@ -390,10 +363,10 @@ class ExecutionContext:
             [4] https://docs.python.org/3/library/contextvars.html
     """
 
-    Templating : TemplatingEngine               = TemplatingEngine()
-    Config     : CobaConfig                     = CobaConfig()
-    FileCache  : CacheInterface[str, IO[bytes]] = NoneCache()
-    Logger     : LoggerInterface                = ConsoleLogger()
+    Templating : TemplatingEngine           = TemplatingEngine()
+    Config     : CobaConfig                 = CobaConfig()
+    FileCache  : CacheInterface[str, bytes] = NoneCache()
+    Logger     : LoggerInterface            = ConsoleLogger()
 
     if Config.file_cache["type"] == "disk":
         FileCache = DiskCache(Config.file_cache["directory"])

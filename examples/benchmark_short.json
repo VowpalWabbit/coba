@@ -1,11 +1,11 @@
 {
-    "templates"   : { "openml_classification": { "type":"classification", "from": {"format":"openml", "id":"$id"} }},
+    "templates"   : { "openml_classification": { "type":"classification", "from": {"format":"openml", "id":"$id", "md5_checksum":"$md5_checksum"} }},
     "batches"     : { "count":51 },
     "shuffle"     : [777,888,999,1010,1111,1212],
     "ignore_first": true,
     "simulations" : [
-        {"template":"openml_classification", "$id":3   },
-        {"template":"openml_classification", "$id":6   },
-        {"template":"openml_classification", "$id":8   }
+        {"template":"openml_classification", "$md5_checksum":"sdf", "$id":3},
+        {"template":"openml_classification", "$md5_checksum":"da4174eec2fd552cb608e78b9397ab67", "$id":6},
+        {"template":"openml_classification", "$md5_checksum":"a3afc04ac25896c8478dd0d96d1d5a8a", "$id":8}
     ]
 }

@@ -228,42 +228,44 @@ class HttpSource(Source):
 
     def read(self) -> Iterable[str]:
 
+        try:
+
+            bites = self._get_bytes()
+
+            if self._checksum is not None and md5(bites).hexdigest() != self._checksum:
+                message = (
+                    f"The dataset at {self._url} did not match the expected checksum. This could be the result of "
+                    "network errors or the file becoming corrupted. Please consider downloading the file again "
+                    "and if the error persists you may want to manually download and reference the file.")
+                raise Exception(message) from None
+
+            if self._cachename not in ExecutionContext.FileCache: ExecutionContext.FileCache.put(self._cachename, bites)
+
+            return bites.decode('utf-8').splitlines()
+
+        except HTTPError as e:
+            if e.code == 412 and 'openml' in self._url:
+            
+                message = (
+                    "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
+                    "openml account at openml.org. Once a key has been obtained it should be placed within "
+                    "~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
+                raise Exception(message) from None
+            
+            else:
+                raise
+    
+    def _get_bytes(self) -> bytes:
         if self._cachename in ExecutionContext.FileCache:
             with ExecutionContext.Logger.log(f'loading {self._desc} from cache... '.replace('  ', ' ')):
-                for line in ExecutionContext.FileCache.get(self._cachename).readlines():
-                    yield line.decode('utf-8')
-
+                return ExecutionContext.FileCache.get(self._cachename)
         else:
-            with ExecutionContext.Logger.log(f'loading from http... '):
-                try:
-                    with urlopen(Request(self._url, headers={'Accept-encoding':'gzip'})) as response:
-
-                        if response.info().get('Content-Encoding') == "gzip":
-                            bites = decompress(response.read())
-                        else:
-                            bites = response.read()
-
-                        if self._checksum is not None and md5(bites).hexdigest() != self._checksum:
-                            message = (
-                                "The dataset did not match the expected checksum. This could be the result of network "
-                                "errors or the file becoming corrupted. Please consider downloading the file again and if "
-                                "the error persists you may want to manually download and reference the file.")
-                            raise Exception(message) from None
-
-                        response = ExecutionContext.FileCache.put(self._cachename, BytesIO(bites))
-
-                        for line in response.readlines():
-                            yield line.decode('utf-8')
-                except HTTPError as e:
-                    if e.code == 412 and 'openml' in self._url:
-                        message = (
-                            "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
-                            "openml account at openml.org. Once a key has been obtained it should be placed within "
-                            "~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
-                        raise Exception(message) from None
-                    
-                    raise
-
+            with ExecutionContext.Logger.log(f'loading {self._desc} from http... '):
+                with urlopen(Request(self._url, headers={'Accept-encoding':'gzip'})) as response:
+                    if response.info().get('Content-Encoding') == "gzip":
+                        return decompress(response.read())
+                    else:
+                        return response.read()
 
 class Table:
     """A container class for storing tabular data."""
@@ -287,7 +289,7 @@ class Table:
 
         if kwrow:
             self._columns.extend([col for col in kwrow if col not in self._columns])
-            
+
         row = row + tuple( kwrow.get(col, self._default) for col in self._columns[len(row):] ) #type:ignore
         self.rows[row[0] if len(self._primary) == 1 else tuple(row[0:len(self._primary)])] = row
 
@@ -308,7 +310,6 @@ class Table:
                 yield {k:v for k,v in zip(self._columns,row)}
 
     def rmv_where(self, **kwrow) -> None:
-
         idx_val = [ (self._columns.index(col), val) for col,val in kwrow.items() ]
         rmv_keys  = []
 

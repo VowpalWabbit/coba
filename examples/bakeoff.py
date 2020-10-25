@@ -21,6 +21,6 @@ if __name__ == '__main__':
     ]
 
     with ExecutionContext.Logger.log("evaluating learners..."):
-        results = benchmark.evaluate(learner_factories, 'bakeoff_transactions.log')
+        results = benchmark.evaluate(learner_factories)
 
     Plots.standard_plot(results, show_err=False)
