@@ -16,9 +16,10 @@ from hashlib import md5
 from gzip import decompress
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
-from multiprocessing import Manager, Process, Pool
+from multiprocessing import Manager, Pool
+from threading import Thread
 from abc import abstractmethod, ABC
-from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload
+from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload, Optional
 
 from coba.execution import ExecutionContext
 from coba.utilities import check_pandas_support
@@ -124,7 +125,6 @@ class Pipe:
                     items = filt.filter(items)
 
                 self._sink.write(items)
-
             except StopPipe:
                 pass
         else:
@@ -134,29 +134,28 @@ class Pipe:
 
             with Pool(processes, maxtasksperchild=maxtasksperchild) as pool, Manager() as manager:
 
-                out_queue = manager.Queue() #type: ignore
+                merge_queue = manager.Queue() #type: ignore
 
-                out_sink   = QueueSink(out_queue)
-                out_source = QueueSource(out_queue)
+                merge_sink   = QueueSink(merge_queue)
+                merge_source = QueueSource(merge_queue)
 
-                filters_sink = Pipe.join(self._filters, out_sink)
-                remerge_pipe = Pipe.join(out_source, self._sink)
+                split_source = map(lambda i: [i], self._source.read())
+                split_sink   = Pipe.join(self._filters, merge_sink)
+                merge_pipe   = Pipe.join(merge_source, self._sink)
 
-                is_writing_to_memory = isinstance(self._sink, MemorySink) or isinstance(self._sink, Pipe.FiltersSink) and isinstance(self._sink._sink, MemorySink) 
+                merge_thread = Thread(target = merge_pipe.run)
+                merge_thread.start()
+                
+                try:
+                    for err in pool.imap(ErrorSink(split_sink).write, split_source):
+                        if isinstance(err, StopPipe):
+                            raise StopPipe()
+                except StopPipe:
+                    pool.terminate()
+                    pool.join()
 
-                if is_writing_to_memory:
-                    pool.map(filters_sink.write, map(lambda i: [i], self._source.read()))
-
-                    out_queue.put(None)
-                    remerge_pipe.run()
-                else:
-                    remerge_process = Process(target = remerge_pipe.run)
-
-                    remerge_process.start()
-                    pool.map(filters_sink.write, map(lambda i: [i], self._source.read()))
-
-                    out_queue.put(None)
-                    remerge_process.join()
+                merge_queue.put(None)
+                merge_thread.join()
 
 class JsonEncode(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -211,7 +210,7 @@ class QueueSource(Source):
             item = self._queue.get()
 
             if item == self._poison:
-                raise StopPipe()
+                return
 
             yield item
 
@@ -221,6 +220,26 @@ class QueueSink(Sink):
 
     def write(self, items:Iterable[Any]) -> None:
         for item in items: self._queue.put(item)
+
+class ErrorSink(Sink):
+    def __init__(self, sink:Sink):
+        self._sink = sink
+
+    def write(self, items: Iterable[Any]) -> Optional[Exception]:
+        try:
+            self._sink.write(items)
+            return None
+        
+        except Exception as e:
+            return e
+
+        except KeyboardInterrupt:
+            # if you are here because keyboard interrupt isn't working for multiprocessing
+            # or you want to improve it in some way I can only say good luck. After many hours
+            # of spelunking through stackoverflow and the python stdlib I still don't understand
+            # why it works the way it does. I arrived at this solution not based on understanding
+            # but based on experimentation. This seemed to fix my problem.
+            return None
 
 class HttpSource(Source):
     def __init__(self, url: str, file_extension: str = None, checksum: str = None, desc: str = "") -> None:

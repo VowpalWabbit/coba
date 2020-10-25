@@ -3,6 +3,9 @@ This is an example script that benchmarks a vowpal wabbit bandit learner.
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
+from multiprocessing import Pool
+from time import sleep
+
 import coba.random
 from coba.simulations import LambdaSimulation
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
