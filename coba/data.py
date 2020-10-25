@@ -229,7 +229,7 @@ class ErrorSink(Sink):
         try:
             self._sink.write(items)
             return None
-        
+
         except Exception as e:
             return e
 
@@ -238,7 +238,9 @@ class ErrorSink(Sink):
             # or you want to improve it in some way I can only say good luck. After many hours
             # of spelunking through stackoverflow and the python stdlib I still don't understand
             # why it works the way it does. I arrived at this solution not based on understanding
-            # but based on experimentation. This seemed to fix my problem.
+            # but based on experimentation. This seemed to fix my problem. As best I can tell 
+            # KeyboardInterrupt is a very special kind of exception that propogates up everywhere
+            # and all we have to do in our child processes is make sure they don't become zombified.
             return None
 
 class HttpSource(Source):
