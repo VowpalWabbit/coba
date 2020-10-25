@@ -14,6 +14,7 @@ import collections
 
 from hashlib import md5
 from gzip import decompress
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from multiprocessing import Manager, Process, Pool
 from abc import abstractmethod, ABC
@@ -219,37 +220,50 @@ class QueueSink(Sink):
         for item in items: self._queue.put(item)
 
 class HttpSource(Source):
-    def __init__(self, url: str, checksum: str = None, file_extension: str = None) -> None:
+    def __init__(self, url: str, file_extension: str = None, checksum: str = None, desc: str = "") -> None:
         self._url       = url
         self._checksum  = checksum
+        self._desc      = desc
         self._cachename = f"{md5(self._url.encode('utf-8')).hexdigest()}{file_extension}"
 
     def read(self) -> Iterable[str]:
 
         if self._cachename in ExecutionContext.FileCache:
-            with ExecutionContext.Logger.log(f'loading from cache... '):
+            with ExecutionContext.Logger.log(f'loading {self._desc} from cache... '.replace('  ', ' ')):
                 for line in ExecutionContext.FileCache.get(self._cachename).readlines():
                     yield line.decode('utf-8')
 
         else:
             with ExecutionContext.Logger.log(f'loading from http... '):
-                with urlopen(Request(self._url, headers={'Accept-encoding':'gzip'})) as response:
+                try:
+                    with urlopen(Request(self._url, headers={'Accept-encoding':'gzip'})) as response:
 
-                    if response.info().get('Content-Encoding') == "gzip":
-                        bites = decompress(response.read())
-                    else:
-                        bites = response.read()
+                        if response.info().get('Content-Encoding') == "gzip":
+                            bites = decompress(response.read())
+                        else:
+                            bites = response.read()
 
-                    if self._checksum is not None and md5(bites).hexdigest() != self._checksum:
-                        raise Exception(
-                            "The dataset did not match the expected checksum. This could be the result of network "
-                            "errors or the file becoming corrupted. Please consider downloading the file again and if "
-                            "the error persists you may want to manually download and reference the file.")
+                        if self._checksum is not None and md5(bites).hexdigest() != self._checksum:
+                            message = (
+                                "The dataset did not match the expected checksum. This could be the result of network "
+                                "errors or the file becoming corrupted. Please consider downloading the file again and if "
+                                "the error persists you may want to manually download and reference the file.")
+                            raise Exception(message) from None
 
-                    response = ExecutionContext.FileCache.put(self._cachename, BytesIO(bites))
+                        response = ExecutionContext.FileCache.put(self._cachename, BytesIO(bites))
 
-                    for line in response.readlines():
-                        yield line.decode('utf-8')
+                        for line in response.readlines():
+                            yield line.decode('utf-8')
+                except HTTPError as e:
+                    if e.code == 412 and 'openml' in self._url:
+                        message = (
+                            "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
+                            "openml account at openml.org. Once a key has been obtained it should be placed within "
+                            "~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
+                        raise Exception(message) from None
+                    
+                    raise
+
 
 class Table:
     """A container class for storing tabular data."""

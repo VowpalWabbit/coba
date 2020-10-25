@@ -13,15 +13,13 @@ TODO Figure out LazySimulation vs JsonSimulation
 import gc
 import csv
 import json
-import urllib.request
 
 from collections import defaultdict
 from itertools import compress, repeat, count, chain
-from contextlib import closing
 from abc import ABC, abstractmethod
 from typing import (
-    Optional, Iterable, Sequence, List, Union, Callable, TypeVar, 
-    Generic, Hashable, Dict, Any, Tuple
+    Optional, Iterable, Sequence, List, Union, Callable, 
+    TypeVar, Generic, Hashable, Dict, Any, Tuple
 )
 
 import coba.random as cb_random
@@ -118,13 +116,13 @@ class JsonSimulation(Simulation[Context, Action]):
     def __enter__(self) -> 'JsonSimulation':
         """Load the simulation into memory. If already loaded do nothing."""
 
-        with ExecutionContext.Logger.log(f"loading simulation..."):
-            if self._simulation is None and self._json_obj["type"] == "classification":
-                self._simulation = ClassificationSimulation.from_json(self._json_obj["from"])
-            else:
-                raise Exception("We were unable to recognize the provided simulation type")
+        
+        if self._simulation is None and self._json_obj["type"] == "classification":
+            self._simulation = ClassificationSimulation.from_json(self._json_obj["from"])
+        else:
+            raise Exception("We were unable to recognize the provided simulation type")
 
-            return self
+        return self
 
     def __exit__(self, exception_type, exception_value, traceback) -> None:
         """Unload the simulation from memory."""
@@ -386,7 +384,8 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
         defined_meta: Dict[Any, PartMeta] = {}
 
         if config["format"] == "openml":
-            return ClassificationSimulation.from_openml(config["id"])
+            with ExecutionContext.Logger.log(f"loading openml {config['id']}..."):
+                return ClassificationSimulation.from_openml(config["id"])
 
         if config["format"] == "csv":
             location    : str           = config["location"]
@@ -443,44 +442,33 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
             data_id: The unique identifier for a dataset stored on openml.
         """
 
-        with ExecutionContext.Logger.log(f"loading openml {data_id} meta... "):
+        openml_api_key = ExecutionContext.Config.openml_api_key
 
-            openml_api_key = ExecutionContext.Config.openml_api_key
+        data_description_url = f'https://www.openml.org/api/v1/json/data/{data_id}?api_key={openml_api_key}'
+        task_description_url = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}?api_key={openml_api_key}'
+        feat_description_url = f'https://www.openml.org/api/v1/json/data/features/{data_id}?api_key={openml_api_key}'
 
-            with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/{data_id}?api_key={openml_api_key}')) as resp:
-                description = json.loads(resp.read())["data_set_description"]
+        descr = json.loads(''.join(HttpSource(data_description_url, '.json', None, 'descr').read()))["data_set_description"]
+        tasks = json.loads(''.join(HttpSource(task_description_url, '.json', None, 'tasks').read()))["tasks"]["task"]
+        types = json.loads(''.join(HttpSource(feat_description_url, '.json', None, 'types').read()))["data_features"]["feature"]
 
-            if description['status'] == 'deactivated':
-                raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
+        if descr['status'] == 'deactivated':
+            raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
 
-            with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}?api_key={openml_api_key}')) as resp:
-                tasks = json.loads(resp.read())["tasks"]["task"]
+        if not any(task["task_type_id"] == 1 for task in tasks ):
+            raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
 
-            if not any(task["task_type_id"] == 1 for task in tasks ):
-                raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
+        defined_meta: Dict[str,PartMeta] = {}
 
-            with closing(urllib.request.urlopen(f'https://www.openml.org/api/v1/json/data/features/{data_id}?api_key={openml_api_key}')) as resp:
-                features = json.loads(resp.read())["data_features"]["feature"]
+        for tipe in types:
 
-            defined_meta: Dict[str,PartMeta] = {}
+            defined_meta[tipe["name"]] = PartMeta(
+                ignore  = tipe["is_ignore"] == "true" or tipe["is_row_identifier"] == "true",
+                label   = tipe["is_target"] == "true",
+                encoder = NumericEncoder() if tipe['data_type'] == 'numeric' else FactorEncoder(tipe['nominal_value'], error_if_unknown=True)
+            )
 
-            for m in features:
-
-                encoder: Encoder
-
-                if m['data_type'] == 'numeric':
-                    encoder = NumericEncoder()
-                else:
-                    encoder = FactorEncoder(m['nominal_value'],error_if_unknown=True)
-
-                defined_meta[m["name"]] = PartMeta(
-                    ignore  = m["is_ignore"] == "true" or m["is_row_identifier"] == "true",
-                    label   = m["is_target"] == "true",
-                    encoder = encoder
-                )
-
-        file_id = description['file_id']
-        csv_url = f"http://www.openml.org/data/v1/get_csv/{file_id}"
+        csv_url = f"http://www.openml.org/data/v1/get_csv/{descr['file_id']}"
 
         return ClassificationSimulation.from_csv(csv_url, defined_meta=defined_meta)
 
@@ -506,13 +494,13 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
         """
 
         if not location.lower().startswith('http'):
-            source = DiskSource(location) 
+            source = DiskSource(location)
         else: 
-            source = HttpSource(location, md5_checksum, ".csv")
+            source = HttpSource(location, ".csv", md5_checksum, 'data')
 
         csv_rows = list(csv_reader(source.read()))
 
-        with ExecutionContext.Logger.log('encoding csv in memory... '):
+        with ExecutionContext.Logger.log('encoding data... '):
             return ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
 
     @staticmethod

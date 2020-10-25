@@ -128,8 +128,13 @@ class UniversalLogger_Tests(unittest.TestCase):
         except Exception as ex:
             logger.log_exception(ex)
 
+            tb = ''.join(traceback.format_tb(ex.__traceback__))
+            msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
+
+            expected_msg = f"\n\n{tb}\n  {msg}"
+
             self.assertTrue(hasattr(ex, '__logged__'))
-            self.assertEqual(actual_prints[0][0][20:], traceback.format_exc())
+            self.assertEqual(actual_prints[0][0][20:], expected_msg)
             self.assertEqual(actual_prints[0][1], None)
             self.assertEqual(len(actual_prints), 1)
 
@@ -142,7 +147,10 @@ class UniversalLogger_Tests(unittest.TestCase):
         logger.log('a', end='b')
         logger.log_exception(exception)
 
-        expected_msg = ''.join(traceback.TracebackException.from_exception(exception).format())
+        tb = ''.join(traceback.format_tb(exception.__traceback__))
+        msg = ''.join(traceback.TracebackException.from_exception(exception).format_exception_only())
+
+        expected_msg = f"\n\n{tb}\n  {msg}"
 
         self.assertTrue(hasattr(exception, '__logged__'))
         self.assertEqual(actual_prints[0][0][20:], "a")

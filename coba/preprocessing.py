@@ -383,7 +383,7 @@ class FactorEncoder(Encoder[int]):
         try:
             return [ self._levels[value] for value in values ]
         except KeyError as e:
-            raise Exception(f"We were unable to find {e} in {self._levels.keys()}")
+            raise Exception(f"We were unable to find {e} in {self._levels.keys()}") from None
 
 class InferredEncoder(Encoder[Hashable]):
     """An Encoder implementation that looks at its given `fit` values and infers the best Encoder."""

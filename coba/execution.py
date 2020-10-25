@@ -354,7 +354,11 @@ class UniversalLogger(LoggerInterface):
             setattr(ex, '__logged__', True)
             
             if not self._is_newline: self.log('')
-            self.log(f"{preamble} {''.join(traceback.TracebackException.from_exception(ex).format())}".lstrip())
+
+            tb = ''.join(traceback.format_tb(ex.__traceback__))
+            msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
+
+            self.log(f"{preamble}\n\n{tb}\n  {msg}")
 
 
 class ConsoleLogger(UniversalLogger):
