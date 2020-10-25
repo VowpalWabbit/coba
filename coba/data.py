@@ -18,7 +18,6 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from multiprocessing import Manager, Process, Pool
 from abc import abstractmethod, ABC
-from io import BytesIO
 from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload
 
 from coba.execution import ExecutionContext
@@ -64,11 +63,15 @@ class Pipe:
             self._filters = filters
             self._sink    = sink
 
+        def final_sink(self) -> Sink:
+            if isinstance(self._sink, Pipe.FiltersSink):
+                return self._sink.final_sink()
+            else:
+                return self._sink
+
         def write(self, items: Iterable[Any]):
-            
             for filt in self._filters:
                 items = filt.filter(items)
-
             self._sink.write(items)
 
     @overload

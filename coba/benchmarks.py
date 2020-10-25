@@ -64,7 +64,7 @@ class Result:
         self.benchmark   = cast(Dict[str,Any],{})
         self.learners    = Table("Learners"   , ['learner_id'])
         self.simulations = Table("Simulations", ['simulation_id'])
-        
+
         #Warning, if you change the order of the columns for batches then:
         # 1. TransactionLogPromote.current_version() will need to be bumped to version 2
         # 2. TransactionLogPromote.to_next_version() will need to promote version 1 to 2
@@ -184,7 +184,7 @@ class Transaction:
     @staticmethod
     def version(version) -> Any:
         return ['version', version]
-    
+
     @staticmethod
     def benchmark(n_learners, n_simulations, n_seeds, batcher, ignore_first) -> Any:
         data = {
@@ -206,6 +206,27 @@ class Transaction:
             kwargs: The metadata to store about the learner.
         """
         return ["L", learner_id, kwargs]
+
+    @staticmethod
+    def learners(factories: 'Sequence[LearnerFactory]') -> Iterable[Any]:
+        for index, factory in enumerate(factories):
+                learner = factory.create()
+                try:
+                    family = learner.family
+                except:
+                    family = learner.__class__.__name__
+
+                try:
+                    params = learner.params
+                except:
+                    params =  {}
+
+                if len(params) > 0:
+                    full_name = f"{family}({','.join(f'{k}={v}' for k,v in params.items())})"
+                else:
+                    full_name = family
+
+                yield Transaction.learner(index, family=family, full_name=full_name, **params)
 
     @staticmethod
     def simulation(simulation_id: int, **kwargs) -> Any:
@@ -230,7 +251,7 @@ class Transaction:
         return ["B", (learner_id, simulation_id, seed, batch_index), kwargs]
 
 class TaskToTransactions(Filter):
-    
+
     def __init__(self, ignore_first: bool, ignore_raise: bool, batcher: Batcher) -> None:
         self._ignore_first = ignore_first
         self._ignore_raise = ignore_raise
@@ -242,7 +263,7 @@ class TaskToTransactions(Filter):
                 yield transaction
 
     def _process_task(self, task) -> Iterable[Any]:
-        
+
         simulation_index = task[0]
         simulation       = task[1]
 
@@ -251,7 +272,7 @@ class TaskToTransactions(Filter):
 
                 batch_sizes = self._batcher.batch_sizes(len(simulation.interactions))
 
-                yield Transaction.simulation(simulation_index,                     
+                yield Transaction.simulation(simulation_index,
                     interaction_count = sum(batch_sizes[int(self._ignore_first):]),
                     batch_count       = len(batch_sizes[int(self._ignore_first):]),
                     context_size      = int(median(self._context_sizes(simulation))),
@@ -311,7 +332,7 @@ class TaskToTransactions(Filter):
     def _context_sizes(self, simulation: Simulation) -> Iterable[int]:
         for context in [i.context for i in simulation.interactions]:
             yield 0 if context is None else len(context) if isinstance(context,tuple) else 1
-    
+
     def _action_counts(self, simulation: Simulation) -> Iterable[int]:
         for actions in [i.actions for i in simulation.interactions]:
             yield len(actions)
@@ -380,27 +401,32 @@ class TransactionPromote(Filter):
 
 class TransactionIsNew(Filter):
 
-    def __init__(self, restored: Result):
+    def __init__(self, existing: Result):
 
-        self._existing = restored
+        self._existing = existing
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         for item in items:
 
             tipe  = item[0]
-            index = item[1]
 
-            if tipe == "B" and index in self._existing.batches:
+            if tipe == "version" and self._existing.version is not None:
                 continue
 
-            if tipe == "S" and index in self._existing.simulations:
+            if tipe == "benchmark" and len(self._existing.benchmark) != 0:
                 continue
 
-            if tipe == "L" and index in self._existing.learners:
+            if tipe == "B" and item[1] in self._existing.batches:
+                continue
+
+            if tipe == "S" and item[1] in self._existing.simulations:
+                continue
+
+            if tipe == "L" and item[1] in self._existing.learners:
                 continue
 
             yield item
- 
+
 class LearnerFactory(Generic[_C_out, _A_out]):
     def __init__(self, ctor: Callable[...,Learner[_C_out,_A_out]], *args, **kwargs) -> None:
         self._ctor   = ctor
@@ -591,44 +617,15 @@ class UniversalBenchmark(Benchmark[_C,_A]):
 
         restored             = Result.from_transaction_log(transaction_log)
         task_source          = MemorySource(self._make_tasks(self._simulations, self._seeds, factories, restored))
-        transaction_sink     = Pipe.join([JsonEncode()], DiskSink(transaction_log)) if transaction_log else MemorySink()
         task_to_transactions = TaskToTransactions(self._ignore_first, self._ignore_raise, self._batcher)
-        transactions_are_new = TransactionIsNew(restored)
+        transaction_sink     = Pipe.join([JsonEncode()], DiskSink(transaction_log)) if transaction_log else MemorySink()
 
         n_given_learners    = len(factories)
         n_given_simulations = len(self._simulations)
         n_given_seeds       = len(self._seeds)
         given_batcher       = self._batcher.__class__.__name__
         ignore_first        = self._ignore_first
-
-        preamble_transactions = []
-
-        if restored.version is None:
-            preamble_transactions.append(['version', TransactionPromote.CurrentVersion])
-
-        if len(restored.benchmark) == 0:
-            preamble_transactions.append(Transaction.benchmark(n_given_learners, n_given_simulations, n_given_seeds, given_batcher, ignore_first))
-
-        if len(restored.learners) == 0:
-            for index, factory in enumerate(factories):
-                learner = factory.create()
-                try:
-                    family = learner.family
-                except:
-                    family = learner.__class__.__name__
-
-                try:
-                    params = learner.params
-                except:
-                    params =  {}
-
-                if len(params) > 0:
-                    full_name = f"{family}({','.join(f'{k}={v}' for k,v in params.items())})"
-                else:
-                    full_name = family
-
-                preamble_transactions.append(Transaction.learner(index, family=family, full_name=full_name, **params))
-
+ 
         if len(restored.benchmark) != 0:
             assert n_given_learners    == restored.benchmark['n_learners'   ], "The currently evaluating benchmark doesn't match the given transaction log"
             assert n_given_simulations == restored.benchmark['n_simulations'], "The currently evaluating benchmark doesn't match the given transaction log"
@@ -636,18 +633,24 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             assert given_batcher       == restored.benchmark['batcher'      ], "The currently evaluating benchmark doesn't match the given transaction log"
             assert ignore_first        == restored.benchmark['ignore_first' ], "The currently evaluating benchmark doesn't match the given transaction log"
 
+        preamble_transactions = []
+        preamble_transactions.append(Transaction.version(TransactionPromote.CurrentVersion))
+        preamble_transactions.append(Transaction.benchmark(n_given_learners, n_given_simulations, n_given_seeds, given_batcher, ignore_first))
+        preamble_transactions.extend(Transaction.learners(factories))
+
         mp = self._processes if self._processes else ExecutionContext.Config.processes
         mt = self._maxtasksperchild if self._maxtasksperchild else ExecutionContext.Config.maxtasksperchild
 
-        transaction_sink.write(preamble_transactions)
-        Pipe.join(task_source, [task_to_transactions, transactions_are_new], transaction_sink).run(mp,mt)
+        transaction_sink = Pipe.join([TransactionIsNew(restored)], transaction_sink)
+        Pipe.join(MemorySource(preamble_transactions), [], transaction_sink).run()
+        Pipe.join(task_source, [task_to_transactions], transaction_sink).run(mp,mt)
 
         if isinstance(transaction_sink, Pipe.FiltersSink):
-            transaction_sink = transaction_sink._sink
+            transaction_sink = transaction_sink.final_sink()
 
         if isinstance(transaction_sink, MemorySink):
             return Result.from_transactions(transaction_sink.items)
-        
+
         if isinstance(transaction_sink, DiskSink):
             return Result.from_transaction_log(transaction_sink.filename)
 
