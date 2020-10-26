@@ -9,7 +9,7 @@ from coba.analysis import Plots
 from coba.execution import ExecutionContext
 
 if __name__ == '__main__':
-    benchmark = UniversalBenchmark.from_file("./examples/benchmark_long.json")
+    benchmark = UniversalBenchmark.from_file("./examples/benchmark_short.json")
 
     learner_factories = [
         LearnerFactory(RandomLearner,seed=10),
@@ -21,6 +21,6 @@ if __name__ == '__main__':
     ]
 
     with ExecutionContext.Logger.log("evaluating learners..."):
-        results = benchmark.evaluate(learner_factories)
+        results = benchmark.evaluate(learner_factories, 'bakeoff.log')
 
     Plots.standard_plot(results, show_err=False)
