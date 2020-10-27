@@ -444,19 +444,26 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
 
         openml_api_key = ExecutionContext.Config.openml_api_key
 
-        data_description_url = f'https://www.openml.org/api/v1/json/data/{data_id}?api_key={openml_api_key}'
-        task_description_url = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}?api_key={openml_api_key}'
-        feat_description_url = f'https://www.openml.org/api/v1/json/data/features/{data_id}?api_key={openml_api_key}'
+        data_description_url = f'https://www.openml.org/api/v1/json/data/{data_id}'
+        task_description_url = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'
+        type_description_url = f'https://www.openml.org/api/v1/json/data/features/{data_id}'
+
+        if openml_api_key is not None:
+            data_description_url += f'?api_key={openml_api_key}'
+            task_description_url += f'?api_key={openml_api_key}'
+            type_description_url += f'?api_key={openml_api_key}'
 
         descr = json.loads(''.join(HttpSource(data_description_url, '.json', None, 'descr').read()))["data_set_description"]
-        tasks = json.loads(''.join(HttpSource(task_description_url, '.json', None, 'tasks').read()))["tasks"]["task"]
-        types = json.loads(''.join(HttpSource(feat_description_url, '.json', None, 'types').read()))["data_features"]["feature"]
 
         if descr['status'] == 'deactivated':
             raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
 
+        tasks = json.loads(''.join(HttpSource(task_description_url, '.json', None, 'tasks').read()))["tasks"]["task"]
+
         if not any(task["task_type_id"] == 1 for task in tasks ):
             raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
+
+        types = json.loads(''.join(HttpSource(type_description_url, '.json', None, 'types').read()))["data_features"]["feature"]
 
         defined_meta: Dict[str,PartMeta] = {}
 

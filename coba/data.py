@@ -269,13 +269,25 @@ class HttpSource(Source):
 
         except HTTPError as e:
             if e.code == 412 and 'openml' in self._url:
-            
-                message = (
-                    "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
-                    "openml account at openml.org. Once a key has been obtained it should be placed within "
-                    "~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
-                raise Exception(message) from None
-            
+
+                error_response = e.read().decode('utf-8')
+                
+                if 'please provide api key' in error_response.lower():
+                    message = (
+                        "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
+                        "openml account at openml.org. Once a key has been obtained it should be placed within "
+                        "~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
+                    raise Exception(message) from None
+                
+                if 'authentication failed' in error_response.lower():
+                    message = (
+                        "The API Key you provided no longer seems to be valid. You may need to create a new one"
+                        "longing into your openml account and regenerating a key. After regenerating the new key "
+                        "should be placed in ~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
+                    raise Exception(message) from None
+
+                ExecutionContext.Logger.log(f"openml error response: {error_response}")
+
             else:
                 raise
     
