@@ -6,8 +6,7 @@ from abc import ABC, abstractmethod
 
 from coba.utilities import check_vowpal_support
 from coba.simulations import Context, Action
-from coba.learners import Learner, RandomLearner, LambdaLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
-from coba.json import CobaJsonDecoder, CobaJsonEncoder, JsonSerializable
+from coba.learners import Learner, RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 
 class Learner_Interface_Tests(ABC):
 
@@ -45,10 +44,6 @@ class Learner_Interface_Tests(ABC):
 class RandomLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:
         return RandomLearner()
-
-class LambdaLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
-    def _make_learner(self) -> Learner:
-        return LambdaLearner(lambda s,a: 0, lambda s,a,r:None)
 
 class EpsilonLearner_Tests(Learner_Interface_Tests, unittest.TestCase):
     def _make_learner(self) -> Learner:

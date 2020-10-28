@@ -44,7 +44,7 @@ class pyvw_Wrapper:
         self._format  = format
         self._created = False
         self._seed    = seed
-        self._random  = coba.random.Random(seed)
+        self._random  = coba.random.CobaRandom(seed)
 
     @property
     def created(self):

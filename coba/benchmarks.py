@@ -19,11 +19,11 @@ from typing import (
     Generic, TypeVar, Dict, Any, cast, Optional, overload
 )
 
-from coba.simulations import LazySimulation, JsonSimulation, Simulation, Context, Action
+from coba.simulations import JsonSimulation, Simulation, Context, Action
 from coba.learners import Learner
 from coba.execution import ExecutionContext
 from coba.data import Pipe, MemorySink, MemorySource, StopPipe, Filter, DiskSource, DiskSink, JsonEncode, JsonDecode, Table
-from coba.random import Random
+from coba.random import CobaRandom
 
 _C_out = TypeVar('_C_out', bound=Context, covariant=True)
 _A_out = TypeVar('_A_out', bound=Action, covariant=True)
@@ -268,7 +268,7 @@ class TaskToTransactions(Filter):
         simulation       = task[1]
 
         try:
-            with self._lazy_simulation(simulation) as simulation:
+            with WithSimulation(simulation) as simulation:
 
                 batch_sizes = self._batcher.batch_sizes(len(simulation.interactions))
 
@@ -319,15 +319,12 @@ class TaskToTransactions(Filter):
         if batch_index >= 0:
             yield Transaction.batch(learner_index, simulation_index, seed, batch_index, N=len(rewards), reward=round(mean(rewards),5))
 
-    def _shuffle_batch(self, interactions, seed, batch_sizes):
-        batch_slices = list(accumulate([0] + list(batch_sizes)))
-        interactions = Random(seed).shuffle(interactions) if seed else interactions
+    def _shuffle_batch(self, interactions, seed, batch_sizes: Sequence[int]):
+        batch_slices = list(accumulate([0] + list(batch_sizes))) #type: ignore
+        interactions = CobaRandom(seed).shuffle(interactions) if seed else interactions
         
         for i in range(len(batch_slices)-1):
             yield islice(interactions, batch_slices[i], batch_slices[i+1])
-
-    def _lazy_simulation(self, simulation: Simulation) -> Union[LazySimulation,JsonSimulation]:
-        return simulation if isinstance(simulation, (LazySimulation, JsonSimulation)) else LazySimulation(lambda: simulation)
 
     def _context_sizes(self, simulation: Simulation) -> Iterable[int]:
         for context in [i.context for i in simulation.interactions]:
@@ -435,6 +432,24 @@ class LearnerFactory(Generic[_C_out, _A_out]):
 
     def create(self) -> Learner[_C_out,_A_out]:
         return self._ctor(*self._args, **self._kwargs)
+
+class WithSimulation:
+    def __init__(self, simulation: Simulation) -> None:
+        self._simulation = simulation
+
+    def __enter__(self) -> Simulation:
+        with ExecutionContext.Logger.log(f"loading simulation..."):
+            try:
+                return self._simulation.__enter__() #type: ignore
+            except AttributeError:
+                return self._simulation
+
+    def __exit__(self, exception_type, exception_value, traceback) -> None:
+        try:
+            self._simulation.__exit__(exception_type, exception_value, traceback) #type: ignore
+        except AttributeError:
+            pass
+
 
 class Benchmark(Generic[_C,_A], ABC):
     """The interface for Benchmark implementations."""

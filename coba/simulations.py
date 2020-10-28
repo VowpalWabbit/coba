@@ -7,7 +7,6 @@ Rather, they simply make it possible to use static type checking for any project
 to do so.
 
 TODO Add RegressionSimulation
-TODO Figure out LazySimulation vs JsonSimulation
 """
 
 import gc
@@ -22,8 +21,7 @@ from typing import (
     TypeVar, Generic, Hashable, Dict, Any, Tuple
 )
 
-import coba.random as cb_random
-
+from coba.random import CobaRandom
 from coba.data import HttpSource, DiskSource
 from coba.preprocessing import FactorEncoder, FullMeta, PartMeta, OneHotEncoder, NumericEncoder, Encoder
 from coba.execution import ExecutionContext
@@ -116,7 +114,6 @@ class JsonSimulation(Simulation[Context, Action]):
     def __enter__(self) -> 'JsonSimulation':
         """Load the simulation into memory. If already loaded do nothing."""
 
-        
         if self._simulation is None and self._json_obj["type"] == "classification":
             self._simulation = ClassificationSimulation.from_json(self._json_obj["from"])
         else:
@@ -155,59 +152,6 @@ class JsonSimulation(Simulation[Context, Action]):
             return self._simulation.rewards(choices)
 
         raise Exception("A JsonSimulation must be loaded before it can be used.")
-
-class LazySimulation(Simulation[_C_out, _A_out]):
-    """A Simulation implementation which supports loading and unloading from memory.""" 
-    
-    def __init__(self, sim_factory = Callable[[],Simulation[_C_out,_A_out]]) -> None:
-        """Instantiate a LazySimulation
-        
-        Args:
-            sim_factory: A factory method for loading the simulation when requested.
-        """
-        self._sim_factory = sim_factory
-        self._simulation: Optional[Simulation[_C_out, _A_out]]  = None
-
-    def __enter__(self) -> 'LazySimulation[_C_out,_A_out]':
-        """Load the simulation into memory. If already loaded do nothing."""
-        
-        with ExecutionContext.Logger.log(f"loading simulation..."):
-            if self._simulation is None:
-                self._simulation = self._sim_factory()
-
-            return self
-
-    def __exit__(self, exception_type, exception_value, traceback) -> None:
-        """Unload the simulation from memory."""
-
-        if self._simulation is not None:
-            self._simulation = None
-            gc.collect() #in case the simulation is large
-
-    @property
-    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
-        """The interactions in this simulation.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-
-        if self._simulation is not None:
-            return self._simulation.interactions
-
-        raise Exception("A LazySimulation must be loaded before it can be used.")
-
-    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-        
-        if self._simulation is not None:
-            return self._simulation.rewards(choices)
-
-        raise Exception("A LazySimulation must be loaded before it can be used.")
 
 class MemorySimulation(Simulation[_C_out, _A_out]):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
@@ -326,7 +270,7 @@ class ShuffleSimulation(Simulation[_C_out, _A_out]):
         if seed is None:
             self._interactions = simulation.interactions
         else:
-            self._interactions = cb_random.Random(seed).shuffle(simulation.interactions)
+            self._interactions = CobaRandom(seed).shuffle(simulation.interactions)
 
         self._rewards = simulation.rewards
 

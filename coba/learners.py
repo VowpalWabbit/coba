@@ -8,13 +8,12 @@ import math
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Sequence, Tuple, Optional, Dict, cast, Generic, TypeVar, overload, Union, List, Type
+from typing import Any, Sequence, Tuple, Optional, Dict, cast, Generic, TypeVar, overload, Union
 from collections import defaultdict
-from inspect import signature
 
-import coba.random
 import coba.vowpal as VW
 
+from coba.random import CobaRandom
 from coba.simulations import Context, Action, Reward, Choice, Key
 from coba.statistics import OnlineVariance
 
@@ -91,98 +90,11 @@ class Learner(Generic[_C_in, _A_in], ABC):
         """
         ...
 
-class LambdaLearner(Learner[_C_in, _A_in]):
-    """A Learner implementation that chooses and learns according to provided lambda functions."""
-
-    @overload
-    def __init__(self, 
-                choose: Callable[[_C_in, Sequence[_A_in]], Choice], 
-                learn : Optional[Callable[[_C_in, _A_in, Reward],None]] = None,
-                family: str = "Lambda",
-                params: Dict[str,Any] = {}) -> None:
-        ...
-    
-    @overload
-    def __init__(self, 
-                 choose: Callable[[Key, _C_in, Sequence[_A_in]], Choice], 
-                 learn : Optional[Callable[[Key, _C_in, _A_in, Reward],None]] = None,
-                 family: str = "Lambda",
-                 params: Dict[str,Any] = {}) -> None:
-        ...
-
-    def __init__(self, choose, learn = None, family: str = "Lambda", params: Dict[str,Any] = {}) -> None:
-        """Instantiate LambdaLearner.
-
-        Args:
-            chooser: A function matching the `super().choose()` signature. All parameters are passed straight through.
-            learner: A function matching the `super().learn()` signature. If provided all parameters are passed
-                straight through. If the function isn't provided then no learning occurs.
-            family: The family that the lambda learner belongs to.
-            params: The parameters used when creating the lambda learner.
-        """
-
-        if len(signature(choose).parameters) == 2:
-            og_choose = choose
-            choose = lambda k,c,A: cast(Callable[[_C_in, Sequence[_A_in]], Choice], og_choose)(c,A)
-
-        if learn is not None and len(signature(learn).parameters) == 3:
-            og_learn = learn
-            learn = lambda k,c,a,r: cast(Callable[[_C_in, _A_in, Reward], None], og_learn)(c,a,r)
-
-        self._choose = choose
-        self._learn  = learn
-        self._family = family
-        self._params = params
-
-    @property
-    def family(self) -> str:
-        """The family of the learner.
-        
-        See the base class for more information
-        """
-        return self._family
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        """The parameters of the learner.
-        
-        See the base class for more information
-        """
-        return self._params
-
-    def choose(self, key: Key, context: _C_in, actions: Sequence[_A_in]) -> Choice:
-        """Choose via the provided lambda function.
-
-        Args:
-            key: The key identifying the interaction we are choosing for.
-            context: The context we're currently in. See the base class for more information.
-            actions: The actions to choose from. See the base class for more information.
-
-        Returns:
-            The index of the selected action. See the base class for more information.
-        """
-
-        return self._choose(key, context, actions)
-
-    def learn(self, index: int, context: _C_in, action: _A_in, reward: Reward) -> None:
-        """Learn via the optional lambda function or learn nothing without a lambda function.
-
-        Args:
-            key: The key identifying the interaction this observed reward came from.
-            context: The context we're learning about. See the base class for more information.
-            action: The action that was selected in the context. See the base class for more information.
-            reward: The reward that was gained from the action. See the base class for more information.
-        """
-        if self._learn is None:
-            pass
-        else:
-            self._learn(index, context,action,reward)
-
 class RandomLearner(Learner[Context, Action]):
     """A Learner implementation that selects an action at random and learns nothing."""
 
     def __init__(self, seed: Optional[int] = None):
-        self._random = coba.random.Random(seed)
+        self._random = CobaRandom(seed)
 
     @property
     def family(self) -> str:
@@ -242,7 +154,7 @@ class EpsilonLearner(Learner[Context, Action]):
 
         self._epsilon         = epsilon
         self._include_context = include_context
-        self._random          = coba.random.Random(seed)
+        self._random          = CobaRandom(seed)
 
         self._N: Dict[Tuple[Context, Action], int            ] = defaultdict(int)
         self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(int)
@@ -323,7 +235,7 @@ class UcbTunedLearner(Learner[Context, Action]):
         self._m     : Dict[Action,float] = {}
         self._v     : Dict[Action,OnlineVariance] = defaultdict(OnlineVariance)
         
-        self._random = coba.random.Random(seed)
+        self._random = CobaRandom(seed)
 
     @property
     def family(self) -> str:

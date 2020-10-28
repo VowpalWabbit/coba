@@ -20,7 +20,7 @@ import itertools
 
 from typing import Optional, Sequence, Any, List
 
-class Random:
+class CobaRandom:
     """A random number generator via a linear congruential generator."""
 
     def __init__(self, seed: Optional[int] = None) -> None:
@@ -143,7 +143,7 @@ class Random:
 
         return numbers
 
-_random = Random()
+_random = CobaRandom()
 
 def seed(seed: Optional[int]) -> None:
     """Set the seed for generating random numbers in this module.
@@ -157,7 +157,7 @@ def seed(seed: Optional[int]) -> None:
 
     global _random
 
-    _random = Random(seed)
+    _random = CobaRandom(seed)
 
 def random() -> float:
     """Generate a uniform random number in [0,1]."""

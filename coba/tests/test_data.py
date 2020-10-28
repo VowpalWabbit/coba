@@ -1,6 +1,65 @@
 import unittest
 
-from coba.data import Table
+from multiprocessing import current_process
+from typing import Iterable, Any
+
+from coba.data import Filter, MemorySink, MemorySource, Table, Pipe
+
+class Pipe_Tests(unittest.TestCase):
+
+    class ProcessNameFilter(Filter):
+        def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+            return [current_process().name] * len(list(items))
+
+    class ExceptionFilter(Filter):
+        def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+            raise Exception("Exception Filter")
+
+    def test_single_process_multitask(self):
+        source = MemorySource(list(range(10)))
+        sink   = MemorySink()
+
+        Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run()
+
+        self.assertEqual(sink.items, ['MainProcess']*10)
+
+    def test_singleprocess_singletask(self):
+        source = MemorySource(list(range(4)))
+        sink   = MemorySink()
+
+        Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(1,1)
+
+        self.assertEqual(len(set(sink.items)), 4)
+
+    def test_multiprocess_multitask(self):
+        source = MemorySource(list(range(10)))
+        sink   = MemorySink()
+
+        Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(2)
+
+        self.assertEqual(len(set(sink.items)), 2)
+
+    def test_multiprocess_singletask(self):
+        source = MemorySource(list(range(4)))
+        sink   = MemorySink()
+
+        Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(2,1)
+
+        self.assertEqual(len(set(sink.items)), 4)
+
+    def test_exception_multiprocess(self):
+        source = MemorySource(list(range(4)))
+        sink   = MemorySink()
+
+        with self.assertRaises(Exception):
+            Pipe.join(source, [Pipe_Tests.ExceptionFilter()], sink).run(2,1)
+
+    def test_exception_singleprocess(self):
+        source = MemorySource(list(range(4)))
+        sink   = MemorySink()
+
+        with self.assertRaises(Exception):
+            Pipe.join(source, [Pipe_Tests.ExceptionFilter()], sink).run()
 
 class Table_Tests(unittest.TestCase):
 

@@ -9,7 +9,7 @@ from coba.analysis import Plots
 from coba.execution import ExecutionContext
 
 if __name__ == '__main__':
-    benchmark = UniversalBenchmark.from_file("./examples/benchmark_short.json")
+    benchmark = UniversalBenchmark.from_file("./examples/benchmark_long.json")
 
     learner_factories = [
         LearnerFactory(RandomLearner,seed=10),

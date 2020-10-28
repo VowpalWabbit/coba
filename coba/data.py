@@ -115,9 +115,9 @@ class Pipe:
         self._filters = filters
         self._sink    = sink
 
-    def run(self, processes=1, maxtasksperchild=None) -> None:
+    def run(self, processes: int = 1, maxtasksperchild=None) -> None:
 
-        if processes == 1:
+        if processes == 1 and maxtasksperchild is None:
             try:
                 items = self._source.read()
 
@@ -127,8 +127,8 @@ class Pipe:
                 self._sink.write(items)
             except StopPipe:
                 pass
+        
         else:
-
             if len(self._filters) == 0:
                 raise Exception("There was nothing to multi-process within the pipe.")
 
@@ -144,18 +144,20 @@ class Pipe:
                 merge_pipe   = Pipe.join(merge_source, self._sink)
 
                 merge_thread = Thread(target = merge_pipe.run)
-                merge_thread.start()
                 
                 try:
-                    for err in pool.imap(ErrorSink(split_sink).write, split_source):
-                        if isinstance(err, StopPipe):
-                            raise StopPipe()
-                except StopPipe:
-                    pool.terminate()
-                    pool.join()
+                    merge_thread.start()
 
-                merge_queue.put(None)
-                merge_thread.join()
+                    for err in pool.imap(ErrorSink(split_sink).write, split_source):
+                        if err is not None:
+                            pool.terminate()
+                            pool.join()
+                            raise err
+                except StopPipe:
+                    pass
+                finally:
+                    merge_queue.put(None)
+                    merge_thread.join()
 
 class JsonEncode(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -251,7 +253,6 @@ class HttpSource(Source):
         self._cachename = f"{md5(self._url.encode('utf-8')).hexdigest()}{file_extension}"
 
     def read(self) -> Iterable[str]:
-
         try:
 
             bites = self._get_bytes()
@@ -287,6 +288,8 @@ class HttpSource(Source):
                     raise Exception(message) from None
 
                 ExecutionContext.Logger.log(f"openml error response: {error_response}")
+
+                return []
 
             else:
                 raise

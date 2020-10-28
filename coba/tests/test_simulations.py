@@ -13,7 +13,7 @@ from coba.preprocessing import (
 from coba.simulations import (
     JsonSimulation, Reward, Key, Choice, Interaction, Simulation,
     ClassificationSimulation, MemorySimulation, 
-    LambdaSimulation, ShuffleSimulation, LazySimulation
+    LambdaSimulation, ShuffleSimulation
 )
 
 ExecutionContext.Logger = NoneLogger()
@@ -358,46 +358,6 @@ class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         simulation.interactions[1]._context = 3
 
         self.assertEqual(sum(1 for r in simulation.interactions if r.context == 3),2)
-
-class LazySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
-
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
-    
-        contexts    =  [1,2]
-        action_sets = [[1,2,3], [4,5,6]]
-        reward_sets = [[0,1,2], [2,3,4]]
-
-        simulation: Simulation = LazySimulation(lambda: MemorySimulation(contexts, action_sets, reward_sets)).__enter__()
-
-        expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
-        expected_rewards      = reward_sets
-
-        return simulation, expected_interactions, expected_rewards
-
-    def test_with_removes_simulation(self):
-
-        contexts    =  [1,2]
-        action_sets = [[1,2,3], [4,5,6]]
-        reward_sets = [[0,1,2], [2,3,4]]
-
-        lazy_simulation = LazySimulation(lambda: MemorySimulation(contexts, action_sets, reward_sets))
-
-        with lazy_simulation as loaded_simulation:
-            self.assertIsNotNone(loaded_simulation._simulation)
-
-        self.assertIsNone(lazy_simulation._simulation)
-
-    def test_with_doesnt_supress_exception(self):
-        
-        contexts    =  [1,2]
-        action_sets = [[1,2,3], [4,5,6]]
-        reward_sets = [[0,1,2], [2,3,4]]
-
-        lazy_simulation = LazySimulation(lambda: MemorySimulation(contexts, action_sets, reward_sets))
-
-        with self.assertRaises(Exception) as context:
-            with lazy_simulation as loaded_simulation:
-                raise Exception("ex")
 
 class Interaction_Tests(unittest.TestCase):
 
