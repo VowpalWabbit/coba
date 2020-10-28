@@ -112,23 +112,10 @@ class CobaConfig():
                     config = json.load(fs)
                 break
 
-        self._config = config
-
-    @property
-    def openml_api_key(self) -> Optional[str]:
-        return self._config.get("openml_api_key", None)
-
-    @property
-    def file_cache(self) -> Mapping[str,Any]:
-        return self._config.get("file_cache", {"type":"none"})
-
-    @property
-    def processes(self) -> int:
-        return self._config.get("processes", 1)
-    
-    @property
-    def maxtasksperchild(self) -> Optional[int]:
-        return self._config.get("maxtasksperchild", None)
+        self.openml_api_key   = config.get("openml_api_key", None)
+        self.file_cache       = config.get("file_cache", {"type":"none"})
+        self.processes        = config.get("processes", 1)
+        self.maxtasksperchild = config.get("maxtasksperchild", None)
 
 class CacheInterface(Generic[_K, _V], ABC):
     """The interface for a cacher."""
@@ -422,3 +409,5 @@ def redirect_stderr(to: IO[str]):
     finally:
         _redirect_stderr(old_stderr_fd) 
         os.close(old_stderr_fd)
+
+Logger = ConsoleLogger()
