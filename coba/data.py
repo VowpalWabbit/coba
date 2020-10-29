@@ -303,10 +303,11 @@ class MultiProcessFilter(Filter):
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 
-        #it does seem like this could potentially be made faster...
-        #I'm not sure how or why, but my original thread implementation
-        #within pool seemed to complete the full job about a minute and
-        # a half faster...
+        # It does seem like this could potentially be made faster...
+        # I'm not sure how or why, but my original thread implementation
+        # within Pool seemed to complete the full job about a minute and
+        # a half faster... See commit 7fb3653 for that implementation.
+        # My best guess is that 7fb3653 doesn't rely on a generator.
 
         if len(self._filters) == 0:
             return items
