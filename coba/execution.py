@@ -16,12 +16,11 @@ from contextlib import contextmanager
 from itertools import repeat
 from gzip import compress, decompress
 from abc import ABC, abstractmethod
-from io import BytesIO
 from pathlib import Path
 from datetime import datetime
 from typing import (
-    Callable, ContextManager, Union, Generic, TypeVar, Dict, 
-    IO, Mapping, Any, Optional, List, MutableMapping, cast, Iterator,
+    Callable, ContextManager, Union, Generic, TypeVar, Dict, IO,
+    Mapping, Any, Optional, List, MutableMapping, cast, Iterator
 )
 
 _K = TypeVar("_K")
@@ -409,5 +408,3 @@ def redirect_stderr(to: IO[str]):
     finally:
         _redirect_stderr(old_stderr_fd) 
         os.close(old_stderr_fd)
-
-Logger = ConsoleLogger()

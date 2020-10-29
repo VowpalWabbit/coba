@@ -3,13 +3,19 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
+from coba.execution import UniversalLogger, ExecutionContext
 from coba.data import Filter, MemorySink, MemorySource, Table, Pipe
 
 class Pipe_Tests(unittest.TestCase):
 
     class ProcessNameFilter(Filter):
         def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-            return [current_process().name] * len(list(items))
+
+            process_name = current_process().name
+
+            for _ in items:
+                ExecutionContext.Logger.log(process_name)
+                yield process_name
 
     class ExceptionFilter(Filter):
         def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -60,6 +66,20 @@ class Pipe_Tests(unittest.TestCase):
 
         with self.assertRaises(Exception):
             Pipe.join(source, [Pipe_Tests.ExceptionFilter()], sink).run()
+
+    def test_logging(self):
+        
+        actual_logs = []
+
+        ExecutionContext.Logger = UniversalLogger(lambda msg,end: actual_logs.append((msg,end)))
+
+        source = MemorySource(list(range(4)))
+        sink   = MemorySink()
+
+        Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(2,1)
+
+        self.assertEqual(len(actual_logs), 4)
+        self.assertEqual(sink.items, [ l[0][20:] for l in actual_logs ] )
 
 class Table_Tests(unittest.TestCase):
 

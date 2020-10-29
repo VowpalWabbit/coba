@@ -1,7 +1,6 @@
 """The data module contains core classes and types for reading and writing data sources.
 
 TODO: Add docstrings for Pipe
-TODO: Add unit tests for all Pipe
 
 TODO: Add docstrings for all Sinks
 TODO: Add unit tests for all Sinks
@@ -17,10 +16,11 @@ from gzip import decompress
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from multiprocessing import Manager, Pool
+from threading import Thread
 from abc import abstractmethod, ABC
-from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload, Optional
+from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload
 
-from coba.execution import ExecutionContext
+from coba.execution import ExecutionContext, UniversalLogger
 from coba.utilities import check_pandas_support
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
 
@@ -208,6 +208,15 @@ class QueueSink(Sink):
     def write(self, items:Iterable[Any]) -> None:
         for item in items: self._queue.put(item)
 
+class SinkLogger(UniversalLogger):
+    def __init__(self, sink:Sink) -> None:
+        super().__init__(lambda msg,end: sink.write([(msg[20:],end)]))
+
+class LoggerSink(Sink):
+    def write(self, items: Iterable[Any]) -> None:
+        for msg,end in items:
+            ExecutionContext.Logger.log(msg,end)
+
 class HttpSource(Source):
     def __init__(self, url: str, file_extension: str = None, checksum: str = None, desc: str = "") -> None:
         self._url       = url
@@ -273,17 +282,23 @@ class MultiProcessFilter(Filter):
     
     class Processor:
 
-        def __init__(self, filters: Sequence[Filter], stdout: Sink, errout: Sink) -> None:
+        def __init__(self, filters: Sequence[Filter], stdout: Sink, stderr: Sink, stdlog:Sink) -> None:
             self._filter = Pipe.join(filters)
             self._stdout = stdout
-            self._errout = errout
+            self._stderr = stderr
+            self._stdlog = stdlog
 
         def process(self, item) -> None:
+
+            ExecutionContext.Config.processes        = 1
+            ExecutionContext.Config.maxtasksperchild = None
+            ExecutionContext.Logger = SinkLogger(self._stdlog)
+
             try:
                 self._stdout.write(self._filter.filter([item]))
 
             except Exception as e:
-                self._errout.write([e])
+                self._stderr.write([e])
                 raise
 
             except KeyboardInterrupt:
@@ -316,28 +331,33 @@ class MultiProcessFilter(Filter):
 
             std_queue = manager.Queue() #type: ignore
             err_queue = manager.Queue() #type: ignore
+            log_queue = manager.Queue() #type: ignore
 
-            stdout_writer = QueueSink(std_queue)
-            stdout_reader = QueueSource(std_queue)
+            stdout_writer, stdout_reader = QueueSink(std_queue), QueueSource(std_queue)
+            stderr_writer, stderr_reader = QueueSink(err_queue), QueueSource(err_queue)
+            stdlog_writer, stdlog_reader = QueueSink(log_queue), QueueSource(log_queue)
 
-            stderr_writer = QueueSink(err_queue)
-            stderr_reader = QueueSource(err_queue)
+            log_thread = Thread(target=Pipe.join(stdlog_reader, [], LoggerSink()).run)
+            processor  = MultiProcessFilter.Processor(self._filters, stdout_writer, stderr_writer, stdlog_writer)
 
             def finished_callback(result):
                 std_queue.put(None)
                 err_queue.put(None)
+                log_queue.put(None)
 
             def error_callback(error):
                 std_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in lost work.
                 err_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in lost work.
-                
-            processor = MultiProcessFilter.Processor(self._filters, stdout_writer, stderr_writer)
+                log_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in lost work.
             
+            log_thread.start()
+
             # Checking if it is done immediately deals with the case of items being empty.
             # When items is empty finished_callback will not be called and we'll get stuck waiting for the poison pill.
             if pool.map_async(processor.process, items, callback=finished_callback, error_callback=error_callback).ready():
                 std_queue.put(None)
                 err_queue.put(None)
+                log_queue.put(None)
 
             #this structure is necessary to make sure we don't exit the context before we're done
             for item in stdout_reader.read():
@@ -348,6 +368,7 @@ class MultiProcessFilter(Filter):
             # isn't finished yet, so we need to kill it here. We are unable to
             # kill it in the error_callback because that will cause a hang.
             pool.terminate()
+            log_thread.join()
 
             for err in stderr_reader.read():
                 if not isinstance(err, StopPipe):
