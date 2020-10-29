@@ -17,7 +17,6 @@ from gzip import decompress
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from multiprocessing import Manager, Pool
-from threading import Thread
 from abc import abstractmethod, ABC
 from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload, Optional
 
@@ -75,6 +74,16 @@ class Pipe:
                 items = filt.filter(items)
             self._sink.write(items)
 
+    class FiltersFilter(Filter):
+        def __init__(self, filters: Sequence[Filter]):
+            self._filters = filters
+
+        def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+            for filter in self._filters:
+                items = filter.filter(items)
+
+            return items
+
     @overload
     @staticmethod
     def join(source: Source, filters: Iterable[Filter]) -> Source:
@@ -95,8 +104,14 @@ class Pipe:
     def join(source: Source, filters: Iterable[Filter], sink: Sink) -> 'Pipe':
         ...
 
+    @overload
+    @staticmethod
+    def join(filters: Iterable[Filter]) -> Filter:
+        ...
+
     @staticmethod #type: ignore
     def join(*args):
+
         if len(args) == 3:
             return Pipe(*args)
 
@@ -107,6 +122,9 @@ class Pipe:
                 return Pipe.FiltersSink(args[0], args[1])
             else:
                 return Pipe(args[0], [], args[1])
+        
+        if len(args) == 1:
+            return Pipe.FiltersFilter(args[0])
 
         raise Exception("An unknown pipe was joined.")
 
@@ -116,48 +134,14 @@ class Pipe:
         self._sink    = sink
 
     def run(self, processes: int = 1, maxtasksperchild=None) -> None:
-
-        if processes == 1 and maxtasksperchild is None:
-            try:
-                items = self._source.read()
-
-                for filt in self._filters:
-                    items = filt.filter(items)
-
-                self._sink.write(items)
-            except StopPipe:
-                pass
         
+        if processes == 1 and maxtasksperchild is None:
+            filter = Pipe.join(self._filters)
         else:
-            if len(self._filters) == 0:
-                raise Exception("There was nothing to multi-process within the pipe.")
+            filter = MultiProcessFilter(self._filters, processes, maxtasksperchild)
 
-            with Pool(processes, maxtasksperchild=maxtasksperchild) as pool, Manager() as manager:
+        self._sink.write(filter.filter(self._source.read()))
 
-                merge_queue = manager.Queue() #type: ignore
-
-                merge_sink   = QueueSink(merge_queue)
-                merge_source = QueueSource(merge_queue)
-
-                split_source = map(lambda i: [i], self._source.read())
-                split_sink   = Pipe.join(self._filters, merge_sink)
-                merge_pipe   = Pipe.join(merge_source, self._sink)
-
-                merge_thread = Thread(target = merge_pipe.run)
-                
-                try:
-                    merge_thread.start()
-
-                    for err in pool.imap(ErrorSink(split_sink).write, split_source):
-                        if err is not None:
-                            pool.terminate()
-                            pool.join()
-                            raise err
-                except StopPipe:
-                    pass
-                finally:
-                    merge_queue.put(None)
-                    merge_thread.join()
 
 class JsonEncode(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -224,16 +208,16 @@ class QueueSink(Sink):
         for item in items: self._queue.put(item)
 
 class ErrorSink(Sink):
-    def __init__(self, sink:Sink):
-        self._sink = sink
+    def __init__(self, items_sink:Sink, error_sink: Sink):
+        self._items_sink = items_sink
+        self._error_sink = error_sink
 
     def write(self, items: Iterable[Any]) -> Optional[Exception]:
         try:
-            self._sink.write(items)
-            return None
-
+            self._items_sink.write(items)
+        
         except Exception as e:
-            return e
+            self._error_sink.write([e])
 
         except KeyboardInterrupt:
             # if you are here because keyboard interrupt isn't working for multiprocessing
@@ -243,7 +227,7 @@ class ErrorSink(Sink):
             # but based on experimentation. This seemed to fix my problem. As best I can tell 
             # KeyboardInterrupt is a very special kind of exception that propogates up everywhere
             # and all we have to do in our child processes is make sure they don't become zombified.
-            return None
+            pass
 
 class HttpSource(Source):
     def __init__(self, url: str, file_extension: str = None, checksum: str = None, desc: str = "") -> None:
@@ -305,6 +289,66 @@ class HttpSource(Source):
                         return decompress(response.read())
                     else:
                         return response.read()
+
+class MultiProcessFilter(Filter):
+    
+    class Processor:
+
+        def __init__(self, filters: Sequence[Filter], stdout: Sink, errout: Sink) -> None:
+            self._filter = Pipe.join(filters)
+            self._stdout = stdout
+            self._errout = errout
+
+        def process(self, item) -> None:
+            try:
+                self._stdout.write(self._filter.filter([item]))
+            except Exception as e:
+                self._errout.write([e])
+
+    def __init__(self, filters: Sequence[Filter], processes=1, maxtasksperchild=None) -> None:
+        self._filters          = filters
+        self._processes        = processes
+        self._maxtasksperchild = maxtasksperchild
+
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+
+        if len(self._filters) == 0:
+            return items
+
+        with Pool(self._processes, maxtasksperchild=self._maxtasksperchild) as pool, Manager() as manager:
+
+            std_queue = manager.Queue() #type: ignore
+            err_queue = manager.Queue() #type: ignore
+
+            stdout_writer = QueueSink(std_queue)
+            stdout_reader = QueueSource(std_queue)
+
+            stderr_writer = QueueSink(err_queue)
+
+            def finished_callback(result):
+                pool.close()
+                std_queue.put(None)
+
+            def error_callback(error):
+                pool.close()
+                std_queue.put(None)
+
+            processor = MultiProcessFilter.Processor(self._filters, stdout_writer, stderr_writer)
+            
+            pool.map_async(processor.process, items, callback=finished_callback, error_callback=error_callback)
+
+            #this structure is necessary to make sure we don't exit the context before we're done
+            for item in stdout_reader.read():
+                yield item
+
+            #what do now? We need to watch both stdout and stderr from our processor
+            #normally when running in a completed pipe we already know what to do with
+            #stdout: we write it to the pipe's sink. In the filter case we don't know
+            #what to do with it other than return it? Unfortunately, once we've done
+            #that, it's hard to deal with exceptions without just ignoring them. Even
+            #if we do though, the above code is much slower than my original pipe
+            #implementation. Therefore, I think I'm going to go back to that and leave
+            #this code on the experimental branch.
 
 class Table:
     """A container class for storing tabular data."""
