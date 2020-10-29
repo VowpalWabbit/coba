@@ -134,14 +134,15 @@ class Pipe:
         self._sink    = sink
 
     def run(self, processes: int = 1, maxtasksperchild=None) -> None:
-        
-        if processes == 1 and maxtasksperchild is None:
-            filter = Pipe.join(self._filters)
-        else:
-            filter = MultiProcessFilter(self._filters, processes, maxtasksperchild)
+        try:
+            if processes == 1 and maxtasksperchild is None:
+                filter = Pipe.join(self._filters)
+            else:
+                filter = MultiProcessFilter(self._filters, processes, maxtasksperchild)
 
-        self._sink.write(filter.filter(self._source.read()))
-
+            self._sink.write(filter.filter(self._source.read()))
+        except StopPipe as e:
+            pass
 
 class JsonEncode(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -206,28 +207,6 @@ class QueueSink(Sink):
 
     def write(self, items:Iterable[Any]) -> None:
         for item in items: self._queue.put(item)
-
-class ErrorSink(Sink):
-    def __init__(self, items_sink:Sink, error_sink: Sink):
-        self._items_sink = items_sink
-        self._error_sink = error_sink
-
-    def write(self, items: Iterable[Any]) -> Optional[Exception]:
-        try:
-            self._items_sink.write(items)
-        
-        except Exception as e:
-            self._error_sink.write([e])
-
-        except KeyboardInterrupt:
-            # if you are here because keyboard interrupt isn't working for multiprocessing
-            # or you want to improve it in some way I can only say good luck. After many hours
-            # of spelunking through stackoverflow and the python stdlib I still don't understand
-            # why it works the way it does. I arrived at this solution not based on understanding
-            # but based on experimentation. This seemed to fix my problem. As best I can tell 
-            # KeyboardInterrupt is a very special kind of exception that propogates up everywhere
-            # and all we have to do in our child processes is make sure they don't become zombified.
-            pass
 
 class HttpSource(Source):
     def __init__(self, url: str, file_extension: str = None, checksum: str = None, desc: str = "") -> None:
@@ -302,8 +281,20 @@ class MultiProcessFilter(Filter):
         def process(self, item) -> None:
             try:
                 self._stdout.write(self._filter.filter([item]))
+
             except Exception as e:
                 self._errout.write([e])
+                raise
+
+            except KeyboardInterrupt:
+                # if you are here because keyboard interrupt isn't working for multiprocessing
+                # or you want to improve it in some way I can only say good luck. After many hours
+                # of spelunking through stackoverflow and the python stdlib I still don't understand
+                # why it works the way it does. I arrived at this solution not based on understanding
+                # but based on experimentation. This seemed to fix my problem. As best I can tell 
+                # KeyboardInterrupt is a very special kind of exception that propogates up everywhere
+                # and all we have to do in our child processes is make sure they don't become zombified.
+                pass
 
     def __init__(self, filters: Sequence[Filter], processes=1, maxtasksperchild=None) -> None:
         self._filters          = filters
@@ -311,6 +302,11 @@ class MultiProcessFilter(Filter):
         self._maxtasksperchild = maxtasksperchild
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+
+        #it does seem like this could potentially be made faster...
+        #I'm not sure how or why, but my original thread implementation
+        #within pool seemed to complete the full job about a minute and
+        # a half faster...
 
         if len(self._filters) == 0:
             return items
@@ -324,31 +320,37 @@ class MultiProcessFilter(Filter):
             stdout_reader = QueueSource(std_queue)
 
             stderr_writer = QueueSink(err_queue)
+            stderr_reader = QueueSource(err_queue)
 
             def finished_callback(result):
-                pool.close()
                 std_queue.put(None)
+                err_queue.put(None)
 
             def error_callback(error):
-                pool.close()
-                std_queue.put(None)
-
+                std_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in lost work.
+                err_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in lost work.
+                
             processor = MultiProcessFilter.Processor(self._filters, stdout_writer, stderr_writer)
             
-            pool.map_async(processor.process, items, callback=finished_callback, error_callback=error_callback)
+            # Checking if it is done immediately deals with the case of items being empty.
+            # When items is empty finished_callback will not be called and we'll get stuck waiting for the poison pill.
+            if pool.map_async(processor.process, items, callback=finished_callback, error_callback=error_callback).ready():
+                std_queue.put(None)
+                err_queue.put(None)
 
             #this structure is necessary to make sure we don't exit the context before we're done
             for item in stdout_reader.read():
                 yield item
 
-            #what do now? We need to watch both stdout and stderr from our processor
-            #normally when running in a completed pipe we already know what to do with
-            #stdout: we write it to the pipe's sink. In the filter case we don't know
-            #what to do with it other than return it? Unfortunately, once we've done
-            #that, it's hard to deal with exceptions without just ignoring them. Even
-            #if we do though, the above code is much slower than my original pipe
-            #implementation. Therefore, I think I'm going to go back to that and leave
-            #this code on the experimental branch.
+            # in the case where an exception occurred in one of our processes
+            # we will have poisoned the std and err queue even though the pool
+            # isn't finished yet, so we need to kill it here. We are unable to
+            # kill it in the error_callback because that will cause a hang.
+            pool.terminate()
+
+            for err in stderr_reader.read():
+                if not isinstance(err, StopPipe):
+                    raise err
 
 class Table:
     """A container class for storing tabular data."""
