@@ -20,7 +20,7 @@ from typing import (
 )
 
 from coba.simulations import JsonSimulation, Simulation, Context, Action
-from coba.learners import Learner
+from coba.learners import LearnerFactory
 from coba.execution import ExecutionContext
 from coba.data import Pipe, MemorySink, MemorySource, StopPipe, Filter, DiskSource, DiskSink, JsonEncode, JsonDecode, Table
 from coba.random import CobaRandom
@@ -423,15 +423,6 @@ class TransactionIsNew(Filter):
                 continue
 
             yield item
-
-class LearnerFactory(Generic[_C_out, _A_out]):
-    def __init__(self, ctor: Callable[...,Learner[_C_out,_A_out]], *args, **kwargs) -> None:
-        self._ctor   = ctor
-        self._args   = args
-        self._kwargs = kwargs
-
-    def create(self) -> Learner[_C_out,_A_out]:
-        return self._ctor(*self._args, **self._kwargs)
 
 class WithSimulation:
     def __init__(self, simulation: Simulation) -> None:
