@@ -538,7 +538,7 @@ class CorralLearner(Learner[Context, Action]):
         self._p_bars   = [ 1/M ] * M
 
         self._random   = CobaRandom(seed)
-        self._chosen_i = {}
+        self._chosen_i: Dict[Key,int] = {}
 
     @property
     def family(self) -> str:
@@ -577,7 +577,7 @@ class CorralLearner(Learner[Context, Action]):
         for learner,reward in zip(self._base_algorithms, rewards):
             learner.learn(key, context, action, reward)
 
-        self._ps     = self._log_barrier_omd(losses)
+        self._ps     = list(self._log_barrier_omd(losses))
         self._p_bars = [ (1-self._gamma)*p + self._gamma*1/self._M for p in self._ps ]
 
         for i in range(self._M):
@@ -587,16 +587,16 @@ class CorralLearner(Learner[Context, Action]):
 
     def _log_barrier_omd(self, losses) -> Sequence[float]:
 
-        f  = lambda l: sum( [ 1/((1/p) + eta*(loss-l)) for p, eta, loss in zip(self._ps, self._etas, losses)])
-        df = lambda l: sum( [ eta/((1/p) + eta*(loss-l))**2 for p, eta, loss in zip(self._ps, self._etas, losses)])
+        f  = lambda l: float(sum( [ 1/((1/p) + eta*(loss-l)) for p, eta, loss in zip(self._ps, self._etas, losses)]))
+        df = lambda l: float(sum( [ eta/((1/p) + eta*(loss-l))**2 for p, eta, loss in zip(self._ps, self._etas, losses)]))
 
         min_loss = min(losses)
         max_loss = max(losses)
 
         if max_loss - 1 < .0001:
-            l = 1
+            l = float(1)
         elif max_loss > 2000:
-            l = 0
+            l = float(0)
         else:
             l = (min_loss + max_loss)/2
 

@@ -1,15 +1,15 @@
-from build.lib.coba.simulations import Simulation
-from build.lib.coba.learners import Learner
+
 import unittest
 
 from pathlib import Path
 from statistics import mean
 from typing import cast
 
-from coba.simulations import LambdaSimulation, JsonSimulation
+from coba.simulations import Simulation, LambdaSimulation, JsonSimulation
 from coba.execution import ExecutionContext, NoneLogger
+from coba.learners import Learner, LearnerFactory
 from coba.benchmarks import (
-    UniversalBenchmark, Result, LearnerFactory, 
+    UniversalBenchmark, Result, 
     Transaction, TransactionIsNew, CountBatcher, 
     SizeBatcher, SizesBatcher, Batcher
 )

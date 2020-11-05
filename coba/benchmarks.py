@@ -655,7 +655,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
             transaction_sink = transaction_sink.final_sink()
 
         if isinstance(transaction_sink, MemorySink):
-            return Result.from_transactions(transaction_sink.items)
+            return Result.from_transactions(cast(Iterable[Any], transaction_sink.items))
 
         if isinstance(transaction_sink, DiskSink):
             return Result.from_transaction_log(transaction_sink.filename)

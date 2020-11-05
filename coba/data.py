@@ -18,26 +18,29 @@ from urllib.request import Request, urlopen
 from multiprocessing import Manager, Pool
 from threading import Thread
 from abc import abstractmethod, ABC
-from typing import Any, List, Iterable, Sequence, Dict, Hashable, overload
+from typing import Any, List, Iterable, Sequence, Dict, Hashable, TypeVar, overload, Generic
 
 from coba.execution import ExecutionContext, UniversalLogger
 from coba.utilities import check_pandas_support
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
 
-class Source(ABC):
+_T_out = TypeVar("_T_out", bound=Any, covariant=True)
+_T_in  = TypeVar("_T_in", bound=Any, contravariant=True)
+
+class Source(ABC, Generic[_T_out]):
     @abstractmethod
-    def read(self) -> Iterable[Any]:
+    def read(self) -> _T_out:
         ...
 
-class Sink(ABC):
+class Sink(ABC, Generic[_T_in]):
 
     @abstractmethod
-    def write(self, items:Iterable[Any]) -> None:
+    def write(self, items: _T_in) -> None:
         ...
 
-class Filter(ABC):
+class Filter(ABC, Generic[_T_in, _T_out]):
     @abstractmethod
-    def filter(self, items:Iterable[Any]) -> Iterable[Any]:
+    def filter(self, items:_T_in) -> _T_out:
         ...
 
 class StopPipe(Exception):
@@ -46,11 +49,11 @@ class StopPipe(Exception):
 class Pipe:
 
     class SourceFilters(Source):
-        def __init__(self, source: Source, filters: Iterable[Filter]) -> None:
+        def __init__(self, source: Source, filters: Sequence[Filter]) -> None:
             self._source = source
             self._filters = filters
         
-        def read(self) -> Iterable[Any]:
+        def read(self) -> Any:
             items = self._source.read()
 
             for filt in self._filters:
@@ -59,7 +62,7 @@ class Pipe:
             return items
 
     class FiltersSink(Sink):
-        def __init__(self, filters: Iterable[Filter], sink: Sink) -> None:
+        def __init__(self, filters: Sequence[Filter], sink: Sink) -> None:
             self._filters = filters
             self._sink    = sink
 
@@ -78,7 +81,7 @@ class Pipe:
         def __init__(self, filters: Sequence[Filter]):
             self._filters = filters
 
-        def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        def filter(self, items: Any) -> Any:
             for filter in self._filters:
                 items = filter.filter(items)
 
@@ -86,12 +89,12 @@ class Pipe:
 
     @overload
     @staticmethod
-    def join(source: Source, filters: Iterable[Filter]) -> Source:
+    def join(source: Source, filters: Sequence[Filter]) -> Source:
         ...
     
     @overload
     @staticmethod
-    def join(filters: Iterable[Filter], sink: Sink) -> Sink:
+    def join(filters: Sequence[Filter], sink: Sink) -> Sink:
         ...
 
     @overload
@@ -101,12 +104,12 @@ class Pipe:
 
     @overload
     @staticmethod
-    def join(source: Source, filters: Iterable[Filter], sink: Sink) -> 'Pipe':
+    def join(source: Source, filters: Sequence[Filter], sink: Sink) -> 'Pipe':
         ...
 
     @overload
     @staticmethod
-    def join(filters: Iterable[Filter]) -> Filter:
+    def join(filters: Sequence[Filter]) -> Filter:
         ...
 
     @staticmethod #type: ignore
@@ -144,17 +147,17 @@ class Pipe:
         except StopPipe as e:
             pass
 
-class JsonEncode(Filter):
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+class JsonEncode(Filter[Iterable[Any], Iterable[str]]):
+    def filter(self, items: Iterable[Any]) -> Iterable[str]:
         encoder = CobaJsonEncoder()
         for item in items: yield encoder.encode(item)
 
-class JsonDecode(Filter):
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+class JsonDecode(Filter[Iterable[str], Iterable[Any]]):
+    def filter(self, items: Iterable[str]) -> Iterable[Any]:
         decoder = CobaJsonDecoder()
         for item in items: yield decoder.decode(item)
 
-class DiskSource(Source):
+class DiskSource(Source[Iterable[str]]):
     def __init__(self, filename:str):
         self.filename = filename
 
@@ -163,7 +166,7 @@ class DiskSource(Source):
             for line in f:
                 yield line
 
-class DiskSink(Sink):
+class DiskSink(Sink[Iterable[str]]):
     def __init__(self, filename:str, mode:str='a+'):
         self.filename = filename
         self._mode    = mode
@@ -172,25 +175,28 @@ class DiskSink(Sink):
         with open(self.filename, self._mode) as f:
             for item in items: f.write(item + '\n')
 
-class MemorySource(Source):
-    def __init__(self, source: Iterable[Any] = None):
-        self._source = source if source is not None else []
+class MemorySource(Source[_T_out]):
+    def __init__(self, source: _T_out): #type:ignore
+        self._source = source
 
-    def read(self) -> Iterable[Any]:
+    def read(self) -> _T_out:
         return self._source
 
-class MemorySink(Sink):
-    def __init__(self, sink: List[Any] = None):
-        self.items = sink if sink is not None else []
+class MemorySink(Sink[_T_in]):
+    def __init__(self):
+        self.items: List[_T_in] = []
 
-    def write(self, items: Iterable[Any]) -> None:
-        for item in items:
-            self.items.append(item)
+    def write(self, items: _T_in) -> None:
+        try:
+            self.items.extend(items)
+        except TypeError as e:
+            if "not iterable" not in str(e): raise
+            self.items.append(items)
 
-class QueueSource(Source):
+class QueueSource(Source[Iterable[Any]]):
     def __init__(self, source: Any, poison=None) -> None:
         self._queue  = source
-        self._poison = None
+        self._poison = poison
 
     def read(self) -> Iterable[Any]:
         while True:
@@ -201,7 +207,7 @@ class QueueSource(Source):
 
             yield item
 
-class QueueSink(Sink):
+class QueueSink(Sink[Iterable[Any]]):
     def __init__(self, sink: Any) -> None:
         self._queue = sink
 
@@ -209,15 +215,15 @@ class QueueSink(Sink):
         for item in items: self._queue.put(item)
 
 class SinkLogger(UniversalLogger):
-    def __init__(self, sink:Sink) -> None:
+    def __init__(self, sink: Sink) -> None:
         super().__init__(lambda msg,end: sink.write([(msg[20:],end)]))
 
-class LoggerSink(Sink):
+class LoggerSink(Sink[Iterable[Any]]):
     def write(self, items: Iterable[Any]) -> None:
         for msg,end in items:
             ExecutionContext.Logger.log(msg,end)
 
-class HttpSource(Source):
+class HttpSource(Source[Iterable[str]]):
     def __init__(self, url: str, file_extension: str = None, checksum: str = None, desc: str = "") -> None:
         self._url       = url
         self._checksum  = checksum

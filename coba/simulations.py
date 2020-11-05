@@ -22,7 +22,7 @@ from typing import (
 )
 
 from coba.random import CobaRandom
-from coba.data import HttpSource, DiskSource
+from coba.data import Source, HttpSource, DiskSource
 from coba.preprocessing import FactorEncoder, FullMeta, PartMeta, OneHotEncoder, NumericEncoder, Encoder
 from coba.execution import ExecutionContext
 
@@ -443,6 +443,8 @@ class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
             default_meta: The default meta values for all columns unless explictly overridden with column_metas.
             column_metas: Keys are column name or index, values are meta objects that override the default values.
         """
+
+        source: Source[Iterable[str]]
 
         if not location.lower().startswith('http'):
             source = DiskSource(location)

@@ -31,14 +31,14 @@ class Pipe_Tests(unittest.TestCase):
 
     def test_singleprocess_singletask(self):
         source = MemorySource(list(range(4)))
-        sink   = MemorySink()
+        sink   = MemorySink[Iterable[int]]()
 
         Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(1,1)
 
         self.assertEqual(len(set(sink.items)), 4)
 
     def test_multiprocess_multitask(self):
-        source = MemorySource(list(range(10)))
+        source = MemorySource(list(range(40)))
         sink   = MemorySink()
 
         Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(2)
