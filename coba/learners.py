@@ -475,7 +475,7 @@ class VowpalLearner(Learner[Context, Action]):
         """
 
         if not self._vw.created:
-            self._vw.create(self._learning.flags(actions) + " " + self._exploration.flags() + self._flags)        
+            self._vw.create(self._learning.flags(actions) + " " + self._exploration.flags() + " " + self._flags)        
 
         choice, prob = self._vw.choose(context, actions)
 
