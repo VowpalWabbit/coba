@@ -441,7 +441,9 @@ class VowpalLearner(Learner[Context, Action]):
         self._probs: Dict[Key, float] = {}
         self._actions = self._new_actions(learning)
 
-        self._vw = VW.pyvw_Wrapper(learning.formatter, seed=kwargs.get('seed', None))
+        self._flags = kwargs.get('flags', '')
+
+        self._vw = VW.pyvw_Wrapper(self._learning.formatter, seed=kwargs.get('seed', None))
     
     @property
     def family(self) -> str:
@@ -473,7 +475,7 @@ class VowpalLearner(Learner[Context, Action]):
         """
 
         if not self._vw.created:
-            self._vw.create(self._learning.flags(actions) + " " + self._exploration.flags())        
+            self._vw.create(self._learning.flags(actions) + " " + self._exploration.flags() + self._flags)        
 
         choice, prob = self._vw.choose(context, actions)
 
