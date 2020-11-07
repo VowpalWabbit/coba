@@ -234,6 +234,8 @@ class EpsilonLearner(Learner[Context, Action]):
 class UcbTunedLearner(Learner[Context, Action]):
     """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
 
+    This algorithm assumes that the reward distribution has support in [0,1].
+
     References:
         Auer, Peter, Nicolo Cesa-Bianchi, and Paul Fischer. "Finite-time analysis of 
         the multiarmed bandit problem." Machine learning 47.2-3 (2002): 235-256.
@@ -243,9 +245,9 @@ class UcbTunedLearner(Learner[Context, Action]):
 
         self._init_a: int = 0
         self._t     : int = 0
-        self._s     : Dict[Action,int] = {}
-        self._m     : Dict[Action,float] = {}
-        self._v     : Dict[Action,OnlineVariance] = defaultdict(OnlineVariance)
+        self._s     : Dict[Action, int           ] = defaultdict(int)
+        self._m     : Dict[Action, float         ] = {}
+        self._v     : Dict[Action, OnlineVariance] = defaultdict(OnlineVariance)
         
         self._random = CobaRandom(seed)
 
@@ -296,10 +298,6 @@ class UcbTunedLearner(Learner[Context, Action]):
             action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
         """
-        if action not in self._s:
-            self._s[action] = 1
-        else:
-            self._s[action] += 1
 
         if action not in self._m:
             self._m[action] = reward
@@ -439,7 +437,7 @@ class VowpalLearner(Learner[Context, Action]):
             self._exploration = exploration
 
         self._probs: Dict[Key, float] = {}
-        self._actions = self._new_actions(learning)
+        self._actions = self._new_actions(self._learning)
 
         self._flags = kwargs.get('flags', '')
 

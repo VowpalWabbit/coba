@@ -81,17 +81,15 @@ class pyvw_Wrapper:
 class cb_explore:
     """A Vowpal Learner that assumes there is a fixed set of actions (aka, `--cb_explore`)."""
 
-    def __init__(self, interactions:Sequence[str] = ["ssa", "sa"], ignore_linear: Sequence[str] = ["s"]) -> None:
+    def __init__(self, interactions:Sequence[str] = [], ignore_linear: Sequence[str] = []) -> None:
         self._interactions  = interactions
         self._ignore_linear = ignore_linear
-        self._actions: Sequence[Action] = []
 
     def params(self) -> Dict[str, Any]:
-        #return {"interactions": self._interactions, "ignore_linear": self._ignore_linear}
-        return {}
+        return {"x":list(self._interactions) + [ f"-{i}" for i in self._ignore_linear]}
 
     def flags(self, actions: Sequence[Action]) -> str:
-        n_actions    = len(self._actions)
+        n_actions    = len(actions)
         inter_flags  = " ".join([ f"--interactions {i}"  for i in self._interactions ]).strip()
         ignore_flags = " ".join([ f"--ignore_linear {n}" for n in self._ignore_linear]).strip()
 
@@ -109,7 +107,6 @@ class cb_explore_adf:
         self._ignore_linear = ignore_linear
 
     def params(self) -> Dict[str, Any]:
-        #return {"interactions": self._interactions, "ignore_linear": self._ignore_linear}
         return {"x":list(self._interactions) + [ f"-{i}" for i in self._ignore_linear]}
 
     def flags(self, actions) -> str:
