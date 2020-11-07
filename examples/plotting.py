@@ -16,9 +16,9 @@ if __name__ == '__main__':
 
     #define a simulation
     simulations = [
-        LambdaSimulation(300, lambda i: 1, lambda s: [0,1,2,3,4], lambda s,a: random.randint(a-2,a+2)),
-        LambdaSimulation(300, lambda i: 1, lambda s: [0,1,2,3,4], lambda s,a: random.randint(a-2,a+2)),
-        LambdaSimulation(300, lambda i: 1, lambda s: [0,1,2,3,4], lambda s,a: random.randint(a-2,a+2)),
+        LambdaSimulation(300, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.randint(a,a+2)),
+        LambdaSimulation(300, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.randint(a,a+2)),
+        LambdaSimulation(300, lambda i: None, lambda s: [0,1,2,3,4], lambda s,a: random.randint(a,a+2)),
     ]
 
     #define a benchmark: this benchmark replays the simulation 15 times
@@ -30,7 +30,7 @@ if __name__ == '__main__':
         LearnerFactory(EpsilonLearner, .025, seed=10),
         LearnerFactory(UcbTunedLearner, seed=10),
         LearnerFactory(VowpalLearner, epsilon=0.025, seed=10),
-        LearnerFactory(VowpalLearner, epsilon=0.100, is_adf=False, seed=10),
+        LearnerFactory(VowpalLearner, epsilon=0.025, is_adf=False, seed=10),
         LearnerFactory(VowpalLearner, softmax=3.5, seed=10)
     ]
 
