@@ -12,13 +12,12 @@ TODO: Add unit tests for all Sources
 import collections
 
 from hashlib import md5
-from gzip import decompress
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
 from multiprocessing import Manager, Pool
 from threading import Thread
 from abc import abstractmethod, ABC
 from typing import Any, List, Iterable, Sequence, Dict, Hashable, TypeVar, overload, Generic
+
+import requests
 
 from coba.execution import ExecutionContext, UniversalLogger
 from coba.utilities import check_pandas_support
@@ -231,46 +230,18 @@ class HttpSource(Source[Iterable[str]]):
         self._cachename = f"{md5(self._url.encode('utf-8')).hexdigest()}{file_extension}"
 
     def read(self) -> Iterable[str]:
-        try:
+        bites = self._get_bytes()
 
-            bites = self._get_bytes()
+        if self._checksum is not None and md5(bites).hexdigest() != self._checksum:
+            message = (
+                f"The dataset at {self._url} did not match the expected checksum. This could be the result of "
+                "network errors or the file becoming corrupted. Please consider downloading the file again "
+                "and if the error persists you may want to manually download and reference the file.")
+            raise Exception(message) from None
 
-            if self._checksum is not None and md5(bites).hexdigest() != self._checksum:
-                message = (
-                    f"The dataset at {self._url} did not match the expected checksum. This could be the result of "
-                    "network errors or the file becoming corrupted. Please consider downloading the file again "
-                    "and if the error persists you may want to manually download and reference the file.")
-                raise Exception(message) from None
+        if self._cachename not in ExecutionContext.FileCache: ExecutionContext.FileCache.put(self._cachename, bites)
 
-            if self._cachename not in ExecutionContext.FileCache: ExecutionContext.FileCache.put(self._cachename, bites)
-
-            return bites.decode('utf-8').splitlines()
-
-        except HTTPError as e:
-            if e.code == 412 and 'openml' in self._url:
-
-                error_response = e.read().decode('utf-8')
-                
-                if 'please provide api key' in error_response.lower():
-                    message = (
-                        "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
-                        "openml account at openml.org. Once a key has been obtained it should be placed within "
-                        "~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
-                    raise Exception(message) from None
-                
-                if 'authentication failed' in error_response.lower():
-                    message = (
-                        "The API Key you provided no longer seems to be valid. You may need to create a new one"
-                        "longing into your openml account and regenerating a key. After regenerating the new key "
-                        "should be placed in ~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
-                    raise Exception(message) from None
-
-                ExecutionContext.Logger.log(f"openml error response: {error_response}")
-
-                return []
-
-            else:
-                raise
+        return bites.decode('utf-8').splitlines()
     
     def _get_bytes(self) -> bytes:
         if self._cachename in ExecutionContext.FileCache:
@@ -278,14 +249,27 @@ class HttpSource(Source[Iterable[str]]):
                 return ExecutionContext.FileCache.get(self._cachename)
         else:
             with ExecutionContext.Logger.log(f'loading {self._desc} from http... '):
-                with urlopen(Request(self._url, headers={'Accept-encoding':'gzip'})) as response:
-                    if response.info().get('Content-Encoding') == "gzip":
-                        return decompress(response.read())
-                    else:
-                        return response.read()
+                response = requests.get(self._url)
+
+                if response.status_code == 412 and 'openml' in self._url:
+                    if 'please provide api key' in response.text:
+                        message = (
+                            "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
+                            "openml account at openml.org. Once a key has been obtained it should be placed within "
+                            "~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
+                        raise Exception(message) from None
+
+                    if 'authentication failed' in response.text:
+                        message = (
+                            "The API Key you provided no longer seems to be valid. You may need to create a new one"
+                            "longing into your openml account and regenerating a key. After regenerating the new key "
+                            "should be placed in ~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
+                        raise Exception(message) from None
+
+                return response.content
 
 class MultiProcessFilter(Filter):
-    
+
     class Processor:
 
         def __init__(self, filters: Sequence[Filter], stdout: Sink, stderr: Sink, stdlog:Sink) -> None:
