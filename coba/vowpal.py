@@ -3,8 +3,10 @@
 TODO Add unittests
 """
 
+import collections
+
 from os import devnull
-from typing import Any, Dict, Tuple, Union, Sequence
+from typing import Any, Collection, Dict, Tuple, Union, Sequence
 
 import coba.random
 from coba.execution import redirect_stderr
@@ -81,7 +83,7 @@ class pyvw_Wrapper:
 class cb_explore:
     """A Vowpal Learner that assumes there is a fixed set of actions (aka, `--cb_explore`)."""
 
-    def __init__(self, interactions:Sequence[str] = [], ignore_linear: Sequence[str] = []) -> None:
+    def __init__(self, interactions:Sequence[str] = ["ss"], ignore_linear: Sequence[str] = []) -> None:
         self._interactions  = interactions
         self._ignore_linear = ignore_linear
 
@@ -223,10 +225,10 @@ def _features_format(features: Union[Context,Action]) -> str:
         feature array a more advanced method may need to be implemented in the future...
     """
 
-    if not isinstance(features, tuple):
+    if not isinstance(features, collections.Sequence):
         features = (features,)
 
-    if isinstance(features, tuple):
+    if isinstance(features, collections.Sequence):
         return " ". join([_feature_format(i,f) for i,f in enumerate(features) if f is not None and f != 0 ])
 
     raise Exception("We were unable to determine an appropriate vw context format.")

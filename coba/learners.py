@@ -442,7 +442,7 @@ class VowpalLearner(Learner[Context, Action]):
         self._flags = kwargs.get('flags', '')
 
         self._vw = VW.pyvw_Wrapper(self._learning.formatter, seed=kwargs.get('seed', None))
-    
+
     @property
     def family(self) -> str:
         """The family of the learner.
