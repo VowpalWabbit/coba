@@ -27,5 +27,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering"
     ],
+    install_requires = ['requests>=2'],
     python_requires=">=3.6",
 )
