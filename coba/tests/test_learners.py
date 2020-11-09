@@ -116,7 +116,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         # however, VW is outside of our control so it is possible
         # future updates of VW will change how seeds affect 
         # randomness thus causing this test to break unexpectedly.
-        learner = VowpalLearner(epsilon=0.05, is_adf=False, seed=30) 
+        learner = VowpalLearner(epsilon=0.75, is_adf=False, seed=30) 
 
         choice1 = learner.choose(1, None, [1,2,3])
         choice2 = learner.choose(1, None, [1,2,3])
