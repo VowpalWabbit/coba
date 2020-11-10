@@ -243,8 +243,8 @@ class UniversalBenchmark_Tests1(unittest.TestCase):
         self.assertIsInstance(benchmark._simulations[0],JsonSimulation)
 
     def test_evaluate_sims(self):
-        sim1            = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        sim2            = LambdaSimulation(4, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+        sim1            = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
+        sim2            = LambdaSimulation(4, lambda t: t, lambda t: [3,4,5], lambda c,a: a)
         learner_factory = LearnerFactory(ModuloLearner) #type: ignore
         benchmark       = UniversalBenchmark([sim1,sim2], batch_count=1, ignore_first=False, ignore_raise=False, processes=1)
 
@@ -259,7 +259,7 @@ class UniversalBenchmark_Tests1(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_evaluate_seeds(self):
-        sim1            = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        sim1            = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
         learner_factory = LearnerFactory(ModuloLearner) #type: ignore
         benchmark       = UniversalBenchmark([sim1], batch_sizes=[2], ignore_first=False, ignore_raise=False, shuffle_seeds=[1,4], processes=1)
 
@@ -274,8 +274,8 @@ class UniversalBenchmark_Tests1(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_min_interactions(self):
-        sim1            = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
-        sim2            = LambdaSimulation(4, lambda i: i, lambda s: [3,4,5], lambda s,a: a)
+        sim1            = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
+        sim2            = LambdaSimulation(4, lambda t: t, lambda t: [3,4,5], lambda c,a: a)
         learner_factory = LearnerFactory(ModuloLearner) #type: ignore
         benchmark       = UniversalBenchmark([sim1,sim2], batch_count=1, min_interactions=5, ignore_first=False, ignore_raise=False)
 
@@ -290,7 +290,7 @@ class UniversalBenchmark_Tests1(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_evaluate_ignore_first(self):
-        sim             = LambdaSimulation(50, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        sim             = LambdaSimulation(50, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
         learner_factory = LearnerFactory(ModuloLearner) #type: ignore
         benchmark       = UniversalBenchmark([sim], batch_sizes=[1, 2], ignore_first=True, ignore_raise=False)
 
@@ -305,7 +305,7 @@ class UniversalBenchmark_Tests1(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_evaluate_lazy_sim(self):
-        sim1            = LazySimulation(LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s, a: a))
+        sim1            = LazySimulation(LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a))
         benchmark       = UniversalBenchmark([sim1], batch_count=1, ignore_first=False, ignore_raise=False) #type: ignore
         learner_factory = LearnerFactory(ModuloLearner) #type: ignore
         
@@ -320,7 +320,7 @@ class UniversalBenchmark_Tests1(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_evalute_learners(self):
-        sim              = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        sim              = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
         learner_factory1 = LearnerFactory(ModuloLearner, "0") #type: ignore
         learner_factory2 = LearnerFactory(ModuloLearner, "1") #type: ignore
         benchmark        = UniversalBenchmark([sim], batch_count=1, ignore_first=False, ignore_raise=False)
@@ -340,7 +340,7 @@ class UniversalBenchmark_Tests1(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_transaction_resume_1(self):
-        sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        sim             = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
         learner_factory = LearnerFactory(ModuloLearner) #type: ignore
         broken_factory  = LearnerFactory(BrokenLearner) #type: ignore
         benchmark       = UniversalBenchmark([sim], batch_count=1, ignore_first=False)
@@ -364,7 +364,7 @@ class UniversalBenchmark_Tests1(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_transaction_resume_ignore_first(self):
-        sim             = LambdaSimulation(5, lambda i: i, lambda s: [0,1,2], lambda s,a: a)
+        sim             = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
         learner_factory = LearnerFactory(ModuloLearner) #type: ignore
         broken_factory  = LearnerFactory(BrokenLearner) #type: ignore
         benchmark       = UniversalBenchmark([sim], batch_count=2, ignore_first=True)

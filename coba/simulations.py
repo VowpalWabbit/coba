@@ -205,7 +205,7 @@ class LambdaSimulation(Simulation[_C_out, _A_out]):
     def __init__(self,
                  n_interactions: int,
                  context   : Callable[[int],_C_out],
-                 action_set: Callable[[_C_out],Sequence[_A_out]], 
+                 action_set: Callable[[int],Sequence[_A_out]], 
                  reward    : Callable[[_C_out,_A_out],Reward]) -> None:
         """Instantiate a LambdaSimulation.
 
@@ -222,7 +222,7 @@ class LambdaSimulation(Simulation[_C_out, _A_out]):
 
         for i in range(n_interactions):
             _context    = context(i)
-            _action_set = action_set(_context)
+            _action_set = action_set(i)
             _reward_set = [reward(_context, _action) for _action in _action_set]
 
             contexts   .append(_context)

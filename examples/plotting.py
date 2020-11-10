@@ -17,9 +17,9 @@ if __name__ == '__main__':
     def dot(v1,v2): return sum(mul(v1,v2))
     def mul(v1,v2): return [s1*s2 for s1,s2 in zip(v1,v2)]
 
-    no_contexts = lambda i: None
-    contexts    = lambda i: random.randoms(3)
-    actions     = lambda c: [(1,0,0), (0,1,0), (0,0,1)]
+    no_contexts = lambda t: None
+    contexts    = lambda t: random.randoms(3)
+    actions     = lambda t: [(1,0,0), (0,1,0), (0,0,1)]
 
     linear_rewards_1 = lambda c,a: dot([dot(c,[1,2,4]), dot(c,[4,1,2]), dot(c,[2,4,1])], a)
     linear_rewards_2 = lambda c,a: dot([dot(c,[1,0,0]), dot(c,[0,1,0]), dot(c,[0,0,1])], a)

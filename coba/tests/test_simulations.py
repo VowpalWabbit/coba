@@ -311,16 +311,16 @@ class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         return simulation, expected_interactions, expected_rewards
 
     def test_correct_number_of_interactions_created(self):
-        def S(i:int) -> int:
-            return [1,2][i]
+        def C(t:int) -> int:
+            return [1,2][t]
 
-        def A(s:int) -> List[int]:
-            return [1,2,3] if s == 1 else [4,5,6]
+        def A(t:int) -> List[int]:
+            return [[1,2,3],[4,5,6]][t]
         
-        def R(s:int,a:int) -> int:
-            return a-s
+        def R(c:int,a:int) -> int:
+            return a-c
 
-        simulation = LambdaSimulation(2,S,A,R)
+        simulation = LambdaSimulation(2,C,A,R)
 
         self.assertEqual(len(simulation.interactions), 2)
 
