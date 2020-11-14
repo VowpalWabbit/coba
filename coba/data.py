@@ -342,9 +342,11 @@ class MultiProcessFilter(Filter):
             
             log_thread.start()
 
-            # Checking if it is done immediately deals with the case of items being empty.
+            result = pool.map_async(processor.process, items, callback=finished_callback, error_callback=error_callback) 
+
             # When items is empty finished_callback will not be called and we'll get stuck waiting for the poison pill.
-            if pool.map_async(processor.process, items, callback=finished_callback, error_callback=error_callback).ready():
+            # When items is empty ready() will be true immediately and this check will place the poison pill into the queues.
+            if result.ready():
                 std_queue.put(None)
                 err_queue.put(None)
                 log_queue.put(None)
@@ -352,6 +354,19 @@ class MultiProcessFilter(Filter):
             #this structure is necessary to make sure we don't exit the context before we're done
             for item in stdout_reader.read():
                 yield item
+
+            # if an error occured within map_async this will cause it to re-throw 
+            # in the main thread allowing us to capture it and handle it appropriately 
+            try:
+                result.get()
+            except AttributeError as e:
+                if "Can't pickle" in str(e):
+                    message = (
+                            "Learners are required to be picklable in order to evaluate a Benchmark in multiple processes. "
+                            "To help with this learner's have an optional `def init(self) -> None` that is only called "
+                            "after pickling has occured. Any non-picklable objects can be created within `init()` safely.")
+                    raise Exception(message) from e
+
 
             # in the case where an exception occurred in one of our processes
             # we will have poisoned the std and err queue even though the pool

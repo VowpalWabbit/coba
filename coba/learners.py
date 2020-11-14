@@ -44,6 +44,10 @@ class Learner(Generic[_C_in, _A_in], ABC):
         """
         ...
 
+    def init(self) -> None:
+        """An optional initialization method called once after pickling."""        
+        pass
+
     @abstractmethod
     def choose(self, key: Key, context: _C_in, actions: Sequence[_A_in]) -> Choice:
         """Choose which action to take.
@@ -457,7 +461,7 @@ class VowpalLearner(Learner[Context, Action]):
         
         See the base class for more information
         """        
-        return {**self._learning.params(), **self._exploration.params()}
+        return {**self._learning.params(), **self._exploration.params()}        
 
     def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
         """Choose an action according to the VowpalWabbit parameters passed into the contructor.
@@ -473,7 +477,7 @@ class VowpalLearner(Learner[Context, Action]):
         """
 
         if not self._vw.created:
-            self._vw.create(self._learning.flags(actions) + " " + self._exploration.flags() + " " + self._flags)        
+            self._vw.create(self._learning.flags(actions) + " " + self._exploration.flags() + " " + self._flags)
 
         choice, prob = self._vw.choose(context, actions)
 
@@ -521,11 +525,11 @@ class VowpalLearner(Learner[Context, Action]):
 
 class CorralLearner(Learner[Context, Action]):
 
-    def __init__(self, base_algorithms: Sequence[LearnerFactory[Context,Action]], eta: float, T: float = math.inf, seed: int = None) -> None:
+    def __init__(self, base_learners: Sequence[Learner[Context,Action]], eta: float, T: float = math.inf, seed: int = None) -> None:
         
-        self._base_algorithms = [ b.create() for b in base_algorithms]
+        self._base_learners = base_learners
 
-        M = len(self._base_algorithms)
+        M = len(self._base_learners)
 
         self._M     = M
         self._gamma = 1/T
@@ -554,11 +558,11 @@ class CorralLearner(Learner[Context, Action]):
         
         See the base class for more information
         """        
-        return {"eta": self._eta_init, "B": [ b.family for b in self._base_algorithms ] }
+        return {"eta": self._eta_init, "B": [ b.family for b in self._base_learners ] }
 
     def choose(self, key: Key, context: _C_in, actions: Sequence[_A_in]) -> Choice:
 
-        thetas = [ base_algorithm.choose(key, context, actions) for base_algorithm in self._base_algorithms ]
+        thetas = [ base_algorithm.choose(key, context, actions) for base_algorithm in self._base_learners ]
 
         i = self._random.choice(range(self._M), self._p_bars)
 
@@ -574,7 +578,7 @@ class CorralLearner(Learner[Context, Action]):
         rewards = [ reward/self._p_bars[chosen_i] * int(i == chosen_i) for i in range(self._M)]
         losses  = [ loss/self._p_bars[chosen_i] * int(i == chosen_i) for i in range(self._M)]
 
-        for learner,reward in zip(self._base_algorithms, rewards):
+        for learner,reward in zip(self._base_learners, rewards):
             learner.learn(key, context, action, reward)
 
         self._ps     = list(self._log_barrier_omd(losses))

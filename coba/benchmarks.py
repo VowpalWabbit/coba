@@ -9,26 +9,22 @@ import itertools
 import json
 import collections
 
+from copy import deepcopy
 from statistics import mean
 from abc import ABC, abstractmethod
 from itertools import product, islice, accumulate, groupby
 from statistics import median
 from pathlib import Path
-from typing import (
-    Iterable, Tuple, Union, Sequence, Callable, 
-    Generic, TypeVar, Dict, Any, cast, Optional, overload
-)
+from typing import Iterable, Tuple, Union, Sequence, Generic, TypeVar, Dict, Any, cast, Optional, overload
 
-from coba.simulations import JsonSimulation, Simulation, Context, Action
-from coba.learners import LearnerFactory
+from coba.learners import Learner, Choice, Key
+from coba.simulations import JsonSimulation, Simulation, Context, Action, Reward
 from coba.execution import ExecutionContext
-from coba.data import Pipe, MemorySink, MemorySource, StopPipe, Filter, DiskSource, DiskSink, JsonEncode, JsonDecode, Table
+from coba.data import Source, Filter, Sink, Pipe, MemorySink, MemorySource, StopPipe, DiskSource, DiskSink, JsonEncode, JsonDecode, Table
 from coba.random import CobaRandom
 
-_C_out = TypeVar('_C_out', bound=Context, covariant=True)
-_A_out = TypeVar('_A_out', bound=Action, covariant=True)
-_C     = TypeVar('_C'    , bound=Context)
-_A     = TypeVar('_A'    , bound=Action)
+_C = TypeVar('_C', bound=Context)
+_A = TypeVar('_A', bound=Action)
 
 class Result:
     """A class for creating and returning the result of a Benchmark evaluation."""
@@ -208,25 +204,9 @@ class Transaction:
         return ["L", learner_id, kwargs]
 
     @staticmethod
-    def learners(factories: 'Sequence[LearnerFactory]') -> Iterable[Any]:
-        for index, factory in enumerate(factories):
-                learner = factory.create()
-                try:
-                    family = learner.family
-                except:
-                    family = learner.__class__.__name__
-
-                try:
-                    params = learner.params
-                except:
-                    params =  {}
-
-                if len(params) > 0:
-                    full_name = f"{family}({','.join(f'{k}={v}' for k,v in params.items())})"
-                else:
-                    full_name = family
-
-                yield Transaction.learner(index, family=family, full_name=full_name, **params)
+    def learners(learners: 'Sequence[BenchmarkLearner[_C, _A]]') -> Iterable[Any]:
+        for index, learner in enumerate(learners):
+            yield Transaction.learner(index, family=learner.family, full_name=learner.full_name, **learner.params)
 
     @staticmethod
     def simulation(simulation_id: int, **kwargs) -> Any:
@@ -250,6 +230,39 @@ class Transaction:
         """
         return ["B", (learner_id, simulation_id, seed, batch_index), kwargs]
 
+class TaskSource(Source):
+    
+    def __init__(self, simulations, seeds, learners, restored) -> None:
+        self._simulations = simulations
+        self._seeds       = seeds
+        self._learners    = learners
+        self._restored    = restored
+
+    def read(self) -> Iterable:
+        simulations = dict(enumerate(self._simulations))
+        seeds       = self._seeds
+        learners    = dict(enumerate(self._learners))
+        restored    = self._restored
+
+        expected_batch_count = cast(Dict[Tuple[Any,Any,Any], int], collections.defaultdict(lambda:  int(-1)))
+        restored_batch_count = cast(Dict[Tuple[Any,Any,Any], int], collections.defaultdict(lambda:  int( 0)))
+
+        for k,v in restored.simulations.rows.items():
+            expected_batch_count[k] = v[restored.simulations._columns.index('batch_count')]
+
+        for k in restored.batches.rows:
+            restored_batch_count[(k[1],k[2],k[0])] +=1
+
+        is_not_complete = lambda t: restored_batch_count[t] != expected_batch_count[t[0]]
+        
+        task_keys       = filter(is_not_complete, product(simulations, seeds, learners))
+        task_key_groups = groupby(task_keys, key=lambda t: t[0])
+
+        seed_learner = lambda t: (t[1], t[2], learners[t[2]])
+        
+        for simulation_key, task_key_group in task_key_groups:
+            yield simulation_key, simulations[simulation_key], list(map(seed_learner, task_key_group))
+    
 class TaskToTransactions(Filter):
 
     def __init__(self, ignore_first: bool, ignore_raise: bool, batcher: Batcher) -> None:
@@ -278,8 +291,11 @@ class TaskToTransactions(Filter):
                     context_size      = int(median(self._context_sizes(simulation))),
                     action_count      = int(median(self._action_counts(simulation))))
 
-                for (seed, learner_index, factory) in task[2]:
-                    learner = factory.create()
+                for (seed, learner_index, learner_template) in task[2]:
+
+                    learner = deepcopy(learner_template)
+                    learner.init()
+
                     for batch_index, batch in enumerate(self._shuffle_batch(simulation.interactions, seed, batch_sizes)):
                         for transaction in self._process_batch(simulation_index, simulation, seed, learner_index, learner, batch_index, batch):
                             yield transaction
@@ -424,6 +440,30 @@ class TransactionIsNew(Filter):
 
             yield item
 
+class TransactionSink(Sink):
+    
+    def __init__(self, transaction_log: Optional[str], restored: Result) -> None:
+        self._sink = Pipe.join([JsonEncode()], DiskSink(transaction_log)) if transaction_log else MemorySink()
+        self._sink = Pipe.join([TransactionIsNew(restored)], self._sink)
+
+    def write(self, items: Sequence[Any]) -> None:
+        self._sink.write(items)
+
+    @property
+    def result(self) -> Result:
+        if isinstance(self._sink, Pipe.FiltersSink):
+            final_sink = self._sink.final_sink()
+        else:
+            final_sink = self._sink
+
+        if isinstance(final_sink, MemorySink):
+            return Result.from_transactions(cast(Iterable[Any], final_sink.items))
+
+        if isinstance(final_sink, DiskSink):
+            return Result.from_transaction_log(final_sink.filename)
+
+        raise Exception("Transactions were written to an unrecognized sink.")
+
 class WithSimulation:
     def __init__(self, simulation: Simulation) -> None:
         self._simulation = simulation
@@ -441,45 +481,60 @@ class WithSimulation:
         except AttributeError:
             pass
 
+class BenchmarkLearner(Learner[_C,_A]):
+    
+    @property
+    def family(self) -> str:
+        try:
+            return self._learner.family
+        except AttributeError:
+            return self._learner.__class__.__name__
 
-class Benchmark(Generic[_C,_A], ABC):
-    """The interface for Benchmark implementations."""
+    @property
+    def params(self) -> Dict[str, Any]:
+        try:
+            return self._learner.params
+        except AttributeError:
+            return {}
+    
+    @property
+    def full_name(self) -> str:
+        if len(self.params) > 0:
+            return f"{self.family}({','.join(f'{k}={v}' for k,v in self.params.items())})"
+        else:
+            return self.family
 
-    @abstractmethod
-    def evaluate(self, factories: Sequence[LearnerFactory[_C,_A]]) -> Result:
-        """Calculate the performance for a provided bandit Learner.
+    def __init__(self, learner: Learner[_C,_A]) -> None:
+        self._learner = learner
 
-        Args:
-            factories: A sequence of functions to create Learner instances. Each function 
-                should always create the same Learner in order to get an unbiased performance 
-                Result. This method can be as simple as `lambda: MyLearner(...)`.
+    def init(self) -> None:
+        try:
+            self._learner.init()
+        except AttributeError:
+            pass
 
-        Returns:
-            The resulting performance statistics for each given learner to evaluate.
+    def choose(self, key: Key, context: _C, actions: Sequence[_A]) -> Choice:
+        return self._learner.choose(key, context, actions)
+    
+    def learn(self, key: Key, context: _C, action: _A, reward: Reward) -> None:
+        self._learner.learn(key, context, action, reward)
 
-        Remarks:
-            The learner factory is necessary because a Result can be calculated using
-            observed performance over several simulations. In these cases the easiest 
-            way to reset a learner's learned policy is to create a new learner.
-        """
-        ...
-
-class UniversalBenchmark(Benchmark[_C,_A]):
+class Benchmark(Generic[_C,_A]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
     @staticmethod
-    def from_file(filename:str) -> 'UniversalBenchmark[Context,Action]':
+    def from_file(filename:str) -> 'Benchmark[Context,Action]':
         """Instantiate a Benchmark from a config file."""
 
         suffix = Path(filename).suffix
         
         if suffix == ".json":
-            return UniversalBenchmark.from_json(Path(filename).read_text())
+            return Benchmark.from_json(Path(filename).read_text())
 
         raise Exception(f"The provided file type ('{suffix}') is not a valid format for benchmark configuration")
 
     @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'UniversalBenchmark[Context,Action]':
+    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'Benchmark[Context,Action]':
         """Create a UniversalBenchmark from json text or object.
 
         Args:
@@ -505,7 +560,7 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         ignore_raise = config.get("ignore_raise", True)
         shuffle      = config.get("shuffle", [None])
 
-        return UniversalBenchmark(simulations, batcher, ignore_first=ignore_first, ignore_raise=ignore_raise, shuffle_seeds=shuffle)
+        return Benchmark(simulations, batcher, ignore_first=ignore_first, ignore_raise=ignore_raise, shuffle_seeds=shuffle)
 
     @overload
     def __init__(self, 
@@ -595,23 +650,23 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         self._processes        = kwargs.get('processes', None)
         self._maxtasksperchild = kwargs.get('maxtasksperchild', None)
 
-    def ignore_raise(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
+    def ignore_raise(self, value:bool=True) -> 'Benchmark[_C,_A]':
         self._ignore_raise = value
         return self
 
-    def ignore_first(self, value:bool=True) -> 'UniversalBenchmark[_C,_A]':
+    def ignore_first(self, value:bool=True) -> 'Benchmark[_C,_A]':
         self._ignore_first = value
         return self
 
-    def processes(self, value:int) -> 'UniversalBenchmark[_C,_A]':
+    def processes(self, value:int) -> 'Benchmark[_C,_A]':
         self._processes = value
         return self
 
-    def maxtasksperchild(self, value:int) -> 'UniversalBenchmark[_C,_A]':
+    def maxtasksperchild(self, value:int) -> 'Benchmark[_C,_A]':
         self._maxtasksperchild = value
         return self
 
-    def evaluate(self, factories: Sequence[LearnerFactory[_C,_A]], transaction_log:str = None) -> Result:
+    def evaluate(self, learners: Sequence[Learner[_C,_A]], transaction_log:str = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
@@ -620,13 +675,13 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         Returns:
             See the base class for more information.
         """
-
+        bench_learners       = [ BenchmarkLearner(learner) for learner in learners ]
         restored             = Result.from_transaction_log(transaction_log)
-        task_source          = MemorySource(self._make_tasks(self._simulations, self._seeds, factories, restored))
+        task_source          = TaskSource(self._simulations, self._seeds, bench_learners, restored)
         task_to_transactions = TaskToTransactions(self._ignore_first, self._ignore_raise, self._batcher)
-        transaction_sink     = Pipe.join([JsonEncode()], DiskSink(transaction_log)) if transaction_log else MemorySink()
+        transaction_sink     = TransactionSink(transaction_log, restored)
 
-        n_given_learners    = len(factories)
+        n_given_learners    = len(bench_learners)
         n_given_simulations = len(self._simulations)
         n_given_seeds       = len(self._seeds)
         given_batcher       = self._batcher.__class__.__name__
@@ -642,47 +697,12 @@ class UniversalBenchmark(Benchmark[_C,_A]):
         preamble_transactions = []
         preamble_transactions.append(Transaction.version(TransactionPromote.CurrentVersion))
         preamble_transactions.append(Transaction.benchmark(n_given_learners, n_given_simulations, n_given_seeds, given_batcher, ignore_first))
-        preamble_transactions.extend(Transaction.learners(factories))
+        preamble_transactions.extend(Transaction.learners(bench_learners))
 
         mp = self._processes if self._processes else ExecutionContext.Config.processes
         mt = self._maxtasksperchild if self._maxtasksperchild else ExecutionContext.Config.maxtasksperchild
-
-        transaction_sink = Pipe.join([TransactionIsNew(restored)], transaction_sink)
-        Pipe.join(MemorySource(preamble_transactions), [], transaction_sink).run()
-        Pipe.join(task_source, [task_to_transactions], transaction_sink).run(mp,mt)
-
-        if isinstance(transaction_sink, Pipe.FiltersSink):
-            transaction_sink = transaction_sink.final_sink()
-
-        if isinstance(transaction_sink, MemorySink):
-            return Result.from_transactions(cast(Iterable[Any], transaction_sink.items))
-
-        if isinstance(transaction_sink, DiskSink):
-            return Result.from_transaction_log(transaction_sink.filename)
-
-        raise Exception("Transactions were written to an unrecognized sink.")
-
-    def _make_tasks(self, simulations, seeds, factories, restored) -> Iterable[Any]:
-
-        simulations = dict(enumerate(simulations))
-        seeds       = seeds
-        factories   = dict(enumerate(factories))
-
-        expected_batch_count = cast(Dict[Tuple[Any,Any,Any], int], collections.defaultdict(lambda:  int(-1)))
-        restored_batch_count = cast(Dict[Tuple[Any,Any,Any], int], collections.defaultdict(lambda:  int( 0)))
-
-        for k,v in restored.simulations.rows.items():
-            expected_batch_count[k] = v[restored.simulations._columns.index('batch_count')]
-
-        for k in restored.batches.rows:
-            restored_batch_count[(k[1],k[2],k[0])] +=1
-
-        is_not_complete = lambda t: restored_batch_count[t] != expected_batch_count[t[0]]
         
-        task_keys       = filter(is_not_complete, product(simulations, seeds, factories))
-        task_key_groups = groupby(task_keys, key=lambda t: t[0])
+        Pipe.join(MemorySource(preamble_transactions), []                    , transaction_sink).run(1,None)
+        Pipe.join(task_source                        , [task_to_transactions], transaction_sink).run(mp,mt)
 
-        seed_learner = lambda t: (t[1], t[2], factories[t[2]])
-        
-        for simulation_key, task_key_group in task_key_groups:
-            yield simulation_key, simulations[simulation_key], list(map(seed_learner, task_key_group))
+        return transaction_sink.result

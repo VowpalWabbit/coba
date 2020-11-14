@@ -30,8 +30,8 @@ class TemplatingEngine:
     """This class materializes templates within benchmark json files.
     
     The templating engine works as follows: 
-        1. Look in the root object for a "templates" object. Templates should be be objects themselves
-        with hard coded values and variables. Variable values are indicated by beginning with a $.
+        1. Look in the root object for a "templates" key. Templates should be objects themselves
+        with constants and variables. Variable values are indicated by beginning with a $.
         2. Recursively walk through the remainder of the children from the root. For every object found
         check to see if it has a "template" value. 
         3. For every object found with a "template" value defined materialize all of that template's static
