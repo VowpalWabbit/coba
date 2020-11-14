@@ -5,7 +5,6 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 from coba.benchmarks import Benchmark
-from coba.analysis import Plots
 
 if __name__ == '__main__':
     benchmark = Benchmark.from_file("./examples/benchmark_short.json")
@@ -17,6 +16,4 @@ if __name__ == '__main__':
         VowpalLearner(bag=5, seed=10),
     ]
 
-    result = benchmark.evaluate(learners)
-
-    Plots.standard_plot(result)
+    benchmark.evaluate(learners, 'bakeoff.log').to_standard_plot()

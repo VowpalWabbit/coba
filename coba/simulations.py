@@ -21,7 +21,7 @@ from typing import (
     TypeVar, Generic, Hashable, Dict, Any, Tuple
 )
 
-from coba.random import CobaRandom
+import coba.random
 from coba.data import Source, HttpSource, DiskSource
 from coba.preprocessing import FactorEncoder, FullMeta, PartMeta, OneHotEncoder, NumericEncoder, Encoder
 from coba.execution import ExecutionContext
@@ -206,7 +206,8 @@ class LambdaSimulation(Simulation[_C_out, _A_out]):
                  n_interactions: int,
                  context   : Callable[[int],_C_out],
                  action_set: Callable[[int],Sequence[_A_out]], 
-                 reward    : Callable[[_C_out,_A_out],Reward]) -> None:
+                 reward    : Callable[[_C_out,_A_out],Reward],
+                 seed: int = None) -> None:
         """Instantiate a LambdaSimulation.
 
         Args:
@@ -215,6 +216,8 @@ class LambdaSimulation(Simulation[_C_out, _A_out]):
             action_set: A function that should return all valid actions for a given context.
             reward: A function that should return the reward for a context and action.
         """
+
+        coba.random.seed(seed)
 
         contexts   : List[_C_out]           = []
         action_sets: List[Sequence[_A_out]] = []
@@ -248,50 +251,6 @@ class LambdaSimulation(Simulation[_C_out, _A_out]):
         """
 
         return self._simulation.rewards(choices)
-
-class ShuffleSimulation(Simulation[_C_out, _A_out]):
-    """A simulation created from an existing simulation by shuffling interactions.
-
-    Remarks:
-        Shuffling is applied one time upon creation and after that interaction order is fixed.
-        Shuffling does not change the original simulation's interaction order or copy the
-        original interactions. Shuffling is guaranteed to be deterministic according to seed
-        regardless of the local Python execution environment.
-    """
-
-    def __init__(self, simulation: Simulation[_C_out,_A_out], seed: Optional[int]):
-        """Instantiate a ShuffleSimulation
-
-        Args:
-            simulation: The simulation we which to shuffle interaction order for.
-            seed: The seed we wish to use in determining the shuffle order.
-        """
-
-        if seed is None:
-            self._interactions = simulation.interactions
-        else:
-            self._interactions = CobaRandom(seed).shuffle(simulation.interactions)
-
-        self._rewards = simulation.rewards
-
-    @property
-    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
-        """The interactions in this simulation.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-
-        return self._interactions
-
-    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
-
-        Remarks:
-            See the Simulation base class for more information.        
-        """
-
-        return self._rewards(choices)
 
 class ClassificationSimulation(Simulation[_C_out, Tuple[int,...]]):
     """A simulation created from classifier data with features and labels.

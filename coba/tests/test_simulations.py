@@ -12,8 +12,7 @@ from coba.preprocessing import (
 )
 from coba.simulations import (
     JsonSimulation, Reward, Key, Choice, Interaction, Simulation,
-    ClassificationSimulation, MemorySimulation, 
-    LambdaSimulation, ShuffleSimulation
+    ClassificationSimulation, MemorySimulation, LambdaSimulation
 )
 
 ExecutionContext.Logger = NoneLogger()
@@ -323,41 +322,6 @@ class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
         simulation = LambdaSimulation(2,C,A,R)
 
         self.assertEqual(len(simulation.interactions), 2)
-
-class ShuffleSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
-
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
-
-        contexts    = [1,2]
-        action_sets = [[1,2,3],[0,1,2]]
-        reward_sets = [[0,1,2],[2,3,4]]
-
-        simulation = MemorySimulation(contexts, action_sets, reward_sets)
-        
-        expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
-        expected_rewards      = reward_sets
-
-        #with the seed set this test should always pass, if the test fails then it may mean
-        #that randomization changed which would cause old results to no longer be reproducible
-        return ShuffleSimulation(simulation, 1), expected_interactions, expected_rewards
-
-    def test_interactions_not_duplicated_in_memory(self):
-        
-        contexts    = [1,2]
-        action_sets = [[1,2,3], [4,5,6]]
-        reward_sets = [[0,1,2], [2,3,4]]
-
-        simulation = ShuffleSimulation(MemorySimulation(contexts,action_sets,reward_sets), 0)
-
-        self.assertEqual(len(simulation.interactions),2)
-
-        self.assertEqual(sum(1 for r in simulation.interactions if r.context == 1),1)
-        self.assertEqual(sum(1 for r in simulation.interactions if r.context == 2),1)
-
-        simulation.interactions[0]._context = 3
-        simulation.interactions[1]._context = 3
-
-        self.assertEqual(sum(1 for r in simulation.interactions if r.context == 3),2)
 
 class Interaction_Tests(unittest.TestCase):
 

@@ -6,8 +6,6 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 from coba.simulations import JsonSimulation
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 from coba.benchmarks import Benchmark
-from coba.analysis import Plots
-from coba.execution import ExecutionContext
 
 if __name__ == '__main__':
     simulation = JsonSimulation('{ "type":"classification", "from": { "format":"openml", "id":150 } }')
@@ -22,7 +20,4 @@ if __name__ == '__main__':
         VowpalLearner(softmax=3.5,seed=10)
     ]
 
-    with ExecutionContext.Logger.log("evaluating learners..."):
-        result = benchmark.evaluate(learners)
-
-    Plots.standard_plot(result)
+    benchmark.evaluate(learners).to_standard_plot()
