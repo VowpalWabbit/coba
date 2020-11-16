@@ -93,7 +93,9 @@ class Result:
 
         return (l,s,b)
 
-    def to_standard_plot(self, show_err: bool = False, show_sd: bool = False) -> None:
+    def standard_plot(self, show_err: bool = False, show_sd: bool = False) -> None:
+
+        check_matplotlib_support('Plots.standard_plot')
 
         def _plot(axes, label, xs, ys, vs, ns):
             axes.plot(xs, ys, label=label)
@@ -169,10 +171,9 @@ class Result:
                 cumeans[learner_id].append(cumean.mean)
                 cuvariances[learner_id].append(cuvariance.variance)
 
-        check_matplotlib_support('Plots.standard_plot')
         import matplotlib.pyplot as plt #type: ignore
 
-        fig = plt.figure()
+        fig = plt.figure(figsize=(12,4))
 
         index_unit = "Interaction" if max_batch_N ==1 else "Batch"
         
@@ -183,14 +184,15 @@ class Result:
             _plot(ax1, learners[learner_id].full_name, indexes[learner_id], inmeans[learner_id], invariances[learner_id], incounts[learner_id])
 
         ax1.set_title(f"Instantaneous Reward")
-        ax1.set_ylabel("Mean Reward")
+        ax1.set_ylabel("Reward")
         ax1.set_xlabel(f"{index_unit} Index")
 
         for learner_id in learners:
             _plot(ax2, learners[learner_id].full_name, indexes[learner_id], cumeans[learner_id], cuvariances[learner_id], cucounts[learner_id])
 
-        ax2.set_title("Cumulative Reward")
-        ax1.set_xlabel(f"{index_unit} Index")
+        ax2.set_title("Progressive Validation")
+        #ax2.set_ylabel("Reward")
+        ax2.set_xlabel(f"{index_unit} Index")
 
         (bot1, top1) = ax1.get_ylim()
         (bot2, top2) = ax2.get_ylim()
@@ -198,14 +200,14 @@ class Result:
         ax1.set_ylim(min(bot1,bot2), max(top1,top2))
         ax2.set_ylim(min(bot1,bot2), max(top1,top2))
 
-        scale = 0.25
+        scale = 0.75
         box1 = ax1.get_position()
         box2 = ax2.get_position()
-        ax1.set_position([box1.x0, box1.y0 + box1.height * scale, box1.width, box1.height * (1-scale)])
-        ax2.set_position([box2.x0, box2.y0 + box2.height * scale, box2.width, box2.height * (1-scale)])
+        ax1.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+        ax2.set_position([box2.x0, box2.y0 + box2.height * (1-scale), box2.width, box2.height * scale])
 
         # Put a legend below current axis
-        fig.legend(*ax1.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .175), fancybox=True, ncol=2) #type: ignore
+        fig.legend(*ax1.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .175), ncol=2) #type: ignore
 
         plt.show()
 

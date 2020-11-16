@@ -16,4 +16,4 @@ if __name__ == '__main__':
         VowpalLearner(bag=5, seed=10),
     ]
 
-    benchmark.evaluate(learners, 'bakeoff.log').to_standard_plot()
+    benchmark.evaluate(learners, './examples/bakeoff.log').standard_plot()

@@ -9,7 +9,7 @@ from coba.benchmarks import Benchmark
 
 if __name__ == '__main__':
     simulation = JsonSimulation('{ "type":"classification", "from": { "format":"openml", "id":150 } }')
-    benchmark  = Benchmark([simulation], batch_size=2, max_interactions=5000, shuffle_seeds=list(range(10)))
+    benchmark  = Benchmark([simulation], batch_size=2, max_interactions=5000, shuffle_seeds=list(range(3)))
 
     learners = [
         RandomLearner(seed=10),
@@ -20,4 +20,4 @@ if __name__ == '__main__':
         VowpalLearner(softmax=3.5,seed=10)
     ]
 
-    benchmark.evaluate(learners).to_standard_plot()
+    benchmark.evaluate(learners).standard_plot()
