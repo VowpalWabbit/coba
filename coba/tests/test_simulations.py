@@ -2,7 +2,6 @@ import unittest
 
 import timeit
 
-from abc import ABC, abstractmethod
 from typing import List, Sequence, Tuple, cast
 
 from coba.execution import ExecutionContext, NoneCache, NoneLogger
@@ -11,7 +10,7 @@ from coba.preprocessing import (
     OneHotEncoder, StringEncoder, FactorEncoder
 )
 from coba.simulations import (
-    JsonSimulation, Reward, Key, Choice, Interaction, Simulation,
+    JsonSimulation, Key, Choice, Interaction,
     ClassificationSimulation, MemorySimulation, LambdaSimulation
 )
 
@@ -19,41 +18,6 @@ ExecutionContext.Logger = NoneLogger()
 
 def _choices(interaction: Interaction) -> Sequence[Tuple[Key,Choice]]:
     return [  (interaction.key, a) for a in range(len(interaction.actions))]
-
-class Simulation_Interface_Tests(ABC):
-
-    @abstractmethod
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
-        ...
-
-    def test_interactions_is_correct(self) -> None:
-
-        simulation, expected_interactions, expected_rewards = self._make_simulation()
-
-        actual_interactions = simulation.interactions
-        actual_rewards      = [simulation.rewards(_choices(i)) for i in actual_interactions ]
-
-        cast(unittest.TestCase, self).assertEqual(len(actual_interactions), len(expected_interactions))
-
-        for actual_inter, expected_inter, in zip(actual_interactions, expected_interactions):
-            cast(unittest.TestCase, self).assertEqual(actual_inter.context, expected_inter.context)
-            cast(unittest.TestCase, self).assertCountEqual(actual_inter.actions, expected_inter.actions)
-
-        for actual_reward, expected_reward in zip(actual_rewards, expected_rewards):
-            cast(unittest.TestCase, self).assertCountEqual(actual_reward, expected_reward)
-
-    def test_interactions_is_reiterable(self) -> None:
-
-        simulation = self._make_simulation()[0]
-
-        for interaction1,interaction2 in zip(simulation.interactions, simulation.interactions):
-
-            interaction1_rewards = simulation.rewards(_choices(interaction1))
-            interaction2_rewards = simulation.rewards(_choices(interaction2))
-
-            cast(unittest.TestCase, self).assertEqual(interaction1.context, interaction2.context)
-            cast(unittest.TestCase, self).assertSequenceEqual(interaction1.actions, interaction2.actions)
-            cast(unittest.TestCase, self).assertSequenceEqual(interaction1_rewards, interaction2_rewards)
 
 class JsonSimulation_Tests(unittest.TestCase):
     def test_simple_init(self):
@@ -71,14 +35,7 @@ class JsonSimulation_Tests(unittest.TestCase):
         with JsonSimulation(json_val) as simulation:
             self.assertEqual(len(simulation.interactions), 2)
 
-class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
-
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
-        
-        expected_interactions = [Interaction(1, [(1,0),(0,1)]), Interaction(2, [(1,0),(0,1)])]
-        expected_rewards = [[0,1], [1,0]]
-
-        return ClassificationSimulation([1,2], [2,1]), expected_interactions, expected_rewards
+class ClassificationSimulation_Tests(unittest.TestCase):
 
     def assert_simulation_for_data(self, simulation, features, labels) -> None:
 
@@ -274,48 +231,52 @@ class ClassificationSimulation_Tests(Simulation_Interface_Tests, unittest.TestCa
 
         self.assert_simulation_for_data(simulation, [(1,1),(2,2)], ['2','5'])
 
-class MemorySimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
+class MemorySimulation_Tests(unittest.TestCase):
 
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
-        
+    def test_interactions(self):
         contexts    =  [1,2]
         action_sets = [[1,2,3], [4,5,6]]
         reward_sets = [[0,1,2], [2,3,4]]
 
         simulation = MemorySimulation(contexts, action_sets, reward_sets)
 
-        expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
-        expected_rewards      = reward_sets
+        self.assertEqual(1      , simulation.interactions[0].context)
+        self.assertEqual([1,2,3], simulation.interactions[0].actions)
+        self.assertEqual([0,1,2], simulation.rewards([(0,0),(0,1),(0,2)]))
 
-        return simulation, expected_interactions, expected_rewards
+        self.assertEqual(2      , simulation.interactions[1].context)
+        self.assertEqual([4,5,6], simulation.interactions[1].actions)
+        self.assertEqual([2,3,4], simulation.rewards([(1,0),(1,1),(1,2)]))
 
-class LambdaSimulation_Tests(Simulation_Interface_Tests, unittest.TestCase):
+class LambdaSimulation_Tests(unittest.TestCase):
 
-    def _make_simulation(self) -> Tuple[Simulation, Sequence[Interaction], Sequence[Sequence[Reward]]]:
-        
-        contexts    =  [0,1]
-        action_sets = [[1,2,3], [4,5,6]]
-        reward_sets = [[1,2,3], [3,4,5]]
-
-        def S(i:int) -> int: return contexts[i]
-        def A(s:int) -> List[int]: return action_sets[s]
-        def R(s:int,a:int) -> int: return a-s
-
-        simulation = LambdaSimulation(2,S,A,R)
-
-        expected_interactions = list(map(Interaction[int,int],contexts,action_sets))
-        expected_rewards      = reward_sets
-        
-
-        return simulation, expected_interactions, expected_rewards
-
-    def test_correct_number_of_interactions_created(self):
+    def test_interactions(self):
         def C(t:int) -> int:
             return [1,2][t]
 
         def A(t:int) -> List[int]:
             return [[1,2,3],[4,5,6]][t]
         
+        def R(c:int,a:int) -> int:
+            return a-c
+
+        simulation = LambdaSimulation(2,C,A,R)
+
+        self.assertEqual(1      , simulation.interactions[0].context)
+        self.assertEqual([1,2,3], simulation.interactions[0].actions)
+        self.assertEqual([0,1,2], simulation.rewards([(0,0),(0,1),(0,2)]))
+
+        self.assertEqual(2      , simulation.interactions[1].context)
+        self.assertEqual([4,5,6], simulation.interactions[1].actions)
+        self.assertEqual([2,3,4], simulation.rewards([(1,0),(1,1),(1,2)]))
+
+    def test_interactions_len(self):
+        def C(t:int) -> int:
+            return [1,2][t]
+
+        def A(t:int) -> List[int]:
+            return [[1,2,3],[4,5,6]][t]
+
         def R(c:int,a:int) -> int:
             return a-c
 
