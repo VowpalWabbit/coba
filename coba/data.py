@@ -359,8 +359,8 @@ class MultiProcessFilter(Filter):
             # in the main thread allowing us to capture it and handle it appropriately 
             try:
                 result.get()
-            except AttributeError as e:
-                if "Can't pickle" in str(e):
+            except Exception as e:
+                if "Can't pickle" in str(e) or "Pickling" in str(e):
                     message = (
                             "Learners are required to be picklable in order to evaluate a Benchmark in multiple processes. "
                             "To help with this learner's have an optional `def init(self) -> None` that is only called "
