@@ -7,8 +7,6 @@ from statistics import mean, variance
 from numbers import Real, Rational, Complex
 from typing import Sequence, Union, Dict, Any, overload, cast
 
-from coba.json import JsonSerializable
-
 class OnlineVariance():
     """Calculate sample variance in an online fashion.
     
@@ -72,7 +70,7 @@ class OnlineMean():
 
         self._mean = value if alpha == 1 else (1 - alpha) * self._mean + alpha * value
 
-class StatisticalEstimate(Rational, JsonSerializable):
+class StatisticalEstimate(Rational):
     """An estimate of some statistic of interst along with useful additional statistics of that estimate.
 
     Remarks:

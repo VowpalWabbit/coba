@@ -367,8 +367,8 @@ class Benchmark_Single_Tests(unittest.TestCase):
         #the second time the broken_factory() shouldn't ever be used for learning or choosing
         #because it already worked the first time and we are "resuming" benchmark from transaction.log
         try:
-            first_results  = benchmark.evaluate([working_learner], ".test/transactions.log")
-            second_results = benchmark.evaluate([broken_learner], ".test/transactions.log")
+            first_results  = benchmark.evaluate([working_learner], "coba/tests/.temp/transactions.log")
+            second_results = benchmark.evaluate([broken_learner], "coba/tests/.temp/transactions.log")
 
             actual_learners,actual_simulations,actual_batches = second_results.to_tuples()
 
@@ -376,7 +376,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
             expected_simulations = [(0, 5, 1, 1, 3)]
             expected_batches     = [(0, 0, None, 0, 5, mean([0,1,2,0,1]))]
         finally:
-            if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()
+            if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_simulations, expected_simulations)
@@ -392,8 +392,8 @@ class Benchmark_Single_Tests(unittest.TestCase):
         #because it already worked the first time and we are "resuming" benchmark from transaction.log
 
         try:
-            first_results  = benchmark.evaluate([working_learner], ".test/transactions.log")
-            second_results = benchmark.evaluate([broken_learner], ".test/transactions.log")
+            first_results  = benchmark.evaluate([working_learner], "coba/tests/.temp/transactions.log")
+            second_results = benchmark.evaluate([broken_learner], "coba/tests/.temp/transactions.log")
 
             actual_learners,actual_simulations,actual_performances = second_results.to_tuples()
 
@@ -401,7 +401,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
             expected_simulations  = [(0, 2, 1, 1, 3)]
             expected_performances = [ (0, 0, None, 0, 2, mean([0,1]))]
         finally:
-            if Path('.test/transactions.log').exists(): Path('.test/transactions.log').unlink()            
+            if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()            
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_simulations, expected_simulations)

@@ -35,9 +35,9 @@ class CobaJsonEncoder(json.JSONEncoder):
             all_bases = [c.__name__ for c in inspect.getmro(obj.__class__)]
             json_obj  = obj.__to_json__()
 
-            JS_index = all_bases.index('JsonSerializable')
+            JS_index = all_bases.index('JsonSerializable') if 'JsonSerializable' in all_bases else -1
 
-            json_obj['__type__'] = all_bases[0] if JS_index == 1 else all_bases[0:JS_index]
+            json_obj['__type__'] = all_bases if JS_index == -1 else all_bases[0] if JS_index == 1 else all_bases[0:JS_index]
 
             return json_obj
 

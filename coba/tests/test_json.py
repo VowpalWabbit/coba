@@ -10,7 +10,7 @@ class SimpleJsonSerializable(JsonSerializable):
         self._a = a
 
     def __to_json__(self) -> Dict[str,Any]:
-        return { 'a': self._a}
+        return { 'a': self._a }
 
     @staticmethod
     def __from_json__(obj: Dict[str,Any]) -> 'SimpleJsonSerializable':
