@@ -6,7 +6,7 @@ TODO Add unittests
 import collections
 
 from os import devnull
-from typing import Any, Collection, Dict, Tuple, Union, Sequence
+from typing import Any, Dict, Tuple, Union, Sequence
 
 import coba.random
 from coba.execution import redirect_stderr

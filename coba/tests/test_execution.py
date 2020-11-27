@@ -2,11 +2,8 @@
 import unittest
 import json
 import traceback
-import shutil
 
-from gzip import compress, decompress
 from pathlib import Path
-from io import BytesIO
 
 from coba.execution import DiskCache, TemplatingEngine, UniversalLogger
 

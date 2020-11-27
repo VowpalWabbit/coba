@@ -1,4 +1,4 @@
-"""The statistics module contains algorithms and methods to calculate statistics."""
+"""The data.statistics module contains algorithms and methods to calculate statistics."""
 
 import collections
 

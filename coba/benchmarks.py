@@ -17,11 +17,15 @@ from statistics import median
 from pathlib import Path
 from typing import Iterable, Tuple, Union, Sequence, Generic, TypeVar, Dict, Any, cast, Optional, overload, List
 
-from coba.statistics import OnlineMean, OnlineVariance
 from coba.learners import Learner, Choice, Key
 from coba.simulations import JsonSimulation, Simulation, Context, Action, Reward
 from coba.execution import ExecutionContext
-from coba.data import Source, Filter, Sink, Pipe, MemorySink, MemorySource, StopPipe, DiskSource, DiskSink, JsonEncode, JsonDecode, Table
+from coba.data.structures import Table
+from coba.data.filters import Filter, JsonEncode, JsonDecode
+from coba.data.sources import Source, MemorySource, DiskSource
+from coba.data.sinks import Sink, MemorySink, DiskSink
+from coba.data.pipes import Pipe, StopPipe
+from coba.statistics import OnlineMean, OnlineVariance
 from coba.utilities import check_matplotlib_support, check_pandas_support
 from coba.random import CobaRandom
 

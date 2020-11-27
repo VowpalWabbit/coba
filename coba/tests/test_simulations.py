@@ -5,13 +5,11 @@ import timeit
 from typing import List, Sequence, Tuple, cast
 
 from coba.execution import ExecutionContext, NoneCache, NoneLogger
-from coba.preprocessing import (
-    PartMeta, FullMeta, InferredEncoder,  NumericEncoder, 
-    OneHotEncoder, StringEncoder, FactorEncoder
-)
+from coba.data.definitions import PartMeta, FullMeta
+from coba.data.encoders import NumericEncoder, OneHotEncoder, StringEncoder, FactorEncoder
 from coba.simulations import (
     JsonSimulation, Key, Choice, Interaction,
-    ClassificationSimulation, MemorySimulation, LambdaSimulation
+    ClassificationSimulation, MemorySimulation, LambdaSimulation, OpenmlSimulation
 )
 
 ExecutionContext.Logger = NoneLogger()
@@ -94,28 +92,6 @@ class ClassificationSimulation_Tests(unittest.TestCase):
     def test_constructor_with_too_few_labels(self) -> None:
         with self.assertRaises(AssertionError): 
             ClassificationSimulation([1,1], [1])
-
-    def test_from_table_inferred_numeric(self) -> None:
-        label_column = 'b'
-        default_meta = FullMeta(False,False,InferredEncoder())
-        table        = [['a','b','c'],
-                        ['1','2','3'],
-                        ['4','5','6']]
-
-        simulation = ClassificationSimulation.from_table(table, label_column, default_meta=default_meta)
-
-        self.assert_simulation_for_data(simulation, [(1,3),(4,6)],[2,5])
-
-    def test_from_table_inferred_onehot(self) -> None:
-        label_column = 'b'
-        default_meta = FullMeta(False,False,InferredEncoder())
-        table        = [['a' ,'b','c'],
-                        ['s1','2','3'],
-                        ['s2','5','6']]
-
-        simulation = ClassificationSimulation.from_table(table, label_column, default_meta=default_meta)
-
-        self.assert_simulation_for_data(simulation, [(1,0,3),(0,1,6)], [2,5])
 
     def test_from_table_explicit_onehot(self) -> None:
         default_meta = FullMeta(False, False, OneHotEncoder())
@@ -283,6 +259,12 @@ class LambdaSimulation_Tests(unittest.TestCase):
         simulation = LambdaSimulation(2,C,A,R)
 
         self.assertEqual(len(simulation.interactions), 2)
+
+class OpenmlSimulation_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        simulation = OpenmlSimulation(150)
+        self.assertTrue(True)
 
 class Interaction_Tests(unittest.TestCase):
 
