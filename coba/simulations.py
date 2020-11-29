@@ -10,21 +10,18 @@ TODO Add RegressionSimulation
 """
 
 import gc
-import csv
 import json
-import collections
 
-from itertools import compress, repeat, count, chain
+from itertools import repeat, count, chain
 from abc import ABC, abstractmethod
 from typing import (
-    Optional, Iterable, Sequence, List, Union, Callable, 
+    Optional, Sequence, List, Union, Callable, 
     TypeVar, Generic, Hashable, Dict, Any, Tuple
 )
 
 import coba.random
 
-from coba.data.sources import Source, HttpSource, DiskSource, OpenmlSource
-from coba.data.definitions import FullMeta, PartMeta
+from coba.data.sources import Source, OpenmlSource
 from coba.data.encoders import OneHotEncoder
 from coba.execution import ExecutionContext
 
@@ -255,58 +252,9 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
 
         config = json.loads(json_val) if isinstance(json_val,str) else json_val
 
-        has_header  : bool                = True
-        default_meta: FullMeta            = FullMeta()
-        defined_meta: Dict[Any, PartMeta] = {}
-
         if config["format"] == "openml":
             with ExecutionContext.Logger.log(f"loading openml {config['id']}..."):
                 return ClassificationSimulation.from_source(OpenmlSource(config["id"], config.get("md5_checksum", None)))
-
-        if config["format"] == "csv":
-            location    : str           = config["location"]
-            md5_checksum: Optional[str] = None
-
-            if "md5_checksum" in config:
-                md5_checksum = config["md5_checksum"]
-
-            if "has_header" in config:
-                has_header = config["has_header"]
-
-            if "column_default" in config:
-                default_meta =  FullMeta.from_json(config["column_default"])
-
-            if "column_overrides" in config:
-                for key,value in config["column_overrides"].items():
-                    defined_meta[key] = PartMeta.from_json(value)
-
-            return ClassificationSimulation.from_csv(
-                location     = location,
-                md5_checksum = md5_checksum,
-                has_header   = has_header,
-                default_meta = default_meta,
-                defined_meta = defined_meta
-            )
-
-        if config["format"] == "table":
-            table: Iterable[Sequence[str]] = config["table"]
-
-            if "has_header" in config:
-                has_header = config["has_header"]
-
-            if "column_default" in config:
-                default_meta = FullMeta.from_json(config["column_default"])
-
-            if "column_overrides" in config:
-                for key,value in config["column_overrides"].items():
-                    defined_meta[key] = PartMeta.from_json(value)
-
-            return ClassificationSimulation.from_table(
-                table        = table,
-                has_header   = has_header,
-                default_meta = default_meta,
-                defined_meta = defined_meta
-            )
 
         raise Exception("We were unable to recognize the provided data format.")
 
@@ -319,127 +267,6 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
             raise Exception("This does not appear to be a classification dataset. Creating a ClassificationSimulation from it will perform poorly.")
 
         return ClassificationSimulation(features, actions)
-
-    @staticmethod
-    def from_csv(
-        location    : str,
-        label_col   : Union[None,str,int] = None,
-        md5_checksum: Optional[str] = None,
-        csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader, #type: ignore #pylance complains
-        has_header  : bool = True,
-        default_meta: FullMeta = FullMeta(),
-        defined_meta: Dict[Any,PartMeta] = {}) -> 'ClassificationSimulation[Context]':
-        """Create a ClassificationSimulation given the location of a csv formatted dataset.
-
-        Args:
-            location: The location of the csv formatted dataset.
-            label_col: The name of the column in the csv file that represents the label.
-            md5_checksum: The expected md5 checksum of the csv dataset to ensure data integrity.
-            csv_reader: A method to parse file lines at csv_path into their string values.
-            has_header: Indicates if the csv file has a header row.
-            default_meta: The default meta values for all columns unless explictly overridden with column_metas.
-            column_metas: Keys are column name or index, values are meta objects that override the default values.
-        """
-
-        source: Source[Iterable[str]]
-
-        if not location.lower().startswith('http'):
-            source = DiskSource(location)
-        else: 
-            source = HttpSource(location, ".csv", md5_checksum, 'data')
-
-        csv_rows = list(csv_reader(source.read()))
-
-        with ExecutionContext.Logger.log('encoding data... '):
-            return ClassificationSimulation.from_table(csv_rows, label_col, has_header, default_meta, defined_meta)
-
-    @staticmethod
-    def from_table(
-        table       : Iterable[Sequence[str]],
-        label_col   : Union[None,str,int] = None,
-        has_header  : bool = True,
-        default_meta: FullMeta = FullMeta(),
-        defined_meta: Dict[Any, PartMeta] = {}) -> 'ClassificationSimulation[Context]':
-        """Create a ClassifierSimulation from the rows contained in a csv formatted dataset.
-
-        Args:
-            table: Any iterable of rows (i.e., sequence of str) with each row containing features/labels.
-            label_col: Either the column index or the header name for the label column.
-            has_header: Indicates if the first row in the table contains column names
-            default_meta: The default meta values for all columns unless explictly overridden with column_metas.
-            defined_meta: Keys are column name or index, values are meta objects that override the default values.
-        """
-
-        # In theory we don't have to load the whole file up front. However, in practice,
-        # not loading the file upfront is hard due to the fact that Python can't really
-        # guarantee a generator will close a file.
-        # For more info see https://stackoverflow.com/q/29040534/1066291
-        # For more info see https://www.python.org/dev/peps/pep-0533/
-
-        itable = filter(None, iter(table)) #filter out empty rows
-
-        #get first row to determine number of columns and
-        #then put the first row back for later processing
-        first  = next(itable)
-        n_col  = len(first)
-        itable = chain([first], itable)
- 
-        header: Sequence[str] = next(itable) if has_header else []
-
-        label_index = header.index(label_col) if label_col in header else label_col if isinstance(label_col,int) else None  # type: ignore
-
-        if isinstance(label_col, str) and label_col not in header:
-            raise Exception("We were unable to find the label column in the header row (or there was no header row).")
-
-        if any(map(lambda key: isinstance(key,str) and key not in header, defined_meta)):
-            raise Exception("We were unable to find a meta column in the header row (or there was no header row).")
-
-        def index(key: Union[int,str]):
-            return header.index(key) if isinstance(key,str) else key
-
-        over_metas = collections.defaultdict(PartMeta, { index(key):val for key,val in defined_meta.items() } )
-        metas      = [ default_meta.override(over_metas[i]) for i in range(n_col) ]
-
-        if label_index is not None:
-            metas[label_index] = metas[label_index].override(PartMeta(label=True))
-
-        #after extensive testing I found that performing many loops with simple logic
-        #was about 3 times faster than performing one or two loops with complex logic
-        
-        #extract necessary meta data one time
-        is_not_ignores = [ not m.ignore for m in metas ]
-
-        #transform rows into columns
-        columns = list(zip(*itable))
-        
-        #remove ignored columns
-        metas   = list(compress(metas, is_not_ignores))
-        columns = list(compress(columns, is_not_ignores))
-
-        #create encoding groups according to column type
-        label_encodings  : List[Sequence[Hashable]] = []
-        feature_encodings: List[Sequence[Hashable]] = []
-
-        #encode columns and place in appropriate group
-        for col, m in zip(columns, metas):
-
-            encoding = label_encodings if m.label else feature_encodings
-            encoder  = m.encoder if m.encoder.is_fit else m.encoder.fit(col)
-
-            if isinstance(encoder, OneHotEncoder):
-                encoding.extend(list(zip(*encoder.encode(col))))
-            else:
-                encoding.append(encoder.encode(col))
-
-        #transform columns back into rows
-        features = list(zip(*feature_encodings)) #type: ignore
-        labels   = list(zip(*label_encodings))   #type: ignore
-
-        #turn singular tuples into their values
-        contexts  = [ f if len(f) > 1 else f[0] for f in features ]
-        actions = [ l if len(l) > 1 else l[0] for l in labels   ]
-
-        return ClassificationSimulation(contexts, actions)
 
     def __init__(self, features: Sequence[_C_out], labels: Sequence[Action]) -> None:
         """Instantiate a ClassificationSimulation.

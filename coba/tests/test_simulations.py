@@ -4,35 +4,17 @@ import timeit
 
 from typing import List, Sequence, Tuple, cast
 
-from coba.execution import ExecutionContext, NoneCache, NoneLogger
-from coba.data.definitions import PartMeta, FullMeta
+from coba.execution import ExecutionContext, NoneCache, NoneLogger, MemoryCache
 from coba.data.sources import OpenmlSource
-from coba.data.encoders import NumericEncoder, OneHotEncoder, StringEncoder, FactorEncoder
+from coba.data.encoders import OneHotEncoder
 from coba.simulations import (
-    JsonSimulation, Key, Choice, Interaction,
-    ClassificationSimulation, MemorySimulation, LambdaSimulation, OpenmlSimulation
+    Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, LambdaSimulation, OpenmlSimulation
 )
 
 ExecutionContext.Logger = NoneLogger()
 
 def _choices(interaction: Interaction) -> Sequence[Tuple[Key,Choice]]:
     return [  (interaction.key, a) for a in range(len(interaction.actions))]
-
-class JsonSimulation_Tests(unittest.TestCase):
-    def test_simple_init(self):
-        json_val = ''' {
-            "type": "classification",
-            "from": {
-                "format"          : "table",
-                "table"           : [["a","b","c"], ["s1","2","3"], ["s2","5","6"]],
-                "has_header"      : true,
-                "column_default"  : { "ignore":false, "label":false, "encoding":"onehot" },
-                "column_overrides": { "b": { "label":true, "encoding":"string" } }
-            }
-        } '''
-
-        with JsonSimulation(json_val) as simulation:
-            self.assertEqual(len(simulation.interactions), 2)
 
 class ClassificationSimulation_Tests(unittest.TestCase):
 
@@ -94,17 +76,6 @@ class ClassificationSimulation_Tests(unittest.TestCase):
         with self.assertRaises(AssertionError): 
             ClassificationSimulation([1,1], [1])
 
-    def test_from_table_explicit_onehot(self) -> None:
-        default_meta = FullMeta(False, False, OneHotEncoder())
-        defined_meta = {'b': PartMeta(None, True, StringEncoder()) }
-        table        = [['a' ,'b','c'],
-                        ['s1','2','3'],
-                        ['s2','5','6']]
-
-        simulation = ClassificationSimulation.from_table(table, default_meta=default_meta, defined_meta=defined_meta)
-
-        self.assert_simulation_for_data(simulation, [(1,0,1,0),(0,1,0,1)], ['2','5'])
-
     def test_simple_openml_source(self) -> None:
         #this test requires interet acess to download the data
 
@@ -135,78 +106,15 @@ class ClassificationSimulation_Tests(unittest.TestCase):
     def test_large_from_openml(self) -> None:
         #this test requires interet acess to download the data
 
-        #ExecutionContext.FileCache = NoneCache()
+        ExecutionContext.FileCache = MemoryCache()
+        OpenmlSource(154).read() #this will cause it to read and cache so we don't measure read time
 
         time = min(timeit.repeat(lambda:ClassificationSimulation.from_source(OpenmlSource(154)), repeat=1, number=1))
 
         print(time)
 
-        #with caching took approximately 18 seconds to encode
+        #with caching took approximately 17 seconds to encode
         self.assertLess(time, 30)
-
-    def test_large_from_table(self) -> None:
-
-        table        = [["1","0"]*15]*100000
-        label_col    = 0
-        default_meta = FullMeta(False,False, FactorEncoder(['1','0']))
-        defined_meta = { 2:PartMeta(None,None,NumericEncoder()), 5:PartMeta(None,None,NumericEncoder()) }
-
-        from_table = lambda:ClassificationSimulation.from_table(table, label_col, False, default_meta, defined_meta)
-
-        time = min(timeit.repeat(from_table, repeat=2, number=1))
-
-        #print(time)
-
-        #was approximately 0.6 at best performance
-        self.assertLess(time, 3)
-
-    def test_simple_from_csv(self) -> None:
-        #this test requires interet acess to download the data
-
-        ExecutionContext.FileCache = NoneCache()
-
-        location     = "http://www.openml.org/data/v1/get_csv/53999"
-        default_meta = FullMeta(False, False, NumericEncoder())
-        defined_meta = {
-            "class"            : PartMeta(None, True, FactorEncoder()), 
-            "molecule_name"    : PartMeta(None, None, OneHotEncoder()),
-            "ID"               : PartMeta(True, None, None),
-            "conformation_name": PartMeta(True, None, None)
-        }
-        md5_checksum = "4fbb00ba35dd05a29be1f52b7e0faeb6"
-
-        simulation = ClassificationSimulation.from_csv(location, md5_checksum=md5_checksum, default_meta=default_meta, defined_meta=defined_meta)
-
-        self.assertEqual(len(simulation.interactions), 6598)
-
-        for rnd in simulation.interactions:
-            hash(rnd.context)      #make sure these are hashable
-            hash(rnd.actions[0]) #make sure these are hashable
-            hash(rnd.actions[1]) #make sure these are hashable
-
-            self.assertEqual(len(cast(Tuple,rnd.context)), 268)
-            self.assertIn((1,0), rnd.actions)
-            self.assertIn((0,1), rnd.actions)
-            self.assertEqual(len(rnd.actions),2)
-            
-            actual_rewards = simulation.rewards(_choices(rnd))
-
-            self.assertIn(1, actual_rewards)
-            self.assertIn(0, actual_rewards)
-
-    def test_from_json_table(self) -> None:
-        
-        json_val = '''{
-            "format"          : "table",
-            "table"           : [["a","b","c"], ["s1","2","3"], ["s2","5","6"]],
-            "has_header"      : true,
-            "column_default"  : { "ignore":false, "label":false, "encoding":"factor" },
-            "column_overrides": { "b": { "label":true, "encoding":"string" } }
-        }'''
-
-        simulation = ClassificationSimulation.from_json(json_val)
-
-        self.assert_simulation_for_data(simulation, [(1,1),(2,2)], ['2','5'])
 
 class MemorySimulation_Tests(unittest.TestCase):
 

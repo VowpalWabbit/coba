@@ -4,8 +4,6 @@ TODO: Add docstrings for all Sources
 TODO: Add unit tests for all Sources
 """
 
-from coba.data.encoders import StringEncoder
-import itertools
 import requests
 import json
 
@@ -100,21 +98,24 @@ class HttpSource(Source[Iterable[str]]):
 
 class OpenmlSource(Source[Tuple[Sequence[Sequence[Any]], Sequence[Any]]]):
 
+
     def __init__(self, data_id:int, md5_checksum:str = None):
         self._data_id      = data_id
         self._md5_checksum = md5_checksum
 
     def read(self) -> Tuple[Sequence[Sequence[Any]], Sequence[Any]]:
         
-        from coba.data.pipes import Pipe
-        from coba.data.encoders import NumericEncoder, OneHotEncoder
-        from coba.data.filters import CsvReader, LabeledCsvCleaner
+        #placing some of these at the top would cause circular references
+        from coba.data.pipes    import Pipe
+        from coba.data.encoders import NumericEncoder, OneHotEncoder, StringEncoder
+        from coba.data.filters  import CsvReader, LabeledCsvCleaner
 
         data_id        = self._data_id
         md5_checksum   = self._md5_checksum
         openml_api_key = ExecutionContext.Config.openml_api_key
 
         data_description_url = f'https://www.openml.org/api/v1/json/data/{data_id}'
+        
         type_description_url = f'https://www.openml.org/api/v1/json/data/features/{data_id}'
 
         if openml_api_key is not None:
@@ -150,6 +151,11 @@ class OpenmlSource(Source[Tuple[Sequence[Sequence[Any]], Sequence[Any]]]):
             else:
                 encoders.append(StringEncoder())
 
+        if isinstance(encoders[headers.index(target)], NumericEncoder):
+            target = self._get_classification_target(data_id, openml_api_key)
+            ignored[headers.index(target)] = False
+            encoders[headers.index(target)] = OneHotEncoder()
+
         csv_url = f"http://www.openml.org/data/v1/get_csv/{descr['file_id']}"
 
         source  = HttpSource(csv_url, ".csv", md5_checksum, f"openml {data_id}")
@@ -159,3 +165,19 @@ class OpenmlSource(Source[Tuple[Sequence[Sequence[Any]], Sequence[Any]]]):
         feature_rows, label_rows = Pipe.join(source, [reader, cleaner]).read()
 
         return list(feature_rows), list(label_rows)
+
+    def _get_classification_target(self, data_id, openml_api_key):
+        task_description_url = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'
+
+        if openml_api_key is not None:        
+            task_description_url += f'?api_key={openml_api_key}'
+
+        tasks = json.loads(''.join(HttpSource(task_description_url, '.json', None, 'tasks').read()))["tasks"]["task"]
+
+        for task in tasks:
+            if task["task_type_id"] == 1: #aka, classification task
+                for input in task['input']:
+                    if input['name'] == 'target_feature':
+                        return input['value'] #just take the first one
+
+        raise Exception(f"Openml {data_id} does not appear to be a classification dataset")

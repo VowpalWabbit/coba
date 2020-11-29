@@ -7,7 +7,7 @@ from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTuned
 from coba.benchmarks import Benchmark
 
 if __name__ == '__main__':
-    benchmark = Benchmark.from_file("./examples/benchmark_long.json")
+    benchmark = Benchmark.from_file("./examples/benchmark_short.json")
 
     learners = [
         RandomLearner(seed=10),

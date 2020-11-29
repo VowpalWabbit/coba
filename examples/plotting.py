@@ -32,17 +32,17 @@ if __name__ == '__main__':
 
     #define a simulation
     simulations = [
-        LambdaSimulation(1000, contexts, actions, linear_rewards_1, seed=10),
-        LambdaSimulation(1000, contexts, actions, linear_rewards_2, seed=10),
-        LambdaSimulation(1000, contexts, actions, random_rewards_1, seed=10),
-        LambdaSimulation(1000, contexts, actions, random_rewards_2, seed=10),
-        LambdaSimulation(1000, contexts, actions, random_rewards_3, seed=10),
-        LambdaSimulation(1000, no_contexts, actions, random_rewards_1, seed=10),
-        LambdaSimulation(1000, no_contexts, actions, random_rewards_2, seed=10),
-        LambdaSimulation(1000, no_contexts, actions, random_rewards_3, seed=10),
-        LambdaSimulation(1000, contexts, actions, linear_plus_random_rewards_1, seed=10),
-        LambdaSimulation(1000, contexts, actions, linear_plus_random_rewards_2, seed=10),
-        LambdaSimulation(1000, contexts, actions, polynomial_reward_1, seed=10),
+        LambdaSimulation(2000, contexts, actions, linear_rewards_1, seed=10),
+        LambdaSimulation(2000, contexts, actions, linear_rewards_2, seed=10),
+        #LambdaSimulation(2000, contexts, actions, random_rewards_1, seed=10), #not CB since reward is independent of context
+        #LambdaSimulation(2000, contexts, actions, random_rewards_2, seed=10), #not CB since reward is independent of context
+        #LambdaSimulation(2000, contexts, actions, random_rewards_3, seed=10), #not CB since reward is independent of context
+        #LambdaSimulation(2000, no_contexts, actions, random_rewards_1, seed=10), #not CB since reward is independent of context
+        #LambdaSimulation(2000, no_contexts, actions, random_rewards_2, seed=10), #not CB since reward is independent of context
+        #LambdaSimulation(2000, no_contexts, actions, random_rewards_3, seed=10), #not CB since reward is independent of context
+        LambdaSimulation(2000, contexts, actions, linear_plus_random_rewards_1, seed=10),
+        LambdaSimulation(2000, contexts, actions, linear_plus_random_rewards_2, seed=10),
+        LambdaSimulation(2000, contexts, actions, polynomial_reward_1, seed=10),
     ]
 
     #define a benchmark: this benchmark replays the simulation 15 times

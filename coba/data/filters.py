@@ -84,12 +84,14 @@ class ColRemover(Filter[Iterable[Sequence[Any]], Iterable[Sequence[Any]]]):
 
 class ColEncoder(Filter[Iterable[Sequence[str]], Iterable[Sequence[Any]]]):
 
-    def __init__(self, encoders: Sequence[Encoder], headers: Sequence[str] = None) -> None:
+    def __init__(self, headers: Sequence[str] = [], encoders: Sequence[Encoder] = [], default: Encoder = None) -> None:
 
-        assert headers is None or len(encoders) == len(headers), "The given headers didn't match the encoders"
+        assert len(headers) == 0 or len(encoders) <= len(headers), "The given encoders didn't match the given headers."
+        assert len(encoders) > 0 or default is not None, "A valid encoder was not provided to ColEncoder."
 
-        self._encoders  = encoders
-        self._headers   = headers
+        self._encoders = encoders
+        self._headers  = headers
+        self._default  = default
 
     def filter(self, columns: Iterable[Sequence[str]]) -> Iterable[Sequence[Any]]:
 
@@ -98,9 +100,8 @@ class ColEncoder(Filter[Iterable[Sequence[str]], Iterable[Sequence[Any]]]):
             raw_hdr  = raw_col[0]
             raw_vals = raw_col[1:]
 
-            encoder_idx = index if self._headers is None else self._headers.index(raw_hdr)
-            encoder     = self._encoders[encoder_idx]
-            encoder     = encoder if encoder.is_fit else encoder.fit(raw_vals)
+            encoder = self._get_encoder(index, raw_hdr)
+            encoder = encoder if encoder.is_fit else encoder.fit(raw_vals)
 
             if isinstance(encoder, OneHotEncoder):
                 encoded_values = list(zip(*encoder.encode(raw_vals)))
@@ -108,6 +109,21 @@ class ColEncoder(Filter[Iterable[Sequence[str]], Iterable[Sequence[Any]]]):
                 encoded_values = encoder.encode(raw_vals)
 
             yield [raw_hdr] + list(encoded_values) # type:ignore
+
+    def _get_encoder(self, index: int, header: str) -> Encoder:
+
+        encoded_headers = self._headers[0:len(self._encoders)]
+
+        if header in encoded_headers:
+            return self._encoders[encoded_headers.index(header)]
+
+        if len(encoded_headers) == 0 and index < len(self._encoders):
+            return self._encoders[index]
+
+        if self._default is not None:
+            return self._default
+
+        raise Exception("We were unable to find an encoder for the column.")
 
 class RowRemover(Filter[Iterable[Sequence[Any]], Iterable[Sequence[Any]]]):
     def __init__(self, remove_rows: Sequence[int] = []):
@@ -155,29 +171,30 @@ class CsvCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
     def __init__(self,
         headers: Sequence[str] = [],
         encoders: Sequence[Encoder] = [],
+        default: Encoder = None,
         ignored: Sequence[bool] = [],
         output_rows: bool = True):
 
+        self._headers  = headers
         self._encoders = encoders
-        self._headers = headers
-        self._ignored = ignored
-        self._output_row_major = output_rows
+        self._default  = default
+        self._ignored  = ignored
+        self._output_rows = output_rows
 
     def filter(self, items: Iterable[str]) -> Iterable[Sequence[Any]]:
 
         ignored_headers = list(itertools.compress(self._headers, self._ignored))
 
         cleaning_steps = [
-            CsvTransposer(), ColRemover(ignored_headers), ColEncoder(self._encoders, self._headers)
+            CsvTransposer(), ColRemover(ignored_headers), ColEncoder(self._headers, self._encoders, self._default)
         ]
 
         output: Any = items
+        
+        for cleaning_step in cleaning_steps: output = cleaning_step.filter(output)
+        return output if not self._output_rows else CsvTransposer().filter(output)
 
-        with ExecutionContext.Logger.log('encoding data... '):
-            for cleaning_step in cleaning_steps: output = cleaning_step.filter(output)
-            return output if not self._output_row_major else CsvTransposer().filter(output)
-
-class LabeledCsvCleaner(Filter[Iterable[str], Tuple[Iterable[Sequence[Any]],Iterable[Sequence[Any]]]]):
+class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[Any]],Iterable[Sequence[Any]]]]):
     def __init__(self, 
         label_col : Union[int,str],
         headers   : Sequence[str]     = [],
@@ -191,9 +208,9 @@ class LabeledCsvCleaner(Filter[Iterable[str], Tuple[Iterable[Sequence[Any]],Iter
         self._ignored    = ignored
         self._rmv_header = rmv_header
 
-    def filter(self, items: Iterable[str]) -> Tuple[Iterable[Sequence[Any]],Iterable[Sequence[Any]]]:
+    def filter(self, items: Iterable[Sequence[str]]) -> Tuple[Iterable[Sequence[Any]],Iterable[Sequence[Any]]]:
 
-        clean      = CsvCleaner(self._headers, self._encoders, self._ignored, output_rows=False)
+        clean      = CsvCleaner(self._headers, self._encoders, None, self._ignored, output_rows=False)
         split      = ColSplitter([self._label_col]) #type: ignore
         rows       = ForeachFilter(CsvTransposer(True))
         rmv_header = ForeachFilter(RowRemover([0]))
