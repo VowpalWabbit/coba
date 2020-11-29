@@ -6,6 +6,7 @@ from typing import List, Sequence, Tuple, cast
 
 from coba.execution import ExecutionContext, NoneCache, NoneLogger
 from coba.data.definitions import PartMeta, FullMeta
+from coba.data.sources import OpenmlSource
 from coba.data.encoders import NumericEncoder, OneHotEncoder, StringEncoder, FactorEncoder
 from coba.simulations import (
     JsonSimulation, Key, Choice, Interaction,
@@ -104,23 +105,23 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 
         self.assert_simulation_for_data(simulation, [(1,0,1,0),(0,1,0,1)], ['2','5'])
 
-    def test_simple_from_openml(self) -> None:
+    def test_simple_openml_source(self) -> None:
         #this test requires interet acess to download the data
 
         ExecutionContext.FileCache = NoneCache()
 
-        simulation = ClassificationSimulation.from_openml(1116)
-        #simulation = ClassificationSimulation.from_openml(273)
+        simulation = ClassificationSimulation.from_source(OpenmlSource(1116))
+        #simulation = ClassificationSimulation.from_source(OpenmlSource(273))
 
         self.assertEqual(len(simulation.interactions), 6598)
 
         for rnd in simulation.interactions:
 
-            hash(rnd.context)      #make sure these are hashable
+            hash(rnd.context)    #make sure these are hashable
             hash(rnd.actions[0]) #make sure these are hashable
             hash(rnd.actions[1]) #make sure these are hashable
 
-            self.assertEqual(len(cast(Tuple,rnd.context)), 167)
+            self.assertEqual(len(cast(Tuple,rnd.context)), 268)
             self.assertIn((1,0), rnd.actions)
             self.assertIn((0,1), rnd.actions)
             self.assertEqual(len(rnd.actions),2)
@@ -134,13 +135,13 @@ class ClassificationSimulation_Tests(unittest.TestCase):
     def test_large_from_openml(self) -> None:
         #this test requires interet acess to download the data
 
-        ExecutionContext.FileCache = NoneCache()
+        #ExecutionContext.FileCache = NoneCache()
 
-        time = min(timeit.repeat(lambda:ClassificationSimulation.from_openml(154), repeat=1, number=1))
+        time = min(timeit.repeat(lambda:ClassificationSimulation.from_source(OpenmlSource(154)), repeat=1, number=1))
 
-        #print(time)
+        print(time)
 
-        #was approximately 18 at best performance
+        #with caching took approximately 18 seconds to encode
         self.assertLess(time, 30)
 
     def test_large_from_table(self) -> None:

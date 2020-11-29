@@ -1,6 +1,6 @@
 {
     "templates"   : { "openml_classification": { "type":"classification", "from": {"format":"openml", "id":"$id", "md5_checksum":"$md5_checksum"} }},
-    "batches"     : { "count":1000, "min":5000, "max":10000 },
+    "batches"     : { "count":1000, "min":2000, "max":5000 },
     "shuffle"     : [777],
     "ignore_first": true,
     "simulations" : [

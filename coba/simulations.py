@@ -11,10 +11,9 @@ TODO Add RegressionSimulation
 
 import gc
 import csv
-import itertools
 import json
+import collections
 
-from collections import defaultdict
 from itertools import compress, repeat, count, chain
 from abc import ABC, abstractmethod
 from typing import (
@@ -24,12 +23,9 @@ from typing import (
 
 import coba.random
 
-from coba.data.pipes import Pipe
-from coba.data.sources import Source, HttpSource, DiskSource
-from coba.data.filters import ColumnRemover, ColumnDecoder, ColumnSplitter, Transposer, CsvReader
-
+from coba.data.sources import Source, HttpSource, DiskSource, OpenmlSource
 from coba.data.definitions import FullMeta, PartMeta
-from coba.data.encoders import FactorEncoder, OneHotEncoder, NumericEncoder, Encoder
+from coba.data.encoders import OneHotEncoder
 from coba.execution import ExecutionContext
 
 Context = Optional[Hashable]
@@ -265,7 +261,7 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
 
         if config["format"] == "openml":
             with ExecutionContext.Logger.log(f"loading openml {config['id']}..."):
-                return ClassificationSimulation.from_openml(config["id"], config.get("md5_checksum", None))
+                return ClassificationSimulation.from_source(OpenmlSource(config["id"], config.get("md5_checksum", None)))
 
         if config["format"] == "csv":
             location    : str           = config["location"]
@@ -315,49 +311,14 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
         raise Exception("We were unable to recognize the provided data format.")
 
     @staticmethod
-    def from_openml(data_id:int, md5_checksum:str = None) -> 'ClassificationSimulation[Context]':
-        """Create a ClassificationSimulation from a given openml dataset id.
+    def from_source(source: Source[Tuple[Sequence[Sequence[Any]], Sequence[Any]]]) -> 'ClassificationSimulation[Context]':
+        
+        features, actions = source.read()
 
-        Args:
-            data_id: The unique identifier for a dataset stored on openml.
-        """
+        if isinstance(source, OpenmlSource) and len(actions[0]) == 1:
+            raise Exception("This does not appear to be a classification dataset. Creating a ClassificationSimulation from it will perform poorly.")
 
-        openml_api_key = ExecutionContext.Config.openml_api_key
-
-        data_description_url = f'https://www.openml.org/api/v1/json/data/{data_id}'
-        task_description_url = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'
-        type_description_url = f'https://www.openml.org/api/v1/json/data/features/{data_id}'
-
-        if openml_api_key is not None:
-            data_description_url += f'?api_key={openml_api_key}'
-            task_description_url += f'?api_key={openml_api_key}'
-            type_description_url += f'?api_key={openml_api_key}'
-
-        descr = json.loads(''.join(HttpSource(data_description_url, '.json', None, 'descr').read()))["data_set_description"]
-
-        if descr['status'] == 'deactivated':
-            raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
-
-        tasks = json.loads(''.join(HttpSource(task_description_url, '.json', None, 'tasks').read()))["tasks"]["task"]
-
-        if not any(task["task_type_id"] == 1 for task in tasks ):
-            raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
-
-        types = json.loads(''.join(HttpSource(type_description_url, '.json', None, 'types').read()))["data_features"]["feature"]
-
-        defined_meta: Dict[str,PartMeta] = {}
-
-        for tipe in types:
-
-            defined_meta[tipe["name"]] = PartMeta(
-                ignore  = tipe["is_ignore"] == "true" or tipe["is_row_identifier"] == "true",
-                label   = tipe["is_target"] == "true",
-                encoder = NumericEncoder() if tipe['data_type'] == 'numeric' else FactorEncoder(tipe['nominal_value'], error_if_unknown=True)
-            )
-
-        csv_url = f"http://www.openml.org/data/v1/get_csv/{descr['file_id']}"
-
-        return ClassificationSimulation.from_csv(csv_url, md5_checksum=md5_checksum, defined_meta=defined_meta)
+        return ClassificationSimulation(features, actions)
 
     @staticmethod
     def from_csv(
@@ -436,7 +397,7 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
         def index(key: Union[int,str]):
             return header.index(key) if isinstance(key,str) else key
 
-        over_metas = defaultdict(PartMeta, { index(key):val for key,val in defined_meta.items() } )
+        over_metas = collections.defaultdict(PartMeta, { index(key):val for key,val in defined_meta.items() } )
         metas      = [ default_meta.override(over_metas[i]) for i in range(n_col) ]
 
         if label_index is not None:
@@ -516,65 +477,11 @@ class OpenmlSimulation(LazySimulation[_C_out, Tuple[int,...]]):
         dataset is being streamed instead of waiting until the end of the data to train an encoder.
     """
 
-    def __init__(self, data_id:int, md5_checksum:str = None) -> None:
-        self._data_id = data_id
-        self._md5_checksum = md5_checksum
+    def __init__(self, data_id: int, md5_checksum: str = None) -> None:
+        self._openml_source = OpenmlSource(data_id, md5_checksum)
 
     def load_simulation(self) -> Simulation[_C_out, Tuple[int,...]]:
-        data_id        = self._data_id
-        md5_checksum   = self._md5_checksum
-        openml_api_key = ExecutionContext.Config.openml_api_key
-
-        data_description_url = f'https://www.openml.org/api/v1/json/data/{data_id}'
-        task_description_url = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'
-        type_description_url = f'https://www.openml.org/api/v1/json/data/features/{data_id}'
-
-        if openml_api_key is not None:
-            data_description_url += f'?api_key={openml_api_key}'
-            task_description_url += f'?api_key={openml_api_key}'
-            type_description_url += f'?api_key={openml_api_key}'
-
-        descr = json.loads(''.join(HttpSource(data_description_url, '.json', None, 'descr').read()))["data_set_description"]
-
-        if descr['status'] == 'deactivated':
-            raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
-
-        tasks = json.loads(''.join(HttpSource(task_description_url, '.json', None, 'tasks').read()))["tasks"]["task"]
-
-        if not any(task["task_type_id"] == 1 for task in tasks ):
-            raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
-
-        types = json.loads(''.join(HttpSource(type_description_url, '.json', None, 'types').read()))["data_features"]["feature"]
-
-        headers  = []
-        encoders = []
-        ignored  = []
-        feature  = []
-
-        for tipe in types:
-
-            headers.append(tipe['name'])
-            ignored.append(tipe['is_ignore'] == 'true')
-            feature.append(tipe['is_target'] == 'false')
-
-            if tipe['data_type'] == 'numeric':
-                encoders.append(NumericEncoder())  
-            else: 
-                encoders.append(OneHotEncoder())
-
-        csv_url = f"http://www.openml.org/data/v1/get_csv/{descr['file_id']}"
-
-        ignored_headers = list(itertools.compress(headers, ignored))
-        feature_headers = list(itertools.compress(headers, feature))
-
-        source  = HttpSource(csv_url, ".csv", md5_checksum, f"openml {data_id}")
-        filters = [CsvReader(), Transposer(), ColumnRemover(ignored_headers), ColumnDecoder(encoders, headers), ColumnSplitter(feature_headers)]
-
-        feature_columns, label_columns = Pipe.join(source,filters).read()
-        feature_rows = list(Transposer().filter(feature_columns))[1:]
-        label_rows   = list(Transposer().filter(label_columns))[1:]
-        
-        return ClassificationSimulation(feature_rows, label_rows)
+        return ClassificationSimulation.from_source(self._openml_source)
 
 class JsonSimulation(LazySimulation[Context, Action]):
     """A Simulation implementation which supports loading and unloading from json representations.""" 
