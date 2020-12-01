@@ -97,7 +97,7 @@ class Result:
 
         return (l,s,b)
 
-    def standard_plot(self, show_err: bool = False, show_sd: bool = False) -> None:
+    def standard_plot(self, select_learners: Sequence[int] = None,  show_err: bool = False, show_sd: bool = False) -> None:
 
         check_matplotlib_support('Plots.standard_plot')
 
@@ -125,6 +125,9 @@ class Result:
                 axes.fill_between(xs, ls, us, alpha = 0.1)
 
         learners, _, batches = self.to_indexed_tuples()
+
+        learners = {key:value for key,value in learners.items() if select_learners is None or key in select_learners}
+        batches  = {key:value for key,value in batches.items() if select_learners is None or value.learner_id in select_learners}
 
         learner_index_key = lambda batch: (batch.learner_id, batch.batch_index)
         sorted_batches    = sorted(batches.values(), key=learner_index_key)
