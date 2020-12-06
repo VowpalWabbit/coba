@@ -4,12 +4,13 @@ TODO: Add docstrings for all Sources
 TODO: Add unit tests for all Sources
 """
 
+from coba.data.encoders import Encoder
 import requests
 import json
 
 from abc import ABC, abstractmethod
 from hashlib import md5
-from typing import Generic, Iterable, Sequence, TypeVar, Tuple, Any
+from typing import Generic, Iterable, Sequence, TypeVar, Tuple, Any, List
 
 from coba.execution import ExecutionContext
 
@@ -129,10 +130,10 @@ class OpenmlSource(Source[Tuple[Sequence[Sequence[Any]], Sequence[Any]]]):
 
         types = json.loads(''.join(HttpSource(type_description_url, '.json', None, 'types').read()))["data_features"]["feature"]
 
-        headers  = []
-        encoders = []
-        ignored  = []
-        target   = ""
+        headers : List[str]     = []
+        encoders: List[Encoder] = []
+        ignored : List[bool]    = []
+        target  : str           = ""
 
         for tipe in types:
 

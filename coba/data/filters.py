@@ -9,7 +9,7 @@ import collections
 import itertools
 
 from abc import ABC, abstractmethod
-from typing import Generic, Iterable, TypeVar, Any, Sequence, Union, Tuple, Callable
+from typing import Generic, Hashable, Iterable, TypeVar, Any, Sequence, Union, Tuple, Callable, cast
 
 from coba.data.encoders import Encoder, OneHotEncoder
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
@@ -43,7 +43,7 @@ class JsonDecode(Filter[Iterable[str], Iterable[Any]]):
         decoder = CobaJsonDecoder()
         for item in items: yield decoder.decode(item)
 
-class ColSplitter(Filter[Iterable[Iterable[Any]], Tuple[Iterable[Iterable[Any]], Iterable[Iterable[Any]]]]):
+class ColSplitter(Filter[Iterable[Sequence[Any]], Tuple[Iterable[Sequence[Any]], Iterable[Sequence[Any]]]]):
     
     def __init__(self, split1_columns: Union[Sequence[int],Sequence[str]] = []):
         self._split1_columns    = split1_columns
@@ -103,12 +103,14 @@ class ColEncoder(Filter[Iterable[Sequence[str]], Iterable[Sequence[Any]]]):
             encoder = self._get_encoder(index, raw_hdr)
             encoder = encoder if encoder.is_fit else encoder.fit(raw_vals)
 
+            encoded_values: Sequence[Hashable]
+
             if isinstance(encoder, OneHotEncoder):
                 encoded_values = list(zip(*encoder.encode(raw_vals)))
             else:
-                encoded_values = encoder.encode(raw_vals)
+                encoded_values = list(encoder.encode(raw_vals))
 
-            yield [raw_hdr] + list(encoded_values) # type:ignore
+            yield [cast(Hashable,raw_hdr)] + encoded_values
 
     def _get_encoder(self, index: int, header: str) -> Encoder:
 
@@ -155,16 +157,12 @@ class CsvTransposer(Filter[Iterable[Sequence[_T_in]], Iterable[Sequence[_T_out]]
         return zip(*list(items))
 
     def _flatter(self, items: Iterable[Sequence[_T_in]]) -> Iterable[Sequence[_T_in]]:
-        flat_items = []
-
         for item in items:
             if isinstance(item[1], collections.Sequence) and not isinstance(item[1], str):
                 for i in item[1:]:
                     yield [item[0]] + list(i)
             else:
                 yield item
-
-        return flat_items
 
 class CsvCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
 
@@ -185,7 +183,7 @@ class CsvCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
 
         ignored_headers = list(itertools.compress(self._headers, self._ignored))
 
-        cleaning_steps = [
+        cleaning_steps: Sequence[Filter] = [
             CsvTransposer(), ColRemover(ignored_headers), ColEncoder(self._headers, self._encoders, self._default)
         ]
 
@@ -210,16 +208,21 @@ class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[
 
     def filter(self, items: Iterable[Sequence[str]]) -> Tuple[Iterable[Sequence[Any]],Iterable[Sequence[Any]]]:
 
+        split_column = cast(Union[Sequence[str],Sequence[int]], [self._label_col])
+
         clean      = CsvCleaner(self._headers, self._encoders, None, self._ignored, output_rows=False)
-        split      = ColSplitter([self._label_col]) #type: ignore
+        split      = ColSplitter(split_column)
         rows       = ForeachFilter(CsvTransposer(True))
         rmv_header = ForeachFilter(RowRemover([0]))
 
         output: Any = items
 
         with ExecutionContext.Logger.log('encoding data... '):
-            for step in [clean, split, rows]: output = step.filter(output)
-            if self._rmv_header: output = rmv_header.filter(output)
+
+            output = rows.filter(split.filter(clean.filter(output)))
+
+            if self._rmv_header: 
+                output = rmv_header.filter(output)
 
             labels   = next(output)
             features = next(output)

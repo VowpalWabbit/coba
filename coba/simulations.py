@@ -141,6 +141,8 @@ class MemorySimulation(Simulation[_C_out, _A_out]):
 
 class LazySimulation(Simulation[_C_out, _A_out]):
 
+    _simulation: Optional[Simulation[_C_out, _A_out]]
+
     def __enter__(self) -> 'LazySimulation':
         """Load the simulation into memory. If already loaded do nothing."""
 
@@ -156,7 +158,7 @@ class LazySimulation(Simulation[_C_out, _A_out]):
             gc.collect() #in case the simulation is large
 
     @property
-    def interactions(self) -> Sequence[Interaction[Context,Action]]:
+    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
         """The interactions in this simulation.
 
         Remarks:
@@ -287,7 +289,7 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
         self._action_set = action_set
         super().__init__(contexts, actions, rewards)
 
-class OpenmlSimulation(LazySimulation[_C_out, Tuple[int,...]]):
+class OpenmlSimulation(LazySimulation[Context, Tuple[int,...]]):
     """A simulation created from openml data with features and labels.
 
     OpenmlSimulation turns labeled observations from a classification data set
@@ -307,7 +309,7 @@ class OpenmlSimulation(LazySimulation[_C_out, Tuple[int,...]]):
     def __init__(self, data_id: int, md5_checksum: str = None) -> None:
         self._openml_source = OpenmlSource(data_id, md5_checksum)
 
-    def load_simulation(self) -> Simulation[_C_out, Tuple[int,...]]:
+    def load_simulation(self) -> Simulation[Context, Tuple[int,...]]:
         return ClassificationSimulation.from_source(self._openml_source)
 
 class JsonSimulation(LazySimulation[Context, Action]):
