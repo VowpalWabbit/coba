@@ -12,11 +12,11 @@ TODO Add RegressionSimulation
 import gc
 import json
 
-from itertools import chain
+from itertools import chain, accumulate
 from abc import ABC, abstractmethod
 from typing import (
-    Optional, Sequence, List, Union, Callable, 
-    TypeVar, Generic, Hashable, Dict, Any, Tuple
+    Optional, Sequence, List, Union, Callable, TypeVar, 
+    Generic, Hashable, Dict, Any, Tuple, overload, cast
 )
 
 import coba.random
@@ -192,9 +192,10 @@ class Simulation(Generic[_C_out, _A_out], ABC):
         """The sequence of interactions in a simulation.
 
         Remarks:
-            All Benchmark assume that interactions is re-iterable. So long as interactions is 
-            a Sequence it will always be re-iterable. If interactions was merely Iterable then 
-            it would be possible for it to only allow enumeration one time.
+            Interactions should always be re-iterable. So long as interactions is a Sequence 
+            this will always be the case. If interactions is changed to Iterable in the future
+            then it will be possible for it to only allow enumeration one time and care will need
+            to be taken.
         """
         ...
 
@@ -210,6 +211,32 @@ class Simulation(Generic[_C_out, _A_out], ABC):
             interaction/action. This sequence will always align with the provided choices.
         """
         ...
+
+class BatchedSimulation(Generic[_C_out, _A_out]):
+    """A simulation whose interactions have been batched."""
+
+    def __init__(self, simulation: Simulation[_C_out, _A_out], batch_sizes: Sequence[int]) -> None:
+        self._simulation = simulation        
+        
+        batch_slices  = list(accumulate([0] + list(batch_sizes)))
+        self._batches = [simulation.interactions[batch_slices[i]:batch_slices[i+1]] for i in range(len(batch_slices)-1) ]
+
+    @property
+    def interaction_batches(self) -> Sequence[Sequence[Interaction[_C_out, _A_out]]]:
+        """The sequence of batches of interactions in a simulation."""
+        return self._batches
+
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]] ) -> Sequence[Reward]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
+
+        Args:
+            choices: A sequence of tuples containing an interaction key and an action index.
+
+        Returns:
+            A sequence of tuples containing context, action, and reward for the requested 
+            interaction/action. This sequence will always align with the provided choices.
+        """
+        return self._simulation.rewards(choices)
 
 class MemorySimulation(Simulation[_C_out, _A_out]):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
@@ -492,8 +519,40 @@ class Take(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
         return TakeSimulation(self._count, item)
 
 class Batch(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
-    def __init__(self, seed:int) -> None:
-        self._seed = seed
+    
+    @overload
+    def __init__(self,*,count: int): ...
 
-    def filter(self, item: Simulation[Context,Action]) -> Simulation[Context,Action]:
-        return super().filter(item)
+    @overload
+    def __init__(self,*,size: int): ...
+
+    @overload
+    def __init__(self,*,sizes: Sequence[int]): ...
+
+    def __init__(self, **kwargs) -> None:
+        
+        self._count = cast(Optional[int], kwargs.get("count", None))
+        self._size  = cast(Optional[int], kwargs.get("size", None))
+        self._sizes = cast(Optional[Sequence[int]], kwargs.get("sizes", None))
+
+    def filter(self, item: Simulation[Context,Action]) -> BatchedSimulation[Context,Action]:
+        
+        sizes: Optional[Sequence[int]] = None
+
+        if self._count is not None:
+            n         = len(item.interactions)
+            sizes     = [int(float(n)/(self._count))] * self._count
+            remainder = n - sum(sizes)
+            for i in range(remainder): sizes[int(i*len(sizes)/remainder)] += 1
+        
+        if self._size is not None:
+            n     = len(item.interactions)
+            sizes = [self._size] * int(n/self._size)
+
+        if self._sizes is not None:
+            sizes = self._sizes
+
+        if sizes is None:
+            raise Exception("We were unable to determine an approriate batch sizes")
+        else:
+            return BatchedSimulation(item, sizes)

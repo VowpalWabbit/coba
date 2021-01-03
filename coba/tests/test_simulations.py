@@ -4,10 +4,12 @@ import timeit
 
 from typing import List, Sequence, Tuple, cast
 
-from coba.execution import ExecutionContext, NoneCache, NoneLogger, MemoryCache
 from coba.data.encoders import OneHotEncoder
+from coba.data.pipes import StopPipe
+from coba.execution import ExecutionContext, NoneCache, NoneLogger, MemoryCache
 from coba.simulations import (
-    Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource
+    Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, 
+    LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource, Shuffle, Take, Batch
 )
 
 ExecutionContext.Logger = NoneLogger()
@@ -171,6 +173,270 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         simulation = OpenmlSimulation(150)
         self.assertTrue(True)
 
+class Shuffle_Tests(unittest.TestCase):
+    
+    def test_shuffle(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+        
+        simulation = MemorySimulation(interactions,rewards)
+        shuffled_simulation = Shuffle(40).filter(simulation)
+
+        self.assertEqual(len(shuffled_simulation.interactions), len(simulation.interactions))
+        self.assertEqual(1, shuffled_simulation.interactions[0].key)
+        self.assertEqual(2, shuffled_simulation.interactions[1].key)
+        self.assertEqual(0, shuffled_simulation.interactions[2].key)
+        self.assertEqual(0, simulation.interactions[0].key)
+        self.assertEqual(1, simulation.interactions[1].key)
+        self.assertEqual(2, simulation.interactions[2].key)
+
+class Take_Tests(unittest.TestCase):
+    
+    def test_take1(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+        
+        simulation = MemorySimulation(interactions,rewards)
+        take_simulation = Take(1).filter(simulation)
+
+        self.assertEqual(1, len(take_simulation.interactions))
+        self.assertEqual(0, take_simulation.interactions[0].key)
+        
+        self.assertEqual(3, len(simulation.interactions))
+        self.assertEqual(0, simulation.interactions[0].key)
+        self.assertEqual(1, simulation.interactions[1].key)
+        self.assertEqual(2, simulation.interactions[2].key)
+
+    def test_take2(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+        
+        simulation = MemorySimulation(interactions,rewards)
+        take_simulation = Take(2).filter(simulation)
+
+        self.assertEqual(2, len(take_simulation.interactions))
+        self.assertEqual(0, take_simulation.interactions[0].key)
+        self.assertEqual(1, take_simulation.interactions[1].key)
+        
+        self.assertEqual(3, len(simulation.interactions))
+        self.assertEqual(0, simulation.interactions[0].key)
+        self.assertEqual(1, simulation.interactions[1].key)
+        self.assertEqual(2, simulation.interactions[2].key)
+
+    def test_take3(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+        
+        simulation = MemorySimulation(interactions,rewards)
+        take_simulation = Take(3).filter(simulation)
+
+        self.assertEqual(3, len(take_simulation.interactions))
+        self.assertEqual(0, take_simulation.interactions[0].key)
+        self.assertEqual(1, take_simulation.interactions[1].key)
+        self.assertEqual(2, take_simulation.interactions[2].key)
+        
+        self.assertEqual(3, len(simulation.interactions))
+        self.assertEqual(0, simulation.interactions[0].key)
+        self.assertEqual(1, simulation.interactions[1].key)
+        self.assertEqual(2, simulation.interactions[2].key)
+
+    def test_take4(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+        
+        simulation = MemorySimulation(interactions,rewards)
+        
+        with self.assertRaises(StopPipe):
+            take_simulation = Take(4).filter(simulation)
+        
+        self.assertEqual(3, len(simulation.interactions))
+        self.assertEqual(0, simulation.interactions[0].key)
+        self.assertEqual(1, simulation.interactions[1].key)
+        self.assertEqual(2, simulation.interactions[2].key)
+
+class Batch_Tests(unittest.TestCase):
+
+    def test_size_batch1(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+
+        simulation = MemorySimulation(interactions,rewards)
+        batch_simulation = Batch(size=1).filter(simulation)
+
+        self.assertEqual(3, len(batch_simulation.interaction_batches))
+
+        self.assertEqual(1, len(batch_simulation.interaction_batches[0]))
+        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
+
+        self.assertEqual(1, len(batch_simulation.interaction_batches[1]))
+        self.assertEqual(1, batch_simulation.interaction_batches[1][0].key)
+
+        self.assertEqual(1, len(batch_simulation.interaction_batches[2]))
+        self.assertEqual(2, batch_simulation.interaction_batches[2][0].key)
+
+    def test_size_batch2(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+
+        simulation = MemorySimulation(interactions,rewards)
+        batch_simulation = Batch(size=2).filter(simulation)
+
+        self.assertEqual(1, len(batch_simulation.interaction_batches))
+
+        self.assertEqual(2, len(batch_simulation.interaction_batches[0]))
+        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
+        self.assertEqual(1, batch_simulation.interaction_batches[0][1].key)
+
+    def test_size_batch3(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+
+        simulation = MemorySimulation(interactions,rewards)
+        batch_simulation = Batch(size=3).filter(simulation)
+
+        self.assertEqual(1, len(batch_simulation.interaction_batches))
+
+        self.assertEqual(3, len(batch_simulation.interaction_batches[0]))
+        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
+        self.assertEqual(1, batch_simulation.interaction_batches[0][1].key)
+        self.assertEqual(2, batch_simulation.interaction_batches[0][2].key)
+
+    def test_count_batch1(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+
+        simulation = MemorySimulation(interactions,rewards)
+        batch_simulation = Batch(count=1).filter(simulation)
+
+        self.assertEqual(1, len(batch_simulation.interaction_batches))
+
+        self.assertEqual(3, len(batch_simulation.interaction_batches[0]))
+        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
+        self.assertEqual(1, batch_simulation.interaction_batches[0][1].key)
+        self.assertEqual(2, batch_simulation.interaction_batches[0][2].key)
+
+    def test_count_batch2(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+
+        simulation = MemorySimulation(interactions,rewards)
+        batch_simulation = Batch(count=2).filter(simulation)
+
+        self.assertEqual(2, len(batch_simulation.interaction_batches))
+
+        self.assertEqual(2, len(batch_simulation.interaction_batches[0]))
+        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
+        self.assertEqual(1, batch_simulation.interaction_batches[0][1].key)
+        
+        self.assertEqual(1, len(batch_simulation.interaction_batches[1]))
+        self.assertEqual(2, batch_simulation.interaction_batches[1][0].key)
+
+    def test_count_batch3(self):
+        interactions = [
+            Interaction(1,[1,2],0),
+            Interaction(1,[1,2],1),
+            Interaction(1,[1,2],2)
+        ]
+        rewards = [
+            [3,3],
+            [4,4],
+            [5,5]
+        ]
+
+        simulation = MemorySimulation(interactions,rewards)
+        batch_simulation = Batch(count=3).filter(simulation)
+
+        self.assertEqual(3, len(batch_simulation.interaction_batches))
+
+        self.assertEqual(1, len(batch_simulation.interaction_batches[0]))
+        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
+
+        self.assertEqual(1, len(batch_simulation.interaction_batches[1]))
+        self.assertEqual(1, batch_simulation.interaction_batches[1][0].key)
+
+        self.assertEqual(1, len(batch_simulation.interaction_batches[2]))
+        self.assertEqual(2, batch_simulation.interaction_batches[2][0].key)
+
 class Interaction_Tests(unittest.TestCase):
 
     def test_constructor_no_context(self) -> None:
@@ -190,6 +456,6 @@ class Interaction_Tests(unittest.TestCase):
 
     def test_actions_correct_3(self) -> None:
         self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)]).actions)
-
+    
 if __name__ == '__main__':
     unittest.main()

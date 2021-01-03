@@ -4,13 +4,11 @@ TODO: Add docstrings for all Sources
 TODO: Add unit tests for all Sources
 """
 
-from coba.data.encoders import Encoder
 import requests
-import json
 
 from abc import ABC, abstractmethod
 from hashlib import md5
-from typing import Generic, Iterable, Sequence, TypeVar, Tuple, Any, List
+from typing import Generic, Iterable, TypeVar, Any
 
 from coba.execution import ExecutionContext
 
