@@ -20,7 +20,7 @@ _T_in  = TypeVar("_T_in", bound=Any, contravariant=True)
 
 class Filter(ABC, Generic[_T_in, _T_out]):
     @abstractmethod
-    def filter(self, items:_T_in) -> _T_out:
+    def filter(self, item:_T_in) -> _T_out:
         ...
 
 class ForeachFilter(Filter[Iterable[Any], Iterable[Any]]):
@@ -141,11 +141,9 @@ class CsvReader(Filter[Iterable[str], Iterable[Sequence[str]]]):
         self._csv_reader = csv_reader
 
     def filter(self, items: Iterable[str]) -> Iterable[Sequence[str]]:
-        
         return filter(None,self._csv_reader(items))
 
 class CsvTransposer(Filter[Iterable[Sequence[_T_in]], Iterable[Sequence[_T_out]]]):    
-    
     def __init__(self, flatten: bool = False):
         self._flatten = flatten
 
@@ -154,7 +152,7 @@ class CsvTransposer(Filter[Iterable[Sequence[_T_in]], Iterable[Sequence[_T_out]]
         items = filter(None, items)
         items = items if not self._flatten else self._flatter(items)
 
-        return zip(*list(items))
+        return zip(*list(items)) #type: ignore
 
     def _flatter(self, items: Iterable[Sequence[_T_in]]) -> Iterable[Sequence[_T_in]]:
         for item in items:

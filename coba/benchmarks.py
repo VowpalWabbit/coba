@@ -805,7 +805,7 @@ class Benchmark(Generic[_C,_A]):
         Returns:
             See the base class for more information.
         """
-        bench_learners       = [ BenchmarkLearner(learner) for learner in learners ]
+        bench_learners       = [ BenchmarkLearner(learner) for learner in learners ] #type: ignore
         restored             = Result.from_transaction_log(transaction_log)
         task_source          = TaskSource(self._simulations, self._seeds, bench_learners, restored)
         task_to_transactions = TaskToTransactions(self._ignore_first, self._ignore_raise, self._batcher)

@@ -31,11 +31,11 @@ class DiskSource(Source[Iterable[str]]):
                 yield line
 
 class MemorySource(Source[_T_out]):
-    def __init__(self, source: _T_out): #type:ignore
-        self._source = source
+    def __init__(self, item: _T_out): #type:ignore
+        self._item = item
 
     def read(self) -> _T_out:
-        return self._source
+        return self._item
 
 class QueueSource(Source[Iterable[Any]]):
     def __init__(self, source: Any, poison=None) -> None:
@@ -96,89 +96,3 @@ class HttpSource(Source[Iterable[str]]):
                         raise Exception(message) from None
 
                 return response.content
-
-class OpenmlSource(Source[Tuple[Sequence[Sequence[Any]], Sequence[Any]]]):
-
-
-    def __init__(self, data_id:int, md5_checksum:str = None):
-        self._data_id      = data_id
-        self._md5_checksum = md5_checksum
-
-    def read(self) -> Tuple[Sequence[Sequence[Any]], Sequence[Any]]:
-        
-        #placing some of these at the top would cause circular references
-        from coba.data.pipes    import Pipe
-        from coba.data.encoders import NumericEncoder, OneHotEncoder, StringEncoder
-        from coba.data.filters  import CsvReader, LabeledCsvCleaner
-
-        data_id        = self._data_id
-        md5_checksum   = self._md5_checksum
-        openml_api_key = ExecutionContext.Config.openml_api_key
-
-        data_description_url = f'https://www.openml.org/api/v1/json/data/{data_id}'
-        
-        type_description_url = f'https://www.openml.org/api/v1/json/data/features/{data_id}'
-
-        if openml_api_key is not None:
-            data_description_url += f'?api_key={openml_api_key}'
-            type_description_url += f'?api_key={openml_api_key}'
-
-        descr = json.loads(''.join(HttpSource(data_description_url, '.json', None, 'descr').read()))["data_set_description"]
-
-        if descr['status'] == 'deactivated':
-            raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
-
-        types = json.loads(''.join(HttpSource(type_description_url, '.json', None, 'types').read()))["data_features"]["feature"]
-
-        headers : List[str]     = []
-        encoders: List[Encoder] = []
-        ignored : List[bool]    = []
-        target  : str           = ""
-
-        for tipe in types:
-
-            headers.append(tipe['name'])
-            ignored.append(tipe['is_ignore'] == 'true' or tipe['is_row_identifier'] == 'true')
-
-            if tipe['is_target'] == 'true':
-                target = tipe['name']
-
-            if tipe['data_type'] == 'numeric':
-                encoders.append(NumericEncoder())  
-            elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'false':
-                encoders.append(OneHotEncoder(singular_if_binary=True))
-            elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'true':
-                encoders.append(OneHotEncoder())
-            else:
-                encoders.append(StringEncoder())
-
-        if isinstance(encoders[headers.index(target)], NumericEncoder):
-            target = self._get_classification_target(data_id, openml_api_key)
-            ignored[headers.index(target)] = False
-            encoders[headers.index(target)] = OneHotEncoder()
-
-        csv_url = f"http://www.openml.org/data/v1/get_csv/{descr['file_id']}"
-
-        source  = HttpSource(csv_url, ".csv", md5_checksum, f"openml {data_id}")
-        reader  = CsvReader()
-        cleaner = LabeledCsvCleaner(target, headers, encoders, ignored, True)
-
-        feature_rows, label_rows = Pipe.join(source, [reader, cleaner]).read()
-
-        return list(feature_rows), list(label_rows)
-
-    def _get_classification_target(self, data_id, openml_api_key):
-        task_description_url = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'
-
-        if openml_api_key is not None:        
-            task_description_url += f'?api_key={openml_api_key}'
-
-        tasks = json.loads(''.join(HttpSource(task_description_url, '.json', None, 'tasks').read()))["tasks"]["task"]
-
-        for task in tasks:
-            if task["task_type_id"] == 1: #aka, classification task
-                for input in task['input']:
-                    if input['name'] == 'target_feature':
-                        return input['value'] #just take the first one
-
-        raise Exception(f"Openml {data_id} does not appear to be a classification dataset")

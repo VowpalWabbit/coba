@@ -16,7 +16,6 @@ from coba.benchmarks import (
 
 #for testing purposes
 class ModuloLearner(Learner[int,int]):
-
     def __init__(self, family="0"):
         self._family = family
 
@@ -66,27 +65,6 @@ class NotPicklableLearner(Learner[int,int]):
 
     def learn(self, key, context, action, reward):
         pass
-
-
-class LazySimulation(Simulation):
-
-    def __init__(self, simulation):
-        self._simulation = simulation
-        self._loaded_simulation   = None
-
-    @property
-    def interactions(self):
-        return self._loaded_simulation.interactions
-
-    def rewards(self, choices):
-        return self._loaded_simulation.rewards(choices)
-
-    def __enter__(self):
-        self._loaded_simulation = self._simulation
-        return self
-        
-    def __exit__(self, exception_type, exception_value, traceback):
-        self._loaded_simulation = None
 
 class TransactionIsNew_Test(unittest.TestCase):
     
@@ -324,7 +302,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_evaluate_lazy_sim(self):
-        sim1      = LazySimulation(LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a))
+        sim1      = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
         benchmark = Benchmark([sim1], batch_count=1, ignore_first=False, ignore_raise=False) #type: ignore
         learner   = ModuloLearner()
         

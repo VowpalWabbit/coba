@@ -5,10 +5,9 @@ import timeit
 from typing import List, Sequence, Tuple, cast
 
 from coba.execution import ExecutionContext, NoneCache, NoneLogger, MemoryCache
-from coba.data.sources import OpenmlSource
 from coba.data.encoders import OneHotEncoder
 from coba.simulations import (
-    Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, LambdaSimulation, OpenmlSimulation
+    Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource
 )
 
 ExecutionContext.Logger = NoneLogger()
@@ -18,22 +17,22 @@ def _choices(interaction: Interaction) -> Sequence[Tuple[Key,Choice]]:
 
 class ClassificationSimulation_Tests(unittest.TestCase):
 
-    def assert_simulation_for_data(self, simulation, features, labels) -> None:
+    def assert_simulation_for_data(self, simulation, features, answers) -> None:
 
         self.assertEqual(len(simulation.interactions), len(features))
 
-        labels = OneHotEncoder(simulation._action_set).encode(labels)
+        answers = OneHotEncoder(simulation.label_set).encode(answers)
 
         #first we make sure that all the labels are included 
         #in the first interactions actions without any concern for order
-        self.assertCountEqual(simulation.interactions[0].actions, set(labels))
+        self.assertCountEqual(simulation.interactions[0].actions, set(answers))
 
         #then we set our expected actions to the first interaction
         #to make sure that every interaction has the exact same actions
         #with the exact same order
         expected_actions = simulation.interactions[0].actions
 
-        for f,l,i in zip(features, labels, simulation.interactions):
+        for f,l,i in zip(features, answers, simulation.interactions):
 
             expected_context = f
             expected_rewards = [ int(a == l) for a in i.actions]
@@ -81,7 +80,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 
         ExecutionContext.FileCache = NoneCache()
 
-        simulation = ClassificationSimulation.from_source(OpenmlSource(1116))
+        simulation = ClassificationSimulation(*OpenmlClassificationSource(1116).read())
         #simulation = ClassificationSimulation.from_source(OpenmlSource(273))
 
         self.assertEqual(len(simulation.interactions), 6598)
@@ -107,9 +106,9 @@ class ClassificationSimulation_Tests(unittest.TestCase):
         #this test requires interet acess to download the data
 
         ExecutionContext.FileCache = MemoryCache()
-        OpenmlSource(154).read() #this will cause it to read and cache so we don't measure read time
+        OpenmlClassificationSource(154).read() #this will cause it to read and cache in memory so we don't measure read time
 
-        time = min(timeit.repeat(lambda:ClassificationSimulation.from_source(OpenmlSource(154)), repeat=1, number=1))
+        time = min(timeit.repeat(lambda:ClassificationSimulation(*OpenmlClassificationSource(154).read()), repeat=1, number=1))
 
         print(time)
 
@@ -119,11 +118,10 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 class MemorySimulation_Tests(unittest.TestCase):
 
     def test_interactions(self):
-        contexts    =  [1,2]
-        action_sets = [[1,2,3], [4,5,6]]
-        reward_sets = [[0,1,2], [2,3,4]]
+        interactions = [Interaction(1, [1,2,3], 0), Interaction(2,[4,5,6],1)]
+        reward_sets  = [[0,1,2], [2,3,4]]
 
-        simulation = MemorySimulation(contexts, action_sets, reward_sets)
+        simulation = MemorySimulation(interactions, reward_sets)
 
         self.assertEqual(1      , simulation.interactions[0].context)
         self.assertEqual([1,2,3], simulation.interactions[0].actions)
@@ -145,15 +143,14 @@ class LambdaSimulation_Tests(unittest.TestCase):
         def R(c:int,a:int) -> int:
             return a-c
 
-        simulation = LambdaSimulation(2,C,A,R)
+        with LambdaSimulation(2,C,A,R) as simulation:
+            self.assertEqual(1      , simulation.interactions[0].context)
+            self.assertEqual([1,2,3], simulation.interactions[0].actions)
+            self.assertEqual([0,1,2], simulation.rewards([(0,0),(0,1),(0,2)]))
 
-        self.assertEqual(1      , simulation.interactions[0].context)
-        self.assertEqual([1,2,3], simulation.interactions[0].actions)
-        self.assertEqual([0,1,2], simulation.rewards([(0,0),(0,1),(0,2)]))
-
-        self.assertEqual(2      , simulation.interactions[1].context)
-        self.assertEqual([4,5,6], simulation.interactions[1].actions)
-        self.assertEqual([2,3,4], simulation.rewards([(1,0),(1,1),(1,2)]))
+            self.assertEqual(2      , simulation.interactions[1].context)
+            self.assertEqual([4,5,6], simulation.interactions[1].actions)
+            self.assertEqual([2,3,4], simulation.rewards([(1,0),(1,1),(1,2)]))
 
     def test_interactions_len(self):
         def C(t:int) -> int:
@@ -165,9 +162,8 @@ class LambdaSimulation_Tests(unittest.TestCase):
         def R(c:int,a:int) -> int:
             return a-c
 
-        simulation = LambdaSimulation(2,C,A,R)
-
-        self.assertEqual(len(simulation.interactions), 2)
+        with LambdaSimulation(2,C,A,R) as simulation:
+            self.assertEqual(len(simulation.interactions), 2)
 
 class OpenmlSimulation_Tests(unittest.TestCase):
 

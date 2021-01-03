@@ -1,7 +1,7 @@
 import unittest
 
 from coba.execution import ExecutionContext, MemoryCache
-from coba.data.sources import OpenmlSource
+from coba.simulations import OpenmlClassificationSource
 
 class OpenmlSource_Tests(unittest.TestCase):
     
@@ -19,7 +19,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         #trials query
         ExecutionContext.FileCache.put('2552595de3c454d50c937f8425b846d5.json', b'{"tasks":{"task":[\n    { "task_id":338754,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n,  { "task_id":359909,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n  ]}\n}\n')
 
-        feature_rows, label_rows = OpenmlSource(42693).read()
+        feature_rows, label_rows = OpenmlClassificationSource(42693).read()
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_rows), 5)
@@ -51,7 +51,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         ExecutionContext.FileCache.put('2552595de3c454d50c937f8425b846d5.json', b'{"tasks":{"task":[\n    { "task_id":338754,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n,  { "task_id":359909,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n  ]}\n}\n')
 
         with self.assertRaises(Exception) as e:
-            feature_rows, label_rows = OpenmlSource(42693).read()
+            feature_rows, label_rows = OpenmlClassificationSource(42693).read()
 
         self.assertTrue("does not appear" in str(e.exception))
 
@@ -69,7 +69,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         #trials query
         ExecutionContext.FileCache.put('2552595de3c454d50c937f8425b846d5.json', b'{"tasks":{"task":[\n    { "task_id":338754,\n    "task_type_id":1,\n    "task_type":"Classification",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ,              {"name":"target_feature", "value":"coli"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n,  { "task_id":359909,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n  ]}\n}\n')
 
-        feature_rows, label_rows = OpenmlSource(42693).read()
+        feature_rows, label_rows = OpenmlClassificationSource(42693).read()
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_rows), 5)

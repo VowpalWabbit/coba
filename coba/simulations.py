@@ -12,7 +12,7 @@ TODO Add RegressionSimulation
 import gc
 import json
 
-from itertools import repeat, count, chain
+from itertools import chain
 from abc import ABC, abstractmethod
 from typing import (
     Optional, Sequence, List, Union, Callable, 
@@ -21,9 +21,11 @@ from typing import (
 
 import coba.random
 
-from coba.data.sources import Source, OpenmlSource
+from coba.data.sources import Source, HttpSource, MemorySource
 from coba.data.encoders import OneHotEncoder
 from coba.execution import ExecutionContext
+from coba.data.pipes import StopPipe
+from coba.data.filters import Filter
 
 Context = Optional[Hashable]
 Action  = Hashable
@@ -32,7 +34,7 @@ Key     = int
 Choice  = int
 
 _C_out = TypeVar('_C_out', bound=Context, covariant=True)
-_A_out = TypeVar('_A_out', bound=Action, covariant=True)
+_A_out = TypeVar('_A_out', bound=Action , covariant=True)
 
 class Interaction(Generic[_C_out, _A_out]):
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
@@ -69,6 +71,118 @@ class Interaction(Generic[_C_out, _A_out]):
         """A unique key identifying the interaction."""
         return self._key
 
+class OpenmlClassificationSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
+
+    def __init__(self, data_id:int, md5_checksum:str = None):
+        self._data_id      = data_id
+        self._md5_checksum = md5_checksum
+
+    def read(self) -> Tuple[Sequence[Sequence[Any]], Sequence[Any]]:
+        
+        #placing some of these at the top would cause circular references
+        from coba.data.pipes    import Pipe
+        from coba.data.encoders import Encoder, NumericEncoder, OneHotEncoder, StringEncoder
+        from coba.data.filters  import CsvReader, LabeledCsvCleaner
+
+        data_id        = self._data_id
+        md5_checksum   = self._md5_checksum
+        openml_api_key = ExecutionContext.Config.openml_api_key
+
+        data_description_url = f'https://www.openml.org/api/v1/json/data/{data_id}'
+        
+        type_description_url = f'https://www.openml.org/api/v1/json/data/features/{data_id}'
+
+        if openml_api_key is not None:
+            data_description_url += f'?api_key={openml_api_key}'
+            type_description_url += f'?api_key={openml_api_key}'
+
+        descr = json.loads(''.join(HttpSource(data_description_url, '.json', None, 'descr').read()))["data_set_description"]
+
+        if descr['status'] == 'deactivated':
+            raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
+
+        types = json.loads(''.join(HttpSource(type_description_url, '.json', None, 'types').read()))["data_features"]["feature"]
+
+        headers : List[str]     = []
+        encoders: List[Encoder] = []
+        ignored : List[bool]    = []
+        target  : str           = ""
+
+        for tipe in types:
+
+            headers.append(tipe['name'])
+            ignored.append(tipe['is_ignore'] == 'true' or tipe['is_row_identifier'] == 'true')
+
+            if tipe['is_target'] == 'true':
+                target = tipe['name']
+
+            if tipe['data_type'] == 'numeric':
+                encoders.append(NumericEncoder())  
+            elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'false':
+                encoders.append(OneHotEncoder(singular_if_binary=True))
+            elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'true':
+                encoders.append(OneHotEncoder())
+            else:
+                encoders.append(StringEncoder())
+
+        if isinstance(encoders[headers.index(target)], NumericEncoder):
+            target = self._get_classification_target(data_id, openml_api_key)
+            ignored[headers.index(target)] = False
+            encoders[headers.index(target)] = OneHotEncoder()
+
+        csv_url = f"http://www.openml.org/data/v1/get_csv/{descr['file_id']}"
+
+        source  = HttpSource(csv_url, ".csv", md5_checksum, f"openml {data_id}")
+        reader  = CsvReader()
+        cleaner = LabeledCsvCleaner(target, headers, encoders, ignored, True)
+
+        feature_rows, label_rows = Pipe.join(source, [reader, cleaner]).read()
+
+        return list(feature_rows), list(label_rows)
+
+    def _get_classification_target(self, data_id, openml_api_key):
+        task_description_url = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'
+
+        if openml_api_key is not None:        
+            task_description_url += f'?api_key={openml_api_key}'
+
+        tasks = json.loads(''.join(HttpSource(task_description_url, '.json', None, 'tasks').read()))["tasks"]["task"]
+
+        for task in tasks:
+            if task["task_type_id"] == 1: #aka, classification task
+                for input in task['input']:
+                    if input['name'] == 'target_feature':
+                        return input['value'] #just take the first one
+
+        raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
+
+class LambdaSource(Source[Tuple[Sequence[Interaction[_C_out, _A_out]], Sequence[Sequence[Reward]]]]):
+
+    def __init__(self,
+        n_interactions: int,
+        context       : Callable[[int],_C_out],
+        action_set    : Callable[[int],Sequence[_A_out]], 
+        reward        : Callable[[_C_out,_A_out],Reward],
+        seed          : int = None) -> None:
+
+        coba.random.seed(seed)
+
+        interactions: List[Interaction[_C_out, _A_out]] = []
+        reward_sets : List[Sequence[Reward]]            = []
+
+        for i in range(n_interactions):
+            _context    = context(i)
+            _action_set = action_set(i)
+            _reward_set = [reward(_context, _action) for _action in _action_set]
+
+            interactions.append(Interaction(_context, _action_set, i)) #type: ignore
+            reward_sets.append(_reward_set)
+
+        self._source = MemorySource((interactions, reward_sets))
+
+    def read(self) -> Tuple[Sequence[Interaction[_C_out, _A_out]], Sequence[Sequence[Reward]]]:
+        return self._source.read()
+
 class Simulation(Generic[_C_out, _A_out], ABC):
     """The simulation interface."""
 
@@ -101,9 +215,8 @@ class MemorySimulation(Simulation[_C_out, _A_out]):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
 
     def __init__(self, 
-        contexts   : Sequence[_C_out], 
-        action_sets: Sequence[Sequence[_A_out]], 
-        reward_sets: Sequence[Sequence[Reward]]) -> None:
+        interactions: Sequence[Interaction[_C_out, _A_out]],
+        reward_sets : Sequence[Sequence[Reward]]) -> None:
         """Instantiate a MemorySimulation.
 
         Args:
@@ -112,9 +225,9 @@ class MemorySimulation(Simulation[_C_out, _A_out]):
             reward_sets: A collection of reward sets to turn into a simulation 
         """
 
-        assert len(contexts) == len(action_sets) == len(reward_sets), "Mismatched lengths of contexts, actions and rewards"
+        assert len(interactions) == len(reward_sets), "Mismatched lengths of interactions and rewards"
 
-        self._interactions = list(map(Interaction, contexts, action_sets, count()))
+        self._interactions = interactions
 
         choices = chain.from_iterable([ [ (i.key, a) for a in range(len(i.actions)) ] for i in self._interactions ])
         rewards = chain.from_iterable(reward_sets)
@@ -185,45 +298,6 @@ class LazySimulation(Simulation[_C_out, _A_out]):
     @abstractmethod
     def load_simulation(self) -> Simulation[_C_out, _A_out]: ...
 
-class LambdaSimulation(MemorySimulation[_C_out, _A_out]):
-    """A Simulation created from lambda functions that generate contexts, actions and rewards.
-
-    Remarks:
-        This implementation is useful for creating simulations from defined distributions.
-    """
-
-    def __init__(self,
-                 n_interactions: int,
-                 context   : Callable[[int],_C_out],
-                 action_set: Callable[[int],Sequence[_A_out]], 
-                 reward    : Callable[[_C_out,_A_out],Reward],
-                 seed: int = None) -> None:
-        """Instantiate a LambdaSimulation.
-
-        Args:
-            n_interactions: How many interactions the LambdaSimulation should have.
-            context: A function that should return a context given an index in `range(n_interactions)`.
-            action_set: A function that should return all valid actions for a given context.
-            reward: A function that should return the reward for a context and action.
-        """
-
-        coba.random.seed(seed)
-
-        contexts   : List[_C_out]           = []
-        action_sets: List[Sequence[_A_out]] = []
-        reward_sets: List[Sequence[Reward]] = []
-
-        for i in range(n_interactions):
-            _context    = context(i)
-            _action_set = action_set(i)
-            _reward_set = [reward(_context, _action) for _action in _action_set]
-
-            contexts   .append(_context)
-            action_sets.append(_action_set)
-            reward_sets.append(_reward_set)
-
-        super().__init__(contexts, action_sets, reward_sets)
-
 class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
     """A simulation created from classifier data with features and labels.
 
@@ -256,19 +330,9 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
 
         if config["format"] == "openml":
             with ExecutionContext.Logger.log(f"loading openml {config['id']}..."):
-                return ClassificationSimulation.from_source(OpenmlSource(config["id"], config.get("md5_checksum", None)))
+                return ClassificationSimulation(*OpenmlClassificationSource(config["id"], config.get("md5_checksum", None)).read())
 
         raise Exception("We were unable to recognize the provided data format.")
-
-    @staticmethod
-    def from_source(source: Source[Tuple[Sequence[Sequence[Any]], Sequence[Any]]]) -> 'ClassificationSimulation[Context]':
-        
-        features, actions = source.read()
-
-        if isinstance(source, OpenmlSource) and len(actions[0]) == 1:
-            raise Exception("This does not appear to be a classification dataset. Creating a ClassificationSimulation from it will perform poorly.")
-
-        return ClassificationSimulation(features, actions)
 
     def __init__(self, features: Sequence[_C_out], labels: Sequence[Action]) -> None:
         """Instantiate a ClassificationSimulation.
@@ -280,14 +344,41 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
 
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
-        action_set = list(set(labels))
+        label_set  = list(set(labels))
+        action_set = OneHotEncoder(label_set).encode(label_set)
 
-        contexts = features
-        actions  = list(repeat(OneHotEncoder(action_set).encode(action_set), len(contexts)))
-        rewards  = OneHotEncoder(action_set).encode(labels)
+        interactions = [ Interaction(context, action_set, i) for i, context in enumerate(features) ] #type: ignore
+        rewards      = OneHotEncoder(label_set).encode(labels)
 
-        self._action_set = action_set
-        super().__init__(contexts, actions, rewards)
+        self.label_set = label_set
+        super().__init__(interactions, rewards) #type:ignore
+
+class LambdaSimulation(LazySimulation[_C_out, _A_out]):
+    """A Simulation created from lambda functions that generate contexts, actions and rewards.
+
+    Remarks:
+        This implementation is useful for creating simulations from defined distributions.
+    """
+
+    def __init__(self,
+        n_interactions: int,
+        context       : Callable[[int],_C_out],
+        action_set    : Callable[[int],Sequence[_A_out]], 
+        reward        : Callable[[_C_out,_A_out],Reward],
+        seed          : int = None) -> None:
+        """Instantiate a LambdaSimulation.
+
+        Args:
+            n_interactions: How many interactions the LambdaSimulation should have.
+            context: A function that should return a context given an index in `range(n_interactions)`.
+            action_set: A function that should return all valid actions for a given context.
+            reward: A function that should return the reward for a context and action.
+        """
+
+        self._source = LambdaSource(n_interactions, context, action_set, reward, seed) # type: ignore
+
+    def load_simulation(self) -> Simulation[_C_out, _A_out]:
+        return MemorySimulation(*self._source.read()) #type: ignore
 
 class OpenmlSimulation(LazySimulation[Context, Tuple[int,...]]):
     """A simulation created from openml data with features and labels.
@@ -296,7 +387,7 @@ class OpenmlSimulation(LazySimulation[Context, Tuple[int,...]]):
     set, into interactions. For each interaction the feature set becomes the context and 
     all possible labels become the actions. Rewards for each interaction are created by 
     assigning a reward of 1 for taking the correct action (i.e., choosing the correct
-    label)) and a reward of 0 for taking any other action (i.e., choosing any of the
+    label) and a reward of 0 for taking any other action (i.e., choosing any of the
     incorrect lables).
 
     Remark:
@@ -307,10 +398,10 @@ class OpenmlSimulation(LazySimulation[Context, Tuple[int,...]]):
     """
 
     def __init__(self, data_id: int, md5_checksum: str = None) -> None:
-        self._openml_source = OpenmlSource(data_id, md5_checksum)
+        self._openml_source = OpenmlClassificationSource(data_id, md5_checksum)
 
     def load_simulation(self) -> Simulation[Context, Tuple[int,...]]:
-        return ClassificationSimulation.from_source(self._openml_source)
+        return ClassificationSimulation(*self._openml_source.read())
 
 class JsonSimulation(LazySimulation[Context, Action]):
     """A Simulation implementation which supports loading and unloading from json representations.""" 
@@ -331,3 +422,78 @@ class JsonSimulation(LazySimulation[Context, Action]):
             return ClassificationSimulation.from_json(self._json_obj["from"])
         else:
             raise Exception("We were unable to recognize the provided simulation type")
+
+class ShuffleSimulation(Simulation[_C_out, _A_out]):
+    def __init__(self, seed:int, simulation: Simulation[_C_out, _A_out]) -> None:
+
+        self._simulation = simulation
+        self._seed       = seed
+        self._interactions = coba.random.CobaRandom(self._seed).shuffle(simulation.interactions)
+
+    @property
+    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+        """The interactions in this simulation.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+        return self._interactions
+
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+
+        return self._simulation.rewards(choices)
+
+class TakeSimulation(Simulation[_C_out, _A_out]):
+    def __init__(self, count:int, simulation: Simulation[_C_out, _A_out]) -> None:
+
+        self._simulation   = simulation
+        self._count        = count
+        self._interactions = simulation.interactions[0:count]
+
+    @property
+    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+        """The interactions in this simulation.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+        return self._interactions
+
+    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+
+        return self._simulation.rewards(choices)
+
+class Shuffle(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
+    def __init__(self, seed:int) -> None:
+        self._seed = seed
+
+    def filter(self, item: Simulation[Context,Action]) -> Simulation[Context,Action]:        
+        return ShuffleSimulation(self._seed, item)
+
+class Take(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
+    def __init__(self, count:int) -> None:
+        self._count = count
+
+    def filter(self, item: Simulation[Context,Action]) -> Simulation[Context,Action]:
+
+        if len(item.interactions) < self._count:
+            raise StopPipe()
+
+        return TakeSimulation(self._count, item)
+
+class Batch(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
+    def __init__(self, seed:int) -> None:
+        self._seed = seed
+
+    def filter(self, item: Simulation[Context,Action]) -> Simulation[Context,Action]:
+        return super().filter(item)
