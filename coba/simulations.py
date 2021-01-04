@@ -24,7 +24,6 @@ import coba.random
 from coba.data.sources import Source, HttpSource, MemorySource
 from coba.data.encoders import OneHotEncoder
 from coba.execution import ExecutionContext
-from coba.data.pipes import StopPipe
 from coba.data.filters import Filter
 
 Context = Optional[Hashable]

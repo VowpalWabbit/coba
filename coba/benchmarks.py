@@ -575,23 +575,6 @@ class TransactionSink(Sink):
 
         raise Exception("Transactions were written to an unrecognized sink.")
 
-class WithSimulation:
-    def __init__(self, simulation: Simulation) -> None:
-        self._simulation = simulation
-
-    def __enter__(self) -> Simulation:
-        with ExecutionContext.Logger.log(f"loading simulation..."):
-            try:
-                return self._simulation.__enter__() #type: ignore
-            except AttributeError:
-                return self._simulation
-
-    def __exit__(self, exception_type, exception_value, traceback) -> None:
-        try:
-            self._simulation.__exit__(exception_type, exception_value, traceback) #type: ignore
-        except AttributeError:
-            pass
-
 class BenchmarkLearner(Learner[_C,_A]):
 
     @property
