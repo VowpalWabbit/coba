@@ -9,7 +9,7 @@ from coba.execution import ExecutionContext, NoneCache, NoneLogger, MemoryCache
 from coba.simulations import (
     Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, 
     LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource, 
-    Shuffle, Take, Batch, PCA
+    Shuffle, Take, Batch, PCA, Sort
 )
 
 ExecutionContext.Logger = NoneLogger()
@@ -473,6 +473,46 @@ class PCA_Tests(unittest.TestCase):
         self.assertNotEqual((1,2), pca_sim.interactions[0].context)
         self.assertNotEqual((1,9), pca_sim.interactions[1].context)
         self.assertNotEqual((7,3), pca_sim.interactions[2].context)
+
+class Sort_tests(unittest.TestCase):
+
+    def test_sort1(self) -> None:
+
+        interactions = [
+            Interaction((7,2), [1], 0),
+            Interaction((1,9), [1], 1),
+            Interaction((8,3), [1], 2)
+        ]
+
+        mem_sim = MemorySimulation(interactions, [[1],[1],[1]])
+        srt_sim = Sort([0]).filter(mem_sim)
+
+        self.assertEqual((7,2), mem_sim.interactions[0].context)
+        self.assertEqual((1,9), mem_sim.interactions[1].context)
+        self.assertEqual((8,3), mem_sim.interactions[2].context)
+
+        self.assertEqual((1,9), srt_sim.interactions[0].context)
+        self.assertEqual((7,2), srt_sim.interactions[1].context)
+        self.assertEqual((8,3), srt_sim.interactions[2].context)
+
+    def test_sort2(self) -> None:
+
+        interactions = [
+            Interaction((1,2), [1], 0),
+            Interaction((1,9), [1], 1),
+            Interaction((1,3), [1], 2)
+        ]
+
+        mem_sim = MemorySimulation(interactions, [[1],[1],[1]])
+        srt_sim = Sort([0,1]).filter(mem_sim)
+
+        self.assertEqual((1,2), mem_sim.interactions[0].context)
+        self.assertEqual((1,9), mem_sim.interactions[1].context)
+        self.assertEqual((1,3), mem_sim.interactions[2].context)
+
+        self.assertEqual((1,2), srt_sim.interactions[0].context)
+        self.assertEqual((1,3), srt_sim.interactions[1].context)
+        self.assertEqual((1,9), srt_sim.interactions[2].context)
 
 if __name__ == '__main__':
     unittest.main()
