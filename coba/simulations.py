@@ -284,52 +284,6 @@ class MemorySimulation(Simulation[_C_out, _A_out]):
 
         return [ self._rewards[choice] for choice in choices]
 
-class LazySimulation(Simulation[_C_out, _A_out]):
-
-    _simulation: Optional[Simulation[_C_out, _A_out]]
-
-    def __enter__(self) -> 'LazySimulation':
-        """Load the simulation into memory. If already loaded do nothing."""
-
-        self._simulation = self.load_simulation()
-
-        return self
-
-    def __exit__(self, exception_type, exception_value, traceback) -> None:
-        """Unload the simulation from memory."""
-
-        if self._simulation is not None:
-            self._simulation = None
-            gc.collect() #in case the simulation is large
-
-    @property
-    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
-        """The interactions in this simulation.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-
-        if self._simulation is not None:
-            return self._simulation.interactions
-        
-        raise Exception("A LazySimulation must be loaded before it can be used.")
-
-    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-        
-        if self._simulation is not None:
-            return self._simulation.reward(choices)
-
-        raise Exception("A LazySimulation must be loaded before it can be used.")
-
-    @abstractmethod
-    def load_simulation(self) -> Simulation[_C_out, _A_out]: ...
-
 class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
     """A simulation created from classifier data with features and labels.
 
