@@ -5,11 +5,11 @@ import timeit
 from typing import List, Sequence, Tuple, cast
 
 from coba.data.encoders import OneHotEncoder
-from coba.data.pipes import StopPipe
 from coba.execution import ExecutionContext, NoneCache, NoneLogger, MemoryCache
 from coba.simulations import (
     Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, 
-    LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource, Shuffle, Take, Batch
+    LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource, 
+    Shuffle, Take, Batch, PCA
 )
 
 ExecutionContext.Logger = NoneLogger()
@@ -291,6 +291,7 @@ class Take_Tests(unittest.TestCase):
         
         self.assertEqual(3, len(simulation.interactions))
         self.assertEqual(0, len(take_simulation.interactions))
+
 class Batch_Tests(unittest.TestCase):
 
     def test_size_batch1(self):
@@ -453,6 +454,25 @@ class Interaction_Tests(unittest.TestCase):
 
     def test_actions_correct_3(self) -> None:
         self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)]).actions)
-    
+
+class PCA_Tests(unittest.TestCase):
+    def test_PCA(self):
+        interactions = [
+            Interaction((1,2), [1], 0),
+            Interaction((1,9), [1], 1),
+            Interaction((7,3), [1], 2)
+        ]
+
+        mem_sim = MemorySimulation(interactions, [[1],[1],[1]])
+        pca_sim = PCA().filter(mem_sim)
+
+        self.assertEqual((1,2), mem_sim.interactions[0].context)
+        self.assertEqual((1,9), mem_sim.interactions[1].context)
+        self.assertEqual((7,3), mem_sim.interactions[2].context)
+
+        self.assertNotEqual((1,2), pca_sim.interactions[0].context)
+        self.assertNotEqual((1,9), pca_sim.interactions[1].context)
+        self.assertNotEqual((7,3), pca_sim.interactions[2].context)
+
 if __name__ == '__main__':
     unittest.main()

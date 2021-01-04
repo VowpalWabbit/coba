@@ -9,14 +9,13 @@ to do so.
 TODO Add RegressionSimulation
 """
 
-import gc
 import json
 
 from itertools import chain, accumulate
 from abc import ABC, abstractmethod
 from typing import (
-    Optional, Sequence, List, Union, Callable, TypeVar, 
-    Generic, Hashable, Dict, Any, Tuple, overload, cast
+    Optional, Sequence, List, Callable, TypeVar, 
+    Generic, Hashable, Any, Tuple, overload, cast
 )
 
 import coba.random
@@ -25,6 +24,7 @@ from coba.data.sources import Source, HttpSource, MemorySource
 from coba.data.encoders import OneHotEncoder
 from coba.execution import ExecutionContext
 from coba.data.filters import Filter
+from coba.utilities import check_numpy_support
 
 Context = Optional[Hashable]
 Action  = Hashable
@@ -420,6 +420,64 @@ class TakeSimulation(Simulation[_C_out, _A_out]):
 
         return self._simulation.reward(choices)
 
+class SortSimulation(Simulation[_C_out, _A_out]):
+    def __init__(self, context_keys: Sequence[int], simulation: Simulation[_C_out, _A_out]) -> None:
+        self._simulation   = simulation
+        self._context_keys = context_keys
+
+        sort_key = lambda interaction: tuple([interaction.context[key] for key in self._context_keys ])
+        self._interactions = list(sorted(simulation.interactions, key=sort_key))
+
+    @property
+    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+        """The interactions in this simulation.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+        return self._interactions
+
+    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+
+        return self._simulation.reward(choices)
+
+class PcaSimulation(Simulation[Tuple[float,...], _A_out]):
+    def __init__(self, simulation: Simulation[Tuple[float,...], _A_out]) -> None:
+        
+        check_numpy_support("PcaSimulation.__init__")
+        
+        import numpy as np
+
+        feat_matrix          = np.array([list(i.context) for i in simulation.interactions])
+        comp_vals, comp_vecs = np.linalg.eig(np.cov(feat_matrix.T))
+        new_contexts         = (feat_matrix @ comp_vecs ) / np.sqrt(comp_vals) #type:ignore
+
+        self._simulation = simulation
+        self._interactions = [ Interaction(tuple(c), i.actions, i.key) for c, i in zip(new_contexts,simulation.interactions) ]
+
+    @property
+    def interactions(self) -> Sequence[Interaction[Tuple[float,...],_A_out]]:
+        """The interactions in this simulation.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+        return self._interactions
+
+    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
+        """The observed rewards for interactions (identified by its key) and their selected action indexes.
+
+        Remarks:
+            See the Simulation base class for more information.
+        """
+
+        return self._simulation.reward(choices)
+
 class Shuffle(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
     def __init__(self, seed:Optional[int]) -> None:
         self._seed = seed
@@ -479,3 +537,19 @@ class Batch(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
             raise Exception("We were unable to determine an approriate batch sizes")
         else:
             return BatchedSimulation(item, sizes)
+
+class PCA(Filter[Simulation[Tuple[float,...],Action],Simulation[Context,Action]]):
+
+    def __init__(self) -> None:
+        check_numpy_support("PCA.__init__")
+
+    def filter(self, item: Simulation[Tuple[float,...],Action]) -> Simulation[Context,Action]:
+        return PcaSimulation(item)
+
+class Sort(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
+
+    def __init__(self, context_keys: Sequence[int]) -> None:
+        self._context_keys = context_keys
+
+    def filter(self, item: Simulation[Context,Action]) -> Simulation[Context,Action]:        
+        return SortSimulation(self._context_keys, item)
