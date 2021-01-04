@@ -301,25 +301,6 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
         dataset is being streamed instead of waiting until the end of the data to train an encoder.
     """
 
-    @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'ClassificationSimulation[Context]':
-        """Construct a ClassificationSimulation object from JSON.
-
-        Args:
-            json_val: Either a json string or the decoded json object.
-
-        Returns:
-            The ClassificationSimulation representation of the given JSON string or object.
-        """
-
-        config = json.loads(json_val) if isinstance(json_val,str) else json_val
-
-        if config["format"] == "openml":
-            with ExecutionContext.Logger.log(f"loading openml {config['id']}..."):
-                return ClassificationSimulation(*OpenmlClassificationSource(config["id"], config.get("md5_checksum", None)).read())
-
-        raise Exception("We were unable to recognize the provided data format.")
-
     def __init__(self, features: Sequence[_C_out], labels: Sequence[Action]) -> None:
         """Instantiate a ClassificationSimulation.
 
@@ -388,24 +369,6 @@ class OpenmlSimulation(Source[ClassificationSimulation[Context]]):
 
     def read(self) -> ClassificationSimulation[Context]:
         return ClassificationSimulation(*self._openml_source.read())
-
-class JsonSimulation(Source[Simulation[Context, Action]]):
-    """A Simulation implementation which supports loading and unloading from json representations.""" 
-    
-    def __init__(self, json_val) -> None:
-        """Instantiate a JsonSimulation
-
-        Args:
-            json: A json representation that can be turned into a simulation when needed.
-        """
-
-        self._json_obj = json.loads(json_val) if isinstance(json_val,str) else json_val
-
-    def read(self) -> Simulation[Context, Action]:
-        if self._json_obj["type"] == "classification":
-            return ClassificationSimulation.from_json(self._json_obj["from"])
-        else:
-            raise Exception("We were unable to recognize the provided simulation type")
 
 class ShuffleSimulation(Simulation[_C_out, _A_out]):
     def __init__(self, seed: Optional[int], simulation: Simulation[_C_out, _A_out]) -> None:

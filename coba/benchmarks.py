@@ -17,15 +17,16 @@ from pathlib import Path
 from typing import Iterable, Tuple, Union, Sequence, Generic, TypeVar, Dict, Any, cast, Optional, overload, List
 
 from coba.learners import Learner, Choice, Key
-from coba.simulations import BatchedSimulation, Take, Shuffle, Batch, JsonSimulation, Simulation, Context, Action, Reward
+from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Context, Action, Reward
 from coba.execution import ExecutionContext
+from coba.statistics import OnlineMean, OnlineVariance
+from coba.utilities import check_matplotlib_support, check_pandas_support
+
 from coba.data.structures import Table
 from coba.data.filters import Filter, JsonEncode, JsonDecode, ForeachFilter
 from coba.data.sources import Source, MemorySource, DiskSource
 from coba.data.sinks import Sink, MemorySink, DiskSink
 from coba.data.pipes import Pipe, StopPipe
-from coba.statistics import OnlineMean, OnlineVariance
-from coba.utilities import check_matplotlib_support, check_pandas_support
 
 _C = TypeVar('_C', bound=Context)
 _A = TypeVar('_A', bound=Action)
@@ -661,7 +662,17 @@ class Benchmark(Generic[_C,_A]):
             if batch_rule in batch_config:
                 kwargs[f"batch_{batch_rule}"] = batch_config[batch_rule]
 
-        simulations  = [ JsonSimulation(sim_config) for sim_config in config["simulations"] ]
+        simulations = []
+
+        for sim_config in config["simulations"]:
+            if sim_config["type"] != "classification":
+                raise Exception("We were unable to recognize the provided simulation type.")
+
+            if sim_config["from"]["format"] != "openml":
+                raise Exception("We were unable to recognize the provided data format.")
+
+            with ExecutionContext.Logger.log(f"loading openml {sim_config['from']['id']}..."):
+                simulations.append(OpenmlSimulation(sim_config['from']["id"], sim_config['from'].get("md5_checksum", None)))
 
         return Benchmark(simulations, **kwargs)
 
