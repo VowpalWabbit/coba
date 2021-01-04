@@ -368,7 +368,8 @@ class OpenmlSimulation(Source[ClassificationSimulation[Context]]):
         self._openml_source = OpenmlClassificationSource(data_id, md5_checksum)
 
     def read(self) -> ClassificationSimulation[Context]:
-        return ClassificationSimulation(*self._openml_source.read())
+        with ExecutionContext.Logger.log(f"loading openml {self._openml_source._data_id}..."):
+            return ClassificationSimulation(*self._openml_source.read())
 
 class ShuffleSimulation(Simulation[_C_out, _A_out]):
     def __init__(self, seed: Optional[int], simulation: Simulation[_C_out, _A_out]) -> None:
@@ -455,7 +456,12 @@ class PcaSimulation(Simulation[Tuple[float,...], _A_out]):
 
         feat_matrix          = np.array([list(i.context) for i in simulation.interactions])
         comp_vals, comp_vecs = np.linalg.eig(np.cov(feat_matrix.T))
-        new_contexts         = (feat_matrix @ comp_vecs ) / np.sqrt(comp_vals) #type:ignore
+        
+        comp_vecs = comp_vecs[:,comp_vals > 0]
+        comp_vals = comp_vals[comp_vals > 0]
+
+        new_contexts = (feat_matrix @ comp_vecs ) / np.sqrt(comp_vals) #type:ignore
+        new_contexts = new_contexts[:,np.argsort(-comp_vals)]
 
         self._simulation = simulation
         self._interactions = [ Interaction(tuple(c), i.actions, i.key) for c, i in zip(new_contexts,simulation.interactions) ]

@@ -1,5 +1,5 @@
 {
-    "templates"   : { "openml": { "type":"classification", "from": {"format":"openml", "id":"$id", "md5_checksum":"$md5"} }},
+    "templates"   : { "openml": { "type":"classification", "pca":true, "sort":[0], "from": {"format":"openml", "id":"$id", "md5_checksum":"$md5"} }},
     "batches"     : { "count":50 },
     "shuffle"     : [777,888,999,1010,1111,1212],
     "simulations" : [

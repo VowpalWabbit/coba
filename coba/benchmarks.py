@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Iterable, Tuple, Union, Sequence, Generic, TypeVar, Dict, Any, cast, Optional, overload, List
 
 from coba.learners import Learner, Choice, Key
-from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Context, Action, Reward
+from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Context, Action, Reward, PCA, Sort
 from coba.execution import ExecutionContext
 from coba.statistics import OnlineMean, OnlineVariance
 from coba.utilities import check_matplotlib_support, check_pandas_support
@@ -671,8 +671,16 @@ class Benchmark(Generic[_C,_A]):
             if sim_config["from"]["format"] != "openml":
                 raise Exception("We were unable to recognize the provided data format.")
 
-            with ExecutionContext.Logger.log(f"loading openml {sim_config['from']['id']}..."):
-                simulations.append(OpenmlSimulation(sim_config['from']["id"], sim_config['from'].get("md5_checksum", None)))
+            filters = []
+            simulation = OpenmlSimulation(sim_config['from']["id"], sim_config['from'].get("md5_checksum", None))
+
+            if 'pca' in sim_config and sim_config['pca'] == True:
+                filters.append(PCA())
+
+            if 'sort' in sim_config:
+                filters.append(Sort(sim_config['sort']))
+
+            simulations.append(Pipe.join(simulation, filters))
 
         return Benchmark(simulations, **kwargs)
 
