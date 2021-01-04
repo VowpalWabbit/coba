@@ -9,7 +9,7 @@ from coba.benchmarks import Benchmark
 
 if __name__ == '__main__':
     simulation = JsonSimulation('{ "type":"classification", "from": { "format":"openml", "id":150 } }')
-    benchmark  = Benchmark([simulation], batch_size=2, max_interactions=5000, shuffle_seeds=list(range(3)))
+    benchmark  = Benchmark([simulation], batch_size=2, take=5000, seeds=list(range(3)))
 
     learners = [
         RandomLearner(seed=10),

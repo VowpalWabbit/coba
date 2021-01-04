@@ -1,7 +1,6 @@
 {
     "templates"   : { "openml": { "type":"classification", "from": {"format":"openml", "id":"$id", "md5_checksum":"$md5"} }},
-    "batches"     : { "count":51 },
-    "ignore_first": true,
+    "batches"     : { "count":50 },
     "shuffle"     : [777,888,999,1010,1111,1212],
     "simulations" : [
         {"template":"openml", "$md5":"1ee268f1d0de784f2b4777437f0fb70f", "$id":3},
@@ -9,4 +8,3 @@
         {"template":"openml", "$md5":"a3afc04ac25896c8478dd0d96d1d5a8a", "$id":8}
     ]
 }
-

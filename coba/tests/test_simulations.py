@@ -42,7 +42,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
             actual_context = i.context
             actual_actions = i.actions
             
-            actual_rewards  = simulation.rewards(_choices(i))
+            actual_rewards  = simulation.reward(_choices(i))
 
             self.assertEqual(actual_context, expected_context)            
             self.assertSequenceEqual(actual_actions, expected_actions)
@@ -98,7 +98,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
             self.assertIn((0,1), rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
-            actual_rewards  = simulation.rewards(_choices(rnd))
+            actual_rewards  = simulation.reward(_choices(rnd))
 
             self.assertIn(1, actual_rewards)
             self.assertIn(0, actual_rewards)
@@ -127,11 +127,11 @@ class MemorySimulation_Tests(unittest.TestCase):
 
         self.assertEqual(1      , simulation.interactions[0].context)
         self.assertEqual([1,2,3], simulation.interactions[0].actions)
-        self.assertEqual([0,1,2], simulation.rewards([(0,0),(0,1),(0,2)]))
+        self.assertEqual([0,1,2], simulation.reward([(0,0),(0,1),(0,2)]))
 
         self.assertEqual(2      , simulation.interactions[1].context)
         self.assertEqual([4,5,6], simulation.interactions[1].actions)
-        self.assertEqual([2,3,4], simulation.rewards([(1,0),(1,1),(1,2)]))
+        self.assertEqual([2,3,4], simulation.reward([(1,0),(1,1),(1,2)]))
 
 class LambdaSimulation_Tests(unittest.TestCase):
 
@@ -145,14 +145,15 @@ class LambdaSimulation_Tests(unittest.TestCase):
         def R(c:int,a:int) -> int:
             return a-c
 
-        with LambdaSimulation(2,C,A,R) as simulation:
-            self.assertEqual(1      , simulation.interactions[0].context)
-            self.assertEqual([1,2,3], simulation.interactions[0].actions)
-            self.assertEqual([0,1,2], simulation.rewards([(0,0),(0,1),(0,2)]))
+        simulation = LambdaSimulation(2,C,A,R).read()
 
-            self.assertEqual(2      , simulation.interactions[1].context)
-            self.assertEqual([4,5,6], simulation.interactions[1].actions)
-            self.assertEqual([2,3,4], simulation.rewards([(1,0),(1,1),(1,2)]))
+        self.assertEqual(1      , simulation.interactions[0].context)
+        self.assertEqual([1,2,3], simulation.interactions[0].actions)
+        self.assertEqual([0,1,2], simulation.reward([(0,0),(0,1),(0,2)]))
+
+        self.assertEqual(2      , simulation.interactions[1].context)
+        self.assertEqual([4,5,6], simulation.interactions[1].actions)
+        self.assertEqual([2,3,4], simulation.reward([(1,0),(1,1),(1,2)]))
 
     def test_interactions_len(self):
         def C(t:int) -> int:
@@ -164,8 +165,8 @@ class LambdaSimulation_Tests(unittest.TestCase):
         def R(c:int,a:int) -> int:
             return a-c
 
-        with LambdaSimulation(2,C,A,R) as simulation:
-            self.assertEqual(len(simulation.interactions), 2)
+        simulation = LambdaSimulation(2,C,A,R).read()
+        self.assertEqual(len(simulation.interactions), 2)
 
 class OpenmlSimulation_Tests(unittest.TestCase):
 
@@ -286,14 +287,10 @@ class Take_Tests(unittest.TestCase):
         
         simulation = MemorySimulation(interactions,rewards)
         
-        with self.assertRaises(StopPipe):
-            take_simulation = Take(4).filter(simulation)
+        take_simulation = Take(4).filter(simulation)
         
         self.assertEqual(3, len(simulation.interactions))
-        self.assertEqual(0, simulation.interactions[0].key)
-        self.assertEqual(1, simulation.interactions[1].key)
-        self.assertEqual(2, simulation.interactions[2].key)
-
+        self.assertEqual(0, len(take_simulation.interactions))
 class Batch_Tests(unittest.TestCase):
 
     def test_size_batch1(self):

@@ -23,15 +23,19 @@ class Filter(ABC, Generic[_T_in, _T_out]):
     def filter(self, item:_T_in) -> _T_out:
         ...
 
-class ForeachFilter(Filter[Iterable[Any], Iterable[Any]]):
+class ForeachFilter(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
 
-    def __init__(self, filter: Filter):
-        self._filter = filter
+    def __init__(self, filter: Union[Filter,Sequence[Filter]]):
+        
+        self._filters = filter if isinstance(filter, collections.Sequence) else [filter]
 
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+    def filter(self, item: Union[Any,Iterable[Any]]) -> Iterable[Any]:
 
+        items = item if isinstance(item, collections.Iterable) else [item]
+        
         for item in items:
-            yield self._filter.filter(item)
+            for filter in self._filters:
+                yield filter.filter(item)
 
 class JsonEncode(Filter[Iterable[Any], Iterable[str]]):
     def filter(self, items: Iterable[Any]) -> Iterable[str]:

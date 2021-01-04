@@ -200,7 +200,7 @@ class Simulation(Generic[_C_out, _A_out], ABC):
         ...
 
     @abstractmethod
-    def rewards(self, choices: Sequence[Tuple[Key,Choice]] ) -> Sequence[Reward]:
+    def reward(self, choices: Sequence[Tuple[Key,Choice]] ) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Args:
@@ -216,17 +216,23 @@ class BatchedSimulation(Generic[_C_out, _A_out]):
     """A simulation whose interactions have been batched."""
 
     def __init__(self, simulation: Simulation[_C_out, _A_out], batch_sizes: Sequence[int]) -> None:
-        self._simulation = simulation        
-        
-        batch_slices  = list(accumulate([0] + list(batch_sizes)))
-        self._batches = [simulation.interactions[batch_slices[i]:batch_slices[i+1]] for i in range(len(batch_slices)-1) ]
+        self._simulation = simulation
+
+        #remove Nones and 0s
+        batch_sizes = list(filter(None, batch_sizes))
+
+        if len(batch_sizes) == 0:
+            self._batches = []
+        else:
+            batch_slices  = list(accumulate([0] + list(batch_sizes)))
+            self._batches = [simulation.interactions[batch_slices[i]:batch_slices[i+1]] for i in range(len(batch_slices)-1) ]
 
     @property
     def interaction_batches(self) -> Sequence[Sequence[Interaction[_C_out, _A_out]]]:
         """The sequence of batches of interactions in a simulation."""
         return self._batches
 
-    def rewards(self, choices: Sequence[Tuple[Key,Choice]] ) -> Sequence[Reward]:
+    def reward(self, choices: Sequence[Tuple[Key,Choice]] ) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Args:
@@ -236,7 +242,7 @@ class BatchedSimulation(Generic[_C_out, _A_out]):
             A sequence of tuples containing context, action, and reward for the requested 
             interaction/action. This sequence will always align with the provided choices.
         """
-        return self._simulation.rewards(choices)
+        return self._simulation.reward(choices)
 
 class MemorySimulation(Simulation[_C_out, _A_out]):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
@@ -270,7 +276,7 @@ class MemorySimulation(Simulation[_C_out, _A_out]):
         """
         return self._interactions
 
-    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
+    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
@@ -310,7 +316,7 @@ class LazySimulation(Simulation[_C_out, _A_out]):
         
         raise Exception("A LazySimulation must be loaded before it can be used.")
 
-    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
+    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
@@ -318,7 +324,7 @@ class LazySimulation(Simulation[_C_out, _A_out]):
         """
         
         if self._simulation is not None:
-            return self._simulation.rewards(choices)
+            return self._simulation.reward(choices)
 
         raise Exception("A LazySimulation must be loaded before it can be used.")
 
@@ -380,7 +386,7 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
         self.label_set = label_set
         super().__init__(interactions, rewards) #type:ignore
 
-class LambdaSimulation(LazySimulation[_C_out, _A_out]):
+class LambdaSimulation(Source[Simulation[_C_out, _A_out]]):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
 
     Remarks:
@@ -404,10 +410,10 @@ class LambdaSimulation(LazySimulation[_C_out, _A_out]):
 
         self._source = LambdaSource(n_interactions, context, action_set, reward, seed) # type: ignore
 
-    def load_simulation(self) -> Simulation[_C_out, _A_out]:
+    def read(self) -> Simulation[_C_out, _A_out]:
         return MemorySimulation(*self._source.read()) #type: ignore
 
-class OpenmlSimulation(LazySimulation[Context, Tuple[int,...]]):
+class OpenmlSimulation(Source[ClassificationSimulation[Context]]):
     """A simulation created from openml data with features and labels.
 
     OpenmlSimulation turns labeled observations from a classification data set
@@ -427,10 +433,10 @@ class OpenmlSimulation(LazySimulation[Context, Tuple[int,...]]):
     def __init__(self, data_id: int, md5_checksum: str = None) -> None:
         self._openml_source = OpenmlClassificationSource(data_id, md5_checksum)
 
-    def load_simulation(self) -> Simulation[Context, Tuple[int,...]]:
+    def read(self) -> ClassificationSimulation[Context]:
         return ClassificationSimulation(*self._openml_source.read())
 
-class JsonSimulation(LazySimulation[Context, Action]):
+class JsonSimulation(Source[Simulation[Context, Action]]):
     """A Simulation implementation which supports loading and unloading from json representations.""" 
     
     def __init__(self, json_val) -> None:
@@ -442,16 +448,14 @@ class JsonSimulation(LazySimulation[Context, Action]):
 
         self._json_obj = json.loads(json_val) if isinstance(json_val,str) else json_val
 
-    def load_simulation(self) -> Simulation[Context, Action]:
-        """Load the simulation into memory. If already loaded do nothing."""
-
+    def read(self) -> Simulation[Context, Action]:
         if self._json_obj["type"] == "classification":
             return ClassificationSimulation.from_json(self._json_obj["from"])
         else:
             raise Exception("We were unable to recognize the provided simulation type")
 
 class ShuffleSimulation(Simulation[_C_out, _A_out]):
-    def __init__(self, seed:int, simulation: Simulation[_C_out, _A_out]) -> None:
+    def __init__(self, seed: Optional[int], simulation: Simulation[_C_out, _A_out]) -> None:
 
         self._simulation = simulation
         self._seed       = seed
@@ -466,14 +470,14 @@ class ShuffleSimulation(Simulation[_C_out, _A_out]):
         """
         return self._interactions
 
-    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
+    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
             See the Simulation base class for more information.
         """
 
-        return self._simulation.rewards(choices)
+        return self._simulation.reward(choices)
 
 class TakeSimulation(Simulation[_C_out, _A_out]):
     def __init__(self, count:int, simulation: Simulation[_C_out, _A_out]) -> None:
@@ -491,30 +495,33 @@ class TakeSimulation(Simulation[_C_out, _A_out]):
         """
         return self._interactions
 
-    def rewards(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
+    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
         """The observed rewards for interactions (identified by its key) and their selected action indexes.
 
         Remarks:
             See the Simulation base class for more information.
         """
 
-        return self._simulation.rewards(choices)
+        return self._simulation.reward(choices)
 
 class Shuffle(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
-    def __init__(self, seed:int) -> None:
+    def __init__(self, seed:Optional[int]) -> None:
         self._seed = seed
 
     def filter(self, item: Simulation[Context,Action]) -> Simulation[Context,Action]:        
         return ShuffleSimulation(self._seed, item)
 
 class Take(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
-    def __init__(self, count:int) -> None:
+    def __init__(self, count:Optional[int]) -> None:
         self._count = count
 
     def filter(self, item: Simulation[Context,Action]) -> Simulation[Context,Action]:
 
-        if len(item.interactions) < self._count:
-            raise StopPipe()
+        if self._count is None:
+            return TakeSimulation(len(item.interactions), item)
+
+        if self._count > len(item.interactions):
+            return TakeSimulation(0, item)
 
         return TakeSimulation(self._count, item)
 

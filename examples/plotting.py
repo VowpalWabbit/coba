@@ -46,7 +46,7 @@ if __name__ == '__main__':
     ]
 
     #define a benchmark: this benchmark replays the simulation 15 times
-    benchmark = Benchmark(simulations, batch_size = 1, shuffle_seeds=list(range(5)))
+    benchmark = Benchmark(simulations, batch_size=1, seeds=list(range(5)))
 
     #create the learner factories
     learner_factories = [

@@ -19,18 +19,23 @@ class StopPipe(Exception):
 
 class Pipe:
 
+    class FiltersFilter(Filter):
+        def __init__(self, filters: Sequence[Filter]):
+            self._filters = filters
+
+        def filter(self, items: Any) -> Any:
+            for filter in self._filters:
+                items = filter.filter(items)
+
+            return items
+
     class SourceFilters(Source):
         def __init__(self, source: Source, filters: Sequence[Filter]) -> None:
             self._source = source
-            self._filters = filters
-        
+            self._filter = Pipe.FiltersFilter(filters)
+
         def read(self) -> Any:
-            items = self._source.read()
-
-            for filt in self._filters:
-                items = filt.filter(items)
-
-            return items
+            return self._filter.filter(self._source.read())
 
     class FiltersSink(Sink):
         def __init__(self, filters: Sequence[Filter], sink: Sink) -> None:
@@ -47,16 +52,6 @@ class Pipe:
             for filt in self._filters:
                 items = filt.filter(items)
             self._sink.write(items)
-
-    class FiltersFilter(Filter):
-        def __init__(self, filters: Sequence[Filter]):
-            self._filters = filters
-
-        def filter(self, items: Any) -> Any:
-            for filter in self._filters:
-                items = filter.filter(items)
-
-            return items
 
     @overload
     @staticmethod
