@@ -11,8 +11,7 @@ import collections
 
 from copy import deepcopy
 from statistics import mean
-from abc import ABC, abstractmethod
-from itertools import product, groupby, chain, count
+from itertools import product, groupby, chain
 from statistics import median
 from pathlib import Path
 from typing import Iterable, Tuple, Union, Sequence, Generic, TypeVar, Dict, Any, cast, Optional, overload, List
@@ -222,87 +221,6 @@ class Result:
 
     def __repr__(self) -> str:
         return str(self)
-
-class Batcher(ABC):
-
-    @staticmethod
-    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'Batcher':
-
-        config = json.loads(json_val) if isinstance(json_val,str) else json_val
-
-        if "count" in config:
-            return CountBatcher.from_json(config)
-        elif "size" in config:
-            return SizeBatcher.from_json(config)
-        elif "sizes" in config:
-            return SizesBatcher.from_json(config)
-        else:
-            raise Exception("we were unable to determine an appropriate batching rule for the benchmark.")
-
-    @abstractmethod
-    def batch_sizes(self, n_interactions:int) -> Sequence[int]:
-        ...
-
-class CountBatcher(Batcher):
-
-    @staticmethod
-    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'CountBatcher':
-        config = json.loads(json_val) if isinstance(json_val,str) else json_val
-        return CountBatcher(config["count"], config.get("min",0), config.get("max",math.inf))
-
-    def __init__(self, batch_count:int, min_interactions:float = 1, max_interactions: float = math.inf) -> None:
-        self._batch_count      = batch_count
-        self._max_interactions = max_interactions
-        self._min_interactions = min_interactions
-
-    def batch_sizes(self, n_interactions: int) -> Sequence[int]:
-        if n_interactions < self._min_interactions:
-            return []
-
-        n_interactions = int(min(n_interactions, self._max_interactions))
-
-        batches   = [int(float(n_interactions)/(self._batch_count))] * self._batch_count
-        remainder = n_interactions - sum(batches)
-        for i in range(remainder): batches[int(i*len(batches)/remainder)] += 1
-
-        return batches
-
-class SizeBatcher(Batcher):
-
-    @staticmethod
-    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'SizeBatcher':
-        config = json.loads(json_val) if isinstance(json_val,str) else json_val
-        return SizeBatcher(config["size"], config.get("min",0), config.get("max",math.inf))
-
-    def __init__(self, batch_size:int, min_interactions:float = 1, max_interactions: float = math.inf) -> None:
-        self._batch_size       = batch_size
-        self._max_interactions = max_interactions
-        self._min_interactions = min_interactions
-
-    def batch_sizes(self, n_interactions: int) -> Sequence[int]:
-        if n_interactions < self._min_interactions:
-            return []
-
-        n_interactions = int(min(n_interactions, self._max_interactions))
-
-        return [self._batch_size] * int(n_interactions/self._batch_size)
-
-class SizesBatcher(Batcher):
-
-    @staticmethod
-    def from_json(json_val:Union[str, Dict[str, Any]]) -> 'SizesBatcher':
-        
-        config = json.loads(json_val) if isinstance(json_val,str) else json_val
-        return SizesBatcher(config["sizes"])
-
-    def __init__(self, batch_sizes: Sequence[int]) -> None:
-        self._batch_sizes = batch_sizes
-
-    def batch_sizes(self, n_interactions: int) -> Sequence[int]:
-        if sum(self._batch_sizes) > n_interactions:
-            return []
-
-        return self._batch_sizes
 
 class Transaction:
 
