@@ -72,8 +72,8 @@ class Interaction(Generic[_C_out, _A_out]):
 
 class OpenmlClassificationSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
-    def __init__(self, data_id:int, md5_checksum:str = None):
-        self._data_id      = data_id
+    def __init__(self, id:int, md5_checksum:str = None):
+        self._data_id      = id
         self._md5_checksum = md5_checksum
 
     def read(self) -> Tuple[Sequence[Sequence[Any]], Sequence[Any]]:
@@ -364,8 +364,8 @@ class OpenmlSimulation(Source[ClassificationSimulation[Context]]):
         dataset is being streamed instead of waiting until the end of the data to train an encoder.
     """
 
-    def __init__(self, data_id: int, md5_checksum: str = None) -> None:
-        self._openml_source = OpenmlClassificationSource(data_id, md5_checksum)
+    def __init__(self, id: int, md5_checksum: str = None) -> None:
+        self._openml_source = OpenmlClassificationSource(id, md5_checksum)
 
     def read(self) -> ClassificationSimulation[Context]:
         with ExecutionContext.Logger.log(f"loading openml {self._openml_source._data_id}..."):
