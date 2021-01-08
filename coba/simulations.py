@@ -452,7 +452,7 @@ class PcaSimulation(Simulation[Tuple[float,...], _A_out]):
         
         check_numpy_support("PcaSimulation.__init__")
         
-        import numpy as np
+        import numpy as np #type: ignore
 
         feat_matrix          = np.array([list(i.context) for i in simulation.interactions])
         comp_vals, comp_vecs = np.linalg.eig(np.cov(feat_matrix.T))
@@ -505,7 +505,7 @@ class Take(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
 
         return TakeSimulation(self._count, item)
 
-class Batch(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
+class Batch(Filter[Simulation[Context,Action],BatchedSimulation[Context,Action]]):
     
     @overload
     def __init__(self,*,count: int): ...

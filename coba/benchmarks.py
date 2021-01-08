@@ -294,7 +294,7 @@ class TaskSource(Source):
         simulations = dict(enumerate(self._simulations))
         learners    = dict(enumerate(self._learners))
         restored    = self._restored
-        sources     = { sim_key:sources_set.index(sim_source) for sim_key,sim_source in zip(simulations.keys(), simulation_sources) }
+        source_idxs = { sim_key:sources_set.index(sim_source) for sim_key,sim_source in zip(simulations.keys(), simulation_sources) }
 
         expected_batch_count = cast(Dict[Any, int], collections.defaultdict(lambda:  int(-1)))
         restored_batch_count = cast(Dict[Any, int], collections.defaultdict(lambda:  int( 0)))
@@ -308,14 +308,14 @@ class TaskSource(Source):
         is_not_complete = lambda t: restored_batch_count[t] != expected_batch_count[t[0]]
         task_keys       = filter(is_not_complete, product(simulations.keys(), learners.keys()))
 
-        source_grouped_tasks = {}
+        source_grouped_tasks: Dict[int, Tuple[List[int], List[int], List[Learner], List[Source[BatchedSimulation]]]] = {}
 
         for simulation_key, learner_key in task_keys:
             
-            if sources[simulation_key] not in source_grouped_tasks:
-                source_grouped_tasks[sources[simulation_key]] = ([],[],[],[])
+            if source_idxs[simulation_key] not in source_grouped_tasks:
+                source_grouped_tasks[source_idxs[simulation_key]] = ([],[],[],[])
             
-            source_grouped_task = source_grouped_tasks[sources[simulation_key]]
+            source_grouped_task = source_grouped_tasks[source_idxs[simulation_key]]
 
             source_grouped_task[0].append(simulation_key)
             source_grouped_task[1].append(learner_key)
@@ -622,7 +622,7 @@ class BenchmarkSimulation(Source[Simulation[_C,_A]]):
 
     def __init__(self, 
         source             : Source[Simulation], 
-        filters            : Sequence[Filter[Simulation,Simulation]],
+        filters            : Sequence[Filter[Simulation,Union[Simulation, BatchedSimulation]]],
         source_description :str = "", 
         filter_descriptions:Sequence[str] = []) -> None:
         
@@ -630,10 +630,10 @@ class BenchmarkSimulation(Source[Simulation[_C,_A]]):
             source_description  = source.source_description or source_description
             filter_descriptions = list(source.filter_descriptions) + list(filter_descriptions)
 
-        self._source             = source
-        self._filter             = Pipe.FiltersFilter(filters)
-        self.source_description  = source_description
-        self.filter_descriptions = list(filter_descriptions)
+        self._source                             = source
+        self._filter                             = Pipe.FiltersFilter(filters)
+        self.source_description : str            = source_description
+        self.filter_descriptions: Sequence[str] = list(filter_descriptions)
     
     def read(self) -> Simulation[_C,_A]:
         return self._filter.filter(self._source.read())
@@ -686,7 +686,7 @@ class Benchmark(Generic[_C,_A]):
             if batch_rule in batch_config:
                 kwargs[f"batch_{batch_rule}"] = batch_config[batch_rule]
 
-        simulations = []
+        simulations: List[BenchmarkSimulation] = []
 
         for sim_config in config["simulations"]:
             if sim_config["type"] != "classification":
@@ -698,7 +698,7 @@ class Benchmark(Generic[_C,_A]):
             source             = OpenmlSimulation(sim_config["from"]["id"], sim_config["from"].get("md5_checksum", None))
             source_description = f'{{"OpenmlSimulation":{sim_config["from"]["id"]}}}'
 
-            filters = []
+            filters: List[Filter[Simulation,Simulation]] = []
 
             
             filter_descriptions = []
@@ -772,7 +772,7 @@ class Benchmark(Generic[_C,_A]):
         else:
             batcher = Batch(size=kwargs.get('batch_size',1))
 
-        pipes = []
+        pipes: List[BenchmarkSimulation] = []
 
         for source_id, source in enumerate(simulations):
             for shuffler in shufflers:
@@ -789,7 +789,9 @@ class Benchmark(Generic[_C,_A]):
                 if batcher._size != 1:
                     filters_description.append(f'{{"Batch":{[batcher._size,batcher._count,batcher._sizes]}}}')
 
-                pipes.append(BenchmarkSimulation(source, [shuffler, taker, batcher], source_description, filters_description))
+                filters: List[Union[Filter[Simulation, Simulation],Filter[Simulation,BatchedSimulation]]] = [shuffler, taker, batcher]
+
+                pipes.append(BenchmarkSimulation(source, filters, source_description, filters_description))
 
         self._simulation_pipes = cast(Sequence[Source[BatchedSimulation[Context,Action]]], pipes)
         self._ignore_raise     = cast(bool                                               ,kwargs.get('ignore_raise', True))
