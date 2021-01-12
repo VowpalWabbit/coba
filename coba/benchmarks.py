@@ -70,7 +70,7 @@ class Result:
         # 1. TransactionLogPromote.current_version() will need to be bumped to version 3
         # 2. TransactionLogPromote.to_next_version() will need to promote version 2 to 3
         # 3. TransactionLog.write_batch will need to be modified to write in new order
-        self.batches     = Table("Batches"    , ['learner_id', 'simulation_id', 'batch_index'])
+        self.batches     = Table("Batches"    , ['simulation_id', 'learner_id'])
 
     def to_tuples(self) -> Tuple[Sequence[Any], Sequence[Any], Sequence[Any]]:
         return (
@@ -128,9 +128,8 @@ class Result:
         learners = {key:value for key,value in learners.items() if select_learners is None or key in select_learners}
         batches  = {key:value for key,value in batches.items() if select_learners is None or value.learner_id in select_learners}
 
-        learner_index_key = lambda batch: (batch.learner_id, batch.batch_index)
-        sorted_batches    = sorted(batches.values(), key=learner_index_key)
-        grouped_batches   = groupby(groupby(sorted_batches , key=learner_index_key), key=lambda x: x[0][0])
+        sorted_batches  = sorted(batches.values(), key=lambda batch: batch.learner_id)
+        grouped_batches = groupby(sorted_batches , key=lambda batch: batch.learner_id)
 
         max_batch_N = 0
 
@@ -148,13 +147,18 @@ class Result:
             cumean     = OnlineMean()
             cuvariance = OnlineVariance()
 
-            for (_, batch_index), index_batches in learner_batches:
+            Ns, Rs = list(zip(*[ (b.N, b.reward) for b in learner_batches ]))
+
+            Ns = list(zip(*Ns))
+            Rs = list(zip(*Rs))
+
+            for batch_index, batch_Ns, batch_Rs in zip(itertools.count(), Ns,Rs):
 
                 incount    = 0
                 inmean     = OnlineMean()
                 invariance = OnlineVariance()
 
-                for N, reward in [ (b.N, b.reward) for b in index_batches]:
+                for N, reward in zip(batch_Ns, batch_Rs):
                     
                     max_batch_N = max(N, max_batch_N)
                     
@@ -249,7 +253,7 @@ class Transaction:
         return ["L", learner_id, kwargs]
 
     @staticmethod
-    def learners(learners: 'Sequence[BenchmarkLearner[_C, _A]]') -> Iterable[Any]:
+    def learners(learners: 'Sequence[BenchmarkLearner]') -> Iterable[Any]:
         for index, learner in enumerate(learners):
             yield Transaction.learner(index, family=learner.family, full_name=learner.full_name, **learner.params)
 
@@ -264,7 +268,7 @@ class Transaction:
         return ["S", simulation_id, kwargs]
 
     @staticmethod
-    def batch(learner_id:int, simulation_id:int, batch_index:int, **kwargs) -> Any:
+    def batch(simulation_id:int, learner_id:int, **kwargs) -> Any:
         """Write batch metadata row to Result.
 
         Args:
@@ -273,7 +277,7 @@ class Transaction:
             batch_index: The index of the batch within the simulation.
             kwargs: The metadata to store about the batch.
         """
-        return ["B", (learner_id, simulation_id, batch_index), kwargs]
+        return ["B", (simulation_id, learner_id), kwargs]
 
 class TaskSource(Source):
     
@@ -288,7 +292,7 @@ class TaskSource(Source):
         #second remove pipes that are already finished
         #group pipes into a single pipe based on source
 
-        simulation_sources = [s._source if isinstance(s, Pipe.SourceFilters) else s for s in self._simulations]
+        simulation_sources = [s._source if isinstance(s, (Pipe.SourceFilters, BenchmarkSimulation)) else s for s in self._simulations]
         sources_set        = list(set(simulation_sources))
 
         simulations = dict(enumerate(self._simulations))
@@ -296,16 +300,9 @@ class TaskSource(Source):
         restored    = self._restored
         source_idxs = { sim_key:sources_set.index(sim_source) for sim_key,sim_source in zip(simulations.keys(), simulation_sources) }
 
-        expected_batch_count = cast(Dict[Any, int], collections.defaultdict(lambda:  int(-1)))
-        restored_batch_count = cast(Dict[Any, int], collections.defaultdict(lambda:  int( 0)))
+        zero_batch_sims = [row['simulation_id'] for row in restored.simulations.get_where(batch_count=0)]
 
-        for k,v in restored.simulations.rows.items():
-            expected_batch_count[k] = v[restored.simulations._columns.index('batch_count')]
-
-        for k in restored.batches.rows:
-            restored_batch_count[(k[1],k[0])] +=1 #type:ignore
-
-        is_not_complete = lambda t: restored_batch_count[t] != expected_batch_count[t[0]]
+        is_not_complete = lambda t: t not in restored.batches and t[0] not in zero_batch_sims
         task_keys       = filter(is_not_complete, product(simulations.keys(), learners.keys()))
 
         source_grouped_tasks: Dict[int, Tuple[List[int], List[int], List[Learner], List[Source[BatchedSimulation]]]] = {}
@@ -366,16 +363,17 @@ class TaskToTransactions(Filter):
                 learner = deepcopy(learner)
                 learner.init()
 
-                for batch_index, batch in enumerate(batches):
-                    for transaction in self._process_batch(learner_id, simulation_id, batch_index, batch, simulation.reward, learner):
-                        yield transaction
+                if len(batches) > 0:
+                    Ns, Rs = zip(*[ self._process_batch(batch, simulation.reward, learner) for batch in batches ])
+                    yield Transaction.batch(simulation_id, learner_id, N=list(Ns), reward=list(Rs))
+
         except KeyboardInterrupt:
             raise
         except Exception as e:
             ExecutionContext.Logger.log_exception(e, "unhandled exception:")
             if not self._ignore_raise: raise e
 
-    def _process_batch(self, learner_index, simulation_index, batch_index, batch, reward, learner) -> Iterable[Any]:
+    def _process_batch(self, batch, reward, learner) -> Tuple[int, float]:
         
         keys     = []
         contexts = []
@@ -398,8 +396,7 @@ class TaskToTransactions(Filter):
         for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
             learner.learn(key,context,action,reward)
 
-        if batch_index >= 0:
-            yield Transaction.batch(learner_index, simulation_index, batch_index, N=len(rewards), reward=round(mean(rewards),5))
+        return len(rewards), round(mean(rewards),5)
 
     def _context_sizes(self, interactions) -> Iterable[int]:
         if len(interactions) == 0:
@@ -481,6 +478,9 @@ class TransactionPromote(Filter):
                 S_transactions: Dict[int, Any]                 = {}
                 S_seeds       : Dict[int, List[Optional[int]]] = collections.defaultdict(list)
 
+                B_rows: Dict[Tuple[int,int], Dict[str, List[float]] ] = {}
+                B_cnts: Dict[int, int                               ] = {}
+
                 promoted_items = [["version",2]]
 
                 for transaction in items:
@@ -510,7 +510,6 @@ class TransactionPromote(Filter):
                             raise StopPipe("We are unable to promote logs from version 1 to version 2")
 
                         if seed not in S_seeds[S_id]:
-                            
                             S_seeds[S_id].append(seed)
                             
                             new_S_id = n_seeds * S_id + S_seeds[S_id].index(seed)
@@ -519,9 +518,18 @@ class TransactionPromote(Filter):
                             new_dict["source"]  = str(S_id)
                             new_dict["filters"] = f'[{{"Shuffle":{seed}}}]'
 
+                            B_cnts[S_id] = new_dict['batch_count']
+
                             promoted_items.append(["S", new_S_id, new_dict])
 
-                        promoted_items.append(["B", [L_id, S_id, B_id], transaction[2] ])
+                        if B_id == 0: B_rows[(S_id, L_id)] = {"N":[], "reward":[]}
+
+                        B_rows[(S_id, L_id)]["N"     ].append(transaction[2]["N"])
+                        B_rows[(S_id, L_id)]["reward"].append(transaction[2]["reward"])
+
+                        if len(B_rows[(S_id, L_id)]["N"]) == B_cnts[S_id]:
+                            promoted_items.append(["B", [S_id, L_id], B_rows[(S_id, L_id)]])
+                            del B_rows[(S_id, L_id)]
 
                 items   = promoted_items
                 version = 2
@@ -580,7 +588,7 @@ class TransactionSink(Sink):
 
         raise Exception("Transactions were written to an unrecognized sink.")
 
-class BenchmarkLearner(Learner[_C,_A]):
+class BenchmarkLearner(Learner[Context, Action]):
 
     @property
     def family(self) -> str:
@@ -603,7 +611,7 @@ class BenchmarkLearner(Learner[_C,_A]):
         else:
             return self.family
 
-    def __init__(self, learner: Learner[_C,_A]) -> None:
+    def __init__(self, learner: Learner[Context,Action]) -> None:
         self._learner = learner
 
     def init(self) -> None:
@@ -612,10 +620,10 @@ class BenchmarkLearner(Learner[_C,_A]):
         except AttributeError:
             pass
 
-    def choose(self, key: Key, context: _C, actions: Sequence[_A]) -> Choice:
+    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
         return self._learner.choose(key, context, actions)
     
-    def learn(self, key: Key, context: _C, action: _A, reward: Reward) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
         self._learner.learn(key, context, action, reward)
 
 class BenchmarkSimulation(Source[Simulation[_C,_A]]):
@@ -627,13 +635,15 @@ class BenchmarkSimulation(Source[Simulation[_C,_A]]):
         filter_descriptions:Sequence[str] = []) -> None:
         
         if isinstance(source, BenchmarkSimulation):
-            source_description  = source.source_description or source_description
-            filter_descriptions = list(source.filter_descriptions) + list(filter_descriptions)
-
-        self._source                             = source
-        self._filter                             = Pipe.FiltersFilter(filters)
-        self.source_description : str            = source_description
-        self.filter_descriptions: Sequence[str] = list(filter_descriptions)
+            self._source        = source._source
+            self._filter        = Pipe.FiltersFilter(list(source._filter._filters)+list(filters))
+            self.source_description  = source.source_description or source_description
+            self.filter_descriptions = list(source.filter_descriptions) + list(filter_descriptions)
+        else:
+            self._source             = source
+            self._filter             = Pipe.FiltersFilter(filters)
+            self.source_description  = source_description
+            self.filter_descriptions = list(filter_descriptions)
     
     def read(self) -> Simulation[_C,_A]:
         return self._filter.filter(self._source.read())
@@ -679,7 +689,10 @@ class Benchmark(Generic[_C,_A]):
         kwargs['ignore_raise'] = config.get("ignore_raise", True)
         kwargs['seeds']        = config.get('shuffle', [None])
 
-        if 'min_interactions' in batch_config:
+        if 'min' in batch_config:
+            kwargs['take'] = batch_config['min']
+
+        if 'max' in batch_config:
             kwargs['take'] = batch_config['min']
 
         for batch_rule in ['size', 'count', 'sizes']:
@@ -800,10 +813,6 @@ class Benchmark(Generic[_C,_A]):
 
     def ignore_raise(self, value:bool=True) -> 'Benchmark[_C,_A]':
         self._ignore_raise = value
-        return self
-
-    def ignore_first(self, value:bool=True) -> 'Benchmark[_C,_A]':
-        self._ignore_first = value
         return self
 
     def processes(self, value:int) -> 'Benchmark[_C,_A]':

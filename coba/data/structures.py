@@ -86,6 +86,9 @@ class Table:
 
         return primary in self.rows
 
+    def __getitem__(self, key) -> Dict[str,Any]:
+        return self.get_row(key)
+
     def __str__(self) -> str:
         return str({"Table": self._name, "Columns": self._columns, "Rows": len(self.rows)})
 

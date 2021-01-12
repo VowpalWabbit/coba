@@ -67,7 +67,7 @@ class TransactionIsNew_Test(unittest.TestCase):
         existing = Result.from_transactions([
             Transaction.learner(0, a='A'),
             Transaction.simulation(0, b='B'),
-            Transaction.batch(0, 1, 2, reward=mean([1,2,3]))
+            Transaction.batch(0, 1, reward=mean([1,2,3]))
         ])
 
         filter = TransactionIsNew(existing)
@@ -75,7 +75,7 @@ class TransactionIsNew_Test(unittest.TestCase):
         transactions = list(filter.filter([
             Transaction.learner(0, a='A'), 
             Transaction.simulation(0, b='B'), 
-            Transaction.batch(0, 1, 2, reward=mean([1,2,3]))]
+            Transaction.batch(0, 1, reward=mean([1,2,3]))]
         ))
 
         self.assertEqual(len(transactions), 0)
@@ -84,7 +84,7 @@ class TransactionIsNew_Test(unittest.TestCase):
         existing = Result.from_transactions([
             Transaction.learner(0, a='A'),
             Transaction.simulation(0, b='B'),
-            Transaction.batch(0, 1, 2, reward=mean([1,2,3]))
+            Transaction.batch(0, 1, reward=mean([1,2,3]))
         ])
 
         filter = TransactionIsNew(existing)
@@ -92,7 +92,7 @@ class TransactionIsNew_Test(unittest.TestCase):
         transactions = list(filter.filter([
             Transaction.learner(1, a='A'), 
             Transaction.simulation(1, b='B'), 
-            Transaction.batch(1, 1, 2, reward=mean([1,2,3]))]
+            Transaction.batch(1, 1, reward=mean([1,2,3]))]
         ))
 
         self.assertEqual(len(transactions), 3)
@@ -101,12 +101,12 @@ class Result_Tests(unittest.TestCase):
 
     def test_has_batches_key(self):
         result = Result.from_transactions([
-            Transaction.batch(0, 1, 2, a='A'),
-            Transaction.batch(0, 2, 2, b='B')
+            Transaction.batch(0, 1, a='A'),
+            Transaction.batch(0, 2, b='B')
         ])
 
-        self.assertTrue( (0,1,2) in result.batches)
-        self.assertTrue( (0,2,2) in result.batches)
+        self.assertTrue( (0,1) in result.batches)
+        self.assertTrue( (0,2) in result.batches)
 
         self.assertEqual(len(result.batches), 2)
 
@@ -145,7 +145,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
 
         expected_learners    = [(0,"0","0")]
         expected_simulations = [(0, '0', ['{"Batch":[None, 1, None]}'], 5, 1, 1, 3), (1, '1', ['{"Batch":[None, 1, None]}'], 4, 1, 1, 3)]
-        expected_batches     = [(0, 0, 0, 5, mean([0,1,2,0,1])), (0, 1, 0, 4, mean([3,4,5,3]))]
+        expected_batches     = [(0, 0, [5], [mean([0,1,2,0,1])]), (1, 0, [4], [mean([3,4,5,3])])]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_simulations, expected_simulations)
@@ -160,7 +160,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
 
         expected_learners    = [(0,"0","0")]
         expected_simulations = [(0, '0', ['{"Shuffle":1}', '{"Batch":[None, None, [2]]}'], 2, 1, 1, 3), (1, '0', ['{"Shuffle":4}', '{"Batch":[None, None, [2]]}'], 2, 1, 1, 3)]
-        expected_batches     = [(0, 0, 0, 2, mean([1,0])), (0, 1, 0, 2, mean([2,0]))]
+        expected_batches     = [(0, 0, [2], [mean([1,0])]), (1, 0, [2], [mean([2,0])])]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_simulations, expected_simulations)
@@ -176,7 +176,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
 
         expected_learners    = [(0,"0","0")]
         expected_simulations = [(0, '0', ['{"Take":5}', '{"Batch":[None, 1, None]}'], 5, 1, 1, 3), (1, '1', ['{"Take":5}', '{"Batch":[None, 1, None]}'], 0, 0, 0, 0)]
-        expected_batches     = [(0, 0, 0, 5, mean([0,1,2,0,1]))]
+        expected_batches     = [(0, 0, [5], [mean([0,1,2,0,1])])]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_simulations, expected_simulations)
@@ -193,7 +193,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
 
         expected_learners     = [(0,"0","0"), (1,"1","1")]
         expected_simulations  = [(0, '0', ['{"Batch":[None, 1, None]}'], 5, 1, 1, 3)]
-        expected_batches      = [ (0, 0, 0, 5, mean([0,1,2,0,1])), (1, 0, 0, 5, mean([0,1,2,0,1])) ]
+        expected_batches      = [(0, 0, [5], [mean([0,1,2,0,1])]), (0, 1, [5], [mean([0,1,2,0,1])]) ]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_simulations, expected_simulations)
@@ -215,7 +215,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
 
             expected_learners    = [(0,"0","0")]
             expected_simulations = [(0, '0', ['{"Batch":[None, 1, None]}'], 5, 1, 1, 3)]
-            expected_batches     = [(0, 0, 0, 5, mean([0,1,2,0,1]))]
+            expected_batches     = [(0, 0, [5], [mean([0,1,2,0,1])])]
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
 

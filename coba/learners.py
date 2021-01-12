@@ -8,7 +8,7 @@ import math
 import collections
 
 from abc import ABC, abstractmethod
-from typing import Any, Sequence, Tuple, Optional, Dict, cast, Generic, TypeVar, overload, Union, Callable
+from typing import Any, Sequence, Tuple, Optional, Dict, cast, Generic, TypeVar, overload, Union
 from collections import defaultdict
 
 import coba.vowpal as VW
@@ -19,9 +19,6 @@ from coba.statistics import OnlineVariance
 
 _C_in = TypeVar('_C_in', bound=Context, contravariant=True)
 _A_in = TypeVar('_A_in', bound=Action , contravariant=True)
-
-_C_out = TypeVar('_C_out', bound=Context, covariant=True)
-_A_out = TypeVar('_A_out', bound=Action , covariant=True)
 
 class Learner(Generic[_C_in, _A_in], ABC):
     """The interface for Learner implementations."""
@@ -96,15 +93,6 @@ class Learner(Generic[_C_in, _A_in], ABC):
             reward: the reward received for taking the given action in the given context.
         """
         ...
-
-class LearnerFactory(Generic[_C_out, _A_out]):
-    def __init__(self, ctor: Callable[...,Learner[_C_out,_A_out]], *args, **kwargs) -> None:
-        self._ctor   = ctor
-        self._args   = args
-        self._kwargs = kwargs
-
-    def create(self) -> Learner[_C_out,_A_out]:
-        return self._ctor(*self._args, **self._kwargs)
 
 class RandomLearner(Learner[Context, Action]):
     """A Learner implementation that selects an action at random and learns nothing."""
@@ -544,6 +532,8 @@ class CorralLearner(Learner[Context, Action]):
         self._random   = CobaRandom(seed)
         self._chosen_i: Dict[Key,int] = {}
 
+        self.learns = 0
+
     @property
     def family(self) -> str:
         """The family of the learner.
@@ -560,8 +550,10 @@ class CorralLearner(Learner[Context, Action]):
         """        
         return {"eta": self._eta_init, "B": [ b.family for b in self._base_learners ] }
 
-    def choose(self, key: Key, context: _C_in, actions: Sequence[_A_in]) -> Choice:
+    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
 
+        #for now this is necessary to make sure learners that store data 
+        #from the choose step before learning are properly initialized
         thetas = [ base_algorithm.choose(key, context, actions) for base_algorithm in self._base_learners ]
 
         i = self._random.choice(range(self._M), self._p_bars)
@@ -570,16 +562,18 @@ class CorralLearner(Learner[Context, Action]):
 
         return thetas[i]
 
-    def learn(self, key: Key, context: _C_in, action: _A_in, reward: Reward) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
 
-        loss = 1-reward # this assumes reward \in [0,1]
+        self.learns += 1
+
+        loss     = 1-reward # this assumes reward \in [0,1]
         chosen_i = self._chosen_i.pop(key)
 
         rewards = [ reward/self._p_bars[chosen_i] * int(i == chosen_i) for i in range(self._M)]
         losses  = [ loss/self._p_bars[chosen_i] * int(i == chosen_i) for i in range(self._M)]
 
-        for learner,reward in zip(self._base_learners, rewards):
-            learner.learn(key, context, action, reward)
+        for learner,L in zip(self._base_learners, losses):
+            learner.learn(key, context, action, -L)
 
         self._ps     = list(self._log_barrier_omd(losses))
         self._p_bars = [ (1-self._gamma)*p + self._gamma*1/self._M for p in self._ps ]
@@ -593,38 +587,59 @@ class CorralLearner(Learner[Context, Action]):
 
         f  = lambda l: float(sum( [ 1/((1/p) + eta*(loss-l)) for p, eta, loss in zip(self._ps, self._etas, losses)]))
         df = lambda l: float(sum( [ eta/((1/p) + eta*(loss-l))**2 for p, eta, loss in zip(self._ps, self._etas, losses)]))
+        
+        denom_zeros = [ ((-1/p)-(eta*loss))/-eta for p, eta, loss in zip(self._ps, self._etas, losses) ]
 
         min_loss = min(losses)
         max_loss = max(losses)
 
-        if max_loss - 1 < .0001:
-            l = float(1)
-        elif max_loss > 2000:
-            l = float(0)
+        precision = 4
+
+        def newtons_zero(l,r) -> Optional[float]:
+            #depending on scales this check may fail though that seems unlikely
+            if (f(l+.0001)-1) * (f(r-.00001)-1) >= 0:
+                return None
+
+            i = 0
+            x = (l+r)/2
+
+            while True:
+                i += 1
+
+                if df(x) == 0:
+                    print('what happened? (0)')
+                    print(x)
+                    print(self._ps)
+                    print(self._etas)
+                    print(losses)
+
+                x -= (f(x)-1)/df(x)
+
+                if round(f(x),precision) == 1:
+                    return x
+
+                if (i % 30000) == 0:
+                    print(i)
+
+        lmbda: Optional[float] = None
+
+        if min_loss == max_loss:
+            lmbda = min_loss
+        elif min_loss not in denom_zeros and round(f(min_loss),precision) == 1:
+            lmbda = min_loss
+        elif max_loss not in denom_zeros and round(f(max_loss),precision) == 1:
+            lmbda = max_loss
         else:
-            l = (min_loss + max_loss)/2
+            brackets = list(sorted(filter(lambda z: min_loss <= z and z <= max_loss, set(denom_zeros + [min_loss, max_loss]))))
 
-        i = 0
+            for l_brack, r_brack in zip(brackets[:-1], brackets[1:]):
+                lmbda = newtons_zero(l_brack, r_brack)
+                if lmbda is not None: break
 
-        while True:
+        if lmbda is None:
+            print('what happened? (None)')
+            print(self._ps)
+            print(self._etas)
+            print(losses)
 
-            i += 1
-
-            #try:
-            if l < min_loss or l > max_loss:
-                l = min_loss + self._random.random() * (max_loss-min_loss)
-
-            if df(l) == 0:
-                print('what happened?')
-
-            l = l - (f(l)-1)/df(l)
-
-            if round(f(l)-1,5) == 0:
-                break
-            #except:
-            #    l = min_loss + self._random.random() * (max_loss-min_loss)
-
-            if (i % 30000) == 0:
-                print(i)
-
-        return [ 1/((1/p) + eta*(loss-l)) for p, eta, loss in zip(self._ps, self._etas, losses)]
+        return [ max(1/((1/p) + eta*(loss-lmbda)),.00001) for p, eta, loss in zip(self._ps, self._etas, losses)]
