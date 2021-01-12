@@ -41,8 +41,12 @@ class Table:
     def rmv_row(self, key: Hashable) -> None:
         self.rows.pop(key, None)
 
-    def get_where(self, **kwrow) -> Iterable[Dict[str,Any]]:
-        idx_val = [ (self._columns.index(col), val) for col,val in kwrow.items() ]
+    def get_where(self, **kwargs) -> Iterable[Dict[str,Any]]:
+
+        if any([k not in self._columns for k in kwargs]):
+            return
+
+        idx_val = [ (self._columns.index(col), val) for col,val in kwargs.items() ]
 
         for key,row in self.rows.items():
             if all( row[i]==v for i,v in idx_val):
