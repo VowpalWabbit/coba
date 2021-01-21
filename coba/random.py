@@ -9,9 +9,6 @@ Remarks:
     according to integer seeds across all versions of Python. The standard implementation 
     of random within Python has had a few variations in implementation in the past and 
     could always change in the future, making randomization by seed potentially non-fixed.
-
-TODO: Add unit tests for random
-TODO: Add unit tests for choice
 """
 
 import math
@@ -113,7 +110,7 @@ class CobaRandom:
             cdf = list(itertools.accumulate(weights))
             rng = self.random() * sum(weights)
 
-            return [ rng <= c for c in cdf].index(True)
+            return seq[[ rng <= c for c in cdf].index(True)]
 
     def _next(self, n: int) -> Sequence[int]:
         """Generate `n` uniform random numbers in [0,m-1]

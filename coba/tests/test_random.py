@@ -195,5 +195,20 @@ class Random_Tests(unittest.TestCase):
 
         self.assertLess(chi_squared, 15)        
 
+    def test_choice1(self):
+        choices = [(0,1), (1,0)]
+
+        choice = coba.random.choice(choices)
+
+        self.assertIsInstance(choice, tuple)
+
+    def test_choice2(self):
+        weights = [0.5,0.5]
+        choices = [(0,1), (1,0)]
+
+        choice = coba.random.choice(choices,weights)
+
+        self.assertIsInstance(choice, tuple)
+
 if __name__ == '__main__':
     unittest.main()

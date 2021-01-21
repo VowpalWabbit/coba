@@ -22,10 +22,10 @@ class ModuloLearner(Learner[int,int]):
     def params(self):
         return {}
 
-    def choose(self, key, context, actions):
-        return actions.index(actions[context%len(actions)])
+    def predict(self, key, context, actions):
+        return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
 
-    def learn(self, key, context, action, reward):
+    def learn(self, key, context, action, reward, probability):
         pass
 
 class BrokenLearner(Learner[int,int]):
@@ -37,10 +37,10 @@ class BrokenLearner(Learner[int,int]):
     def params(self):
         return {}
 
-    def choose(self, key, context, actions):
+    def predict(self, key, context, actions):
         raise Exception()
 
-    def learn(self, key, context, action, reward):
+    def learn(self, key, context, action, reward, probability):
         pass
 
 class NotPicklableLearner(Learner[int,int]):
@@ -55,10 +55,10 @@ class NotPicklableLearner(Learner[int,int]):
     def __init__(self):
         self._val = lambda x: 1
 
-    def choose(self, key, context, actions):
+    def predict(self, key, context, actions):
         return 0
 
-    def learn(self, key, context, action, reward):
+    def learn(self, key, context, action, reward, probability):
         pass
 
 class TransactionIsNew_Test(unittest.TestCase):

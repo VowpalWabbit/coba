@@ -16,8 +16,9 @@ from statistics import median
 from pathlib import Path
 from typing import Iterable, Tuple, Union, Sequence, Generic, TypeVar, Dict, Any, cast, Optional, overload, List
 
-from coba.learners import Learner, Choice, Key
-from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Context, Action, Reward, PCA, Sort
+from coba.random import CobaRandom
+from coba.learners import Learner, Key
+from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Choice, Context, Action, Reward, PCA, Sort
 from coba.execution import ExecutionContext
 from coba.statistics import OnlineMean, OnlineVariance
 from coba.utilities import check_matplotlib_support, check_pandas_support
@@ -96,7 +97,7 @@ class Result:
 
         return (l,s,b)
 
-    def standard_plot(self, select_learners: Sequence[int] = None,  show_err: bool = False, show_sd: bool = False) -> None:
+    def standard_plot(self, select_learners: Sequence[int] = None,  show_err: bool = False, show_sd: bool = False, figsize=(12,4)) -> None:
 
         check_matplotlib_support('Plots.standard_plot')
 
@@ -183,7 +184,7 @@ class Result:
 
         import matplotlib.pyplot as plt #type: ignore
 
-        fig = plt.figure(figsize=(12,4))
+        fig = plt.figure(figsize=figsize)
 
         index_unit = "Interaction" if max_batch_N ==1 else "Batch"
         
@@ -210,14 +211,14 @@ class Result:
         ax1.set_ylim(min(bot1,bot2), max(top1,top2))
         ax2.set_ylim(min(bot1,bot2), max(top1,top2))
 
-        scale = 0.75
+        scale = 0.5
         box1 = ax1.get_position()
         box2 = ax2.get_position()
         ax1.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
         ax2.set_position([box2.x0, box2.y0 + box2.height * (1-scale), box2.width, box2.height * scale])
 
         # Put a legend below current axis
-        fig.legend(*ax1.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .175), ncol=2) #type: ignore
+        fig.legend(*ax1.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=2, fontsize='small') #type: ignore
 
         plt.show()
 
@@ -281,7 +282,7 @@ class Transaction:
 
 class TaskSource(Source):
     
-    def __init__(self, simulations: Sequence[Source[BatchedSimulation]], learners: Sequence[Learner], restored: Result) -> None:
+    def __init__(self, simulations: Sequence[Source[BatchedSimulation]], learners: Sequence['BenchmarkLearner'], restored: Result) -> None:
         self._simulations = simulations
         self._learners    = learners
         self._restored    = restored
@@ -305,7 +306,7 @@ class TaskSource(Source):
         is_not_complete = lambda t: t not in restored.batches and t[0] not in zero_batch_sims
         task_keys       = filter(is_not_complete, product(simulations.keys(), learners.keys()))
 
-        source_grouped_tasks: Dict[int, Tuple[List[int], List[int], List[Learner], List[Source[BatchedSimulation]]]] = {}
+        source_grouped_tasks: Dict[int, Tuple[List[int], List[int], List[BenchmarkLearner], List[Source[BatchedSimulation]]]] = {}
 
         for simulation_key, learner_key in task_keys:
             
@@ -379,22 +380,24 @@ class TaskToTransactions(Filter):
         contexts = []
         choices  = []
         actions  = []
+        probs    = []
 
         for interaction in batch:
 
-            choice = learner.choose(interaction.key, interaction.context, interaction.actions)
+            choice, prob = learner.choose(interaction.key, interaction.context, interaction.actions)
 
             assert choice in range(len(interaction.actions)), "An invalid action was chosen by the learner"
 
             keys    .append(interaction.key)
             contexts.append(interaction.context)
             choices .append(choice)
+            probs   .append(prob)
             actions .append(interaction.actions[choice])
 
         rewards = reward(list(zip(keys, choices))) 
 
-        for (key,context,action,reward) in zip(keys,contexts,actions,rewards):
-            learner.learn(key,context,action,reward)
+        for (key,context,action,reward,prob) in zip(keys,contexts,actions,rewards, probs):
+            learner.learn(key,context,action,reward,prob)
 
         return len(rewards), round(mean(rewards),5)
 
@@ -588,7 +591,7 @@ class TransactionSink(Sink):
 
         raise Exception("Transactions were written to an unrecognized sink.")
 
-class BenchmarkLearner(Learner[Context, Action]):
+class BenchmarkLearner:
 
     @property
     def family(self) -> str:
@@ -611,8 +614,9 @@ class BenchmarkLearner(Learner[Context, Action]):
         else:
             return self.family
 
-    def __init__(self, learner: Learner[Context,Action]) -> None:
+    def __init__(self, learner: Learner[Context,Action], seed: Optional[int]) -> None:
         self._learner = learner
+        self._random  = CobaRandom(seed)
 
     def init(self) -> None:
         try:
@@ -620,11 +624,14 @@ class BenchmarkLearner(Learner[Context, Action]):
         except AttributeError:
             pass
 
-    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
-        return self._learner.choose(key, context, actions)
+    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Tuple[Choice, float]:
+        p = self._learner.predict(key, context, actions)
+        c = self._random.choice(list(range(len(actions))), p)
+
+        return c, p[c]
     
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
-        self._learner.learn(key, context, action, reward)
+    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+        self._learner.learn(key, context, action, reward, probability)
 
 class BenchmarkSimulation(Source[Simulation[_C,_A]]):
 
@@ -635,10 +642,10 @@ class BenchmarkSimulation(Source[Simulation[_C,_A]]):
         filter_descriptions:Sequence[str] = []) -> None:
         
         if isinstance(source, BenchmarkSimulation):
-            self._source        = source._source
-            self._filter        = Pipe.FiltersFilter(list(source._filter._filters)+list(filters))
-            self.source_description  = source.source_description or source_description
-            self.filter_descriptions = list(source.filter_descriptions) + list(filter_descriptions)
+            self._source             = source._source #type: ignore
+            self._filter             = Pipe.FiltersFilter(list(source._filter._filters)+list(filters)) #type: ignore
+            self.source_description  = source.source_description or source_description #type: ignore
+            self.filter_descriptions = list(source.filter_descriptions) + list(filter_descriptions) #type: ignore
         else:
             self._source             = source
             self._filter             = Pipe.FiltersFilter(filters)
@@ -823,7 +830,7 @@ class Benchmark(Generic[_C,_A]):
         self._maxtasksperchild = value
         return self
 
-    def evaluate(self, learners: Sequence[Learner[_C,_A]], transaction_log:str = None) -> Result:
+    def evaluate(self, learners: Sequence[Learner[_C,_A]], transaction_log:str = None, seed:int = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
@@ -832,7 +839,7 @@ class Benchmark(Generic[_C,_A]):
         Returns:
             See the base class for more information.
         """
-        benchmark_learners   = [ BenchmarkLearner(learner) for learner in learners ] #type: ignore
+        benchmark_learners   = [ BenchmarkLearner(learner, seed) for learner in learners ] #type: ignore
         restored             = Result.from_transaction_log(transaction_log)
         task_source          = TaskSource(self._simulation_pipes, benchmark_learners, restored)
         task_to_transactions = TaskToTransactions(self._ignore_raise)

@@ -66,19 +66,16 @@ class pyvw_Wrapper:
         with open(devnull, 'w') as f, redirect_stderr(f):
             self._vw = self._vw_init(flags + f" --quiet {seed_flag}")
 
-    def choose(self, context, actions) -> Tuple[Choice, float]:
+    def predict(self, context, actions) -> Tuple[Choice, float]:
         pmf  = self._vw.predict(self._format.predict(context, actions))
 
         assert len(pmf) == len(actions), "An incorrect number of action probabilites was returned by VW."
         assert abs(sum(pmf)-1) < .03   , "An invalid PMF for action probabilites was returned by VW."
 
-        choices = list(range(len(actions)))
-        choice = self._random.choice(choices, pmf)
+        return pmf
 
-        return choice, pmf[choice]
-
-    def learn(self, actions, prob, context, action, reward):
-        self._vw.learn(self._format.learn(actions, prob, context, action, reward))
+    def learn(self, prob, actions, context, action, reward):
+        self._vw.learn(self._format.learn(prob, actions, context, action, reward))
 
 class cb_explore:
     """A Vowpal Learner that assumes there is a fixed set of actions (aka, `--cb_explore`)."""
@@ -167,7 +164,7 @@ class cover:
 
     def __init__(self, n_policies:int) -> None:
         """Instantiate VW cover exploration.
-        
+
         Args:
             n_policies: An integer value greater than 0 determining the number of exploration policies
                 to learn. These policies are learned so as to optimize diversity in order to control 

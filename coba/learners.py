@@ -14,7 +14,7 @@ from collections import defaultdict
 import coba.vowpal as VW
 
 from coba.random import CobaRandom
-from coba.simulations import Context, Action, Reward, Choice, Key
+from coba.simulations import Context, Action, Reward, Key
 from coba.statistics import OnlineVariance
 
 _C_in = TypeVar('_C_in', bound=Context, contravariant=True)
@@ -46,7 +46,7 @@ class Learner(Generic[_C_in, _A_in], ABC):
         pass
 
     @abstractmethod
-    def choose(self, key: Key, context: _C_in, actions: Sequence[_A_in]) -> Choice:
+    def predict(self, key: Key, context: _C_in, actions: Sequence[_A_in]) -> Sequence[float]:
         """Choose which action to take.
 
         Args:
@@ -62,17 +62,17 @@ class Learner(Generic[_C_in, _A_in], ABC):
                 simulation being played.
             actions: The current set of actions to choose from in the given context. 
                 Action sets can be lists of numbers (e.g., [1,2,3,4]), a list of 
-                strings (e.g. ["high", "medium", "low"]), or a list of lists such 
-                as in the case of movie recommendations (e.g., [["action", "oscar"], 
-                ["fantasy", "razzie"]]).
+                strings (e.g. ["high", "medium", "low"]), or a list of tuples such 
+                as in the case of movie recommendations (e.g., [("action", "oscar"), 
+                ("fantasy", "razzie")]).
 
         Returns:
-            An integer indicating the index of the selected action in the action set.
+            A sequence of probabilities indicating the probability for each action.
         """
         ...
 
     @abstractmethod
-    def learn(self, key: Key, context: _C_in, action: _A_in, reward: Reward) -> None:
+    def learn(self, key: Key, context: _C_in, action: _A_in, reward: Reward, probability: float) -> None:
         """Learn about the result of an action that was taken in a context.
 
         Args:
@@ -97,9 +97,6 @@ class Learner(Generic[_C_in, _A_in], ABC):
 class RandomLearner(Learner[Context, Action]):
     """A Learner implementation that selects an action at random and learns nothing."""
 
-    def __init__(self, seed: Optional[int] = None):
-        self._random = CobaRandom(seed)
-
     @property
     def family(self) -> str:
         """The family of the learner.
@@ -116,7 +113,7 @@ class RandomLearner(Learner[Context, Action]):
         """
         return { }
 
-    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
+    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Choose a random action from the action set.
         
         Args:
@@ -125,11 +122,11 @@ class RandomLearner(Learner[Context, Action]):
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
-            The index of the selected action. See the base class for more information.
+            The probability of taking each action. See the base class for more information.
         """
-        return self._random.randint(0, len(actions)-1)
+        return [1/len(actions)] * len(actions)
 
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
         """Learns nothing.
 
         Args:
@@ -147,7 +144,7 @@ class EpsilonLearner(Learner[Context, Action]):
         This algorithm does not use any function approximation to attempt to generalize observed rewards.
     """
 
-    def __init__(self, epsilon: float, include_context: bool = False, seed: Optional[int] = None) -> None:
+    def __init__(self, epsilon: float, include_context: bool = False) -> None:
         """Instantiate an EpsilonLearner.
 
         Args:
@@ -158,7 +155,6 @@ class EpsilonLearner(Learner[Context, Action]):
 
         self._epsilon         = epsilon
         self._include_context = include_context
-        self._random          = CobaRandom(seed)
 
         self._N: Dict[Tuple[Context, Action], int            ] = defaultdict(int)
         self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(int)
@@ -182,7 +178,7 @@ class EpsilonLearner(Learner[Context, Action]):
         """
         return {"epsilon": self._epsilon }
 
-    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
+    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Choose greedily with probability 1-epsilon. Choose a randomly with probability epsilon.
 
         Args:
@@ -191,18 +187,20 @@ class EpsilonLearner(Learner[Context, Action]):
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
-            The index of the selected action. See the base class for more information.
+            The probability of taking each action. See the base class for more information.
         """
-        if(self._random.random() <= self._epsilon): return self._random.randint(0,len(actions)-1)
 
         keys        = [ self._key(context,action) for action in actions ]
         values      = [ self._Q[key] for key in keys ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
 
-        return self._random.choice(max_indexes)
+        prob_selected_randomly = [1/len(actions) * self._epsilon] * len(actions)
+        prob_selected_greedily = [ int(i in max_indexes)/len(max_indexes) * (1-self._epsilon) for i in range(len(actions))]
 
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
+        return [p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
+
+    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
         """Smooth the observed reward into our current estimate of either E[R|S,A] or E[R|A].
 
         Args:
@@ -232,7 +230,7 @@ class UcbTunedLearner(Learner[Context, Action]):
         Auer, Peter, Nicolo Cesa-Bianchi, and Paul Fischer. "Finite-time analysis of 
         the multiarmed bandit problem." Machine learning 47.2-3 (2002): 235-256.
     """
-    def __init__(self, seed: int = None):
+    def __init__(self):
         """Instantiate a UcbTunedLearner."""
 
         self._init_a: int = 0
@@ -240,8 +238,6 @@ class UcbTunedLearner(Learner[Context, Action]):
         self._s     : Dict[Action, int           ] = defaultdict(int)
         self._m     : Dict[Action, float         ] = {}
         self._v     : Dict[Action, OnlineVariance] = defaultdict(OnlineVariance)
-        
-        self._random = CobaRandom(seed)
 
     @property
     def family(self) -> str:
@@ -259,7 +255,7 @@ class UcbTunedLearner(Learner[Context, Action]):
         """
         return { }
 
-    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
+    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Choose an action greedily by the upper confidence bound estimates.
 
         Args:
@@ -268,20 +264,22 @@ class UcbTunedLearner(Learner[Context, Action]):
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
-            The index of the selected action. See the base class for more information.
+            The probability of taking each action. See the base class for more information.
         """
+
         #we initialize by playing every action once
         if self._init_a < len(actions):
             self._init_a += 1
-            return self._init_a-1
+            return [ int(i == (self._init_a-1)) for i in range(len(actions)) ]
 
         else:
             values      = [ self._m[a] + self._Avg_R_UCB(a) if a in self._m else None for a in actions ]
             max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
             max_indexes = [i for i in range(len(values)) if values[i]==max_value]
-            return self._random.choice(max_indexes)
 
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
+            return [ int(i in max_indexes)/len(max_indexes) for i in range(len(actions)) ]
+
+    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
         """Smooth the observed reward into our current estimate of E[R|A].
 
         Args:
@@ -419,16 +417,16 @@ class VowpalLearner(Learner[Context, Action]):
         elif 'bag' in kwargs:
             self._learning = VW.cb_explore_adf() if kwargs.get('is_adf',True) else VW.cb_explore()
             self._exploration = VW.bagging(kwargs['bag'])
-        
+
         elif 'cover' in kwargs:
             self._learning = VW.cb_explore()
             self._exploration = VW.cover(kwargs['cover'])
-        
+
         else:
             self._learning = learning
             self._exploration = exploration
 
-        self._probs: Dict[Key, float] = {}
+        self._probs: Dict[Key, Sequence[float]] = {}
         self._actions = self._new_actions(self._learning)
 
         self._flags = kwargs.get('flags', '')
@@ -442,7 +440,7 @@ class VowpalLearner(Learner[Context, Action]):
         See the base class for more information
         """
         return f"vw_{self._learning.__class__.__name__}_{self._exploration.__class__.__name__}"
-    
+
     @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
@@ -451,7 +449,7 @@ class VowpalLearner(Learner[Context, Action]):
         """        
         return {**self._learning.params(), **self._exploration.params()}        
 
-    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
+    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Choose an action according to the VowpalWabbit parameters passed into the contructor.
 
         Args:
@@ -460,25 +458,24 @@ class VowpalLearner(Learner[Context, Action]):
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
-        
-            The index of the selected action. See the base class for more information.
+
+            The probability of taking each action. See the base class for more information.
         """
 
         if not self._vw.created:
             self._vw.create(self._learning.flags(actions) + " " + self._exploration.flags() + " " + self._flags)
 
-        choice, prob = self._vw.choose(context, actions)
+        probs = self._vw.predict(context, actions)
 
         self._set_actions(key,actions)
-        self._probs[key] = prob
-        
-        if isinstance(self._learning, VW.cb_explore):
-            return actions.index(self._actions[choice])
-        else:
-            return choice
 
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
-        """Learn from the obsered reward for the given context action pair.
+        if isinstance(self._learning, VW.cb_explore):
+            return [probs[i] for i in sorted(range(len(actions)), key=lambda i: actions.index(self._actions[i])) ]
+        else:
+            return probs
+
+    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+        """Learn from the observed reward for the given context action pair.
 
         Args:
             key: The key identifying the interaction this observed reward came from.
@@ -488,9 +485,7 @@ class VowpalLearner(Learner[Context, Action]):
         """
 
         actions = self._get_actions(key)
-        prob = self._probs[key]        
-
-        self._vw.learn(prob, actions, context, action, reward)
+        self._vw.learn(probability, actions, context, action, reward)
 
     def _new_actions(self, learning) -> Any:
         if isinstance(learning, VW.cb_explore):
@@ -514,12 +509,11 @@ class VowpalLearner(Learner[Context, Action]):
 class CorralLearner(Learner[Context, Action]):
 
     def __init__(self, base_learners: Sequence[Learner[Context,Action]], eta: float, T: float = math.inf, seed: int = None) -> None:
-        
+
         self._base_learners = base_learners
 
         M = len(self._base_learners)
 
-        self._M     = M
         self._gamma = 1/T
         self._beta  = 1/math.exp(1/math.log(T))
 
@@ -530,9 +524,9 @@ class CorralLearner(Learner[Context, Action]):
         self._p_bars   = [ 1/M ] * M
 
         self._random   = CobaRandom(seed)
-        self._chosen_i: Dict[Key,int] = {}
 
-        self.learns = 0
+        self._base_actions : Dict[Key, Sequence[Action]] = {}
+        self._base_predicts: Dict[Key, Sequence[float]]  = {}
 
     @property
     def family(self) -> str:
@@ -545,40 +539,39 @@ class CorralLearner(Learner[Context, Action]):
     @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
-        
+
         See the base class for more information
         """        
         return {"eta": self._eta_init, "B": [ b.family for b in self._base_learners ] }
 
-    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Choice:
+    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
 
-        #for now this is necessary to make sure learners that store data 
-        #from the choose step before learning are properly initialized
-        thetas = [ base_algorithm.choose(key, context, actions) for base_algorithm in self._base_learners ]
+        predicts = [ base_algorithm.predict(key, context, actions) for base_algorithm in self._base_learners ]
+        
+        base_actions  = [ self._random.choice(actions, predict) for predict in predicts                   ]
+        base_predicts = [ predict[actions.index(action)] for action,predict in zip(base_actions,predicts) ]
 
-        i = self._random.choice(range(self._M), self._p_bars)
+        self._base_actions[key]  = base_actions
+        self._base_predicts[key] = base_predicts
 
-        self._chosen_i[key] = i
+        return [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
 
-        return thetas[i]
+    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
 
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward) -> None:
+        loss = 1-reward # Corral algorithm assumes loss in [0,1]
 
-        self.learns += 1
+        base_actions  = self._base_actions.pop(key)
+        base_predicts = self._base_predicts.pop(key)
 
-        loss     = 1-reward # this assumes reward \in [0,1]
-        chosen_i = self._chosen_i.pop(key)
+        losses = [ loss/probability * int(act==action) for act in base_actions ]
 
-        rewards = [ reward/self._p_bars[chosen_i] * int(i == chosen_i) for i in range(self._M)]
-        losses  = [ loss/self._p_bars[chosen_i] * int(i == chosen_i) for i in range(self._M)]
-
-        for learner,L in zip(self._base_learners, losses):
-            learner.learn(key, context, action, -L)
+        for learner, action, L, P in zip(self._base_learners, base_actions, losses, base_predicts):
+            learner.learn(key, context, action, 1-L, P) # COBA learners assume a reward in [0,1]
 
         self._ps     = list(self._log_barrier_omd(losses))
-        self._p_bars = [ (1-self._gamma)*p + self._gamma*1/self._M for p in self._ps ]
+        self._p_bars = [ (1-self._gamma)*p + self._gamma*1/len(self._base_learners) for p in self._ps ]
 
-        for i in range(self._M):
+        for i in range(len(self._base_learners)):
             if 1/self._p_bars[i] > self._rhos[i]:
                 self._rhos[i] = 2/self._p_bars[i]
                 self._etas[i] *= self._beta
@@ -587,7 +580,7 @@ class CorralLearner(Learner[Context, Action]):
 
         f  = lambda l: float(sum( [ 1/((1/p) + eta*(loss-l)) for p, eta, loss in zip(self._ps, self._etas, losses)]))
         df = lambda l: float(sum( [ eta/((1/p) + eta*(loss-l))**2 for p, eta, loss in zip(self._ps, self._etas, losses)]))
-        
+
         denom_zeros = [ ((-1/p)-(eta*loss))/-eta for p, eta, loss in zip(self._ps, self._etas, losses) ]
 
         min_loss = min(losses)
