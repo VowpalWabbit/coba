@@ -5,7 +5,7 @@ import collections
 from math import isnan, sqrt, isclose, trunc, ceil, floor
 from statistics import mean, variance
 from numbers import Real, Rational, Complex
-from typing import Sequence, Union, Dict, Any, overload, cast
+from typing import Sequence, Union, Any, overload, cast
 
 class OnlineVariance():
     """Calculate sample variance in an online fashion.
@@ -287,16 +287,6 @@ class StatisticalEstimate(Rational):
     def __ge__(self, other: Any) -> bool:
         return NotImplemented 
     #Region: Rational Interface
-
-    @staticmethod
-    def __from_json__(json:Dict[str,Any]) -> 'StatisticalEstimate':
-        return StatisticalEstimate(json['estimate'], json['standard_error'])
-
-    def __to_json__(self) -> Dict[str,Any]:
-        return {
-            'estimate'      : self._estimate,
-            'standard_error': self._standard_error
-        }
 
     def __str__(self) -> str:
         return str({'Est': round(self._estimate,4), 'SE': round(self._standard_error,4)})

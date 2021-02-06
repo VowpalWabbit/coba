@@ -51,17 +51,7 @@ class CobaJsonDecoder:
         
         self._decoder = json.JSONDecoder(object_hook=self.object_hook, *args, **kwargs)
 
-        # Because of circular imports we can't actually import COBA types directly
-        # since many coba classes already import CobaJsonDecoder themselves. So, 
-        # we instead rely on calling modules to provide us with all types that we 
-        # need at any given time to decode a given json string with coba types.
-        from coba.statistics import StatisticalEstimate
-
-        self._known_types = { 
-            "StatisticalEstimate": StatisticalEstimate,
-        }
-
-        for tipe in types: self._known_types[tipe.__name__] = tipe
+        self._known_types = { tipe.__name__:tipe for tipe in types}        
 
     def decode(self, json_txt: str) -> Any:
         """Decode json text into objects.
