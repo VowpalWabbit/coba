@@ -1,4 +1,4 @@
-
+import json
 import unittest
 
 from pathlib import Path
@@ -7,7 +7,7 @@ from statistics import mean
 from coba.simulations import LambdaSimulation
 from coba.execution import ExecutionContext, NoneLogger
 from coba.learners import Learner
-from coba.benchmarks import Benchmark, Result, Transaction, TransactionIsNew
+from coba.benchmarks import Benchmark, Result, Transaction, TransactionIsNew, BenchmarkFileFmtV1
 
 #for testing purposes
 class ModuloLearner(Learner[int,int]):
@@ -60,6 +60,55 @@ class NotPicklableLearner(Learner[int,int]):
 
     def learn(self, key, context, action, reward, probability):
         pass
+
+class BenchmarkFileFmtV1_Tests(unittest.TestCase):
+    def test_materialize_templates_sans_template_1(self):        
+        self.assertEqual(BenchmarkFileFmtV1().materialize_templates(json.loads("[1,2,3]")), [1,2,3])
+
+    def test_materialize_templates_sans_template_2(self):
+        actual = BenchmarkFileFmtV1().materialize_templates(json.loads('{"a":1}'))
+
+        self.assertCountEqual(actual.keys(), ["a"])
+        self.assertEqual(actual["a"], 1)
+
+    def test_materialize_template_with_templates(self):
+        json_str = """{
+            "templates"  : { "shuffled_openml_classification": { "seed":1283, "type":"classification", "from": {"format":"openml", "id":"$id"} } },
+            "batches"    : { "count":100 },
+            "simulations": [
+                {"template":"shuffled_openml_classification", "$id":3},
+                {"template":"shuffled_openml_classification", "$id":6}
+            ]
+        }"""
+
+        actual = BenchmarkFileFmtV1().materialize_templates(json.loads(json_str))
+
+        self.assertCountEqual(actual.keys(), ["batches", "simulations"])
+        self.assertCountEqual(actual["batches"], ["count"])
+        self.assertEqual(len(actual["simulations"]), 2)
+
+        for simulation in actual["simulations"]:
+            self.assertCountEqual(simulation, ["seed", "type", "from"])
+            self.assertEqual(simulation["seed"], 1283)
+            self.assertEqual(simulation["type"], "classification")
+            self.assertCountEqual(simulation["from"], ["format", "id"])
+            self.assertEqual(simulation["from"]["format"], "openml")
+
+        self.assertCountEqual([ sim["from"]["id"] for sim in actual["simulations"] ], [3,6])
+
+    def test_parse(self):
+        json = """{
+            "batches"     : {"count":1},
+            "ignore_first": false,
+            "shuffle"     : [1283],
+            "simulations" : [
+                {"type":"classification","from":{"format":"openml","id":1116}}
+            ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV1().parse(json)
+
+        self.assertEqual(1, len(benchmark._simulation_pipes))
 
 class TransactionIsNew_Test(unittest.TestCase):
     
@@ -120,20 +169,6 @@ class Benchmark_Single_Tests(unittest.TestCase):
     def setUpClass(cls) -> None:
         ExecutionContext.Logger = NoneLogger()
         ExecutionContext.Config.processes = 1
-
-    def test_from_json(self):
-        json = """{
-            "batches"     : {"count":1},
-            "ignore_first": false,
-            "shuffle"     : [1283],
-            "simulations" : [
-                {"type":"classification","from":{"format":"openml","id":1116}}
-            ]
-        }"""
-
-        benchmark = Benchmark.from_json(json)
-
-        self.assertEqual(1, len(benchmark._simulation_pipes))
 
     def test_sims(self):
         sim1            = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)

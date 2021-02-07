@@ -20,6 +20,7 @@ setuptools.setup(
     url="https://github.com/VowpalWabbit/coba",
     license="BSD 3-Clause License",
     packages=["coba", "coba.data"],
+    entry_points={"coba.register": "coba = coba.register"},
     classifiers=[
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: BSD License",

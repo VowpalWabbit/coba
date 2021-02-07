@@ -5,7 +5,6 @@ TODO Figure out real logging that works on multiple threads
 """
 
 import json
-import copy
 import collections
 import time
 import sys
@@ -14,87 +13,14 @@ import traceback
 
 from io import UnsupportedOperation
 from contextlib import contextmanager
-from itertools import repeat
 from gzip import compress, decompress
 from abc import ABC, abstractmethod
 from pathlib import Path
 from datetime import datetime
-from typing import (
-    Callable, ContextManager, Union, Generic, TypeVar, Dict, IO,
-    Mapping, Any, Optional, List, MutableMapping, cast, Iterator
-)
+from typing import (Callable, ContextManager, Union, Generic, TypeVar, Dict, IO, Optional, List, cast, Iterator)
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
-
-class TemplatingEngine:
-    """This class materializes templates within benchmark json files.
-    
-    The templating engine works as follows: 
-        1. Look in the root object for a "templates" key. Templates should be objects themselves
-        with constants and variables. Variable values are indicated by beginning with a $.
-        2. Recursively walk through the remainder of the children from the root. For every object found
-        check to see if it has a "template" value. 
-        3. For every object found with a "template" value defined materialize all of that template's static
-        values into this object. If an object has a static variable defined that is also in the template give
-        preference to the local object's value.
-        4. Assign any defined variables to the template as well (i.e., those values that start with a $). 
-        5. Keep defined variables in context while walking child objects in case they are needed as well.
-    """
-    
-    def parse(self, json_val:Union[str, Dict[str,Any]]):
-
-        root = json.loads(json_val) if isinstance(json_val, str) else json_val
-
-        if "templates" in root:
-
-            templates: Dict[str,Dict[str,Any]] = root.pop("templates")
-            nodes    : List[Any]               = [root]
-            scopes   : List[Dict[str,Any]]     = [{}]
-
-            def materialize_template(document: MutableMapping[str,Any], template: Mapping[str,Any]):
-
-                for key in template:
-                    if key in document:
-                        if isinstance(template[key], collections.Mapping) and isinstance(template[key], collections.Mapping):
-                            materialize_template(document[key],template[key])
-                    else:
-                        document[key] = template[key]
-
-            def materialize_variables(document: MutableMapping[str,Any], variables: Mapping[str,Any]):
-                for key in document:
-                    if isinstance(document[key],str) and document[key] in variables:
-                        document[key] = variables[document[key]]
-
-            while len(nodes) > 0:
-                node  = nodes.pop()
-                scope = scopes.pop().copy()  #this could absolutely be made more memory-efficient if needed
-
-                if isinstance(node, collections.MutableMapping):
-
-                    if "template" in node and node["template"] not in templates:
-                        raise Exception(f"We were unable to find template '{node['template']}'.")
-
-                    keys      = list(node.keys())
-                    template  = templates[node.pop("template")] if "template" in node else cast(Dict[str,Any], {})
-                    variables = { key:node.pop(key) for key in keys if key.startswith("$") }
-
-                    template = copy.deepcopy(template)
-                    scope.update(variables)
-
-                    materialize_template(node, template)
-                    materialize_variables(node, scope)
-
-                    for child_node, child_scope in zip(node.values(), repeat(scope)):
-                        nodes.append(child_node)
-                        scopes.append(child_scope)
-
-                if isinstance(node, collections.Sequence) and not isinstance(node, str):
-                    for child_node, child_scope in zip(node, repeat(scope)):
-                        nodes.append(child_node)
-                        scopes.append(child_scope)
-
-        return root
 
 class CobaConfig():
     """A helper class to find and load coba config files.""" 
@@ -112,10 +38,11 @@ class CobaConfig():
                     config = json.load(fs)
                 break
 
-        self.openml_api_key   = config.get("openml_api_key", None)
-        self.file_cache       = config.get("file_cache", {"type":"none"})
-        self.processes        = config.get("processes", 1)
-        self.maxtasksperchild = config.get("maxtasksperchild", None)
+        self.openml_api_key     = config.get("openml_api_key", None)
+        self.file_cache         = config.get("file_cache", {"type":"none"})
+        self.processes          = config.get("processes", 1)
+        self.maxtasksperchild   = config.get("maxtasksperchild", None)
+        self.benchmark_file_fmt = config.get("benchmark_file_fmt", "BenchmarkFileV1")
 
 class CacheInterface(Generic[_K, _V], ABC):
     """The interface for a cacher."""
@@ -350,7 +277,6 @@ class ExecutionContext:
             [4] https://docs.python.org/3/library/contextvars.html
     """
 
-    Templating : TemplatingEngine           = TemplatingEngine()
     Config     : CobaConfig                 = CobaConfig()
     FileCache  : CacheInterface[str, bytes] = NoneCache()
     Logger     : LoggerInterface            = ConsoleLogger()

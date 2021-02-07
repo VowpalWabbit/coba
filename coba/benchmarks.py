@@ -14,8 +14,13 @@ from statistics import mean
 from itertools import product, groupby, chain
 from statistics import median
 from pathlib import Path
-from typing import Iterable, Tuple, Union, Sequence, Generic, TypeVar, Dict, Any, cast, Optional, overload, List
+from typing import (
+    Iterable, Tuple, Union, Sequence, Generic,
+    TypeVar, Dict, Any, cast, Optional,
+    overload, List, Mapping, MutableMapping
+)
 
+from coba.registry import create_class
 from coba.random import CobaRandom
 from coba.learners import Learner, Key
 from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Choice, Context, Action, Reward, PCA, Sort
@@ -591,6 +596,125 @@ class TransactionSink(Sink):
 
         raise Exception("Transactions were written to an unrecognized sink.")
 
+class BenchmarkFileFmtV1:
+
+    def parse(self, json_txt: str) -> 'Benchmark':
+
+        config = cast(Dict[str,Any], json.loads(json_txt))
+        config = self.materialize_templates(config)
+
+        if not isinstance(config["simulations"], collections.Sequence):
+            config["simulations"] = [ config["simulations"] ]
+
+        batch_config = config.get('batches', {'size':1})
+
+        kwargs: Dict[str, Any] = {}
+        kwargs['ignore_raise'] = config.get("ignore_raise", True)
+        kwargs['seeds']        = config.get('shuffle', [None])
+
+        if 'min' in batch_config:
+            kwargs['take'] = batch_config['min']
+
+        if 'max' in batch_config:
+            kwargs['take'] = batch_config['min']
+
+        for batch_rule in ['size', 'count', 'sizes']:
+            if batch_rule in batch_config:
+                kwargs[f"batch_{batch_rule}"] = batch_config[batch_rule]
+
+        simulations: List[BenchmarkSimulation] = []
+
+        for sim_config in config["simulations"]:
+            if sim_config["type"] != "classification":
+                raise Exception("We were unable to recognize the provided simulation type.")
+
+            if sim_config["from"]["format"] != "openml":
+                raise Exception("We were unable to recognize the provided data format.")
+
+            source             = OpenmlSimulation(sim_config["from"]["id"], sim_config["from"].get("md5_checksum", None))
+            source_description = f'{{"OpenmlSimulation":{sim_config["from"]["id"]}}}'
+
+            filters: List[Filter[Simulation,Simulation]] = []
+
+            filter_descriptions = []
+
+            if "pca" in sim_config and sim_config["pca"] == True:
+                filters.append(PCA())
+                filter_descriptions.append("PCA")
+
+            if "sort" in sim_config:
+                filters.append(Sort(sim_config["sort"]))
+                filter_descriptions.append(f'{{"Sort":{sim_config["sort"]}}}')
+
+            simulations.append(BenchmarkSimulation(source, filters, source_description, filter_descriptions))
+
+        return Benchmark(simulations, **kwargs)
+
+    def materialize_templates(self, root: Any):
+        """This class materializes templates within benchmark json files.
+    
+        The templating engine works as follows: 
+            1. Look in the root object for a "templates" key. Templates should be objects themselves
+            with constants and variables. Variable values are indicated by beginning with a $.
+            2. Recursively walk through the remainder of the children from the root. For every object found
+            check to see if it has a "template" value. 
+            3. For every object found with a "template" value defined materialize all of that template's static
+            values into this object. If an object has a static variable defined that is also in the template give
+            preference to the local object's value.
+            4. Assign any defined variables to the template as well (i.e., those values that start with a $). 
+            5. Keep defined variables in context while walking child objects in case they are needed as well.
+        """
+
+        if "templates" in root:
+
+            templates: Dict[str,Dict[str,Any]] = root.pop("templates")
+            nodes    : List[Any]               = [root]
+            scopes   : List[Dict[str,Any]]     = [{}]
+
+            def materialize_template(document: MutableMapping[str,Any], template: Mapping[str,Any]):
+
+                for key in template:
+                    if key in document:
+                        if isinstance(template[key], collections.Mapping) and isinstance(template[key], collections.Mapping):
+                            materialize_template(document[key],template[key])
+                    else:
+                        document[key] = template[key]
+
+            def materialize_variables(document: MutableMapping[str,Any], variables: Mapping[str,Any]):
+                for key in document:
+                    if isinstance(document[key],str) and document[key] in variables:
+                        document[key] = variables[document[key]]
+
+            while len(nodes) > 0:
+                node  = nodes.pop()
+                scope = scopes.pop().copy()  #this could absolutely be made more memory-efficient if needed
+
+                if isinstance(node, collections.MutableMapping):
+
+                    if "template" in node and node["template"] not in templates:
+                        raise Exception(f"We were unable to find template '{node['template']}'.")
+
+                    keys      = list(node.keys())
+                    template  = templates[node.pop("template")] if "template" in node else cast(Dict[str,Any], {})
+                    variables = { key:node.pop(key) for key in keys if key.startswith("$") }
+
+                    template = deepcopy(template)
+                    scope.update(variables)
+
+                    materialize_template(node, template)
+                    materialize_variables(node, scope)
+
+                    for child_node, child_scope in zip(node.values(), itertools.repeat(scope)):
+                        nodes.append(child_node)
+                        scopes.append(child_scope)
+
+                if isinstance(node, collections.Sequence) and not isinstance(node, str):
+                    for child_node, child_scope in zip(node, itertools.repeat(scope)):
+                        nodes.append(child_node)
+                        scopes.append(child_scope)
+
+        return root
+
 class BenchmarkLearner:
 
     @property
@@ -662,78 +786,7 @@ class Benchmark(Generic[_C,_A]):
     def from_file(filename:str) -> 'Benchmark[Context,Action]':
         """Instantiate a Benchmark from a config file."""
 
-        suffix = Path(filename).suffix
-        
-        if suffix == ".json":
-            return Benchmark.from_json(Path(filename).read_text())
-
-        raise Exception(f"The provided file type ('{suffix}') is not a valid format for benchmark configuration")
-
-    @staticmethod
-    def from_json(json_val:Union[str, Dict[str,Any]]) -> 'Benchmark[Context,Action]':
-        """Create a UniversalBenchmark from json text or object.
-
-        Args:
-            json_val: Either a json string or the decoded json object.
-
-        Returns:
-            The UniversalBenchmark representation of the given JSON string or object.
-        """
-
-        if isinstance(json_val, str):
-            config = cast(Dict[str,Any], json.loads(json_val))
-        else:
-            config = json_val
-
-        config = ExecutionContext.Templating.parse(config)
-
-        if not isinstance(config["simulations"], collections.Sequence):
-            config["simulations"] = [ config["simulations"] ]
-
-        batch_config = config.get('batches', {'size':1})
-
-        kwargs: Dict[str, Any] = {}
-        kwargs['ignore_raise'] = config.get("ignore_raise", True)
-        kwargs['seeds']        = config.get('shuffle', [None])
-
-        if 'min' in batch_config:
-            kwargs['take'] = batch_config['min']
-
-        if 'max' in batch_config:
-            kwargs['take'] = batch_config['min']
-
-        for batch_rule in ['size', 'count', 'sizes']:
-            if batch_rule in batch_config:
-                kwargs[f"batch_{batch_rule}"] = batch_config[batch_rule]
-
-        simulations: List[BenchmarkSimulation] = []
-
-        for sim_config in config["simulations"]:
-            if sim_config["type"] != "classification":
-                raise Exception("We were unable to recognize the provided simulation type.")
-
-            if sim_config["from"]["format"] != "openml":
-                raise Exception("We were unable to recognize the provided data format.")
-
-            source             = OpenmlSimulation(sim_config["from"]["id"], sim_config["from"].get("md5_checksum", None))
-            source_description = f'{{"OpenmlSimulation":{sim_config["from"]["id"]}}}'
-
-            filters: List[Filter[Simulation,Simulation]] = []
-
-            
-            filter_descriptions = []
-
-            if "pca" in sim_config and sim_config["pca"] == True:
-                filters.append(PCA())
-                filter_descriptions.append("PCA")
-
-            if "sort" in sim_config:
-                filters.append(Sort(sim_config["sort"]))
-                filter_descriptions.append(f'{{"Sort":{sim_config["sort"]}}}')
-
-            simulations.append(BenchmarkSimulation(source, filters, source_description, filter_descriptions))
-
-        return Benchmark(simulations, **kwargs)
+        return create_class(ExecutionContext.Config.benchmark_file_fmt).parse(Path(filename).read_text())
 
     @overload
     def __init__(self, 
