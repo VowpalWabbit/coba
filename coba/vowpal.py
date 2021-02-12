@@ -9,8 +9,7 @@ from os import devnull
 from typing import Any, Dict, Tuple, Union, Sequence
 
 import coba.random
-from coba.execution import redirect_stderr
-from coba.utilities import check_vowpal_support
+from coba.tools import check_vowpal_support, redirect_stderr
 from coba.simulations import Context, Action, Choice
 
 class cb_explore_Formatter:

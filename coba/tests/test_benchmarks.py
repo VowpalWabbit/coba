@@ -5,7 +5,7 @@ from pathlib import Path
 from statistics import mean
 
 from coba.simulations import LambdaSimulation
-from coba.execution import ExecutionContext, NoneLogger
+from coba.tools import ExecutionContext, NoneLogger
 from coba.learners import Learner
 from coba.benchmarks import Benchmark, Result, Transaction, TransactionIsNew, BenchmarkFileFmtV1
 

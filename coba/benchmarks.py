@@ -20,13 +20,11 @@ from typing import (
     overload, List, Mapping, MutableMapping
 )
 
-from coba.registry import create_class
 from coba.random import CobaRandom
 from coba.learners import Learner, Key
 from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Choice, Context, Action, Reward, PCA, Sort
-from coba.execution import ExecutionContext
 from coba.statistics import OnlineMean, OnlineVariance
-from coba.utilities import check_matplotlib_support, check_pandas_support
+from coba.tools import check_matplotlib_support, check_pandas_support, create_class, ExecutionContext
 
 from coba.data.structures import Table
 from coba.data.filters import Filter, JsonEncode, JsonDecode, ForeachFilter

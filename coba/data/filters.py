@@ -13,7 +13,7 @@ from typing import Generic, Hashable, Iterable, TypeVar, Any, Sequence, Union, T
 
 from coba.data.encoders import Encoder, OneHotEncoder
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
-from coba.execution import ExecutionContext
+from coba.tools import ExecutionContext
 
 _T_out = TypeVar("_T_out", bound=Any, covariant=True)
 _T_in  = TypeVar("_T_in", bound=Any, contravariant=True)

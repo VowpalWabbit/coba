@@ -5,7 +5,7 @@ from math import isnan, sqrt
 from fractions import Fraction
 from numbers import Rational
 
-from coba.utilities import check_pandas_support
+from coba.tools import check_pandas_support
 from coba.statistics import BatchMeanEstimator, OnlineVariance, OnlineMean, StatisticalEstimate
 
 class StatisticalEstimate_Tests(unittest.TestCase):

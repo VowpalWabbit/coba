@@ -1,10 +1,23 @@
-
 import unittest
 import traceback
 
 from pathlib import Path
 
-from coba.execution import DiskCache, UniversalLogger
+from coba.tools import check_matplotlib_support, check_vowpal_support, DiskCache, UniversalLogger
+
+class check_library_Tests(unittest.TestCase):
+    
+    def test_check_matplotlib_support(self):
+        try:
+            check_matplotlib_support("test_check_matplotlib_support")
+        except Exception:
+            self.fail("check_matplotlib_support raised an exception")
+
+    def test_check_vowpal_support(self):
+        try:
+            check_vowpal_support("test_check_vowpal_support")
+        except Exception:
+            self.fail("check_vowpal_support raised an exception")
 
 class UniversalLogger_Tests(unittest.TestCase):
 
@@ -130,7 +143,7 @@ class DiskCache_Tests(unittest.TestCase):
             cache = DiskCache("coba/tests/.temp/folder1/folder2")
             
             cache.put("test.csv", b"test")
-            self.assertTrue("test.csv"    in cache)
+            self.assertTrue("test.csv" in cache)
 
         finally:
             if Path("coba/tests/.temp/folder1/folder2/test.csv.gz").exists():
@@ -142,9 +155,6 @@ class DiskCache_Tests(unittest.TestCase):
             if Path("coba/tests/.temp/folder1/").exists():
                 Path("coba/tests/.temp/folder1/").rmdir()
             
-
-
-
     def test_write_csv_to_cache(self):
 
         cache = DiskCache("coba/tests/.temp")
@@ -168,6 +178,8 @@ class DiskCache_Tests(unittest.TestCase):
         cache.rmv("test.csv")
 
         self.assertFalse("test.csv"    in cache)
+
+
 
 if __name__ == '__main__':
     unittest.main()

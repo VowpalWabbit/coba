@@ -4,7 +4,7 @@ import collections
 
 from typing import Sequence, Hashable, Any, Dict, Iterable
 
-from coba.utilities import check_pandas_support
+from coba.tools import check_pandas_support
 
 class Table:
     """A container class for storing tabular data."""

@@ -12,7 +12,7 @@ from typing import Sequence, Iterable, Any, overload
 from coba.data.sources import Source, QueueSource
 from coba.data.filters import Filter
 from coba.data.sinks import Sink, LoggerSink, QueueSink
-from coba.execution import ExecutionContext, UniversalLogger
+from coba.tools import ExecutionContext, UniversalLogger
 
 class StopPipe(Exception):
     pass

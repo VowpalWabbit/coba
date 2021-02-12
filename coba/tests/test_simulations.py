@@ -5,7 +5,7 @@ import timeit
 from typing import List, Sequence, Tuple, cast
 
 from coba.data.encoders import OneHotEncoder
-from coba.execution import ExecutionContext, NoneCache, NoneLogger, MemoryCache
+from coba.tools import ExecutionContext, NoneCache, NoneLogger, MemoryCache
 from coba.simulations import (
     Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, 
     LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource, 

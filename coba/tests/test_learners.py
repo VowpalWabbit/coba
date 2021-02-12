@@ -2,7 +2,7 @@
 import unittest
 from unittest.case import SkipTest
 
-from coba.utilities import check_vowpal_support
+from coba.tools import check_vowpal_support
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 
 class RandomLearner_Tests(unittest.TestCase):

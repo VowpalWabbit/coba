@@ -1,6 +1,6 @@
 import unittest
 
-from coba.execution import ExecutionContext, MemoryCache
+from coba.tools import ExecutionContext, MemoryCache
 from coba.simulations import OpenmlClassificationSource
 
 class OpenmlSource_Tests(unittest.TestCase):

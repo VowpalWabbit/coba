@@ -1,4 +1,4 @@
-from coba.registry import register_class
+from coba.tools import register_class
 from coba.simulations import OpenmlSimulation, PcaSimulation, ShuffleSimulation, TakeSimulation
 from coba.benchmarks import BenchmarkFileFmtV1
 

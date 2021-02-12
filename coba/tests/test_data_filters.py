@@ -3,7 +3,7 @@ import unittest
 
 from coba.data.filters import CsvReader, ColEncoder, ColRemover, CsvTransposer, LabeledCsvCleaner
 from coba.data.encoders import NumericEncoder, StringEncoder
-from coba.execution import ExecutionContext, NoneLogger
+from coba.tools import NoneLogger, ExecutionContext
 
 ExecutionContext.Logger = NoneLogger()
 

@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from hashlib import md5
 from typing import Generic, Iterable, TypeVar, Any
 
-from coba.execution import ExecutionContext
+from coba.tools import ExecutionContext
 
 _T_out = TypeVar("_T_out", bound=Any, covariant=True)
 

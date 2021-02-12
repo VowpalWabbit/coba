@@ -4,7 +4,7 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.execution import UniversalLogger, ExecutionContext
+from coba.tools import ExecutionContext, UniversalLogger
 from coba.data.filters import Filter
 from coba.data.sinks import MemorySink
 from coba.data.sources import MemorySource

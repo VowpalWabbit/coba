@@ -20,11 +20,11 @@ from typing import (
 
 import coba.random
 
+from coba.tools import check_numpy_support, ExecutionContext
 from coba.data.sources import Source, HttpSource, MemorySource
 from coba.data.encoders import OneHotEncoder
-from coba.execution import ExecutionContext
 from coba.data.filters import Filter
-from coba.utilities import check_numpy_support
+
 
 Context = Optional[Hashable]
 Action  = Hashable
