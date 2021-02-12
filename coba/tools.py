@@ -89,10 +89,36 @@ def retrieve_class(name:str) -> Any:
 
     return registry[name]
 
-def create_class(creation_script: Any) -> Any:
-    
-    if isinstance(creation_script, str):
-        return retrieve_class(creation_script)()
+def create_class(recipe: Any) -> Any:
+
+    name   = ""
+    args   = []
+    kwargs = {}
+
+    if isinstance(recipe, str):
+        name = recipe
+ 
+    if isinstance(recipe, collections.Mapping):
+        mutable_recipe = dict(recipe)
+
+        name   = mutable_recipe.pop("name"  , "")
+        args   = mutable_recipe.pop("args"  , [])
+        kwargs = mutable_recipe.pop("kwargs", {})
+
+        if ( 
+            len(mutable_recipe) > 1 or 
+            len(mutable_recipe) == 1 and (name != "" or args != []) or 
+            len(mutable_recipe) == 0 and name == ""
+        ):
+            raise Exception(f"Invalid recipe {str(recipe)}")
+
+        if len(mutable_recipe) == 1:
+            name,args = list(mutable_recipe.items())[0]
+
+    if name not in registry:
+        raise Exception(f"Unknown recipe {str(recipe)}")
+
+    return registry[name](*args, **kwargs)
 
 def check_matplotlib_support(caller_name: str) -> None:
     """Raise ImportError with detailed error message if matplotlib is not installed.
