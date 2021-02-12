@@ -11,8 +11,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Sequence, Tuple, Optional, Dict, cast, Generic, TypeVar, overload, Union
 from collections import defaultdict
 
-import coba.vowpal as VW
-
+from coba.learners import vowpal as VW
 from coba.random import CobaRandom
 from coba.simulations import Context, Action, Reward, Key
 from coba.statistics import OnlineVariance

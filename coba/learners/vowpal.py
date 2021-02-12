@@ -8,7 +8,7 @@ import collections
 from os import devnull
 from typing import Any, Dict, Tuple, Union, Sequence
 
-import coba.random
+from coba.random import CobaRandom
 from coba.tools import check_vowpal_support, redirect_stderr
 from coba.simulations import Context, Action, Choice
 
@@ -45,7 +45,7 @@ class pyvw_Wrapper:
         self._format  = format
         self._created = False
         self._seed    = seed
-        self._random  = coba.random.CobaRandom(seed)
+        self._random  = CobaRandom(seed)
 
     @property
     def created(self):

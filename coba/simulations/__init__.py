@@ -25,7 +25,6 @@ from coba.data.sources import Source, HttpSource, MemorySource
 from coba.data.encoders import OneHotEncoder
 from coba.data.filters import Filter
 
-
 Context = Optional[Hashable]
 Action  = Hashable
 Reward  = float
