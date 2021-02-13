@@ -11,7 +11,7 @@ import sys
 import os
 import traceback
 
-from importlib_metadata import entry_points
+from importlib_metadata import entry_points #type: ignore
 from io import UnsupportedOperation
 from contextlib import contextmanager
 from gzip import compress, decompress
