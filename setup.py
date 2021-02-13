@@ -19,7 +19,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/VowpalWabbit/coba",
     license="BSD 3-Clause License",
-    packages=["coba", "coba.data", "coba.simulations", "coba.benchmarks", "coba.learners"],
+    packages=["coba", "coba.data", "coba.simulations", "coba.benchmarks", "coba.learners", "coba.tools"],
     entry_points={"coba.register": "coba = coba.register"},
     classifiers=[
         "Intended Audience :: Science/Research",
