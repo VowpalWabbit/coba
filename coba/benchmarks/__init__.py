@@ -24,7 +24,7 @@ from coba.random import CobaRandom
 from coba.learners import Learner, Key
 from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Choice, Context, Action, Reward, PCA, Sort
 from coba.statistics import OnlineMean, OnlineVariance
-from coba.tools import check_matplotlib_support, check_pandas_support, create_class, ExecutionContext
+from coba.tools import check_matplotlib_support, check_pandas_support, create_class, CobaConfig
 
 from coba.data.structures import Table
 from coba.data.filters import Filter, JsonEncode, JsonDecode, ForeachFilter
@@ -374,7 +374,7 @@ class TaskToTransactions(Filter):
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            ExecutionContext.Logger.log_exception(e, "unhandled exception:")
+            CobaConfig.Logger.log_exception(e, "unhandled exception:")
             if not self._ignore_raise: raise e
 
     def _process_batch(self, batch, reward, learner) -> Tuple[int, float]:
@@ -784,7 +784,7 @@ class Benchmark(Generic[_C,_A]):
     def from_file(filename:str) -> 'Benchmark[Context,Action]':
         """Instantiate a Benchmark from a config file."""
 
-        return create_class(ExecutionContext.Config.benchmark_file_fmt).parse(Path(filename).read_text())
+        return create_class(CobaConfig.Benchmark['file_fmt']).parse(Path(filename).read_text())
 
     @overload
     def __init__(self, 
@@ -908,8 +908,8 @@ class Benchmark(Generic[_C,_A]):
         preamble_transactions.append(Transaction.benchmark(n_given_learners, n_given_simulations))
         preamble_transactions.extend(Transaction.learners(benchmark_learners))
 
-        mp = self._processes if self._processes else ExecutionContext.Config.processes
-        mt = self._maxtasksperchild if self._maxtasksperchild else ExecutionContext.Config.maxtasksperchild
+        mp = self._processes        if self._processes        else CobaConfig.Benchmark['processes']
+        mt = self._maxtasksperchild if self._maxtasksperchild else CobaConfig.Benchmark['maxtasksperchild']
         
         Pipe.join(MemorySource(preamble_transactions), []                    , transaction_sink).run(1,None)
         Pipe.join(task_source                        , [task_to_transactions], transaction_sink).run(mp,mt)

@@ -13,7 +13,7 @@ from typing import Generic, Hashable, Iterable, TypeVar, Any, Sequence, Union, T
 
 from coba.data.encoders import Encoder, OneHotEncoder
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
-from coba.tools import ExecutionContext
+from coba.tools import CobaConfig
 
 _T_out = TypeVar("_T_out", bound=Any, covariant=True)
 _T_in  = TypeVar("_T_in", bound=Any, contravariant=True)
@@ -219,7 +219,7 @@ class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[
 
         output: Any = items
 
-        with ExecutionContext.Logger.log('encoding data... '):
+        with CobaConfig.Logger.log('encoding data... '):
 
             output = rows.filter(split.filter(clean.filter(output)))
 

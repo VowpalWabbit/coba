@@ -12,7 +12,7 @@ from typing import Sequence, Iterable, Any, overload
 from coba.data.sources import Source, QueueSource
 from coba.data.filters import Filter
 from coba.data.sinks import Sink, LoggerSink, QueueSink
-from coba.tools import ExecutionContext, UniversalLogger
+from coba.tools import CobaConfig, UniversalLog
 
 class StopPipe(Exception):
     pass
@@ -115,7 +115,7 @@ class Pipe:
 
 class MultiProcessFilter(Filter):
 
-    class SinkLogger(UniversalLogger):
+    class SinkLogger(UniversalLog):
         def __init__(self, sink: Sink) -> None:
             super().__init__(lambda msg,end: sink.write([(msg[20:],end)]))
 
@@ -129,9 +129,7 @@ class MultiProcessFilter(Filter):
 
         def process(self, item) -> None:
 
-            ExecutionContext.Config.processes        = 1
-            ExecutionContext.Config.maxtasksperchild = None
-            ExecutionContext.Logger = MultiProcessFilter.SinkLogger(self._stdlog)
+            CobaConfig.Logger = MultiProcessFilter.SinkLogger(self._stdlog)
 
             try:
                 self._stdout.write(self._filter.filter([item]))

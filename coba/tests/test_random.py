@@ -153,8 +153,9 @@ class Random_Tests(unittest.TestCase):
         std_failure_rate = self._failure_rate(walks, std_shuffle())
 
         if (coba_failure_rate-std_failure_rate)/std_failure_rate > .1:
-            print(f"\n{coba_failure_rate}")
-            print(f"\n{std_failure_rate}")
+            print("\n")
+            print(f"{coba_failure_rate}")
+            print(f"{std_failure_rate}")
 
         self.assertLess((coba_failure_rate-std_failure_rate)/std_failure_rate , .1)
 

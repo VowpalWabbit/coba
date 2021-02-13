@@ -115,10 +115,13 @@ def create_class(recipe: Any) -> Any:
         if len(mutable_recipe) == 1:
             name,args = list(mutable_recipe.items())[0]
 
-    if name not in registry:
-        raise Exception(f"Unknown recipe {str(recipe)}")
+    if not isinstance(args, list):
+        args = [args]
 
-    return registry[name](*args, **kwargs)
+    try:
+        return retrieve_class(name)(*args, **kwargs)
+    except KeyError:
+        raise Exception(f"Unknown recipe {str(recipe)}")
 
 def check_matplotlib_support(caller_name: str) -> None:
     """Raise ImportError with detailed error message if matplotlib is not installed.
@@ -301,18 +304,18 @@ class DiskCache(CacheInterface[str, bytes]):
     def _cache_path(self, filename: str) -> Path:
         return self._cache_dir/self._cache_name(filename)
 
-class LoggerInterface(ABC):
+class LogInterface(ABC):
     """The interface for a Logger"""
     
     @abstractmethod
-    def log(self, message: str, end:str = None) -> 'ContextManager[LoggerInterface]':
+    def log(self, message: str, end:str = None) -> 'ContextManager[LogInterface]':
         ...
 
     @abstractmethod
     def log_exception(self, exception:Exception, preamble: str = '') -> None:
         ...
 
-class UniversalLogger(LoggerInterface):
+class UniversalLog(LogInterface):
     """A simple implementation of the LoggerInterface.
     
     This logger allows for its print_function to be overriden. This logger also supports
@@ -335,7 +338,7 @@ class UniversalLogger(LoggerInterface):
         self._start_times = cast(List[float],[])
 
     @contextmanager
-    def _with(self) -> Iterator[LoggerInterface]:
+    def _with(self) -> Iterator[LogInterface]:
         try:
             self._indent_cnt += 1
             self._start_times.append(time.time())
@@ -367,7 +370,7 @@ class UniversalLogger(LoggerInterface):
 
         return datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + indent + bullet + (' ' if bullet != '' else '')
 
-    def log(self, message: str, end: str = None) -> ContextManager[LoggerInterface]:
+    def log(self, message: str, end: str = None) -> ContextManager[LogInterface]:
         """Log a message.
         
         Args:
@@ -401,12 +404,12 @@ class UniversalLogger(LoggerInterface):
 
             self.log(f"{preamble}\n\n{tb}\n  {msg}")
 
-class ConsoleLogger(UniversalLogger):
+class ConsoleLog(UniversalLog):
     """An implementation of the UniversalLogger that writes to console."""
     def __init__(self) -> None:
         super().__init__(print_function=lambda m,e: print(m,end=e))
 
-class NoneLogger(UniversalLogger):
+class NoneLog(UniversalLog):
     """An implementation of the UniversalLogger that writes to nowhere."""
     def __init__(self) -> None:
         super().__init__(print_function=lambda m,e: None)
@@ -414,33 +417,84 @@ class NoneLogger(UniversalLogger):
 class LoggedException(Exception):
     """An exception that has been logged but not handled."""
 
-class CobaConfig():
-    """A helper class to find and load coba config files.""" 
+class CobaConfig_meta(type):
+    """To support class properties before python 3.9 we must implement our properties directly 
+       on a meta class. Using class properties rather than class variables is done to allow 
+       lazy loading. Lazy loading moves errors to execution time instead of import time where
+       they are easier to debug.
+    """
 
-    def __init__(self):
-        """Instantiate a CobaConfig class."""
-        
+    def __init__(cls, *args, **kwargs):
+        cls._api_keys  = None
+        cls._cache     = None
+        cls._log       = None
+        cls._benchmark = None
+
+    @staticmethod
+    def _load_config() -> Dict[str,Any]:
         search_paths = [Path("./.coba"), Path.home() / ".coba"]
 
-        config = {}
+        config = {
+            "api_keys"  : collections.defaultdict(lambda:None),
+            "cache"     : "NoneCache",
+            "log"       : "ConsoleLog",
+            "benchmark" : {"processes": 1, "maxtasksperchild": None, "file_fmt": "BenchmarkFileV1"}
+        }
 
         for potential_path in search_paths:
             if potential_path.exists():
                 with open(potential_path) as fs:
-                    config = json.load(fs)
+                    for key,value in json.load(fs).items():
+                        if isinstance(config[key], collections.MutableMapping):
+                            config[key].update(value)
+                        else:
+                            config[key] = value
                 break
 
-        self.openml_api_key     = config.get("openml_api_key", None)
-        self.file_cache         = config.get("file_cache", {"type":"none"})
-        self.processes          = config.get("processes", 1)
-        self.maxtasksperchild   = config.get("maxtasksperchild", None)
-        self.benchmark_file_fmt = config.get("benchmark_file_fmt", "BenchmarkFileV1")
+        return config
 
+    @property
+    def Api_Keys(cls):
+        if cls._api_keys is None:
+            cls._api_keys = cls._load_config()['api_keys']
+        return cls._api_keys
 
-    """An exception that has been logged but not handled."""
+    @Api_Keys.setter
+    def Api_Keys(cls, value):
+        cls._api_keys = value
 
-class ExecutionContext:
-    """Create a global execution context to allow easy mocking and modification.
+    @property
+    def Cacher(cls):
+        if cls._cache is None:
+            cls._cache = create_class(cls._load_config()['cache'])
+        return cls._cache
+    
+    @Cacher.setter
+    def Cacher(cls, value):
+        cls._cache = value
+
+    @property
+    def Logger(cls):
+        if cls._log is None:
+            cls._log = create_class(cls._load_config()['log'])
+        return cls._log
+    
+    @Logger.setter
+    def Logger(cls, value):
+        cls._log = value
+
+    @property
+    def Benchmark(cls):
+        if cls._benchmark is None:
+            cls._benchmark = cls._load_config()['benchmark']
+        return cls._benchmark
+
+    @Benchmark.setter
+    def Benchmark(cls, value):
+        cls._benchmark = value
+
+class CobaConfig(metaclass=CobaConfig_meta):
+    """Create a global configuration context to allow easy mocking and customization.
 
     In short, So long as the same modulename is always used to import and the import
     always occurs on the same thread I'm fairly confident this pattern will always work.
@@ -454,13 +508,4 @@ class ExecutionContext:
             [3] https://www.python.org/dev/peps/pep-0567/
             [4] https://docs.python.org/3/library/contextvars.html
     """
-
-    Config     : CobaConfig                 = CobaConfig()
-    FileCache  : CacheInterface[str, bytes] = NoneCache()
-    Logger     : LoggerInterface            = ConsoleLogger()
-
-    if Config.file_cache["type"] == "disk":
-        FileCache = DiskCache(Config.file_cache["directory"])
-
-    if Config.file_cache["type"] == "memory":
-        FileCache = MemoryCache()
+    pass

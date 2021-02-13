@@ -20,7 +20,7 @@ from typing import (
 
 import coba.random
 
-from coba.tools import check_numpy_support, ExecutionContext
+from coba.tools import check_numpy_support, CobaConfig
 from coba.data.sources import Source, HttpSource, MemorySource
 from coba.data.encoders import OneHotEncoder
 from coba.data.filters import Filter
@@ -28,7 +28,7 @@ from coba.data.filters import Filter
 Context = Optional[Hashable]
 Action  = Hashable
 Reward  = float
-Key     = int 
+Key     = int
 Choice  = int
 
 _C_out = TypeVar('_C_out', bound=Context, covariant=True)
@@ -84,7 +84,7 @@ class OpenmlClassificationSource(Source[Tuple[Sequence[Context], Sequence[Action
 
         data_id        = self._data_id
         md5_checksum   = self._md5_checksum
-        openml_api_key = ExecutionContext.Config.openml_api_key
+        openml_api_key = CobaConfig.Api_Keys['openml']
 
         data_description_url = f'https://www.openml.org/api/v1/json/data/{data_id}'
         
@@ -367,7 +367,7 @@ class OpenmlSimulation(Source[ClassificationSimulation[Context]]):
         self._openml_source = OpenmlClassificationSource(id, md5_checksum)
 
     def read(self) -> ClassificationSimulation[Context]:
-        with ExecutionContext.Logger.log(f"loading openml {self._openml_source._data_id}..."):
+        with CobaConfig.Logger.log(f"loading openml {self._openml_source._data_id}..."):
             return ClassificationSimulation(*self._openml_source.read())
 
 class ShuffleSimulation(Simulation[_C_out, _A_out]):

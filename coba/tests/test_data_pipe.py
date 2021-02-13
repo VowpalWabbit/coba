@@ -4,7 +4,7 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.tools import ExecutionContext, UniversalLogger
+from coba.tools import CobaConfig, UniversalLog
 from coba.data.filters import Filter
 from coba.data.sinks import MemorySink
 from coba.data.sources import MemorySource
@@ -18,7 +18,7 @@ class Pipe_Tests(unittest.TestCase):
             process_name = current_process().name
 
             for _ in items:
-                ExecutionContext.Logger.log(process_name)
+                CobaConfig.Logger.log(process_name)
                 yield process_name
 
     class ExceptionFilter(Filter):
@@ -75,7 +75,7 @@ class Pipe_Tests(unittest.TestCase):
         
         actual_logs = []
 
-        ExecutionContext.Logger = UniversalLogger(lambda msg,end: actual_logs.append((msg,end)))
+        CobaConfig.Logger = UniversalLog(lambda msg,end: actual_logs.append((msg,end)))
 
         source = MemorySource(list(range(4)))
         sink   = MemorySink()

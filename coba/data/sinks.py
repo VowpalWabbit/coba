@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 
 from typing import Generic, Iterable, TypeVar, List, Any
 
-from coba.tools import ExecutionContext
+from coba.tools import CobaConfig
 
 _T_in  = TypeVar("_T_in", bound=Any, contravariant=True)
 
@@ -48,4 +48,4 @@ class QueueSink(Sink[Iterable[Any]]):
 class LoggerSink(Sink[Iterable[Any]]):
     def write(self, items: Iterable[Any]) -> None:
         for msg,end in items:
-            ExecutionContext.Logger.log(msg,end)
+            CobaConfig.Logger.log(msg,end)

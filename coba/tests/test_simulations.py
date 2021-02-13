@@ -5,14 +5,14 @@ import timeit
 from typing import List, Sequence, Tuple, cast
 
 from coba.data.encoders import OneHotEncoder
-from coba.tools import ExecutionContext, NoneCache, NoneLogger, MemoryCache
+from coba.tools import CobaConfig, NoneCache, NoneLog, MemoryCache
 from coba.simulations import (
     Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, 
     LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource, 
     Shuffle, Take, Batch, PCA, Sort
 )
 
-ExecutionContext.Logger = NoneLogger()
+CobaConfig.Logger = NoneLog()
 
 def _choices(interaction: Interaction) -> Sequence[Tuple[Key,Choice]]:
     return [  (interaction.key, a) for a in range(len(interaction.actions))]
@@ -80,7 +80,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
     def test_simple_openml_source(self) -> None:
         #this test requires interet acess to download the data
 
-        ExecutionContext.FileCache = NoneCache()
+        CobaConfig.Cacher = NoneCache()
 
         simulation = ClassificationSimulation(*OpenmlClassificationSource(1116).read())
         #simulation = ClassificationSimulation.from_source(OpenmlSource(273))
@@ -107,7 +107,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
     def test_large_from_openml(self) -> None:
         #this test requires interet acess to download the data
 
-        ExecutionContext.FileCache = MemoryCache()
+        CobaConfig.Cacher = MemoryCache()
         OpenmlClassificationSource(154).read() #this will cause it to read and cache in memory so we don't measure read time
 
         time = min(timeit.repeat(lambda:ClassificationSimulation(*OpenmlClassificationSource(154).read()), repeat=1, number=1))

@@ -4,7 +4,7 @@ import traceback
 from pathlib import Path
 
 import coba.tools
-from coba.tools import check_matplotlib_support, check_vowpal_support, DiskCache, UniversalLogger, register_class, create_class
+from coba.tools import check_matplotlib_support, check_vowpal_support, DiskCache, UniversalLog, register_class, create_class
 
 class TestObject:
     def __init__(self, *args,**kwargs):
@@ -31,7 +31,7 @@ class UniversalLogger_Tests(unittest.TestCase):
 
         actual_prints = []
 
-        logger = UniversalLogger(print_function = lambda m,e: actual_prints.append((m,e)) )
+        logger = UniversalLog(print_function = lambda m,e: actual_prints.append((m,e)) )
 
         logger.log('a', end='b')
         logger.log('c')
@@ -48,7 +48,7 @@ class UniversalLogger_Tests(unittest.TestCase):
 
         actual_prints = []
 
-        logger = UniversalLogger(print_function = lambda m,e: actual_prints.append((m,e)) )
+        logger = UniversalLog(print_function = lambda m,e: actual_prints.append((m,e)) )
 
         with logger.log('a', end='b'):
             logger.log('c')
@@ -68,7 +68,7 @@ class UniversalLogger_Tests(unittest.TestCase):
 
         actual_prints = []
 
-        logger = UniversalLogger(print_function = lambda m,e: actual_prints.append((m,e)) )
+        logger = UniversalLog(print_function = lambda m,e: actual_prints.append((m,e)) )
 
         with logger.log('a', end='b'):
             logger.log('c')
@@ -93,7 +93,7 @@ class UniversalLogger_Tests(unittest.TestCase):
     def test_log_exception_1(self):
         actual_prints = []
 
-        logger = UniversalLogger(print_function = lambda m,e: actual_prints.append((m,e)))
+        logger = UniversalLog(print_function = lambda m,e: actual_prints.append((m,e)))
 
         try:
             raise Exception("Test Exception")
@@ -114,7 +114,7 @@ class UniversalLogger_Tests(unittest.TestCase):
         actual_prints = []
         exception = Exception("Test Exception")
 
-        logger = UniversalLogger(print_function = lambda m,e: actual_prints.append((m,e)))
+        logger = UniversalLog(print_function = lambda m,e: actual_prints.append((m,e)))
 
         logger.log('a', end='b')
         logger.log_exception(exception)
@@ -199,13 +199,31 @@ class Recipe_Tests(unittest.TestCase):
         self.assertEqual(klass.args, ())
         self.assertEqual(klass.kwargs, {})
 
-    def test_registered_create_args(self):
+    def test_registered_create_args1(self):
 
         register_class("test", TestObject)
 
         klass = create_class({ "test": [1,2,3] })
 
         self.assertEqual(klass.args, (1,2,3))
+        self.assertEqual(klass.kwargs, {})
+
+    def test_registered_create_args2(self):
+
+        register_class("test", TestObject)
+
+        klass = create_class({ "test": 1 })
+
+        self.assertEqual(klass.args, (1,))
+        self.assertEqual(klass.kwargs, {})
+
+    def test_registered_create_args3(self):
+
+        register_class("test", TestObject)
+
+        klass = create_class({ "test": "abc" })
+
+        self.assertEqual(klass.args, ("abc",))
         self.assertEqual(klass.kwargs, {})
 
     def test_registered_create_args_kwargs(self):

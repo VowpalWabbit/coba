@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from hashlib import md5
 from typing import Generic, Iterable, TypeVar, Any
 
-from coba.tools import ExecutionContext
+from coba.tools import CobaConfig
 
 _T_out = TypeVar("_T_out", bound=Any, covariant=True)
 
@@ -66,16 +66,16 @@ class HttpSource(Source[Iterable[str]]):
                 "and if the error persists you may want to manually download and reference the file.")
             raise Exception(message) from None
 
-        if self._cachename not in ExecutionContext.FileCache: ExecutionContext.FileCache.put(self._cachename, bites)
+        if self._cachename not in CobaConfig.Cacher: CobaConfig.Cacher.put(self._cachename, bites)
 
         return bites.decode('utf-8').splitlines()
     
     def _get_bytes(self) -> bytes:
-        if self._cachename in ExecutionContext.FileCache:
-            with ExecutionContext.Logger.log(f'loading {self._desc} from cache... '.replace('  ', ' ')):
-                return ExecutionContext.FileCache.get(self._cachename)
+        if self._cachename in CobaConfig.Cacher:
+            with CobaConfig.Logger.log(f'loading {self._desc} from cache... '.replace('  ', ' ')):
+                return CobaConfig.Cacher.get(self._cachename)
         else:
-            with ExecutionContext.Logger.log(f'loading {self._desc} from http... '):
+            with CobaConfig.Logger.log(f'loading {self._desc} from http... '):
                 response = requests.get(self._url)
 
                 if response.status_code == 412 and 'openml' in self._url:
@@ -83,14 +83,14 @@ class HttpSource(Source[Iterable[str]]):
                         message = (
                             "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
                             "openml account at openml.org. Once a key has been obtained it should be placed within "
-                            "~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
+                            "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
                         raise Exception(message) from None
 
                     if 'authentication failed' in response.text:
                         message = (
                             "The API Key you provided no longer seems to be valid. You may need to create a new one"
                             "longing into your openml account and regenerating a key. After regenerating the new key "
-                            "should be placed in ~/.coba as { \"openml_api_key\" : \"<your key here>\", }.")
+                            "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
                         raise Exception(message) from None
 
                 return response.content

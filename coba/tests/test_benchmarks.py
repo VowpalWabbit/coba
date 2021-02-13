@@ -5,7 +5,7 @@ from pathlib import Path
 from statistics import mean
 
 from coba.simulations import LambdaSimulation
-from coba.tools import ExecutionContext, NoneLogger
+from coba.tools import CobaConfig, NoneLog
 from coba.learners import Learner
 from coba.benchmarks import Benchmark, Result, Transaction, TransactionIsNew, BenchmarkFileFmtV1
 
@@ -167,8 +167,8 @@ class Benchmark_Single_Tests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        ExecutionContext.Logger = NoneLogger()
-        ExecutionContext.Config.processes = 1
+        CobaConfig.Logger = NoneLog()
+        CobaConfig.Benchmark['processes'] = 1
 
     def test_sims(self):
         sim1            = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
@@ -262,8 +262,8 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
     
     @classmethod
     def setUpClass(cls) -> None:
-        ExecutionContext.Logger = NoneLogger()
-        ExecutionContext.Config.processes = 2
+        CobaConfig.Logger = NoneLog()
+        CobaConfig.Benchmark['processes'] = 2
 
     def test_not_picklable_learner(self):
         sim1      = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
