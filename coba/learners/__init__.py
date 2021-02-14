@@ -543,6 +543,13 @@ class CorralLearner(Learner[Context, Action]):
         """        
         return {"eta": self._eta_init, "B": [ b.family for b in self._base_learners ] }
 
+    def init(self) -> None:
+        for learner in self._base_learners:
+            try:
+                learner.init()
+            except:
+                pass
+
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
 
         predicts = [ base_algorithm.predict(key, context, actions) for base_algorithm in self._base_learners ]
@@ -562,10 +569,11 @@ class CorralLearner(Learner[Context, Action]):
         base_actions  = self._base_actions.pop(key)
         base_predicts = self._base_predicts.pop(key)
 
-        losses = [ loss/probability * int(act==action) for act in base_actions ]
+        losses  = [ loss/probability   * int(act==action) for act in base_actions ]
+        rewards = [ reward/probability * int(act==action) for act in base_actions ]
 
-        for learner, action, L, P in zip(self._base_learners, base_actions, losses, base_predicts):
-            learner.learn(key, context, action, 1-L, P) # COBA learners assume a reward in [0,1]
+        for learner, action, R, P in zip(self._base_learners, base_actions, rewards, base_predicts):
+            learner.learn(key, context, action, R, P) # COBA learners assume a reward
 
         self._ps     = list(self._log_barrier_omd(losses))
         self._p_bars = [ (1-self._gamma)*p + self._gamma*1/len(self._base_learners) for p in self._ps ]
