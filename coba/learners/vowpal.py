@@ -6,11 +6,12 @@ TODO Add unittests
 import collections
 
 from os import devnull
-from typing import Any, Dict, Tuple, Union, Sequence
+from typing import Any, Dict, Tuple, Union, Sequence, overload
 
 from coba.random import CobaRandom
 from coba.tools import check_vowpal_support, redirect_stderr
-from coba.simulations import Context, Action, Choice
+from coba.simulations import Context, Action, Choice, Reward
+from coba.learners.core import Learner, Key
 
 class cb_explore_Formatter:
     @staticmethod
@@ -243,3 +244,179 @@ def _feature_format(name: Any, value: Any) -> str:
     """
 
     return f"{name}:{value}" if isinstance(value,(int,float)) else f"{value}"
+
+class VowpalLearner(Learner[Context, Action]):
+    """A learner using Vowpal Wabbit's contextual bandit command line interface.
+
+    Remarks:
+        This learner requires that the Vowpal Wabbit package be installed. This package can be
+        installed via `pip install vowpalwabbit`. To learn more about solving contextual bandit
+        problems with Vowpal Wabbit see https://vowpalwabbit.org/tutorials/contextual_bandits.html
+        and https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms.
+    """
+
+    @overload
+    def __init__(self, *, epsilon: float, is_adf: bool = True, seed:int = None) -> None:
+        """Instantiate a VowpalLearner.
+        Args:
+            epsilon: A value between 0 and 1. If provided exploration will follow epsilon-greedy.
+        """
+        ...
+
+    @overload
+    def __init__(self, *, bag: int, is_adf: bool = True, seed:int = None) -> None:
+        """Instantiate a VowpalLearner.
+        Args:
+            bag: An integer value greater than 0. This value determines how many separate policies will be
+                learned. Each policy will be learned from bootstrap aggregation, making each policy unique. 
+                For each choice one policy will be selected according to a uniform distribution and followed.
+        """
+        ...
+
+    @overload
+    def __init__(self, *, cover: int, seed:int = None) -> None:
+        """Instantiate a VowpalLearner.
+        Args:
+            cover: An integer value greater than 0. This value value determines how many separate policies will be
+                learned. These policies are learned in such a way to explicitly optimize policy diversity in order
+                to control exploration. For each choice one policy will be selected according to a uniform distribution
+                and followed. For more information on this algorithm see Agarwal et al. (2014).
+        References:
+            Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming 
+            the monster: A fast and simple algorithm for contextual bandits." In International Conference on 
+            Machine Learning, pp. 1638-1646. 2014.
+        """
+        ...
+
+    @overload
+    def __init__(self, *, softmax:float, seed:int = None) -> None:
+        """Instantiate a VowpalLearner.
+        Args:
+            softmax: An exploration parameter with 0 indicating uniform exploration is desired and infinity
+                indicating that no exploration is desired (aka, greedy action selection only). For more info
+                see `lambda` at https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms.
+        """
+        ...
+
+    @overload
+    def __init__(self,
+        learning: cb_explore,
+        exploration: Union[epsilongreedy, bagging, cover], *, seed:int = None) -> None:
+        ...
+    
+    @overload
+    def __init__(self,
+        learning: cb_explore_adf = cb_explore_adf(),
+        exploration: Union[epsilongreedy, softmax, bagging] = epsilongreedy(0.025), 
+        *, 
+        seed:int = None) -> None:
+        ...
+
+    def __init__(self, 
+        learning: Union[cb_explore,cb_explore_adf] = cb_explore_adf(),
+        exploration: Union[epsilongreedy, softmax, bagging, cover] = epsilongreedy(0.025),
+        **kwargs) -> None:
+        """Instantiate a VowpalLearner with the requested VW learner and exploration."""
+
+        self._learning: Union[cb_explore, cb_explore_adf]
+        self._exploration: Union[epsilongreedy, softmax, bagging, cover]
+
+        if 'epsilon' in kwargs:
+            self._learning    = cb_explore_adf() if kwargs.get('is_adf',True) else cb_explore()
+            self._exploration = epsilongreedy(kwargs['epsilon'])
+
+        elif 'softmax' in kwargs:
+            self._learning   = cb_explore_adf()
+            self._exploration = softmax(kwargs['softmax'])
+
+        elif 'bag' in kwargs:
+            self._learning = cb_explore_adf() if kwargs.get('is_adf',True) else cb_explore()
+            self._exploration = bagging(kwargs['bag'])
+
+        elif 'cover' in kwargs:
+            self._learning = cb_explore()
+            self._exploration = cover(kwargs['cover'])
+
+        else:
+            self._learning = learning
+            self._exploration = exploration
+
+        self._probs: Dict[Key, Sequence[float]] = {}
+        self._actions = self._new_actions(self._learning)
+
+        self._flags = kwargs.get('flags', '')
+
+        self._vw = pyvw_Wrapper(self._learning.formatter, seed=kwargs.get('seed', None))
+
+    @property
+    def family(self) -> str:
+        """The family of the learner.
+
+        See the base class for more information
+        """
+        return f"vw_{self._learning.__class__.__name__}_{self._exploration.__class__.__name__}"
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """The parameters of the learner.
+        
+        See the base class for more information
+        """        
+        return {**self._learning.params(), **self._exploration.params()}        
+
+    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
+        """Determine a PMF with which to select the given actions.
+
+        Args:
+            key: The key identifying the interaction we are choosing for.
+            context: The context we're currently in. See the base class for more information.
+            actions: The actions to choose from. See the base class for more information.
+
+        Returns:
+            The probability of taking each action. See the base class for more information.
+        """
+
+        if not self._vw.created:
+            self._vw.create(self._learning.flags(actions) + " " + self._exploration.flags() + " " + self._flags)
+
+        probs = self._vw.predict(context, actions)
+
+        self._set_actions(key,actions)
+
+        if isinstance(self._learning, cb_explore):
+            return [probs[i] for i in sorted(range(len(actions)), key=lambda i: actions.index(self._actions[i])) ]
+        else:
+            return probs
+
+    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+        """Learn from the given interaction.
+
+        Args:
+            key: The key identifying the interaction this observed reward came from.
+            context: The context we're learning about. See the base class for more information.
+            action: The action that was selected in the context. See the base class for more information.
+            reward: The reward that was gained from the action. See the base class for more information.
+            probability: The probability that the given action was taken.
+        """
+
+        actions = self._get_actions(key)
+        self._vw.learn(probability, actions, context, action, reward)
+
+    def _new_actions(self, learning) -> Any:
+        if isinstance(learning, cb_explore):
+            return []
+        else:
+            return {}
+
+    def _set_actions(self, key, actions) -> None:
+        if self._actions == []:
+            self._actions = actions
+
+        if isinstance(self._actions, collections.MutableMapping):
+            self._actions[key] = actions
+
+    def _get_actions(self, key) -> Sequence[Action]:
+        if isinstance(self._actions, collections.MutableMapping) :
+            return self._actions.pop(key)
+        else:
+            return self._actions
