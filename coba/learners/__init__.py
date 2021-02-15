@@ -563,8 +563,10 @@ class CorralLearner(Learner[Context, Action]):
         return [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
 
     def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+        
+        loss = 1-reward 
 
-        loss = 1-reward # Corral algorithm assumes loss in [0,1]
+        assert  0 <= loss and loss <= 1, "The current Corral implementation assumes a loss between 0 and 1"
 
         base_actions  = self._base_actions.pop(key)
         base_predicts = self._base_predicts.pop(key)
