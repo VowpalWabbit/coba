@@ -20,7 +20,7 @@ from typing import (
 
 import coba.random
 
-from coba.tools import check_numpy_support, CobaConfig
+from coba.tools import PackageChecker, CobaConfig
 from coba.data.sources import Source, HttpSource, MemorySource
 from coba.data.encoders import OneHotEncoder
 from coba.data.filters import Filter
@@ -449,7 +449,7 @@ class SortSimulation(Simulation[_C_out, _A_out]):
 class PcaSimulation(Simulation[Tuple[float,...], _A_out]):
     def __init__(self, simulation: Simulation[Tuple[float,...], _A_out]) -> None:
         
-        check_numpy_support("PcaSimulation.__init__")
+        PackageChecker.numpy("PcaSimulation.__init__")
         
         import numpy as np #type: ignore
 
@@ -546,7 +546,7 @@ class Batch(Filter[Simulation[Context,Action],BatchedSimulation[Context,Action]]
 class PCA(Filter[Simulation[Tuple[float,...],Action],Simulation[Context,Action]]):
 
     def __init__(self) -> None:
-        check_numpy_support("PCA.__init__")
+        PackageChecker.numpy("PCA.__init__")
 
     def filter(self, item: Simulation[Tuple[float,...],Action]) -> Simulation[Context,Action]:
         return PcaSimulation(item)

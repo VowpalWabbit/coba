@@ -1,0 +1,105 @@
+"""Coba global configuration functionality.
+
+TODO Add unittests for CobaConfig.
+"""
+
+import json
+import collections
+
+from pathlib import Path
+from typing import Dict, Any
+
+from coba.tools.registry import CobaRegistry
+
+class CobaConfig_meta(type):
+    """To support class properties before python 3.9 we must implement our properties directly 
+       on a meta class. Using class properties rather than class variables is done to allow 
+       lazy loading. Lazy loading moves errors to execution time instead of import time where
+       they are easier to debug.
+    """
+
+    def __init__(cls, *args, **kwargs):
+        cls._api_keys  = None
+        cls._cache     = None
+        cls._log       = None
+        cls._benchmark = None
+
+    @staticmethod
+    def _load_config() -> Dict[str,Any]:
+        search_paths = [Path("./.coba"), Path.home() / ".coba"]
+
+        config = {
+            "api_keys"  : collections.defaultdict(lambda:None),
+            "cache"     : "NoneCache",
+            "log"       : "ConsoleLog",
+            "benchmark" : {"processes": 1, "maxtasksperchild": None, "file_fmt": "BenchmarkFileV1"}
+        }
+
+        for potential_path in search_paths:
+            if potential_path.exists():
+                with open(potential_path) as fs:
+                    for key,value in json.load(fs).items():
+                        if isinstance(config[key], collections.MutableMapping):
+                            config[key].update(value)
+                        else:
+                            config[key] = value
+                break
+
+        return config
+
+    @property
+    def Api_Keys(cls):
+        if cls._api_keys is None:
+            cls._api_keys = cls._load_config()['api_keys']
+        return cls._api_keys
+
+    @Api_Keys.setter
+    def Api_Keys(cls, value):
+        cls._api_keys = value
+
+    @property
+    def Cacher(cls):
+        if cls._cache is None:
+            cls._cache = CobaRegistry.construct(cls._load_config()['cache'])
+        return cls._cache
+    
+    @Cacher.setter
+    def Cacher(cls, value):
+        cls._cache = value
+
+    @property
+    def Logger(cls):
+        if cls._log is None:
+            cls._log = CobaRegistry.construct(cls._load_config()['log'])
+        return cls._log
+    
+    @Logger.setter
+    def Logger(cls, value):
+        cls._log = value
+
+    @property
+    def Benchmark(cls):
+        if cls._benchmark is None:
+            cls._benchmark = cls._load_config()['benchmark']
+        return cls._benchmark
+
+    @Benchmark.setter
+    def Benchmark(cls, value):
+        cls._benchmark = value
+
+class CobaConfig(metaclass=CobaConfig_meta):
+    """Create a global configuration context to allow easy mocking and customization.
+
+    In short, So long as the same modulename is always used to import and the import
+    always occurs on the same thread I'm fairly confident this pattern will always work.
+
+    In long, I'm somewhat unsure about this pattern for the following reasons:
+        > While there seems concensus that multi-import doesn't repeat [1] it may if different modulenames are used [2]
+            [1] https://stackoverflow.com/a/19077396/1066291
+            [2] https://stackoverflow.com/q/13392038/1066291
+
+        > Python 3.7 added in explicit context management in [3,4] but this implementation is thread local only
+            [3] https://www.python.org/dev/peps/pep-0567/
+            [4] https://docs.python.org/3/library/contextvars.html
+    """
+    pass

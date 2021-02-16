@@ -2,7 +2,7 @@
 import unittest
 from unittest.case import SkipTest
 
-from coba.tools import check_vowpal_support
+from coba.tools import PackageChecker
 from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
 
 class RandomLearner_Tests(unittest.TestCase):
@@ -81,7 +81,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            check_vowpal_support('VowpalLearner_Tests._make_learner')
+            PackageChecker.vowpalwabbit('VowpalLearner_Tests._make_learner')
         except ImportError:
             #if somebody is using the package with no intention of
             #using the VowpalLearner we don't want them to see failed

@@ -24,7 +24,7 @@ from coba.random import CobaRandom
 from coba.learners import Learner, Key
 from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Choice, Context, Action, Reward, PCA, Sort
 from coba.statistics import OnlineMean, OnlineVariance
-from coba.tools import check_matplotlib_support, check_pandas_support, create_class, CobaConfig
+from coba.tools import PackageChecker, CobaRegistry, CobaConfig
 
 from coba.data.structures import Table
 from coba.data.filters import Filter, JsonEncode, JsonDecode, ForeachFilter
@@ -92,7 +92,7 @@ class Result:
 
     def to_pandas(self) -> Tuple[Any,Any,Any]:
 
-        check_pandas_support("Result.to_pandas")
+        PackageChecker.pandas("Result.to_pandas")
 
         l = self.learners.to_pandas()
         s = self.simulations.to_pandas()
@@ -102,7 +102,7 @@ class Result:
 
     def standard_plot(self, select_learners: Sequence[int] = None,  show_err: bool = False, show_sd: bool = False, figsize=(12,4)) -> None:
 
-        check_matplotlib_support('Plots.standard_plot')
+        PackageChecker.matplotlib('Plots.standard_plot')
 
         def _plot(axes, label, xs, ys, vs, ns):
             axes.plot(xs, ys, label=label)
@@ -784,7 +784,7 @@ class Benchmark(Generic[_C,_A]):
     def from_file(filename:str) -> 'Benchmark[Context,Action]':
         """Instantiate a Benchmark from a config file."""
 
-        return create_class(CobaConfig.Benchmark['file_fmt']).parse(Path(filename).read_text())
+        return CobaRegistry.construct(CobaConfig.Benchmark['file_fmt']).parse(Path(filename).read_text())
 
     @overload
     def __init__(self, 

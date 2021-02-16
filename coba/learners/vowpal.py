@@ -9,7 +9,7 @@ from os import devnull
 from typing import Any, Dict, Tuple, Union, Sequence, overload
 
 from coba.random import CobaRandom
-from coba.tools import check_vowpal_support, redirect_stderr
+from coba.tools import PackageChecker, redirect_stderr
 from coba.simulations import Context, Action, Choice, Reward
 from coba.learners.core import Learner, Key
 
@@ -39,7 +39,7 @@ class cb_explore_adf_Formatter:
 
 class pyvw_Wrapper:
     def __init__(self, format: Union[cb_explore_Formatter, cb_explore_adf_Formatter], seed: int = None) -> None:
-        check_vowpal_support('VowpalLearner.__init__')
+        PackageChecker.vowpalwabbit('VowpalLearner.__init__')
         from vowpalwabbit import pyvw #type: ignore #ignored due to mypy error
 
         self._vw_init = pyvw.vw

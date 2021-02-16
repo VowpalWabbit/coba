@@ -4,7 +4,7 @@ import collections
 
 from typing import Sequence, Hashable, Any, Dict, Iterable
 
-from coba.tools import check_pandas_support
+from coba.tools import PackageChecker
 
 class Table:
     """A container class for storing tabular data."""
@@ -78,7 +78,7 @@ class Table:
     def to_pandas(self) -> Any:
         """Convert a table into a pandas dataframe."""
 
-        check_pandas_support('Table.to_pandas')
+        PackageChecker.pandas('Table.to_pandas')
         import pandas as pd #type: ignore #mypy complains otherwise
 
         return pd.DataFrame(self.to_tuples())
