@@ -184,7 +184,7 @@ class DiskCache_Tests(unittest.TestCase):
 
         self.assertFalse("test.csv"    in cache)
 
-class Recipe_Tests(unittest.TestCase):
+class CobaRegistry_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
         CobaRegistry.clear() #make sure the registry is fresh each test
@@ -242,6 +242,69 @@ class Recipe_Tests(unittest.TestCase):
 
         self.assertEqual(klass.args, (1,2,3))
         self.assertEqual(klass.kwargs, {"a":1})
+
+    def test_registered_create_foreach1(self):
+
+        CobaRegistry.register("test", TestObject)
+
+        recipe = { "test":[[1,2,3]], "kwargs": {"a":1}, "make":"foreach" }
+
+        klasses = CobaRegistry.construct(recipe)
+
+        self.assertEqual(len(klasses), 1)
+        self.assertEqual(klasses[0].args, (1,2,3))
+        self.assertEqual(klasses[0].kwargs, {"a":1})
+
+    def test_registered_create_foreach2(self):
+
+        CobaRegistry.register("test", TestObject)
+
+        recipe = { "test":[1,2,3], "kwargs": {"a":1}, "make":"foreach" }
+
+        klasses = CobaRegistry.construct(recipe)
+
+        self.assertEqual(len(klasses), 3)
+    
+        self.assertEqual(klasses[0].args, (1,))
+        self.assertEqual(klasses[0].kwargs, {"a":1})
+
+        self.assertEqual(klasses[1].args, (2,))
+        self.assertEqual(klasses[1].kwargs, {"a":1})
+
+        self.assertEqual(klasses[2].args, (3,))
+        self.assertEqual(klasses[2].kwargs, {"a":1})
+
+    def test_registered_create_foreach3(self):
+
+        CobaRegistry.register("test", TestObject)
+
+        recipe = { "test":[1,2], "kwargs": [{"a":1},{"a":2}], "make":"foreach" }
+
+        klasses = CobaRegistry.construct(recipe)
+
+        self.assertEqual(len(klasses), 2)
+
+        self.assertEqual(klasses[0].args, (1,))
+        self.assertEqual(klasses[0].kwargs, {"a":1})
+
+        self.assertEqual(klasses[1].args, (2,))
+        self.assertEqual(klasses[1].kwargs, {"a":2})
+
+    def test_registered_create_foreach4(self):
+
+        CobaRegistry.register("test", TestObject)
+
+        recipe = { "test":[[1,2],3], "make":"foreach" }
+
+        klasses = CobaRegistry.construct(recipe)
+
+        self.assertEqual(len(klasses), 2)
+    
+        self.assertEqual(klasses[0].args, (1,2))
+        self.assertEqual(klasses[0].kwargs, {})
+
+        self.assertEqual(klasses[1].args, (3,))
+        self.assertEqual(klasses[1].kwargs, {})
 
     def test_not_registered(self):
 
