@@ -8,7 +8,7 @@ from coba.data.encoders import OneHotEncoder
 from coba.tools import CobaConfig, NoneCache, NoneLog, MemoryCache
 from coba.simulations import (
     Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, 
-    LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource, 
+    LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource, PcaSimulation, 
     Shuffle, Take, Batch, PCA, Sort
 )
 
@@ -171,8 +171,11 @@ class LambdaSimulation_Tests(unittest.TestCase):
 class OpenmlSimulation_Tests(unittest.TestCase):
 
     def test_simple(self):
-        simulation = OpenmlSimulation(150)
+        OpenmlSimulation(150)
         self.assertTrue(True)
+
+    def test_repr(self):
+        self.assertEqual('{"OpenmlSimulation":150}', str(OpenmlSimulation(150)))
 
 class Shuffle_Tests(unittest.TestCase):
     
@@ -291,6 +294,10 @@ class Take_Tests(unittest.TestCase):
         
         self.assertEqual(3, len(simulation.interactions))
         self.assertEqual(0, len(take_simulation.interactions))
+
+    def test_repr(self):
+        self.assertEqual('{"Take":2}', str(Take(2)))
+        self.assertEqual('{"Take":null}', str(Take(None)))
 
 class Batch_Tests(unittest.TestCase):
 
@@ -435,6 +442,11 @@ class Batch_Tests(unittest.TestCase):
         self.assertEqual(1, len(batch_simulation.interaction_batches[2]))
         self.assertEqual(2, batch_simulation.interaction_batches[2][0].key)
 
+    def test_repr(self):
+        self.assertEqual('{"Batch":{"count":2}}', str(Batch(count=2)))
+        self.assertEqual('{"Batch":{"size":2}}', str(Batch(size=2)))
+        self.assertEqual('{"Batch":{"sizes":[1,2,3]}}', str(Batch(sizes=[1,2,3])))
+
 class Interaction_Tests(unittest.TestCase):
 
     def test_constructor_no_context(self) -> None:
@@ -473,6 +485,9 @@ class PCA_Tests(unittest.TestCase):
         self.assertNotEqual((1,2), pca_sim.interactions[0].context)
         self.assertNotEqual((1,9), pca_sim.interactions[1].context)
         self.assertNotEqual((7,3), pca_sim.interactions[2].context)
+
+    def test_repr(self):
+        self.assertEqual('"PCA"', str(PCA()))
 
 class Sort_tests(unittest.TestCase):
 
@@ -513,6 +528,10 @@ class Sort_tests(unittest.TestCase):
         self.assertEqual((1,2), srt_sim.interactions[0].context)
         self.assertEqual((1,3), srt_sim.interactions[1].context)
         self.assertEqual((1,9), srt_sim.interactions[2].context)
+    
+    def test_repr(self):
+        self.assertEqual('{"Sort":[0]}', str(Sort([0])))
+        self.assertEqual('{"Sort":[1,2]}', str(Sort([1,2])))
 
 if __name__ == '__main__':
     unittest.main()

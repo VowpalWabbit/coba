@@ -5,12 +5,24 @@ from multiprocessing import current_process
 from typing import Iterable, Any
 
 from coba.tools import CobaConfig, UniversalLog
-from coba.data.filters import Filter
+from coba.data.filters import Filter, IdentityFilter
 from coba.data.sinks import MemorySink
 from coba.data.sources import MemorySource
 from coba.data.pipes import Pipe
 
 class Pipe_Tests(unittest.TestCase):
+
+    class ReprSource(MemorySource):
+        def __repr__(self):
+            return "ReprSource"
+
+    class ReprFilter(IdentityFilter):
+        def __repr__(self):
+            return "ReprFilter"
+
+    class ReprSink(MemorySink):
+        def __repr__(self) -> str:
+            return "ReprSink"
 
     class ProcessNameFilter(Filter):
         def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -84,6 +96,38 @@ class Pipe_Tests(unittest.TestCase):
 
         self.assertEqual(len(actual_logs), 4)
         self.assertEqual(sink.items, [ l[0][20:] for l in actual_logs ] )
+
+    def test_repr1(self):
+
+        source  = Pipe_Tests.ReprSource([0,1,2])
+        filters = [Pipe_Tests.ReprFilter(), Pipe_Tests.ReprFilter()]
+        sink    = Pipe_Tests.ReprSink()
+
+        expected_repr = "ReprSource,ReprFilter,ReprFilter,ReprSink"
+        self.assertEqual(expected_repr, str(Pipe.join(source, filters, sink)))
+    
+    def test_repr2(self):
+
+        source  = Pipe_Tests.ReprSource([0,1,2])
+        filters = [Pipe_Tests.ReprFilter(), Pipe_Tests.ReprFilter()]
+
+        expected_repr = "ReprSource,ReprFilter,ReprFilter"
+        self.assertEqual(expected_repr, str(Pipe.join(source, filters)))
+
+    def test_repr3(self):
+
+        filters = [Pipe_Tests.ReprFilter(), Pipe_Tests.ReprFilter()]
+        sink    = Pipe_Tests.ReprSink()
+
+        expected_repr = "ReprFilter,ReprFilter,ReprSink"
+        self.assertEqual(expected_repr, str(Pipe.join(filters, sink)))
+
+    def test_repr4(self):
+
+        filter = Pipe.FiltersFilter([Pipe_Tests.ReprFilter(), Pipe_Tests.ReprFilter()])
+
+        expected_repr = "ReprFilter,ReprFilter"
+        self.assertEqual(expected_repr, str(filter))
 
 if __name__ == '__main__':
     unittest.main()

@@ -6,7 +6,7 @@ from pathlib import Path
 from coba.tools import PackageChecker, DiskCache, UniversalLog, CobaRegistry
 
 class TestObject:
-    def __init__(self, *args,**kwargs):
+    def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
 
@@ -216,6 +216,15 @@ class CobaRegistry_Tests(unittest.TestCase):
         self.assertEqual(klass.args, (1,))
         self.assertEqual(klass.kwargs, {})
 
+    def test_registered_create_kwargs(self):
+
+        CobaRegistry.register("test", TestObject)
+
+        klass = CobaRegistry.construct({ "test": {"a":1} })
+
+        self.assertEqual(klass.args, ())
+        self.assertEqual(klass.kwargs, {"a":1})
+
     def test_registered_create_args3(self):
 
         CobaRegistry.register("test", TestObject)
@@ -331,6 +340,17 @@ class CobaRegistry_Tests(unittest.TestCase):
         CobaRegistry.register("test", TestObject)
 
         recipe = {"test":[1,2,3], "name":"test", "args":[4,5,6]}
+
+        with self.assertRaises(Exception) as cm:
+            CobaRegistry.construct(recipe)
+
+        self.assertEqual(f"Invalid recipe {str(recipe)}", str(cm.exception))
+
+    def test_invalid_recipe3(self):
+
+        CobaRegistry.register("test", TestObject)
+
+        recipe = {"test":{"a":1}, "name":"test", "kwargs":{"a":1}}
 
         with self.assertRaises(Exception) as cm:
             CobaRegistry.construct(recipe)

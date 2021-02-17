@@ -108,7 +108,7 @@ class BenchmarkFileFmtV1_Tests(unittest.TestCase):
 
         benchmark = BenchmarkFileFmtV1().parse(json)
 
-        self.assertEqual(1, len(benchmark._simulation_pipes))
+        self.assertEqual(1, len(benchmark._simulations))
 
 class TransactionIsNew_Test(unittest.TestCase):
     
@@ -179,7 +179,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_batches = benchmark.evaluate([learner_factory]).to_tuples()
 
         expected_learners    = [(0,"0","0")]
-        expected_simulations = [(0, '0', ['{"Batch":[None, 1, None]}'], 5, 1, 1, 3), (1, '1', ['{"Batch":[None, 1, None]}'], 4, 1, 1, 3)]
+        expected_simulations = [(0, '"LambdaSimulation",{"Batch":{"count":1}}', 5, 1, 1, 3), (1, '"LambdaSimulation",{"Batch":{"count":1}}', 4, 1, 1, 3)]
         expected_batches     = [(0, 0, [5], [mean([0,1,2,0,1])]), (1, 0, [4], [mean([3,4,5,3])])]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -194,7 +194,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_batches = benchmark.evaluate([learner]).to_tuples()
 
         expected_learners    = [(0,"0","0")]
-        expected_simulations = [(0, '0', ['{"Shuffle":1}', '{"Batch":[None, None, [2]]}'], 2, 1, 1, 3), (1, '0', ['{"Shuffle":4}', '{"Batch":[None, None, [2]]}'], 2, 1, 1, 3)]
+        expected_simulations = [(0, '"LambdaSimulation",{"Shuffle":1},{"Batch":{"sizes":[2]}}', 2, 1, 1, 3), (1, '"LambdaSimulation",{"Shuffle":4},{"Batch":{"sizes":[2]}}', 2, 1, 1, 3)]
         expected_batches     = [(0, 0, [2], [mean([1,0])]), (1, 0, [2], [mean([2,0])])]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -210,7 +210,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_batches = benchmark.evaluate([learner]).to_tuples()
 
         expected_learners    = [(0,"0","0")]
-        expected_simulations = [(0, '0', ['{"Take":5}', '{"Batch":[None, 1, None]}'], 5, 1, 1, 3), (1, '1', ['{"Take":5}', '{"Batch":[None, 1, None]}'], 0, 0, 0, 0)]
+        expected_simulations = [(0, '"LambdaSimulation",{"Take":5},{"Batch":{"count":1}}', 5, 1, 1, 3), (1, '"LambdaSimulation",{"Take":5},{"Batch":{"count":1}}', 0, 0, 0, 0)]
         expected_batches     = [(0, 0, [5], [mean([0,1,2,0,1])])]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -227,7 +227,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_learners,actual_simulations,actual_batches = actual_results.to_tuples()
 
         expected_learners     = [(0,"0","0"), (1,"1","1")]
-        expected_simulations  = [(0, '0', ['{"Batch":[None, 1, None]}'], 5, 1, 1, 3)]
+        expected_simulations  = [(0, '"LambdaSimulation",{"Batch":{"count":1}}', 5, 1, 1, 3)]
         expected_batches      = [(0, 0, [5], [mean([0,1,2,0,1])]), (0, 1, [5], [mean([0,1,2,0,1])]) ]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -247,9 +247,9 @@ class Benchmark_Single_Tests(unittest.TestCase):
             second_results = benchmark.evaluate([broken_learner], "coba/tests/.temp/transactions.log")
 
             actual_learners,actual_simulations,actual_batches = second_results.to_tuples()
-
+            
             expected_learners    = [(0,"0","0")]
-            expected_simulations = [(0, '0', ['{"Batch":[None, 1, None]}'], 5, 1, 1, 3)]
+            expected_simulations = [(0, '"LambdaSimulation",{"Batch":{"count":1}}', 5, 1, 1, 3)]
             expected_batches     = [(0, 0, [5], [mean([0,1,2,0,1])])]
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()

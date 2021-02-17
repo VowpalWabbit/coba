@@ -26,8 +26,10 @@ class Pipe:
         def filter(self, items: Any) -> Any:
             for filter in self._filters:
                 items = filter.filter(items)
-
             return items
+
+        def __repr__(self) -> str:
+            return ",".join(map(str,self._filters))
 
     class SourceFilters(Source):
         def __init__(self, source: Source, filters: Sequence[Filter]) -> None:
@@ -37,10 +39,13 @@ class Pipe:
         def read(self) -> Any:
             return self._filter.filter(self._source.read())
 
+        def __repr__(self) -> str:
+            return ",".join(map(str,[self._source, self._filter]))
+
     class FiltersSink(Sink):
         def __init__(self, filters: Sequence[Filter], sink: Sink) -> None:
-            self._filters = filters
-            self._sink    = sink
+            self._filter = Pipe.FiltersFilter(filters)
+            self._sink   = sink
 
         def final_sink(self) -> Sink:
             if isinstance(self._sink, Pipe.FiltersSink):
@@ -49,9 +54,10 @@ class Pipe:
                 return self._sink
 
         def write(self, items: Iterable[Any]):
-            for filt in self._filters:
-                items = filt.filter(items)
-            self._sink.write(items)
+            self._sink.write(self._filter.filter(items))
+
+        def __repr__(self) -> str:
+            return ",".join(map(str,[self._filter, self._sink]))
 
     @overload
     @staticmethod
@@ -112,6 +118,9 @@ class Pipe:
             self._sink.write(filter.filter(self._source.read()))
         except StopPipe:
             pass
+
+    def __repr__(self) -> str:
+        return ",".join(map(str,[self._source, *self._filters, self._sink]))
 
 class MultiProcessFilter(Filter):
 

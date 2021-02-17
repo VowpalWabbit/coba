@@ -11,7 +11,7 @@ import collections
 
 from copy import deepcopy
 from statistics import mean
-from itertools import product, groupby, chain
+from itertools import product, groupby
 from statistics import median
 from pathlib import Path
 from typing import (
@@ -285,7 +285,7 @@ class Transaction:
 
 class TaskSource(Source):
     
-    def __init__(self, simulations: Sequence[Source[BatchedSimulation]], learners: Sequence['BenchmarkLearner'], restored: Result) -> None:
+    def __init__(self, simulations: Sequence[Source[Simulation]], learners: Sequence['BenchmarkLearner'], restored: Result) -> None:
         self._simulations = simulations
         self._learners    = learners
         self._restored    = restored
@@ -296,7 +296,7 @@ class TaskSource(Source):
         #second remove pipes that are already finished
         #group pipes into a single pipe based on source
 
-        simulation_sources = [s._source if isinstance(s, (Pipe.SourceFilters, BenchmarkSimulation)) else s for s in self._simulations]
+        simulation_sources = [s._source if isinstance(s, (Pipe.SourceFilters)) else s for s in self._simulations]
         sources_set        = list(set(simulation_sources))
 
         simulations = dict(enumerate(self._simulations))
@@ -309,7 +309,7 @@ class TaskSource(Source):
         is_not_complete = lambda t: t not in restored.batches and t[0] not in zero_batch_sims
         task_keys       = filter(is_not_complete, product(simulations.keys(), learners.keys()))
 
-        source_grouped_tasks: Dict[int, Tuple[List[int], List[int], List[BenchmarkLearner], List[Source[BatchedSimulation]]]] = {}
+        source_grouped_tasks: Dict[int, Tuple[List[int], List[int], List[BenchmarkLearner], List[Source[Simulation]]]] = {}
 
         for simulation_key, learner_key in task_keys:
             
@@ -351,14 +351,18 @@ class TaskToTransactions(Filter):
 
         try:
             for simulation_id, learner_id, learner, pipe, simulation in zip(simulation_ids, learner_ids, learners, simulation_pipes, collapsed_pipe.read()):
-                batches      = simulation.interaction_batches
-                interactions = list(chain.from_iterable(batches))
+                
+                if isinstance(simulation, BatchedSimulation):
+                    batches = simulation.interaction_batches
+                else:
+                    batches = [ [interaction] for interaction in simulation.interactions ]
+
+                interactions = simulation.interactions
 
                 if simulation_id not in written_simulations:
                     written_simulations.append(simulation_id)
                     yield Transaction.simulation(simulation_id,
-                        source            = pipe.source_description,
-                        filters           = pipe.filter_descriptions,
+                        pipe              = str(pipe),
                         interaction_count = len(interactions),
                         batch_count       = len(batches),
                         context_size      = int(median(self._context_sizes(interactions))),
@@ -604,49 +608,61 @@ class BenchmarkFileFmtV1:
         if not isinstance(config["simulations"], collections.Sequence):
             config["simulations"] = [ config["simulations"] ]
 
-        batch_config = config.get('batches', {'size':1})
+        batch_config = config.get('batches', {})
+        
+        shuffle_filters: List[Shuffle] = []
+        take_filters   : List[Take]    = []
+        batch_filters  : List[Batch]   = []
 
-        kwargs: Dict[str, Any] = {}
-        kwargs['ignore_raise'] = config.get("ignore_raise", True)
-        kwargs['seeds']        = config.get('shuffle', [None])
+        if 'shuffle' in config and config['shuffle'] != None:
+            shuffle_filters = [ Shuffle(seed) for seed in config['shuffle'] ]
 
         if 'min' in batch_config:
-            kwargs['take'] = batch_config['min']
+            take_filters = [ Take(batch_config['min']) ]
+        elif 'max' in batch_config:
+            take_filters = [ Take(batch_config['max']) ]
 
-        if 'max' in batch_config:
-            kwargs['take'] = batch_config['min']
+        if 'count' in batch_config:
+            batch_filters = [ Batch(count=batch_config['count']) ]
+        elif 'size' in batch_config and batch_config['size'] != 1: 
+            batch_filters = [ Batch(size=batch_config['size']) ]
+        elif 'sizes' in batch_config:
+            batch_filters = [ Batch(sizes=batch_config['sizes']) ]
 
-        for batch_rule in ['size', 'count', 'sizes']:
-            if batch_rule in batch_config:
-                kwargs[f"batch_{batch_rule}"] = batch_config[batch_rule]
-
-        simulations: List[BenchmarkSimulation] = []
+        simulations: List[Source[Simulation]] = []
 
         for sim_config in config["simulations"]:
+            
             if sim_config["type"] != "classification":
                 raise Exception("We were unable to recognize the provided simulation type.")
-
+            
             if sim_config["from"]["format"] != "openml":
                 raise Exception("We were unable to recognize the provided data format.")
 
-            source             = OpenmlSimulation(sim_config["from"]["id"], sim_config["from"].get("md5_checksum", None))
-            source_description = f'{{"OpenmlSimulation":{sim_config["from"]["id"]}}}'
+            source = OpenmlSimulation(sim_config["from"]["id"], sim_config["from"].get("md5_checksum", None))
 
-            filters: List[Filter[Simulation,Simulation]] = []
+            pca_filters: List[PCA]   = []
+            sort_filters: List[Sort] = []
 
-            filter_descriptions = []
-
-            if "pca" in sim_config and sim_config["pca"] == True:
-                filters.append(PCA())
-                filter_descriptions.append("PCA")
+            if sim_config.get("pca",False):
+                pca_filters = [PCA()]
 
             if "sort" in sim_config:
-                filters.append(Sort(sim_config["sort"]))
-                filter_descriptions.append(f'{{"Sort":{sim_config["sort"]}}}')
+                sort_filters = [Sort(sim_config["sort"])]
 
-            simulations.append(BenchmarkSimulation(source, filters, source_description, filter_descriptions))
+            if len(sort_filters) > 0:
+                final_filters = [pca_filters, sort_filters, take_filters, batch_filters ]
+            else:
+                final_filters = [pca_filters, shuffle_filters, take_filters, batch_filters ]
 
-        return Benchmark(simulations, **kwargs)
+            final_filters = list(filter(None, final_filters))
+
+            if len(final_filters) > 0:
+                simulations.extend([ Pipe.join(source, f) for f in product(*final_filters) ])
+            else:
+                simulations.append(source)
+
+        return Benchmark(simulations)
 
     def materialize_templates(self, root: Any):
         """This class materializes templates within benchmark json files.
@@ -755,28 +771,6 @@ class BenchmarkLearner:
     def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
         self._learner.learn(key, context, action, reward, probability)
 
-class BenchmarkSimulation(Source[Simulation[_C,_A]]):
-
-    def __init__(self, 
-        source             : Source[Simulation], 
-        filters            : Sequence[Filter[Simulation,Union[Simulation, BatchedSimulation]]],
-        source_description :str = "", 
-        filter_descriptions:Sequence[str] = []) -> None:
-        
-        if isinstance(source, BenchmarkSimulation):
-            self._source             = source._source #type: ignore
-            self._filter             = Pipe.FiltersFilter(list(source._filter._filters)+list(filters)) #type: ignore
-            self.source_description  = source.source_description or source_description #type: ignore
-            self.filter_descriptions = list(source.filter_descriptions) + list(filter_descriptions) #type: ignore
-        else:
-            self._source             = source
-            self._filter             = Pipe.FiltersFilter(filters)
-            self.source_description  = source_description
-            self.filter_descriptions = list(filter_descriptions)
-    
-    def read(self) -> Simulation[_C,_A]:
-        return self._filter.filter(self._source.read())
-
 class Benchmark(Generic[_C,_A]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
 
@@ -833,41 +827,29 @@ class Benchmark(Generic[_C,_A]):
         """
 
         simulations = cast(Sequence[Source[Simulation[_C,_A]]], args[0])
-        shufflers   = [ Shuffle(seed) for seed in kwargs.get('seeds', [None]) ]
-        taker       = Take(kwargs.get('take', None))
+        
+        filters: List[Sequence[Filter[Simulation[_C,_A], Simulation[_C,_A]]]] = []
+
+        if 'seeds' in kwargs and kwargs['seeds'] != [None]:
+            filters.append([ Shuffle(seed) for seed in kwargs['seeds'] ])
+
+        if 'take' in kwargs:
+            filters.append([ Take(kwargs['take']) ])
 
         if 'batch_count' in kwargs:
-            batcher = Batch(count=kwargs['batch_count'])
+            filters.append([ Batch(count=kwargs['batch_count']) ])
+        elif 'batch_size' in kwargs:
+            filters.append([ Batch(size=kwargs['batch_size']) ])
         elif 'batch_sizes' in kwargs:
-            batcher = Batch(sizes=kwargs['batch_sizes'])
-        else:
-            batcher = Batch(size=kwargs.get('batch_size',1))
+            filters.append([ Batch(sizes=kwargs['batch_sizes']) ])
 
-        pipes: List[BenchmarkSimulation] = []
+        if len(filters) > 0:
+            simulations = [ Pipe.join(s, f) for s in simulations for f in product(*filters)]
 
-        for source_id, source in enumerate(simulations):
-            for shuffler in shufflers:
-
-                source_description = str(source_id)
-                filters_description = []
-
-                if shuffler._seed is not None:
-                    filters_description.append(f'{{"Shuffle":{shuffler._seed}}}')
-
-                if taker._count is not None:
-                    filters_description.append(f'{{"Take":{taker._count}}}')
-
-                if batcher._size != 1:
-                    filters_description.append(f'{{"Batch":{[batcher._size,batcher._count,batcher._sizes]}}}')
-
-                filters: List[Union[Filter[Simulation, Simulation],Filter[Simulation,BatchedSimulation]]] = [shuffler, taker, batcher]
-
-                pipes.append(BenchmarkSimulation(source, filters, source_description, filters_description))
-
-        self._simulation_pipes = cast(Sequence[Source[BatchedSimulation[Context,Action]]], pipes)
-        self._ignore_raise     = cast(bool                                               ,kwargs.get('ignore_raise', True))
-        self._processes        = cast(Optional[int]                                      ,kwargs.get('processes', None))
-        self._maxtasksperchild = cast(Optional[int]                                      ,kwargs.get('maxtasksperchild', None))
+        self._simulations      = cast(Sequence[Source[Simulation[Context,Action]]], simulations)
+        self._ignore_raise     = cast(bool                                        , kwargs.get('ignore_raise', True))
+        self._processes        = cast(Optional[int]                               , kwargs.get('processes', None))
+        self._maxtasksperchild = cast(Optional[int]                               , kwargs.get('maxtasksperchild', None))
 
     def ignore_raise(self, value:bool=True) -> 'Benchmark[_C,_A]':
         self._ignore_raise = value
@@ -892,12 +874,12 @@ class Benchmark(Generic[_C,_A]):
         """
         benchmark_learners   = [ BenchmarkLearner(learner, seed) for learner in learners ] #type: ignore
         restored             = Result.from_transaction_log(transaction_log)
-        task_source          = TaskSource(self._simulation_pipes, benchmark_learners, restored)
+        task_source          = TaskSource(self._simulations, benchmark_learners, restored)
         task_to_transactions = TaskToTransactions(self._ignore_raise)
         transaction_sink     = TransactionSink(transaction_log, restored)
 
         n_given_learners    = len(benchmark_learners)
-        n_given_simulations = len(self._simulation_pipes)
+        n_given_simulations = len(self._simulations)
  
         if len(restored.benchmark) != 0:
             assert n_given_learners    == restored.benchmark['n_learners'   ], "The currently evaluating benchmark doesn't match the given transaction log"

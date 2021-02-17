@@ -37,6 +37,10 @@ class ForeachFilter(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
             for filter in self._filters:
                 yield filter.filter(item)
 
+class IdentityFilter(Filter[Any, Any]):
+    def filter(self, item:Any) -> Any:
+        return item
+
 class JsonEncode(Filter[Iterable[Any], Iterable[str]]):
     def filter(self, items: Iterable[Any]) -> Iterable[str]:
         encoder = CobaJsonEncoder()

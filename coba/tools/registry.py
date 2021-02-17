@@ -50,7 +50,12 @@ class CobaRegistry:
             kwargs = mutable_recipe.pop("kwargs", None      )
 
             if len(mutable_recipe) == 1:
-                name,args = list(mutable_recipe.items())[0]
+                name, implicit_args = list(mutable_recipe.items())[0]
+
+                if isinstance(implicit_args, dict):
+                    kwargs = implicit_args
+                else:
+                    args = implicit_args
 
         if make == "singular":
             return cls._construct_single(recipe, name, args, kwargs)
@@ -69,13 +74,18 @@ class CobaRegistry:
             keywords  = ["name", "args", "kwargs", "make"]
             freewords = [ key for key in recipe if key not in keywords ]
 
+            implicit_arg       = None if len(freewords) != 1 else recipe[freewords[0]]
+            implicit_is_args   = implicit_arg is not None and not isinstance(implicit_arg,dict)
+            implicit_is_kwargs = implicit_arg is not None and     isinstance(implicit_arg,dict)
+
             no_unknown_words = len(freewords) <= 1 
             contains_name    = "name" in keywords or len(freewords) == 1
             name_collision   = "name" in recipe and len(freewords) == 1
-            args_collision   = "args" in recipe and len(freewords) == 1
-            no_collision     = not name_collision and not args_collision
+            args_collision   = "args" in recipe and implicit_is_args 
+            kwargs_collision = "kwargs" in recipe and implicit_is_kwargs
+            no_collisions    = not any([name_collision, args_collision, kwargs_collision])
 
-            return no_unknown_words and contains_name and no_collision
+            return no_unknown_words and contains_name and no_collisions
 
         return False
 
