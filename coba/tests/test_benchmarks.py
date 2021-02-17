@@ -1,3 +1,4 @@
+from coba.data.filters import JsonDecode
 import json
 import unittest
 
@@ -97,7 +98,7 @@ class BenchmarkFileFmtV1_Tests(unittest.TestCase):
         self.assertCountEqual([ sim["from"]["id"] for sim in actual["simulations"] ], [3,6])
 
     def test_parse(self):
-        json = """{
+        json_txt = """{
             "batches"     : {"count":1},
             "ignore_first": false,
             "shuffle"     : [1283],
@@ -106,7 +107,7 @@ class BenchmarkFileFmtV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        benchmark = BenchmarkFileFmtV1().parse(json)
+        benchmark = BenchmarkFileFmtV1().filter(json.loads(json_txt))
 
         self.assertEqual(1, len(benchmark._simulations))
 

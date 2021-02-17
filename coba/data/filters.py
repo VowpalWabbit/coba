@@ -7,6 +7,7 @@ TODO add unittests for all filters
 import csv
 import collections
 import itertools
+import json
 
 from abc import ABC, abstractmethod
 from typing import Generic, Hashable, Iterable, TypeVar, Any, Sequence, Union, Tuple, Callable, cast
@@ -41,15 +42,27 @@ class IdentityFilter(Filter[Any, Any]):
     def filter(self, item:Any) -> Any:
         return item
 
-class JsonEncode(Filter[Iterable[Any], Iterable[str]]):
-    def filter(self, items: Iterable[Any]) -> Iterable[str]:
-        encoder = CobaJsonEncoder()
-        for item in items: yield encoder.encode(item)
+class StringJoin(Filter[Iterable[str], str]):
 
-class JsonDecode(Filter[Iterable[str], Iterable[Any]]):
-    def filter(self, items: Iterable[str]) -> Iterable[Any]:
-        decoder = CobaJsonDecoder()
-        for item in items: yield decoder.decode(item)
+    def __init__(self, separator:str = '') -> None:
+        self._separator = separator
+
+    def filter(self, item: Iterable[str]) -> str:
+        return self._separator.join(item)
+
+class JsonEncode(Filter[Any, str]):
+    def __init__(self, encoder: json.encoder.JSONEncoder = CobaJsonEncoder()) -> None:
+        self._encoder = encoder
+
+    def filter(self, item: Any) -> str:
+        return self._encoder.encode(item)
+
+class JsonDecode(Filter[str, Any]):
+    def __init__(self, decoder: json.decoder.JSONDecoder = CobaJsonDecoder()) -> None:
+        self._decoder = decoder
+
+    def filter(self, item: str) -> Any:
+        return self._decoder.decode(item)
 
 class ColSplitter(Filter[Iterable[Sequence[Any]], Tuple[Iterable[Sequence[Any]], Iterable[Sequence[Any]]]]):
     

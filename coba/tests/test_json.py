@@ -36,13 +36,13 @@ class JsonDecoder_Tests(unittest.TestCase):
 
     def test_simple_decode(self):
         json_txt = '{"a": 1, "__type__": "SimpleJsonSerializable"}'
-        obj = CobaJsonDecoder(types=[SimpleJsonSerializable]).decode(json_txt)
+        obj = CobaJsonDecoder(known_types=[SimpleJsonSerializable]).decode(json_txt)
 
         self.assertEqual(obj._a, 1)
 
     def test_nested_decode(self):
         json_txt = '{"a": {"a": 1, "__type__": "SimpleJsonSerializable"}, "__type__": "SimpleJsonSerializable"}'
-        obj = CobaJsonDecoder(types=[SimpleJsonSerializable]).decode(json_txt)
+        obj = CobaJsonDecoder(known_types=[SimpleJsonSerializable]).decode(json_txt)
 
         self.assertEqual(obj._a._a, 1)
 

@@ -15,7 +15,7 @@ from itertools import product, groupby
 from statistics import median
 from pathlib import Path
 from typing import (
-    Iterable, Tuple, Union, Sequence, Generic,
+    Iterable, Tuple, Sequence, Generic,
     TypeVar, Dict, Any, cast, Optional,
     overload, List, Mapping, MutableMapping
 )
@@ -27,7 +27,7 @@ from coba.statistics import OnlineMean, OnlineVariance
 from coba.tools import PackageChecker, CobaRegistry, CobaConfig
 
 from coba.data.structures import Table
-from coba.data.filters import Filter, JsonEncode, JsonDecode, ForeachFilter
+from coba.data.filters import Filter, JsonEncode, JsonDecode, ForeachFilter, StringJoin
 from coba.data.sources import Source, MemorySource, DiskSource
 from coba.data.sinks import Sink, MemorySink, DiskSink
 from coba.data.pipes import Pipe, StopPipe
@@ -44,9 +44,12 @@ class Result:
         
         if filename is None or not Path(filename).exists(): return Result()
 
-        Pipe.join(DiskSource(filename), [JsonDecode(), TransactionPromote(), JsonEncode()], DiskSink(filename, 'w')).run()
+        json_encode = ForeachFilter(JsonEncode())
+        json_decode = ForeachFilter(JsonDecode())
+
+        Pipe.join(DiskSource(filename), [json_decode, TransactionPromote(), json_encode], DiskSink(filename, 'w')).run()
         
-        return Result.from_transactions(Pipe.join(DiskSource(filename), [JsonDecode()]).read())
+        return Result.from_transactions(Pipe.join(DiskSource(filename), [json_decode]).read())
 
     @staticmethod
     def from_transactions(transactions: Iterable[Any]) -> 'Result':
@@ -577,7 +580,10 @@ class TransactionIsNew(Filter):
 class TransactionSink(Sink):
     
     def __init__(self, transaction_log: Optional[str], restored: Result) -> None:
-        self._sink = Pipe.join([JsonEncode()], DiskSink(transaction_log)) if transaction_log else MemorySink()
+        
+        json_encode = ForeachFilter(JsonEncode())
+
+        self._sink = Pipe.join([json_encode], DiskSink(transaction_log)) if transaction_log else MemorySink()
         self._sink = Pipe.join([TransactionIsNew(restored)], self._sink)
 
     def write(self, items: Sequence[Any]) -> None:
@@ -598,7 +604,137 @@ class TransactionSink(Sink):
 
         raise Exception("Transactions were written to an unrecognized sink.")
 
-class BenchmarkFileFmtV1:
+class BenchmarkFileFmtV1(Filter[Dict[str,Any], 'Benchmark']):
+
+    def filter(self, config: Dict[str,Any]) -> 'Benchmark':
+
+        config = self.materialize_templates(config)
+
+        if not isinstance(config["simulations"], collections.Sequence):
+            config["simulations"] = [ config["simulations"] ]
+
+        batch_config = config.get('batches', {})
+        
+        shuffle_filters: List[Shuffle] = []
+        take_filters   : List[Take]    = []
+        batch_filters  : List[Batch]   = []
+
+        if 'shuffle' in config and config['shuffle'] != None:
+            shuffle_filters = [ Shuffle(seed) for seed in config['shuffle'] ]
+
+        if 'min' in batch_config:
+            take_filters = [ Take(batch_config['min']) ]
+        elif 'max' in batch_config:
+            take_filters = [ Take(batch_config['max']) ]
+
+        if 'count' in batch_config:
+            batch_filters = [ Batch(count=batch_config['count']) ]
+        elif 'size' in batch_config and batch_config['size'] != 1: 
+            batch_filters = [ Batch(size=batch_config['size']) ]
+        elif 'sizes' in batch_config:
+            batch_filters = [ Batch(sizes=batch_config['sizes']) ]
+
+        simulations: List[Source[Simulation]] = []
+
+        for sim_config in config["simulations"]:
+            
+            if sim_config["type"] != "classification":
+                raise Exception("We were unable to recognize the provided simulation type.")
+            
+            if sim_config["from"]["format"] != "openml":
+                raise Exception("We were unable to recognize the provided data format.")
+
+            source = OpenmlSimulation(sim_config["from"]["id"], sim_config["from"].get("md5_checksum", None))
+
+            pca_filters: List[PCA]   = []
+            sort_filters: List[Sort] = []
+
+            if sim_config.get("pca",False):
+                pca_filters = [PCA()]
+
+            if "sort" in sim_config:
+                sort_filters = [Sort(sim_config["sort"])]
+
+            if len(sort_filters) > 0:
+                final_filters = [pca_filters, sort_filters, take_filters, batch_filters ]
+            else:
+                final_filters = [pca_filters, shuffle_filters, take_filters, batch_filters ]
+
+            final_filters = list(filter(None, final_filters))
+
+            if len(final_filters) > 0:
+                simulations.extend([ Pipe.join(source, f) for f in product(*final_filters) ])
+            else:
+                simulations.append(source)
+
+        return Benchmark(simulations)
+
+    def materialize_templates(self, root: Any):
+        """This class materializes templates within benchmark json files.
+    
+        The templating engine works as follows: 
+            1. Look in the root object for a "templates" key. Templates should be objects themselves
+            with constants and variables. Variable values are indicated by beginning with a $.
+            2. Recursively walk through the remainder of the children from the root. For every object found
+            check to see if it has a "template" value. 
+            3. For every object found with a "template" value defined materialize all of that template's static
+            values into this object. If an object has a static variable defined that is also in the template give
+            preference to the local object's value.
+            4. Assign any defined variables to the template as well (i.e., those values that start with a $). 
+            5. Keep defined variables in context while walking child objects in case they are needed as well.
+        """
+
+        if "templates" in root:
+
+            templates: Dict[str,Dict[str,Any]] = root.pop("templates")
+            nodes    : List[Any]               = [root]
+            scopes   : List[Dict[str,Any]]     = [{}]
+
+            def materialize_template(document: MutableMapping[str,Any], template: Mapping[str,Any]):
+
+                for key in template:
+                    if key in document:
+                        if isinstance(template[key], collections.Mapping) and isinstance(template[key], collections.Mapping):
+                            materialize_template(document[key],template[key])
+                    else:
+                        document[key] = template[key]
+
+            def materialize_variables(document: MutableMapping[str,Any], variables: Mapping[str,Any]):
+                for key in document:
+                    if isinstance(document[key],str) and document[key] in variables:
+                        document[key] = variables[document[key]]
+
+            while len(nodes) > 0:
+                node  = nodes.pop()
+                scope = scopes.pop().copy()  #this could absolutely be made more memory-efficient if needed
+
+                if isinstance(node, collections.MutableMapping):
+
+                    if "template" in node and node["template"] not in templates:
+                        raise Exception(f"We were unable to find template '{node['template']}'.")
+
+                    keys      = list(node.keys())
+                    template  = templates[node.pop("template")] if "template" in node else cast(Dict[str,Any], {})
+                    variables = { key:node.pop(key) for key in keys if key.startswith("$") }
+
+                    template = deepcopy(template)
+                    scope.update(variables)
+
+                    materialize_template(node, template)
+                    materialize_variables(node, scope)
+
+                    for child_node, child_scope in zip(node.values(), itertools.repeat(scope)):
+                        nodes.append(child_node)
+                        scopes.append(child_scope)
+
+                if isinstance(node, collections.Sequence) and not isinstance(node, str):
+                    for child_node, child_scope in zip(node, itertools.repeat(scope)):
+                        nodes.append(child_node)
+                        scopes.append(child_scope)
+
+        return root
+
+class BenchmarkFileFmtV2:
 
     def parse(self, json_txt: str) -> 'Benchmark':
 
@@ -778,7 +914,10 @@ class Benchmark(Generic[_C,_A]):
     def from_file(filename:str) -> 'Benchmark[Context,Action]':
         """Instantiate a Benchmark from a config file."""
 
-        return CobaRegistry.construct(CobaConfig.Benchmark['file_fmt']).parse(Path(filename).read_text())
+        benchmark_filter = CobaRegistry.construct(CobaConfig.Benchmark['file_fmt'])
+        benchmark_pipe   = Pipe.join(DiskSource(filename), [StringJoin('\n'), JsonDecode(), benchmark_filter])
+
+        return benchmark_pipe.read()
 
     @overload
     def __init__(self, 

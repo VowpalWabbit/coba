@@ -43,26 +43,17 @@ class CobaJsonEncoder(json.JSONEncoder):
 
         return super().default(obj)
 
-class CobaJsonDecoder:
+class CobaJsonDecoder(json.JSONDecoder):
     """A json decoder that works with JsonSerializable to decode coba types."""
 
-    def __init__(self, *args, types=[], **kwargs):
+    def __init__(self, *args, known_types=[], **kwargs):
         """Instantiate a CobaJsonDecoder."""
         
-        self._decoder = json.JSONDecoder(object_hook=self.object_hook, *args, **kwargs)
+        self._known_types = { tipe.__name__:tipe for tipe in known_types}
 
-        self._known_types = { tipe.__name__:tipe for tipe in types}        
+        super().__init__(object_hook=self._object_hook, *args, **kwargs)
 
-    def decode(self, json_txt: str) -> Any:
-        """Decode json text into objects.
-        
-        Args:
-            json_txt: The json text we wish to decode into objects.
-        """
-        
-        return self._decoder.decode(json_txt)
-
-    def object_hook(self, json_obj: Dict[str,Any]) -> Any:
+    def _object_hook(self, json_obj: Dict[str,Any]) -> Any:
 
         __type__  = json_obj.get('__type__', [])
         __types__ = [__type__] if isinstance(__type__,str) else __type__
