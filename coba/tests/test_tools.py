@@ -3,7 +3,7 @@ import traceback
 
 from pathlib import Path
 
-from coba.tools import PackageChecker, DiskCache, UniversalLog, CobaRegistry
+from coba.tools import PackageChecker, DiskCache, UniversalLog, CobaRegistry, coba_registry_class
 
 class TestObject:
     def __init__(self, *args, **kwargs):
@@ -195,6 +195,17 @@ class CobaRegistry_Tests(unittest.TestCase):
 
         klass = CobaRegistry.construct("test")
 
+        self.assertEqual(klass.args, ())
+        self.assertEqual(klass.kwargs, {})
+
+    def test_register_decorator(self):
+
+        @coba_registry_class("MyTestObject")
+        class MyTestObject(TestObject): pass
+
+        klass = CobaRegistry.construct("MyTestObject")
+
+        self.assertIsInstance(klass, MyTestObject)
         self.assertEqual(klass.args, ())
         self.assertEqual(klass.kwargs, {})
 

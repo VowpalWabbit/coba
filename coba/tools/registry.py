@@ -6,7 +6,15 @@ and for the core functionality to specify classes creation recipes in config fil
 
 from itertools import repeat
 from importlib_metadata import entry_points #type: ignore
-from typing import Dict, Any
+from typing import Dict, Any, Callable
+
+def coba_registry_class(name:str) -> Callable[[type],type]:
+
+    def registration_decorator(cls: type) -> type:
+        CobaRegistry.register(name, cls)
+        return cls
+
+    return registration_decorator
 
 class CobaRegistry:
     
