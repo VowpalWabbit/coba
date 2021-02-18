@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Dict, Any
 
 from coba.tools.registry import CobaRegistry
+from coba.tools.loggers import LogInterface
+from coba.tools.cachers import CacheInterface
 
 class CobaConfig_meta(type):
     """To support class properties before python 3.9 we must implement our properties directly 
@@ -58,33 +60,33 @@ class CobaConfig_meta(type):
         cls._api_keys = value
 
     @property
-    def Cacher(cls):
+    def Cacher(cls) -> CacheInterface[str,bytes]:
         if cls._cache is None:
             cls._cache = CobaRegistry.construct(cls._load_config()['cache'])
         return cls._cache
     
     @Cacher.setter
-    def Cacher(cls, value):
+    def Cacher(cls, value) -> None:
         cls._cache = value
 
     @property
-    def Logger(cls):
+    def Logger(cls) -> LogInterface:
         if cls._log is None:
             cls._log = CobaRegistry.construct(cls._load_config()['log'])
         return cls._log
     
     @Logger.setter
-    def Logger(cls, value):
+    def Logger(cls, value) -> None:
         cls._log = value
 
     @property
-    def Benchmark(cls):
+    def Benchmark(cls) -> Dict[str, Any]:
         if cls._benchmark is None:
             cls._benchmark = cls._load_config()['benchmark']
         return cls._benchmark
 
     @Benchmark.setter
-    def Benchmark(cls, value):
+    def Benchmark(cls, value) -> None:
         cls._benchmark = value
 
 class CobaConfig(metaclass=CobaConfig_meta):

@@ -1,3 +1,4 @@
+from coba import benchmarks
 from coba.data.filters import JsonDecode
 import json
 import unittest
@@ -8,7 +9,7 @@ from statistics import mean
 from coba.simulations import LambdaSimulation
 from coba.tools import CobaConfig, NoneLog
 from coba.learners import Learner
-from coba.benchmarks import Benchmark, Result, Transaction, TransactionIsNew, BenchmarkFileFmtV1
+from coba.benchmarks import Benchmark, Result, Transaction, TransactionIsNew, BenchmarkFileFmtV1, BenchmarkFileFmtV2
 
 #for testing purposes
 class ModuloLearner(Learner[int,int]):
@@ -110,6 +111,111 @@ class BenchmarkFileFmtV1_Tests(unittest.TestCase):
         benchmark = BenchmarkFileFmtV1().filter(json.loads(json_txt))
 
         self.assertEqual(1, len(benchmark._simulations))
+
+class BenchmarkFileFmtV2_Tests(unittest.TestCase):
+
+    def test_one_simulation(self):
+        json_txt = """{
+            "simulations" : [
+                { "OpenmlSimulation": 150}
+            ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+
+        self.assertEqual('[{"OpenmlSimulation":150}]', str(benchmark._simulations))
+
+    def test_one_simulation_one_filter(self):
+        json_txt = """{
+            "simulations" : [
+                [{ "OpenmlSimulation": 150 }, {"Take":10} ]
+            ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+
+        self.assertEqual('[{"OpenmlSimulation":150},{"Take":10}]', str(benchmark._simulations))
+
+    def test_one_simulation_two_filters(self):
+        json_txt = """{
+            "simulations" : [
+                [{ "OpenmlSimulation": 150 }, {"Take":[10,20], "make":"foreach"} ]
+            ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+
+        self.assertEqual('[{"OpenmlSimulation":150},{"Take":10}, {"OpenmlSimulation":150},{"Take":20}]', str(benchmark._simulations))
+
+    def test_two_simulations_two_filters(self):
+        json_txt = """{
+            "simulations" : [
+                [{ "OpenmlSimulation": [150,151], "make":"foreach" }, {"Take":[10,20], "make":"foreach"} ]
+            ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+
+        self.assertEqual(4, len(benchmark._simulations))
+        self.assertEqual('{"OpenmlSimulation":150},{"Take":10}', str(benchmark._simulations[0]))
+        self.assertEqual('{"OpenmlSimulation":150},{"Take":20}', str(benchmark._simulations[1]))
+        self.assertEqual('{"OpenmlSimulation":151},{"Take":10}', str(benchmark._simulations[2]))
+        self.assertEqual('{"OpenmlSimulation":151},{"Take":20}', str(benchmark._simulations[3]))
+
+    def test_two_singular_simulations(self):
+        json_txt = """{
+            "simulations" : [
+                { "OpenmlSimulation": 150},
+                { "OpenmlSimulation": 151}
+            ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+
+        self.assertEqual('[{"OpenmlSimulation":150}, {"OpenmlSimulation":151}]', str(benchmark._simulations))
+
+    def test_one_foreach_simulation(self):
+        json_txt = """{
+            "simulations" : [
+                {"OpenmlSimulation": [150,151], "make":"foreach"}
+            ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+
+        self.assertEqual('[{"OpenmlSimulation":150}, {"OpenmlSimulation":151}]', str(benchmark._simulations))
+
+    def test_one_variable(self):
+        json_txt = """{
+            "variables": {"$openml_sims": {"OpenmlSimulation": [150,151], "make":"foreach"} },
+            "simulations" : [
+                "$openml_sims"
+            ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+
+    def test_two_variables(self):
+        json_txt = """{
+            "variables": {
+                "$openmls": {"OpenmlSimulation": [150,151], "make":"foreach"},
+                "$takes"  : {"Take":[10,20], "make":"foreach"}
+            },
+            "simulations" : [
+                ["$openmls", "$takes"],
+                "$openmls"
+            ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+
+        self.assertEqual(6, len(benchmark._simulations))
+        self.assertEqual('{"OpenmlSimulation":150},{"Take":10}', str(benchmark._simulations[0]))
+        self.assertEqual('{"OpenmlSimulation":150},{"Take":20}', str(benchmark._simulations[1]))
+        self.assertEqual('{"OpenmlSimulation":151},{"Take":10}', str(benchmark._simulations[2]))
+        self.assertEqual('{"OpenmlSimulation":151},{"Take":20}', str(benchmark._simulations[3]))
+        self.assertEqual('{"OpenmlSimulation":150}'            , str(benchmark._simulations[4]))
+        self.assertEqual('{"OpenmlSimulation":151}'            , str(benchmark._simulations[5]))
 
 class TransactionIsNew_Test(unittest.TestCase):
     

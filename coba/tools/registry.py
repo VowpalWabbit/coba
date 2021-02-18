@@ -33,7 +33,7 @@ class CobaRegistry:
         name   = ""
         args   = None
         kwargs = None
-        make   = "singular"
+        method   = "singular"
 
         if not cls._is_valid_recipe(recipe):
             raise Exception(f"Invalid recipe {str(recipe)}")
@@ -44,7 +44,7 @@ class CobaRegistry:
         if isinstance(recipe, dict):
             mutable_recipe = dict(recipe)
 
-            make   = mutable_recipe.pop("make"  , "singular")
+            method = mutable_recipe.pop("method", "singular")
             name   = mutable_recipe.pop("name"  , ""        )
             args   = mutable_recipe.pop("args"  , None      )
             kwargs = mutable_recipe.pop("kwargs", None      )
@@ -57,7 +57,7 @@ class CobaRegistry:
                 else:
                     args = implicit_args
 
-        if make == "singular":
+        if method == "singular":
             return cls._construct_single(recipe, name, args, kwargs)
         else:
             if not isinstance(kwargs, list): kwargs = repeat(kwargs)
