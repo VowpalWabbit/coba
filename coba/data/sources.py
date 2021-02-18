@@ -50,10 +50,11 @@ class QueueSource(Source[Iterable[Any]]):
             yield item
 
 class HttpSource(Source[Iterable[str]]):
-    def __init__(self, url: str, file_extension: str = None, checksum: str = None, desc: str = "") -> None:
+    def __init__(self, url: str, file_extension: str = None, checksum: str = None, desc: str = "", cache: bool = True) -> None:
         self._url       = url
         self._checksum  = checksum
         self._desc      = desc
+        self._cache     = cache
         self._cachename = f"{md5(self._url.encode('utf-8')).hexdigest()}{file_extension}"
 
     def read(self) -> Iterable[str]:
@@ -71,7 +72,7 @@ class HttpSource(Source[Iterable[str]]):
         return bites.decode('utf-8').splitlines()
     
     def _get_bytes(self) -> bytes:
-        if self._cachename in CobaConfig.Cacher:
+        if self._cache and self._cachename in CobaConfig.Cacher:
             with CobaConfig.Logger.log(f'loading {self._desc} from cache... '.replace('  ', ' ')):
                 return CobaConfig.Cacher.get(self._cachename)
         else:

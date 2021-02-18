@@ -24,7 +24,7 @@ class Filter(ABC, Generic[_T_in, _T_out]):
     def filter(self, item:_T_in) -> _T_out:
         ...
 
-class ForeachFilter(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
+class Cartesian(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
 
     def __init__(self, filter: Union[Filter,Sequence[Filter]]):
         
@@ -231,8 +231,8 @@ class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[
 
         clean      = CsvCleaner(self._headers, self._encoders, None, self._ignored, output_rows=False)
         split      = ColSplitter(split_column)
-        rows       = ForeachFilter(CsvTransposer(True))
-        rmv_header = ForeachFilter(RowRemover([0]))
+        rows       = Cartesian(CsvTransposer(True))
+        rmv_header = Cartesian(RowRemover([0]))
 
         output: Any = items
 

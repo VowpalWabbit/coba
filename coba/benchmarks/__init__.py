@@ -6,7 +6,6 @@ module also contains several Benchmark implementations and Result data transfer 
 
 import math
 import itertools
-import json
 import collections
 
 from copy import deepcopy
@@ -17,7 +16,8 @@ from pathlib import Path
 from typing import (
     Iterable, Tuple, Sequence, Generic,
     TypeVar, Dict, Any, cast, Optional,
-    overload, List, Mapping, MutableMapping
+    overload, List, Mapping, MutableMapping,
+    Union
 )
 
 from coba.random import CobaRandom
@@ -27,8 +27,8 @@ from coba.statistics import OnlineMean, OnlineVariance
 from coba.tools import PackageChecker, CobaRegistry, CobaConfig
 
 from coba.data.structures import Table
-from coba.data.filters import Filter, JsonEncode, JsonDecode, ForeachFilter, StringJoin
-from coba.data.sources import Source, MemorySource, DiskSource
+from coba.data.filters import Filter, IdentityFilter, JsonEncode, JsonDecode, Cartesian, StringJoin
+from coba.data.sources import HttpSource, Source, MemorySource, DiskSource
 from coba.data.sinks import Sink, MemorySink, DiskSink
 from coba.data.pipes import Pipe, StopPipe
 
@@ -44,8 +44,8 @@ class Result:
         
         if filename is None or not Path(filename).exists(): return Result()
 
-        json_encode = ForeachFilter(JsonEncode())
-        json_decode = ForeachFilter(JsonDecode())
+        json_encode = Cartesian(JsonEncode())
+        json_decode = Cartesian(JsonDecode())
 
         Pipe.join(DiskSource(filename), [json_decode, TransactionPromote(), json_encode], DiskSink(filename, 'w')).run()
         
@@ -340,21 +340,21 @@ class TaskToTransactions(Filter):
 
     def _process_task(self, task) -> Iterable[Any]:
 
-        simulation_ids   = task[0]
-        learner_ids      = task[1]
-        learners         = task[2]
-        
-        simulation_pipes   = task[3]
-        simulation_source  = simulation_pipes[0]._source #we only need one source since we group by sources when making tasks
-        simulation_filters = [ simulation_pipe._filter for simulation_pipe in simulation_pipes ]
+        simulation_ids = task[0]
+        learner_ids    = task[1]
+        learners       = task[2]
+        pipes          = task[3]
 
-        collapsed_pipe = Pipe.join(simulation_source, [ForeachFilter(simulation_filters)])
+        source  = pipes[0]._source if isinstance(pipes[0], Pipe.SourceFilters) else pipes[0]
+        filters = [ pipe._filter if isinstance(pipe, Pipe.SourceFilters) else IdentityFilter() for pipe in pipes]
+
+        simulations = Pipe.join(source, [Cartesian(filters)]) #type: ignore
 
         written_simulations = []
 
         try:
-            for simulation_id, learner_id, learner, pipe, simulation in zip(simulation_ids, learner_ids, learners, simulation_pipes, collapsed_pipe.read()):
-                
+            for simulation_id, learner_id, learner, pipe, simulation in zip(simulation_ids, learner_ids, learners, pipes, simulations.read()):
+
                 if isinstance(simulation, BatchedSimulation):
                     batches = simulation.interaction_batches
                 else:
@@ -581,7 +581,7 @@ class TransactionSink(Sink):
 
     def __init__(self, transaction_log: Optional[str], restored: Result) -> None:
 
-        json_encode = ForeachFilter(JsonEncode())
+        json_encode = Cartesian(JsonEncode())
 
         self._sink = Pipe.join([json_encode], DiskSink(transaction_log)) if transaction_log else MemorySink()
         self._sink = Pipe.join([TransactionIsNew(restored)], self._sink)
@@ -761,7 +761,9 @@ class BenchmarkFileFmtV2(Filter[Dict[str,Any], 'Benchmark']):
             if result is None:
                 raise Exception(f"We were unable to construct {item} in the given benchmark file.")
 
-            return result if isinstance(result, collections.Sequence) else [result]            
+            return result if isinstance(result, collections.Sequence) else [result]
+
+        if not isinstance(config['simulations'], list): config['simulations'] = [config['simulations']]
 
         simulations = [ simulation for recipe in config['simulations'] for simulation in _construct(recipe)]
 
@@ -811,15 +813,35 @@ class BenchmarkLearner:
 
 class Benchmark(Generic[_C,_A]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
+    
+    @overload
+    @staticmethod
+    def from_file(filesource:Union[Source[str], Source[Iterable[str]]]) -> 'Benchmark[Context,Action]': ...
+
+    @overload
+    @staticmethod
+    def from_file(filename:str) -> 'Benchmark[Context,Action]': ...
 
     @staticmethod
-    def from_file(filename:str) -> 'Benchmark[Context,Action]':
+    def from_file(arg) -> 'Benchmark[Context,Action]':
         """Instantiate a Benchmark from a config file."""
 
-        benchmark_filter = CobaRegistry.construct(CobaConfig.Benchmark['file_fmt'])
-        benchmark_pipe   = Pipe.join(DiskSource(filename), [StringJoin('\n'), JsonDecode(), benchmark_filter])
+        source:Any = None
 
-        return benchmark_pipe.read()
+        if isinstance(arg,str) and arg.startswith('http'):
+            source = HttpSource(arg, cache=False)
+        
+        if isinstance(arg,str) and not arg.startswith('http'):
+            source = DiskSource(arg)
+
+        if source is None:
+            source = arg
+        
+        content = source.read()
+        joined  = content if isinstance(content,str) else StringJoin('\n').filter(content)
+        decoded = JsonDecode().filter(joined)
+
+        return CobaRegistry.construct(CobaConfig.Benchmark['file_fmt']).filter(decoded)
 
     @overload
     def __init__(self, 

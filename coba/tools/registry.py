@@ -71,7 +71,7 @@ class CobaRegistry:
             return True
 
         if isinstance(recipe, dict):
-            keywords  = ["name", "args", "kwargs", "make"]
+            keywords  = ["name", "args", "kwargs", "method"]
             freewords = [ key for key in recipe if key not in keywords ]
 
             implicit_arg       = None if len(freewords) != 1 else recipe[freewords[0]]

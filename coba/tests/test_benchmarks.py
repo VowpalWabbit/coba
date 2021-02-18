@@ -117,8 +117,17 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
     def test_one_simulation(self):
         json_txt = """{
             "simulations" : [
-                { "OpenmlSimulation": 150}
+                { "OpenmlSimulation": 150 }
             ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+
+        self.assertEqual('[{"OpenmlSimulation":150}]', str(benchmark._simulations))
+
+    def test_raw_simulation(self):
+        json_txt = """{
+            "simulations" : { "OpenmlSimulation": 150 }
         }"""
 
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
@@ -139,7 +148,7 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
     def test_one_simulation_two_filters(self):
         json_txt = """{
             "simulations" : [
-                [{ "OpenmlSimulation": 150 }, {"Take":[10,20], "make":"foreach"} ]
+                [{ "OpenmlSimulation": 150 }, {"Take":[10,20], "method":"foreach"} ]
             ]
         }"""
 
@@ -150,7 +159,7 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
     def test_two_simulations_two_filters(self):
         json_txt = """{
             "simulations" : [
-                [{ "OpenmlSimulation": [150,151], "make":"foreach" }, {"Take":[10,20], "make":"foreach"} ]
+                [{ "OpenmlSimulation": [150,151], "method":"foreach" }, { "Take":[10,20], "method":"foreach" }]
             ]
         }"""
 
@@ -177,7 +186,7 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
     def test_one_foreach_simulation(self):
         json_txt = """{
             "simulations" : [
-                {"OpenmlSimulation": [150,151], "make":"foreach"}
+                {"OpenmlSimulation": [150,151], "method":"foreach"}
             ]
         }"""
 
@@ -187,19 +196,18 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 
     def test_one_variable(self):
         json_txt = """{
-            "variables": {"$openml_sims": {"OpenmlSimulation": [150,151], "make":"foreach"} },
-            "simulations" : [
-                "$openml_sims"
-            ]
+            "variables": {"$openml_sims": {"OpenmlSimulation": [150,151], "method":"foreach"} },
+            "simulations" : [ "$openml_sims" ]
         }"""
 
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+        self.assertEqual('[{"OpenmlSimulation":150}, {"OpenmlSimulation":151}]', str(benchmark._simulations))
 
     def test_two_variables(self):
         json_txt = """{
             "variables": {
-                "$openmls": {"OpenmlSimulation": [150,151], "make":"foreach"},
-                "$takes"  : {"Take":[10,20], "make":"foreach"}
+                "$openmls": {"OpenmlSimulation": [150,151], "method":"foreach"},
+                "$takes"  : {"Take":[10,20], "method":"foreach"}
             },
             "simulations" : [
                 ["$openmls", "$takes"],

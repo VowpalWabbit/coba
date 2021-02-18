@@ -256,7 +256,7 @@ class CobaRegistry_Tests(unittest.TestCase):
 
         CobaRegistry.register("test", TestObject)
 
-        recipe = { "test":[[1,2,3]], "kwargs": {"a":1}, "make":"foreach" }
+        recipe = { "test":[[1,2,3]], "kwargs": {"a":1}, "method":"foreach" }
 
         klasses = CobaRegistry.construct(recipe)
 
@@ -268,7 +268,7 @@ class CobaRegistry_Tests(unittest.TestCase):
 
         CobaRegistry.register("test", TestObject)
 
-        recipe = { "test":[1,2,3], "kwargs": {"a":1}, "make":"foreach" }
+        recipe = { "test":[1,2,3], "kwargs": {"a":1}, "method":"foreach" }
 
         klasses = CobaRegistry.construct(recipe)
 
@@ -287,7 +287,7 @@ class CobaRegistry_Tests(unittest.TestCase):
 
         CobaRegistry.register("test", TestObject)
 
-        recipe = { "test":[1,2], "kwargs": [{"a":1},{"a":2}], "make":"foreach" }
+        recipe = { "test":[1,2], "kwargs": [{"a":1},{"a":2}], "method":"foreach" }
 
         klasses = CobaRegistry.construct(recipe)
 
@@ -303,7 +303,7 @@ class CobaRegistry_Tests(unittest.TestCase):
 
         CobaRegistry.register("test", TestObject)
 
-        recipe = { "test":[[1,2],3], "make":"foreach" }
+        recipe = { "test":[[1,2],3], "method":"foreach" }
 
         klasses = CobaRegistry.construct(recipe)
 
