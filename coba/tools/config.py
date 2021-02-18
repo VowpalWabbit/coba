@@ -34,7 +34,7 @@ class CobaConfig_meta(type):
             "api_keys"  : collections.defaultdict(lambda:None),
             "cache"     : "NoneCache",
             "log"       : "ConsoleLog",
-            "benchmark" : {"processes": 1, "maxtasksperchild": None, "file_fmt": "BenchmarkFileV1"}
+            "benchmark" : {"processes": 1, "maxtasksperchild": None, "file_fmt": "BenchmarkFileV2"}
         }
 
         for potential_path in search_paths:

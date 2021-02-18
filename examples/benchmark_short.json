@@ -1,10 +1,9 @@
 {
-    "templates"   : { "openml": { "type":"classification", "pca":true, "sort":[0], "from": {"format":"openml", "id":"$id", "md5_checksum":"$md5"} }},
-    "batches"     : { "size":1, "min":2000, "max":2000 },
-    "shuffle"     : [777,888,999,1010,1111,1212],
-    "simulations" : [
-        {"template":"openml", "$md5":"1ee268f1d0de784f2b4777437f0fb70f", "$id":3},
-        {"template":"openml", "$md5":"da4174eec2fd552cb608e78b9397ab67", "$id":6},
-        {"template":"openml", "$md5":"a3afc04ac25896c8478dd0d96d1d5a8a", "$id":8}
+    "variables": {
+        "$openmls" : { "OpenmlSimulation": [3,6,8]                     , "method": "foreach" },
+        "$shuffles": { "Shuffle"         : [777,888,999,1010,1111,1212], "method": "foreach" }
+    },
+    "simulations": [
+        ["$openmls", "$shuffles", { "Take": 2000 } ]
     ]
 }

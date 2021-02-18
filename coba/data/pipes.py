@@ -5,7 +5,7 @@ TODO: Add docstrings for Pipe
 
 import collections
 
-from multiprocessing import Manager, Pool
+from multiprocessing import Manager, Pool, current_process
 from threading import Thread
 from typing import Sequence, Iterable, Any, overload
 
@@ -126,7 +126,8 @@ class MultiProcessFilter(Filter):
 
     class SinkLogger(UniversalLog):
         def __init__(self, sink: Sink) -> None:
-            super().__init__(lambda msg,end: sink.write([(msg[20:],end)]))
+            preamble = " -- " + str(current_process().name) + " -- "
+            super().__init__(lambda msg,end: sink.write([( preamble + msg[20:], end)]))
 
     class Processor:
 
@@ -192,9 +193,9 @@ class MultiProcessFilter(Filter):
                 log_queue.put(None)
 
             def error_callback(error):
-                std_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in lost work.
-                err_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in lost work.
-                log_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in lost work.
+                std_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in some lost work.
+                err_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in some lost work.
+                log_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in some lost work.
 
             log_thread.start()
 
