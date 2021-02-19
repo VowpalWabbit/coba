@@ -190,7 +190,7 @@ class Result:
 
         fig = plt.figure(figsize=figsize)
 
-        index_unit = "Interaction" if max_batch_N ==1 else "Batch"
+        index_unit = "Interactions" if max_batch_N ==1 else "Batches"
         
         ax1 = fig.add_subplot(1,2,1) #type: ignore
         ax2 = fig.add_subplot(1,2,2) #type: ignore
@@ -200,7 +200,7 @@ class Result:
 
         ax1.set_title(f"Instantaneous Reward")
         ax1.set_ylabel("Reward")
-        ax1.set_xlabel(f"{index_unit} Index")
+        ax1.set_xlabel(f"{index_unit}")
 
         for learner_id in learners:
             _plot(ax2, learners[learner_id].full_name, indexes[learner_id], cumeans[learner_id], cuvariances[learner_id], cucounts[learner_id])
@@ -362,14 +362,14 @@ class TaskToTransactions(Filter):
                 #learner 2
 
         try:
-            with CobaConfig.Logger.log(f"processing source..."):
+            with CobaConfig.Logger.log(f"processing {source}..."):
 
-                with CobaConfig.Logger.log(f"loading {source}..."):
+                with CobaConfig.Logger.log(f"loading data..."):
                     loaded_source = source.read()
 
                 for sim_id, pipe in pipes.items():
 
-                    with CobaConfig.Logger.log(f"applying filter {sim_id}..."):
+                    with CobaConfig.Logger.log(f"creating sim {sim_id}..."):
                         simulation = pipe.filter.filter(loaded_source)
 
                     interactions = simulation.interactions
@@ -378,7 +378,7 @@ class TaskToTransactions(Filter):
                     yield sim_transaction(sim_id, pipe, interactions, batches)
 
                     if not batches:
-                        CobaConfig.Logger.log("the source is empty after filter")
+                        CobaConfig.Logger.log(f"sim {sim_id} is empty")
                         continue
 
                     for lrn_id, learner in learners.items():

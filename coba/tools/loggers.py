@@ -87,8 +87,8 @@ class UniversalLog(LogInterface):
 
         Returns:
             A ContextManager that maintains the indentation level of the logger.
-            Calling `__enter__` on the manager increases the indentation the loggers 
-            indentation while calling `__exit__` decreases the logger's indentation.
+            Calling `__enter__` on the manager increases the loggers indentation 
+            while calling `__exit__` decreases the logger's indentation.
         """
         if self._is_newline:
             message = self._prefix() + message

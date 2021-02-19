@@ -3,7 +3,7 @@ import unittest
 from unittest.case import SkipTest
 
 from coba.tools import PackageChecker
-from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTunedLearner
+from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner, UcbBanditLearner
 
 class RandomLearner_Tests(unittest.TestCase):
     
@@ -17,13 +17,13 @@ class RandomLearner_Tests(unittest.TestCase):
 
 class EpsilonLearner_Tests(unittest.TestCase):
     def test_predict_no_learn(self):
-        learner = EpsilonLearner(epsilon=0.5)
+        learner = EpsilonBanditLearner(epsilon=0.5)
 
         self.assertEqual([.25,.25,.25,.25],learner.predict(1, None, [1,2,3,4]))
         self.assertEqual([.25,.25,.25,.25],learner.predict(1, None, [1,2,3,4]))
 
     def test_predict_learn_no_epsilon(self):
-        learner = EpsilonLearner(epsilon=0)
+        learner = EpsilonBanditLearner(epsilon=0)
 
         learner.learn(1, None, 2, 1, 1)
         learner.learn(2, None, 1, 2, 1)
@@ -34,14 +34,14 @@ class EpsilonLearner_Tests(unittest.TestCase):
 class UcbTunedLearner_Tests(unittest.TestCase):
     def test_predict_all_actions_first(self):
 
-        learner = UcbTunedLearner()
+        learner = UcbBanditLearner()
 
         self.assertEqual([1,0,0],learner.predict(1, None, [1,2,3]))
         self.assertEqual([0,1,0],learner.predict(1, None, [1,2,3]))
         self.assertEqual([0,0,1],learner.predict(1, None, [1,2,3]))
 
     def test_learn_predict_best1(self):
-        learner = UcbTunedLearner()
+        learner = UcbBanditLearner()
         actions = [1,2,3,4]
         
         learner.predict(0, None, actions)
@@ -59,20 +59,20 @@ class UcbTunedLearner_Tests(unittest.TestCase):
         self.assertEqual([0.25,0.25,0.25,0.25], learner.predict(3, None, actions))
 
     def test_learn_predict_best2(self):
-        learner = UcbTunedLearner()
+        learner = UcbBanditLearner()
         actions = [1,2,3,4]
         
         learner.predict(0, None, actions)
-        learner.learn(0, None, actions[0], 1, 1)
+        learner.learn(0, None, actions[0], 0, 1)
         
         learner.predict(1, None, actions)
-        learner.learn(1, None, actions[1], 1, 1)
+        learner.learn(1, None, actions[1], 0, 1)
         
         learner.predict(2, None, actions)
-        learner.learn(2, None, actions[2], 1, 1)
+        learner.learn(2, None, actions[2], 0, 1)
         
         learner.predict(3, None, actions)
-        learner.learn(2, None, actions[3], 2, 1)
+        learner.learn(2, None, actions[3], 1, 1)
 
         self.assertEqual([0, 0, 0, 1], learner.predict(3, None, actions))
 

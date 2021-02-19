@@ -7,7 +7,7 @@ of learners are provided out of the box for testing and baseline comparisons.
 """
 
 from coba.learners.core import Learner, Key
-from coba.learners.bandit import RandomLearner, EpsilonLearner, UcbTunedLearner
+from coba.learners.bandit import RandomLearner, EpsilonBanditLearner, UcbBanditLearner
 from coba.learners.corral import CorralLearner
 from coba.learners.vowpal import VowpalLearner
 
@@ -15,8 +15,8 @@ __all__ = [
     'Key',
     'Learner',
     'RandomLearner',
-    'EpsilonLearner',
-    'UcbTunedLearner',
+    'EpsilonBanditLearner',
+    'UcbBanditLearner',
     'CorralLearner',
     'VowpalLearner'
 ]

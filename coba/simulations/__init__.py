@@ -340,7 +340,7 @@ class OpenmlSimulation(Source[ClassificationSimulation[Context]]):
         self._openml_source = OpenmlClassificationSource(id, md5_checksum)
 
     def read(self) -> ClassificationSimulation[Context]:
-        with CobaConfig.Logger.log(f"loading openml {self._openml_source._data_id}..."):
+        with CobaConfig.Logger.log(f"loading {self}..."):
             return ClassificationSimulation(*self._openml_source.read())
 
     def __repr__(self) -> str:
