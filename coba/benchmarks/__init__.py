@@ -883,7 +883,7 @@ class Benchmark(Generic[_C,_A]):
         *,
         batch_size      : int = 1,
         take            : int = None,
-        seeds           : Sequence[Optional[int]] = [None],
+        shuffle         : Sequence[Optional[int]] = [None],
         ignore_raise    : bool = True,
         processes       : int = None,
         maxtasksperchild: int = None) -> None: ...
@@ -894,7 +894,7 @@ class Benchmark(Generic[_C,_A]):
         *,
         batch_count     : int,
         take            : int = None,
-        seeds           : Sequence[Optional[int]] = [None],
+        shuffle         : Sequence[Optional[int]] = [None],
         ignore_raise    : bool = True,
         processes       : int = None,
         maxtasksperchild: int = None) -> None: ...
@@ -904,7 +904,7 @@ class Benchmark(Generic[_C,_A]):
         simulations : Sequence[Source[Simulation[_C,_A]]],
         *,
         batch_sizes     : Sequence[int],
-        seeds           : Sequence[Optional[int]] = [None],
+        shuffle         : Sequence[Optional[int]] = [None],
         ignore_raise    : bool = True,
         processes       : int = None,
         maxtasksperchild: int = None) -> None: ...
@@ -916,7 +916,7 @@ class Benchmark(Generic[_C,_A]):
             simulations: The sequence of simulations to benchmark against.
             batcher: How each simulation is broken into evaluation batches.
             ignore_raise: Should exceptions be raised or logged during evaluation.
-            shuffle_seeds: A sequence of seeds for interaction shuffling. None means no shuffle.
+            shuffle: A sequence of seeds for simulation shuffling. None means no shuffle.
             processes: The number of process to spawn during evalution (overrides coba config).
             maxtasksperchild: The number of tasks each process will perform before a refresh.
         
@@ -926,8 +926,8 @@ class Benchmark(Generic[_C,_A]):
         sources = cast(Sequence[Source[Simulation[_C,_A]]], args[0])
         filters = []
 
-        if 'seeds' in kwargs and kwargs['seeds'] != [None]:
-            filters.append([ Shuffle(seed) for seed in kwargs['seeds'] ])
+        if 'shuffle' in kwargs and kwargs['shuffle'] != [None]:
+            filters.append([ Shuffle(seed) for seed in kwargs['shuffle'] ])
 
         if 'take' in kwargs:
             filters.append([ Take(kwargs['take']) ])

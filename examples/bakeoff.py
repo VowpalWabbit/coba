@@ -7,6 +7,7 @@ from coba.learners import RandomLearner, EpsilonLearner, VowpalLearner, UcbTuned
 from coba.benchmarks import Benchmark
 
 if __name__ == '__main__':
+    
     learners = [
         RandomLearner(),
         EpsilonLearner(epsilon=0.025),
@@ -15,4 +16,4 @@ if __name__ == '__main__':
         CorralLearner([VowpalLearner(bag=5, seed=10), UcbTunedLearner()], eta=.075, T=40000, seed=10),
     ]
 
-    Benchmark.from_file("./examples/benchmark_short.json").evaluate(learners, seed=10).standard_plot()
+    Benchmark.from_file("./examples/benchmark_short.json").evaluate(learners, './examples/bakeoff.log', seed=10).standard_plot()

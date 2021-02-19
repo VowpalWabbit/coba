@@ -305,7 +305,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
     def test_seeds(self):
         sim1      = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
         learner   = ModuloLearner()
-        benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, seeds=[1,4])
+        benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
 
         actual_learners,actual_simulations,actual_batches = benchmark.evaluate([learner]).to_tuples()
 
