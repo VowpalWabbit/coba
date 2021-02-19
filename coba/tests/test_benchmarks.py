@@ -284,6 +284,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
     def setUpClass(cls) -> None:
         CobaConfig.Logger = NoneLog()
         CobaConfig.Benchmark['processes'] = 1
+        CobaConfig.Benchmark['maxtasksperchild'] = None
 
     def test_sims(self):
         sim1            = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
@@ -379,6 +380,7 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
     def setUpClass(cls) -> None:
         CobaConfig.Logger = NoneLog()
         CobaConfig.Benchmark['processes'] = 2
+        CobaConfig.Benchmark['maxtasksperchild'] = None
 
     def test_not_picklable_learner(self):
         sim1      = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)

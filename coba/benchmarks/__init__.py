@@ -5,12 +5,11 @@ module also contains several Benchmark implementations and Result data transfer 
 """
 
 import math
-import itertools
 import collections
 
 from copy import deepcopy
 from statistics import mean
-from itertools import product, groupby
+from itertools import product, groupby, chain, count, repeat
 from statistics import median
 from pathlib import Path
 from typing import (
@@ -19,10 +18,9 @@ from typing import (
     overload, List, Mapping, MutableMapping,
     Union
 )
-
 from coba.random import CobaRandom
 from coba.learners import Learner, Key
-from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Choice, Context, Action, Reward, PCA, Sort
+from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Interaction, Choice, Context, Action, Reward, PCA, Sort
 from coba.statistics import OnlineMean, OnlineVariance
 from coba.tools import PackageChecker, CobaRegistry, CobaConfig
 
@@ -159,7 +157,7 @@ class Result:
             Ns = list(zip(*Ns))
             Rs = list(zip(*Rs))
 
-            for batch_index, batch_Ns, batch_Rs in zip(itertools.count(), Ns,Rs):
+            for batch_index, batch_Ns, batch_Rs in zip(count(), Ns,Rs):
 
                 incount    = 0
                 inmean     = OnlineMean()
@@ -207,7 +205,7 @@ class Result:
         for learner_id in learners:
             _plot(ax2, learners[learner_id].full_name, indexes[learner_id], cumeans[learner_id], cuvariances[learner_id], cucounts[learner_id])
 
-        ax2.set_title("Progressive Validation")
+        ax2.set_title("Progressive Reward")
         #ax2.set_ylabel("Reward")
         ax2.set_xlabel(f"{index_unit} Index")
 
@@ -288,45 +286,38 @@ class Transaction:
 
 class TaskSource(Source):
     
-    def __init__(self, simulations: Sequence[Source[Simulation]], learners: Sequence['BenchmarkLearner'], restored: Result) -> None:
+    def __init__(self, simulations: 'Sequence[BenchmarkSimulation]', learners: Sequence['BenchmarkLearner'], restored: Result) -> None:
         self._simulations = simulations
         self._learners    = learners
         self._restored    = restored
 
     def read(self) -> Iterable:
 
-        #first turn every prod(simulation,seed) into its own pipe
-        #second remove pipes that are already finished
-        #group pipes into a single pipe based on source
+        no_batch_sim_rows = self._restored.simulations.get_where(batch_count=0)
+        no_batch_sim_ids  = [ row['simulation_id'] for row in no_batch_sim_rows ]
 
-        simulation_sources = [s._source if isinstance(s, (Pipe.SourceFilters)) else s for s in self._simulations]
-        sources_set        = list(set(simulation_sources))
+        sim_ids   = list(range(len(self._simulations)))
+        learn_ids = list(range(len(self._learners)))
 
         simulations = dict(enumerate(self._simulations))
         learners    = dict(enumerate(self._learners))
-        restored    = self._restored
-        source_idxs = { sim_key:sources_set.index(sim_source) for sim_key,sim_source in zip(simulations.keys(), simulation_sources) }
 
-        zero_batch_sims = [row['simulation_id'] for row in restored.simulations.get_where(batch_count=0)]
+        def is_not_complete(sim_id: int, learn_id: int):
+            return (sim_id,learn_id) not in self._restored.batches and sim_id not in no_batch_sim_ids
 
-        is_not_complete = lambda t: t not in restored.batches and t[0] not in zero_batch_sims
-        task_keys       = filter(is_not_complete, product(simulations.keys(), learners.keys()))
+        not_complete_pairs = [ k for k in product(sim_ids, learn_ids) if is_not_complete(*k) ]
+        
+        not_complete_pairs_by_source: Dict[object,List[Tuple[int,int]]] = collections.defaultdict(list)
 
-        source_grouped_tasks: Dict[int, Tuple[List[int], List[int], List[BenchmarkLearner], List[Source[Simulation]]]] = {}
+        for ncp in not_complete_pairs:
+            not_complete_pairs_by_source[simulations[ncp[0]].source].append(ncp)
 
-        for simulation_key, learner_key in task_keys:
-            
-            if source_idxs[simulation_key] not in source_grouped_tasks:
-                source_grouped_tasks[source_idxs[simulation_key]] = ([],[],[],[])
-            
-            source_grouped_task = source_grouped_tasks[source_idxs[simulation_key]]
+        for source, not_complete_pairs in not_complete_pairs_by_source.items():
 
-            source_grouped_task[0].append(simulation_key)
-            source_grouped_task[1].append(learner_key)
-            source_grouped_task[2].append(learners[learner_key])
-            source_grouped_task[3].append(simulations[simulation_key])
+            not_completed_sims = {ncp[0]: simulations[ncp[0]] for ncp in not_complete_pairs}
+            not_completed_lrns = {ncp[1]:    learners[ncp[1]] for ncp in not_complete_pairs}
 
-        return list(source_grouped_tasks.values())
+            yield source, not_complete_pairs, not_completed_sims, not_completed_lrns
     
 class TaskToTransactions(Filter):
 
@@ -340,51 +331,75 @@ class TaskToTransactions(Filter):
 
     def _process_task(self, task) -> Iterable[Any]:
 
-        simulation_ids = task[0]
-        learner_ids    = task[1]
-        learners       = task[2]
-        pipes          = task[3]
+        source     = cast(Source[Any]                   , task[0])
+        todo_pairs = cast(Sequence[Tuple[int,int]]      , task[1])
+        pipes      = cast(Dict[int, BenchmarkSimulation], task[2])
+        learners   = cast(Dict[int, Learner            ], task[3])
 
-        source  = pipes[0]._source if isinstance(pipes[0], Pipe.SourceFilters) else pipes[0]
-        filters = [ pipe._filter if isinstance(pipe, Pipe.SourceFilters) else IdentityFilter() for pipe in pipes]
+        def batchify(simulation: Simulation) -> Sequence[Sequence[Interaction]]:
+            if isinstance(simulation, BatchedSimulation):
+                return simulation.interaction_batches
+            else:
+                return [ [interaction] for interaction in simulation.interactions ]
 
-        simulations = Pipe.join(source, [Cartesian(filters)]) #type: ignore
+        def sim_transaction(sim_id, pipe, interactions, batches):
+            return Transaction.simulation(sim_id,
+                pipe              = str(pipe),
+                interaction_count = len(interactions),
+                batch_count       = len(batches),
+                context_size      = int(median(self._context_sizes(interactions))),
+                action_count      = int(median(self._action_counts(interactions))))
 
-        written_simulations = []
+        #processing source
+            #loading
+            #simulation 1
+                #filtering
+                #learner 1
+                #learner 2
+            #simulation 2
+                #filtering
+                #learner 1
+                #learner 2
 
         try:
-            for simulation_id, learner_id, learner, pipe, simulation in zip(simulation_ids, learner_ids, learners, pipes, simulations.read()):
+            with CobaConfig.Logger.log(f"processing source..."):
 
-                if isinstance(simulation, BatchedSimulation):
-                    batches = simulation.interaction_batches
-                else:
-                    batches = [ [interaction] for interaction in simulation.interactions ]
+                with CobaConfig.Logger.log(f"loading {source}..."):
+                    loaded_source = source.read()
 
-                interactions = simulation.interactions
+                for sim_id, pipe in pipes.items():
 
-                if simulation_id not in written_simulations:
-                    written_simulations.append(simulation_id)
-                    yield Transaction.simulation(simulation_id,
-                        pipe              = str(pipe),
-                        interaction_count = len(interactions),
-                        batch_count       = len(batches),
-                        context_size      = int(median(self._context_sizes(interactions))),
-                        action_count      = int(median(self._action_counts(interactions))))
+                    with CobaConfig.Logger.log(f"applying filter {sim_id}..."):
+                        simulation = pipe.filter.filter(loaded_source)
 
-                learner = deepcopy(learner)
-                learner.init()
+                    interactions = simulation.interactions
+                    batches      = batchify(simulation)
 
-                if len(batches) > 0:
-                    Ns, Rs = zip(*[ self._process_batch(batch, simulation.reward, learner) for batch in batches ])
-                    yield Transaction.batch(simulation_id, learner_id, N=list(Ns), reward=list(Rs))
+                    yield sim_transaction(sim_id, pipe, interactions, batches)
 
+                    if not batches:
+                        CobaConfig.Logger.log("the source is empty after filter")
+                        continue
+
+                    for lrn_id, learner in learners.items():
+
+                        if (sim_id,lrn_id) not in todo_pairs: continue
+
+                        learner = deepcopy(learner)
+                        learner.init()
+
+                        with CobaConfig.Logger.log(f"evaluating learner {lrn_id}..."):
+                            batch_sizes  = [ len(batch)                                             for batch in batches ]
+                            mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
+
+                            yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
         except KeyboardInterrupt:
             raise
         except Exception as e:
             CobaConfig.Logger.log_exception(e, "unhandled exception:")
             if not self._ignore_raise: raise e
 
-    def _process_batch(self, batch, reward, learner) -> Tuple[int, float]:
+    def _process_batch(self, batch, learner, reward) -> float:
         
         keys     = []
         contexts = []
@@ -409,7 +424,7 @@ class TaskToTransactions(Filter):
         for (key,context,action,reward,prob) in zip(keys,contexts,actions,rewards, probs):
             learner.learn(key,context,action,reward,prob)
 
-        return len(rewards), round(mean(rewards),5)
+        return round(mean(rewards),5)
 
     def _context_sizes(self, interactions) -> Iterable[int]:
         if len(interactions) == 0:
@@ -432,7 +447,7 @@ class TransactionPromote(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         items_iter = iter(items)
         items_peek = next(items_iter)
-        items_iter = itertools.chain([items_peek], items_iter)
+        items_iter = chain([items_peek], items_iter)
 
         version = 0 if items_peek[0] != 'version' else items_peek[1]
 
@@ -723,12 +738,12 @@ class BenchmarkFileFmtV1(Filter[Dict[str,Any], 'Benchmark']):
                     materialize_template(node, template)
                     materialize_variables(node, scope)
 
-                    for child_node, child_scope in zip(node.values(), itertools.repeat(scope)):
+                    for child_node, child_scope in zip(node.values(), repeat(scope)):
                         nodes.append(child_node)
                         scopes.append(child_scope)
 
                 if isinstance(node, collections.Sequence) and not isinstance(node, str):
-                    for child_node, child_scope in zip(node, itertools.repeat(scope)):
+                    for child_node, child_scope in zip(node, repeat(scope)):
                         nodes.append(child_node)
                         scopes.append(child_scope)
 
@@ -811,6 +826,25 @@ class BenchmarkLearner:
     def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
         self._learner.learn(key, context, action, reward, probability)
 
+class BenchmarkSimulation(Source[Simulation]):
+
+    def __init__(self, source: Source[Simulation], filters: Sequence[Filter[Simulation,Simulation]] = None) -> None:
+        self._pipe = source if filters is None else Pipe.join(source, filters)
+
+    @property
+    def source(self) -> Source[Simulation]:
+        return self._pipe._source if isinstance(self._pipe, (Pipe.SourceFilters)) else self._pipe
+
+    @property
+    def filter(self) -> Filter[Simulation,Simulation]:
+        return self._pipe._filter if isinstance(self._pipe, Pipe.SourceFilters) else IdentityFilter()
+
+    def read(self) -> Simulation:
+        return self._pipe.read()
+
+    def __repr__(self) -> str:
+        return self._pipe.__repr__()
+
 class Benchmark(Generic[_C,_A]):
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
     
@@ -889,9 +923,8 @@ class Benchmark(Generic[_C,_A]):
         See the overloads for more information.
         """
 
-        simulations = cast(Sequence[Source[Simulation[_C,_A]]], args[0])
-        
-        filters: List[Sequence[Filter[Simulation[_C,_A], Simulation[_C,_A]]]] = []
+        sources = cast(Sequence[Source[Simulation[_C,_A]]], args[0])
+        filters = []
 
         if 'seeds' in kwargs and kwargs['seeds'] != [None]:
             filters.append([ Shuffle(seed) for seed in kwargs['seeds'] ])
@@ -907,12 +940,14 @@ class Benchmark(Generic[_C,_A]):
             filters.append([ Batch(sizes=kwargs['batch_sizes']) ])
 
         if len(filters) > 0:
-            simulations = [ Pipe.join(s, f) for s in simulations for f in product(*filters)]
+            benchmark_simulations = [BenchmarkSimulation(s,f) for s,f in product(sources, product(*filters))]
+        else:
+            benchmark_simulations = list(map(BenchmarkSimulation, sources))
 
-        self._simulations      = cast(Sequence[Source[Simulation[Context,Action]]], simulations)
-        self._ignore_raise     = cast(bool                                        , kwargs.get('ignore_raise', True))
-        self._processes        = cast(Optional[int]                               , kwargs.get('processes', None))
-        self._maxtasksperchild = cast(Optional[int]                               , kwargs.get('maxtasksperchild', None))
+        self._simulations      = benchmark_simulations
+        self._ignore_raise     = cast(bool         , kwargs.get('ignore_raise'    , True))
+        self._processes        = cast(Optional[int], kwargs.get('processes'       , None))
+        self._maxtasksperchild = cast(Optional[int], kwargs.get('maxtasksperchild', None))
 
     def ignore_raise(self, value:bool=True) -> 'Benchmark[_C,_A]':
         self._ignore_raise = value
