@@ -53,19 +53,14 @@ class RandomLearner(Learner[Context, Action]):
         """
         pass
  
-class EpsilonLearner(Learner[Context, Action]):
-    """A learner using epsilon-greedy searching while smoothing observations into a context/context-action lookup table.
-
-    Remarks:
-        This algorithm does not use any function approximation to attempt to generalize observed rewards.
-    """
+class EpsilonBanditLearner(Learner[Context, Action]):
+    """A lookup table bandit learner with epsilon-greedy exploration."""
 
     def __init__(self, epsilon: float, include_context: bool = False) -> None:
-        """Instantiate an EpsilonLearner.
+        """Instantiate an EpsilonBanditLearner.
 
         Args:
             epsilon: A value between 0 and 1. We explore with probability epsilon and exploit otherwise.
-            init: Our initial guess of the expected rewards for all context-action pairs.
             include_context: If true lookups are a function of context-action otherwise they are a function of action.
         """
 
@@ -138,7 +133,7 @@ class EpsilonLearner(Learner[Context, Action]):
     def _key(self, context: Context, action: Action) -> Tuple[Context,Action]:
         return (context, action) if self._include_context else (None, action)
 
-class UcbTunedLearner(Learner[Context, Action]):
+class UcbBanditLearner(Learner[Context, Action]):
     """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
 
     This algorithm assumes that the reward distribution has support in [0,1].
@@ -148,8 +143,9 @@ class UcbTunedLearner(Learner[Context, Action]):
         the multiarmed bandit problem." Machine learning 47.2-3 (2002): 235-256.
     """
     def __init__(self):
-        """Instantiate a UcbTunedLearner."""
+        """Instantiate a UcbBanditLearner."""
 
+        #these variable names were selected for easier comparison with the original paper 
         self._init_a: int = 0
         self._t     : int = 0
         self._s     : Dict[Action, int           ] = defaultdict(int)
@@ -184,7 +180,7 @@ class UcbTunedLearner(Learner[Context, Action]):
             The probability of taking each action. See the base class for more information.
         """
 
-        #we initialize by playing every action once
+        #initialize by playing every action once
         if self._init_a < len(actions):
             self._init_a += 1
             return [ int(i == (self._init_a-1)) for i in range(len(actions)) ]
@@ -206,6 +202,8 @@ class UcbTunedLearner(Learner[Context, Action]):
             reward: The reward that was gained from the action. See the base class for more information.
             probability: The probability that the given action was taken.
         """
+
+        assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
 
         if action not in self._m:
             self._m[action] = reward
