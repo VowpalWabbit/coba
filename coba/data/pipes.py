@@ -134,8 +134,10 @@ class MultiProcessFilter(Filter):
 
         def process(self, item) -> None:
             
-            #one problem with this is that the settings on the main thread's logger 
-            #aren't propogated to this logger. For example, with_stamp and with_name.  
+            #One problem with this is that the settings on the main thread's logger 
+            #aren't propogated to this logger. For example, with_stamp and with_name.
+            #A possible solution is to deep copy the CobaConfig.Logger, set its `sink`
+            #property to the `stdlog` and then pass it to `Processor.__init__`.
             CobaConfig.Logger = BasicLogger(self._stdlog, with_name=True)
 
             try:
