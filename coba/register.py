@@ -1,5 +1,5 @@
 from coba.data.sinks import NoneSink, ConsoleSink, DiskSink
-from coba.tools import CobaRegistry, DiskCacher, NoneCacher, MemoryCacher, BasicLogger
+from coba.tools import CobaRegistry, DiskCacher, NoneCacher, MemoryCacher, IndentLogger, NoneLogger, BasicLogger
 from coba.simulations import OpenmlSimulation, PCA, Shuffle, Take
 from coba.benchmarks import BenchmarkFileFmtV1, BenchmarkFileFmtV2
 
@@ -7,7 +7,9 @@ CobaRegistry.register("NoneSink"   , NoneSink   )
 CobaRegistry.register("DiskSink"   , DiskSink   )
 CobaRegistry.register("ConsoleSink", ConsoleSink)
 
-CobaRegistry.register("BasicLogger", BasicLogger)
+CobaRegistry.register("BasicLogger" , BasicLogger )
+CobaRegistry.register("IndentLogger", IndentLogger)
+CobaRegistry.register("NoneLogger"  , NoneLogger  )
 
 CobaRegistry.register("DiskCacher"   , DiskCacher   )
 CobaRegistry.register("NoneCacher"   , NoneCacher   )

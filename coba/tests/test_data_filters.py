@@ -3,9 +3,9 @@ import unittest
 
 from coba.data.filters import CsvReader, ColEncoder, ColRemover, CsvTransposer, LabeledCsvCleaner
 from coba.data.encoders import NumericEncoder, StringEncoder
-from coba.tools import NoneLog, CobaConfig
+from coba.tools import NoneLogger, CobaConfig
 
-CobaConfig.Logger = NoneLog()
+CobaConfig.Logger = NoneLogger()
 
 class CsvReader_Tests(unittest.TestCase):
     def test_simple_sans_empty(self):

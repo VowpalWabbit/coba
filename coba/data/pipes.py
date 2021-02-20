@@ -12,7 +12,7 @@ from typing import Sequence, Iterable, Any, overload
 from coba.data.sources import Source, QueueSource
 from coba.data.filters import Filter
 from coba.data.sinks import Sink, QueueSink
-from coba.tools import CobaConfig, BasicLogger
+from coba.tools import CobaConfig, IndentLogger
 
 class StopPipe(Exception):
     pass
@@ -138,7 +138,7 @@ class MultiProcessFilter(Filter):
             #aren't propogated to this logger. For example, with_stamp and with_name.
             #A possible solution is to deep copy the CobaConfig.Logger, set its `sink`
             #property to the `stdlog` and then pass it to `Processor.__init__`.
-            CobaConfig.Logger = BasicLogger(self._stdlog, with_name=True)
+            CobaConfig.Logger = IndentLogger(self._stdlog, with_name=True)
 
             try:
                 self._stdout.write(self._filter.filter([item]))

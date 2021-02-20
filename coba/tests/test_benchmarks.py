@@ -1,5 +1,3 @@
-from coba import benchmarks
-from coba.data.filters import JsonDecode
 import json
 import unittest
 
@@ -7,7 +5,7 @@ from pathlib import Path
 from statistics import mean
 
 from coba.simulations import LambdaSimulation
-from coba.tools import CobaConfig, NoneLog
+from coba.tools import CobaConfig, NoneLogger
 from coba.learners import Learner
 from coba.benchmarks import Benchmark, Result, Transaction, TransactionIsNew, BenchmarkFileFmtV1, BenchmarkFileFmtV2
 
@@ -282,7 +280,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        CobaConfig.Logger = NoneLog()
+        CobaConfig.Logger = NoneLogger()
         CobaConfig.Benchmark['processes'] = 1
         CobaConfig.Benchmark['maxtasksperchild'] = None
 
@@ -378,14 +376,14 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
     
     @classmethod
     def setUpClass(cls) -> None:
-        CobaConfig.Logger = NoneLog()
+        CobaConfig.Logger = NoneLogger()
         CobaConfig.Benchmark['processes'] = 2
         CobaConfig.Benchmark['maxtasksperchild'] = None
 
     def test_not_picklable_learner(self):
         sim1      = LambdaSimulation(5, lambda t: t, lambda t: [0,1,2], lambda c,a: a)
         learner   = NotPicklableLearner()
-        benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, seeds=[1,4])
+        benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
 
         with self.assertRaises(Exception) as cm:
             benchmark.evaluate([learner])

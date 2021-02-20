@@ -325,6 +325,8 @@ class TaskToTransactions(Filter):
         self._ignore_raise = ignore_raise
 
     def filter(self, tasks: Iterable[Any]) -> Iterable[Any]:
+        tasks = list(tasks)
+        print(len(tasks))
         for task in tasks:
             for transaction in self._process_task(task):
                 yield transaction
@@ -351,37 +353,40 @@ class TaskToTransactions(Filter):
                 action_count      = int(median(self._action_counts(interactions))))
 
         try:
-            with CobaConfig.Logger.time(f"processing {source}..."):
+            with CobaConfig.Logger.log(f"Processing {source}..."):
 
-                with CobaConfig.Logger.time(f"loading data..."):
+                with CobaConfig.Logger.time(f"Loading shared data once for {source}..."):
                     loaded_source = source.read()
 
                 for sim_id, pipe in pipes.items():
 
-                    with CobaConfig.Logger.time(f"creating sim {sim_id}..."):
+                    with CobaConfig.Logger.time(f"Creating simulation {sim_id} from {source} shared data..."):            
                         simulation = pipe.filter.filter(loaded_source)
 
-                    interactions = simulation.interactions
-                    batches      = batchify(simulation)
+                        interactions = simulation.interactions
+                        batches      = batchify(simulation)
 
-                    yield sim_transaction(sim_id, pipe, interactions, batches)
+                        yield sim_transaction(sim_id, pipe, interactions, batches)
+        
+                        if not batches:
+                            CobaConfig.Logger.log(f"After creation simulation {sim_id} has nothing to evaluate.")
+                            CobaConfig.Logger.log("This often happens because `Take` was larger than source data set.")
+                            continue
 
-                    if not batches:
-                        CobaConfig.Logger.log(f"sim {sim_id} is empty")
-                        continue
+                    with CobaConfig.Logger.log(f"Evaluating learners on simulation {sim_id}..."):
+                        for lrn_id, learner in learners.items():
 
-                    for lrn_id, learner in learners.items():
+                            if (sim_id,lrn_id) not in todo_pairs: continue
 
-                        if (sim_id,lrn_id) not in todo_pairs: continue
+                            learner = deepcopy(learner)
+                            learner.init()
 
-                        learner = deepcopy(learner)
-                        learner.init()
+                            with CobaConfig.Logger.time(f"Evaluating learner {lrn_id}..."):
+                                batch_sizes  = [ len(batch)                                             for batch in batches ]
+                                mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
 
-                        with CobaConfig.Logger.time(f"evaluating learner {lrn_id}..."):
-                            batch_sizes  = [ len(batch)                                             for batch in batches ]
-                            mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
-
-                            yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
+                                yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
+        
         except KeyboardInterrupt:
             raise
         except Exception as e:

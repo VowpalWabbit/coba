@@ -33,7 +33,7 @@ class CobaConfig_meta(type):
         config = {
             "api_keys" : collections.defaultdict(lambda:None),
             "cacher"   : "NoneCacher",
-            "logger"   : { "BasicLogger": "ConsoleSink" },
+            "logger"   : { "IndentLogger": "ConsoleSink" },
             "benchmark": {"processes": 1, "maxtasksperchild": None, "file_fmt": "BenchmarkFileV2"}
         }
 

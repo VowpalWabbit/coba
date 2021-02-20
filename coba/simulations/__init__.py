@@ -11,6 +11,7 @@ TODO Add RegressionSimulation
 
 import json
 
+from contextlib import suppress
 from itertools import chain, accumulate
 from abc import ABC, abstractmethod
 from typing import (
@@ -132,7 +133,7 @@ class OpenmlClassificationSource(Source[Tuple[Sequence[Context], Sequence[Action
 
         csv_url = f"http://www.openml.org/data/v1/get_csv/{descr['file_id']}"
 
-        source  = HttpSource(csv_url, md5_checksum, f"openml {data_id}")
+        source  = HttpSource(csv_url, md5_checksum, f"obser")
         reader  = CsvReader()
         cleaner = LabeledCsvCleaner(target, headers, encoders, ignored, True)
 
@@ -336,15 +337,14 @@ class OpenmlSimulation(Source[ClassificationSimulation[Context]]):
         dataset is being streamed instead of waiting until the end of the data to train an encoder.
     """
 
-    def __init__(self, id: int, md5_checksum: str = None) -> None:
-        self._openml_source = OpenmlClassificationSource(id, md5_checksum)
+    def __init__(self, id: int, md5_checksum: str = None, verbose=False) -> None:
+        self._source = OpenmlClassificationSource(id, md5_checksum)
 
-    def read(self) -> ClassificationSimulation[Context]:
-        with CobaConfig.Logger.time(f"loading {self}..."):
-            return ClassificationSimulation(*self._openml_source.read())
+    def read(self) -> ClassificationSimulation[Context]:        
+        return ClassificationSimulation(*self._source.read())
 
     def __repr__(self) -> str:
-        return f'{{"OpenmlSimulation":{self._openml_source._data_id}}}'
+        return f'{{"OpenmlSimulation":{self._source._data_id}}}'
 
 class ShuffleSimulation(Simulation[_C_out, _A_out]):
     def __init__(self, seed: Optional[int], simulation: Simulation[_C_out, _A_out]) -> None:

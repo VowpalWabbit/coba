@@ -7,7 +7,7 @@ Tools should never import form Benchmarks, Learners or Simulations.
 
 from coba.tools.config   import CobaConfig
 from coba.tools.cachers  import NoneCacher, MemoryCacher, DiskCacher, Cacher
-from coba.tools.loggers  import BasicLogger, Logger
+from coba.tools.loggers  import NoneLogger, BasicLogger, IndentLogger, Logger
 from coba.tools.registry import CobaRegistry, coba_registry_class
 
 from coba.tools.misc import PackageChecker, redirect_stderr
@@ -20,7 +20,9 @@ __all__ =[
     'MemoryCacher',
     'DiskCacher',
     'Cacher',
+    'NoneLogger',
     'BasicLogger',
+    'IndentLogger',
     'Logger',
     'PackageChecker',
     'redirect_stderr'

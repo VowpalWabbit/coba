@@ -4,7 +4,7 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.tools import CobaConfig, BasicLogger
+from coba.tools import CobaConfig, IndentLogger
 from coba.data.filters import Filter, IdentityFilter
 from coba.data.sinks import MemorySink
 from coba.data.sources import MemorySource
@@ -89,7 +89,7 @@ class Pipe_Tests(unittest.TestCase):
         #with_stamp to false it doesn't propogate to the processes.
 
         sink   = MemorySink()
-        logger = BasicLogger(sink, with_stamp=False, with_name=True)
+        logger = IndentLogger(sink, with_stamp=False, with_name=True)
         logs   = sink.items
 
         CobaConfig.Logger = logger

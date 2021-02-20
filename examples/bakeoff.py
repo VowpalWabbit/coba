@@ -17,4 +17,4 @@ if __name__ == '__main__':
         CorralLearner([VowpalLearner(bag=5, seed=10), VowpalLearner(epsilon=.1, seed=10)], eta=.075, T=40000, seed=10),
     ]
 
-    Benchmark.from_file("./examples/benchmark_short.json").evaluate(learners, './examples/bakeoff.log', seed=10).standard_plot()
+    Benchmark.from_file("./examples/benchmark_short.json").evaluate(learners, seed=10).standard_plot()

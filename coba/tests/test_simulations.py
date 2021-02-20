@@ -5,14 +5,13 @@ import timeit
 from typing import List, Sequence, Tuple, cast
 
 from coba.data.encoders import OneHotEncoder
-from coba.tools import CobaConfig, NoneCacher, CobaLogger, NoneLogger, MemoryCacher
+from coba.tools import CobaConfig, NoneCacher, NoneLogger, MemoryCacher
 from coba.simulations import (
-    Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, 
-    LambdaSimulation, OpenmlSimulation, OpenmlClassificationSource, PcaSimulation, 
-    Shuffle, Take, Batch, PCA, Sort
+    Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, LambdaSimulation, 
+    OpenmlSimulation, OpenmlClassificationSource, Shuffle, Take, Batch, PCA, Sort
 )
 
-CobaConfig.Logger = CobaLogger(NoneLogger())
+CobaConfig.Logger = NoneLogger()
 
 def _choices(interaction: Interaction) -> Sequence[Tuple[Key,Choice]]:
     return [  (interaction.key, a) for a in range(len(interaction.actions))]
