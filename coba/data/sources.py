@@ -4,13 +4,14 @@ TODO: Add docstrings for all Sources
 TODO: Add unit tests for all Sources
 """
 
+from coba.tools.cachers import NoneCacher
 import requests
 
 from abc import ABC, abstractmethod
 from hashlib import md5
 from typing import Generic, Iterable, TypeVar, Any
 
-from coba.tools import CobaConfig
+from coba.tools import CobaConfig, Cacher
 
 _T_out = TypeVar("_T_out", bound=Any, covariant=True)
 
@@ -50,12 +51,18 @@ class QueueSource(Source[Iterable[Any]]):
             yield item
 
 class HttpSource(Source[Iterable[str]]):
-    def __init__(self, url: str, file_extension: str = None, checksum: str = None, desc: str = "", cache: bool = True) -> None:
-        self._url       = url
-        self._checksum  = checksum
-        self._desc      = desc
-        self._cache     = cache
-        self._cachename = f"{md5(self._url.encode('utf-8')).hexdigest()}{file_extension}"
+    def __init__(self, url: str, checksum: str = None, desc: str = "", cache: bool = True) -> None:
+        self._url      = url
+        self._checksum = checksum
+        self._desc     = desc
+        self._cache    = cache
+
+    @property
+    def _cacher(self) -> Cacher:
+        if self._cache:
+            return CobaConfig.Cacher
+        else:
+            return NoneCacher()
 
     def read(self) -> Iterable[str]:
         bites = self._get_bytes()
@@ -67,16 +74,16 @@ class HttpSource(Source[Iterable[str]]):
                 "and if the error persists you may want to manually download and reference the file.")
             raise Exception(message) from None
 
-        if self._cachename not in CobaConfig.Cacher: CobaConfig.Cacher.put(self._cachename, bites)
+        if self._url not in self._cacher: self._cacher.put(self._url, bites)
 
         return bites.decode('utf-8').splitlines()
     
     def _get_bytes(self) -> bytes:
-        if self._cache and self._cachename in CobaConfig.Cacher:
-            with CobaConfig.Logger.log(f'loading {self._desc} from cache... '.replace('  ', ' ')):
-                return CobaConfig.Cacher.get(self._cachename)
+        if self._url in self._cacher:
+            with CobaConfig.Logger.time(f'loading {self._desc} from cache... '.replace('  ', ' ')):
+                return self._cacher.get(self._url)
         else:
-            with CobaConfig.Logger.log(f'loading {self._desc} from http... '):
+            with CobaConfig.Logger.time(f'loading {self._desc} from http... '):
                 response = requests.get(self._url)
 
                 if response.status_code == 412 and 'openml' in self._url:

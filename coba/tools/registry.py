@@ -17,7 +17,7 @@ def coba_registry_class(name:str) -> Callable[[type],type]:
     return registration_decorator
 
 class CobaRegistry:
-    
+
     _registry: Dict[str,type] = {}
 
     @classmethod
@@ -30,11 +30,7 @@ class CobaRegistry:
 
     @classmethod
     def retrieve(cls, name:str) -> type:
-        if len(cls._registry) == 0:
-            for eps in entry_points()['coba.register']:
-                eps.load()
-
-        return cls._registry[name]
+        return cls._get_registry()[name]
 
     @classmethod
     def construct(cls, recipe:Any) -> Any:
@@ -71,7 +67,15 @@ class CobaRegistry:
             if not isinstance(kwargs, list): kwargs = repeat(kwargs)
             if not isinstance(args  , list):   args = repeat(args)
             return [ cls._construct_single(recipe, name, a, k) for a,k in zip(args, kwargs) ]
-        
+
+    @classmethod
+    def _get_registry(cls) -> Dict[str,Any]:
+        if len(cls._registry) == 0:
+            for eps in entry_points()['coba.register']:
+                eps.load()
+
+        return cls._registry
+
     @classmethod
     def _is_valid_recipe(cls, recipe:Any) -> bool:
 
@@ -98,10 +102,36 @@ class CobaRegistry:
         return False
 
     @classmethod
+    def _is_known_recipe(cls, recipe:Any) -> bool:
+
+        if not cls._is_valid_recipe(recipe):
+            return False
+
+        name = None
+
+        if isinstance(recipe, str):
+            name = recipe
+
+        if isinstance(recipe, dict):
+            name = recipe.get('name', None) or [key for key in recipe if key not in ["name", "args", "kwargs", "method"]][0]
+
+        return name in cls._get_registry()
+
+    @classmethod
+    def _construct_or_return(cls, item:Any):        
+        return cls.construct(item) if cls._is_valid_recipe(item) and cls._is_known_recipe(item) else item
+
+    @classmethod
     def _construct_single(cls, recipe, name, args, kwargs) -> Any:
         try:
             if args is not None and not isinstance(args, list): args = [args]
-            
+
+            if args is not None:
+                args = [ cls._construct_or_return(a) for a in args ]
+
+            if kwargs is not None:
+                kwargs = { k:cls._construct_or_return(v) for k,v in kwargs.items() }
+
             if args is not None and kwargs is not None:
                 return cls.retrieve(name)(*args, **kwargs)
             elif args is not None and kwargs is None:

@@ -7,7 +7,7 @@ from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner, Uc
 from coba.benchmarks import Benchmark
 
 if __name__ == '__main__':
-    
+
     learners = [
         RandomLearner(),
         UcbBanditLearner(),

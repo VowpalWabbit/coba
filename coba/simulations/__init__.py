@@ -94,13 +94,13 @@ class OpenmlClassificationSource(Source[Tuple[Sequence[Context], Sequence[Action
             data_description_url += f'?api_key={openml_api_key}'
             type_description_url += f'?api_key={openml_api_key}'
 
-        resp  = ''.join(HttpSource(data_description_url, '.json', None, 'descr').read())
+        resp  = ''.join(HttpSource(data_description_url, None, 'descr').read())
         descr = json.loads(resp)["data_set_description"]
 
         if descr['status'] == 'deactivated':
             raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
 
-        resp  = ''.join(HttpSource(type_description_url, '.json', None, 'types').read())
+        resp  = ''.join(HttpSource(type_description_url, None, 'types').read())
         types = json.loads(resp)["data_features"]["feature"]
 
         headers : List[str]     = []
@@ -132,7 +132,7 @@ class OpenmlClassificationSource(Source[Tuple[Sequence[Context], Sequence[Action
 
         csv_url = f"http://www.openml.org/data/v1/get_csv/{descr['file_id']}"
 
-        source  = HttpSource(csv_url, ".csv", md5_checksum, f"openml {data_id}")
+        source  = HttpSource(csv_url, md5_checksum, f"openml {data_id}")
         reader  = CsvReader()
         cleaner = LabeledCsvCleaner(target, headers, encoders, ignored, True)
 
@@ -146,7 +146,7 @@ class OpenmlClassificationSource(Source[Tuple[Sequence[Context], Sequence[Action
         if openml_api_key is not None:        
             task_description_url += f'?api_key={openml_api_key}'
 
-        tasks = json.loads(''.join(HttpSource(task_description_url, '.json', None, 'tasks').read()))["tasks"]["task"]
+        tasks = json.loads(''.join(HttpSource(task_description_url, None, 'tasks').read()))["tasks"]["task"]
 
         for task in tasks:
             if task["task_type_id"] == 1: #aka, classification task
@@ -340,7 +340,7 @@ class OpenmlSimulation(Source[ClassificationSimulation[Context]]):
         self._openml_source = OpenmlClassificationSource(id, md5_checksum)
 
     def read(self) -> ClassificationSimulation[Context]:
-        with CobaConfig.Logger.log(f"loading {self}..."):
+        with CobaConfig.Logger.time(f"loading {self}..."):
             return ClassificationSimulation(*self._openml_source.read())
 
     def __repr__(self) -> str:

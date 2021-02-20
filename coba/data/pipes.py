@@ -5,14 +5,14 @@ TODO: Add docstrings for Pipe
 
 import collections
 
-from multiprocessing import Manager, Pool, current_process
+from multiprocessing import Manager, Pool
 from threading import Thread
 from typing import Sequence, Iterable, Any, overload
 
 from coba.data.sources import Source, QueueSource
 from coba.data.filters import Filter
-from coba.data.sinks import Sink, LoggerSink, QueueSink
-from coba.tools import CobaConfig, UniversalLog
+from coba.data.sinks import Sink, QueueSink
+from coba.tools import CobaConfig, BasicLogger
 
 class StopPipe(Exception):
     pass
@@ -124,11 +124,6 @@ class Pipe:
 
 class MultiProcessFilter(Filter):
 
-    class SinkLogger(UniversalLog):
-        def __init__(self, sink: Sink) -> None:
-            preamble = " -- " + str(current_process().name) + " -- "
-            super().__init__(lambda msg,end: sink.write([( preamble + msg[20:], end)]))
-
     class Processor:
 
         def __init__(self, filters: Sequence[Filter], stdout: Sink, stderr: Sink, stdlog:Sink) -> None:
@@ -138,8 +133,10 @@ class MultiProcessFilter(Filter):
             self._stdlog = stdlog
 
         def process(self, item) -> None:
-
-            CobaConfig.Logger = MultiProcessFilter.SinkLogger(self._stdlog)
+            
+            #one problem with this is that the settings on the main thread's logger 
+            #aren't propogated to this logger. For example, with_stamp and with_name.  
+            CobaConfig.Logger = BasicLogger(self._stdlog, with_name=True)
 
             try:
                 self._stdout.write(self._filter.filter([item]))
@@ -184,7 +181,7 @@ class MultiProcessFilter(Filter):
             stderr_writer, stderr_reader = QueueSink(err_queue), QueueSource(err_queue)
             stdlog_writer, stdlog_reader = QueueSink(log_queue), QueueSource(log_queue)
 
-            log_thread = Thread(target=Pipe.join(stdlog_reader, [], LoggerSink()).run)
+            log_thread = Thread(target=Pipe.join(stdlog_reader, [], CobaConfig.Logger.sink).run)
             processor  = MultiProcessFilter.Processor(self._filters, stdout_writer, stderr_writer, stdlog_writer)
 
             def finished_callback(result):

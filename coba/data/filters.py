@@ -236,7 +236,7 @@ class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[
 
         output: Any = items
 
-        with CobaConfig.Logger.log('encoding data... '):
+        with CobaConfig.Logger.time('encoding data... '):
 
             output = rows.filter(split.filter(clean.filter(output)))
 

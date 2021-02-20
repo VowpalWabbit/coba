@@ -350,26 +350,15 @@ class TaskToTransactions(Filter):
                 context_size      = int(median(self._context_sizes(interactions))),
                 action_count      = int(median(self._action_counts(interactions))))
 
-        #processing source
-            #loading
-            #simulation 1
-                #filtering
-                #learner 1
-                #learner 2
-            #simulation 2
-                #filtering
-                #learner 1
-                #learner 2
-
         try:
-            with CobaConfig.Logger.log(f"processing {source}..."):
+            with CobaConfig.Logger.time(f"processing {source}..."):
 
-                with CobaConfig.Logger.log(f"loading data..."):
+                with CobaConfig.Logger.time(f"loading data..."):
                     loaded_source = source.read()
 
                 for sim_id, pipe in pipes.items():
 
-                    with CobaConfig.Logger.log(f"creating sim {sim_id}..."):
+                    with CobaConfig.Logger.time(f"creating sim {sim_id}..."):
                         simulation = pipe.filter.filter(loaded_source)
 
                     interactions = simulation.interactions
@@ -388,7 +377,7 @@ class TaskToTransactions(Filter):
                         learner = deepcopy(learner)
                         learner.init()
 
-                        with CobaConfig.Logger.log(f"evaluating learner {lrn_id}..."):
+                        with CobaConfig.Logger.time(f"evaluating learner {lrn_id}..."):
                             batch_sizes  = [ len(batch)                                             for batch in batches ]
                             mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
 
@@ -396,7 +385,7 @@ class TaskToTransactions(Filter):
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            CobaConfig.Logger.log_exception(e, "unhandled exception:")
+            CobaConfig.Logger.log_exception("unhandled exception:", e)
             if not self._ignore_raise: raise e
 
     def _process_batch(self, batch, learner, reward) -> float:

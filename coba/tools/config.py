@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Dict, Any
 
 from coba.tools.registry import CobaRegistry
-from coba.tools.loggers import LogInterface
-from coba.tools.cachers import CacheInterface
+from coba.tools.loggers import Logger
+from coba.tools.cachers import Cacher
 
 class CobaConfig_meta(type):
     """To support class properties before python 3.9 we must implement our properties directly 
@@ -31,10 +31,10 @@ class CobaConfig_meta(type):
         search_paths = [Path("./.coba"), Path.home() / ".coba"]
 
         config = {
-            "api_keys"  : collections.defaultdict(lambda:None),
-            "cache"     : "NoneCache",
-            "log"       : "ConsoleLog",
-            "benchmark" : {"processes": 1, "maxtasksperchild": None, "file_fmt": "BenchmarkFileV2"}
+            "api_keys" : collections.defaultdict(lambda:None),
+            "cacher"   : "NoneCacher",
+            "logger"   : { "BasicLogger": "ConsoleSink" },
+            "benchmark": {"processes": 1, "maxtasksperchild": None, "file_fmt": "BenchmarkFileV2"}
         }
 
         for potential_path in search_paths:
@@ -60,9 +60,9 @@ class CobaConfig_meta(type):
         cls._api_keys = value
 
     @property
-    def Cacher(cls) -> CacheInterface[str,bytes]:
+    def Cacher(cls) -> Cacher[str,bytes]:
         if cls._cache is None:
-            cls._cache = CobaRegistry.construct(cls._load_config()['cache'])
+            cls._cache = CobaRegistry.construct(cls._load_config()['cacher'])
         return cls._cache
     
     @Cacher.setter
@@ -70,9 +70,9 @@ class CobaConfig_meta(type):
         cls._cache = value
 
     @property
-    def Logger(cls) -> LogInterface:
+    def Logger(cls) -> Logger:
         if cls._log is None:
-            cls._log = CobaRegistry.construct(cls._load_config()['log'])
+            cls._log = CobaRegistry.construct(cls._load_config()['logger'])
         return cls._log
     
     @Logger.setter

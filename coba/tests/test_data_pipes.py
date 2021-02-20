@@ -4,7 +4,7 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.tools import CobaConfig, UniversalLog
+from coba.tools import CobaConfig, BasicLogger
 from coba.data.filters import Filter, IdentityFilter
 from coba.data.sinks import MemorySink
 from coba.data.sources import MemorySource
@@ -85,17 +85,23 @@ class Pipe_Tests(unittest.TestCase):
 
     def test_logging(self):
         
-        actual_logs = []
+        #this is an important example. Even if we set the main logger's
+        #with_stamp to false it doesn't propogate to the processes.
 
-        CobaConfig.Logger = UniversalLog(lambda msg,end: actual_logs.append((msg,end)))
+        sink   = MemorySink()
+        logger = BasicLogger(sink, with_stamp=False, with_name=True)
+        logs   = sink.items
+
+        CobaConfig.Logger = logger
 
         source = MemorySource(list(range(4)))
         sink   = MemorySink()
 
         Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(2,1)
 
-        self.assertEqual(len(actual_logs), 4)
-        self.assertEqual(sink.items, [ l[0][20:] for l in actual_logs ] )
+        self.assertEqual(len(logs), 4)
+        self.assertEqual(sink.items, [ l.split(' ')[3] for l in logs ] )
+        self.assertEqual(sink.items, [ l.split(' ')[5] for l in logs ] )
 
     def test_repr1(self):
 

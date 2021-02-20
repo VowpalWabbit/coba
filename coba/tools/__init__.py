@@ -5,9 +5,9 @@ are used by the core Benchmark, Learner and Simulation modules. No module inside
 Tools should never import form Benchmarks, Learners or Simulations.
 """
 
-from coba.tools.config  import CobaConfig
-from coba.tools.cachers import NoneCache, MemoryCache, DiskCache
-from coba.tools.loggers import NoneLog, ConsoleLog, UniversalLog
+from coba.tools.config   import CobaConfig
+from coba.tools.cachers  import NoneCacher, MemoryCacher, DiskCacher, Cacher
+from coba.tools.loggers  import BasicLogger, Logger
 from coba.tools.registry import CobaRegistry, coba_registry_class
 
 from coba.tools.misc import PackageChecker, redirect_stderr
@@ -16,12 +16,12 @@ __all__ =[
     'CobaConfig',
     'CobaRegistry',
     'coba_registry_class',
-    'NoneCache',
-    'MemoryCache',
-    'DiskCache',
-    'NoneLog',
-    'ConsoleLog',
-    'UniversalLog',
+    'NoneCacher',
+    'MemoryCacher',
+    'DiskCacher',
+    'Cacher',
+    'BasicLogger',
+    'Logger',
     'PackageChecker',
     'redirect_stderr'
 ]

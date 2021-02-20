@@ -8,8 +8,6 @@ from abc import ABC, abstractmethod
 
 from typing import Generic, Iterable, TypeVar, List, Any
 
-from coba.tools import CobaConfig
-
 _T_in  = TypeVar("_T_in", bound=Any, contravariant=True)
 
 class Sink(ABC, Generic[_T_in]):
@@ -17,6 +15,14 @@ class Sink(ABC, Generic[_T_in]):
     @abstractmethod
     def write(self, items: _T_in) -> None:
         ...
+
+class NoneSink(Sink[Iterable[_T_in]]):
+    def write(self, items: Iterable[_T_in]) -> None:
+        pass
+
+class ConsoleSink(Sink[Iterable[_T_in]]):
+    def write(self, items: Iterable[_T_in]) -> None:
+        for item in items: print(item)
 
 class DiskSink(Sink[Iterable[str]]):
     def __init__(self, filename:str, mode:str='a+'):
@@ -44,8 +50,3 @@ class QueueSink(Sink[Iterable[Any]]):
 
     def write(self, items:Iterable[Any]) -> None:
         for item in items: self._queue.put(item)
-
-class LoggerSink(Sink[Iterable[Any]]):
-    def write(self, items: Iterable[Any]) -> None:
-        for msg,end in items:
-            CobaConfig.Logger.log(msg,end)
