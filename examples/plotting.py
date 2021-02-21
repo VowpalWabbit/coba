@@ -6,7 +6,7 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 import coba.random
 
 from coba.simulations import LambdaSimulation
-from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner, UcbBanditLearner
+from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner
 from coba.benchmarks import Benchmark
 
 if __name__ == '__main__':

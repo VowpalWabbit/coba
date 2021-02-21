@@ -31,7 +31,7 @@ class CobaConfig_meta(type):
         search_paths = [Path("./.coba"), Path.home() / ".coba"]
 
         for potential_path in search_paths:
-            if potential_path.exists():
+            if potential_path.exists() and potential_path.read_text().strip() != "":
                 file_config = json.loads(potential_path.read_text())
 
                 if not isinstance(file_config, dict):

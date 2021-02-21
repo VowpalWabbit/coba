@@ -9,8 +9,7 @@ build/
 dist/
 
 #ignored examples files
-examples/bakeoff_result.json
-examples/bakeoff_transactions.log
+examples/*.log
 
 # Editors
 .vscode/
