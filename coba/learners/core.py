@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Sequence, Dict
 
-from coba.simulations import Context, Action, Reward, Key
+from coba.simulations import Context, Action, Key
 
 class Learner(ABC):
     """The interface for Learner implementations."""
@@ -57,7 +57,7 @@ class Learner(ABC):
         ...
 
     @abstractmethod
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         """Learn about the result of an action that was taken in a context.
 
         Args:

@@ -11,25 +11,24 @@ TODO Add RegressionSimulation
 
 import json
 
-from itertools import chain, accumulate
+from itertools import accumulate
 from abc import ABC, abstractmethod
 from typing import (
     Optional, Sequence, List, Callable, 
-    Hashable, Any, Tuple, overload, cast
+    Hashable, Any, Tuple, overload, cast,
+    Dict
 )
 
 import coba.random
 
 from coba.tools import PackageChecker, CobaConfig
-from coba.data.sources import Source, HttpSource, MemorySource
+from coba.data.sources import Source, HttpSource
 from coba.data.encoders import OneHotEncoder
 from coba.data.filters import Filter
 
 Context = Optional[Hashable]
 Action  = Hashable
-Reward  = float
 Key     = int
-Choice  = int
 
 class Interaction:
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
@@ -66,7 +65,61 @@ class Interaction:
         """A unique key identifying the interaction."""
         return self._key
 
-class OpenmlClassificationSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
+class Reward(ABC):
+
+    @abstractmethod
+    def observe(self, choices: Sequence[Tuple[Key,Action]] ) -> Sequence[float]:
+        ...
+
+class MemoryReward(Reward):
+    def __init__(self, rewards: Sequence[Tuple[Key,Action,float]] = []) -> None:
+        self._rewards: Dict[Tuple[Key,Action], float] = {}
+
+        for reward in rewards:
+            self._rewards[(reward[0],reward[1])] = reward[2]
+
+    def add_observation(self, observation: Tuple[Key,Action,float]) -> None:
+        choice = (observation[0],observation[1])
+        reward = observation[2]
+
+        if choice in self._rewards: raise Exception("Unable to add an existing observation.")
+        
+        self._rewards[choice] = reward
+
+    def observe(self, choices: Sequence[Tuple[Key,Action]] ) -> Sequence[float]:
+        return [ self._rewards[choice] for choice in choices ]
+
+class ClassificationReward(Reward):
+
+    def __init__(self, labels: Sequence[Tuple[Key,Action]]) -> None:
+        self._labels = dict(labels)
+
+    def observe(self, choices: Sequence[Tuple[Key,Action]] ) -> Sequence[float]:
+        return [ float(self._labels[choice[0]] == choice[1]) for choice in choices ]
+
+class Simulation(ABC):
+    """The simulation interface."""
+
+    @property
+    @abstractmethod
+    def interactions(self) -> Sequence[Interaction]:
+        """The sequence of interactions in a simulation.
+
+        Remarks:
+            Interactions should always be re-iterable. So long as interactions is a Sequence 
+            this will always be the case. If interactions is changed to Iterable in the future
+            then it will be possible for it to only allow enumeration one time and care will need
+            to be taken.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def reward(self) -> Reward:
+        """The reward object which can observe rewards for pairs of actions and interaction keys."""
+        ...    
+
+class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
     def __init__(self, id:int, md5_checksum:str = None):
         self._data_id      = id
@@ -153,84 +206,44 @@ class OpenmlClassificationSource(Source[Tuple[Sequence[Context], Sequence[Action
 
         raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
 
-class LambdaSource(Source[Tuple[Sequence[Interaction], Sequence[Sequence[Reward]]]]):
+class LambdaSource(Source[Tuple[Sequence[Interaction], Reward]]):
 
     def __init__(self,
         n_interactions: int,
-        context       : Callable[[int],Context],
-        action_set    : Callable[[int],Sequence[Action]],
-        reward        : Callable[[Context,Action],Reward],
+        context       : Callable[[int               ],Context],
+        actions       : Callable[[int,Context       ],Sequence[Action]],
+        reward        : Callable[[int,Context,Action],float],
         seed          : int = None) -> None:
 
         coba.random.seed(seed)
 
-        interactions: List[Interaction] = []
-        reward_sets : List[Sequence[Reward]]            = []
+        self._interactions: List[Interaction] = []
+        self._reward = MemoryReward()
 
         for i in range(n_interactions):
-            _context    = context(i)
-            _action_set = action_set(i)
-            _reward_set = [reward(_context, _action) for _action in _action_set]
+            _context  = context(i)
+            _actions  = actions(i,_context)
+            _rewards  = [reward(i, _context, _action) for _action in _actions]
 
-            interactions.append(Interaction(_context, _action_set, i)) #type: ignore
-            reward_sets.append(_reward_set)
+            self._interactions.append(Interaction(_context, _actions, i)) #type: ignore
+            for a,r in zip(_actions, _rewards): self._reward.add_observation((i,a,r))
 
-        self._source = MemorySource((interactions, reward_sets))
-
-    def read(self) -> Tuple[Sequence[Interaction], Sequence[Sequence[Reward]]]:
-        return self._source.read()
-
-class Simulation(ABC):
-    """The simulation interface."""
-
-    @property
-    @abstractmethod
-    def interactions(self) -> Sequence[Interaction]:
-        """The sequence of interactions in a simulation.
-
-        Remarks:
-            Interactions should always be re-iterable. So long as interactions is a Sequence 
-            this will always be the case. If interactions is changed to Iterable in the future
-            then it will be possible for it to only allow enumeration one time and care will need
-            to be taken.
-        """
-        ...
-
-    @abstractmethod
-    def reward(self, choices: Sequence[Tuple[Key,Choice]] ) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
-
-        Args:
-            choices: A sequence of tuples containing an interaction key and an action index.
-
-        Returns:
-            A sequence of tuples containing context, action, and reward for the requested 
-            interaction/action. This sequence will always align with the provided choices.
-        """
-        ...
+    def read(self) -> Tuple[Sequence[Interaction], Reward]:
+        return (self._interactions, self._reward)
 
 class MemorySimulation(Simulation):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
 
-    def __init__(self, 
-        interactions: Sequence[Interaction],
-        reward_sets : Sequence[Sequence[Reward]]) -> None:
+    def __init__(self, interactions: Sequence[Interaction], reward: Reward) -> None:
         """Instantiate a MemorySimulation.
 
         Args:
-            contexts: A collection of contexts to turn into a simulation.
-            action_sets: A collection of action sets to turn into a simulation
-            reward_sets: A collection of reward sets to turn into a simulation 
+            interactions: The sequence of interactions in this simulation.
+            reward: The reward object to observe in this simulation.
         """
 
-        assert len(interactions) == len(reward_sets), "Mismatched lengths of interactions and rewards"
-
         self._interactions = interactions
-
-        choices = chain.from_iterable([ [ (i.key, a) for a in range(len(i.actions)) ] for i in self._interactions ])
-        rewards = chain.from_iterable(reward_sets)
-
-        self._rewards = dict(zip(choices,rewards))
+        self._reward       = reward
 
     @property
     def interactions(self) -> Sequence[Interaction]:
@@ -241,14 +254,40 @@ class MemorySimulation(Simulation):
         """
         return self._interactions
 
-    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
+    @property
+    def reward(self) -> Reward:
+        """The reward object which can observe rewards for pairs of actions and interaction keys."""
+        return self._reward
 
-        Remarks:
-            See the Simulation base class for more information.
+class LambdaSimulation(Source[Simulation]):
+    """A Simulation created from lambda functions that generate contexts, actions and rewards.
+
+    Remarks:
+        This implementation is useful for creating simulations from defined distributions.
+    """
+
+    def __init__(self,
+        n_interactions: int,
+        context       : Callable[[int               ],Context],
+        action_set    : Callable[[int,Context       ],Sequence[Action]], 
+        reward        : Callable[[int,Context,Action],float],
+        seed          : int = None) -> None:
+        """Instantiate a LambdaSimulation.
+
+        Args:
+            n_interactions: How many interactions the LambdaSimulation should have.
+            context: A function that should return a context given an index in `range(n_interactions)`.
+            action_set: A function that should return all valid actions for a given index and context.
+            reward: A function that should return the reward for the index, context and action.
         """
 
-        return [ self._rewards[choice] for choice in choices]
+        self._source = LambdaSource(n_interactions, context, action_set, reward, seed) # type: ignore
+
+    def read(self) -> Simulation:
+        return MemorySimulation(*self._source.read()) #type: ignore
+
+    def __repr__(self) -> str:
+        return '"LambdaSimulation"'
 
 class ClassificationSimulation(MemorySimulation):
     """A simulation created from classifier data with features and labels.
@@ -277,46 +316,18 @@ class ClassificationSimulation(MemorySimulation):
 
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
-        label_set  = list(set(labels))
-        action_set = OneHotEncoder(label_set).encode(label_set)
+
+        self.one_hot_encoder = OneHotEncoder(list(set(labels)))
+
+        labels     = self.one_hot_encoder.encode(labels)
+        action_set = list(set(labels))
 
         interactions = [ Interaction(context, action_set, i) for i, context in enumerate(features) ] #type: ignore
-        rewards      = OneHotEncoder(label_set).encode(labels)
+        reward      = ClassificationReward(list(enumerate(labels)))
 
-        self.label_set = label_set
-        super().__init__(interactions, rewards) #type:ignore
+        super().__init__(interactions, reward) #type:ignore
 
-class LambdaSimulation(Source[Simulation]):
-    """A Simulation created from lambda functions that generate contexts, actions and rewards.
-
-    Remarks:
-        This implementation is useful for creating simulations from defined distributions.
-    """
-
-    def __init__(self,
-        n_interactions: int,
-        context       : Callable[[int],Context],
-        action_set    : Callable[[int],Sequence[Action]], 
-        reward        : Callable[[Context,Action],Reward],
-        seed          : int = None) -> None:
-        """Instantiate a LambdaSimulation.
-
-        Args:
-            n_interactions: How many interactions the LambdaSimulation should have.
-            context: A function that should return a context given an index in `range(n_interactions)`.
-            action_set: A function that should return all valid actions for a given context.
-            reward: A function that should return the reward for a context and action.
-        """
-
-        self._source = LambdaSource(n_interactions, context, action_set, reward, seed) # type: ignore
-
-    def read(self) -> Simulation:
-        return MemorySimulation(*self._source.read()) #type: ignore
-
-    def __repr__(self) -> str:
-        return '"LambdaSimulation"'
-
-class OpenmlSimulation(Source[ClassificationSimulation]):
+class OpenmlSimulation(Source[Simulation]):
     """A simulation created from openml data with features and labels.
 
     OpenmlSimulation turns labeled observations from a classification data set
@@ -334,65 +345,15 @@ class OpenmlSimulation(Source[ClassificationSimulation]):
     """
 
     def __init__(self, id: int, md5_checksum: str = None) -> None:
-        self._source = OpenmlClassificationSource(id, md5_checksum)
+        self._source = OpenmlSource(id, md5_checksum)
 
-    def read(self) -> ClassificationSimulation:        
+    def read(self) -> Simulation:        
         return ClassificationSimulation(*self._source.read())
 
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._source._data_id}}}'
 
-class ShuffleSimulation(Simulation):
-    def __init__(self, seed: Optional[int], simulation: Simulation) -> None:
-
-        self._simulation = simulation
-        self._seed       = seed
-        self._interactions = coba.random.CobaRandom(self._seed).shuffle(simulation.interactions)
-
-    @property
-    def interactions(self) -> Sequence[Interaction]:
-        """The interactions in this simulation.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-        return self._interactions
-
-    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-
-        return self._simulation.reward(choices)
-
-class TakeSimulation(Simulation):
-    def __init__(self, count:int, simulation: Simulation) -> None:
-
-        self._simulation   = simulation
-        self._count        = count
-        self._interactions = simulation.interactions[0:count]
-
-    @property
-    def interactions(self) -> Sequence[Interaction]:
-        """The interactions in this simulation.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-        return self._interactions
-
-    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-
-        return self._simulation.reward(choices)
-
-class BatchedSimulation(Simulation):
+class BatchedSimulation(MemorySimulation):
     """A simulation whose interactions have been batched."""
 
     def __init__(self, simulation: Simulation, batch_sizes: Sequence[int]) -> None:
@@ -402,106 +363,22 @@ class BatchedSimulation(Simulation):
         batch_sizes  = list(filter(None, batch_sizes))
         batch_slices = list(accumulate([0] + list(batch_sizes)))
 
-        self._batches      = [ simulation.interactions[batch_slices[i]:batch_slices[i+1]] for i in range(len(batch_slices)-1) ]
-        self._interactions = simulation.interactions[0:sum(batch_sizes)]
+        self._batches = [ simulation.interactions[batch_slices[i]:batch_slices[i+1]] for i in range(len(batch_slices)-1) ]
+
+        super().__init__(simulation.interactions[0:sum(batch_sizes)], simulation.reward)
 
     @property
     def interaction_batches(self) -> Sequence[Sequence[Interaction]]:
         """The sequence of batches of interactions in a simulation."""
         return self._batches
 
-    @property
-    def interactions(self) -> Sequence[Interaction]:
-        """The interactions in this simulation.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-        return self._interactions
-
-    def reward(self, choices: Sequence[Tuple[Key,Choice]] ) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
-
-        Args:
-            choices: A sequence of tuples containing an interaction key and an action index.
-
-        Returns:
-            A sequence of tuples containing context, action, and reward for the requested 
-            interaction/action. This sequence will always align with the provided choices.
-        """
-        return self._simulation.reward(choices)
-
-class PcaSimulation(Simulation):
-    def __init__(self, simulation: Simulation) -> None:
-        
-        PackageChecker.numpy("PcaSimulation.__init__")
-        
-        import numpy as np #type: ignore
-
-        contexts = [ list(cast(Tuple[float,...],i.context)) for i in simulation.interactions]
-
-        feat_matrix          = np.array(contexts)
-        comp_vals, comp_vecs = np.linalg.eig(np.cov(feat_matrix.T))
-        
-        comp_vecs = comp_vecs[:,comp_vals > 0]
-        comp_vals = comp_vals[comp_vals > 0]
-
-        new_contexts = (feat_matrix @ comp_vecs ) / np.sqrt(comp_vals) #type:ignore
-        new_contexts = new_contexts[:,np.argsort(-comp_vals)]
-
-        self._simulation = simulation
-        self._interactions = [ Interaction(tuple(c), i.actions, i.key) for c, i in zip(new_contexts,simulation.interactions) ]
-
-    @property
-    def interactions(self) -> Sequence[Interaction]:
-        """The interactions in this simulation.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-        return self._interactions
-
-    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-
-        return self._simulation.reward(choices)
-
-class SortSimulation(Simulation):
-    def __init__(self, context_keys: Sequence[int], simulation: Simulation) -> None:
-        self._simulation   = simulation
-        self._context_keys = context_keys
-
-        sort_key = lambda interaction: tuple([interaction.context[key] for key in self._context_keys ])
-        self._interactions = list(sorted(simulation.interactions, key=sort_key))
-
-    @property
-    def interactions(self) -> Sequence[Interaction]:
-        """The interactions in this simulation.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-        return self._interactions
-
-    def reward(self, choices: Sequence[Tuple[Key,Choice]]) -> Sequence[Reward]:
-        """The observed rewards for interactions (identified by its key) and their selected action indexes.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
-
-        return self._simulation.reward(choices)
-
 class Shuffle(Filter[Simulation,Simulation]):
     def __init__(self, seed:Optional[int]) -> None:
         self._seed = seed
 
-    def filter(self, item: Simulation) -> Simulation:        
-        return ShuffleSimulation(self._seed, item)
+    def filter(self, item: Simulation) -> Simulation:  
+        shuffled_interactions = coba.random.CobaRandom(self._seed).shuffle(item.interactions)
+        return MemorySimulation(shuffled_interactions, item.reward)
 
     def __repr__(self) -> str:
         return f'{{"Shuffle":{self._seed}}}'
@@ -513,12 +390,12 @@ class Take(Filter[Simulation,Simulation]):
     def filter(self, item: Simulation) -> Simulation:
 
         if self._count is None:
-            return TakeSimulation(len(item.interactions), item)
+            return item
 
         if self._count > len(item.interactions):
-            return TakeSimulation(0, item)
+            return MemorySimulation([], item.reward)
 
-        return TakeSimulation(self._count, item)
+        return MemorySimulation(item.interactions[0:self._count], item.reward)
 
     def __repr__(self) -> str:
         return f'{{"Take":{json.dumps(self._count)}}}'
@@ -571,19 +448,41 @@ class PCA(Filter[Simulation,Simulation]):
     def __init__(self) -> None:
         PackageChecker.numpy("PCA.__init__")
 
-    def filter(self, item: Simulation) -> Simulation:
-        return PcaSimulation(item)
+    def filter(self, simulation: Simulation) -> Simulation:
+        
+        PackageChecker.numpy("PcaSimulation.__init__")
+
+        import numpy as np #type: ignore
+
+        contexts = [ list(cast(Tuple[float,...],i.context)) for i in simulation.interactions]
+
+        feat_matrix          = np.array(contexts)
+        comp_vals, comp_vecs = np.linalg.eig(np.cov(feat_matrix.T))
+
+        comp_vecs = comp_vecs[:,comp_vals > 0]
+        comp_vals = comp_vals[comp_vals > 0]
+
+        new_contexts = (feat_matrix @ comp_vecs ) / np.sqrt(comp_vals) #type:ignore
+        new_contexts = new_contexts[:,np.argsort(-comp_vals)]
+
+        interactions = [ Interaction(tuple(c), i.actions, i.key) for c, i in zip(new_contexts,simulation.interactions) ]
+
+        return MemorySimulation(interactions, simulation.reward)
 
     def __repr__(self) -> str:
         return '"PCA"'
 
 class Sort(Filter[Simulation,Simulation]):
 
-    def __init__(self, context_keys: Sequence[int]) -> None:
-        self._context_keys = context_keys
+    def __init__(self, indexes: Sequence[int]) -> None:
+        self.indexes = indexes
 
-    def filter(self, item: Simulation) -> Simulation:        
-        return SortSimulation(self._context_keys, item)
+    def filter(self, simulation: Simulation) -> Simulation:
+        
+        sort_key            = lambda interaction: tuple([interaction.context[i] for i in self.indexes ])
+        sorted_interactions = list(sorted(simulation.interactions, key=sort_key))
+
+        return MemorySimulation(sorted_interactions, simulation.reward)
 
     def __repr__(self) -> str:
-        return f'{{"Sort":{json.dumps(self._context_keys, separators=(",",":"))}}}'
+        return f'{{"Sort":{json.dumps(self.indexes, separators=(",",":"))}}}'

@@ -4,17 +4,16 @@ import timeit
 
 from typing import List, Sequence, Tuple, cast
 
-from coba.data.encoders import OneHotEncoder
 from coba.tools import CobaConfig, NoneCacher, NoneLogger, MemoryCacher
 from coba.simulations import (
-    Key, Choice, Interaction, ClassificationSimulation, MemorySimulation, LambdaSimulation, 
-    OpenmlSimulation, OpenmlClassificationSource, Shuffle, Take, Batch, PCA, Sort
+    Key, Action, Interaction, ClassificationSimulation, MemoryReward, MemorySimulation, 
+    LambdaSimulation, OpenmlSimulation, OpenmlSource, Shuffle, Take, Batch, PCA, Sort
 )
 
 CobaConfig.Logger = NoneLogger()
 
-def _choices(interaction: Interaction) -> Sequence[Tuple[Key,Choice]]:
-    return [  (interaction.key, a) for a in range(len(interaction.actions))]
+def _choices(interaction: Interaction) -> Sequence[Tuple[Key,Action]]:
+    return [  (interaction.key, a) for a in interaction.actions]
 
 class ClassificationSimulation_Tests(unittest.TestCase):
 
@@ -22,7 +21,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(len(simulation.interactions), len(features))
 
-        answers = OneHotEncoder(simulation.label_set).encode(answers)
+        answers = simulation.one_hot_encoder.encode(answers)
 
         #first we make sure that all the labels are included 
         #in the first interactions actions without any concern for order
@@ -41,7 +40,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
             actual_context = i.context
             actual_actions = i.actions
             
-            actual_rewards  = simulation.reward(_choices(i))
+            actual_rewards  = simulation.reward.observe(_choices(i))
 
             self.assertEqual(actual_context, expected_context)            
             self.assertSequenceEqual(actual_actions, expected_actions)
@@ -81,7 +80,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 
         CobaConfig.Cacher = NoneCacher()
 
-        simulation = ClassificationSimulation(*OpenmlClassificationSource(1116).read())
+        simulation = ClassificationSimulation(*OpenmlSource(1116).read())
         #simulation = ClassificationSimulation.from_source(OpenmlSource(273))
 
         self.assertEqual(len(simulation.interactions), 6598)
@@ -97,7 +96,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
             self.assertIn((0,1), rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
-            actual_rewards  = simulation.reward(_choices(rnd))
+            actual_rewards  = simulation.reward.observe(_choices(rnd))
 
             self.assertIn(1, actual_rewards)
             self.assertIn(0, actual_rewards)
@@ -107,9 +106,9 @@ class ClassificationSimulation_Tests(unittest.TestCase):
         #this test requires interet acess to download the data
 
         CobaConfig.Cacher = MemoryCacher()
-        OpenmlClassificationSource(154).read() #this will cause it to read and cache in memory so we don't measure read time
+        OpenmlSource(154).read() #this will cause it to read and cache in memory so we don't measure read time
 
-        time = min(timeit.repeat(lambda:ClassificationSimulation(*OpenmlClassificationSource(154).read()), repeat=1, number=1))
+        time = min(timeit.repeat(lambda:ClassificationSimulation(*OpenmlSource(154).read()), repeat=1, number=1))
 
         print(time)
 
@@ -120,49 +119,52 @@ class MemorySimulation_Tests(unittest.TestCase):
 
     def test_interactions(self):
         interactions = [Interaction(1, [1,2,3], 0), Interaction(2,[4,5,6],1)]
-        reward_sets  = [[0,1,2], [2,3,4]]
+        reward_sets  = MemoryReward([ 
+            (0,1,0), (0,2,1), (0,3,2),
+            (1,4,2), (1,5,3), (1,6,4)
+        ])
 
         simulation = MemorySimulation(interactions, reward_sets)
 
         self.assertEqual(1      , simulation.interactions[0].context)
         self.assertEqual([1,2,3], simulation.interactions[0].actions)
-        self.assertEqual([0,1,2], simulation.reward([(0,0),(0,1),(0,2)]))
+        self.assertEqual([0,1,2], simulation.reward.observe([(0,1),(0,2),(0,3)]))
 
         self.assertEqual(2      , simulation.interactions[1].context)
         self.assertEqual([4,5,6], simulation.interactions[1].actions)
-        self.assertEqual([2,3,4], simulation.reward([(1,0),(1,1),(1,2)]))
+        self.assertEqual([2,3,4], simulation.reward.observe([(1,4),(1,5),(1,6)]))
 
 class LambdaSimulation_Tests(unittest.TestCase):
 
     def test_interactions(self):
         
-        def C(t:int) -> int:
-            return [1,2][t]
+        def C(i:int) -> int:
+            return [1,2][i]
 
-        def A(t:int) -> List[int]:
-            return [[1,2,3],[4,5,6]][t]
+        def A(i:int,c:int) -> List[int]:
+            return [[1,2,3],[4,5,6]][i]
         
-        def R(c:int,a:int) -> int:
+        def R(i:int,c:int,a:int) -> int:
             return a-c
 
         simulation = LambdaSimulation(2,C,A,R).read() #type: ignore
 
         self.assertEqual(1      , simulation.interactions[0].context)
         self.assertEqual([1,2,3], simulation.interactions[0].actions)
-        self.assertEqual([0,1,2], simulation.reward([(0,0),(0,1),(0,2)]))
+        self.assertEqual([0,1,2], simulation.reward.observe([(0,1),(0,2),(0,3)]))
 
         self.assertEqual(2      , simulation.interactions[1].context)
         self.assertEqual([4,5,6], simulation.interactions[1].actions)
-        self.assertEqual([2,3,4], simulation.reward([(1,0),(1,1),(1,2)]))
+        self.assertEqual([2,3,4], simulation.reward.observe([(1,4),(1,5),(1,6)]))
 
     def test_interactions_len(self):
-        def C(t:int) -> int:
-            return [1,2][t]
+        def C(i:int) -> int:
+            return [1,2][i]
 
-        def A(t:int) -> List[int]:
-            return [[1,2,3],[4,5,6]][t]
+        def A(i:int,c:int) -> List[int]:
+            return [[1,2,3],[4,5,6]][i]
 
-        def R(c:int,a:int) -> int:
+        def R(i:int, c:int,a:int) -> int:
             return a-c
 
         simulation = LambdaSimulation(2,C,A,R).read() #type: ignore
@@ -185,11 +187,11 @@ class Shuffle_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (1,1,4), (1,2,4),
+            (2,1,5), (2,2,5)
+        ])
         
         simulation = MemorySimulation(interactions,rewards)
         shuffled_simulation = Shuffle(40).filter(simulation)
@@ -198,9 +200,22 @@ class Shuffle_Tests(unittest.TestCase):
         self.assertEqual(1, shuffled_simulation.interactions[0].key)
         self.assertEqual(2, shuffled_simulation.interactions[1].key)
         self.assertEqual(0, shuffled_simulation.interactions[2].key)
+        self.assertEqual([3], shuffled_simulation.reward.observe([(0,1)]))
+        self.assertEqual([3], shuffled_simulation.reward.observe([(0,2)]))
+        self.assertEqual([4], shuffled_simulation.reward.observe([(1,1)]))
+        self.assertEqual([4], shuffled_simulation.reward.observe([(1,2)]))
+        self.assertEqual([5], shuffled_simulation.reward.observe([(2,1)]))
+        self.assertEqual([5], shuffled_simulation.reward.observe([(2,2)]))
+
         self.assertEqual(0, simulation.interactions[0].key)
         self.assertEqual(1, simulation.interactions[1].key)
         self.assertEqual(2, simulation.interactions[2].key)
+        self.assertEqual([3], simulation.reward.observe([(0,1)]))
+        self.assertEqual([3], simulation.reward.observe([(0,2)]))
+        self.assertEqual([4], simulation.reward.observe([(1,1)]))
+        self.assertEqual([4], simulation.reward.observe([(1,2)]))
+        self.assertEqual([5], simulation.reward.observe([(2,1)]))
+        self.assertEqual([5], simulation.reward.observe([(2,2)]))
 
 class Take_Tests(unittest.TestCase):
     
@@ -210,22 +225,30 @@ class Take_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (1,1,4), (1,2,4),
+            (2,1,5), (2,2,5)
+        ])
         
         simulation = MemorySimulation(interactions,rewards)
         take_simulation = Take(1).filter(simulation)
 
         self.assertEqual(1, len(take_simulation.interactions))
         self.assertEqual(0, take_simulation.interactions[0].key)
+        self.assertEqual([3], take_simulation.reward.observe([(0,1)]))
+        self.assertEqual([3], take_simulation.reward.observe([(0,2)]))
         
         self.assertEqual(3, len(simulation.interactions))
         self.assertEqual(0, simulation.interactions[0].key)
         self.assertEqual(1, simulation.interactions[1].key)
         self.assertEqual(2, simulation.interactions[2].key)
+        self.assertEqual([3], simulation.reward.observe([(0,1)]))
+        self.assertEqual([3], simulation.reward.observe([(0,2)]))
+        self.assertEqual([4], simulation.reward.observe([(1,1)]))
+        self.assertEqual([4], simulation.reward.observe([(1,2)]))
+        self.assertEqual([5], simulation.reward.observe([(2,1)]))
+        self.assertEqual([5], simulation.reward.observe([(2,2)]))
 
     def test_take2(self):
         interactions = [
@@ -233,11 +256,11 @@ class Take_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (1,1,4), (1,2,4),
+            (2,1,5), (2,2,5)
+        ])
         
         simulation = MemorySimulation(interactions,rewards)
         take_simulation = Take(2).filter(simulation)
@@ -245,11 +268,21 @@ class Take_Tests(unittest.TestCase):
         self.assertEqual(2, len(take_simulation.interactions))
         self.assertEqual(0, take_simulation.interactions[0].key)
         self.assertEqual(1, take_simulation.interactions[1].key)
+        self.assertEqual([3], take_simulation.reward.observe([(0,1)]))
+        self.assertEqual([3], take_simulation.reward.observe([(0,2)]))
+        self.assertEqual([4], take_simulation.reward.observe([(1,1)]))
+        self.assertEqual([4], take_simulation.reward.observe([(1,2)]))
         
         self.assertEqual(3, len(simulation.interactions))
         self.assertEqual(0, simulation.interactions[0].key)
         self.assertEqual(1, simulation.interactions[1].key)
         self.assertEqual(2, simulation.interactions[2].key)
+        self.assertEqual([3], simulation.reward.observe([(0,1)]))
+        self.assertEqual([3], simulation.reward.observe([(0,2)]))
+        self.assertEqual([4], simulation.reward.observe([(1,1)]))
+        self.assertEqual([4], simulation.reward.observe([(1,2)]))
+        self.assertEqual([5], simulation.reward.observe([(2,1)]))
+        self.assertEqual([5], simulation.reward.observe([(2,2)]))
 
     def test_take3(self):
         interactions = [
@@ -257,11 +290,11 @@ class Take_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (0,1,4), (0,2,4),
+            (0,1,5), (0,2,5)
+        ])
         
         simulation = MemorySimulation(interactions,rewards)
         take_simulation = Take(3).filter(simulation)
@@ -282,11 +315,11 @@ class Take_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (1,1,4), (1,2,4),
+            (2,1,5), (2,2,5)
+        ])
         
         simulation = MemorySimulation(interactions,rewards)
         
@@ -307,11 +340,12 @@ class Batch_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (1,1,4), (1,2,4),
+            (2,1,5), (2,2,5)
+        ])
 
         simulation = MemorySimulation(interactions,rewards)
         batch_simulation = Batch(size=1).filter(simulation)
@@ -333,11 +367,12 @@ class Batch_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+        
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (1,1,4), (1,2,4),
+            (2,1,5), (2,2,5)
+        ])
 
         simulation = MemorySimulation(interactions,rewards)
         batch_simulation = Batch(size=2).filter(simulation)
@@ -354,11 +389,11 @@ class Batch_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (1,1,4), (1,2,4),
+            (2,1,5), (2,2,5)
+        ])
 
         simulation = MemorySimulation(interactions,rewards)
         batch_simulation = Batch(size=3).filter(simulation)
@@ -376,11 +411,11 @@ class Batch_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (1,1,4), (1,2,4),
+            (2,1,5), (2,2,5)
+        ])
 
         simulation = MemorySimulation(interactions,rewards)
         batch_simulation = Batch(count=1).filter(simulation)
@@ -398,11 +433,11 @@ class Batch_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (1,1,4), (1,2,4),
+            (2,1,5), (2,2,5)
+        ])
 
         simulation = MemorySimulation(interactions,rewards)
         batch_simulation = Batch(count=2).filter(simulation)
@@ -422,11 +457,11 @@ class Batch_Tests(unittest.TestCase):
             Interaction(1,[1,2],1),
             Interaction(1,[1,2],2)
         ]
-        rewards = [
-            [3,3],
-            [4,4],
-            [5,5]
-        ]
+        rewards = MemoryReward([
+            (0,1,3), (0,2,3),
+            (1,1,4), (1,2,4),
+            (2,1,5), (2,2,5)
+        ])
 
         simulation = MemorySimulation(interactions,rewards)
         batch_simulation = Batch(count=3).filter(simulation)
@@ -474,8 +509,11 @@ class PCA_Tests(unittest.TestCase):
             Interaction((1,9), [1], 1),
             Interaction((7,3), [1], 2)
         ]
+        rewards = MemoryReward([
+            (0,1,1), (1,1,1), (2,1,1)
+        ])
 
-        mem_sim = MemorySimulation(interactions, [[1],[1],[1]])
+        mem_sim = MemorySimulation(interactions, rewards)
         pca_sim = PCA().filter(mem_sim)
 
         self.assertEqual((1,2), mem_sim.interactions[0].context)
@@ -498,8 +536,11 @@ class Sort_tests(unittest.TestCase):
             Interaction((1,9), [1], 1),
             Interaction((8,3), [1], 2)
         ]
+        rewards = MemoryReward([
+            (0,1,1), (1,1,1), (2,1,1)
+        ])
 
-        mem_sim = MemorySimulation(interactions, [[1],[1],[1]])
+        mem_sim = MemorySimulation(interactions, rewards)
         srt_sim = Sort([0]).filter(mem_sim)
 
         self.assertEqual((7,2), mem_sim.interactions[0].context)
@@ -517,8 +558,11 @@ class Sort_tests(unittest.TestCase):
             Interaction((1,9), [1], 1),
             Interaction((1,3), [1], 2)
         ]
+        rewards = MemoryReward([
+            (0,1,1), (1,1,1), (2,1,1)
+        ])
 
-        mem_sim = MemorySimulation(interactions, [[1],[1],[1]])
+        mem_sim = MemorySimulation(interactions, rewards)
         srt_sim = Sort([0,1]).filter(mem_sim)
 
         self.assertEqual((1,2), mem_sim.interactions[0].context)

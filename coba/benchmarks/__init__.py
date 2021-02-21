@@ -17,8 +17,8 @@ from typing import (
     overload, List, Mapping, MutableMapping, Union
 )
 from coba.random import CobaRandom
-from coba.learners import Learner, Key
-from coba.simulations import BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, Simulation, Interaction, Choice, Context, Action, Reward, PCA, Sort
+from coba.learners import Learner
+from coba.simulations import Context, Action, Key, Interaction, Simulation, BatchedSimulation, OpenmlSimulation, Take, Shuffle, Batch, PCA, Sort
 from coba.statistics import OnlineMean, OnlineVariance
 from coba.tools import PackageChecker, CobaRegistry, CobaConfig
 
@@ -321,7 +321,6 @@ class TaskToTransactions(Filter):
 
     def filter(self, tasks: Iterable[Any]) -> Iterable[Any]:
         tasks = list(tasks)
-        print(len(tasks))
         for task in tasks:
             for transaction in self._process_task(task):
                 yield transaction
@@ -392,25 +391,21 @@ class TaskToTransactions(Filter):
         
         keys     = []
         contexts = []
-        choices  = []
         actions  = []
         probs    = []
 
         for interaction in batch:
 
-            choice, prob = learner.choose(interaction.key, interaction.context, interaction.actions)
-
-            assert choice in range(len(interaction.actions)), "An invalid action was chosen by the learner"
+            action, prob = learner.choose(interaction.key, interaction.context, interaction.actions)
 
             keys    .append(interaction.key)
             contexts.append(interaction.context)
-            choices .append(choice)
             probs   .append(prob)
-            actions .append(interaction.actions[choice])
+            actions .append(action)
 
-        rewards = reward(list(zip(keys, choices))) 
+        rewards = reward.observe(list(zip(keys, actions))) 
 
-        for (key,context,action,reward,prob) in zip(keys,contexts,actions,rewards, probs):
+        for (key,context,action,reward,prob) in zip(keys,contexts,actions,rewards,probs):
             learner.learn(key,context,action,reward,prob)
 
         return round(mean(rewards),5)
@@ -807,13 +802,13 @@ class BenchmarkLearner:
         except AttributeError:
             pass
 
-    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Tuple[Choice, float]:
+    def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Tuple[Action, float]:
         p = self._learner.predict(key, context, actions)
-        c = self._random.choice(list(range(len(actions))), p)
-
-        return c, p[c]
+        c = list(zip(actions,p))
+        
+        return self._random.choice(c, p)
     
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         self._learner.learn(key, context, action, reward, probability)
 
 class BenchmarkSimulation(Source[Simulation]):

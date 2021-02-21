@@ -5,7 +5,7 @@ import math
 from collections import defaultdict
 from typing import Any, Dict, Tuple, Sequence, Optional, cast
 
-from coba.simulations import Context, Action, Reward
+from coba.simulations import Context, Action
 from coba.statistics import OnlineVariance
 from coba.learners.core import Learner, Key
 
@@ -41,7 +41,7 @@ class RandomLearner(Learner):
         """
         return [1/len(actions)] * len(actions)
 
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         """Learns nothing.
 
         Args:
@@ -111,7 +111,7 @@ class EpsilonBanditLearner(Learner):
 
         return [p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
 
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         """Learn from the given interaction.
 
         Args:
@@ -192,7 +192,7 @@ class UcbBanditLearner(Learner):
 
             return [ int(i in max_indexes)/len(max_indexes) for i in range(len(actions)) ]
 
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         """Learn from the given interaction.
 
         Args:

@@ -5,7 +5,7 @@ import math
 from typing import Any, Sequence, Optional, Dict
 
 from coba.random import CobaRandom
-from coba.simulations import Context, Action, Reward, Key
+from coba.simulations import Context, Action, Key
 from coba.learners.core import Learner
 
 class CorralLearner(Learner):
@@ -95,7 +95,7 @@ class CorralLearner(Learner):
 
         return [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
 
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         """Learn from the given interaction.
 
         Args:
@@ -106,7 +106,7 @@ class CorralLearner(Learner):
             probability: The probability that the given action was taken.
         """
 
-        loss = 1-reward 
+        loss = 1-reward
 
         assert  0 <= loss and loss <= 1, "The current Corral implementation assumes a loss between 0 and 1"
 

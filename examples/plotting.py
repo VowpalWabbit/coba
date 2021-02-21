@@ -14,17 +14,17 @@ if __name__ == '__main__':
     def dot(v1,v2): return sum(mul(v1,v2))
     def mul(v1,v2): return [s1*s2 for s1,s2 in zip(v1,v2)]
 
-    contexts    = lambda t: coba.random.randoms(3)
-    actions     = lambda t: [(1,0,0), (0,1,0), (0,0,1)]
+    context    = lambda i  : coba.random.randoms(3)
+    actions    = lambda i,c: [(1,0,0), (0,1,0), (0,0,1)]
 
-    lin_reward = lambda c,a: dot([dot(c,[1,2,4]), dot(c,[4,1,2]), dot(c,[2,4,1])], a)
-    pol_reward = lambda c,a: dot([dot(c+mul(c,c),[1,2,3,1,2,3]), dot(c+mul(c,c),[3,1,2,3,1,2]), dot(c+mul(c,c),[2,3,1,2,3,1])], a)
-    rng_reward = lambda c,a: coba.random.randint(dot([0,1,2],a), dot([0,1,2],a)+2)
+    lin_reward = lambda i,c,a: dot([dot(c,[1,2,4]), dot(c,[4,1,2]), dot(c,[2,4,1])], a)
+    pol_reward = lambda i,c,a: dot([dot(c+mul(c,c),[1,2,3,1,2,3]), dot(c+mul(c,c),[3,1,2,3,1,2]), dot(c+mul(c,c),[2,3,1,2,3,1])], a)
+    rng_reward = lambda i,c,a: coba.random.randint(dot([0,1,2],a), dot([0,1,2],a)+2)
 
     simulations = [
-        LambdaSimulation(2000, contexts, actions, lin_reward, seed=10),
-        LambdaSimulation(2000, contexts, actions, rng_reward, seed=10),
-        LambdaSimulation(2000, contexts, actions, pol_reward, seed=10),
+        LambdaSimulation(2000, context, actions, lin_reward, seed=10),
+        LambdaSimulation(2000, context, actions, rng_reward, seed=10),
+        LambdaSimulation(2000, context, actions, pol_reward, seed=10),
     ]
 
     learners = [

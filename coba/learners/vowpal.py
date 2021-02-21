@@ -6,11 +6,11 @@ TODO Add unittests
 import collections
 
 from os import devnull
-from typing import Any, Dict, Tuple, Union, Sequence, overload
+from typing import Any, Dict, Union, Sequence, overload
 
 from coba.random import CobaRandom
 from coba.tools import PackageChecker, redirect_stderr
-from coba.simulations import Context, Action, Choice, Reward
+from coba.simulations import Context, Action, Reward
 from coba.learners.core import Learner, Key
 
 class cb_explore_Formatter:
@@ -66,7 +66,7 @@ class pyvw_Wrapper:
         with open(devnull, 'w') as f, redirect_stderr(f):
             self._vw = self._vw_init(flags + f" --quiet {seed_flag}")
 
-    def predict(self, context, actions) -> Tuple[Choice, float]:
+    def predict(self, context, actions) -> Sequence[float]:
         pmf  = self._vw.predict(self._format.predict(context, actions))
 
         assert len(pmf) == len(actions), "An incorrect number of action probabilites was returned by VW."
@@ -388,7 +388,7 @@ class VowpalLearner(Learner):
         else:
             return probs
 
-    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         """Learn from the given interaction.
 
         Args:
