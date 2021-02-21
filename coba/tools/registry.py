@@ -5,6 +5,7 @@ and for the core functionality to specify classes creation recipes in config fil
 """
 
 from itertools import repeat
+from importlib import reload
 from importlib_metadata import entry_points #type: ignore
 from typing import Dict, Any, Callable
 
@@ -19,9 +20,11 @@ def coba_registry_class(name:str) -> Callable[[type],type]:
 class CobaRegistry:
 
     _registry: Dict[str,type] = {}
+    _endpoints_loaded = False
 
     @classmethod
     def clear(cls) -> None:
+        cls._endpoints_loaded = False
         cls._registry.clear()
 
     @classmethod
@@ -70,9 +73,10 @@ class CobaRegistry:
 
     @classmethod
     def _get_registry(cls) -> Dict[str,Any]:
-        if len(cls._registry) == 0:
+        if not cls._endpoints_loaded:
+            cls._endpoints_loaded = True
             for eps in entry_points()['coba.register']:
-                eps.load()
+                reload(eps.load()) #we use reload incase the registry has been cleared at some point
 
         return cls._registry
 

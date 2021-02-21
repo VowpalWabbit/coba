@@ -425,6 +425,20 @@ class CobaRegistry_Tests(unittest.TestCase):
     def setUp(self) -> None:
         CobaRegistry.clear() #make sure the registry is fresh each test
 
+    def test_endpoint_loaded(self):
+        klass = CobaRegistry.retrieve("NoneSink")
+
+        self.assertEqual("NoneSink", klass.__name__)
+
+    def test_endpoint_loaded_after_decorator_register(self):
+        
+        @coba_registry_class("MyTestObject")
+        class MyTestObject(TestObject): pass
+
+        klass = CobaRegistry.retrieve("NoneSink")
+
+        self.assertEqual("NoneSink", klass.__name__)
+
     def test_registered_create(self):
 
         CobaRegistry.register("test", TestObject)
