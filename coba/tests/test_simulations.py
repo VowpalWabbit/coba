@@ -135,6 +135,7 @@ class MemorySimulation_Tests(unittest.TestCase):
 class LambdaSimulation_Tests(unittest.TestCase):
 
     def test_interactions(self):
+        
         def C(t:int) -> int:
             return [1,2][t]
 
@@ -144,7 +145,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
         def R(c:int,a:int) -> int:
             return a-c
 
-        simulation = LambdaSimulation(2,C,A,R).read()
+        simulation = LambdaSimulation(2,C,A,R).read() #type: ignore
 
         self.assertEqual(1      , simulation.interactions[0].context)
         self.assertEqual([1,2,3], simulation.interactions[0].actions)
@@ -164,7 +165,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
         def R(c:int,a:int) -> int:
             return a-c
 
-        simulation = LambdaSimulation(2,C,A,R).read()
+        simulation = LambdaSimulation(2,C,A,R).read() #type: ignore
         self.assertEqual(len(simulation.interactions), 2)
 
 class OpenmlSimulation_Tests(unittest.TestCase):

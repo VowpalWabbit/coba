@@ -11,12 +11,11 @@ TODO Add RegressionSimulation
 
 import json
 
-from contextlib import suppress
 from itertools import chain, accumulate
 from abc import ABC, abstractmethod
 from typing import (
-    Optional, Sequence, List, Callable, TypeVar, 
-    Generic, Hashable, Any, Tuple, overload, cast
+    Optional, Sequence, List, Callable, 
+    Hashable, Any, Tuple, overload, cast
 )
 
 import coba.random
@@ -32,15 +31,12 @@ Reward  = float
 Key     = int
 Choice  = int
 
-_C_out = TypeVar('_C_out', bound=Context, covariant=True)
-_A_out = TypeVar('_A_out', bound=Action , covariant=True)
-
-class Interaction(Generic[_C_out, _A_out]):
+class Interaction:
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
     #this is a problem with pylance compaining about covariance in constructor so we have to type ignore it. 
     #See this ticket in mypy for more info https://github.com/python/mypy/issues/2850
-    def __init__(self, context: _C_out, actions: Sequence[_A_out], key: Key = 0) -> None: #type: ignore
+    def __init__(self, context: Context, actions: Sequence[Action], key: Key = 0) -> None: #type: ignore
         """Instantiate Interaction.
 
         Args
@@ -56,12 +52,12 @@ class Interaction(Generic[_C_out, _A_out]):
         self._key     = key
 
     @property
-    def context(self) -> _C_out:
+    def context(self) -> Context:
         """The interaction's context description."""
         return self._context
 
     @property
-    def actions(self) -> Sequence[_A_out]:
+    def actions(self) -> Sequence[Action]:
         """The interactions's available actions."""
         return self._actions
     
@@ -157,18 +153,18 @@ class OpenmlClassificationSource(Source[Tuple[Sequence[Context], Sequence[Action
 
         raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
 
-class LambdaSource(Source[Tuple[Sequence[Interaction[_C_out, _A_out]], Sequence[Sequence[Reward]]]]):
+class LambdaSource(Source[Tuple[Sequence[Interaction], Sequence[Sequence[Reward]]]]):
 
     def __init__(self,
         n_interactions: int,
-        context       : Callable[[int],_C_out],
-        action_set    : Callable[[int],Sequence[_A_out]], 
-        reward        : Callable[[_C_out,_A_out],Reward],
+        context       : Callable[[int],Context],
+        action_set    : Callable[[int],Sequence[Action]],
+        reward        : Callable[[Context,Action],Reward],
         seed          : int = None) -> None:
 
         coba.random.seed(seed)
 
-        interactions: List[Interaction[_C_out, _A_out]] = []
+        interactions: List[Interaction] = []
         reward_sets : List[Sequence[Reward]]            = []
 
         for i in range(n_interactions):
@@ -181,15 +177,15 @@ class LambdaSource(Source[Tuple[Sequence[Interaction[_C_out, _A_out]], Sequence[
 
         self._source = MemorySource((interactions, reward_sets))
 
-    def read(self) -> Tuple[Sequence[Interaction[_C_out, _A_out]], Sequence[Sequence[Reward]]]:
+    def read(self) -> Tuple[Sequence[Interaction], Sequence[Sequence[Reward]]]:
         return self._source.read()
 
-class Simulation(Generic[_C_out, _A_out], ABC):
+class Simulation(ABC):
     """The simulation interface."""
 
     @property
     @abstractmethod
-    def interactions(self) -> Sequence[Interaction[_C_out, _A_out]]:
+    def interactions(self) -> Sequence[Interaction]:
         """The sequence of interactions in a simulation.
 
         Remarks:
@@ -213,11 +209,11 @@ class Simulation(Generic[_C_out, _A_out], ABC):
         """
         ...
 
-class MemorySimulation(Simulation[_C_out, _A_out]):
+class MemorySimulation(Simulation):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
 
     def __init__(self, 
-        interactions: Sequence[Interaction[_C_out, _A_out]],
+        interactions: Sequence[Interaction],
         reward_sets : Sequence[Sequence[Reward]]) -> None:
         """Instantiate a MemorySimulation.
 
@@ -237,7 +233,7 @@ class MemorySimulation(Simulation[_C_out, _A_out]):
         self._rewards = dict(zip(choices,rewards))
 
     @property
-    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+    def interactions(self) -> Sequence[Interaction]:
         """The interactions in this simulation.
 
         Remarks:
@@ -254,7 +250,7 @@ class MemorySimulation(Simulation[_C_out, _A_out]):
 
         return [ self._rewards[choice] for choice in choices]
 
-class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
+class ClassificationSimulation(MemorySimulation):
     """A simulation created from classifier data with features and labels.
 
     ClassificationSimulation turns labeled observations from a classification data set
@@ -271,7 +267,7 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
         dataset is being streamed instead of waiting until the end of the data to train an encoder.
     """
 
-    def __init__(self, features: Sequence[_C_out], labels: Sequence[Action]) -> None:
+    def __init__(self, features: Sequence[Context], labels: Sequence[Action]) -> None:
         """Instantiate a ClassificationSimulation.
 
         Args:
@@ -290,7 +286,7 @@ class ClassificationSimulation(MemorySimulation[_C_out, Tuple[int,...]]):
         self.label_set = label_set
         super().__init__(interactions, rewards) #type:ignore
 
-class LambdaSimulation(Source[Simulation[_C_out, _A_out]]):
+class LambdaSimulation(Source[Simulation]):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
 
     Remarks:
@@ -299,9 +295,9 @@ class LambdaSimulation(Source[Simulation[_C_out, _A_out]]):
 
     def __init__(self,
         n_interactions: int,
-        context       : Callable[[int],_C_out],
-        action_set    : Callable[[int],Sequence[_A_out]], 
-        reward        : Callable[[_C_out,_A_out],Reward],
+        context       : Callable[[int],Context],
+        action_set    : Callable[[int],Sequence[Action]], 
+        reward        : Callable[[Context,Action],Reward],
         seed          : int = None) -> None:
         """Instantiate a LambdaSimulation.
 
@@ -314,13 +310,13 @@ class LambdaSimulation(Source[Simulation[_C_out, _A_out]]):
 
         self._source = LambdaSource(n_interactions, context, action_set, reward, seed) # type: ignore
 
-    def read(self) -> Simulation[_C_out, _A_out]:
+    def read(self) -> Simulation:
         return MemorySimulation(*self._source.read()) #type: ignore
 
     def __repr__(self) -> str:
         return '"LambdaSimulation"'
 
-class OpenmlSimulation(Source[ClassificationSimulation[Context]]):
+class OpenmlSimulation(Source[ClassificationSimulation]):
     """A simulation created from openml data with features and labels.
 
     OpenmlSimulation turns labeled observations from a classification data set
@@ -337,24 +333,24 @@ class OpenmlSimulation(Source[ClassificationSimulation[Context]]):
         dataset is being streamed instead of waiting until the end of the data to train an encoder.
     """
 
-    def __init__(self, id: int, md5_checksum: str = None, verbose=False) -> None:
+    def __init__(self, id: int, md5_checksum: str = None) -> None:
         self._source = OpenmlClassificationSource(id, md5_checksum)
 
-    def read(self) -> ClassificationSimulation[Context]:        
+    def read(self) -> ClassificationSimulation:        
         return ClassificationSimulation(*self._source.read())
 
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._source._data_id}}}'
 
-class ShuffleSimulation(Simulation[_C_out, _A_out]):
-    def __init__(self, seed: Optional[int], simulation: Simulation[_C_out, _A_out]) -> None:
+class ShuffleSimulation(Simulation):
+    def __init__(self, seed: Optional[int], simulation: Simulation) -> None:
 
         self._simulation = simulation
         self._seed       = seed
         self._interactions = coba.random.CobaRandom(self._seed).shuffle(simulation.interactions)
 
     @property
-    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+    def interactions(self) -> Sequence[Interaction]:
         """The interactions in this simulation.
 
         Remarks:
@@ -371,15 +367,15 @@ class ShuffleSimulation(Simulation[_C_out, _A_out]):
 
         return self._simulation.reward(choices)
 
-class TakeSimulation(Simulation[_C_out, _A_out]):
-    def __init__(self, count:int, simulation: Simulation[_C_out, _A_out]) -> None:
+class TakeSimulation(Simulation):
+    def __init__(self, count:int, simulation: Simulation) -> None:
 
         self._simulation   = simulation
         self._count        = count
         self._interactions = simulation.interactions[0:count]
 
     @property
-    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+    def interactions(self) -> Sequence[Interaction]:
         """The interactions in this simulation.
 
         Remarks:
@@ -396,30 +392,26 @@ class TakeSimulation(Simulation[_C_out, _A_out]):
 
         return self._simulation.reward(choices)
 
-class BatchedSimulation(Simulation[_C_out, _A_out]):
+class BatchedSimulation(Simulation):
     """A simulation whose interactions have been batched."""
 
-    def __init__(self, simulation: Simulation[_C_out, _A_out], batch_sizes: Sequence[int]) -> None:
+    def __init__(self, simulation: Simulation, batch_sizes: Sequence[int]) -> None:
         self._simulation = simulation
 
         #remove Nones and 0s
-        batch_sizes = list(filter(None, batch_sizes))
+        batch_sizes  = list(filter(None, batch_sizes))
+        batch_slices = list(accumulate([0] + list(batch_sizes)))
 
-        if len(batch_sizes) == 0:
-            self._batches = []
-            self._interactions = []
-        else:
-            batch_slices  = list(accumulate([0] + list(batch_sizes)))
-            self._batches = [simulation.interactions[batch_slices[i]:batch_slices[i+1]] for i in range(len(batch_slices)-1) ]
-            self._interactions = simulation.interactions[0:sum(batch_sizes)]
+        self._batches      = [ simulation.interactions[batch_slices[i]:batch_slices[i+1]] for i in range(len(batch_slices)-1) ]
+        self._interactions = simulation.interactions[0:sum(batch_sizes)]
 
     @property
-    def interaction_batches(self) -> Sequence[Sequence[Interaction[_C_out, _A_out]]]:
+    def interaction_batches(self) -> Sequence[Sequence[Interaction]]:
         """The sequence of batches of interactions in a simulation."""
         return self._batches
 
     @property
-    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+    def interactions(self) -> Sequence[Interaction]:
         """The interactions in this simulation.
 
         Remarks:
@@ -439,14 +431,16 @@ class BatchedSimulation(Simulation[_C_out, _A_out]):
         """
         return self._simulation.reward(choices)
 
-class PcaSimulation(Simulation[Tuple[float,...], _A_out]):
-    def __init__(self, simulation: Simulation[Tuple[float,...], _A_out]) -> None:
+class PcaSimulation(Simulation):
+    def __init__(self, simulation: Simulation) -> None:
         
         PackageChecker.numpy("PcaSimulation.__init__")
         
         import numpy as np #type: ignore
 
-        feat_matrix          = np.array([list(i.context) for i in simulation.interactions])
+        contexts = [ list(cast(Tuple[float,...],i.context)) for i in simulation.interactions]
+
+        feat_matrix          = np.array(contexts)
         comp_vals, comp_vecs = np.linalg.eig(np.cov(feat_matrix.T))
         
         comp_vecs = comp_vecs[:,comp_vals > 0]
@@ -459,7 +453,7 @@ class PcaSimulation(Simulation[Tuple[float,...], _A_out]):
         self._interactions = [ Interaction(tuple(c), i.actions, i.key) for c, i in zip(new_contexts,simulation.interactions) ]
 
     @property
-    def interactions(self) -> Sequence[Interaction[Tuple[float,...],_A_out]]:
+    def interactions(self) -> Sequence[Interaction]:
         """The interactions in this simulation.
 
         Remarks:
@@ -476,8 +470,8 @@ class PcaSimulation(Simulation[Tuple[float,...], _A_out]):
 
         return self._simulation.reward(choices)
 
-class SortSimulation(Simulation[_C_out, _A_out]):
-    def __init__(self, context_keys: Sequence[int], simulation: Simulation[_C_out, _A_out]) -> None:
+class SortSimulation(Simulation):
+    def __init__(self, context_keys: Sequence[int], simulation: Simulation) -> None:
         self._simulation   = simulation
         self._context_keys = context_keys
 
@@ -485,7 +479,7 @@ class SortSimulation(Simulation[_C_out, _A_out]):
         self._interactions = list(sorted(simulation.interactions, key=sort_key))
 
     @property
-    def interactions(self) -> Sequence[Interaction[_C_out,_A_out]]:
+    def interactions(self) -> Sequence[Interaction]:
         """The interactions in this simulation.
 
         Remarks:
@@ -502,21 +496,21 @@ class SortSimulation(Simulation[_C_out, _A_out]):
 
         return self._simulation.reward(choices)
 
-class Shuffle(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
+class Shuffle(Filter[Simulation,Simulation]):
     def __init__(self, seed:Optional[int]) -> None:
         self._seed = seed
 
-    def filter(self, item: Simulation[Context,Action]) -> Simulation[Context,Action]:        
+    def filter(self, item: Simulation) -> Simulation:        
         return ShuffleSimulation(self._seed, item)
 
     def __repr__(self) -> str:
         return f'{{"Shuffle":{self._seed}}}'
 
-class Take(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
+class Take(Filter[Simulation,Simulation]):
     def __init__(self, count:Optional[int]) -> None:
         self._count = count
 
-    def filter(self, item: Simulation[Context,Action]) -> Simulation[Context,Action]:
+    def filter(self, item: Simulation) -> Simulation:
 
         if self._count is None:
             return TakeSimulation(len(item.interactions), item)
@@ -529,7 +523,7 @@ class Take(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
     def __repr__(self) -> str:
         return f'{{"Take":{json.dumps(self._count)}}}'
 
-class Batch(Filter[Simulation[Context,Action],BatchedSimulation[Context,Action]]):
+class Batch(Filter[Simulation,BatchedSimulation]):
     
     @overload
     def __init__(self,*,count: int): ...
@@ -547,7 +541,7 @@ class Batch(Filter[Simulation[Context,Action],BatchedSimulation[Context,Action]]
         self._size   = cast(Optional[int], kwargs.get("size", None))
         self._sizes  = cast(Optional[Sequence[int]], kwargs.get("sizes", None))
 
-    def filter(self, item: Simulation[Context,Action]) -> BatchedSimulation[Context,Action]:
+    def filter(self, item: Simulation) -> BatchedSimulation:
         
         sizes: Optional[Sequence[int]] = None
 
@@ -572,23 +566,23 @@ class Batch(Filter[Simulation[Context,Action],BatchedSimulation[Context,Action]]
     def __repr__(self) -> str:
         return f'{{"Batch":{json.dumps(self._kwargs, separators=(",",":"))}}}'
 
-class PCA(Filter[Simulation[Tuple[float,...],Action],Simulation[Context,Action]]):
+class PCA(Filter[Simulation,Simulation]):
 
     def __init__(self) -> None:
         PackageChecker.numpy("PCA.__init__")
 
-    def filter(self, item: Simulation[Tuple[float,...],Action]) -> Simulation[Context,Action]:
+    def filter(self, item: Simulation) -> Simulation:
         return PcaSimulation(item)
 
     def __repr__(self) -> str:
         return '"PCA"'
 
-class Sort(Filter[Simulation[Context,Action],Simulation[Context,Action]]):
+class Sort(Filter[Simulation,Simulation]):
 
     def __init__(self, context_keys: Sequence[int]) -> None:
         self._context_keys = context_keys
 
-    def filter(self, item: Simulation[Context,Action]) -> Simulation[Context,Action]:        
+    def filter(self, item: Simulation) -> Simulation:        
         return SortSimulation(self._context_keys, item)
 
     def __repr__(self) -> str:

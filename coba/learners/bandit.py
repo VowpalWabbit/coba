@@ -9,7 +9,7 @@ from coba.simulations import Context, Action, Reward
 from coba.statistics import OnlineVariance
 from coba.learners.core import Learner, Key
 
-class RandomLearner(Learner[Context, Action]):
+class RandomLearner(Learner):
     """A Learner implementation that selects an action at random and learns nothing."""
 
     @property
@@ -53,7 +53,7 @@ class RandomLearner(Learner[Context, Action]):
         """
         pass
  
-class EpsilonBanditLearner(Learner[Context, Action]):
+class EpsilonBanditLearner(Learner):
     """A lookup table bandit learner with epsilon-greedy exploration."""
 
     def __init__(self, epsilon: float, include_context: bool = False) -> None:
@@ -133,7 +133,7 @@ class EpsilonBanditLearner(Learner[Context, Action]):
     def _key(self, context: Context, action: Action) -> Tuple[Context,Action]:
         return (context, action) if self._include_context else (None, action)
 
-class UcbBanditLearner(Learner[Context, Action]):
+class UcbBanditLearner(Learner):
     """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
 
     This algorithm assumes that the reward distribution has support in [0,1].

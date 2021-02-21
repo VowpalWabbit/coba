@@ -245,7 +245,7 @@ def _feature_format(name: Any, value: Any) -> str:
 
     return f"{name}:{value}" if isinstance(value,(int,float)) else f"{value}"
 
-class VowpalLearner(Learner[Context, Action]):
+class VowpalLearner(Learner):
     """A learner using Vowpal Wabbit's contextual bandit command line interface.
 
     Remarks:

@@ -1,14 +1,11 @@
 """The expected interface for all learner implementations."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Sequence, Dict, Generic, TypeVar
+from typing import Any, Sequence, Dict
 
 from coba.simulations import Context, Action, Reward, Key
 
-_C_in = TypeVar('_C_in', bound=Context, contravariant=True)
-_A_in = TypeVar('_A_in', bound=Action , contravariant=True)
-
-class Learner(Generic[_C_in, _A_in], ABC):
+class Learner(ABC):
     """The interface for Learner implementations."""
 
     @property
@@ -34,7 +31,7 @@ class Learner(Generic[_C_in, _A_in], ABC):
         pass
 
     @abstractmethod
-    def predict(self, key: Key, context: _C_in, actions: Sequence[_A_in]) -> Sequence[float]:
+    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
 
         Args:
@@ -60,7 +57,7 @@ class Learner(Generic[_C_in, _A_in], ABC):
         ...
 
     @abstractmethod
-    def learn(self, key: Key, context: _C_in, action: _A_in, reward: Reward, probability: float) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: Reward, probability: float) -> None:
         """Learn about the result of an action that was taken in a context.
 
         Args:

@@ -8,7 +8,7 @@ from collections import defaultdict
 from abc import ABC, abstractmethod
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Hashable, Dict, Tuple
 
-T_out = TypeVar('T_out', bound=Hashable, covariant=True) 
+T_out = TypeVar('T_out', bound=Any, covariant=True) 
 
 class Encoder(Generic[T_out], ABC):
     """The interface for encoder implementations.

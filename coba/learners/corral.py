@@ -8,7 +8,7 @@ from coba.random import CobaRandom
 from coba.simulations import Context, Action, Reward, Key
 from coba.learners.core import Learner
 
-class CorralLearner(Learner[Context, Action]):
+class CorralLearner(Learner):
     """This is an implementation of the Agarwal et al. (2017) Corral algorithm.
 
     This algorithm assumes that the reward distribution has support in [0,1].
@@ -21,7 +21,7 @@ class CorralLearner(Learner[Context, Action]):
         Theory, pp. 12-38. PMLR, 2017.
     """
 
-    def __init__(self, base_learners: Sequence[Learner[Context,Action]], eta: float, T: float = math.inf, seed: int = None) -> None:
+    def __init__(self, base_learners: Sequence[Learner], eta: float, T: float = math.inf, seed: int = None) -> None:
         """Instantiate a CorralLearner.
         
         Args:

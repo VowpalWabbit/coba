@@ -13,10 +13,8 @@ from itertools import product, groupby, chain, count, repeat
 from statistics import median
 from pathlib import Path
 from typing import (
-    Iterable, Tuple, Sequence, Generic,
-    TypeVar, Dict, Any, cast, Optional,
-    overload, List, Mapping, MutableMapping,
-    Union
+    Iterable, Tuple, Sequence, Dict, Any, cast, Optional,
+    overload, List, Mapping, MutableMapping, Union
 )
 from coba.random import CobaRandom
 from coba.learners import Learner, Key
@@ -29,9 +27,6 @@ from coba.data.filters import Filter, IdentityFilter, JsonEncode, JsonDecode, Ca
 from coba.data.sources import HttpSource, Source, MemorySource, DiskSource
 from coba.data.sinks import Sink, MemorySink, DiskSink
 from coba.data.pipes import Pipe, StopPipe
-
-_C = TypeVar('_C', bound=Context)
-_A = TypeVar('_A', bound=Action)
 
 class Result:
     """A class for creating and returning the result of a Benchmark evaluation."""
@@ -655,8 +650,9 @@ class BenchmarkFileFmtV1(Filter[Dict[str,Any], 'Benchmark']):
 
             source = OpenmlSimulation(sim_config["from"]["id"], sim_config["from"].get("md5_checksum", None))
 
-            pca_filters: List[PCA]   = []
-            sort_filters: List[Sort] = []
+            pca_filters  : List[PCA ] = []
+            sort_filters : List[Sort] = []
+            final_filters: Sequence[Sequence[Any]]
 
             if sim_config.get("pca",False):
                 pca_filters = [PCA()]
@@ -801,7 +797,7 @@ class BenchmarkLearner:
         else:
             return self.family
 
-    def __init__(self, learner: Learner[Context,Action], seed: Optional[int]) -> None:
+    def __init__(self, learner: Learner, seed: Optional[int]) -> None:
         self._learner = learner
         self._random  = CobaRandom(seed)
 
@@ -839,19 +835,19 @@ class BenchmarkSimulation(Source[Simulation]):
     def __repr__(self) -> str:
         return self._pipe.__repr__()
 
-class Benchmark(Generic[_C,_A]):
+class Benchmark:
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
     
     @overload
     @staticmethod
-    def from_file(filesource:Union[Source[str], Source[Iterable[str]]]) -> 'Benchmark[Context,Action]': ...
+    def from_file(filesource:Union[Source[str], Source[Iterable[str]]]) -> 'Benchmark': ...
 
     @overload
     @staticmethod
-    def from_file(filename:str) -> 'Benchmark[Context,Action]': ...
-
-    @staticmethod
-    def from_file(arg) -> 'Benchmark[Context,Action]':
+    def from_file(filename:str) -> 'Benchmark': ...
+    
+    @staticmethod #type: ignore #(this apppears to be a mypy bug https://github.com/python/mypy/issues/7781)
+    def from_file(arg) -> 'Benchmark': #type: ignore
         """Instantiate a Benchmark from a config file."""
 
         source:Any = None
@@ -873,7 +869,7 @@ class Benchmark(Generic[_C,_A]):
 
     @overload
     def __init__(self, 
-        simulations : Sequence[Source[Simulation[_C,_A]]],
+        simulations : Sequence[Source[Simulation]],
         *,
         batch_size      : int = 1,
         take            : int = None,
@@ -884,7 +880,7 @@ class Benchmark(Generic[_C,_A]):
 
     @overload
     def __init__(self,
-        simulations : Sequence[Source[Simulation[_C,_A]]],
+        simulations : Sequence[Source[Simulation]],
         *,
         batch_count     : int,
         take            : int = None,
@@ -895,7 +891,7 @@ class Benchmark(Generic[_C,_A]):
 
     @overload
     def __init__(self, 
-        simulations : Sequence[Source[Simulation[_C,_A]]],
+        simulations : Sequence[Source[Simulation]],
         *,
         batch_sizes     : Sequence[int],
         shuffle         : Sequence[Optional[int]] = [None],
@@ -917,8 +913,8 @@ class Benchmark(Generic[_C,_A]):
         See the overloads for more information.
         """
 
-        sources = cast(Sequence[Source[Simulation[_C,_A]]], args[0])
-        filters = []
+        sources = cast(Sequence[Source[Simulation]], args[0])
+        filters: List[Sequence[Filter[Simulation,Simulation]]] = []
 
         if 'shuffle' in kwargs and kwargs['shuffle'] != [None]:
             filters.append([ Shuffle(seed) for seed in kwargs['shuffle'] ])
@@ -943,19 +939,19 @@ class Benchmark(Generic[_C,_A]):
         self._processes        = cast(Optional[int], kwargs.get('processes'       , None))
         self._maxtasksperchild = cast(Optional[int], kwargs.get('maxtasksperchild', None))
 
-    def ignore_raise(self, value:bool=True) -> 'Benchmark[_C,_A]':
+    def ignore_raise(self, value:bool=True) -> 'Benchmark':
         self._ignore_raise = value
         return self
 
-    def processes(self, value:int) -> 'Benchmark[_C,_A]':
+    def processes(self, value:int) -> 'Benchmark':
         self._processes = value
         return self
 
-    def maxtasksperchild(self, value:int) -> 'Benchmark[_C,_A]':
+    def maxtasksperchild(self, value:int) -> 'Benchmark':
         self._maxtasksperchild = value
         return self
 
-    def evaluate(self, learners: Sequence[Learner[_C,_A]], transaction_log:str = None, seed:int = None) -> Result:
+    def evaluate(self, learners: Sequence[Learner], transaction_log:str = None, seed:int = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
