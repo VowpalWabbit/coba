@@ -232,6 +232,12 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                         "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
                     raise Exception(message) from None
 
+            if response.status_code == 404:
+                message = (
+                    "We're sorry but we were unable to find the requested dataset on openml. The most likely cause "
+                    "for this is openml not providing the requested dataset in a format that COBA can process.")
+                raise Exception(message) from None
+
             bites = response.content
 
         if checksum is not None and md5(bites).hexdigest() != checksum:
