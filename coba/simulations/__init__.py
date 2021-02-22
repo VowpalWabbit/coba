@@ -11,6 +11,7 @@ TODO Add RegressionSimulation
 
 import json
 
+from hashlib import md5
 from itertools import accumulate
 from abc import ABC, abstractmethod
 from typing import (
@@ -22,7 +23,7 @@ from typing import (
 import coba.random
 
 from coba.tools import PackageChecker, CobaConfig
-from coba.data.sources import Source, HttpSource
+from coba.data.sources import MemorySource, Source, HttpSource
 from coba.data.encoders import OneHotEncoder
 from coba.data.filters import Filter
 
@@ -132,77 +133,134 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
         from coba.data.encoders import Encoder, NumericEncoder, OneHotEncoder, StringEncoder
         from coba.data.filters  import CsvReader, LabeledCsvCleaner
 
-        data_id        = self._data_id
-        md5_checksum   = self._md5_checksum
-        openml_api_key = CobaConfig.Api_Keys['openml']
+        d_key = None
+        t_key = None
+        o_key = None
 
-        data_description_url = f'https://www.openml.org/api/v1/json/data/{data_id}'
+        try:
+            data_id        = self._data_id
+            md5_checksum   = self._md5_checksum
+            openml_api_key = CobaConfig.Api_Keys['openml']
+
+            d_key = f'https://www.openml.org/api/v1/json/data/{data_id}'
+            t_key = f'https://www.openml.org/api/v1/json/data/features/{data_id}'
+
+            api_key_query_string = '' if openml_api_key is None else f'?api_key={openml_api_key}'
+
+            d_bytes  = self._query(d_key+api_key_query_string, "descr")            
+            d_object = json.loads(d_bytes.decode('utf-8'))["data_set_description"]
+
+            if d_object['status'] == 'deactivated':
+                raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
+
+            t_bytes  = self._query(t_key+api_key_query_string, "types")
+            t_object = json.loads(t_bytes.decode('utf-8'))["data_features"]["feature"]
+
+            headers : List[str]     = []
+            encoders: List[Encoder] = []
+            ignored : List[bool]    = []
+            target  : str           = ""
+
+            for tipe in t_object:
+
+                headers.append(tipe['name'])
+                ignored.append(tipe['is_ignore'] == 'true' or tipe['is_row_identifier'] == 'true')
+
+                if tipe['is_target'] == 'true':
+                    target = tipe['name']
+
+                if tipe['data_type'] == 'numeric':
+                    encoders.append(NumericEncoder())  
+                elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'false':
+                    encoders.append(OneHotEncoder(singular_if_binary=True))
+                elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'true':
+                    encoders.append(OneHotEncoder())
+                else:
+                    encoders.append(StringEncoder())
+
+            if isinstance(encoders[headers.index(target)], NumericEncoder):
+                target = self._get_classification_target(data_id, openml_api_key)
+                ignored[headers.index(target)] = False
+                encoders[headers.index(target)] = OneHotEncoder()
+
+            o_key   = f"http://www.openml.org/data/v1/get_csv/{d_object['file_id']}"
+            o_bytes = self._query(o_key, "obser", md5_checksum)
+            
+            source  = MemorySource(o_bytes.decode('utf-8').splitlines())
+            reader  = CsvReader()
+            cleaner = LabeledCsvCleaner(target, headers, encoders, ignored, True)
+
+            feature_rows, label_rows = Pipe.join(source, [reader, cleaner]).read()
+
+            #we only cache after all the data has been successfully loaded
+            for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:
+                CobaConfig.Cacher.put(key,bytes)
+
+            return list(feature_rows), list(label_rows)
+
+        except:
+
+            #if something went wrong we want to clear the cache 
+            #in case the cache has become corrupted somehow
+            for key in [d_key, t_key, o_key]:
+                if key is not None: CobaConfig.Cacher.rmv(key)
+
+            raise
+
+    def _query(self, url:str, description:str, checksum:str=None) -> bytes:
         
-        type_description_url = f'https://www.openml.org/api/v1/json/data/features/{data_id}'
+        if url in CobaConfig.Cacher:
+            with CobaConfig.Logger.time(f'loading {description} from cache... '):
+                bites = CobaConfig.Cacher.get(url)
 
-        if openml_api_key is not None:
-            data_description_url += f'?api_key={openml_api_key}'
-            type_description_url += f'?api_key={openml_api_key}'
+        else:
+            with CobaConfig.Logger.time(f'loading {description} from http... '):
+                response = HttpSource(url).read()
 
-        resp  = ''.join(HttpSource(data_description_url, None, 'descr').read())
-        descr = json.loads(resp)["data_set_description"]
+            if response.status_code == 412:
+                if 'please provide api key' in response.text:
+                    message = (
+                        "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
+                        "openml account at openml.org. Once a key has been obtained it should be placed within "
+                        "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+                    raise Exception(message) from None
 
-        if descr['status'] == 'deactivated':
-            raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
+                if 'authentication failed' in response.text:
+                    message = (
+                        "The API Key you provided no longer seems to be valid. You may need to create a new one"
+                        "longing into your openml account and regenerating a key. After regenerating the new key "
+                        "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+                    raise Exception(message) from None
 
-        resp  = ''.join(HttpSource(type_description_url, None, 'types').read())
-        types = json.loads(resp)["data_features"]["feature"]
+            bites = response.content
 
-        headers : List[str]     = []
-        encoders: List[Encoder] = []
-        ignored : List[bool]    = []
-        target  : str           = ""
+        if checksum is not None and md5(bites).hexdigest() != checksum:
+            
+            #if the cache has become corrupted we need to clear it
+            CobaConfig.Cacher.rmv(url)
 
-        for tipe in types:
+            message = (
+                f"The response from {url} did not match the given checksum. This could be the result of "
+                "network errors or the file becoming corrupted. Please consider downloading the file again. "
+                "If the error persists you may want to manually download and reference the file.")
+            raise Exception(message) from None
 
-            headers.append(tipe['name'])
-            ignored.append(tipe['is_ignore'] == 'true' or tipe['is_row_identifier'] == 'true')
-
-            if tipe['is_target'] == 'true':
-                target = tipe['name']
-
-            if tipe['data_type'] == 'numeric':
-                encoders.append(NumericEncoder())  
-            elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'false':
-                encoders.append(OneHotEncoder(singular_if_binary=True))
-            elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'true':
-                encoders.append(OneHotEncoder())
-            else:
-                encoders.append(StringEncoder())
-
-        if isinstance(encoders[headers.index(target)], NumericEncoder):
-            target = self._get_classification_target(data_id, openml_api_key)
-            ignored[headers.index(target)] = False
-            encoders[headers.index(target)] = OneHotEncoder()
-
-        csv_url = f"http://www.openml.org/data/v1/get_csv/{descr['file_id']}"
-
-        source  = HttpSource(csv_url, md5_checksum, f"obser")
-        reader  = CsvReader()
-        cleaner = LabeledCsvCleaner(target, headers, encoders, ignored, True)
-
-        feature_rows, label_rows = Pipe.join(source, [reader, cleaner]).read()
-
-        return list(feature_rows), list(label_rows)
-
+        return bites
+        
     def _get_classification_target(self, data_id, openml_api_key):
-        task_description_url = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'
 
-        if openml_api_key is not None:        
-            task_description_url += f'?api_key={openml_api_key}'
+        t_key = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'
+        t_bites = self._query(t_key + '' if openml_api_key is None else  f'?api_key={openml_api_key}', "tasks")
 
-        tasks = json.loads(''.join(HttpSource(task_description_url, None, 'tasks').read()))["tasks"]["task"]
+        tasks = json.loads(t_bites.decode('utf-8'))["tasks"]["task"]
 
         for task in tasks:
             if task["task_type_id"] == 1: #aka, classification task
                 for input in task['input']:
                     if input['name'] == 'target_feature':
                         return input['value'] #just take the first one
+
+        CobaConfig.Cacher.put(t_key,t_bites)
 
         raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
 

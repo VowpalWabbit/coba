@@ -12,6 +12,8 @@ import json
 from abc import ABC, abstractmethod
 from typing import Generic, Hashable, Iterable, TypeVar, Any, Sequence, Union, Tuple, Callable, cast
 
+from requests import Response
+
 from coba.data.encoders import Encoder, OneHotEncoder
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
 from coba.tools import CobaConfig
@@ -49,6 +51,18 @@ class StringJoin(Filter[Iterable[str], str]):
 
     def filter(self, item: Iterable[str]) -> str:
         return self._separator.join(item)
+
+class ResponseToText(Filter[Response, str]):
+    def filter(self, item: Response) -> str:
+        
+        if item.status_code != 200:
+            message = (
+                f"The response from {item.url} reported an error. "
+                "The status and reason were {item.status_code}-{item.reason}.")
+            
+            raise Exception(message) from None
+
+        return item.content.decode('utf-8')
 
 class JsonEncode(Filter[Any, str]):
     def __init__(self, encoder: json.encoder.JSONEncoder = CobaJsonEncoder()) -> None:

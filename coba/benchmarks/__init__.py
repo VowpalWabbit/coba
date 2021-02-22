@@ -23,7 +23,7 @@ from coba.statistics import OnlineMean, OnlineVariance
 from coba.tools import PackageChecker, CobaRegistry, CobaConfig
 
 from coba.data.structures import Table
-from coba.data.filters import Filter, IdentityFilter, JsonEncode, JsonDecode, Cartesian, StringJoin
+from coba.data.filters import Filter, IdentityFilter, JsonEncode, JsonDecode, Cartesian, ResponseToText, StringJoin
 from coba.data.sources import HttpSource, Source, MemorySource, DiskSource
 from coba.data.sinks import Sink, MemorySink, DiskSink
 from coba.data.pipes import Pipe, StopPipe
@@ -239,7 +239,7 @@ class Transaction:
             "n_learners"   : n_learners,
             "n_simulations": n_simulations,
         }
-        
+
         return ['benchmark',data]
 
     @staticmethod
@@ -845,22 +845,16 @@ class Benchmark:
     def from_file(arg) -> 'Benchmark': #type: ignore
         """Instantiate a Benchmark from a config file."""
 
-        source:Any = None
-
         if isinstance(arg,str) and arg.startswith('http'):
-            source = HttpSource(arg, cache=False)
+            content = ResponseToText().filter(HttpSource(arg).read())
         
-        if isinstance(arg,str) and not arg.startswith('http'):
-            source = DiskSource(arg)
+        elif isinstance(arg,str) and not arg.startswith('http'):
+            content = '\n'.join(DiskSource(arg).read())
 
-        if source is None:
-            source = arg
+        else:
+            content = arg.read() #type: ignore
         
-        content = source.read()
-        joined  = content if isinstance(content,str) else StringJoin('\n').filter(content)
-        decoded = JsonDecode().filter(joined)
-
-        return CobaRegistry.construct(CobaConfig.Benchmark['file_fmt']).filter(decoded)
+        return CobaRegistry.construct(CobaConfig.Benchmark['file_fmt']).filter(JsonDecode().filter(content))
 
     @overload
     def __init__(self, 
