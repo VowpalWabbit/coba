@@ -1,6 +1,6 @@
 from coba.data.sinks import NoneSink, ConsoleSink, DiskSink
 from coba.tools import CobaRegistry, DiskCacher, NoneCacher, MemoryCacher, IndentLogger, NoneLogger, BasicLogger
-from coba.simulations import OpenmlSimulation, PCA, Shuffle, Take
+from coba.simulations import OpenmlSimulation, PCA, Shuffle, Take, Sort
 from coba.benchmarks import BenchmarkFileFmtV1, BenchmarkFileFmtV2
 
 CobaRegistry.register("NoneSink"   , NoneSink   )
@@ -18,6 +18,7 @@ CobaRegistry.register("MemoryCacher" , MemoryCacher )
 CobaRegistry.register("OpenmlSimulation", OpenmlSimulation)
 CobaRegistry.register("Take"            , Take            )
 CobaRegistry.register("Shuffle"         , Shuffle         )
+CobaRegistry.register("Sort"            , Sort            )
 CobaRegistry.register("PCA"             , PCA             )
 
 CobaRegistry.register("BenchmarkFileV1", BenchmarkFileFmtV1)
