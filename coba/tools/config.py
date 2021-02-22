@@ -52,7 +52,7 @@ class CobaConfig_meta(type):
         }
 
         for key,value in CobaConfig_meta._load_file_config().items():
-            if isinstance(config[key], dict):
+            if key in config and isinstance(config[key], dict):
                 config[key].update(value)
             else:
                 config[key] = value

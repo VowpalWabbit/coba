@@ -599,7 +599,7 @@ class TransactionSink(Sink):
             return Result.from_transactions(cast(Iterable[Any], final_sink.items))
 
         if isinstance(final_sink, DiskSink):
-            return Result.from_transaction_log(final_sink.filename)
+            return Result.from_file(final_sink.filename)
 
         raise Exception("Transactions were written to an unrecognized sink.")
 
@@ -956,7 +956,7 @@ class Benchmark:
             See the base class for more information.
         """
         benchmark_learners   = [ BenchmarkLearner(learner, seed) for learner in learners ] #type: ignore
-        restored             = Result.from_transaction_log(transaction_log)
+        restored             = Result.from_file(transaction_log)
         task_source          = TaskSource(self._simulations, benchmark_learners, restored)
         task_to_transactions = TaskToTransactions(self._ignore_raise)
         transaction_sink     = TransactionSink(transaction_log, restored)
