@@ -32,7 +32,7 @@ class Result:
     """A class for creating and returning the result of a Benchmark evaluation."""
 
     @staticmethod
-    def from_transaction_log(filename: Optional[str]) -> 'Result':
+    def from_file(filename: Optional[str]) -> 'Result':
         """Create a Result from a transaction file."""
         
         if filename is None or not Path(filename).exists(): return Result()
