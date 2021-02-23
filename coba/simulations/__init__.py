@@ -240,9 +240,10 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             if "Usually due to high server load" in response.text:
                 message = (
-                    "Openml experienced an error that was likely caused by unusually high server loads."
-                    "If not done already consider setting up a DiskCache in coba config to reduce the "
-                    "numer of openml calls in the future. Otherwise wait a few seconds and try again.")
+                    "Openml reported an error that they believe is likely caused by high server loads ."
+                    "Openml recommends that you try again in a few seconds. Additionally, if not already "
+                    "done, consider setting up a DiskCache in coba config to reduce the number of openml "
+                    "calls in the future.")
                 raise Exception(message) from None
 
             bites = response.content

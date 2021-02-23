@@ -371,15 +371,21 @@ class TaskToTransactions(Filter):
                         for lrn_id, learner in learners.items():
 
                             if (sim_id,lrn_id) not in todo_pairs: continue
+                            
+                            try:
+                                
+                                learner = deepcopy(learner)
+                                learner.init()
 
-                            learner = deepcopy(learner)
-                            learner.init()
+                                with CobaConfig.Logger.time(f"Evaluating learner {lrn_id}..."):
+                                    batch_sizes  = [ len(batch)                                             for batch in batches ]
+                                    mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
 
-                            with CobaConfig.Logger.time(f"Evaluating learner {lrn_id}..."):
-                                batch_sizes  = [ len(batch)                                             for batch in batches ]
-                                mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
-
-                                yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
+                                    yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
+                            
+                            except Exception as e:
+                                CobaConfig.Logger.log_exception("unhandled exception:", e)
+                                if not self._ignore_raise: raise e
         
         except KeyboardInterrupt:
             raise
