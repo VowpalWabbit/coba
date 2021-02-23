@@ -140,20 +140,17 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
         try:
             data_id        = self._data_id
             md5_checksum   = self._md5_checksum
-            openml_api_key = CobaConfig.Api_Keys['openml']
 
             d_key = f'https://www.openml.org/api/v1/json/data/{data_id}'
             t_key = f'https://www.openml.org/api/v1/json/data/features/{data_id}'
 
-            api_key_query_string = '' if openml_api_key is None else f'?api_key={openml_api_key}'
-
-            d_bytes  = self._query(d_key+api_key_query_string, "descr")            
+            d_bytes  = self._query(d_key, "descr")            
             d_object = json.loads(d_bytes.decode('utf-8'))["data_set_description"]
 
             if d_object['status'] == 'deactivated':
                 raise Exception(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
 
-            t_bytes  = self._query(t_key+api_key_query_string, "types")
+            t_bytes  = self._query(t_key, "types")
             t_object = json.loads(t_bytes.decode('utf-8'))["data_features"]["feature"]
 
             headers : List[str]     = []
@@ -179,7 +176,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                     encoders.append(StringEncoder())
 
             if isinstance(encoders[headers.index(target)], NumericEncoder):
-                target = self._get_classification_target(data_id, openml_api_key)
+                target = self._get_classification_target(data_id)
                 ignored[headers.index(target)] = False
                 encoders[headers.index(target)] = OneHotEncoder()
 
@@ -214,8 +211,11 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 bites = CobaConfig.Cacher.get(url)
 
         else:
+
+            api_key = CobaConfig.Api_Keys['openml']
+
             with CobaConfig.Logger.time(f'loading {description} from http... '):
-                response = HttpSource(url).read()
+                response = HttpSource(url + (f'?api_key={api_key}' if api_key else '')).read()
 
             if response.status_code == 412:
                 if 'please provide api key' in response.text:
@@ -238,6 +238,13 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                     "for this is openml not providing the requested dataset in a format that COBA can process.")
                 raise Exception(message) from None
 
+            if "Usually due to high server load" in response.text:
+                message = (
+                    "Openml experienced an error that was likely caused by unusually high server loads."
+                    "If not done already consider setting up a DiskCache in coba config to reduce the "
+                    "numer of openml calls in the future. Otherwise wait a few seconds and try again.")
+                raise Exception(message) from None
+
             bites = response.content
 
         if checksum is not None and md5(bites).hexdigest() != checksum:
@@ -246,17 +253,17 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             CobaConfig.Cacher.rmv(url)
 
             message = (
-                f"The response from {url} did not match the given checksum. This could be the result of "
-                "network errors or the file becoming corrupted. Please consider downloading the file again. "
+                f"The response from {url} did not match the given checksum {checksum}. This could be the result "
+                "of network errors or the file becoming corrupted. Please consider downloading the file again. "
                 "If the error persists you may want to manually download and reference the file.")
             raise Exception(message) from None
 
         return bites
         
-    def _get_classification_target(self, data_id, openml_api_key):
+    def _get_classification_target(self, data_id):
 
         t_key = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'
-        t_bites = self._query(t_key + '' if openml_api_key is None else  f'?api_key={openml_api_key}', "tasks")
+        t_bites = self._query(t_key, "tasks")
 
         tasks = json.loads(t_bites.decode('utf-8'))["tasks"]["task"]
 
