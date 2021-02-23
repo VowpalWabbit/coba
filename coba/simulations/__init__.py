@@ -10,6 +10,7 @@ TODO Add RegressionSimulation
 """
 
 import json
+import collections
 
 from hashlib import md5
 from itertools import accumulate
@@ -446,6 +447,10 @@ class BatchedSimulation(MemorySimulation):
 
 class Shuffle(Filter[Simulation,Simulation]):
     def __init__(self, seed:Optional[int]) -> None:
+        
+        if seed is not None and (not isinstance(seed,int) or seed < 0):
+            raise ValueError(f"Invalid parameter for Shuffle: {seed}. An optional integer value >= 0 was expected.")
+
         self._seed = seed
 
     def filter(self, item: Simulation) -> Simulation:  
@@ -457,6 +462,10 @@ class Shuffle(Filter[Simulation,Simulation]):
 
 class Take(Filter[Simulation,Simulation]):
     def __init__(self, count:Optional[int]) -> None:
+        
+        if count is not None and (not isinstance(count,int) or count < 0):
+            raise ValueError(f"Invalid parameter for Take: {count}. An optional integer value >= 0 was expected.")
+
         self._count = count
 
     def filter(self, item: Simulation) -> Simulation:
@@ -485,7 +494,11 @@ class Batch(Filter[Simulation,BatchedSimulation]):
 
     def __init__(self, **kwargs) -> None:
         
+        if not any(key in kwargs for key in ['count', 'size', 'sizes']):
+            raise ValueError(f"Invalid parameters for Batch: {kwargs}. A count, size or sizes kwarg was expected.")
+
         self._kwargs = kwargs
+
         self._count  = cast(Optional[int], kwargs.get("count", None))
         self._size   = cast(Optional[int], kwargs.get("size", None))
         self._sizes  = cast(Optional[Sequence[int]], kwargs.get("sizes", None))
@@ -547,6 +560,10 @@ class PCA(Filter[Simulation,Simulation]):
 class Sort(Filter[Simulation,Simulation]):
 
     def __init__(self, indexes: Sequence[int]) -> None:
+        
+        if not isinstance(indexes, collections.Sequence) or not isinstance(indexes[0],int):
+            raise ValueError(f"Invalid parameter for Sort: {indexes}. A sequence of integers was expected.")
+
         self.indexes = indexes
 
     def filter(self, simulation: Simulation) -> Simulation:

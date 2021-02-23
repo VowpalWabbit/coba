@@ -98,7 +98,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((1,0), label_rows[3])
         self.assertEqual((1,0), label_rows[4])
 
-
 class ClassificationSimulation_Tests(unittest.TestCase):
 
     def assert_simulation_for_data(self, simulation, features, answers) -> None:
