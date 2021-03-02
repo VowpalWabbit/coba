@@ -251,7 +251,7 @@ class Transaction:
     @staticmethod
     def learners(learners: 'Sequence[BenchmarkLearner]') -> Iterable[Any]:
         for index, learner in enumerate(learners):
-            yield Transaction.learner(index, family=learner.family, full_name=learner.full_name, **learner.params)
+            yield Transaction.learner(index, full_name=learner.full_name, family=learner.family, **learner.params)
 
     @staticmethod
     def simulation(simulation_id: int, **kwargs) -> Any:
@@ -380,7 +380,7 @@ class TaskToTransactions(Filter):
                                     yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
                             
                             except Exception as e:
-                                CobaConfig.Logger.log_exception("unhandled exception:", e)
+                                CobaConfig.Logger.log_exception("Unhandled exception:", e)
                                 if not self._ignore_raise: raise e
         
         except KeyboardInterrupt:

@@ -153,6 +153,7 @@ class IndentLogger(Logger):
     def _unwind_time_context(self) -> None:
         for index, message in enumerate(self._messages):
             time = f' ({self._durations[index]} seconds)' if index in self._durations else ''            
+            
             self._sink.write([f"{message}{time}"])
 
         self._messages = []
@@ -180,14 +181,14 @@ class IndentLogger(Logger):
             except KeyboardInterrupt:
                 raise
             except Exception as e:
-                self.log_exception(f"exception after {round(time.time() - self._starts[-1], 2)} seconds:", e)
+                self.log_exception(f"Exception after {round(time.time() - self._starts[-1], 2)} seconds:", e)
                 raise
             finally:
                 self._starts.pop()
                 self._indexes.pop()
-        
-        if len(self._starts) == 0:
-            self._unwind_time_context()
+
+                if len(self._starts) == 0:
+                    self._unwind_time_context()
 
     @property
     def sink(self) -> Sink[Iterable[str]]:
@@ -209,7 +210,7 @@ class IndentLogger(Logger):
 
         if self._in_time_context:
             self._messages.append(final_message)
-        else:
+        else:            
             self._sink.write([final_message])
 
         return self._indent_context()
