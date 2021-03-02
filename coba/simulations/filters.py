@@ -1,18 +1,12 @@
 import json
 import collections
 
-from typing import (
-    Optional, Sequence, List, Callable, 
-    Hashable, Any, Tuple, overload, cast,
-    Dict
-)
+from typing import Optional, Sequence, Tuple, overload, cast
 
-from coba.tools import PackageChecker, CobaConfig
-import coba.random
-
+from coba.tools import PackageChecker
+from coba.random import CobaRandom
 from coba.data.filters import Filter
-
-from coba.simulations.simulations import Simulation, MemorySimulation, BatchedSimulation, Interaction
+from coba.simulations.core import Simulation, MemorySimulation, BatchedSimulation, Interaction
 
 class Shuffle(Filter[Simulation,Simulation]):
     def __init__(self, seed:Optional[int]) -> None:
@@ -23,7 +17,7 @@ class Shuffle(Filter[Simulation,Simulation]):
         self._seed = seed
 
     def filter(self, item: Simulation) -> Simulation:  
-        shuffled_interactions = coba.random.CobaRandom(self._seed).shuffle(item.interactions)
+        shuffled_interactions = CobaRandom(self._seed).shuffle(item.interactions)
         return MemorySimulation(shuffled_interactions, item.reward)
 
     def __repr__(self) -> str:

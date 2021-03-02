@@ -9,37 +9,31 @@ to do so.
 TODO Add RegressionSimulation
 """
 
-from typing import (
-    Optional, Hashable, Sequence
+from coba.simulations.core import (
+    Context, Action, Key, Interaction, Simulation, Reward, MemorySimulation, 
+    LambdaSimulation, ClassificationSimulation, BatchedSimulation, MemoryReward, ClassificationReward
 )
-Context = Optional[Hashable]
-Action  = Hashable
-Key     = int
-
-from coba.simulations.edits import Shuffle, Take, Batch, PCA, Sort
-from coba.simulations.rewards import Reward, MemoryReward, ClassificationReward
-from coba.simulations.simulations import Interaction, Simulation, OpenmlSource, LambdaSource, MemorySimulation, LambdaSimulation, ClassificationSimulation, OpenmlSimulation, BatchedSimulation
-
+from coba.simulations.openml  import OpenmlSource, OpenmlSimulation
+from coba.simulations.filters import Shuffle, Take, Batch, PCA, Sort
 
 __all__ = [
+    'Context',
+    'Action',
+    'Key',
+    'Interaction',
+    'Simulation',
+    'OpenmlSource',
+    'MemorySimulation',
+    'LambdaSimulation',
+    'ClassificationSimulation',
+    'Reward',
+    'MemoryReward',
+    'ClassificationReward',
+    'OpenmlSimulation',
+    'BatchedSimulation',
     'Shuffle',
     'Take',
     'Batch',
     'PCA',
     'Sort',
-    'Interaction',
-    'Reward',
-    'MemoryReward',
-    'ClassificationReward',
-    'Context',
-    'Action',
-    'Key',
-    'Simulation',
-    'OpenmlSource',
-    'LambdaSource',
-    'MemorySimulation',
-    'LambdaSimulation',
-    'ClassificationSimulation',
-    'OpenmlSimulation',
-    'BatchedSimulation'
 ]

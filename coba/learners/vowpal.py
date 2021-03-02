@@ -10,7 +10,7 @@ from typing import Any, Dict, Union, Sequence, overload
 
 from coba.random import CobaRandom
 from coba.tools import PackageChecker, redirect_stderr
-from coba.simulations import Context, Action, Reward
+from coba.simulations import Context, Action
 from coba.learners.core import Learner, Key
 
 class cb_explore_Formatter:
