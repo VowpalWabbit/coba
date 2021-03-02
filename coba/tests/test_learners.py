@@ -15,7 +15,7 @@ class RandomLearner_Tests(unittest.TestCase):
         learner = RandomLearner()
         learner.learn(2, None, 1, 1, 1)
 
-class EpsilonLearner_Tests(unittest.TestCase):
+class EpsilonBanditLearner_Tests(unittest.TestCase):
     def test_predict_no_learn(self):
         learner = EpsilonBanditLearner(epsilon=0.5)
 
@@ -31,7 +31,7 @@ class EpsilonLearner_Tests(unittest.TestCase):
 
         self.assertEqual([0,0,1],learner.predict(4, None, [1,2,3]))
 
-class UcbTunedLearner_Tests(unittest.TestCase):
+class UcbBanditLearner_Tests(unittest.TestCase):
     def test_predict_all_actions_first(self):
 
         learner = UcbBanditLearner()
@@ -92,6 +92,11 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner(epsilon=0.05, is_adf=True, seed=20) 
 
         self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, None, [1,2,3,4]))
+
+    def test_predict_epsilon_dict_context_adf(self):
+        learner = VowpalLearner(epsilon=0.05, is_adf=True, seed=20) 
+
+        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, {1:10.2, 2:3.5}, [1,2,3,4]))
 
     def test_predict_epsilon_not_adf(self):
         learner = VowpalLearner(epsilon=0.75, is_adf=False, seed=30) 

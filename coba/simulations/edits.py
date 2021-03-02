@@ -128,8 +128,11 @@ class PCA(Filter[Simulation,Simulation]):
 
 class Sort(Filter[Simulation,Simulation]):
 
-    def __init__(self, indexes: Sequence[int]) -> None:
+    def __init__(self, *indexes) -> None:
         
+        if len(indexes) == 1 and isinstance(indexes[0], collections.Sequence):
+            indexes = indexes[0]
+
         if not isinstance(indexes, collections.Sequence) or not isinstance(indexes[0],int):
             raise ValueError(f"Invalid parameter for Sort: {indexes}. A sequence of integers was expected.")
 

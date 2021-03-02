@@ -77,7 +77,6 @@ class Simulation(ABC):
         """The reward object which can observe rewards for pairs of actions and interaction keys."""
         ...    
 
-
 class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
     def __init__(self, id:int, md5_checksum:str = None):

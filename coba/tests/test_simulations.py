@@ -655,6 +655,28 @@ class Sort_tests(unittest.TestCase):
         self.assertEqual((1,2), srt_sim.interactions[0].context)
         self.assertEqual((1,3), srt_sim.interactions[1].context)
         self.assertEqual((1,9), srt_sim.interactions[2].context)
+
+    def test_sort3(self) -> None:
+
+        interactions = [
+            Interaction((1,2), [1], 0),
+            Interaction((1,9), [1], 1),
+            Interaction((1,3), [1], 2)
+        ]
+        rewards = MemoryReward([
+            (0,1,1), (1,1,1), (2,1,1)
+        ])
+
+        mem_sim = MemorySimulation(interactions, rewards)
+        srt_sim = Sort(*[0,1]).filter(mem_sim)
+
+        self.assertEqual((1,2), mem_sim.interactions[0].context)
+        self.assertEqual((1,9), mem_sim.interactions[1].context)
+        self.assertEqual((1,3), mem_sim.interactions[2].context)
+
+        self.assertEqual((1,2), srt_sim.interactions[0].context)
+        self.assertEqual((1,3), srt_sim.interactions[1].context)
+        self.assertEqual((1,9), srt_sim.interactions[2].context)
     
     def test_repr(self):
         self.assertEqual('{"Sort":[0]}', str(Sort([0])))

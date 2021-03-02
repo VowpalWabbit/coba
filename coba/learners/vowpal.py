@@ -222,6 +222,9 @@ def _features_format(features: Union[Context,Action]) -> str:
         feature array a more advanced method may need to be implemented in the future...
     """
 
+    if isinstance(features, dict):
+        return " ". join([_feature_format(k,v) for k,v in features.items() if v is not None and v != 0 ])
+
     if not isinstance(features, collections.Sequence):
         features = (features,)
 
