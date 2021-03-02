@@ -267,9 +267,11 @@ class Result_Tests(unittest.TestCase):
 
     def test_has_batches_key(self):
         result = Result.from_transactions([
-            Transaction.batch(0, 1, a='A'),
-            Transaction.batch(0, 2, b='B')
+            Transaction.batch(0, 1, a='A', N=[1,1]),
+            Transaction.batch(0, 2, b='B', N=[1,1])
         ])
+
+        self.assertEqual("{'Learners': 0, 'Simulations': 0, 'Interactions': 4}", str(result))
 
         self.assertTrue( (0,1) in result.batches)
         self.assertTrue( (0,2) in result.batches)

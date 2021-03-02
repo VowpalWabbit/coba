@@ -218,7 +218,7 @@ class Result:
         plt.show()
 
     def __str__(self) -> str:
-        return str({ "Learners": len(self.learners), "Simulations": len(self.simulations), "Batches": len(self.batches) })
+        return str({ "Learners": len(self.learners), "Simulations": len(self.simulations), "Interactions": sum([len(b.N) for b in self.batches.to_tuples()]) })
 
     def __repr__(self) -> str:
         return str(self)
