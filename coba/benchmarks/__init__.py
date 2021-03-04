@@ -4,20 +4,12 @@ This module contains the abstract interface expected for Benchmark implementatio
 module also contains several Benchmark implementations and Result data transfer class.
 """
 
-from coba.benchmarks.core import Result, Transaction, TaskSource, TaskToTransactions, TransactionIsNew, TransactionPromote, TransactionSink, BenchmarkFileFmtV1, BenchmarkFileFmtV2, Benchmark
-from coba.benchmarks.benchmarks import BenchmarkLearner, BenchmarkSimulation
+from coba.benchmarks.core import Result, Benchmark
+from coba.benchmarks.formats import BenchmarkFileFmtV1, BenchmarkFileFmtV2 
 
 __all__ = [
     'Result',
-    'Transaction',
-    'TaskSource',
-    'TaskToTransactions',
-    'TransactionIsNew',
-    'TransactionPromote',
-    'TransactionSink',
-    'BenchmarkFileFmtV1',
-    'BenchmarkFileFmtV2',
     'Benchmark',
-    'BenchmarkLearner',
-    'BenchmarkSimulation'
+    'BenchmarkFileFmtV1',
+    'BenchmarkFileFmtV2'
 ]

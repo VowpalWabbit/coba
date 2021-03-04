@@ -10,7 +10,10 @@ from coba.simulations import LambdaSimulation
 from coba.data.sinks import MemorySink
 from coba.tools import CobaConfig, NoneLogger, IndentLogger
 from coba.learners import Learner
-from coba.benchmarks import Benchmark, Result, Transaction, TransactionIsNew, BenchmarkFileFmtV1, BenchmarkFileFmtV2
+
+from coba.benchmarks.results import Result, Transaction, TransactionIsNew
+from coba.benchmarks.formats import BenchmarkFileFmtV1, BenchmarkFileFmtV2
+from coba.benchmarks.core import Benchmark
 
 #for testing purposes
 class ModuloLearner(Learner):
