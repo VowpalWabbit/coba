@@ -370,7 +370,7 @@ class Benchmark:
         restored         = Result.from_file(transaction_log)
         tasks            = Tasks(self._simulations, learners, seed)
         unfinished       = Unfinished(restored)
-        grouped            = GroupBySource()
+        grouped          = GroupByNone() if CobaConfig.Benchmark.get("group_by","source") == "none" else GroupBySource()
         process          = Transactions(self._ignore_raise)
         transaction_sink = TransactionSink(transaction_log, restored)
 

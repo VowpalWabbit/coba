@@ -133,6 +133,9 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                     "calls in the future.")
                 raise Exception(message) from None
 
+            if '' == response.text:
+                raise Exception("The http response was empty. Try re-running the benchmark.") from None
+
             bites = response.content
 
         if checksum is not None and md5(bites).hexdigest() != checksum:
@@ -154,6 +157,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
         t_bites = self._query(t_key, "tasks")
 
         tasks = json.loads(t_bites.decode('utf-8'))["tasks"]["task"]
+        CobaConfig.Cacher.put(t_key,t_bites)
 
         for task in tasks:
             if task["task_type_id"] == 1: #aka, classification task
@@ -161,7 +165,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                     if input['name'] == 'target_feature':
                         return input['value'] #just take the first one
 
-        CobaConfig.Cacher.put(t_key,t_bites)
+        
 
         raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
 

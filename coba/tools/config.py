@@ -27,8 +27,10 @@ class CobaConfig_meta(type):
         cls._benchmark = None
 
     @staticmethod
-    def _load_file_config() -> Dict[str,Any]:
-        search_paths = [Path("./.coba"), Path.home() / ".coba"]
+    def _load_file_configs() -> Dict[str,Any]:
+        search_paths = [Path.home() / ".coba", Path("./.coba")]
+
+        config = {}
 
         for potential_path in search_paths:
             if potential_path.exists() and potential_path.read_text().strip() != "":
@@ -37,9 +39,9 @@ class CobaConfig_meta(type):
                 if not isinstance(file_config, dict):
                     raise Exception(f"The file at {potential_path} should be a json object.")
 
-                return file_config
+                config.update(file_config)
 
-        return {}
+        return config
 
     @staticmethod
     def _load_config() -> Dict[str,Any]:
@@ -48,10 +50,10 @@ class CobaConfig_meta(type):
             "api_keys" : collections.defaultdict(lambda:None),
             "cacher"   : "NoneCacher",
             "logger"   : { "IndentLogger": "ConsoleSink" },
-            "benchmark": {"processes": 1, "maxtasksperchild": None, "file_fmt": "BenchmarkFileV2"}
+            "benchmark": {"processes": 1, "maxtasksperchild": None, "group_by": "source", "file_fmt": "BenchmarkFileV2"}
         }
 
-        for key,value in CobaConfig_meta._load_file_config().items():
+        for key,value in CobaConfig_meta._load_file_configs().items():
             if key in config and isinstance(config[key], dict):
                 config[key].update(value)
             else:
