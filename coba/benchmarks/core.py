@@ -1,8 +1,6 @@
-import collections
-
 from copy import deepcopy
 from statistics import mean
-from itertools import product
+from itertools import groupby, product, count, chain
 from statistics import median
 from typing import Iterable, Tuple, Sequence, Dict, Any, cast, Optional, overload, List, Union
 
@@ -15,157 +13,6 @@ from coba.data.sources import HttpSource, Source, MemorySource, DiskSource
 from coba.data.pipes import Pipe
 
 from coba.benchmarks.results import Result, Transaction, TransactionSink
-
-class TaskSource(Source):
-    
-    def __init__(self, simulations: 'Sequence[BenchmarkSimulation]', learners: Sequence['BenchmarkLearner'], restored: Result) -> None:
-        self._simulations = simulations
-        self._learners    = learners
-        self._restored    = restored
-
-    def read(self) -> Iterable:
-
-        no_batch_sim_rows = self._restored.simulations.get_where(batch_count=0)
-        no_batch_sim_ids  = [ row['simulation_id'] for row in no_batch_sim_rows ]
-
-        sim_ids   = list(range(len(self._simulations)))
-        learn_ids = list(range(len(self._learners)))
-
-        simulations = dict(enumerate(self._simulations))
-        learners    = dict(enumerate(self._learners))
-
-        def is_not_complete(sim_id: int, learn_id: int):
-            return (sim_id,learn_id) not in self._restored.batches and sim_id not in no_batch_sim_ids
-
-        not_complete_pairs = [ k for k in product(sim_ids, learn_ids) if is_not_complete(*k) ]
-        
-        not_complete_pairs_by_source: Dict[object,List[Tuple[int,int]]] = collections.defaultdict(list)
-
-        for ncp in not_complete_pairs:
-            not_complete_pairs_by_source[simulations[ncp[0]].source].append(ncp)
-
-        for source, not_complete_pairs in not_complete_pairs_by_source.items():
-
-            not_completed_sims = {ncp[0]: simulations[ncp[0]] for ncp in not_complete_pairs}
-            not_completed_lrns = {ncp[1]:    learners[ncp[1]] for ncp in not_complete_pairs}
-
-            yield source, not_complete_pairs, not_completed_sims, not_completed_lrns
-    
-class TaskToTransactions(Filter):
-
-    def __init__(self, ignore_raise: bool) -> None:
-        self._ignore_raise = ignore_raise
-
-    def filter(self, tasks: Iterable[Any]) -> Iterable[Any]:
-        tasks = list(tasks)
-        for task in tasks:
-            for transaction in self._process_task(task):
-                yield transaction
-
-    def _process_task(self, task) -> Iterable[Any]:
-
-        source     = cast(Source[Any]                   , task[0])
-        todo_pairs = cast(Sequence[Tuple[int,int]]      , task[1])
-        pipes      = cast(Dict[int, BenchmarkSimulation], task[2])
-        learners   = cast(Dict[int, Learner            ], task[3])
-
-        def batchify(simulation: Simulation) -> Sequence[Sequence[Interaction]]:
-            if isinstance(simulation, BatchedSimulation):
-                return simulation.interaction_batches
-            else:
-                return [ [interaction] for interaction in simulation.interactions ]
-
-        def sim_transaction(sim_id, pipe, interactions, batches):
-            return Transaction.simulation(sim_id,
-                pipe              = str(pipe),
-                interaction_count = len(interactions),
-                batch_count       = len(batches),
-                context_size      = int(median(self._context_sizes(interactions))),
-                action_count      = int(median(self._action_counts(interactions))))
-
-        try:
-            with CobaConfig.Logger.log(f"Processing {source}..."):
-
-                with CobaConfig.Logger.time(f"Loading shared data once for {source}..."):
-                    loaded_source = source.read()
-
-                for sim_id, pipe in pipes.items():
-
-                    with CobaConfig.Logger.time(f"Creating simulation {sim_id} from {source} shared data..."):            
-                        simulation = pipe.filter.filter(loaded_source)
-
-                        interactions = simulation.interactions
-                        batches      = batchify(simulation)
-
-                        yield sim_transaction(sim_id, pipe, interactions, batches)
-        
-                        if not batches:
-                            CobaConfig.Logger.log(f"After creation simulation {sim_id} has nothing to evaluate.")
-                            CobaConfig.Logger.log("This often happens because `Take` was larger than source data set.")
-                            continue
-
-                    with CobaConfig.Logger.log(f"Evaluating learners on simulation {sim_id}..."):
-                        for lrn_id, learner in learners.items():
-
-                            if (sim_id,lrn_id) not in todo_pairs: continue
-                            
-                            try:
-                                
-                                learner = deepcopy(learner)
-                                learner.init()
-
-                                with CobaConfig.Logger.time(f"Evaluating learner {lrn_id}..."):
-                                    batch_sizes  = [ len(batch)                                             for batch in batches ]
-                                    mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
-
-                                    yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
-                            
-                            except Exception as e:
-                                CobaConfig.Logger.log_exception("Unhandled exception:", e)
-                                if not self._ignore_raise: raise e
-        
-        except KeyboardInterrupt:
-            raise
-        except Exception as e:
-            CobaConfig.Logger.log_exception("unhandled exception:", e)
-            if not self._ignore_raise: raise e
-
-    def _process_batch(self, batch, learner, reward) -> float:
-        
-        keys     = []
-        contexts = []
-        actions  = []
-        probs    = []
-
-        for interaction in batch:
-
-            action, prob = learner.choose(interaction.key, interaction.context, interaction.actions)
-
-            keys    .append(interaction.key)
-            contexts.append(interaction.context)
-            probs   .append(prob)
-            actions .append(action)
-
-        rewards = reward.observe(list(zip(keys, actions))) 
-
-        for (key,context,action,reward,prob) in zip(keys,contexts,actions,rewards,probs):
-            learner.learn(key,context,action,reward,prob)
-
-        return round(mean(rewards),5)
-
-    def _context_sizes(self, interactions) -> Iterable[int]:
-        if len(interactions) == 0:
-            yield 0
-
-        for context in [i.context for i in interactions]:
-            yield 0 if context is None else len(context) if isinstance(context,tuple) else 1
-
-    def _action_counts(self, interactions) -> Iterable[int]:
-        if len(interactions) == 0:
-            yield 0
-
-        for actions in [i.actions for i in interactions]:
-            yield len(actions)
 
 class BenchmarkLearner(Learner):
 
@@ -223,6 +70,183 @@ class BenchmarkSimulation(Source[Simulation]):
 
     def __repr__(self) -> str:
         return self._pipe.__repr__()
+
+class BenchmarkTask:
+    def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: BenchmarkSimulation, learner: BenchmarkLearner) -> None:
+        self.src_id     = src_id
+        self.sim_id     = sim_id
+        self.lrn_id     = lrn_id
+        self.simulation = simulation
+        self.learner    = learner
+
+class Tasks(Source[Iterable[BenchmarkTask]]):
+    
+    def __init__(self, simulations: Sequence[Source[Simulation]], learners: Sequence[Learner], seed: int = None) -> None:
+        self._simulations = simulations
+        self._learners    = learners
+        self._seed        = seed
+
+    def read(self) -> Iterable[BenchmarkTask]:
+
+        benchmark_sims = [BenchmarkSimulation(sim)                       for sim in self._simulations]
+        benchmark_lrns = [BenchmarkLearner(lrn, self._seed) for lrn in self._learners   ]
+
+        #this could be made more sophisticated in the future
+        sources    = set([ s.source for s in benchmark_sims ])        
+        source_ids = cast(Dict[Source[Simulation],int], { src:idx for src,idx in zip(sources, count()) })
+
+        for (sim_id,sim), (lrn_id,lrn) in product(enumerate(benchmark_sims), enumerate(benchmark_lrns)):
+            yield BenchmarkTask(source_ids[sim.source], sim_id, lrn_id, sim, deepcopy(lrn))                
+
+class Unfinished(Filter[Iterable[BenchmarkTask], Iterable[BenchmarkTask]]):
+    def __init__(self, restored: Result) -> None:
+        self._restored = restored
+
+    def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[BenchmarkTask]:
+        
+        no_batch_sim_rows = self._restored.simulations.get_where(batch_count=0)
+        no_batch_sim_ids  = [ row['simulation_id'] for row in no_batch_sim_rows ]
+
+        def is_not_complete(sim_id: int, learn_id: int):
+            return (sim_id,learn_id) not in self._restored.batches and sim_id not in no_batch_sim_ids
+
+        for task in tasks:
+            if is_not_complete(task.sim_id, task.lrn_id):
+                yield task
+
+class GroupBySource(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
+
+    def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[Iterable[BenchmarkTask]]:
+
+        srt_key = lambda t: t.src_id
+        grp_key = lambda t: t.src_id
+
+        tasks = list(tasks)
+
+        for _, group in groupby(sorted(tasks, key=srt_key), key=grp_key):
+            a = list(group)
+            yield a
+
+class GroupByNone(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
+
+    def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[Iterable[BenchmarkTask]]:
+
+        for task in tasks:
+            yield [ task ]
+
+class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
+
+    def __init__(self, ignore_raise: bool) -> None:
+        self._ignore_raise = ignore_raise
+
+    def filter(self, task_groups: Iterable[Iterable[BenchmarkTask]]) -> Iterable[Any]:
+        
+        task_group = chain.from_iterable(task_groups)
+
+        for transaction in self._process_group(task_group):
+            yield transaction
+
+    def _process_group(self, task_group: Iterable[BenchmarkTask]) -> Iterable[Any]:
+
+        def batchify(simulation: Simulation) -> Sequence[Sequence[Interaction]]:
+            if isinstance(simulation, BatchedSimulation):
+                return simulation.interaction_batches
+            else:
+                return [ [interaction] for interaction in simulation.interactions ]
+
+        def sim_transaction(sim_id, pipe, interactions, batches):
+            return Transaction.simulation(sim_id,
+                pipe              = str(pipe),
+                interaction_count = len(interactions),
+                batch_count       = len(batches),
+                context_size      = int(median(self._context_sizes(interactions))),
+                action_count      = int(median(self._action_counts(interactions))))        
+
+        srt_src = lambda t: t.src_id
+        grp_src = lambda t: t.simulation.source
+        srt_sim = lambda t: t.sim_id
+        grp_sim = lambda t: (t.sim_id, t.simulation)
+
+        try:
+            for source, tasks_by_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
+                with CobaConfig.Logger.log(f"Processing {source}..."):
+
+                    with CobaConfig.Logger.time(f"Loading shared data once for {source}..."):
+                        loaded_source = source.read()
+
+                    for (sim_id,sim), tasks_by_src_sim in groupby(sorted(tasks_by_src, key=srt_sim), key=grp_sim):
+
+                        with CobaConfig.Logger.time(f"Creating simulation {sim_id} from {source} shared data..."):
+                            simulation = sim.filter.filter(loaded_source)
+
+                            interactions = simulation.interactions
+                            batches      = batchify(simulation)
+
+                            yield sim_transaction(sim_id, sim, interactions, batches)
+
+                            if not batches:
+                                CobaConfig.Logger.log(f"After creation simulation {sim_id} has nothing to evaluate.")
+                                CobaConfig.Logger.log("This often happens because `Take` was larger than source data set.")
+                                continue
+
+                        with CobaConfig.Logger.log(f"Evaluating learners on simulation {sim_id}..."):
+                            for lrn_id,learner in [ (t.lrn_id, t.learner) for t in tasks_by_src_sim ]:
+
+                                try:
+
+                                    learner.init()
+
+                                    with CobaConfig.Logger.time(f"Evaluating learner {lrn_id}..."):
+                                        batch_sizes  = [ len(batch)                                             for batch in batches ]
+                                        mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
+
+                                        yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
+
+                                except Exception as e:
+                                    CobaConfig.Logger.log_exception("Unhandled exception:", e)
+                                    if not self._ignore_raise: raise e
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
+            CobaConfig.Logger.log_exception("unhandled exception:", e)
+            if not self._ignore_raise: raise e
+
+    def _process_batch(self, batch, learner, reward) -> float:
+        
+        keys     = []
+        contexts = []
+        actions  = []
+        probs    = []
+
+        for interaction in batch:
+
+            action, prob = learner.choose(interaction.key, interaction.context, interaction.actions)
+
+            keys    .append(interaction.key)
+            contexts.append(interaction.context)
+            probs   .append(prob)
+            actions .append(action)
+
+        rewards = reward.observe(list(zip(keys, actions))) 
+
+        for (key,context,action,reward,prob) in zip(keys,contexts,actions,rewards,probs):
+            learner.learn(key,context,action,reward,prob)
+
+        return round(mean(rewards),5)
+
+    def _context_sizes(self, interactions) -> Iterable[int]:
+        if len(interactions) == 0:
+            yield 0
+
+        for context in [i.context for i in interactions]:
+            yield 0 if context is None else len(context) if isinstance(context,tuple) else 1
+
+    def _action_counts(self, interactions) -> Iterable[int]:
+        if len(interactions) == 0:
+            yield 0
+
+        for actions in [i.actions for i in interactions]:
+            yield len(actions)
 
 class Benchmark:
     """An on-policy Benchmark using samples drawn from simulations to estimate performance statistics."""
@@ -313,11 +337,11 @@ class Benchmark:
             filters.append([ Batch(sizes=kwargs['batch_sizes']) ])
 
         if len(filters) > 0:
-            benchmark_simulations = [BenchmarkSimulation(s,f) for s,f in product(sources, product(*filters))]
+            simulations = [Pipe.join(s,f) for s,f in product(sources, product(*filters))]
         else:
-            benchmark_simulations = list(map(BenchmarkSimulation, sources))
+            simulations = sources
 
-        self._simulations      = benchmark_simulations
+        self._simulations      = simulations
         self._ignore_raise     = cast(bool         , kwargs.get('ignore_raise'    , True))
         self._processes        = cast(Optional[int], kwargs.get('processes'       , None))
         self._maxtasksperchild = cast(Optional[int], kwargs.get('maxtasksperchild', None))
@@ -343,28 +367,31 @@ class Benchmark:
         Returns:
             See the base class for more information.
         """
-        benchmark_learners   = [ BenchmarkLearner(learner, seed) for learner in learners ] #type: ignore
-        restored             = Result.from_file(transaction_log)
-        task_source          = TaskSource(self._simulations, benchmark_learners, restored)
-        task_to_transactions = TaskToTransactions(self._ignore_raise)
-        transaction_sink     = TransactionSink(transaction_log, restored)
+        restored         = Result.from_file(transaction_log)
+        tasks            = Tasks(self._simulations, learners, seed)
+        unfinished       = Unfinished(restored)
+        grouped            = GroupBySource()
+        process          = Transactions(self._ignore_raise)
+        transaction_sink = TransactionSink(transaction_log, restored)
 
-        n_given_learners    = len(benchmark_learners)
+        n_given_learners    = len(learners)
         n_given_simulations = len(self._simulations)
  
         if len(restored.benchmark) != 0:
             assert n_given_learners    == restored.benchmark['n_learners'   ], "The currently evaluating benchmark doesn't match the given transaction log"
             assert n_given_simulations == restored.benchmark['n_simulations'], "The currently evaluating benchmark doesn't match the given transaction log"
 
-        preamble_transactions = []
-        preamble_transactions.append(Transaction.version())
-        preamble_transactions.append(Transaction.benchmark(n_given_learners, n_given_simulations))
-        preamble_transactions.extend(Transaction.learners(benchmark_learners))
+        preamble = []
+        preamble.append(Transaction.version())
+        preamble.append(Transaction.benchmark(n_given_learners, n_given_simulations))
+        preamble.extend(Transaction.learners(learners))
 
         mp = self._processes        if self._processes        else CobaConfig.Benchmark['processes']
         mt = self._maxtasksperchild if self._maxtasksperchild else CobaConfig.Benchmark['maxtasksperchild']
         
-        Pipe.join(MemorySource(preamble_transactions), []                    , transaction_sink).run(1,None)
-        Pipe.join(task_source                        , [task_to_transactions], transaction_sink).run(mp,mt)
+        grouped_tasks = Pipe.join(tasks, [unfinished,grouped])
+
+        Pipe.join(MemorySource(preamble), []       , transaction_sink).run(1,None)
+        Pipe.join(grouped_tasks         , [process], transaction_sink).run(mp,mt)
 
         return transaction_sink.result

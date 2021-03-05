@@ -6,13 +6,13 @@ TODO: Add docstrings for Pipe
 import collections
 
 from multiprocessing import Manager, Pool
-from threading import Thread
-from typing import Sequence, Iterable, Any, overload
+from threading       import Thread
+from typing          import Sequence, Iterable, Any, overload, Union
 
 from coba.data.sources import Source, QueueSource
 from coba.data.filters import Filter
-from coba.data.sinks import Sink, QueueSink
-from coba.tools import CobaConfig, IndentLogger
+from coba.data.sinks   import Sink, QueueSink
+from coba.tools        import CobaConfig, IndentLogger
 
 class StopPipe(Exception):
     pass
@@ -85,7 +85,7 @@ class Pipe:
         ...
 
     @staticmethod #type: ignore
-    def join(*args):
+    def join(*args) -> Union[Source, Sink, 'Pipe', Filter]:
 
         if len(args) == 3:
             return Pipe(*args)
@@ -122,7 +122,7 @@ class Pipe:
     def __repr__(self) -> str:
         return ",".join(map(str,[self._source, *self._filters, self._sink]))
 
-class MultiProcessFilter(Filter):
+class MultiProcessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
     class Processor:
 

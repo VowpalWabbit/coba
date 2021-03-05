@@ -242,12 +242,22 @@ class Transaction:
     def learners(learners: Sequence[Learner]) -> Iterable[Any]:
         for index, learner in enumerate(learners):
 
+            try:
+                params = learner.params
+            except:
+                params = {}
+
+            try:
+                family = learner.family
+            except:
+                family = type(learner).__name__
+
             if len(learner.params) > 0:
                 full_name = f"{learner.family}({','.join(f'{k}={v}' for k,v in learner.params.items())})"
             else:
                 full_name = learner.family
 
-            yield Transaction.learner(index, full_name=full_name, family=learner.family, **learner.params)
+            yield Transaction.learner(index, full_name=full_name, family=family, **params)
 
     @staticmethod
     def simulation(simulation_id: int, **kwargs) -> Any:
