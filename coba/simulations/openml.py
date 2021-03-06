@@ -86,8 +86,8 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             #if something went wrong we want to clear the cache 
             #in case the cache has become corrupted somehow
-            for key in [d_key, t_key, o_key]:
-                if key is not None: CobaConfig.Cacher.rmv(key)
+            for k in [d_key, t_key, o_key]:
+                if k is not None: CobaConfig.Cacher.rmv(k)
 
             raise
 

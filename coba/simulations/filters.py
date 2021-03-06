@@ -1,7 +1,7 @@
 import json
 import collections
 
-from typing import Optional, Sequence, Tuple, overload, cast
+from typing import Optional, Sequence, Tuple, overload, cast, Union
 
 from coba.tools import PackageChecker
 from coba.random import CobaRandom
@@ -122,15 +122,14 @@ class PCA(Filter[Simulation,Simulation]):
 
 class Sort(Filter[Simulation,Simulation]):
 
-    def __init__(self, *indexes) -> None:
+    def __init__(self, *indexes: Union[int,Sequence[int]]) -> None:
         
-        if len(indexes) == 1 and isinstance(indexes[0], collections.Sequence):
-            indexes = indexes[0]
+        flat_indexes = cast(Sequence[int], indexes[0] if isinstance(indexes[0], collections.Sequence) else indexes)
 
-        if not isinstance(indexes, collections.Sequence) or not isinstance(indexes[0],int):
-            raise ValueError(f"Invalid parameter for Sort: {indexes}. A sequence of integers was expected.")
+        if not isinstance(flat_indexes, collections.Sequence) or not isinstance(flat_indexes[0],int):
+            raise ValueError(f"Invalid parameter for Sort: {flat_indexes}. A sequence of integers was expected.")
 
-        self.indexes = indexes
+        self.indexes = flat_indexes
 
     def filter(self, simulation: Simulation) -> Simulation:
         

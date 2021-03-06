@@ -337,9 +337,9 @@ class Benchmark:
             filters.append([ Batch(sizes=kwargs['batch_sizes']) ])
 
         if len(filters) > 0:
-            simulations = [Pipe.join(s,f) for s,f in product(sources, product(*filters))]
+            simulations = [cast(Source[Simulation],Pipe.join(s,f)) for s,f in product(sources, product(*filters))]
         else:
-            simulations = sources
+            simulations = list(sources)
 
         self._simulations      = simulations
         self._ignore_raise     = cast(bool         , kwargs.get('ignore_raise'    , True))
