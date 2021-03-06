@@ -188,7 +188,7 @@ class Result:
 
         ax2.set_title("Progressive Reward")
         #ax2.set_ylabel("Reward")
-        ax2.set_xlabel(f"{index_unit} Index")
+        ax2.set_xlabel(f"{index_unit}")
 
         (bot1, top1) = ax1.get_ylim()
         (bot2, top2) = ax2.get_ylim()
