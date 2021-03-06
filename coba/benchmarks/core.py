@@ -163,20 +163,24 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                 action_count      = int(median(self._action_counts(interactions))))        
 
         srt_src = lambda t: t.src_id
-        grp_src = lambda t: t.simulation.source
+        grp_src = lambda t: (t.src_id, t.simulation.source)
         srt_sim = lambda t: t.sim_id
         grp_sim = lambda t: (t.sim_id, t.simulation)
 
         try:
-            for source, tasks_by_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
-                with CobaConfig.Logger.log(f"Processing {source}..."):
+            for (src_id, source), tasks_by_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
+                with CobaConfig.Logger.log(f"Processing group..."):
 
-                    with CobaConfig.Logger.time(f"Loading shared data once for {source}..."):
+                    with CobaConfig.Logger.time(f"Creating source {src_id} from {source}..."):
                         loaded_source = source.read()
 
                     for (sim_id,sim), tasks_by_src_sim in groupby(sorted(tasks_by_src, key=srt_sim), key=grp_sim):
 
-                        with CobaConfig.Logger.time(f"Creating simulation {sim_id} from {source} shared data..."):
+                        tasks_by_src_sim = list(tasks_by_src_sim)
+                        learner_ids      = [t.lrn_id  for t in tasks_by_src_sim] 
+                        learners         = [t.learner for t in tasks_by_src_sim] 
+
+                        with CobaConfig.Logger.time(f"Creating simulation {sim_id} from source {src_id}..."):
                             simulation = sim.filter.filter(loaded_source)
 
                             interactions = simulation.interactions
@@ -184,27 +188,25 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
 
                             yield sim_transaction(sim_id, sim, interactions, batches)
 
-                            if not batches:
-                                CobaConfig.Logger.log(f"After creation simulation {sim_id} has nothing to evaluate.")
-                                CobaConfig.Logger.log("This often happens because `Take` was larger than source data set.")
-                                continue
+                        if not batches:
+                            CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate. (likely due to `Take` being larger than the source)")
+                            continue
 
-                        with CobaConfig.Logger.log(f"Evaluating learners on simulation {sim_id}..."):
-                            for lrn_id,learner in [ (t.lrn_id, t.learner) for t in tasks_by_src_sim ]:
+                        for lrn_id,learner in zip(learner_ids,learners):
 
-                                try:
+                            try:
 
-                                    learner.init()
+                                learner.init()
 
-                                    with CobaConfig.Logger.time(f"Evaluating learner {lrn_id}..."):
-                                        batch_sizes  = [ len(batch)                                             for batch in batches ]
-                                        mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
+                                with CobaConfig.Logger.time(f"Evaluating learner {lrn_id} on Simulation {sim_id}..."):
+                                    batch_sizes  = [ len(batch)                                             for batch in batches ]
+                                    mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
 
-                                        yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
+                                    yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
 
-                                except Exception as e:
-                                    CobaConfig.Logger.log_exception("Unhandled exception:", e)
-                                    if not self._ignore_raise: raise e
+                            except Exception as e:
+                                CobaConfig.Logger.log_exception("Unhandled exception:", e)
+                                if not self._ignore_raise: raise e
         except KeyboardInterrupt:
             raise
         except Exception as e:

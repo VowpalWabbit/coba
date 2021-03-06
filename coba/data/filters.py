@@ -250,14 +250,13 @@ class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[
 
         output: Any = items
 
-        with CobaConfig.Logger.time('encoding data... '):
+        #with CobaConfig.Logger.time('encoding data... '):
+        output = rows.filter(split.filter(clean.filter(output)))
 
-            output = rows.filter(split.filter(clean.filter(output)))
+        if self._rmv_header: 
+            output = rmv_header.filter(output)
 
-            if self._rmv_header: 
-                output = rmv_header.filter(output)
+        labels   = next(output)
+        features = next(output)
 
-            labels   = next(output)
-            features = next(output)
-
-            return features, labels
+        return features, labels
