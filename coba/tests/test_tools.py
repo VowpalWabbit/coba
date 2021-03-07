@@ -13,6 +13,10 @@ class TestObject:
         self.args = args
         self.kwargs = kwargs
 
+class TestArgObject:
+    def __init__(self, arg):
+        self.arg = arg
+
 class check_library_Tests(unittest.TestCase):
     
     def test_check_matplotlib_support(self):
@@ -437,15 +441,6 @@ class CobaRegistry_Tests(unittest.TestCase):
 
         self.assertEqual("NoneSink", klass.__name__)
 
-    def test_registered_create(self):
-
-        CobaRegistry.register("test", TestObject)
-
-        klass = CobaRegistry.construct("test")
-
-        self.assertEqual(klass.args, ())
-        self.assertEqual(klass.kwargs, {})
-
     def test_register_decorator(self):
 
         @coba_registry_class("MyTestObject")
@@ -454,6 +449,15 @@ class CobaRegistry_Tests(unittest.TestCase):
         klass = CobaRegistry.construct("MyTestObject")
 
         self.assertIsInstance(klass, MyTestObject)
+        self.assertEqual(klass.args, ())
+        self.assertEqual(klass.kwargs, {})
+
+    def test_registered_create(self):
+
+        CobaRegistry.register("test", TestObject)
+
+        klass = CobaRegistry.construct("test")
+
         self.assertEqual(klass.args, ())
         self.assertEqual(klass.kwargs, {})
 
@@ -573,6 +577,60 @@ class CobaRegistry_Tests(unittest.TestCase):
 
         self.assertEqual(klasses[1].args, (3,))
         self.assertEqual(klasses[1].kwargs, {})
+
+    def test_registered_create_recursive1(self):
+
+        CobaRegistry.register("test", TestObject)
+
+        klass = CobaRegistry.construct({ "test": "test" })
+
+        self.assertEqual(1, len(klass.args))
+        self.assertEqual(klass.kwargs, {})
+        
+        self.assertIsInstance(klass.args[0], TestObject)
+        self.assertEqual(klass.args[0].args, ())
+        self.assertEqual(klass.args[0].kwargs, {})
+
+    def test_registered_create_recursive2(self):
+
+        CobaRegistry.register("test", TestObject)
+
+        klass = CobaRegistry.construct({ "test": {"test":1} })
+
+        self.assertEqual(1, len(klass.args))
+        self.assertEqual(klass.kwargs, {})
+
+        self.assertIsInstance(klass.args[0], TestObject)
+        self.assertEqual(klass.args[0].args, (1,))
+        self.assertEqual(klass.args[0].kwargs, {})
+
+    def test_registered_create_recursive3(self):
+
+        CobaRegistry.register("test", TestObject)
+
+        klass = CobaRegistry.construct({ "test": {"a": "test"} })
+
+        self.assertEqual(klass.args, ())
+        self.assertEqual(1, len(klass.kwargs))
+
+        self.assertIsInstance(klass.kwargs["a"], TestObject)
+        self.assertEqual(klass.kwargs["a"].args, ())
+        self.assertEqual(klass.kwargs["a"].kwargs, {})
+
+    def test_registered_create_array_arg(self):
+
+        CobaRegistry.register("test", TestArgObject)
+
+        klass = CobaRegistry.construct({ "test": [1,2,3] })
+
+        self.assertEqual(klass.arg, [1,2,3])
+
+    def test_registered_create_dict_arg(self):
+
+        CobaRegistry.register("test", TestArgObject)
+
+        with self.assertRaises(Exception):
+            klass = CobaRegistry.construct({ "test": {"a":1} })
 
     def test_not_registered(self):
 
