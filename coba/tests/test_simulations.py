@@ -7,7 +7,7 @@ from typing import List, Sequence, Tuple, cast
 from coba.tools import CobaConfig, NoneCacher, NoneLogger, MemoryCacher
 from coba.simulations import (
     Key, Action, Interaction, ClassificationSimulation, MemoryReward, MemorySimulation, 
-    LambdaSimulation, OpenmlSimulation, OpenmlSource, Shuffle, Take, Batch, PCA, Sort
+    LambdaSimulation, OpenmlSimulation, OpenmlCsvSource, OpenmlArffSource, Shuffle, Take, Batch, PCA, Sort
 )
 
 CobaConfig.Logger = NoneLogger()
@@ -15,7 +15,92 @@ CobaConfig.Logger = NoneLogger()
 def _choices(interaction: Interaction) -> Sequence[Tuple[Key,Action]]:
     return [  (interaction.key, a) for a in interaction.actions]
 
-class OpenmlSource_Tests(unittest.TestCase):
+class OpenmlArffSource_Tests(unittest.TestCase):
+    
+    def test_default_classification(self):
+
+        CobaConfig.Api_Keys['openml'] = None
+        CobaConfig.Cacher = MemoryCacher()
+
+        #data description query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}')
+        #data types query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":[1,2],"is_target":"false","is_ignore":"true","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"nominal","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}')
+        #data content query
+        CobaConfig.Cacher.put('http://www.openml.org/data/v1/download/22044555', b'@relation weather\r\n\r\n@attribute pH real\r\n@attribute temperature real\r\n@attribute conductivity real\r\n@attribute coli real\r\n@attribute play {yes, no}\r\n\r\n@data\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,1,yes\r\n7.6,23,4700,1,yes\r\n\r\n')
+        #trials query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\n    { "task_id":338754,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n,  { "task_id":359909,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n  ]}\n}\n')
+
+        feature_rows, label_rows = OpenmlArffSource(42693).read()
+
+        self.assertEqual(len(feature_rows), 5)
+        # self.assertEqual(len(label_rows), 5)
+
+        self.assertEqual((8.1, 27.0, 1410.0, 1), feature_rows[0])
+        self.assertEqual((8.2, 29.0, 1180.0, 1), feature_rows[1])
+        self.assertEqual((8.2, 28.0, 1410.0, 0), feature_rows[2])
+        self.assertEqual((8.3, 27.0, 1020.0, 0), feature_rows[3])
+        self.assertEqual((7.6, 23.0, 4700.0, 0), feature_rows[4])
+
+        self.assertEqual((1,0), label_rows[0])
+        self.assertEqual((1,0), label_rows[1])
+        self.assertEqual((0,1), label_rows[2])
+        self.assertEqual((0,1), label_rows[3])
+        self.assertEqual((0,1), label_rows[4])
+
+    def test_not_classification(self):
+
+        CobaConfig.Api_Keys['openml'] = None
+        CobaConfig.Cacher = MemoryCacher()
+
+        #data description query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}')
+        #data types query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":[1,2],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"numeric","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}')
+        #data content query
+        CobaConfig.Cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\n8.1,27,1410,2,1\r\n8.2,29,1180,2,2\r\n8.2,28,1410,2,3\r\n8.3,27,1020,1,4\r\n7.6,23,4700,1,5\r\n\r\n')
+        CobaConfig.Cacher.put('http://www.openml.org/data/v1/download/22044555', b'@relation weather\r\n\r\n@attribute pH real\r\n@attribute temperature real\r\n@attribute conductivity real\r\n@attribute coli real\r\n@attribute play {yes, no}\r\n\r\n@data\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,2,yes\r\n7.6,23,4700,2,yes\r\n\r\n')
+
+        #trials query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\n    { "task_id":338754,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n,  { "task_id":359909,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n  ]}\n}\n')
+
+        with self.assertRaises(Exception) as e:
+            feature_rows, label_rows = OpenmlArffSource(42693).read()
+
+        self.assertTrue("does not appear" in str(e.exception))
+
+    def test_not_default_classification(self):
+
+        CobaConfig.Api_Keys['openml'] = None
+        CobaConfig.Cacher = MemoryCacher()
+
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}')
+        #data types query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":[1,2],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"numeric","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}')
+        #data content query
+        CobaConfig.Cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\n8.1,27,1410,2,1\r\n8.2,29,1180,2,2\r\n8.2,28,1410,2,3\r\n8.3,27,1020,1,4\r\n7.6,23,4700,1,5\r\n\r\n')
+        CobaConfig.Cacher.put('http://www.openml.org/data/v1/download/22044555', b'@relation weather\r\n\r\n@attribute pH real\r\n@attribute temperature real\r\n@attribute conductivity real\r\n@attribute coli real\r\n@attribute play {yes, no}\r\n\r\n@data\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,2,yes\r\n7.6,23,4700,2,yes\r\n\r\n')
+        #trials query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\n    { "task_id":338754,\n    "task_type_id":1,\n    "task_type":"Classification",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ,              {"name":"target_feature", "value":"coli"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n,  { "task_id":359909,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n  ]}\n}\n')
+
+        feature_rows, label_rows = OpenmlArffSource(42693).read()
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_rows), 5)
+
+        self.assertEqual((8.1, 27, 1410, 1), feature_rows[0])
+        self.assertEqual((8.2, 29, 1180, 2), feature_rows[1])
+        self.assertEqual((8.2, 28, 1410, 3), feature_rows[2])
+        self.assertEqual((8.3, 27, 1020, 4), feature_rows[3])
+        self.assertEqual((7.6, 23, 4700, 5), feature_rows[4])
+
+        self.assertEqual((0,1), label_rows[0])
+        self.assertEqual((0,1), label_rows[1])
+        self.assertEqual((0,1), label_rows[2])
+        self.assertEqual((1,0), label_rows[3])
+        self.assertEqual((1,0), label_rows[4])
+
+class OpenmlCsvSource_Tests(unittest.TestCase):
     
     def test_default_classification(self):
 
@@ -31,7 +116,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         #trials query
         CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\n    { "task_id":338754,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n,  { "task_id":359909,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n  ]}\n}\n')
 
-        feature_rows, label_rows = OpenmlSource(42693).read()
+        feature_rows, label_rows = OpenmlCsvSource(42693).read()
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_rows), 5)
@@ -63,7 +148,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\n    { "task_id":338754,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n,  { "task_id":359909,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n  ]}\n}\n')
 
         with self.assertRaises(Exception) as e:
-            feature_rows, label_rows = OpenmlSource(42693).read()
+            feature_rows, label_rows = OpenmlCsvSource(42693).read()
 
         self.assertTrue("does not appear" in str(e.exception))
 
@@ -81,7 +166,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         #trials query
         CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\n    { "task_id":338754,\n    "task_type_id":1,\n    "task_type":"Classification",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ,              {"name":"target_feature", "value":"coli"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n,  { "task_id":359909,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n  ]}\n}\n')
 
-        feature_rows, label_rows = OpenmlSource(42693).read()
+        feature_rows, label_rows = OpenmlCsvSource(42693).read()
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_rows), 5)
@@ -163,7 +248,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 
         CobaConfig.Cacher = NoneCacher()
 
-        simulation = ClassificationSimulation(*OpenmlSource(1116).read())
+        simulation = ClassificationSimulation(*OpenmlCsvSource(1116).read())
         #simulation = ClassificationSimulation.from_source(OpenmlSource(273))
 
         self.assertEqual(len(simulation.interactions), 6598)
@@ -189,9 +274,9 @@ class ClassificationSimulation_Tests(unittest.TestCase):
         #this test requires interet acess to download the data
 
         CobaConfig.Cacher = MemoryCacher()
-        OpenmlSource(154).read() #this will cause it to read and cache in memory so we don't measure read time
+        OpenmlCsvSource(154).read() #this will cause it to read and cache in memory so we don't measure read time
 
-        time = min(timeit.repeat(lambda:ClassificationSimulation(*OpenmlSource(154).read()), repeat=1, number=1))
+        time = min(timeit.repeat(lambda:ClassificationSimulation(*OpenmlCsvSource(154).read()), repeat=1, number=1))
 
         print(time)
 
