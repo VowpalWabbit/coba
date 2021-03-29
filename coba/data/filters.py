@@ -205,9 +205,7 @@ class ColArffEncoder(Filter[Iterable[Sequence[str]], Iterable[Sequence[Any]]]):
             encoded_values: Sequence[Hashable]
 
             if isinstance(encoder, OneHotEncoder):
-                # encoded_values = list(zip(*encoder.encode(raw_vals)))
                 encoded_values = list(zip(*encoder.encode(raw_vals)))
-
             else:
                 encoded_values = list(encoder.encode(raw_vals))
 
@@ -215,7 +213,6 @@ class ColArffEncoder(Filter[Iterable[Sequence[str]], Iterable[Sequence[Any]]]):
 
     def _get_encoder(self, index: int, attribute: str) -> Encoder:
 
-        # return self._encoders[index]
         encoded_attributes = self._attributes[0:len(self._encoders)]
 
         if attribute in encoded_attributes:
@@ -317,16 +314,13 @@ class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[
 
         output: Any = items
 
-        #with CobaConfig.Logger.time('encoding data... '):
-        output = rows.filter(split.filter(clean.filter(output)))
+        with CobaConfig.Logger.time('encoding data... '):
 
-        if self._rmv_header: 
-            output = rmv_header.filter(output)
+            output = rows.filter(split.filter(clean.filter(output)))
 
-        labels   = next(output)
-        features = next(output)
+            if self._rmv_header: 
+                output = rmv_header.filter(output)
 
-<<<<<<< HEAD
             labels   = next(output)
             features = next(output)
 
@@ -404,22 +398,20 @@ class ArffReader():
         split_column = cast(Union[Sequence[str],Sequence[int]], [self._label_col])
 
         clean      = ArffCleaner(attributes, encoders, None, self._ignored, output_rows=False)
-        split      = ColSplitter(split_column)
-        rows       = Cartesian(CsvTransposer(True))
+        # split      = ColSplitter(split_column)
+        # rows       = Cartesian(CsvTransposer(True))
         output: Any = items
 
         with CobaConfig.Logger.time('encoding data... '):
 
             # output = rows.filter(split.filter(clean.filter(output)))
-            l = list(split.filter(clean.filter(output)))
+            l = list(clean.filter(output))
             index = [i for i in range(len(encoders)) if isinstance(encoders[i], OneHotEncoder)]
             l2 = [list(*x) if ind in index else x for ind, x in enumerate(l)]
             output = list(map(tuple, zip(*l2)))
 
-            labels   = next(output)
-            features = next(output)
-            # labels   = []
-            # features = output
+            labels   = []
+            features = output
 
             return features, labels
 
@@ -458,6 +450,3 @@ class ArffCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
         
         for cleaning_step in cleaning_steps: output = cleaning_step.filter(output)
         return output if not self._output_rows else CsvTransposer().filter(output)
-=======
-        return features, labels
->>>>>>> fe52637ec748f3bdbd1341791fbf5a92dea15d20
