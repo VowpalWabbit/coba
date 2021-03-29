@@ -211,7 +211,7 @@ class OpenmlArffSource(Source[Tuple[Sequence[Context], Sequence[Action]]]): # di
 
                 if tipe['is_target'] == 'true':
                     target = tipe['name']
-            
+
             source  = MemorySource(o_bytes.decode('utf-8').splitlines())
             reader  = ArffReader(target, ignored)
             
@@ -221,7 +221,7 @@ class OpenmlArffSource(Source[Tuple[Sequence[Context], Sequence[Action]]]): # di
             for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:
                 CobaConfig.Cacher.put(key,bytes)
 
-            return feature_rows, list(label_rows)
+            return list(feature_rows), list(label_rows)
 
         except:
 
