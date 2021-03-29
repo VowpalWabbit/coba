@@ -217,18 +217,18 @@ class OpenmlArffSource(Source[Tuple[Sequence[Context], Sequence[Action]]]): # di
             
             feature_rows, label_rows = Pipe.join(source, [reader]).read()
 
-            #we only cache after all the data has been successfully loaded
-            # for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:
-            #     CobaConfig.Cacher.put(key,bytes)
+            # we only cache after all the data has been successfully loaded
+            for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:
+                CobaConfig.Cacher.put(key,bytes)
 
             return feature_rows, list(label_rows)
 
         except:
 
-            #if something went wrong we want to clear the cache 
-            #in case the cache has become corrupted somehow
-            # for k in [d_key, t_key, o_key]:
-            #     if k is not None: CobaConfig.Cacher.rmv(k)
+            # if something went wrong we want to clear the cache 
+            # in case the cache has become corrupted somehow
+            for k in [d_key, t_key, o_key]:
+                if k is not None: CobaConfig.Cacher.rmv(k)
 
             raise
 
