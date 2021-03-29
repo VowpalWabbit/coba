@@ -364,8 +364,14 @@ class VowpalLearner(Learner):
         """The parameters of the learner.
         
         See the base class for more information
-        """        
-        return {**self._learning.params(), **self._exploration.params()}        
+        """
+
+        params = {**self._learning.params(), **self._exploration.params()}
+
+        if self._flags != '':
+            params['flags'] = self._flags
+
+        return params
 
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.

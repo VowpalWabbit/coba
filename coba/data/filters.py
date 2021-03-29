@@ -317,13 +317,16 @@ class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[
 
         output: Any = items
 
-        with CobaConfig.Logger.time('encoding data... '):
+        #with CobaConfig.Logger.time('encoding data... '):
+        output = rows.filter(split.filter(clean.filter(output)))
 
-            output = rows.filter(split.filter(clean.filter(output)))
+        if self._rmv_header: 
+            output = rmv_header.filter(output)
 
-            if self._rmv_header: 
-                output = rmv_header.filter(output)
+        labels   = next(output)
+        features = next(output)
 
+<<<<<<< HEAD
             labels   = next(output)
             features = next(output)
 
@@ -455,3 +458,6 @@ class ArffCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
         
         for cleaning_step in cleaning_steps: output = cleaning_step.filter(output)
         return output if not self._output_rows else CsvTransposer().filter(output)
+=======
+        return features, labels
+>>>>>>> fe52637ec748f3bdbd1341791fbf5a92dea15d20

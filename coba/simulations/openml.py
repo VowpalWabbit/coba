@@ -94,15 +94,15 @@ class OpenmlCsvSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
     def _query(self, url:str, description:str, checksum:str=None) -> bytes:
         
         if url in CobaConfig.Cacher:
-            with CobaConfig.Logger.time(f'loading {description} from cache... '):
-                bites = CobaConfig.Cacher.get(url)
+            #with CobaConfig.Logger.time(f'loading {description} from cache... '):
+            bites = CobaConfig.Cacher.get(url)
 
         else:
 
             api_key = CobaConfig.Api_Keys['openml']
 
-            with CobaConfig.Logger.time(f'loading {description} from http... '):
-                response = HttpSource(url + (f'?api_key={api_key}' if api_key else '')).read()
+            #with CobaConfig.Logger.time(f'loading {description} from http... '):
+            response = HttpSource(url + (f'?api_key={api_key}' if api_key else '')).read()
 
             if response.status_code == 412:
                 if 'please provide api key' in response.text:
@@ -211,11 +211,6 @@ class OpenmlArffSource(Source[Tuple[Sequence[Context], Sequence[Action]]]): # di
 
                 if tipe['is_target'] == 'true':
                     target = tipe['name']
-
-            # if isinstance(encoders[headers.index(target)], NumericEncoder):
-            #     target = self._get_classification_target(data_id)
-            #     ignored[headers.index(target)] = False
-            #     encoders[headers.index(target)] = OneHotEncoder()
             
             source  = MemorySource(o_bytes.decode('utf-8').splitlines())
             reader  = ArffReader(target, ignored)

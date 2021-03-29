@@ -64,7 +64,7 @@ class CobaRegistry:
             if len(mutable_recipe) == 1:
                 name, implicit_args = list(mutable_recipe.items())[0]
 
-                if isinstance(implicit_args, dict):
+                if isinstance(implicit_args, dict) and not cls._is_known_recipe(implicit_args):
                     kwargs = implicit_args
                 else:
                     args = implicit_args
@@ -143,8 +143,15 @@ class CobaRegistry:
 
             if args is not None and kwargs is not None:
                 return cls.retrieve(name)(*args, **kwargs)
+            
             elif args is not None and kwargs is None:
-                return cls.retrieve(name)(*args)
+                try:
+                    return cls.retrieve(name)(*args)
+                except TypeError as e:
+                    if "takes 2 positional arguments" in str(e):
+                        return cls.retrieve(name)(args)
+                    raise
+
             elif args is None and kwargs is not None:
                 return cls.retrieve(name)(**kwargs)
             else:
@@ -152,3 +159,6 @@ class CobaRegistry:
 
         except KeyError:
             raise Exception(f"Unknown recipe {str(recipe)}")
+
+        except:
+            raise Exception(f"Unable to create recipe {str(recipe)}")
