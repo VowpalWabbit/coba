@@ -10,7 +10,7 @@ import itertools
 import json
 
 from abc import ABC, abstractmethod
-from typing import Generic, Hashable, Iterable, TypeVar, Any, Sequence, Union, Tuple, Callable, cast
+from typing import Generic, Hashable, Iterable, List, TypeVar, Any, Sequence, Union, Tuple, Callable, cast
 
 from requests import Response
 
@@ -264,8 +264,10 @@ class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[
             return features, labels
 
 class ArffReader():
+    # Takes in ARFF bytes and splits it into attributes, encoders, and data while handling sparse data
+
     def __init__(self,
-        label_col : str, # Union[int,str]
+        label_col : str,
         ignored   : Sequence[bool]    = [],
         rmv_header: bool              = True):
 
@@ -285,6 +287,16 @@ class ArffReader():
         self.r_attribute = re.compile(r'^\s*@[Aa][Tt][Tt][Rr][Ii][Bb][Uu][Tt][Ee]\s*(..*$)')
 
     def read_header(self, source: str):
+        """Reads in raw arff string
+
+        Args
+            source:      source bytes returned from openML api call
+        Ret
+            relation:    name of arff relation
+            attributes:  list of attribute (column) titles
+            encoders:    list of encoders for the attributes
+            data         rows of data in lists comma separated
+        """
 
         i = 0
         # Pass first comments
@@ -334,6 +346,42 @@ class ArffReader():
                 data[j] = re.split('[,]',data[j])
         return relation, attributes, encoders, data
 
+    def sparse_filler(self, items: List[List[str]], encoders: List[Encoder]) -> List[List[str]]: # Currently quite inefficient
+        """Handles Sparse ARFF data
+
+        Args
+            items:      Data from openML api call as returned by read_header
+            encoders:   Encoders from openML api call as returned by read_header
+        Ret
+            if sparse --     full:  non-sparse version of data
+            if non-sparse -- items: original data
+        """
+
+        # Checks if first of row begins with "{" and ends with "}"
+        if(items[0][0][0] == "{" and items[0][-1][-1] == "}"):
+            full = []
+            # Creates non-sparse version of data. 
+            for i in range(len(items)):
+                r = []
+                for encoder in encoders:
+                    app = ""
+                    if(isinstance(encoder, NumericEncoder)):
+                        app = "0"
+                    r.append(app)
+                full.append(r)
+
+            # Fills in data from items
+            for i in range(len(items)):
+                items[i][0] = items[i][0].replace('{', '', 1)
+                items[i][-1] = items[i][-1].replace('}', '', 1)
+                for j in range(len(items[i])):
+                    split = re.split(' ', items[i][j], 1)
+                    index = int(split[0])
+                    val = split[1]
+                    full[i][index] = val
+            return full
+        return items
+
     def clean(self, attributes, encoders, items):
 
         split_column = cast(Union[Sequence[str],Sequence[int]], [self._label_col])
@@ -360,10 +408,12 @@ class ArffReader():
     def filter(self, source: str):
     
         relation, attributes, encoders, items = self.read_header(source)
+        items = self.sparse_filler(items, encoders)
         features, labels = self.clean(attributes, encoders, items)
         return features, labels
 
 class ArffCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
+    # Takes rows in a list of lists and converts them to encoded column form
 
     def __init__(self,
         attributes: Sequence[str] = [],
@@ -392,6 +442,13 @@ class ArffCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
         return output if not self._output_rows else CsvTransposer().filter(output)
 
 class ArffHeaderAdder(Filter[Iterable[Any], Iterable[Sequence[Any]]]):
+    """Adds the attribute name to each column list
+
+    Args
+        attributes:  list of attributes
+    Ret
+        list of attribute name and then original column values
+    """ 
 
     def __init__(self,
         attributes):
