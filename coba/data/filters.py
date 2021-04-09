@@ -276,17 +276,17 @@ class ArffReader():
         self._rmv_header = rmv_header
 
         # Match a comment
-        self.r_comment = re.compile(r'^%')
+        self._r_comment = re.compile(r'^%')
         # Match an empty line
         self.r_empty = re.compile(r'^\s+$')
         # Match a header line, that is a line which starts by @ + a word
-        self.r_headerline = re.compile(r'^\s*@\S*')
+        self._r_headerline = re.compile(r'^\s*@\S*')
 
-        self.r_datameta = re.compile(r'^@[Dd][Aa][Tt][Aa]')
-        self.r_relation = re.compile(r'^@[Rr][Ee][Ll][Aa][Tt][Ii][Oo][Nn]\s*(\S*)')
-        self.r_attribute = re.compile(r'^\s*@[Aa][Tt][Tt][Rr][Ii][Bb][Uu][Tt][Ee]\s*(..*$)')
+        self._r_datameta = re.compile(r'^@[Dd][Aa][Tt][Aa]')
+        self._r_relation = re.compile(r'^@[Rr][Ee][Ll][Aa][Tt][Ii][Oo][Nn]\s*(\S*)')
+        self._r_attribute = re.compile(r'^\s*@[Aa][Tt][Tt][Rr][Ii][Bb][Uu][Tt][Ee]\s*(..*$)')
 
-    def read_header(self, source: str):
+    def _read_header(self, source: List[str]):
         """Reads in raw arff string
 
         Args
@@ -300,17 +300,17 @@ class ArffReader():
 
         i = 0
         # Pass first comments
-        while self.r_comment.match(source[i]):
+        while self._r_comment.match(source[i]):
             i += 1
 
         # Header is everything up to DATA attribute
         relation = None
         attributes = []
         encoders = []
-        while not self.r_datameta.match(source[i]):
-            m = self.r_headerline.match(source[i])
+        while not self._r_datameta.match(source[i]):
+            m = self._r_headerline.match(source[i])
             if m:
-                isattr = self.r_attribute.match(source[i])
+                isattr = self._r_attribute.match(source[i])
                 if isattr:
                     attr_string = isattr.group(1).lower().strip()
                     i += 1
@@ -330,7 +330,7 @@ class ArffReader():
 
                     attributes.append(attr)
                 else:
-                    isrel = self.r_relation.match(source[i])
+                    isrel = self._r_relation.match(source[i])
                     if isrel:
                         relation = isrel.group(1)
                     else:
@@ -346,7 +346,7 @@ class ArffReader():
                 data[j] = re.split('[,]',data[j])
         return relation, attributes, encoders, data
 
-    def sparse_filler(self, items: List[List[str]], encoders: List[Encoder]) -> List[List[str]]: # Currently quite inefficient
+    def _sparse_filler(self, items: List[List[str]], encoders: List[Encoder]) -> List[List[str]]: # Currently quite inefficient
         """Handles Sparse ARFF data
 
         Args
@@ -357,32 +357,34 @@ class ArffReader():
             if non-sparse -- items: original data
         """
 
-        # Checks if first of row begins with "{" and ends with "}"
-        if(items[0][0][0] == "{" and items[0][-1][-1] == "}"):
-            full = []
-            # Creates non-sparse version of data. 
-            for i in range(len(items)):
-                r = []
-                for encoder in encoders:
-                    app = ""
-                    if(isinstance(encoder, NumericEncoder)):
-                        app = "0"
-                    r.append(app)
-                full.append(r)
+        _starts_with_curly = items[0][0][0] == "{"
+        _ends_with_curly = items[0][-1][-1] == "}"
+        if(not _starts_with_curly or not _ends_with_curly):
+            return items
 
-            # Fills in data from items
-            for i in range(len(items)):
-                items[i][0] = items[i][0].replace('{', '', 1)
-                items[i][-1] = items[i][-1].replace('}', '', 1)
-                for j in range(len(items[i])):
-                    split = re.split(' ', items[i][j], 1)
-                    index = int(split[0])
-                    val = split[1]
-                    full[i][index] = val
-            return full
-        return items
+        full = []
+        # Creates non-sparse version of data. 
+        for i in range(len(items)):
+            r = []
+            for encoder in encoders:
+                app = ""
+                if(isinstance(encoder, NumericEncoder)):
+                    app = "0"
+                r.append(app)
+            full.append(r)
 
-    def clean(self, attributes, encoders, items):
+        # Fills in data from items
+        for i in range(len(items)):
+            items[i][0] = items[i][0].replace('{', '', 1)
+            items[i][-1] = items[i][-1].replace('}', '', 1)
+            for j in range(len(items[i])):
+                split = re.split(' ', items[i][j], 1)
+                index = int(split[0])
+                val = split[1]
+                full[i][index] = val
+        return full
+
+    def _clean(self, attributes, encoders, items):
 
         split_column = cast(Union[Sequence[str],Sequence[int]], [self._label_col])
 
@@ -405,11 +407,11 @@ class ArffReader():
 
             return features, labels
 
-    def filter(self, source: str):
+    def filter(self, source: List[str]):
     
-        relation, attributes, encoders, items = self.read_header(source)
-        items = self.sparse_filler(items, encoders)
-        features, labels = self.clean(attributes, encoders, items)
+        relation, attributes, encoders, items = self._read_header(source)
+        items = self._sparse_filler(items, encoders)
+        features, labels = self._clean(attributes, encoders, items)
         return features, labels
 
 class ArffCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
