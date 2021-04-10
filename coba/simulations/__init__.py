@@ -13,7 +13,7 @@ from coba.simulations.core import (
     Context, Action, Key, Interaction, Simulation, Reward, MemorySimulation, 
     LambdaSimulation, ClassificationSimulation, BatchedSimulation, MemoryReward, ClassificationReward
 )
-from coba.simulations.openml  import OpenmlSource, OpenmlSimulation
+from coba.simulations.openml  import OpenmlCsvSource, OpenmlArffSource, OpenmlSimulation
 from coba.simulations.filters import Shuffle, Take, Batch, PCA, Sort
 
 __all__ = [
@@ -22,7 +22,8 @@ __all__ = [
     'Key',
     'Interaction',
     'Simulation',
-    'OpenmlSource',
+    'OpenmlCsvSource',
+    'OpenmlArffSource',
     'MemorySimulation',
     'LambdaSimulation',
     'ClassificationSimulation',
