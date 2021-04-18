@@ -1,6 +1,7 @@
 from copy import deepcopy
 from statistics import mean
 from itertools import groupby, product, count, chain
+from collections import defaultdict
 from statistics import median
 from typing import Iterable, Tuple, Sequence, Dict, Any, cast, Optional, overload, List, Union
 
@@ -88,12 +89,13 @@ class Tasks(Source[Iterable[BenchmarkTask]]):
 
     def read(self) -> Iterable[BenchmarkTask]:
 
-        benchmark_sims = [BenchmarkSimulation(sim)                       for sim in self._simulations]
+        #we rely on sim_id to make sure we don't do duplicate work. So long as self._simulations
+        #is always in the exact same order we should be fine. In the future we may want to consider.
+        #adding a better check for simulations other than assigning an index based on their order.
+        benchmark_sims = [BenchmarkSimulation(sim)          for sim in self._simulations]
         benchmark_lrns = [BenchmarkLearner(lrn, self._seed) for lrn in self._learners   ]
 
-        #this could be made more sophisticated in the future
-        sources    = set([ s.source for s in benchmark_sims ])        
-        source_ids = cast(Dict[Source[Simulation],int], { src:idx for src,idx in zip(sources, count()) })
+        source_ids = defaultdict(lambda x=count(): next(x))
 
         for (sim_id,sim), (lrn_id,lrn) in product(enumerate(benchmark_sims), enumerate(benchmark_lrns)):
             yield BenchmarkTask(source_ids[sim.source], sim_id, lrn_id, sim, deepcopy(lrn))                
