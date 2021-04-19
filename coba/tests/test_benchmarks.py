@@ -541,7 +541,7 @@ class Unifinshed_Tests(unittest.TestCase):
         self.assertEqual(0, unfinished_tasks[0].lrn_id)
         self.assertEqual(1, unfinished_tasks[1].lrn_id)
 
-class SourceGroup_Tests(unittest.TestCase):
+class GroupBySource_Tests(unittest.TestCase):
 
     def test_one_group(self):
         sim1 = OneTimeSource(LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a)))

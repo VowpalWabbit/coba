@@ -81,7 +81,7 @@ class BenchmarkTask:
         self.learner    = learner
 
 class Tasks(Source[Iterable[BenchmarkTask]]):
-    
+
     def __init__(self, simulations: Sequence[Source[Simulation]], learners: Sequence[Learner], seed: int = None) -> None:
         self._simulations = simulations
         self._learners    = learners

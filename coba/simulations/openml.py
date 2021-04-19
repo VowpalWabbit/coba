@@ -329,10 +329,9 @@ class OpenmlSimulation(Source[Simulation]):
 
     def __init__(self, id: int, md5_checksum: str = None) -> None:
         try:
-            self._source = OpenmlArffSource(id, md5_checksum)
-        except:
             self._source = OpenmlCsvSource(id, md5_checksum)
-        
+        except:
+            self._source = OpenmlArffSource(id, md5_checksum)
 
     def read(self) -> Simulation:        
         return ClassificationSimulation(*self._source.read())

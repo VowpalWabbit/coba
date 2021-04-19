@@ -263,7 +263,7 @@ class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[
 
             return features, labels
 
-class ArffReader():
+class ArffReader(Filter):
     # Takes in ARFF bytes and splits it into attributes, encoders, and data while handling sparse data
 
     def __init__(self,
