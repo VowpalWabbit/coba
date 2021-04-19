@@ -194,21 +194,24 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                             CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate. (likely due to `Take` being larger than the source)")
                             continue
 
-                        for lrn_id,learner in zip(learner_ids,learners):
+                        for i in sorted(range(len(learners)), reverse=True):
+
+                            lrn_id  = learner_ids[i]
+                            learner = learners[i]
 
                             try:
-
                                 learner.init()
-
                                 with CobaConfig.Logger.time(f"Evaluating learner {lrn_id} on Simulation {sim_id}..."):
                                     batch_sizes  = [ len(batch)                                             for batch in batches ]
                                     mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
-
                                     yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
-
                             except Exception as e:
                                 CobaConfig.Logger.log_exception("Unhandled exception:", e)
                                 if not self._ignore_raise: raise e
+                            finally:
+                                del learner_ids[i]
+                                del learners[i]
+
         except KeyboardInterrupt:
             raise
         except Exception as e:
