@@ -12,7 +12,8 @@ from coba.data.structures import Table
 from coba.data.filters import Filter, Cartesian, JsonEncode, JsonDecode
 from coba.data.pipes import StopPipe, Pipe
 from coba.data.sinks import Sink, DiskSink, MemorySink
-from coba.data.sources import DiskSource
+from coba.data.sources import DiskSource, Source
+from coba.simulations import Simulation
 
 class Result:
     """A class for creating and returning the result of a Benchmark evaluation."""
@@ -45,7 +46,12 @@ class Result:
         if transaction[0] == "benchmark": self.benchmark = transaction[1]
         if transaction[0] == "L"        : self.learners.add_row(transaction[1], **transaction[2])
         if transaction[0] == "S"        : self.simulations.add_row(transaction[1], **transaction[2])
-        if transaction[0] == "B"        : self.batches.add_row(*transaction[1], **transaction[2])
+        if transaction[0] == "B"        :
+            for col in ["C", "A", "N"]:
+                if "reward" in transaction[2] and col in transaction[2] and not isinstance(transaction[2][col], collections.Sequence):
+                    transaction[2][col] = [transaction[2][col]] * len(transaction[2]["reward"])
+
+            self.batches.add_row(*transaction[1], **transaction[2])
 
 
     def __init__(self) -> None:
@@ -212,7 +218,7 @@ class Result:
         plt.show()
 
     def __str__(self) -> str:
-        return str({ "Learners": len(self.learners), "Simulations": len(self.simulations), "Interactions": sum([len(b.N) for b in self.batches.to_tuples()]) })
+        return str({ "Learners": len(self.learners), "Simulations": len(self.simulations), "Interactions": sum([len(b.reward) for b in self.batches.to_tuples()]) })
 
     def __repr__(self) -> str:
         return str(self)
@@ -274,6 +280,12 @@ class Transaction:
         return ["S", simulation_id, kwargs]
 
     @staticmethod
+    def simulations(simulations:Sequence[Source[Simulation]]) -> Iterable[Any]:
+
+        for index, simulation in enumerate(simulations):
+            yield Transaction.simulation(index, pipe=str(simulation))
+
+    @staticmethod
     def batch(simulation_id:int, learner_id:int, **kwargs) -> Any:
         """Write batch metadata row to Result.
 
@@ -283,6 +295,11 @@ class Transaction:
             batch_index: The index of the batch within the simulation.
             kwargs: The metadata to store about the batch.
         """
+
+        for col in ["C", "A", "N"]:
+            if col in kwargs and len(set(kwargs[col])) == 1:
+                kwargs[col] = kwargs[col][0]
+
         return ["B", (simulation_id, learner_id), kwargs]
 
 class TransactionPromote(Filter):
@@ -435,8 +452,6 @@ class TransactionIsNew(Filter):
 
             if tipe == "L" and transaction[1] in self._existing.learners:
                 continue
-
-            self._existing.add_transaction(transaction)
 
             yield transaction
 

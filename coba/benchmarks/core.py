@@ -156,14 +156,6 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
             else:
                 return [ [interaction] for interaction in simulation.interactions ]
 
-        def sim_transaction(sim_id, pipe, interactions, batches):
-            return Transaction.simulation(sim_id,
-                pipe              = str(pipe),
-                interaction_count = len(interactions),
-                batch_count       = len(batches),
-                context_size      = int(median(self._context_sizes(interactions))),
-                action_count      = int(median(self._action_counts(interactions))))
-
         srt_src = lambda t: t.src_id
         grp_src = lambda t: (t.src_id, t.simulation.source)
         srt_sim = lambda t: t.sim_id
@@ -184,11 +176,7 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
 
                         with CobaConfig.Logger.time(f"Creating simulation {sim_id} from source {src_id}..."):
                             simulation = sim.filter.filter(loaded_source)
-
-                            interactions = simulation.interactions
-                            batches      = batchify(simulation)
-
-                            yield sim_transaction(sim_id, sim, interactions, batches)
+                            batches    = batchify(simulation)
 
                         if not batches:
                             CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate. (likely due to `Take` being larger than the source)")
@@ -202,9 +190,11 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                             try:
                                 learner.init()
                                 with CobaConfig.Logger.time(f"Evaluating learner {lrn_id} on Simulation {sim_id}..."):
-                                    batch_sizes  = [ len(batch)                                             for batch in batches ]
-                                    mean_rewards = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
-                                    yield Transaction.batch(sim_id, lrn_id, N=batch_sizes, reward=mean_rewards)
+                                    context_sizes = [ int(median(self._context_sizes(batch)))                for batch in batches ]
+                                    action_counts = [ int(median(self._action_counts(batch)))                for batch in batches ]
+                                    batch_sizes   = [ len(batch)                                             for batch in batches ]
+                                    mean_rewards  = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
+                                    yield Transaction.batch(sim_id, lrn_id, C=context_sizes, A=action_counts, N=batch_sizes, reward=mean_rewards)
                             except Exception as e:
                                 CobaConfig.Logger.log_exception("Unhandled exception:", e)
                                 if not self._ignore_raise: raise e
@@ -242,9 +232,6 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
         return round(mean(rewards),5)
 
     def _context_sizes(self, interactions) -> Iterable[int]:
-        if len(interactions) == 0:
-            yield 0
-
         for context in [i.context for i in interactions]:
             yield 0 if context is None else len(context) if isinstance(context,tuple) else 1
 
@@ -392,6 +379,7 @@ class Benchmark:
         preamble.append(Transaction.version())
         preamble.append(Transaction.benchmark(n_given_learners, n_given_simulations))
         preamble.extend(Transaction.learners(learners))
+        preamble.extend(Transaction.simulations(self._simulations))
 
         mp = self._processes        if self._processes        else CobaConfig.Benchmark['processes']
         mt = self._maxtasksperchild if self._maxtasksperchild else CobaConfig.Benchmark['maxtasksperchild']
