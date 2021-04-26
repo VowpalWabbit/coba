@@ -36,13 +36,17 @@ class Result:
         result = Result()
 
         for transaction in transactions:
-            if transaction[0] == "version"  : result.version = transaction[1]
-            if transaction[0] == "benchmark": result.benchmark = transaction[1]
-            if transaction[0] == "L"        : result.learners.add_row(transaction[1], **transaction[2])
-            if transaction[0] == "S"        : result.simulations.add_row(transaction[1], **transaction[2])
-            if transaction[0] == "B"        : result.batches.add_row(*transaction[1], **transaction[2])
+            result.add_transaction(transaction)
 
         return result
+
+    def add_transaction(self, transaction: Any) -> None:
+        if transaction[0] == "version"  : self.version = transaction[1]
+        if transaction[0] == "benchmark": self.benchmark = transaction[1]
+        if transaction[0] == "L"        : self.learners.add_row(transaction[1], **transaction[2])
+        if transaction[0] == "S"        : self.simulations.add_row(transaction[1], **transaction[2])
+        if transaction[0] == "B"        : self.batches.add_row(*transaction[1], **transaction[2])
+
 
     def __init__(self) -> None:
         """Instantiate a Result class."""
@@ -411,27 +415,30 @@ class TransactionIsNew(Filter):
 
         self._existing = existing
 
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        for item in items:
-
-            tipe  = item[0]
+    def filter(self, transactions: Iterable[Any]) -> Iterable[Any]:
+        
+        for transaction in transactions:
+            
+            tipe  = transaction[0]
 
             if tipe == "version" and self._existing.version is not None:
                 continue
-
+            
             if tipe == "benchmark" and len(self._existing.benchmark) != 0:
                 continue
 
-            if tipe == "B" and item[1] in self._existing.batches:
+            if tipe == "B" and transaction[1] in self._existing.batches:
                 continue
 
-            if tipe == "S" and item[1] in self._existing.simulations:
+            if tipe == "S" and transaction[1] in self._existing.simulations:
                 continue
 
-            if tipe == "L" and item[1] in self._existing.learners:
+            if tipe == "L" and transaction[1] in self._existing.learners:
                 continue
 
-            yield item
+            self._existing.add_transaction(transaction)
+
+            yield transaction
 
 class TransactionSink(Sink):
 

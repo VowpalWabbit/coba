@@ -162,7 +162,7 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                 interaction_count = len(interactions),
                 batch_count       = len(batches),
                 context_size      = int(median(self._context_sizes(interactions))),
-                action_count      = int(median(self._action_counts(interactions))))        
+                action_count      = int(median(self._action_counts(interactions))))
 
         srt_src = lambda t: t.src_id
         grp_src = lambda t: (t.src_id, t.simulation.source)
