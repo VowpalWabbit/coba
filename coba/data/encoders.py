@@ -8,9 +8,9 @@ from collections import defaultdict
 from abc import ABC, abstractmethod
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Hashable, Dict, Tuple
 
-T_out = TypeVar('T_out', bound=Any, covariant=True) 
+_T_out = TypeVar('_T_out', bound=Any, covariant=True) 
 
-class Encoder(Generic[T_out], ABC):
+class Encoder(Generic[_T_out], ABC):
     """The interface for encoder implementations.
 
     Remarks:
@@ -18,24 +18,6 @@ class Encoder(Generic[T_out], ABC):
         implementations are immutable. This means that the `fit` method should always
         return a new Encoder.
     """
-
-    @staticmethod
-    def from_json(json_val:str) -> 'Encoder':
-        """Construct an Encoder object from JSON.
-        
-        Args:
-            json_val: Either a json string or the decoded json object.
-        
-        Returns:
-            The Encoder representation of the given JSON string or object.
-        """
-
-        if json_val == "numeric" : return NumericEncoder()
-        if json_val == "onehot"  : return OneHotEncoder()
-        if json_val == "string"  : return StringEncoder()
-        if json_val == "factor"  : return FactorEncoder()
-
-        raise Exception('We were unable to determine the appropriate encoder from json')
 
     @property
     @abstractmethod
@@ -65,7 +47,7 @@ class Encoder(Generic[T_out], ABC):
         ...
 
     @abstractmethod
-    def encode(self, values: Sequence[Any]) -> Sequence[T_out]:
+    def encode(self, values: Sequence[Any]) -> Sequence[_T_out]:
         """Encode the given value into the implementation's generic type.
 
         Args:
@@ -79,10 +61,10 @@ class Encoder(Generic[T_out], ABC):
         """
         ...
 
-    def fit_encode(self, values: Sequence[Any]) -> Sequence[T_out]:
+    def fit_encode(self, values: Sequence[Any]) -> Sequence[_T_out]:
         if self.is_fit:
             return self.encode(values)
-        else: 
+        else:
             return self.fit(values).encode(values)
 
 class StringEncoder(Encoder[str]):

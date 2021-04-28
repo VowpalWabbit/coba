@@ -9,8 +9,9 @@ import collections
 import itertools
 import json
 
+from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Generic, Hashable, Iterable, List, TypeVar, Any, Sequence, Union, Tuple, Callable, cast
+from typing import Generic, Hashable, Iterable, TypeVar, Any, Sequence, Union, Tuple, cast, Dict, List
 
 from requests import Response
 
@@ -19,8 +20,26 @@ from coba.json import CobaJsonEncoder, CobaJsonDecoder
 from coba.tools import CobaConfig
 import re
 
+# one dict for all rows, one dict for each row
+# one dict for all columns, one dict for each column
+
+_T_DenseData  = Sequence[Any]
+_T_SparseData = Tuple[Sequence[int], Sequence[Any]]
+_T_Data       = Union[_T_DenseData, _T_SparseData]
+
 _T_out = TypeVar("_T_out", bound=Any, covariant=True)
 _T_in  = TypeVar("_T_in", bound=Any, contravariant=True)
+
+def _is_dense(items: Iterable[_T_Data])-> Tuple[bool, Iterable[_T_Data]]:
+
+    items = iter(items)
+    item0 = next(items)
+
+    #a sparse item has the following structure ([ids], [values])
+    #this check isn't full proof but I think should be good enough
+    is_dense = (len(item0) != 2) or not all([isinstance(i, collections.Sequence) for i in item0])
+
+    return is_dense, itertools.chain([item0], items)
 
 class Filter(ABC, Generic[_T_in, _T_out]):
     @abstractmethod
@@ -172,19 +191,22 @@ class RowRemover(Filter[Iterable[Sequence[Any]], Iterable[Sequence[Any]]]):
             if i not in self._remove_rows:
                 yield item
 
-class CsvReader(Filter[Iterable[str], Iterable[Sequence[str]]]):
-    def __init__(self, csv_reader  : Callable[[Iterable[str]], Iterable[Sequence[str]]] = csv.reader) -> None: #type: ignore #pylance complains
-        self._csv_reader = csv_reader
-
+class CsvReader(Filter[Iterable[str], Iterable[_T_DenseData]]):
     def filter(self, items: Iterable[str]) -> Iterable[Sequence[str]]:
-        return filter(None,self._csv_reader(items))
+        return filter(None,csv.reader(items))
 
-class CsvTransposer(Filter[Iterable[Sequence[_T_in]], Iterable[Sequence[_T_out]]]):    
+class CsvTranspose(Filter[Iterable[_T_DenseData], Iterable[_T_DenseData]]):
     def __init__(self, flatten: bool = False):
         self._flatten = flatten
 
     def filter(self, items: Iterable[Sequence[_T_in]]) -> Iterable[Sequence[_T_out]]:
-        
+
+        #row 1 has these dictj[col_id, value]...
+        #col 1 has these dict[row_id, value]...
+        #if we force column ids to be numeric in the sparse case then transpose is well defined...
+
+        #sequence[dict] -> dict[sequences]
+
         items = filter(None, items)
         items = items if not self._flatten else self._flatter(items)
 
@@ -197,6 +219,59 @@ class CsvTransposer(Filter[Iterable[Sequence[_T_in]], Iterable[Sequence[_T_out]]
                     yield [item[0]] + list(i)
             else:
                 yield item
+
+class Transpose(Filter[Iterable[_T_Data], Iterable[_T_Data]]):
+    def filter(self, items: Iterable[_T_Data]) -> Iterable[_T_Data]:
+
+        is_dense,items =_is_dense(items)
+
+        if is_dense:
+            return zip(*items)
+        else:
+            sparse_transposed_items = defaultdict( lambda: ([],[]))
+
+            for outer_id, item in enumerate(items):
+                for inner_id, value in zip(item[0], item[1]):
+                    sparse_transposed_items[inner_id][0].append(outer_id)
+                    sparse_transposed_items[inner_id][1].append(value)
+
+            return list(sparse_transposed_items.values())
+
+class Flatten(Filter[Iterable[_T_Data], Iterable[_T_Data]]):
+    def filter(self, items: Iterable[Sequence[Any]]) -> Iterable[Sequence[Any]]:
+        is_dense,items =_is_dense(items)
+        
+        return map(self._flat, items) if is_dense else items
+
+    def _flat(self, item: Union[Sequence[Any], Any]) -> Sequence[Any]:
+        return sum(map(self._flat, item),[]) if isinstance(item, collections.Sequence) else [item]
+
+    def _flatter(self, items: Iterable[Sequence[Any]]) -> Iterable[Sequence[Any]]:
+        for item in items:
+            if isinstance(item[1], collections.Sequence) and not isinstance(item[1], str):
+                for i in item[1:]:
+                    yield [item[0]] + list(i)
+            else:
+                yield item
+
+class Encode(Filter[Iterable[_T_Data],Iterable[_T_Data]]):
+
+    def __init__(self, encoders: Sequence[Encoder]):
+        self._encoders = encoders
+
+    def filter(self, items: Iterable[_T_Data]) -> Iterable[_T_Data]:
+        
+        is_dense,items =_is_dense(items)
+
+        for encoder, column in zip(self._encoders, items):
+
+            raw_values = column if is_dense else column[1]
+
+            encoder = encoder if encoder.is_fit else encoder.fit(raw_values)
+
+            encoded_values = encoder.encode(raw_values)
+
+            yield encoder.encode(raw_values) if is_dense else (column[0], encoded_values)
 
 class CsvCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
 
@@ -218,13 +293,13 @@ class CsvCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
         ignored_headers = list(itertools.compress(self._headers, self._ignored))
 
         cleaning_steps: Sequence[Filter] = [
-            CsvTransposer(), ColRemover(ignored_headers), ColEncoder(self._headers, self._encoders, self._default)
+            CsvTranspose(), ColRemover(ignored_headers), ColEncoder(self._headers, self._encoders, self._default)
         ]
 
         output: Any = items
         
         for cleaning_step in cleaning_steps: output = cleaning_step.filter(output)
-        return output if not self._output_rows else CsvTransposer().filter(output)
+        return output if not self._output_rows else CsvTranspose().filter(output)
 
 class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[Any]],Iterable[Sequence[Any]]]]):
     def __init__(self, 
@@ -246,7 +321,7 @@ class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[
 
         clean      = CsvCleaner(self._headers, self._encoders, None, self._ignored, output_rows=False)
         split      = ColSplitter(split_column)
-        rows       = Cartesian(CsvTransposer(True))
+        rows       = Cartesian(CsvTranspose(True))
         rmv_header = Cartesian(RowRemover([0]))
 
         output: Any = items
@@ -390,7 +465,7 @@ class ArffReader(Filter):
 
         clean      = ArffCleaner(attributes, encoders, None, self._ignored, output_rows=False)
         split      = ColSplitter(split_column)
-        rows       = Cartesian(CsvTransposer(True))
+        rows       = Cartesian(CsvTranspose(True))
         rmv_header = Cartesian(RowRemover([0]))
 
         output: Any = items
@@ -435,13 +510,13 @@ class ArffCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
         ignored_headers = list(itertools.compress(self._attributes, self._ignored))
 
         cleaning_steps: Sequence[Filter] = [
-            CsvTransposer(), ArffHeaderAdder(self._attributes), ColRemover(ignored_headers), ColEncoder(self._attributes, self._encoders, self._default)
+            CsvTranspose(), ArffHeaderAdder(self._attributes), ColRemover(ignored_headers), ColEncoder(self._attributes, self._encoders, self._default)
         ]
 
         output: Any = items
         
         for cleaning_step in cleaning_steps: output = cleaning_step.filter(output)
-        return output if not self._output_rows else CsvTransposer().filter(output)
+        return output if not self._output_rows else CsvTranspose().filter(output)
 
 class ArffHeaderAdder(Filter[Iterable[Any], Iterable[Sequence[Any]]]):
     """Adds the attribute name to each column list
