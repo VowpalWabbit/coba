@@ -1,5 +1,6 @@
 import json
 
+from itertools import compress
 from hashlib import md5
 from typing import Tuple, Sequence, Any, List
 
@@ -16,9 +17,8 @@ class OpenmlCsvSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
     def read(self) -> Tuple[Sequence[Sequence[Any]], Sequence[Any]]:
         
         #placing some of these at the top would cause circular references
-        from coba.data.pipes    import Pipe
         from coba.data.encoders import Encoder, NumericEncoder, OneHotEncoder, StringEncoder
-        from coba.data.filters  import CsvReader, LabeledCsvCleaner
+        from coba.data.filters  import CsvReader, Encode, Flatten, Transpose
 
         d_key = None
         t_key = None
@@ -41,7 +41,7 @@ class OpenmlCsvSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             t_object = json.loads(t_bytes.decode('utf-8'))["data_features"]["feature"]
 
             headers : List[str]     = []
-            encoders: List[Encoder] = []
+            file_encoders: List[Encoder] = []
             ignored : List[bool]    = []
             target  : str           = ""
 
@@ -54,33 +54,39 @@ class OpenmlCsvSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                     target = tipe['name']
 
                 if tipe['data_type'] == 'numeric':
-                    encoders.append(NumericEncoder())  
+                    file_encoders.append(NumericEncoder())  
                 elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'false':
-                    encoders.append(OneHotEncoder(singular_if_binary=True))
+                    file_encoders.append(OneHotEncoder(singular_if_binary=True))
                 elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'true':
-                    encoders.append(OneHotEncoder())
+                    file_encoders.append(OneHotEncoder())
                 else:
-                    encoders.append(StringEncoder())
+                    file_encoders.append(StringEncoder())
 
-            if isinstance(encoders[headers.index(target)], NumericEncoder):
+            if isinstance(file_encoders[headers.index(target)], NumericEncoder):
                 target = self._get_classification_target(data_id)
                 ignored[headers.index(target)] = False
-                encoders[headers.index(target)] = OneHotEncoder()
+                file_encoders[headers.index(target)] = OneHotEncoder()
 
             o_key   = f"http://www.openml.org/data/v1/get_csv/{d_object['file_id']}"
             o_bytes = self._query(o_key, "obser", md5_checksum)
-            
-            source  = MemorySource(o_bytes.decode('utf-8').splitlines())
-            reader  = CsvReader()
-            cleaner = LabeledCsvCleaner(target, headers, encoders, ignored, True)
 
-            feature_rows, label_rows = Pipe.join(source, [reader, cleaner]).read()
+            file_rows     = list(CsvReader().filter(o_bytes.decode('utf-8').splitlines()))
+            file_headers  = list(file_rows.pop(0))
+            file_encoders = [ file_encoders[file_headers.index(header)] for header in headers]
+            file_cols     = list(Encode(file_encoders).filter(Transpose().filter(file_rows)))
+
+            for ignored_header in compress(headers, ignored):
+                file_cols.pop(file_headers.index(ignored_header))
+                file_headers.remove(ignored_header)
+
+            label_col    = file_cols.pop(file_headers.index(target))
+            feature_rows = list(Flatten().filter(Transpose().filter(file_cols)))
 
             #we only cache after all the data has been successfully loaded
             for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:
                 CobaConfig.Cacher.put(key,bytes)
 
-            return list(feature_rows), list(label_rows)
+            return feature_rows, label_col
 
         except:
 

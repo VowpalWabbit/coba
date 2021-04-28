@@ -1,7 +1,6 @@
-import timeit
 import unittest
 
-from coba.data.filters import CsvReader, ColEncoder, ColRemover, Flatten, CsvTranspose, LabeledCsvCleaner, Transpose, Encode
+from coba.data.filters import CsvReader, ColEncoder, ColRemover, Flatten, CsvTranspose, Transpose, Encode
 from coba.data.encoders import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.tools import NoneLogger, CobaConfig
 
@@ -150,22 +149,6 @@ class ColRemover_Tests(unittest.TestCase):
         remover = ColRemover([1,0])
         self.assertEqual([['c','3','6']], list(remover.filter(csv)))
 
-class LabeledCsvCleaner_Tests(unittest.TestCase):
-
-    def test_large_from_memory(self):
-        headers      = list(map(str,range(15)))
-        values       = [["1","0"]*15]*100000
-        table        = [headers]+values
-        label_col    = 0
-        encoders     = [NumericEncoder()]*15
-
-        clean_table = lambda: LabeledCsvCleaner(label_col, headers, encoders, [], rmv_header=True).filter(table)
-
-        time = min(timeit.repeat(clean_table, repeat=2, number=1))
-
-        #was approximately 0.5 at best performance
-        self.assertLess(time, 3)
-
 class Transpose_Tests(unittest.TestCase):
 
     def test_dense_transpose(self):
@@ -198,10 +181,10 @@ class Transpose_Tests(unittest.TestCase):
 class Flatten_Tests(unittest.TestCase):
 
     def test_flatten_flat_list(self):
-        self.assertEqual( [[1,2,3],[4,5,6]], list(Flatten().filter([[1,2,3],[4,5,6]])) )
+        self.assertEqual( [(1,2,3),(4,5,6)], list(Flatten().filter([[1,2,3],[4,5,6]])) )
 
     def test_flatten_deep_list(self):
-        self.assertEqual( [[1,2,3],[4,5,6]], list(Flatten().filter([[1,[2,[3]]],[[4,5,6]]])) )
+        self.assertEqual( [(1,2,3),(4,5,6)], list(Flatten().filter([[1,[2,[3]]],[[4,5,6]]])) )
 
 class Encode_Tests(unittest.TestCase):
 

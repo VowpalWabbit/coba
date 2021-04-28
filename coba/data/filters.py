@@ -241,7 +241,7 @@ class Flatten(Filter[Iterable[_T_Data], Iterable[_T_Data]]):
     def filter(self, items: Iterable[Sequence[Any]]) -> Iterable[Sequence[Any]]:
         is_dense,items =_is_dense(items)
         
-        return map(self._flat, items) if is_dense else items
+        return map(tuple,map(self._flat, items)) if is_dense else items
 
     def _flat(self, item: Union[Sequence[Any], Any]) -> Sequence[Any]:
         return sum(map(self._flat, item),[]) if isinstance(item, collections.Sequence) else [item]
@@ -272,71 +272,6 @@ class Encode(Filter[Iterable[_T_Data],Iterable[_T_Data]]):
             encoded_values = encoder.encode(raw_values)
 
             yield encoder.encode(raw_values) if is_dense else (column[0], encoded_values)
-
-class CsvCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
-
-    def __init__(self,
-        headers: Sequence[str] = [],
-        encoders: Sequence[Encoder] = [],
-        default: Encoder = None,
-        ignored: Sequence[bool] = [],
-        output_rows: bool = True):
-
-        self._headers  = headers
-        self._encoders = encoders
-        self._default  = default
-        self._ignored  = ignored
-        self._output_rows = output_rows
-
-    def filter(self, items: Iterable[str]) -> Iterable[Sequence[Any]]:
-
-        ignored_headers = list(itertools.compress(self._headers, self._ignored))
-
-        cleaning_steps: Sequence[Filter] = [
-            CsvTranspose(), ColRemover(ignored_headers), ColEncoder(self._headers, self._encoders, self._default)
-        ]
-
-        output: Any = items
-        
-        for cleaning_step in cleaning_steps: output = cleaning_step.filter(output)
-        return output if not self._output_rows else CsvTranspose().filter(output)
-
-class LabeledCsvCleaner(Filter[Iterable[Sequence[str]], Tuple[Iterable[Sequence[Any]],Iterable[Sequence[Any]]]]):
-    def __init__(self, 
-        label_col : Union[int,str],
-        headers   : Sequence[str]     = [],
-        encoders  : Sequence[Encoder] = [], 
-        ignored   : Sequence[bool]    = [],
-        rmv_header: bool              = False):
-
-        self._label_col  = label_col
-        self._encoders   = encoders
-        self._headers    = headers
-        self._ignored    = ignored
-        self._rmv_header = rmv_header
-
-    def filter(self, items: Iterable[Sequence[str]]) -> Tuple[Iterable[Sequence[Any]],Iterable[Sequence[Any]]]:
-
-        split_column = cast(Union[Sequence[str],Sequence[int]], [self._label_col])
-
-        clean      = CsvCleaner(self._headers, self._encoders, None, self._ignored, output_rows=False)
-        split      = ColSplitter(split_column)
-        rows       = Cartesian(CsvTranspose(True))
-        rmv_header = Cartesian(RowRemover([0]))
-
-        output: Any = items
-
-        with CobaConfig.Logger.time('encoding data... '):
-
-            output = rows.filter(split.filter(clean.filter(output)))
-
-            if self._rmv_header: 
-                output = rmv_header.filter(output)
-
-            labels   = next(output)
-            features = next(output)
-
-            return features, labels
 
 class ArffReader(Filter):
     # Takes in ARFF bytes and splits it into attributes, encoders, and data while handling sparse data
