@@ -273,88 +273,73 @@ class Encode(Filter[Iterable[_T_Data],Iterable[_T_Data]]):
 
             yield encoder.encode(raw_values) if is_dense else (column[0], encoded_values)
 
-class ArffReader(Filter):
+class ArffReader(Filter[Iterable[str], Any]):
     # Takes in ARFF bytes and splits it into attributes, encoders, and data while handling sparse data
 
-    def __init__(self,
-        label_col : str,
-        ignored   : Sequence[bool]    = [],
-        rmv_header: bool              = True):
-
-        self._label_col  = label_col
-        self._ignored = ignored
-        self._rmv_header = rmv_header
+    def __init__(self):
 
         # Match a comment
         self._r_comment = re.compile(r'^%')
+        
         # Match an empty line
         self.r_empty = re.compile(r'^\s+$')
-        # Match a header line, that is a line which starts by @ + a word
-        self._r_headerline = re.compile(r'^\s*@\S*')
-
-        self._r_datameta = re.compile(r'^@[Dd][Aa][Tt][Aa]')
+        
+        #@ lines give metadata describing the file. These always come at the top of the file
+        self._r_meta = re.compile(r'^\s*@\S*')
+        
+        #The @relation line simply names the data. In practice we don't really care about it.
         self._r_relation = re.compile(r'^@[Rr][Ee][Ll][Aa][Tt][Ii][Oo][Nn]\s*(\S*)')
+        
+        #The @attribute lines contain typing information for 'columns'
         self._r_attribute = re.compile(r'^\s*@[Aa][Tt][Tt][Rr][Ii][Bb][Uu][Tt][Ee]\s*(..*$)')
 
-    def _read_header(self, source: List[str]):
-        """Reads in raw arff string
+        #The @data line indicates when the data begins. After @data there should be no more @ lines.
+        self._r_data = re.compile(r'^@[Dd][Aa][Tt][Aa]')
 
-        Args
-            source:      source bytes returned from openML api call
-        Ret
-            relation:    name of arff relation
-            attributes:  list of attribute (column) titles
-            encoders:    list of encoders for the attributes
-            data         rows of data in lists comma separated
-        """
+    def _determine_encoder(self, tipe):
+        
+        is_numeric = tipe in ['numeric', 'integer', 'real']
+        is_one_hot = '{' in tipe
 
-        i = 0
-        # Pass first comments
-        while self._r_comment.match(source[i]):
-            i += 1
+        if is_numeric: return NumericEncoder()
+        if is_one_hot: return OneHotEncoder(singular_if_binary=True)
+        
+        return StringEncoder()
 
-        # Header is everything up to DATA attribute
-        relation = None
-        attributes = []
+    def _parse_file(self, lines: Iterable[str]):
+        in_meta_section=True
+        in_data_section=False
+
+        headers  = []
         encoders = []
-        while not self._r_datameta.match(source[i]):
-            m = self._r_headerline.match(source[i])
-            if m:
-                isattr = self._r_attribute.match(source[i])
-                if isattr:
-                    attr_string = isattr.group(1).lower().strip()
-                    i += 1
-                    tipe = re.split('[ ]',attr_string, 1)[1]
-                    attr = re.split('[ ]',attr_string)[0]
-                    if (tipe=='numeric' or tipe=='integer' or tipe=='real'):
-                        encoders.append(NumericEncoder())
-                    elif ('{' in tipe):
-                        tipe = re.sub(r'[{}]', '', tipe)
-                        vals = re.split(', ', tipe, 1)
-                        if(self._label_col != attr):
-                            encoders.append(OneHotEncoder(singular_if_binary=True))
-                        else:
-                            encoders.append(OneHotEncoder())
-                    else:
-                        encoders.append(StringEncoder())
+        data     = []
 
-                    attributes.append(attr)
-                else:
-                    isrel = self._r_relation.match(source[i])
-                    if isrel:
-                        relation = isrel.group(1)
-                    else:
-                        raise ValueError("Error parsing line %s" % i)
-                    i += 1
-            else:
-                i += 1
-        data = source[i+1:]
-        for j in range(len(data)):
-            if (data[j]==''):
-                data.remove(data[j])
-            else:
-                data[j] = re.split('[,]',data[j])
-        return relation, attributes, encoders, data
+        for line in lines:
+            
+            if in_meta_section:
+
+                if self._r_comment.match(line): continue
+                if self._r_relation.match(line): continue
+                
+                attribute_match = self._r_attribute.match(line)
+
+                if attribute_match:
+                    attribute_text = attribute_match.group(1).lower().strip()
+                    attribute_type  = re.split('[ ]', attribute_text, 1)[1]
+                    attribute_name  = re.split('[ ]', attribute_text)[0]
+
+                    headers.append(attribute_name)
+                    encoders.append(self._determine_encoder(attribute_type))
+
+                if self._r_data.match(line): 
+                    in_data_section = True
+                    in_meta_section = False
+                    continue
+
+            if in_data_section and line != '':
+                data.append(re.split('[,]', line))
+
+        return headers, encoders, data
 
     def _sparse_filler(self, items: List[List[str]], encoders: List[Encoder]) -> List[List[str]]: # Currently quite inefficient
         """Handles Sparse ARFF data
@@ -394,81 +379,14 @@ class ArffReader(Filter):
                 full[i][index] = val
         return full
 
-    def _clean(self, attributes, encoders, items):
-
-        split_column = cast(Union[Sequence[str],Sequence[int]], [self._label_col])
-
-        clean      = ArffCleaner(attributes, encoders, None, self._ignored, output_rows=False)
-        split      = ColSplitter(split_column)
-        rows       = Cartesian(CsvTranspose(True))
-        rmv_header = Cartesian(RowRemover([0]))
-
-        output: Any = items
-
-        with CobaConfig.Logger.time('encoding data... '):
-
-            output = rows.filter(split.filter(clean.filter(output)))
-
-            if self._rmv_header: 
-                output = rmv_header.filter(output)
-            
-            labels   = next(output)
-            features = next(output)
-
-            return features, labels
-
-    def filter(self, source: List[str]):
+    def filter(self, source: Iterable[str]):
     
-        relation, attributes, encoders, items = self._read_header(source)
-        items = self._sparse_filler(items, encoders)
-        features, labels = self._clean(attributes, encoders, items)
-        return features, labels
-
-class ArffCleaner(Filter[Iterable[str], Iterable[Sequence[Any]]]):
-    # Takes rows in a list of lists and converts them to encoded column form
-
-    def __init__(self,
-        attributes: Sequence[str] = [],
-        encoders: Sequence[Encoder] = [],
-        default: Encoder = None,
-        ignored: Sequence[bool] = [],
-        output_rows: bool = True):
-
-        self._attributes  = attributes
-        self._encoders = encoders
-        self._default  = default
-        self._ignored  = ignored
-        self._output_rows = output_rows
-
-    def filter(self, items: Iterable[str]) -> Iterable[Sequence[Any]]:
-
-        ignored_headers = list(itertools.compress(self._attributes, self._ignored))
-
-        cleaning_steps: Sequence[Filter] = [
-            CsvTranspose(), ArffHeaderAdder(self._attributes), ColRemover(ignored_headers), ColEncoder(self._attributes, self._encoders, self._default)
-        ]
-
-        output: Any = items
+        attributes, encoders, items = self._parse_file(source)
         
-        for cleaning_step in cleaning_steps: output = cleaning_step.filter(output)
-        return output if not self._output_rows else CsvTranspose().filter(output)
+        items = self._sparse_filler(items, encoders)
 
-class ArffHeaderAdder(Filter[Iterable[Any], Iterable[Sequence[Any]]]):
-    """Adds the attribute name to each column list
+        #do we want to encode here? If we do it won't be quite as seemless with OpenML.
+        #I think for now we will leave encoding out from this portion of code. In the 
+        #future if ARFF support is desired outside of the OpenML context it can be added in.
 
-    Args
-        attributes:  list of attributes
-    Ret
-        list of attribute name and then original column values
-    """ 
-
-    def __init__(self,
-        attributes):
-
-        self._attributes = attributes
-
-    def filter(self, columns: Iterable[Sequence[Any]]) -> Iterable[Sequence[Any]]:
-
-        for index, raw_col in enumerate(columns):
-
-            yield (self._attributes[index], *raw_col)
+        return [attributes] + items
