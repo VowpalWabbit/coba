@@ -28,13 +28,28 @@ class Transpose_Tests(unittest.TestCase):
         
         self.assertEqual(expected, list(Transpose().filter(given)))
 
-    def test_sparse_transpose(self):
+    def test_sparse_all_column_transpose(self):
         given    = [([0,1],[0,0]), ([2],[0])]
         expected = [([0],[0]),([0],[0]),([1],[0])]
-        
+
         self.assertEqual(expected, list(Transpose().filter(given)))
         self.assertEqual(given   , list(Transpose().filter(expected)))
-    
+
+    def test_sparse_disordered_column_transpose(self):
+        disordered_given = [([1,0],[1,0]), ([2],[0])]
+        col_expected     = [([0],[0]),([0],[1]),([1],[0])]
+        row_expected     = [([0,1],[0,1]), ([2],[0])]
+
+        self.assertEqual(col_expected, list(Transpose().filter(disordered_given)))
+        self.assertEqual(row_expected, list(Transpose().filter(col_expected)))
+
+    def test_sparse_missing_column_transpose(self):
+        given    = [([0,1],[0,0]),([3],[0])]
+        expected = [([0],[0]),([0],[0]),([],[]),([1],[0])]
+
+        self.assertEqual(expected, list(Transpose().filter(given)))
+        self.assertEqual(given   , list(Transpose().filter(expected)))
+
     def test_sparse_transpose_tuples(self):
         given    = [([0,1],[(0,1),0]),([2],[(1,1)])]
         expected = [([0],[(0,1)]),([0],[0]),([1],[(1,1)])]
@@ -54,7 +69,7 @@ class Encode_Tests(unittest.TestCase):
 
     def test_dense_encode_numeric(self):
         encode = Encode([NumericEncoder(), NumericEncoder()])
-        self.assertEqual( [[1,2,3],[4,5,6]], list(encode.filter([[1,2,3],[4,5,6]])))
+        self.assertEqual( [[1,2,3],[4,5,6]], list(encode.filter([["1","2","3"],["4","5","6"]])))
 
     def test_dense_encode_onehot(self):
         encode = Encode([OneHotEncoder([1,2,3]), OneHotEncoder()])
@@ -66,9 +81,9 @@ class Encode_Tests(unittest.TestCase):
 
     def test_sparse_encode_numeric(self):
         encode = Encode([NumericEncoder(), NumericEncoder()])
-        given    = [([0,1,2],[1,2,3]),([0,1,2],[4,5,6])]
+        given    = [([0,1,2],["1","2","3"]),([0,1,2],["4","5","6"])]
         expected = [([0,1,2],[1,2,3]),([0,1,2],[4,5,6])]
-        
+
         self.assertEqual(expected, list(encode.filter(given)))
 
     def test_sparse_encode_onehot(self):

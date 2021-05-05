@@ -6,6 +6,7 @@ from typing import Tuple, Sequence, Any, List, cast
 
 from coba.simulations.core import Context, Action, Simulation, ClassificationSimulation
 from coba.data.sources import Source, HttpSource
+from coba.data.pipes import Pipe
 from coba.tools import CobaConfig
 
 class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
@@ -31,7 +32,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             d_key = f'https://www.openml.org/api/v1/json/data/{data_id}'
             t_key = f'https://www.openml.org/api/v1/json/data/features/{data_id}'
 
-            d_bytes  = self._query(d_key, "descr")            
+            d_bytes  = self._query(d_key, "descr")
             d_object = json.loads(d_bytes.decode('utf-8'))["data_set_description"]
 
             if d_object['status'] == 'deactivated':
@@ -92,9 +93,15 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                     o_bytes   = self._query(o_key, "obser", md5_checksum)
                     file_rows = list(CsvReader().filter(o_bytes.decode('utf-8').splitlines()))
 
-            file_headers  = [ header.lower() for header in file_rows.pop(0)]
+            if isinstance(file_rows[0], tuple) and len(file_rows[0]) == 2:
+                file_headers  = [ header.lower() for header in file_rows.pop(0)[1]]
+            else:
+                file_headers  = [ header.lower() for header in file_rows.pop(0)]
+
             file_encoders = [ encoders[file_headers.index(header)] for header in headers]
-            file_cols     = list(Encode(file_encoders).filter(Transpose().filter(file_rows)))
+
+            file_cols = list(Transpose().filter(file_rows))
+            file_cols = list(Encode(file_encoders).filter(file_cols))
 
             for ignored_header in compress(headers, ignored):
                 file_cols.pop(file_headers.index(ignored_header))
@@ -106,6 +113,9 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             #we only cache after all the data has been successfully loaded
             for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:
                 CobaConfig.Cacher.put(key,bytes)
+
+            if isinstance(label_col, tuple) and len(label_col) == 2:
+                label_col = label_col[1]
 
             return feature_rows, label_col
 
@@ -177,7 +187,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             raise Exception(message) from None
 
         return bites
-        
+
     def _get_classification_target(self, data_id):
 
         t_key = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'

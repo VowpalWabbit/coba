@@ -22,14 +22,14 @@ import re
 # one dict for all rows, one dict for each row
 # one dict for all columns, one dict for each column
 
-_T_DenseData  = Sequence[Any]
-_T_SparseData = Tuple[Sequence[int], Sequence[Any]]
+_T_DenseData  = Iterable[Sequence[Any]]
+_T_SparseData = Iterable[Tuple[Sequence[int], Sequence[Any]]]
 _T_Data       = Union[_T_DenseData, _T_SparseData]
 
 _T_out = TypeVar("_T_out", bound=Any, covariant=True)
 _T_in  = TypeVar("_T_in", bound=Any, contravariant=True)
 
-def _is_dense(items: Iterable[_T_Data])-> Tuple[bool, Iterable[_T_Data]]:
+def _is_dense(items: _T_Data)-> Tuple[bool, _T_Data]:
 
     items = iter(items)
     item0 = next(items)
@@ -98,7 +98,9 @@ class JsonDecode(Filter[str, Any]):
         return self._decoder.decode(item)
 
 class ArffReader(Filter[Iterable[str], Any]):
-    # Takes in ARFF bytes and splits it into attributes, encoders, and data while handling sparse data
+    """
+        https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
+    """
 
     def __init__(self):
 
@@ -120,7 +122,12 @@ class ArffReader(Filter[Iterable[str], Any]):
         #The @data line indicates when the data begins. After @data there should be no more @ lines.
         self._r_data = re.compile(r'^@[Dd][Aa][Tt][Aa]')
 
-    def _determine_encoder(self, tipe):
+    def _is_dense(self, data: Sequence[Sequence[str]]) -> bool:
+        _starts_with_curly = data[0][ 0].startswith("{")
+        _ends_with_curly   = data[0][-1].endswith("}")
+        return not _starts_with_curly or not _ends_with_curly
+
+    def _determine_encoder(self, tipe: str) -> Encoder:
 
         is_numeric = tipe in ['numeric', 'integer', 'real']
         is_one_hot = '{' in tipe
@@ -130,13 +137,13 @@ class ArffReader(Filter[Iterable[str], Any]):
 
         return StringEncoder()
 
-    def _parse_file(self, lines: Iterable[str]):
+    def _parse_file(self, lines: Iterable[str]) -> Tuple[_T_Data,Sequence[Encoder]]:
         in_meta_section=True
         in_data_section=False
 
-        headers  = []
-        encoders = []
-        data     = []
+        headers : List[str]           = []
+        encoders: List[Encoder]       = []
+        data    : List[Sequence[str]] = []
 
         for line in lines:
 
@@ -149,8 +156,8 @@ class ArffReader(Filter[Iterable[str], Any]):
 
                 if attribute_match:
                     attribute_text = attribute_match.group(1).lower().strip()
-                    attribute_type  = re.split('[ ]', attribute_text, 1)[1]
-                    attribute_name  = re.split('[ ]', attribute_text)[0]
+                    attribute_type = re.split('[ ]', attribute_text, 1)[1]
+                    attribute_name = re.split('[ ]', attribute_text)[0]
 
                     headers.append(attribute_name)
                     encoders.append(self._determine_encoder(attribute_type))
@@ -163,64 +170,52 @@ class ArffReader(Filter[Iterable[str], Any]):
             if in_data_section and line != '':
                 data.append(re.split('[,]', line))
 
-        return headers, encoders, data
+        return self._parse_data(headers,data), encoders
 
-    def _sparse_filler(self, items: List[List[str]], encoders: List[Encoder]) -> List[List[str]]: # Currently quite inefficient
-        """Handles Sparse ARFF data
+    def _parse_data(self, headers: Sequence[str], data: Sequence[Sequence[str]]) -> _T_Data:
 
-        Args
-            items:      Data from openML api call as returned by read_header
-            encoders:   Encoders from openML api call as returned by read_header
-        Ret
-            if sparse --     full:  non-sparse version of data
-            if non-sparse -- items: original data
-        """
+        if self._is_dense(data): return [headers] + list(data)
 
-        _starts_with_curly = items[0][0][0] == "{"
-        _ends_with_curly = items[0][-1][-1] == "}"
-        if(not _starts_with_curly or not _ends_with_curly):
-            return items
+        sparse_data_rows: List[Tuple[Sequence[int], Sequence[str]]] = []
+        sparse_data_rows.append( ( list(range(len(headers))), headers ) )
 
-        full = []
-        # Creates non-sparse version of data. 
-        for i in range(len(items)):
-            r = []
-            for encoder in encoders:
-                app = ""
-                if(isinstance(encoder, NumericEncoder)):
-                    app = "0"
-                r.append(app)
-            full.append(r)
+        for data_row in data:
 
-        # Fills in data from items
-        for i in range(len(items)):
-            items[i][0] = items[i][0].replace('{', '', 1)
-            items[i][-1] = items[i][-1].replace('}', '', 1)
-            for j in range(len(items[i])):
-                split = re.split(' ', items[i][j], 1)
-                index = int(split[0])
-                val = split[1]
-                full[i][index] = val
-        return full
+            index_list: List[int] = []
+            value_list: List[str] = []
+
+            for item in data_row:
+                split = re.split(' ', item.strip("}{"), 1)
+
+                index_list.append(int(split[0]))
+                value_list.append(split[1])
+
+            sparse_data_rows.append( (index_list, value_list) )
+
+        return sparse_data_rows
 
     def filter(self, source: Iterable[str]):
 
-        attributes, encoders, items = self._parse_file(source)
+        data, encoders = self._parse_file(source)
 
-        items = self._sparse_filler(items, encoders)
+        return data
 
-        #do we want to encode here? If we do it won't be quite as seemless with OpenML.
+        #Do we want to encode here? If we do, then this code won't be quite as seemless with OpenML.
         #I think for now we will leave encoding out from this portion of code. In the 
         #future if ARFF support is desired outside of the OpenML context it can be added in.
+        #This particulary causes issues with label encoding when reading OpenML Sources.
+        # data       = list(data)
+        # header_row = data.pop(0)
+        # data_rows  = data
+        # data_rows  = Transpose().filter(Encode(encoders).filter(Transpose().filter(data_rows)))
+        # return [header_row] + list(data_rows)
 
-        return [attributes] + items
-
-class CsvReader(Filter[Iterable[str], Iterable[_T_DenseData]]):
+class CsvReader(Filter[Iterable[str], _T_DenseData]):
     def filter(self, items: Iterable[str]) -> Iterable[Sequence[str]]:
         return filter(None,csv.reader(items))
 
-class Transpose(Filter[Iterable[_T_Data], Iterable[_T_Data]]):
-    def filter(self, items: Iterable[_T_Data]) -> Iterable[_T_Data]:
+class Transpose(Filter[_T_Data, _T_Data]):
+    def filter(self, items: _T_Data) -> _T_Data:
 
         is_dense,items =_is_dense(items)
 
@@ -234,9 +229,12 @@ class Transpose(Filter[Iterable[_T_Data], Iterable[_T_Data]]):
                     sparse_transposed_items[inner_id][0].append(outer_id)
                     sparse_transposed_items[inner_id][1].append(value)
 
-            return list(sparse_transposed_items.values())
+            max_key = max(sparse_transposed_items.keys())
 
-class Flatten(Filter[Iterable[_T_Data], Iterable[_T_Data]]):
+            #this loop ensures the column order is maintained and empty columns aren't lost
+            return [ sparse_transposed_items[key] for key in range(max_key+1) ]
+
+class Flatten(Filter[_T_Data, _T_Data]):
     def filter(self, items: Iterable[Sequence[Any]]) -> Iterable[Sequence[Any]]:
         is_dense,items =_is_dense(items)
         
@@ -253,12 +251,12 @@ class Flatten(Filter[Iterable[_T_Data], Iterable[_T_Data]]):
             else:
                 yield item
 
-class Encode(Filter[Iterable[_T_Data],Iterable[_T_Data]]):
+class Encode(Filter[_T_Data, _T_Data]):
 
     def __init__(self, encoders: Sequence[Encoder]):
         self._encoders = encoders
 
-    def filter(self, items: Iterable[_T_Data]) -> Iterable[_T_Data]:
+    def filter(self, items: _T_Data) -> _T_Data:
         
         is_dense,items =_is_dense(items)
 
