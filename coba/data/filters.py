@@ -11,13 +11,12 @@ import json
 
 from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Generic, Hashable, Iterable, TypeVar, Any, Sequence, Union, Tuple, cast, Dict, List
+from typing import Generic, Iterable, TypeVar, Any, Sequence, Union, Tuple, List
 
 from requests import Response
 
 from coba.data.encoders import Encoder, OneHotEncoder, NumericEncoder, StringEncoder
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
-from coba.tools import CobaConfig
 import re
 
 # one dict for all rows, one dict for each row
