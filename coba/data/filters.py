@@ -247,7 +247,8 @@ class Transpose(Filter[_T_Data, _T_Data]):
             max_key = max(sparse_transposed_items.keys())
 
             #this loop ensures the column order is maintained and empty columns aren't lost
-            return [ sparse_transposed_items[key] for key in range(max_key+1) ]
+            #it also converts all arrays into tuples
+            return [ tuple(map(tuple,sparse_transposed_items[key]))  for key in range(max_key+1) ]
 
 class Flatten(Filter[_T_Data, _T_Data]):
     def filter(self, items: Iterable[Sequence[Any]]) -> Iterable[Sequence[Any]]:

@@ -29,30 +29,30 @@ class Transpose_Tests(unittest.TestCase):
         self.assertEqual(expected, list(Transpose().filter(given)))
 
     def test_sparse_all_column_transpose(self):
-        given    = [([0,1],[0,0]), ([2],[0])]
-        expected = [([0],[0]),([0],[0]),([1],[0])]
+        given    = [((0,1),(0,0)), ((2,),(0,))]
+        expected = [((0,),(0,)),((0,),(0,)),((1,),(0,))]
 
         self.assertEqual(expected, list(Transpose().filter(given)))
         self.assertEqual(given   , list(Transpose().filter(expected)))
 
     def test_sparse_disordered_column_transpose(self):
-        disordered_given = [([1,0],[1,0]), ([2],[0])]
-        col_expected     = [([0],[0]),([0],[1]),([1],[0])]
-        row_expected     = [([0,1],[0,1]), ([2],[0])]
+        disordered_given = [((1,0),(1,0)), ((2,),(0,))]
+        col_expected     = [((0,),(0,))  , ((0,),(1,)), ((1,),(0,))]
+        row_expected     = [((0,1),(0,1)), ((2,),(0,))]
 
         self.assertEqual(col_expected, list(Transpose().filter(disordered_given)))
         self.assertEqual(row_expected, list(Transpose().filter(col_expected)))
 
     def test_sparse_missing_column_transpose(self):
-        given    = [([0,1],[0,0]),([3],[0])]
-        expected = [([0],[0]),([0],[0]),([],[]),([1],[0])]
+        given    = [((0,1),(0,0)),((3,),(0,))]
+        expected = [((0,),(0,)),((0,),(0,)),((),()),((1,),(0,))]
 
         self.assertEqual(expected, list(Transpose().filter(given)))
         self.assertEqual(given   , list(Transpose().filter(expected)))
 
     def test_sparse_transpose_tuples(self):
-        given    = [([0,1],[(0,1),0]),([2],[(1,1)])]
-        expected = [([0],[(0,1)]),([0],[0]),([1],[(1,1)])]
+        given    = [((0,1),((0,1),0)),((2,),((1,1),))]
+        expected = [((0,),((0,1),))  ,((0,),(0,)),((1,),((1,1),))]
         
         self.assertEqual(expected, list(Transpose().filter(given)))
         self.assertEqual(given   , list(Transpose().filter(expected)))

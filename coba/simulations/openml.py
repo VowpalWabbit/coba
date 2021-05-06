@@ -128,8 +128,10 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             return feature_rows, label_col
 
-        except:
-
+        except KeyboardInterrupt:
+            raise
+        
+        except Exception:
             #if something went wrong we want to clear the cache 
             #in case the cache has become corrupted somehow
             for k in [d_key, t_key, o_key]:
