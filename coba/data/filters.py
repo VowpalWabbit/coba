@@ -11,7 +11,7 @@ import json
 
 from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Generic, Iterable, TypeVar, Any, Sequence, Union, Tuple, List
+from typing import Generic, Iterable, TypeVar, Any, Sequence, Union, Tuple, List, Optional
 
 from requests import Response
 
@@ -141,9 +141,9 @@ class ArffReader(Filter[Iterable[str], Any]):
         in_meta_section=True
         in_data_section=False
 
-        headers : List[str]           = []
-        encoders: List[Encoder]       = []
-        data    : List[Sequence[str]] = []
+        headers   : List[str]     = []
+        encoders  : List[Encoder] = []
+        data_lines: List[str]     = []
 
         for line in lines:
 
@@ -168,37 +168,15 @@ class ArffReader(Filter[Iterable[str], Any]):
                     continue
 
             if in_data_section and line != '':
-                data.append(re.split('[,]', line))
+                data_lines.append(line)
 
-        return self._parse_data(headers,data), encoders
+        parsed_data = CsvReader().filter(itertools.chain([",".join(headers)], data_lines))
 
-    def _parse_data(self, headers: Sequence[str], data: Sequence[Sequence[str]]) -> _T_Data:
-
-        if self._is_dense(data): return [headers] + list(data)
-
-        sparse_data_rows: List[Tuple[Tuple[int,...], Tuple[str,...]]] = []
-        sparse_data_rows.append( ( tuple(range(len(headers))), tuple(headers) ) )
-
-        for data_row in data:
-
-            index_list: List[int] = []
-            value_list: List[str] = []
-
-            for item in data_row:
-                split = re.split(' ', item.strip("}{"), 1)
-
-                index_list.append(int(split[0]))
-                value_list.append(split[1])
-
-            sparse_data_rows.append( ( tuple(index_list), tuple(value_list)) )
-
-        return sparse_data_rows
+        return parsed_data, encoders
 
     def filter(self, source: Iterable[str]):
 
         data, encoders = self._parse_file(source)
-
-        return data
 
         #Do we want to encode here? If we do, then this code won't be quite as seemless with OpenML.
         #I think for now we will leave encoding out from this portion of code. In the 
@@ -210,9 +188,46 @@ class ArffReader(Filter[Iterable[str], Any]):
         # data_rows  = Transpose().filter(Encode(encoders).filter(Transpose().filter(data_rows)))
         # return [header_row] + list(data_rows)
 
+        return data
+
 class CsvReader(Filter[Iterable[str], _T_DenseData]):
-    def filter(self, items: Iterable[str]) -> Iterable[Sequence[str]]:
-        return filter(None,csv.reader(items))
+    def __init__(self, with_header: bool = True):
+        self._with_header = with_header
+
+    def filter(self, items: Iterable[str]) -> _T_Data:
+        
+        lines = filter(None,csv.reader(items))
+
+        #we assume there is at least one data row
+        headers   = next(lines) if self._with_header else None
+        data_row1 = next(lines)
+
+        is_sparse = data_row1[0].startswith("{") and data_row1[-1].endswith("}")
+
+        data_lines = itertools.chain([data_row1], lines)
+
+        return self._sparse_parser(headers, data_lines) if is_sparse else self._dense_parser(headers, data_lines)
+
+    def _dense_parser(self, headers: Optional[Sequence[str]], data_rows: Iterable[Sequence[str]]) -> _T_DenseData:        
+        return itertools.chain([headers], data_rows) if headers else data_rows
+    
+    def _sparse_parser(self, headers: Optional[Sequence[str]], data_rows: Iterable[Sequence[str]]) -> _T_SparseData:
+
+        if headers:
+            yield ( tuple(range(len(headers))), tuple(headers) )
+
+        for data_row in data_rows:
+
+            index_list: List[int] = []
+            value_list: List[str] = []
+
+            for item in data_row:
+                split = item.strip("}{").split(' ', 1)
+                
+                index_list.append(int(split[0]))
+                value_list.append(split[1])
+
+            yield ( tuple(index_list), tuple(value_list) )        
 
 class Transpose(Filter[_T_Data, _T_Data]):
     def filter(self, items: _T_Data) -> _T_Data:

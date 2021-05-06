@@ -110,12 +110,21 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             label_col    = file_cols.pop(file_headers.index(target))
             feature_rows = list(Flatten().filter(Transpose().filter(file_cols)))
 
+            if isinstance(label_col, tuple) and len(label_col) == 2:
+                label_rows = label_col[0]
+                label_col  = label_col[1]
+
+                #There are some sparse datasets that have missing labels.
+                #This line takes care of that. For an example of this see
+                #https://www.openml.org/d/1592
+
+                feature_rows = [feature_rows[i] for i in label_rows]
+
+            assert len(feature_rows) == len(label_col),  "Mismatched lengths of features and labels"
+
             #we only cache after all the data has been successfully loaded
             for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:
                 CobaConfig.Cacher.put(key,bytes)
-
-            if isinstance(label_col, tuple) and len(label_col) == 2:
-                label_col = label_col[1]
 
             return feature_rows, label_col
 
