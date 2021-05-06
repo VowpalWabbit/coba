@@ -23,7 +23,7 @@ import re
 # one dict for all columns, one dict for each column
 
 _T_DenseData  = Iterable[Sequence[Any]]
-_T_SparseData = Iterable[Tuple[Sequence[int], Sequence[Any]]]
+_T_SparseData = Iterable[Tuple[Tuple[int,...], Tuple[Any,...]]]
 _T_Data       = Union[_T_DenseData, _T_SparseData]
 
 _T_out = TypeVar("_T_out", bound=Any, covariant=True)
@@ -176,8 +176,8 @@ class ArffReader(Filter[Iterable[str], Any]):
 
         if self._is_dense(data): return [headers] + list(data)
 
-        sparse_data_rows: List[Tuple[Sequence[int], Sequence[str]]] = []
-        sparse_data_rows.append( ( list(range(len(headers))), headers ) )
+        sparse_data_rows: List[Tuple[Tuple[int,...], Tuple[str,...]]] = []
+        sparse_data_rows.append( ( tuple(range(len(headers))), tuple(headers) ) )
 
         for data_row in data:
 
@@ -190,7 +190,7 @@ class ArffReader(Filter[Iterable[str], Any]):
                 index_list.append(int(split[0]))
                 value_list.append(split[1])
 
-            sparse_data_rows.append( (index_list, value_list) )
+            sparse_data_rows.append( ( tuple(index_list), tuple(value_list)) )
 
         return sparse_data_rows
 

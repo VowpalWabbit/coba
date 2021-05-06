@@ -224,7 +224,7 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
             probs   .append(prob)
             actions .append(action)
 
-        rewards = reward.observe(list(zip(keys, actions))) 
+        rewards = reward.observe(list(zip(keys, contexts, actions))) 
 
         for (key,context,action,reward,prob) in zip(keys,contexts,actions,rewards,probs):
             learner.learn(key,context,action,reward,prob)

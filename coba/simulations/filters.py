@@ -113,7 +113,7 @@ class PCA(Filter[Simulation,Simulation]):
         new_contexts = (feat_matrix @ comp_vecs ) / np.sqrt(comp_vals) #type:ignore
         new_contexts = new_contexts[:,np.argsort(-comp_vals)]
 
-        interactions = [ Interaction(tuple(c), i.actions, i.key) for c, i in zip(new_contexts,simulation.interactions) ]
+        interactions = [ Interaction(i.key, tuple(c), i.actions) for c, i in zip(new_contexts,simulation.interactions) ]
 
         return MemorySimulation(interactions, simulation.reward)
 
