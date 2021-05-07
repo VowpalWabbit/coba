@@ -108,7 +108,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 file_headers.remove(ignored_header)
 
             label_col    = file_cols.pop(file_headers.index(target))
-            feature_rows = list(Flatten().filter(Transpose().filter(file_cols)))
+            feature_rows = list(Transpose().filter(Flatten().filter(file_cols)))
 
             if isinstance(label_col, tuple) and len(label_col) == 2:
                 label_rows = label_col[0]

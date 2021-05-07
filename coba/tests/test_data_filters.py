@@ -28,42 +28,107 @@ class Transpose_Tests(unittest.TestCase):
         
         self.assertEqual(expected, list(Transpose().filter(given)))
 
-    def test_sparse_all_column_transpose(self):
-        given    = [((0,1),(0,0)), ((2,),(0,))]
-        expected = [((0,),(0,)),((0,),(0,)),((1,),(0,))]
+    def test_sparse_with_all_columns_transpose(self):
+        row0 = ((0,1),(0,1))
+        row1 = ((2, ),(0, ))
 
-        self.assertEqual(expected, list(Transpose().filter(given)))
-        self.assertEqual(given   , list(Transpose().filter(expected)))
+        col0 = ((0,),(0,))
+        col1 = ((0,),(1,))
+        col2 = ((1,),(0,))
 
-    def test_sparse_disordered_column_transpose(self):
-        disordered_given = [((1,0),(1,0)), ((2,),(0,))]
-        col_expected     = [((0,),(0,))  , ((0,),(1,)), ((1,),(0,))]
-        row_expected     = [((0,1),(0,1)), ((2,),(0,))]
+        self.assertEqual([col0,col1,col2], list(Transpose().filter([row0,row1])))
+        self.assertEqual([row0,row1], list(Transpose().filter([col0,col1,col2])))
 
-        self.assertEqual(col_expected, list(Transpose().filter(disordered_given)))
-        self.assertEqual(row_expected, list(Transpose().filter(col_expected)))
+    def test_sparse_with_disordered_column_transpose(self):
+        row0 = ((1,0),(1,0))
+        row1 = ((2, ),(0, ))
 
-    def test_sparse_missing_column_transpose(self):
-        given    = [((0,1),(0,0)),((3,),(0,))]
-        expected = [((0,),(0,)),((0,),(0,)),((),()),((1,),(0,))]
+        col0 = ((0,),(0,))
+        col1 = ((0,),(1,))
+        col2 = ((1,),(0,))
 
-        self.assertEqual(expected, list(Transpose().filter(given)))
-        self.assertEqual(given   , list(Transpose().filter(expected)))
+        self.assertEqual([col0,col1,col2], list(Transpose().filter([row0,row1])))
 
-    def test_sparse_transpose_tuples(self):
-        given    = [((0,1),((0,1),0)),((2,),((1,1),))]
-        expected = [((0,),((0,1),))  ,((0,),(0,)),((1,),((1,1),))]
-        
-        self.assertEqual(expected, list(Transpose().filter(given)))
-        self.assertEqual(given   , list(Transpose().filter(expected)))
+    def test_sparse_with_missing_column_transpose(self):
+        row0 = ((0,1),(0,0))
+        row1 = ((3, ),(0, ))
+
+        col0 = ((0,),(0,))
+        col1 = ((0,),(0,))
+        col2 = ((),())
+        col3 = ((1,),(0,))
+
+        self.assertEqual([col0,col1,col2,col3], list(Transpose().filter([row0,row1])))
+        self.assertEqual([row0,row1], list(Transpose().filter([col0,col1,col2,col3])))
+
+    def test_sparse_with_tuples_transpose(self):
+
+        row0 = ((0,1),((0,1),0))
+        row1 = ((2,),((1,1),))
+
+        col0 = ((0,),((0,1),))
+        col1 = ((0,),(0,))
+        col2 = ((1,),((1,1),))
+
+        self.assertEqual([col0,col1,col2], list(Transpose().filter([row0,row1])))
+        self.assertEqual([row0,row1]     , list(Transpose().filter([col0,col1,col2])))
 
 class Flatten_Tests(unittest.TestCase):
 
-    def test_flatten_flat_list(self):
-        self.assertEqual( [(1,2,3),(4,5,6)], list(Flatten().filter([[1,2,3],[4,5,6]])) )
+    def test_dense_numeric_col_flatten(self):
 
-    def test_flatten_deep_list(self):
-        self.assertEqual( [(1,2,3),(4,5,6)], list(Flatten().filter([[1,[2,[3]]],[[4,5,6]]])) )
+        given_col0 = [1,2,3]
+        given_col1 = [4,5,6]
+
+        expected_col0 = (1,2,3)
+        expected_col1 = (4,5,6)
+
+        given    = [given_col0, given_col1]
+        expected = [expected_col0, expected_col1]
+
+        self.assertEqual( expected, list(Flatten().filter(given)) )
+
+    def test_dense_onehot_col_flatten(self):
+
+        given_col0 = [(0,1), (1,0), (1,0)]
+        given_col1 = [1    , 2    , 3    ]
+
+        expected_col0 = (0, 1, 1)
+        expected_col1 = (1, 0, 0)
+        expected_col2 = (1, 2, 3)
+
+        given    = [given_col0, given_col1]
+        expected = [expected_col0, expected_col1, expected_col2]
+
+        self.assertEqual(expected, list(Flatten().filter(given)) )
+
+    def test_sparse_numeric_col_flatten(self):
+
+        given_col0 = [ [0,1,2], [2,3,4] ]
+        given_col1 = [ [0,1,2], [1,2,3] ]
+
+        expected_col0 = ( (0,1,2), (2, 3, 4) )
+        expected_col1 = ( (0,1,2), (1, 2, 3) )
+
+        given    = [given_col0, given_col1]
+        expected = [expected_col0, expected_col1]
+
+        self.assertEqual(expected, list(Flatten().filter(given)) )
+
+
+    def test_sparse_onehot_col_flatten(self):
+
+        given_col0 = [ [0,1,2], [(0,1), (1,0), (1,0)] ]
+        given_col1 = [ [0,1,2], [1    , 2    , 3    ] ]
+
+        expected_col0 = ( (0,1,2), (0, 1, 1) )
+        expected_col1 = ( (0,1,2), (1, 0, 0) )
+        expected_col2 = ( (0,1,2), (1, 2, 3) )
+
+        given    = [given_col0, given_col1]
+        expected = [expected_col0, expected_col1, expected_col2]
+
+        self.assertEqual(expected, list(Flatten().filter(given)) )
 
 class Encode_Tests(unittest.TestCase):
 
@@ -87,7 +152,7 @@ class Encode_Tests(unittest.TestCase):
         self.assertEqual(expected, list(encode.filter(given)))
 
     def test_sparse_encode_onehot(self):
-        encode = Encode([OneHotEncoder([1,2,3]), OneHotEncoder()])
+        encode   = Encode([OneHotEncoder([1,2,3]), OneHotEncoder()])
         given    = [([0,1,2],[1,2,2]),([0,1,2],[4,5,6])]
         expected = [([0,1,2],[(1,0,0),(0,1,0),(0,1,0)]),([0,1,2],[(1,0,0),(0,1,0),(0,0,1)])]
 

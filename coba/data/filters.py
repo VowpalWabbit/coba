@@ -22,8 +22,10 @@ import re
 # one dict for all rows, one dict for each row
 # one dict for all columns, one dict for each column
 
-_T_DenseData  = Iterable[Sequence[Any]]
-_T_SparseData = Iterable[Tuple[Tuple[int,...], Tuple[Any,...]]]
+_T_DenseRow   = Sequence[Any]
+_T_SparseRow  = Tuple[Tuple[int,...], Tuple[Any,...]]
+_T_DenseData  = Iterable[_T_DenseRow]
+_T_SparseData = Iterable[_T_SparseRow]
 _T_Data       = Union[_T_DenseData, _T_SparseData]
 
 _T_out = TypeVar("_T_out", bound=Any, covariant=True)
@@ -97,7 +99,7 @@ class JsonDecode(Filter[str, Any]):
     def filter(self, item: str) -> Any:
         return self._decoder.decode(item)
 
-class ArffReader(Filter[Iterable[str], Any]):
+class ArffReader(Filter[Iterable[str], _T_Data]):
     """
         https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
@@ -121,11 +123,6 @@ class ArffReader(Filter[Iterable[str], Any]):
 
         #The @data line indicates when the data begins. After @data there should be no more @ lines.
         self._r_data = re.compile(r'^@[Dd][Aa][Tt][Aa]')
-
-    def _is_dense(self, data: Sequence[Sequence[str]]) -> bool:
-        _starts_with_curly = data[0][ 0].startswith("{")
-        _ends_with_curly   = data[0][-1].endswith("}")
-        return not _starts_with_curly or not _ends_with_curly
 
     def _determine_encoder(self, tipe: str) -> Encoder:
 
@@ -174,7 +171,7 @@ class ArffReader(Filter[Iterable[str], Any]):
 
         return parsed_data, encoders
 
-    def filter(self, source: Iterable[str]):
+    def filter(self, source: Iterable[str]) -> _T_Data:
 
         data, encoders = self._parse_file(source)
 
@@ -190,7 +187,7 @@ class ArffReader(Filter[Iterable[str], Any]):
 
         return data
 
-class CsvReader(Filter[Iterable[str], _T_DenseData]):
+class CsvReader(Filter[Iterable[str], _T_Data]):
     def __init__(self, with_header: bool = True):
         self._with_header = with_header
 
@@ -251,23 +248,37 @@ class Transpose(Filter[_T_Data, _T_Data]):
             return [ tuple(map(tuple,sparse_transposed_items[key]))  for key in range(max_key+1) ]
 
 class Flatten(Filter[_T_Data, _T_Data]):
-    def filter(self, items: Iterable[Sequence[Any]]) -> Iterable[Sequence[Any]]:
-        is_dense,items =_is_dense(items)
-        
-        return map(tuple,map(self._flat, items)) if is_dense else items
+    #Assumes column major order
 
-    def _flat(self, item: Union[Sequence[Any], Any]) -> Sequence[Any]:
+    def filter(self, data: _T_Data) -> _T_Data:
+        
+        for col in data:
+            
+            #this will fail on a two row dense representation with a one hot encoded column
+            is_sparse = (len(col) == 2) and isinstance(col[0], collections.Sequence) and isinstance(col[0], collections.Sequence)
+
+            if not is_sparse: 
+                if isinstance(col[0],collections.Sequence):
+                    for flat_col in zip(*col):
+                        yield flat_col
+                else:
+                    yield tuple(col)
+            
+            else:
+                if isinstance(col[1][0],collections.Sequence):
+                    for flat_col in zip(*col[1]):
+                        yield (tuple(col[0]), flat_col)
+                else:
+                    yield (tuple(col[0]), tuple(col[1]))
+
+        #return map(tuple,map(self._flat, data)) if is_dense else data
+
+    def _flat(self, item: Union[_T_DenseRow, _T_SparseRow] ) -> Union[_T_DenseRow, _T_SparseRow]:
         return sum(map(self._flat, item),[]) if isinstance(item, collections.Sequence) else [item]
 
-    def _flatter(self, items: Iterable[Sequence[Any]]) -> Iterable[Sequence[Any]]:
-        for item in items:
-            if isinstance(item[1], collections.Sequence) and not isinstance(item[1], str):
-                for i in item[1:]:
-                    yield [item[0]] + list(i)
-            else:
-                yield item
-
 class Encode(Filter[_T_Data, _T_Data]):
+
+    #Assumes column major order
 
     def __init__(self, encoders: Sequence[Encoder]):
         self._encoders = encoders
