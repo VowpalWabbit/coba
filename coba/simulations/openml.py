@@ -52,7 +52,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 ignored.append(tipe['is_ignore'] == 'true' or tipe['is_row_identifier'] == 'true')
 
                 if tipe['is_target'] == 'true':
-                    target = tipe['name']
+                    target = tipe['name'].lower()
 
                 if tipe['data_type'] == 'numeric':
                     encoders.append(NumericEncoder())  
