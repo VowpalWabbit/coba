@@ -93,7 +93,9 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                     o_bytes   = self._query(o_key, "obser", md5_checksum)
                     file_rows = list(CsvReader().filter(o_bytes.decode('utf-8').splitlines()))
 
-            if isinstance(file_rows[0], tuple) and len(file_rows[0]) == 2:
+            is_sparse_data = isinstance(file_rows[0], tuple) and len(file_rows[0]) == 2
+
+            if is_sparse_data:
                 file_headers  = [ header.lower() for header in file_rows.pop(0)[1]]
             else:
                 file_headers  = [ header.lower() for header in file_rows.pop(0)]
@@ -101,6 +103,16 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             file_encoders = [ encoders[file_headers.index(header)] for header in headers]
 
             file_cols = list(Transpose().filter(file_rows))
+
+            if is_sparse_data:
+                target_index = file_headers.index(target)
+                
+                target_col   = file_cols[target_index]
+                missing_rows = list(set(range(len(file_rows))) - set(target_col[0]))
+                
+                #we densify the target column in case there are 0 classes which were excluded and we want to encode them
+                file_cols[target_index] = ( target_col[0] + tuple(missing_rows),  target_col[1] + tuple(['0']*len(missing_rows)) )
+
             file_cols = list(Encode(file_encoders).filter(file_cols))
 
             for ignored_header in compress(headers, ignored):
@@ -110,14 +122,11 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             label_col    = file_cols.pop(file_headers.index(target))
             feature_rows = list(Transpose().filter(Flatten().filter(file_cols)))
 
-            if isinstance(label_col, tuple) and len(label_col) == 2:
+            if is_sparse_data:
                 label_rows = label_col[0]
                 label_col  = label_col[1]
 
-                #There are some sparse datasets that have missing labels.
-                #This line takes care of that. For an example of this see
-                #https://www.openml.org/d/1592
-
+                #A quick sanity check just in case the label column is missing values
                 feature_rows = [feature_rows[i] for i in label_rows]
 
             assert len(feature_rows) == len(label_col),  "Mismatched lengths of features and labels"
