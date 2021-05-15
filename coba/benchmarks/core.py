@@ -45,6 +45,9 @@ class BenchmarkLearner(Learner):
         p = self.predict(key,context,actions)
         c = list(zip(actions,p))
         
+
+        assert abs(sum(p) - 1) < .0001, "The learner returned invalid proabilities for action choices."
+
         return self._random.choice(c, p)
     
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
