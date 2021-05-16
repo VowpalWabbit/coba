@@ -3,11 +3,10 @@ from statistics import mean
 from itertools import groupby, product, count, chain
 from collections import defaultdict
 from statistics import median
-from typing import Iterable, Sequence, Any, Optional, Dict, Tuple
+from typing import Iterable, Sequence, Any, Optional, Dict, Tuple, Hashable
 
 from coba.random import CobaRandom
 from coba.learners import Learner
-from coba.simulations import Interaction, Simulation, BatchedSimulation
 from coba.tools import CobaConfig
 from coba.data.pipes import Pipe
 from coba.data.filters import Filter, IdentityFilter
@@ -48,17 +47,16 @@ class BenchmarkTask:
         def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Tuple[Action, float]:
             p = self.predict(key,context,actions)
             c = list(zip(actions,p))
-            
 
             assert abs(sum(p) - 1) < .0001, "The learner returned invalid proabilities for action choices."
 
             return self._random.choice(c, p)
         
         def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
-            return self._learner.predict(key, context, actions)
+            return self._learner.predict(key, context, actions) #type: ignore
 
         def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
-            self._learner.learn(key, context, action, reward, probability)
+            self._learner.learn(key, context, action, reward, probability) #type: ignore
 
     class BenchmarkTaskSimulation(Source[Simulation]):
 
@@ -98,15 +96,12 @@ class Tasks(Source[Iterable[BenchmarkTask]]):
         #we rely on sim_id to make sure we don't do duplicate work. So long as self._simulations
         #is always in the exact same order we should be fine. In the future we may want to consider.
         #adding a better check for simulations other than assigning an index based on their order.
-        benchmark_sims = [sim for sim in self._simulations]
-        benchmark_lrns = [lrn for lrn in self._learners   ]
 
-        source_ids = defaultdict(lambda x=count(): next(x))
+        source_ids: Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
 
         for (sim_id,sim), (lrn_id,lrn) in product(enumerate(self._simulations), enumerate(self._learners)):
-            
-            sim_source = sim._source if isinstance(sim, (Pipe.SourceFilters)) else sim
 
+            sim_source = sim._source if isinstance(sim, (Pipe.SourceFilters)) else sim
             yield BenchmarkTask(source_ids[sim_source], sim_id, lrn_id, sim, deepcopy(lrn), self._seed)                
 
 class Unfinished(Filter[Iterable[BenchmarkTask], Iterable[BenchmarkTask]]):
@@ -179,9 +174,9 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
 
                     for (sim_id,sim), tasks_by_src_sim in groupby(sorted(tasks_by_src, key=srt_sim), key=grp_sim):
 
-                        tasks_by_src_sim = list(tasks_by_src_sim)
-                        learner_ids      = [t.lrn_id  for t in tasks_by_src_sim] 
-                        learners         = [t.learner for t in tasks_by_src_sim] 
+                        tasks_by_src_sim_list = list(tasks_by_src_sim)
+                        learner_ids           = [t.lrn_id  for t in tasks_by_src_sim_list] 
+                        learners              = [t.learner for t in tasks_by_src_sim_list] 
 
                         with CobaConfig.Logger.time(f"Creating simulation {sim_id} from source {src_id}..."):
                             simulation = sim.filter.filter(loaded_source)

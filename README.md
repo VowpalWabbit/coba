@@ -77,12 +77,12 @@ class Learner:
     """The interface for Learner implementations."""
 
     @abstractmethod
-    def choose(self, key: int, context: Hashable, actions: Sequence[Hashable]) -> int:
+    def choose(self, key: int, context: Optional[Hashable], actions: Sequence[Hashable]) -> int:
         """Choose which action index to take."""
         ...
 
     @abstractmethod
-    def learn(self, key: int, context: Hashable, action: Hashable, reward: float) -> None:
+    def learn(self, key: int, context: Optional[Hashable], action: Hashable, reward: float) -> None:
         """Learn about the result of an action that was taken in a context.
         ...
 ```

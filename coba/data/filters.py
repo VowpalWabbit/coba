@@ -10,7 +10,7 @@ import json
 
 from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Generic, Iterable, TypeVar, Any, Sequence, Union, Tuple, List, Optional
+from typing import Generic, Iterable, TypeVar, Any, Sequence, Union, Tuple, List, Optional, Dict, Hashable
 
 from requests import Response
 
@@ -230,7 +230,7 @@ class Transpose(Filter[_T_Data, _T_Data]):
         if is_dense:
             return zip(*items)
         else:
-            sparse_transposed_items = defaultdict( lambda: ([],[]))
+            sparse_transposed_items: Dict[int, Tuple[List[int],List[Any]]] = defaultdict( lambda: ([],[]))
 
             for outer_id, item in enumerate(items):
                 for inner_id, value in zip(item[0], item[1]):
@@ -239,9 +239,8 @@ class Transpose(Filter[_T_Data, _T_Data]):
 
             max_key = max(sparse_transposed_items.keys())
 
-            #this loop ensures the column order is maintained and empty columns aren't lost
-            #it also converts all arrays into tuples
-            return [ tuple(map(tuple,sparse_transposed_items[key]))  for key in range(max_key+1) ]
+            #this loop ensures the column order is maintained, empty columns aren't lost and arrays are tuples
+            return [ tuple(map(tuple,sparse_transposed_items[key]))  for key in range(max_key+1) ] #type: ignore
 
 class Flatten(Filter[_T_Data, _T_Data]):
     #Assumes column major order

@@ -3,7 +3,7 @@ import unittest
 import timeit
 
 from itertools import repeat
-from typing import List, Sequence, Tuple, cast
+from typing import List, Sequence, Tuple, cast, Optional
 
 from coba.tools import CobaConfig, NoneCacher, NoneLogger, MemoryCacher
 from coba.simulations import (
@@ -13,7 +13,7 @@ from coba.simulations import (
 
 CobaConfig.Logger = NoneLogger()
 
-def _choices(interaction: Interaction) -> Sequence[Tuple[Key, Context, Action]]:
+def _choices(interaction: Interaction) -> Sequence[Tuple[Key, Optional[Context], Action]]:
     return [  (interaction.key, interaction.context, a) for a in interaction.actions]
 
 class PutOnceCacher(MemoryCacher):

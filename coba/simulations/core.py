@@ -11,12 +11,12 @@ from coba.data.encoders import OneHotEncoder
 
 Action      = Hashable
 Key         = int
-Context     = Hashable
+Context     = Optional[Hashable]
 
 class Interaction:
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
-    def __init__(self, key: Key, context: Optional[Context], actions: Sequence[Action]) -> None:
+    def __init__(self, key: Key, context: Context, actions: Sequence[Action]) -> None:
         """Instantiate Interaction.
 
         Args
@@ -183,8 +183,8 @@ class LambdaSource(Source[Tuple[Sequence[Interaction], Reward]]):
 
         coba.random.seed(seed)
 
-        interaction_tuples = []
-        reward_tuples      = []
+        interaction_tuples: List[Tuple[Key, Context, Sequence[Action]]] = []
+        reward_tuples     : List[Tuple[Key, Action , float           ]] = []
 
         for i in range(n_interactions):
             
