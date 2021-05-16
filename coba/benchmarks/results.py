@@ -3,17 +3,110 @@ import collections
 
 from pathlib import Path
 from itertools import chain, groupby, count
-from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, cast
+from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, cast, Hashable
 
-from coba.learners import Learner
 from coba.tools import PackageChecker
 from coba.statistics import OnlineMean, OnlineVariance
-from coba.data.structures import Table
 from coba.data.filters import Filter, Cartesian, JsonEncode, JsonDecode
 from coba.data.pipes import StopPipe, Pipe
-from coba.data.sinks import Sink, DiskSink, MemorySink
-from coba.data.sources import DiskSource, Source
-from coba.simulations import Simulation
+from coba.data.sinks import DiskSink
+from coba.data.sources import DiskSource
+
+class Table:
+    """A container class for storing tabular data."""
+
+    def __init__(self, name:str, primary: Sequence[str], default=float('nan')):
+        """Instantiate a Table.
+        
+        Args:
+            name: The name of the table.
+            default: The default values to fill in missing values with
+        """
+        self._name    = name
+        self._primary = primary
+        self._columns = list(primary)
+        self._default = default
+
+        self.rows: Dict[Hashable, Sequence[Any]] = {}
+
+    def add_row(self, *row, **kwrow) -> None:
+        """Add a row of data to the table. The row must contain all primary columns."""
+
+        if kwrow:
+            self._columns.extend([col for col in kwrow if col not in self._columns])
+
+        row = row + tuple( kwrow.get(col, self._default) for col in self._columns[len(row):] ) #type:ignore
+        self.rows[row[0] if len(self._primary) == 1 else tuple(row[0:len(self._primary)])] = row
+
+    def get_row(self, key: Hashable) -> Dict[str,Any]:
+        row = self.rows[key]
+        row = list(row) + [self._default] * (len(self._columns) - len(row))
+
+        return {k:v for k,v in zip(self._columns,row)}
+
+    def rmv_row(self, key: Hashable) -> None:
+        self.rows.pop(key, None)
+
+    def get_where(self, **kwargs) -> Iterable[Dict[str,Any]]:
+
+        if any([k not in self._columns for k in kwargs]):
+            return
+
+        idx_val = [ (self._columns.index(col), val) for col,val in kwargs.items() ]
+
+        for key,row in self.rows.items():
+            if all( row[i]==v for i,v in idx_val):
+                yield {k:v for k,v in zip(self._columns,row)}
+
+    def rmv_where(self, **kwrow) -> None:
+        idx_val = [ (self._columns.index(col), val) for col,val in kwrow.items() ]
+        rmv_keys  = []
+
+        for key,row in self.rows.items():
+            if all( row[i]==v for i,v in idx_val):
+                rmv_keys.append(key)
+
+        for key in rmv_keys: 
+            del self.rows[key] 
+
+    def to_tuples(self) -> Sequence[Any]:
+        """Convert a table into a sequence of namedtuples."""
+        return list(self.to_indexed_tuples().values())
+
+    def to_indexed_tuples(self) -> Dict[Hashable, Any]:
+        """Convert a table into a mapping of keys to tuples."""
+
+        my_type = collections.namedtuple(self._name, self._columns) #type: ignore #mypy doesn't like dynamic named tuples
+        my_type.__new__.__defaults__ = (self._default, ) * len(self._columns) #type: ignore #mypy doesn't like dynamic named tuples
+        
+        return { key:my_type(*value) for key,value in self.rows.items() } #type: ignore #mypy doesn't like dynamic named tuples
+
+    def to_pandas(self) -> Any:
+        """Convert a table into a pandas dataframe."""
+
+        PackageChecker.pandas('Table.to_pandas')
+        import pandas as pd #type: ignore #mypy complains otherwise
+
+        return pd.DataFrame(self.to_tuples())
+
+    def __contains__(self, primary) -> bool:
+
+        if isinstance(primary, collections.Mapping):
+            primary = list(primary.values())[0] if len(self._primary) == 1 else tuple([primary[col] for col in self._primary])
+
+        return primary in self.rows
+
+    def __getitem__(self, key) -> Dict[str,Any]:
+        return self.get_row(key)
+
+    def __str__(self) -> str:
+        return str({"Table": self._name, "Columns": self._columns, "Rows": len(self.rows)})
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __len__(self) -> int:
+        return len(self.rows)
 
 class Result:
     """A class for creating and returning the result of a Benchmark evaluation."""
@@ -27,7 +120,7 @@ class Result:
         json_encode = Cartesian(JsonEncode())
         json_decode = Cartesian(JsonDecode())
 
-        Pipe.join(DiskSource(filename), [json_decode, TransactionPromote(), json_encode], DiskSink(filename, 'w')).run()
+        Pipe.join(DiskSource(filename), [json_decode, ResultPromote(), json_encode], DiskSink(filename, 'w')).run()
         
         return Result.from_transactions(Pipe.join(DiskSource(filename), [json_decode]).read())
 
@@ -52,7 +145,6 @@ class Result:
                     transaction[2][col] = [transaction[2][col]] * len(transaction[2]["reward"])
 
             self.batches.add_row(*transaction[1], **transaction[2])
-
 
     def __init__(self) -> None:
         """Instantiate a Result class."""
@@ -223,86 +315,7 @@ class Result:
     def __repr__(self) -> str:
         return str(self)
 
-class Transaction:
-
-    @staticmethod
-    def version(version = None) -> Any:
-        return ['version', version or TransactionPromote.CurrentVersion]
-
-    @staticmethod
-    def benchmark(n_learners, n_simulations) -> Any:
-        data = {
-            "n_learners"   : n_learners,
-            "n_simulations": n_simulations,
-        }
-
-        return ['benchmark',data]
-
-    @staticmethod
-    def learner(learner_id:int, **kwargs) -> Any:
-        """Write learner metadata row to Result.
-        
-        Args:
-            learner_id: The primary key for the given learner.
-            kwargs: The metadata to store about the learner.
-        """
-        return ["L", learner_id, kwargs]
-
-    @staticmethod
-    def learners(learners: Sequence[Learner]) -> Iterable[Any]:
-        for index, learner in enumerate(learners):
-
-            try:
-                params = learner.params
-            except:
-                params = {}
-
-            try:
-                family = learner.family
-            except:
-                family = type(learner).__name__
-
-            if len(learner.params) > 0:
-                full_name = f"{learner.family}({','.join(f'{k}={v}' for k,v in learner.params.items())})"
-            else:
-                full_name = learner.family
-
-            yield Transaction.learner(index, full_name=full_name, family=family, **params)
-
-    @staticmethod
-    def simulation(simulation_id: int, **kwargs) -> Any:
-        """Write simulation metadata row to Result.
-        
-        Args:
-            simulation_index: The index of the simulation in the benchmark's simulations.
-            kwargs: The metadata to store about the learner.
-        """
-        return ["S", simulation_id, kwargs]
-
-    @staticmethod
-    def simulations(simulations:Sequence[Source[Simulation]]) -> Iterable[Any]:
-
-        for index, simulation in enumerate(simulations):
-            yield Transaction.simulation(index, pipe=str(simulation))
-
-    @staticmethod
-    def batch(simulation_id:int, learner_id:int, **kwargs) -> Any:
-        """Write batch metadata row to Result.
-
-        Args:
-            learner_id: The primary key for the learner we observed the batch for.
-            simulation_id: The primary key for the simulation the batch came from.
-            batch_index: The index of the batch within the simulation.
-            kwargs: The metadata to store about the batch.
-        """
-
-        for col in ["C", "A", "N"]:
-            if col in kwargs and len(set(kwargs[col])) == 1:
-                kwargs[col] = kwargs[col][0]
-
-        return ["B", (simulation_id, learner_id), kwargs]
-
-class TransactionPromote(Filter):
+class ResultPromote(Filter):
 
     CurrentVersion = 2
 
@@ -313,10 +326,10 @@ class TransactionPromote(Filter):
 
         version = 0 if items_peek[0] != 'version' else items_peek[1]
 
-        if version == TransactionPromote.CurrentVersion:
+        if version == ResultPromote.CurrentVersion:
             raise StopPipe()
 
-        while version != TransactionPromote.CurrentVersion:
+        while version != ResultPromote.CurrentVersion:
             if version == 0:
                 promoted_items = [["version",1]]
 
@@ -425,59 +438,3 @@ class TransactionPromote(Filter):
                 version = 2
 
         return items
-
-class TransactionIsNew(Filter):
-
-    def __init__(self, existing: Result):
-
-        self._existing = existing
-
-    def filter(self, transactions: Iterable[Any]) -> Iterable[Any]:
-        
-        for transaction in transactions:
-            
-            tipe  = transaction[0]
-
-            if tipe == "version" and self._existing.version is not None:
-                continue
-            
-            if tipe == "benchmark" and len(self._existing.benchmark) != 0:
-                continue
-
-            if tipe == "B" and transaction[1] in self._existing.batches:
-                continue
-
-            if tipe == "S" and transaction[1] in self._existing.simulations:
-                continue
-
-            if tipe == "L" and transaction[1] in self._existing.learners:
-                continue
-
-            yield transaction
-
-class TransactionSink(Sink):
-
-    def __init__(self, transaction_log: Optional[str], restored: Result) -> None:
-
-        json_encode = Cartesian(JsonEncode())
-
-        self._sink = Pipe.join([json_encode], DiskSink(transaction_log)) if transaction_log else MemorySink()
-        self._sink = Pipe.join([TransactionIsNew(restored)], self._sink)
-
-    def write(self, items: Sequence[Any]) -> None:
-        self._sink.write(items)
-
-    @property
-    def result(self) -> Result:
-        if isinstance(self._sink, Pipe.FiltersSink):
-            final_sink = self._sink.final_sink()
-        else:
-            final_sink = self._sink
-
-        if isinstance(final_sink, MemorySink):
-            return Result.from_transactions(cast(Iterable[Any], final_sink.items))
-
-        if isinstance(final_sink, DiskSink):
-            return Result.from_file(final_sink.filename)
-
-        raise Exception("Transactions were written to an unrecognized sink.")

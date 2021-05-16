@@ -1,7 +1,6 @@
 """The data.filters module contains core classes for filters used in data pipelines.
 
 TODO add docstrings for all filters
-TODO add unittests for all filters
 """
 
 import csv
@@ -18,9 +17,6 @@ from requests import Response
 from coba.data.encoders import Encoder, OneHotEncoder, NumericEncoder, StringEncoder
 from coba.json import CobaJsonEncoder, CobaJsonDecoder
 import re
-
-# one dict for all rows, one dict for each row
-# one dict for all columns, one dict for each column
 
 _T_DenseRow   = Sequence[Any]
 _T_SparseRow  = Tuple[Tuple[int,...], Tuple[Any,...]]

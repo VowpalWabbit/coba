@@ -145,7 +145,7 @@ class BenchmarkFileFmtV1(Filter[Dict[str,Any], Benchmark]):
 
         return root
 
-class BenchmarkFileFmtV2(Filter[Dict[str,Any], 'Benchmark']):
+class BenchmarkFileFmtV2(Filter[Dict[str,Any], Benchmark]):
 
     def filter(self, config: Dict[str,Any]) -> 'Benchmark':
 

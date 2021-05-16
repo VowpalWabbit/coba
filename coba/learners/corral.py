@@ -11,9 +11,9 @@ from coba.learners.core import Learner
 class CorralLearner(Learner):
     """This is an implementation of the Agarwal et al. (2017) Corral algorithm.
 
-    This algorithm assumes that the reward distribution has support in [0,1].
-    This algorithm also implements the remark on pg. 8 in order to improve 
-    learning efficiency when multiple bandits select the same action.
+    This algorithm assumes that the reward distribution has support in [0,1]
+    and implements the remark on pg. 8 to improve learning efficiency when 
+    multiple bandits select the same action.
 
     References:
         Agarwal, Alekh, Haipeng Luo, Behnam Neyshabur, and Robert E. Schapire. 
@@ -27,8 +27,8 @@ class CorralLearner(Learner):
         Args:
             base_learners: The collection of algorithms to use as base learners.
             eta: The learning rate. In our experiments a value between 0.05 and .10 often seemed best.
-            T: The number of interactions expected during the learning process. In our experiments the 
-                algorithm performance seemed relatively insensitive to this value.
+            T: The number of interactions expected during the learning process. In our experiments 
+                Corral performance seemed relatively insensitive to this value.
             seed: A seed for a random number generation in ordre to get repeatable results.
         """
 
