@@ -3,6 +3,7 @@
 TODO Add unittests for CobaConfig.
 """
 
+from os import curdir
 import sys
 import json
 import collections
@@ -43,9 +44,20 @@ class CobaConfig_meta(type):
                 if not isinstance(file_config, dict):
                     raise Exception(f"The file at {potential_coba_config} should be a json object.")
 
+                CobaConfig_meta._replace_current_directory(file_config, str(search_path))
+
                 config.update(file_config)
 
         return config
+
+    @staticmethod
+    def _replace_current_directory(config_dict: dict, current_dir:str):
+        for key,item in config_dict.items():
+            if isinstance(item, dict):
+                CobaConfig_meta._replace_current_directory(item, current_dir)
+
+            if isinstance(item,str) and item.strip().startswith("./"):
+                config_dict[key] = item.replace(".", current_dir, 1).replace("\\", "/")
 
     @staticmethod
     def _load_config() -> Dict[str,Any]:

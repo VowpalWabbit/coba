@@ -144,18 +144,23 @@ class IndentLogger(Logger):
         self._durations = cast(Dict[int,float],{})
 
         self._indent_lvl = 0
-        self._bullets    = collections.defaultdict(lambda: '~', enumerate(['','*','>','-','+']))
+        self._bullets    = collections.defaultdict(lambda: '~', enumerate(['','* ','> ','- ','+ ']))
+        self._unwinding  = False
 
     @property
     def _in_time_context(self) -> bool:
         return len(self._starts) > 0
 
     def _unwind_time_context(self) -> None:
+
+        self._unwinding = True
+
         for index, message in enumerate(self._messages):
             time = f' ({self._durations[index]} seconds)' if index in self._durations else ''            
             
-            self._sink.write([f"{message}{time}"])
+            self.log(f"{message}{time}")
 
+        self._unwinding = False
         self._messages = []
         self._durations.clear()
 
@@ -201,17 +206,15 @@ class IndentLogger(Logger):
             message: The message that should be logged.
         """
 
-        indent = '  ' * self._indent_lvl
-        bullet = self._bullets[self._indent_lvl] + (' ' if self._indent_lvl else '')
-        stamp  = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' if self._with_stamp else ''
-        name   = "-- " + current_process().name + " -- " if self._with_name else ''
-
-        final_message = stamp + name + indent + bullet + message
+        if not self._unwinding:
+            message = '  ' * self._indent_lvl + self._bullets[self._indent_lvl] + message
 
         if self._in_time_context:
-            self._messages.append(final_message)
-        else:            
-            self._sink.write([final_message])
+            self._messages.append(message)
+        else:
+            name   = "-- " + current_process().name + " -- " if self._with_name else ''
+            stamp  = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' if self._with_stamp else ''
+            self._sink.write([stamp + name + message])
 
         return self._indent_context()
 
