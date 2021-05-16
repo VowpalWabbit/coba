@@ -133,14 +133,14 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             #we only cache after all the data has been successfully loaded
             for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:
-                CobaConfig.Cacher.put(key,bytes)
+                if key not in CobaConfig.Cacher: CobaConfig.Cacher.put(key,bytes)
 
             return feature_rows, label_col
 
         except KeyboardInterrupt:
             raise
         
-        except Exception:
+        except Exception as e:
             #if something went wrong we want to clear the cache 
             #in case the cache has become corrupted somehow
             for k in [d_key, t_key, o_key]:
@@ -153,7 +153,6 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
         if url in CobaConfig.Cacher:
             #with CobaConfig.Logger.time(f'loading {description} from cache... '):
             bites = CobaConfig.Cacher.get(url)
-
         else:
 
             api_key = CobaConfig.Api_Keys['openml']
@@ -214,7 +213,9 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
         t_bites = self._query(t_key, "tasks")
 
         tasks = json.loads(t_bites.decode('utf-8'))["tasks"]["task"]
-        CobaConfig.Cacher.put(t_key,t_bites)
+        
+        if t_key not in CobaConfig.Cacher:
+            CobaConfig.Cacher.put(t_key,t_bites)
 
         for task in tasks:
             if task["task_type_id"] == 1: #aka, classification task

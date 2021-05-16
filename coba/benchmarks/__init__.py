@@ -4,7 +4,9 @@ This module contains the abstract interface expected for Benchmark implementatio
 module also contains several Benchmark implementations and Result data transfer class.
 """
 
-from coba.benchmarks.core import Result, Benchmark
+
+from coba.benchmarks.core    import Benchmark
+from coba.benchmarks.results import Result
 from coba.benchmarks.formats import BenchmarkFileFmtV1, BenchmarkFileFmtV2 
 
 __all__ = [

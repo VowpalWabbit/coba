@@ -3,6 +3,7 @@
 TODO Add unittests for CobaConfig.
 """
 
+import sys
 import json
 import collections
 
@@ -28,16 +29,19 @@ class CobaConfig_meta(type):
 
     @staticmethod
     def _load_file_configs() -> Dict[str,Any]:
-        search_paths = [Path.home() / ".coba", Path("./.coba")]
+        search_paths = [Path.home() , Path.cwd(), Path(sys.path[0]) ]
 
         config = {}
 
-        for potential_path in search_paths:
-            if potential_path.exists() and potential_path.read_text().strip() != "":
-                file_config = json.loads(potential_path.read_text())
+        for search_path in search_paths:
+
+            potential_coba_config = search_path / ".coba"
+
+            if potential_coba_config.exists() and potential_coba_config.read_text().strip() != "":
+                file_config = json.loads(potential_coba_config.read_text())
 
                 if not isinstance(file_config, dict):
-                    raise Exception(f"The file at {potential_path} should be a json object.")
+                    raise Exception(f"The file at {potential_coba_config} should be a json object.")
 
                 config.update(file_config)
 

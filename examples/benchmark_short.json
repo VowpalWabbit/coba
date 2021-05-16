@@ -4,6 +4,6 @@
         "$shuffles": { "Shuffle"         : [777,888,999,1010,1111,1212], "method": "foreach" }
     },
     "simulations": [
-        ["$openmls", "$shuffles", { "Take": 2000 } ]
+        ["$openmls", "$shuffles", { "Take": 300 } ]
     ]
 }
