@@ -1,17 +1,127 @@
 import unittest
 
-from coba.data.filters import CsvReader, Flatten, Transpose, Encode
+from coba.data.filters import LibSvmReader, ArffReader, CsvReader, Flatten, Transpose, Encode
 from coba.data.encoders import NumericEncoder, OneHotEncoder
 from coba.tools import NoneLogger, CobaConfig
 
 CobaConfig.Logger = NoneLogger()
 
 class CsvReader_Tests(unittest.TestCase):
-    def test_simple_sans_empty(self):
+    def test_dense_sans_empty(self):
         self.assertEqual([['a','b','c'],['1','2','3']], list(CsvReader().filter(['a,b,c', '1,2,3'])))
     
+    def test_dense_with_empty(self):
+        self.assertEqual([['a','b','c'],['1','2','3']], list(CsvReader().filter(['a,b,c', '', '1,2,3', ''])))
+
+    def test_sparse(self):
+        self.assertEqual([((0,1,2),('a','b','c')), ((0,2),('1','2')), ((1,),('3',))], list(CsvReader().filter(['a,b,c', '{0 1,2 2}', '{1 3}'])))
+
+class ArffReader_Tests(unittest.TestCase):
+
+    def test_dense_sans_empty(self):
+        lines = [
+            "@relation news20",
+            "@attribute a numeric",
+            "@attribute b numeric",
+            "@attribute c {0, class_B, class_C, class_D}",
+            "@data",
+            "1,2,class_B",
+            "2,3,0",
+        ]
+
+        expected = [
+            ['a','b','c'],
+            ['1','2','class_B'],
+            ['2','3','0']
+        ]
+        
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_dense_with_empty(self):
+        lines = [
+            "@relation news20",
+            "@attribute a numeric",
+            "@attribute b numeric",
+            "@attribute c {0, class_B, class_C, class_D}",
+            "@data",
+            "",
+            "",
+            "1,2,class_B",
+            "2,3,0",
+            ""
+        ]
+
+        expected = [
+            ['a','b','c'],
+            ['1','2','class_B'],
+            ['2','3','0']
+        ]
+        
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_dense_with_comments(self):
+        lines = [
+            "%This is a comment",
+            "@relation news20",
+            "@attribute a numeric",
+            "@attribute b numeric",
+            "@attribute c {0, class_B, class_C, class_D}",
+            "@data",
+            "1,2,class_B",
+            "2,3,0"
+        ]
+
+        expected = [
+            ['a','b','c'],
+            ['1','2','class_B'],
+            ['2','3','0']
+        ]
+        
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
     def test_simple_with_empty(self):
         self.assertEqual([['a','b','c'],['1','2','3']], list(CsvReader().filter(['a,b,c', '', '1,2,3', ''])))
+
+    def test_sparse(self):
+        lines = [
+            "@relation news20",
+            "@attribute a numeric",
+            "@attribute b numeric",
+            "@attribute c {0, class_B, class_C, class_D}",
+            "@data",
+            "{0 2,1 3}",
+            "{0 1,1 1,2 class_B}",
+            "{1 1}",
+            "{0 1,2 class_D}",
+        ]
+
+        expected = [
+            ((0,1,2),('a','b','c')), 
+            ((0,1),('2','3')), 
+            ((0,1,2),('1','1','class_B')),
+            ((1,),('1',)),
+            ((0,2),('1','class_D'))
+        ]
+        
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+class LibsvmReader_Tests(unittest.TestCase):
+    def test_sparse(self):
+        lines = [
+            "0 1:2 2:3",
+            "1 1:1 2:1",
+            "2 2:1",
+            "1 1:1",
+        ]
+
+        expected = [
+            ((0,1,2),(0, 2, 3)),
+            ((0,1,2),(1, 1, 1)),
+            ((0,2)  ,(2, 1   )),
+            ((0,1)  ,(1, 1   )),
+        ]
+        
+        self.assertEqual(expected, list(LibSvmReader().filter(lines)))
 
 class Transpose_Tests(unittest.TestCase):
 

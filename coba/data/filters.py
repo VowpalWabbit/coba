@@ -10,7 +10,7 @@ import json
 
 from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Generic, Iterable, TypeVar, Any, Sequence, Union, Tuple, List, Optional, Dict, Hashable
+from typing import Generic, Iterable, TypeVar, Any, Sequence, Union, Tuple, List, Optional, Dict, cast
 
 from requests import Response
 
@@ -221,6 +221,27 @@ class CsvReader(Filter[Iterable[str], _T_Data]):
                 value_list.append(split[1])
 
             yield ( tuple(index_list), tuple(value_list) )        
+
+class LibSvmReader(Filter[Iterable[str], _T_Data]):
+    
+    def filter(self, items: Iterable[str]) -> _T_Data:
+
+        features: List[Tuple[Tuple[int,...], Tuple[float,...]]] = []
+        labels  : List[float]                                   = []
+
+        for line in items:
+
+            items = line.strip().split(' ')
+
+            label    = float(items[0])
+            splits   = [ i.split(":") for i in items[1:] ]
+            encoded  = [ (int(s[0]), float(s[1])) for s in splits ]
+            sparse   = cast(Tuple[Tuple[int,...], Tuple[float,...]], tuple(zip( (0,label), *encoded)))
+
+            features.append(sparse)
+            labels.append(label)
+
+        return features
 
 class Transpose(Filter[_T_Data, _T_Data]):
     def filter(self, items: _T_Data) -> _T_Data:
