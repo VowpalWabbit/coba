@@ -1,6 +1,9 @@
 # coba cache files created by running ./examples/bakeoff.py
 **/.coba_cache/*
 
+#Jupyter notebook checkpoints
+**/.ipynb_checkpoints/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -10,7 +10,7 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  2. Was it easy to add new algorithms?
  3. Was it easy to create, run and share benchmarks?
 
-# The Coba Way
+### The Coba Way
  
  Coba was built from the ground up to do all that and more.
  
@@ -23,13 +23,13 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  * ... *just-in-time* (no resources are loaded until needed, and they are released immediately to keep memory small)
  * ... *a duck?* (coba relies only on duck-typing so no inheritance is needed to implement our interfaces)
  
- But don't take our word for it. We encourage you to look at the code yourself, and more documentation will be coming soon.
+ But don't take our word for it. We encourage you to look at the code yourself.
  
  ## Adding New Data Sets
  
  ### Creating Simulations From Classification Data Sets
  
- Classification data sets are an easy way to quickly evaluate CB algorithms. So long as the data set is in CSV format it can easily be turned into a contextual bandit simulation with `ClassificationSimulation.from_csv`. This method works both with local files and files available over http. When requesting over http Coba even allows you to cache a version of the file locally for fast re-runs later.
+ Classification data sets are an easy way to quickly evaluate CB algorithms. So long as the data set is in CSV format it can easily be turned into a contextual bandit simulation. This method works both with local files and files available over http. When requesting over http Coba even allows you to cache a version of the file locally for fast re-runs later.
  
  ### Creating Simulations From Generative Models
  

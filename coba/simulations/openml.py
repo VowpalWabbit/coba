@@ -1,12 +1,11 @@
 import json
 
-from itertools import compress
+from itertools import compress, count, repeat
 from hashlib import md5
 from typing import Tuple, Sequence, Any, List, cast
 
-from coba.simulations.core import Context, Action, Simulation, ClassificationSimulation
+from coba.simulations.core import ClassificationReward, Context, Action, Interaction, MemorySimulation, Simulation
 from coba.data.sources import Source, HttpSource
-from coba.data.pipes import Pipe
 from coba.tools import CobaConfig
 
 class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
@@ -110,7 +109,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 target_col   = file_cols[target_index]
                 missing_rows = list(set(range(len(file_rows))) - set(target_col[0]))
                 
-                #we densify the target column in case there are 0 classes which were excluded and we want to encode them
+                #we densify the target column to make sure classes of value '0' are encoded with the rest of the target column
                 file_cols[target_index] = ( target_col[0] + tuple(missing_rows),  target_col[1] + tuple(['0']*len(missing_rows)) )
 
             file_cols = list(Encode(file_encoders).filter(file_cols))
@@ -141,11 +140,11 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             raise
         
         except Exception as e:
-            #if something went wrong we want to clear the cache 
-            #in case the cache has become corrupted somehow
+            #if something went wrong we want to clear the 
+            #cache just in case it was corrupted somehow
             for k in [d_key, t_key, o_key]:
                 if k is not None: CobaConfig.Cacher.rmv(k)
-
+            
             raise
 
     def _query(self, url:str, description:str, checksum:str=None) -> bytes:
@@ -248,7 +247,17 @@ class OpenmlSimulation(Source[Simulation]):
         self._source = OpenmlSource(id, md5_checksum)
 
     def read(self) -> Simulation:        
-        return ClassificationSimulation(*self._source.read())
+        feature_rows, label_col = self._source.read()
+
+        actions      = list(set(label_col))
+        reward       = ClassificationReward()
+        interactions = cast(List[Interaction],[])
+        
+        for key, context, label in zip(count(), feature_rows, label_col):
+            reward.add(key, label)
+            interactions.append(Interaction(key, context, actions))
+
+        return MemorySimulation(interactions, reward)
 
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._source._data_id}}}'

@@ -311,4 +311,4 @@ class Encode(Filter[_T_Data, _T_Data]):
 
             encoded_values = encoder.encode(raw_values)
 
-            yield encoder.encode(raw_values) if is_dense else (column[0], encoded_values)
+            yield encoded_values if is_dense else (column[0], encoded_values)

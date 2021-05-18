@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-import collections
 
 from itertools import accumulate, repeat
-from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Union, Any
+from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any
 
 import coba.random
 
@@ -82,11 +81,14 @@ class MemoryReward(Reward):
         return [ self._rewards[(key,action)] for key,_,action in choices ]
 
 class ClassificationReward(Reward):
-    def __init__(self, labels: Sequence[Tuple[Key,Action]]) -> None:
+    def __init__(self, labels: Sequence[Tuple[Key,Action]] = []) -> None:
         self._labels = dict(labels)
 
+    def add(self, key: Key, action: Action):
+        self._labels[key] = action
+
     def observe(self, choices: Sequence[Tuple[Key,Context,Action]] ) -> Sequence[float]:
-        return [ float(self._labels[choice[0]] == choice[2]) for choice in choices ]
+        return [ float(self._labels[key] == action) for key, _, action in choices ]
 
 class MemorySimulation(Simulation):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
