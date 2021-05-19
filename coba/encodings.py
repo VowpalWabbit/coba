@@ -1,8 +1,10 @@
-"""The preprocessing module contains generic classes for data preparation.
+"""The encodings module contains utility classes for transforming data between encodings.
 
 Remarks:
     This module is used primarily for the creation of simulations from data sets.
 """
+
+import json
 
 from collections import defaultdict
 from abc import ABC, abstractmethod
@@ -360,3 +362,19 @@ class FactorEncoder(Encoder[int]):
             return [ self._levels[value] for value in values ]
         except KeyError as e:
             raise Exception(f"We were unable to find {e} in {self._levels.keys()}") from None
+
+class CobaJsonEncoder(json.JSONEncoder):
+    """A json encoder that allows for potential COBA extensions in the future."""
+    
+    def default(self, obj):
+        return super().default(obj)
+
+class CobaJsonDecoder(json.JSONDecoder):
+    """A json decoder that allows for potential COBA extensions in the future."""
+
+    def __init__(self, *args, **kwargs):
+        """Instantiate a CobaJsonDecoder."""
+        super().__init__(object_hook=self._object_hook, *args, **kwargs)
+
+    def _object_hook(self, json_obj: Dict[str,Any]) -> Any:
+        return json_obj

@@ -1,10 +1,7 @@
-from coba.simulations.core import ClassificationSimulation
-from coba.data.filters     import ArffReader, CsvReader, LibSvmReader
-from coba.data.sources     import DiskSource, HttpSource
-from coba.data.sinks       import NoneSink, ConsoleSink, DiskSink
-from coba.tools            import CobaRegistry, DiskCacher, NoneCacher, MemoryCacher, IndentLogger, NoneLogger, BasicLogger
-from coba.simulations      import OpenmlSimulation, PCA, Shuffle, Take, Sort
-from coba.benchmarks       import BenchmarkFileFmtV1, BenchmarkFileFmtV2
+from coba.pipes       import ArffReader, CsvReader, LibSvmReader, DiskSource, HttpSource, NoneSink, ConsoleSink, DiskSink
+from coba.utilities   import CobaRegistry, DiskCacher, NoneCacher, MemoryCacher, IndentLogger, NoneLogger, BasicLogger
+from coba.simulations import OpenmlSimulation, PCA, Shuffle, Take, Sort, ClassificationSimulation
+from coba.benchmarks  import BenchmarkFileFmtV1, BenchmarkFileFmtV2
 
 CobaRegistry.register("NoneSink"   , NoneSink   )
 CobaRegistry.register("DiskSink"   , DiskSink   )

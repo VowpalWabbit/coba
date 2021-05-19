@@ -3,7 +3,6 @@
 TODO Add unittests for CobaConfig.
 """
 
-from os import curdir
 import sys
 import json
 import collections
@@ -11,9 +10,9 @@ import collections
 from pathlib import Path
 from typing import Dict, Any
 
-from coba.tools.registry import CobaRegistry
-from coba.tools.loggers import Logger
-from coba.tools.cachers import Cacher
+from coba.utilities.registry import CobaRegistry
+from coba.utilities.loggers import Logger
+from coba.utilities.cachers import Cacher
 
 class CobaConfig_meta(type):
     """To support class properties before python 3.9 we must implement our properties directly 

@@ -4,11 +4,8 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.tools import CobaConfig, IndentLogger
-from coba.data.filters import Filter, IdentityFilter
-from coba.data.sinks import MemorySink
-from coba.data.sources import MemorySource
-from coba.data.pipes import Pipe
+from coba.utilities import CobaConfig
+from coba.pipes import Pipe, Filter, IdentityFilter, MemorySink, MemorySource
 
 class Pipe_Tests(unittest.TestCase):
 
@@ -37,7 +34,7 @@ class Pipe_Tests(unittest.TestCase):
         def filter(self, items: Iterable[Any]) -> Iterable[Any]:
             raise Exception("Exception Filter")
 
-    def test_single_process_multitask(self):
+    def test_run(self):
         source = MemorySource(list(range(10)))
         sink   = MemorySink()
 
@@ -45,63 +42,12 @@ class Pipe_Tests(unittest.TestCase):
 
         self.assertEqual(sink.items, ['MainProcess']*10)
 
-    def test_singleprocess_singletask(self):
-        source = MemorySource(list(range(4)))
-        sink   = MemorySink[Iterable[int]]()
-
-        Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(1,1)
-
-        self.assertEqual(len(set(sink.items)), 4)
-
-    def test_multiprocess_multitask(self):
-        source = MemorySource(list(range(40)))
-        sink   = MemorySink()
-
-        Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(2)
-
-        self.assertEqual(len(set(sink.items)), 2)
-
-    def test_multiprocess_singletask(self):
-        source = MemorySource(list(range(4)))
-        sink   = MemorySink()
-
-        Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(2,1)
-
-        self.assertEqual(len(set(sink.items)), 4)
-
-    def test_exception_multiprocess(self):
-        source = MemorySource(list(range(4)))
-        sink   = MemorySink()
-
-        with self.assertRaises(Exception):
-            Pipe.join(source, [Pipe_Tests.ExceptionFilter()], sink).run(2,1)
-
-    def test_exception_singleprocess(self):
+    def test_exception(self):
         source = MemorySource(list(range(4)))
         sink   = MemorySink()
 
         with self.assertRaises(Exception):
             Pipe.join(source, [Pipe_Tests.ExceptionFilter()], sink).run()
-
-    def test_logging(self):
-        
-        #this is an important example. Even if we set the main logger's
-        #with_stamp to false it doesn't propogate to the processes.
-
-        sink   = MemorySink()
-        logger = IndentLogger(sink, with_stamp=False, with_name=True)
-        logs   = sink.items
-
-        CobaConfig.Logger = logger
-
-        source = MemorySource(list(range(4)))
-        sink   = MemorySink()
-
-        Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run(2,1)
-
-        self.assertEqual(len(logs), 4)
-        self.assertEqual(sink.items, [ l.split(' ')[3] for l in logs ] )
-        self.assertEqual(sink.items, [ l.split(' ')[5] for l in logs ] )
 
     def test_repr1(self):
 

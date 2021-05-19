@@ -2,30 +2,25 @@
 
 TODO add docstrings for all filters
 """
-
+import re
 import csv
 import collections
 import itertools
 import json
 
 from collections import defaultdict
-from abc import ABC, abstractmethod
-from typing import Generic, Iterable, TypeVar, Any, Sequence, Union, Tuple, List, Optional, Dict, cast
+from typing import Iterable, Any, Sequence, Union, Tuple, List, Optional, Dict, cast
 
 from requests import Response
 
-from coba.data.encoders import Encoder, OneHotEncoder, NumericEncoder, StringEncoder
-from coba.json import CobaJsonEncoder, CobaJsonDecoder
-import re
+from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder, CobaJsonEncoder, CobaJsonDecoder
+from coba.pipes.core import Filter
 
 _T_DenseRow   = Sequence[Any]
 _T_SparseRow  = Tuple[Tuple[int,...], Tuple[Any,...]]
 _T_DenseData  = Iterable[_T_DenseRow]
 _T_SparseData = Iterable[_T_SparseRow]
 _T_Data       = Union[_T_DenseData, _T_SparseData]
-
-_T_out = TypeVar("_T_out", bound=Any, covariant=True)
-_T_in  = TypeVar("_T_in", bound=Any, contravariant=True)
 
 def _is_dense(items: _T_Data)-> Tuple[bool, _T_Data]:
 
@@ -37,11 +32,6 @@ def _is_dense(items: _T_Data)-> Tuple[bool, _T_Data]:
     is_dense = (len(item0) != 2) or not all([isinstance(i, collections.Sequence) for i in item0])
 
     return is_dense, itertools.chain([item0], items)
-
-class Filter(ABC, Generic[_T_in, _T_out]):
-    @abstractmethod
-    def filter(self, item:_T_in) -> _T_out:
-        ...
 
 class Cartesian(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
 

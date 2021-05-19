@@ -5,8 +5,8 @@ import traceback
 
 from pathlib import Path
 
-from coba.data.sinks import MemorySink
-from coba.tools import PackageChecker, DiskCacher, IndentLogger, BasicLogger, CobaRegistry, coba_registry_class
+from coba.pipes import MemorySink
+from coba.utilities import PackageChecker, DiskCacher, IndentLogger, BasicLogger, CobaRegistry, coba_registry_class
 
 class TestObject:
     def __init__(self, *args, **kwargs):

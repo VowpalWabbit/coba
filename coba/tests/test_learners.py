@@ -1,7 +1,7 @@
 import unittest
 from unittest.case import SkipTest
 
-from coba.tools import PackageChecker
+from coba.utilities import PackageChecker
 from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner, UcbBanditLearner
 
 class RandomLearner_Tests(unittest.TestCase):

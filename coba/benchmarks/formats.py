@@ -6,13 +6,11 @@ from itertools import product, repeat
 from typing import Sequence, List, Dict, Any, MutableMapping, Mapping, cast
 
 from coba.simulations import Simulation, OpenmlSimulation, Shuffle, Take, Batch, PCA, Sort
-from coba.tools import CobaRegistry
+from coba.utilities import CobaRegistry
 
 from coba.benchmarks.core import Benchmark
 
-from coba.data.pipes   import Pipe
-from coba.data.sources import Source
-from coba.data.filters import Filter
+from coba.pipes import Pipe, Source, Filter
 
 class BenchmarkFileFmtV1(Filter[Dict[str,Any], Benchmark]):
 

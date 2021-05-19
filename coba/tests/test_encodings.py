@@ -5,7 +5,7 @@ import math
 from abc import ABC, abstractmethod
 from typing import Sequence, Tuple, cast, Any
 
-from coba.data.encoders import Encoder,StringEncoder, NumericEncoder, OneHotEncoder, FactorEncoder
+from coba.encodings import Encoder,StringEncoder, NumericEncoder, OneHotEncoder, FactorEncoder
 
 class Encoder_Interface_Tests(ABC):
 

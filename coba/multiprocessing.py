@@ -1,128 +1,11 @@
-"""The data.pipes module contains core classes for creating data pipelines.
-
-TODO: Add docstrings for Pipe
-"""
-
-import collections
-
 from multiprocessing import Manager, Pool
 from threading       import Thread
-from typing          import Sequence, Iterable, Any, overload, Union
+from typing          import Sequence, Iterable, Any
 
-from coba.data.sources import Source, QueueSource
-from coba.data.filters import Filter
-from coba.data.sinks   import Sink, QueueSink
-from coba.tools        import CobaConfig, IndentLogger
+from coba.utilities  import CobaConfig, IndentLogger
+from coba.pipes      import Filter, Sink, Pipe, StopPipe, QueueSource, QueueSink
 
-class StopPipe(Exception):
-    pass
-
-class Pipe:
-
-    class FiltersFilter(Filter):
-        def __init__(self, filters: Sequence[Filter]):
-            self._filters = filters
-
-        def filter(self, items: Any) -> Any:
-            for filter in self._filters:
-                items = filter.filter(items)
-            return items
-
-        def __repr__(self) -> str:
-            return ",".join(map(str,self._filters))
-
-    class SourceFilters(Source):
-        def __init__(self, source: Source, filters: Sequence[Filter]) -> None:
-            self._source = source
-            self._filter = Pipe.FiltersFilter(filters)
-
-        def read(self) -> Any:
-            return self._filter.filter(self._source.read())
-
-        def __repr__(self) -> str:
-            return ",".join(map(str,[self._source, self._filter]))
-
-    class FiltersSink(Sink):
-        def __init__(self, filters: Sequence[Filter], sink: Sink) -> None:
-            self._filter = Pipe.FiltersFilter(filters)
-            self._sink   = sink
-
-        def final_sink(self) -> Sink:
-            if isinstance(self._sink, Pipe.FiltersSink):
-                return self._sink.final_sink()
-            else:
-                return self._sink
-
-        def write(self, items: Iterable[Any]):
-            self._sink.write(self._filter.filter(items))
-
-        def __repr__(self) -> str:
-            return ",".join(map(str,[self._filter, self._sink]))
-
-    @overload
-    @staticmethod
-    def join(source: Source, filters: Sequence[Filter]) -> Source:
-        ...
-    
-    @overload
-    @staticmethod
-    def join(filters: Sequence[Filter], sink: Sink) -> Sink:
-        ...
-
-    @overload
-    @staticmethod
-    def join(source: Source, sink: Sink) -> 'Pipe':
-        ...
-
-    @overload
-    @staticmethod
-    def join(source: Source, filters: Sequence[Filter], sink: Sink) -> 'Pipe':
-        ...
-
-    @overload
-    @staticmethod
-    def join(filters: Sequence[Filter]) -> Filter:
-        ...
-
-    @staticmethod #type: ignore
-    def join(*args) -> Union[Source, Sink, 'Pipe', Filter]:
-
-        if len(args) == 3:
-            return Pipe(*args)
-
-        if len(args) == 2:
-            if isinstance(args[1], collections.Sequence):
-                return Pipe.SourceFilters(args[0], args[1])
-            elif isinstance(args[0], collections.Sequence):
-                return Pipe.FiltersSink(args[0], args[1])
-            else:
-                return Pipe(args[0], [], args[1])
-        
-        if len(args) == 1:
-            return Pipe.FiltersFilter(args[0])
-
-        raise Exception("An unknown pipe was joined.")
-
-    def __init__(self, source: Source, filters: Sequence[Filter], sink: Sink) -> None:
-        self._source  = source
-        self._filters = filters
-        self._sink    = sink
-
-    def run(self, processes: int = 1, maxtasksperchild=None) -> None:
-        try:
-            if processes == 1 and maxtasksperchild is None:
-                filter = Pipe.join(self._filters)
-            else:
-                filter = MultiProcessFilter(self._filters, processes, maxtasksperchild)
-
-            self._sink.write(filter.filter(self._source.read()))
-        except StopPipe:
-            pass
-
-    def __repr__(self) -> str:
-        return ",".join(map(str,[self._source, *self._filters, self._sink]))
-
-class MultiProcessFilter(Filter[Iterable[Any], Iterable[Any]]):
+class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
     class Processor:
 
@@ -169,7 +52,6 @@ class MultiProcessFilter(Filter[Iterable[Any], Iterable[Any]]):
         # within Pool seemed to complete the full job about a minute and
         # a half faster... See commit 7fb3653 for that implementation.
         # My best guess is that 7fb3653 doesn't rely on a generator.
-
         if len(self._filters) == 0:
             return items
 
@@ -184,7 +66,7 @@ class MultiProcessFilter(Filter[Iterable[Any], Iterable[Any]]):
             stdlog_writer, stdlog_reader = QueueSink(log_queue), QueueSource(log_queue)
 
             log_thread = Thread(target=Pipe.join(stdlog_reader, [], CobaConfig.Logger.sink).run)
-            processor  = MultiProcessFilter.Processor(self._filters, stdout_writer, stderr_writer, stdlog_writer)
+            processor  = MultiprocessFilter.Processor(self._filters, stdout_writer, stderr_writer, stdlog_writer)
 
             def finished_callback(result):
                 std_queue.put(None)

@@ -3,10 +3,9 @@ from typing import Iterable, Sequence, cast, Optional, overload, List, Union
 
 from coba.learners import Learner
 from coba.simulations import Simulation, Take, Shuffle, Batch
-from coba.tools import CobaRegistry, CobaConfig
-from coba.data.filters import Filter, JsonDecode, ResponseToText
-from coba.data.sources import HttpSource, Source, MemorySource, DiskSource
-from coba.data.pipes import Pipe
+from coba.utilities import CobaRegistry, CobaConfig
+from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToText, HttpSource, MemorySource, DiskSource
+from coba.multiprocessing import MultiprocessFilter
 
 from coba.benchmarks.tasks import Tasks, Unfinished, GroupByNone, GroupBySource, Transactions
 from coba.benchmarks.transactions import Transaction, TransactionSink
@@ -154,9 +153,11 @@ class Benchmark:
         mp = self._processes        if self._processes        else CobaConfig.Benchmark['processes']
         mt = self._maxtasksperchild if self._maxtasksperchild else CobaConfig.Benchmark['maxtasksperchild']
         
+        if mp > 1 or mt is not None: process = MultiprocessFilter([process], mp, mt)
+
         grouped_tasks = Pipe.join(tasks, [unfinished,grouped])
 
-        Pipe.join(MemorySource(preamble), []       , transaction_sink).run(1,None)
-        Pipe.join(grouped_tasks         , [process], transaction_sink).run(mp,mt)
+        Pipe.join(MemorySource(preamble), []       , transaction_sink).run()
+        Pipe.join(grouped_tasks         , [process], transaction_sink).run()
 
         return transaction_sink.result

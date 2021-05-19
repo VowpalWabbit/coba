@@ -3,7 +3,7 @@ import unittest
 from typing import cast
 
 from coba.simulations import LambdaSimulation
-from coba.data.sources import Source
+from coba.pipes import Source
 from coba.learners import Learner
 
 from coba.benchmarks.results import Result

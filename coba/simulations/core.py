@@ -5,8 +5,8 @@ from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, An
 
 import coba.random
 
-from coba.data.sources import Source
-from coba.data.encoders import OneHotEncoder
+from coba.pipes import Source
+from coba.encodings import OneHotEncoder
 
 Action      = Hashable
 Key         = int

@@ -5,12 +5,9 @@ from pathlib import Path
 from itertools import chain, groupby, count
 from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, cast, Hashable
 
-from coba.tools import PackageChecker
+from coba.utilities import PackageChecker
 from coba.statistics import OnlineMean, OnlineVariance
-from coba.data.filters import Filter, Cartesian, JsonEncode, JsonDecode
-from coba.data.pipes import StopPipe, Pipe
-from coba.data.sinks import DiskSink
-from coba.data.sources import DiskSource
+from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe, DiskSink, DiskSource 
 
 class Table:
     """A container class for storing tabular data."""

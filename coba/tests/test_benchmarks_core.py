@@ -6,10 +6,9 @@ from statistics import mean
 from typing import cast
 
 from coba.simulations import LambdaSimulation
-from coba.data.sinks import MemorySink
-from coba.data.sources import Source
+from coba.pipes import Source, MemorySink
 from coba.learners import Learner
-from coba.tools import CobaConfig, NoneLogger, IndentLogger
+from coba.utilities import CobaConfig, NoneLogger, IndentLogger
 
 from coba.benchmarks.core import Benchmark
 

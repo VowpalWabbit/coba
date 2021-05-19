@@ -4,9 +4,10 @@ from itertools import compress, count, repeat
 from hashlib import md5
 from typing import Tuple, Sequence, Any, List, cast
 
-from coba.simulations.core import ClassificationReward, Context, Action, Interaction, MemorySimulation, Simulation
-from coba.data.sources import Source, HttpSource
-from coba.tools import CobaConfig
+from coba.pipes import Source, HttpSource
+from coba.utilities import CobaConfig
+
+from coba.simulations.core import Context, Action, Interaction, ClassificationReward, MemorySimulation, Simulation
 
 class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
@@ -17,8 +18,8 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
     def read(self) -> Tuple[Sequence[Sequence[Any]], Sequence[Any]]:
         
         #placing some of these at the top would cause circular references
-        from coba.data.encoders import Encoder, NumericEncoder, OneHotEncoder, StringEncoder
-        from coba.data.filters  import ArffReader, CsvReader, Encode, Flatten, Transpose
+        from coba.encodings import Encoder, NumericEncoder, OneHotEncoder, StringEncoder
+        from coba.pipes     import ArffReader, CsvReader, Encode, Flatten, Transpose
 
         d_key = None
         t_key = None

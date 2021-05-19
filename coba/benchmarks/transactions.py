@@ -1,10 +1,7 @@
 from typing import Any, Iterable, Optional, Sequence, cast
 
 from coba.learners import Learner
-from coba.data.filters import Filter, Cartesian, JsonEncode
-from coba.data.pipes import Pipe
-from coba.data.sinks import Sink, DiskSink, MemorySink
-from coba.data.sources import Source
+from coba.pipes import Pipe, Filter, Source, Sink, Cartesian, JsonEncode, DiskSink, MemorySink
 from coba.simulations import Simulation
 
 from coba.benchmarks.results import Result, ResultPromote

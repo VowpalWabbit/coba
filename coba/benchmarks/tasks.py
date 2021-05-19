@@ -7,10 +7,8 @@ from typing import Iterable, Sequence, Any, Optional, Dict, Tuple, Hashable
 
 from coba.random import CobaRandom
 from coba.learners import Learner
-from coba.tools import CobaConfig
-from coba.data.pipes import Pipe
-from coba.data.filters import Filter, IdentityFilter
-from coba.data.sources import Source
+from coba.utilities import CobaConfig
+from coba.pipes import Pipe, Filter, Source, IdentityFilter
 from coba.simulations import Context, Action, Key, Interaction, Simulation, BatchedSimulation
 
 from coba.benchmarks.transactions import Transaction

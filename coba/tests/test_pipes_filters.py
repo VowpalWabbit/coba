@@ -1,8 +1,8 @@
 import unittest
 
-from coba.data.filters import LibSvmReader, ArffReader, CsvReader, Flatten, Transpose, Encode
-from coba.data.encoders import NumericEncoder, OneHotEncoder
-from coba.tools import NoneLogger, CobaConfig
+from coba.pipes import LibSvmReader, ArffReader, CsvReader, Flatten, Transpose, Encode
+from coba.encodings import NumericEncoder, OneHotEncoder
+from coba.utilities import NoneLogger, CobaConfig
 
 CobaConfig.Logger = NoneLogger()
 

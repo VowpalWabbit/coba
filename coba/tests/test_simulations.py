@@ -5,7 +5,7 @@ import timeit
 from itertools import repeat
 from typing import List, Sequence, Tuple, cast, Optional
 
-from coba.tools import CobaConfig, NoneCacher, NoneLogger, MemoryCacher
+from coba.utilities import CobaConfig, NoneCacher, NoneLogger, MemoryCacher
 from coba.simulations import (
     Key, Action, Context, Interaction, ClassificationSimulation, MemoryReward, MemorySimulation, 
     LambdaSimulation, OpenmlSimulation, Shuffle, Take, Batch, PCA, Sort, OpenmlSource

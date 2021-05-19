@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import ContextManager, List, cast, Iterator, Iterable, Dict
 
-from coba.data.sinks import Sink, NoneSink
+from coba.pipes import Sink, NoneSink
 
 class Logger(ABC):
     """A more advanced logging interface allowing different types of logs to be written."""

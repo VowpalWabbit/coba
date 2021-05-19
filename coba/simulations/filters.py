@@ -3,9 +3,9 @@ import collections
 
 from typing import Optional, Sequence, Tuple, overload, cast, Union
 
-from coba.tools import PackageChecker
+from coba.utilities import PackageChecker
 from coba.random import CobaRandom
-from coba.data.filters import Filter
+from coba.pipes import Filter
 from coba.simulations.core import Simulation, MemorySimulation, BatchedSimulation, Interaction
 
 class Shuffle(Filter[Simulation,Simulation]):

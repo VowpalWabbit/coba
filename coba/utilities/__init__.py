@@ -5,12 +5,12 @@ are used by the core Benchmark, Learner and Simulation modules. No module inside
 Tools should never import form Benchmarks, Learners or Simulations.
 """
 
-from coba.tools.config   import CobaConfig
-from coba.tools.cachers  import NoneCacher, MemoryCacher, DiskCacher, Cacher
-from coba.tools.loggers  import NoneLogger, BasicLogger, IndentLogger, Logger
-from coba.tools.registry import CobaRegistry, coba_registry_class
+from coba.utilities.config   import CobaConfig
+from coba.utilities.cachers  import NoneCacher, MemoryCacher, DiskCacher, Cacher
+from coba.utilities.loggers  import NoneLogger, BasicLogger, IndentLogger, Logger
+from coba.utilities.registry import CobaRegistry, coba_registry_class
 
-from coba.tools.misc import PackageChecker, redirect_stderr
+from coba.utilities.misc import PackageChecker, redirect_stderr
 
 __all__ =[
     'CobaConfig',
