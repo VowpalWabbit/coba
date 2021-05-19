@@ -3,7 +3,7 @@ import setuptools
 
 MAJOR               = 2
 MINOR               = 4
-MICRO               = 0
+MICRO               = 1
 VERSION             = f"{MAJOR}.{MINOR}.{MICRO}"
 
 with open("README.md", "r") as f:
@@ -28,6 +28,9 @@ setuptools.setup(
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering"
     ],
-    install_requires = ['requests>=2'],
+    install_requires = [
+        'requests>=2',
+        'importlib-metadata'
+    ],
     python_requires=">=3.6",
 )
