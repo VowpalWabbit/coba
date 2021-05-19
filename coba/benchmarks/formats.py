@@ -6,7 +6,7 @@ from itertools import product, repeat
 from typing import Sequence, List, Dict, Any, MutableMapping, Mapping, cast
 
 from coba.simulations import Simulation, OpenmlSimulation, Shuffle, Take, Batch, PCA, Sort
-from coba.utilities import CobaRegistry
+from coba.registry import CobaRegistry
 
 from coba.benchmarks.core import Benchmark
 

@@ -126,8 +126,8 @@ class StatisticalEstimate_Tests(unittest.TestCase):
 
         actual = mean([a,a,a,a]) #type: ignore
 
-        self.assertEqual(actual.estimate, 1)
-        self.assertEqual(actual.standard_error, 2/sqrt(4))
+        self.assertEqual(actual.estimate, 1) #type: ignore
+        self.assertEqual(actual.standard_error, 2/sqrt(4)) #type: ignore
     
     def test_statistics_mean_2(self) -> None:
 
@@ -135,8 +135,8 @@ class StatisticalEstimate_Tests(unittest.TestCase):
 
         actual = mean([a,a,a,a]) #type: ignore
 
-        self.assertEqual(actual.estimate, 1.1)
-        self.assertEqual(actual.standard_error, 2.1/sqrt(4))
+        self.assertEqual(actual.estimate, 1.1) #type: ignore
+        self.assertEqual(actual.standard_error, 2.1/sqrt(4)) #type: ignore
 
     def test_pandas_mean(self) -> None:
 

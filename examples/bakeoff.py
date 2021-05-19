@@ -13,7 +13,7 @@ if __name__ == '__main__':
 
     #The existence check is only needed to provide a failsafe against different execution environments
     benchmark_file   = "bakeoff_short.json" if Path("bakeoff_short.json").exists() else "./examples/bakeoff_short.json"
-    transaction_file = "bakeoff_short.log"  if Path("bakeoff_short.log").exists()  else "./examples/bakeoff_short.log"
+    transaction_file = "bakeoff_short.log"  if Path("bakeoff_short.json").exists() else "./examples/bakeoff_short.log"
 
     #First, we define our learners that we wish to test
     learners = [
@@ -32,6 +32,6 @@ if __name__ == '__main__':
     #The provided log file is where results will be written and restored on evaluation.
     result = benchmark.evaluate(learners, transaction_file, seed=10)
 
-    #We can create a quick sanity plot to get a sense of how the results looked
+    #We can create a quick summary plot to get a sense of how the results looked
     #For more in-depth analysis it is useful to load the result into a Jupyter Notebook
     result.standard_plot() #This line requires that Matplotlib be installed

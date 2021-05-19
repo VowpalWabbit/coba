@@ -5,7 +5,7 @@ from hashlib import md5
 from typing import Tuple, Sequence, Any, List, cast
 
 from coba.pipes import Source, HttpSource
-from coba.utilities import CobaConfig
+from coba.config import CobaConfig
 
 from coba.simulations.core import Context, Action, Interaction, ClassificationReward, MemorySimulation, Simulation
 

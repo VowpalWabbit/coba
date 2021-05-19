@@ -19,7 +19,7 @@ class Interaction:
         """Instantiate Interaction.
 
         Args
-            context: Features describing the interactions's context. Will be `None` for multi-armed bandit simulations.
+            context: Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
             actions: Features describing available actions in the interaction.
             key    : A unique key assigned to this interaction.
         """
@@ -42,7 +42,7 @@ class Interaction:
 
     @property
     def actions(self) -> Sequence[Action]:
-        """The interactions's available actions."""
+        """The interaction's available actions."""
         return self._actions
 
 class Simulation(ABC):

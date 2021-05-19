@@ -7,7 +7,7 @@ from typing import Iterable, Sequence, Any, Optional, Dict, Tuple, Hashable
 
 from coba.random import CobaRandom
 from coba.learners import Learner
-from coba.utilities import CobaConfig
+from coba.config import CobaConfig
 from coba.pipes import Pipe, Filter, Source, IdentityFilter
 from coba.simulations import Context, Action, Key, Interaction, Simulation, BatchedSimulation
 

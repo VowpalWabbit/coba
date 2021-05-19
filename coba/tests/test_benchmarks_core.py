@@ -8,7 +8,7 @@ from typing import cast
 from coba.simulations import LambdaSimulation
 from coba.pipes import Source, MemorySink
 from coba.learners import Learner
-from coba.utilities import CobaConfig, NoneLogger, IndentLogger
+from coba.config import CobaConfig, NoneLogger, IndentLogger
 
 from coba.benchmarks.core import Benchmark
 

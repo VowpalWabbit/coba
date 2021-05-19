@@ -3,7 +3,7 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.utilities       import CobaConfig, IndentLogger
+from coba.config          import CobaConfig, IndentLogger
 from coba.pipes           import Filter, MemorySink
 from coba.multiprocessing import MultiprocessFilter
 

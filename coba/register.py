@@ -1,5 +1,7 @@
+
+from coba.registry    import CobaRegistry
 from coba.pipes       import ArffReader, CsvReader, LibSvmReader, DiskSource, HttpSource, NoneSink, ConsoleSink, DiskSink
-from coba.utilities   import CobaRegistry, DiskCacher, NoneCacher, MemoryCacher, IndentLogger, NoneLogger, BasicLogger
+from coba.config      import DiskCacher, NoneCacher, MemoryCacher, IndentLogger, NoneLogger, BasicLogger
 from coba.simulations import OpenmlSimulation, PCA, Shuffle, Take, Sort, ClassificationSimulation
 from coba.benchmarks  import BenchmarkFileFmtV1, BenchmarkFileFmtV2
 

@@ -3,7 +3,8 @@ from typing import Iterable, Sequence, cast, Optional, overload, List, Union
 
 from coba.learners import Learner
 from coba.simulations import Simulation, Take, Shuffle, Batch
-from coba.utilities import CobaRegistry, CobaConfig
+from coba.registry import CobaRegistry
+from coba.config import CobaConfig
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToText, HttpSource, MemorySource, DiskSource
 from coba.multiprocessing import MultiprocessFilter
 

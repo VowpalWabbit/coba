@@ -2,7 +2,7 @@ import unittest
 
 from coba.pipes import LibSvmReader, ArffReader, CsvReader, Flatten, Transpose, Encode
 from coba.encodings import NumericEncoder, OneHotEncoder
-from coba.utilities import NoneLogger, CobaConfig
+from coba.config import NoneLogger, CobaConfig
 
 CobaConfig.Logger = NoneLogger()
 

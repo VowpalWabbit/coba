@@ -4,7 +4,7 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.utilities import CobaConfig
+from coba.config import CobaConfig
 from coba.pipes import Pipe, Filter, IdentityFilter, MemorySink, MemorySource
 
 class Pipe_Tests(unittest.TestCase):
