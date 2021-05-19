@@ -3,11 +3,17 @@ This is an example script that creates a Benchmark.
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
+from pathlib import Path
+
 from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner, UcbBanditLearner, CorralLearner
 from coba.benchmarks import Benchmark
 
-#this line is necessary to use multi-processing
+#this line is required by Python in order to use multi-processing
 if __name__ == '__main__':
+
+    #The existence check is only needed to provide a failsafe against different execution environments
+    benchmark_file   = "bakeoff_short.json" if Path("bakeoff_short.json").exists() else "./examples/bakeoff_short.json"
+    transaction_file = "bakeoff_short.log"  if Path("bakeoff_short.log").exists()  else "./examples/bakeoff_short.log"
 
     #First, we define our learners that we wish to test
     learners = [
@@ -20,11 +26,11 @@ if __name__ == '__main__':
     ]
 
     #Then we create our benchmark from the benchmark configuration file
-    benchmark = Benchmark.from_file("./examples/bakeoff_short.json")
+    benchmark = Benchmark.from_file(benchmark_file)
 
     #Next we evaluate our learners given our benchmark. 
     #The provided log file is where results will be written and restored on evaluation.
-    result = benchmark.evaluate(learners, './examples/bakeoff_short.log', seed=10)
+    result = benchmark.evaluate(learners, transaction_file, seed=10)
 
     #We can create a quick sanity plot to get a sense of how the results looked
     #For more in-depth analysis it is useful to load the result into a Jupyter Notebook
