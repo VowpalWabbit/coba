@@ -174,35 +174,6 @@ class BatchedSimulation(MemorySimulation):
         """The sequence of batches of interactions in a simulation."""
         return self._batches
 
-class LambdaSource(Source[Tuple[Sequence[Interaction], Reward]]):
-
-    def __init__(self,
-        n_interactions: int,
-        context       : Callable[[int               ],Context],
-        actions       : Callable[[int,Context       ],Sequence[Action]],
-        reward        : Callable[[int,Context,Action],float],
-        seed          : int = None) -> None:
-
-        coba.random.seed(seed)
-
-        interaction_tuples: List[Tuple[Key, Context, Sequence[Action]]] = []
-        reward_tuples     : List[Tuple[Key, Action , float           ]] = []
-
-        for i in range(n_interactions):
-            
-            _context  = context(i)
-            _actions  = actions(i,_context)
-            _rewards  = [ reward(i, _context, _action) for _action in _actions]
-
-            interaction_tuples.append( (i, _context, _actions) )
-            reward_tuples.extend(zip(repeat(i), _actions, _rewards))
-
-        self._interactions = [ Interaction(key, context, actions) for key,context,actions in interaction_tuples ]
-        self._reward       = MemoryReward(reward_tuples)
-
-    def read(self) -> Tuple[Sequence[Interaction], Reward]:
-        return (self._interactions, self._reward)
-
 class LambdaSimulation(Source[Simulation]):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
 
@@ -212,23 +183,38 @@ class LambdaSimulation(Source[Simulation]):
 
     def __init__(self,
         n_interactions: int,
-        context       : Callable[[int               ],Context],
-        action_set    : Callable[[int,Context       ],Sequence[Action]], 
-        reward        : Callable[[int,Context,Action],float],
+        context       : Callable[[int               ],Context         ],
+        actions       : Callable[[int,Context       ],Sequence[Action]], 
+        reward        : Callable[[int,Context,Action],float           ],
         seed          : int = None) -> None:
         """Instantiate a LambdaSimulation.
 
         Args:
             n_interactions: How many interactions the LambdaSimulation should have.
             context: A function that should return a context given an index in `range(n_interactions)`.
-            action_set: A function that should return all valid actions for a given index and context.
+            actions: A function that should return all valid actions for a given index and context.
             reward: A function that should return the reward for the index, context and action.
         """
 
-        self._source = LambdaSource(n_interactions, context, action_set, reward, seed) # type: ignore
+        coba.random.seed(seed)
+
+        interaction_tuples: List[Tuple[Key, Context, Sequence[Action]]] = []
+        reward_tuples     : List[Tuple[Key, Action , float           ]] = []
+
+        for i in range(n_interactions):
+            _context  = context(i)
+            _actions  = actions(i,_context)
+            _rewards  = [ reward(i, _context, _action) for _action in _actions]
+
+            interaction_tuples.append( (i, _context, _actions) )
+            reward_tuples.extend(zip(repeat(i), _actions, _rewards))
+
+        self._interactions = [ Interaction(key, context, actions) for key,context,actions in interaction_tuples ]
+        self._reward       = MemoryReward(reward_tuples)
+        self._simulation   = MemorySimulation(self._interactions, self._reward)
 
     def read(self) -> Simulation:
-        return MemorySimulation(*self._source.read()) #type: ignore
+        return self._simulation
 
     def __repr__(self) -> str:
         return '"LambdaSimulation"'
