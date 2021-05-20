@@ -174,37 +174,49 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
         return data
 
 class CsvReader(Filter[Iterable[str], _T_Data]):
-    def __init__(self, with_header: bool = True):
-        self._with_header = with_header
-
     def filter(self, items: Iterable[str]) -> _T_Data:
         
-        lines = filter(None,csv.reader(items))
+        lines = iter(filter(None, csv.reader( i.strip() for i in items)))
 
-        #we assume there is at least one data row
-        headers   = next(lines) if self._with_header else None
-        data_row1 = next(lines)
+        try:
+            row1 = next(lines)
+        except StopIteration:
+            return []
+        try:
+            row2 = next(lines)
+        except StopIteration:
+            row2 = None
 
-        is_sparse = data_row1[0].startswith("{") and data_row1[-1].endswith("}")
+        data_row = row2 if row2 is not None else row1
 
-        data_lines = itertools.chain([data_row1], lines)
+        is_sparse  = data_row[0].startswith("{") and data_row[-1].endswith("}")
 
-        return self._sparse_parser(headers, data_lines) if is_sparse else self._dense_parser(headers, data_lines)
+        lines = itertools.chain(filter(None, [row1,row2]), lines)
 
-    def _dense_parser(self, headers: Optional[Sequence[str]], data_rows: Iterable[Sequence[str]]) -> _T_DenseData:        
-        return itertools.chain([headers], data_rows) if headers else data_rows
+        return self._sparse_parser(lines) if is_sparse else self._dense_parser(lines)
+
+    def _dense_parser(self, lines: Iterable[Sequence[str]]) -> _T_DenseData:        
+        return lines
     
-    def _sparse_parser(self, headers: Optional[Sequence[str]], data_rows: Iterable[Sequence[str]]) -> _T_SparseData:
+    def _sparse_parser(self, lines: Iterable[Sequence[str]]) -> _T_SparseData:
 
-        if headers:
-            yield ( tuple(range(len(headers))), tuple(headers) )
+        lines_iter = iter(lines)
 
-        for data_row in data_rows:
+        # we know there is at least one row otherwise we wouldn't have gotten here
+        line1 = next(lines_iter)
+        line1_is_header = not line1[0].startswith("{")
+
+        if line1_is_header:
+            yield (tuple(range(len(line1))), tuple(line1))
+        else:
+            lines_iter = itertools.chain([line1], lines_iter)
+
+        for data_line in lines_iter:
 
             index_list: List[int] = []
             value_list: List[str] = []
 
-            for item in data_row:
+            for item in data_line:
                 split = item.strip("}{").split(' ', 1)
                 
                 index_list.append(int(split[0]))
