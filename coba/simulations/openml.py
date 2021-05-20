@@ -1,5 +1,6 @@
 import json
 
+from numbers import Number
 from itertools import compress, count, repeat
 from hashlib import md5
 from typing import Tuple, Sequence, Any, List, cast
@@ -109,9 +110,16 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 
                 target_col   = file_cols[target_index]
                 missing_rows = list(set(range(len(file_rows))) - set(target_col[0]))
-                
+
+                if isinstance(target_col[1][0], Number):
+                    replace_val = 0
+                elif isinstance(target_col[1][0], tuple):
+                    replace_val = tuple([0]*len(target_col[1][0]))
+                else:
+                    replace_val = "0"
+
                 #we densify the target column to make sure classes of value '0' are encoded with the rest of the target column
-                file_cols[target_index] = ( target_col[0] + tuple(missing_rows),  target_col[1] + tuple(['0']*len(missing_rows)) )
+                file_cols[target_index] = ( target_col[0] + tuple(missing_rows),  target_col[1] + tuple([replace_val]*len(missing_rows)) )
 
             file_cols = list(Encode(file_encoders).filter(file_cols))
 

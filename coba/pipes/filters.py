@@ -29,7 +29,7 @@ def _is_dense(items: _T_Data)-> Tuple[bool, _T_Data]:
 
     #a sparse item has the following structure ([ids], [values])
     #this check isn't full proof but I think should be good enough
-    is_dense = (len(item0) != 2) or not all([isinstance(i, collections.Sequence) for i in item0])
+    is_dense = (len(item0) != 2) or not all([isinstance(i, collections.Sequence) and not isinstance(i, str) for i in item0])
 
     return is_dense, itertools.chain([item0], items)
 
@@ -116,7 +116,7 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
         is_one_hot = '{' in tipe
 
         if is_numeric: return NumericEncoder()
-        if is_one_hot: return OneHotEncoder(singular_if_binary=True)
+        if is_one_hot: return OneHotEncoder(fit_values=[ v.strip() for v in tipe.strip("}{").split(',')], singular_if_binary=True)
 
         return StringEncoder()
 
@@ -138,7 +138,7 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
                 attribute_match = self._r_attribute.match(line)
 
                 if attribute_match:
-                    attribute_text = attribute_match.group(1).lower().strip()
+                    attribute_text = attribute_match.group(1).strip()
                     attribute_type = re.split('[ ]', attribute_text, 1)[1]
                     attribute_name = re.split('[ ]', attribute_text)[0]
 
@@ -161,17 +161,11 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
 
         data, encoders = self._parse_file(source)
 
-        #Do we want to encode here? If we do, then this code won't be quite as seemless with OpenML.
-        #I think for now we will leave encoding out from this portion of code. In the 
-        #future if ARFF support is desired outside of the OpenML context it can be added in.
-        #This particulary causes issues with label encoding when reading OpenML Sources.
-        # data       = list(data)
-        # header_row = data.pop(0)
-        # data_rows  = data
-        # data_rows  = Transpose().filter(Encode(encoders).filter(Transpose().filter(data_rows)))
-        # return [header_row] + list(data_rows)
+        data_iter = iter(data)
+        header    = tuple(next(data_iter))
+        encoded   = Transpose().filter(Encode(encoders).filter(Transpose().filter(data_iter)))
 
-        return data
+        return itertools.chain([header], encoded)
 
 class CsvReader(Filter[Iterable[str], _T_Data]):
     def filter(self, items: Iterable[str]) -> _T_Data:

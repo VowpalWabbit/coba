@@ -3,7 +3,7 @@ from coba.pipes.filters import CsvReader
 from coba.pipes.io import DiskSource
 
 from itertools import accumulate, repeat
-from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any
+from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union
 
 import coba.random
 
@@ -220,18 +220,3 @@ class LambdaSimulation(Source[Simulation]):
 
     def __repr__(self) -> str:
         return '"LambdaSimulation"'
-
-class CsvSimulation(Source[Simulation]):
-
-    def __init__(self, csv_url:str, label_column:str, with_header=True) -> None:
-        self._csv_url      = csv_url
-        self._label_column = label_column
-        self._with_header  = with_header
-
-    def read(self) -> Simulation:
-        if self._csv_url.startswith("http"):
-            lines = HttpSource(self._csv_url).read().content.decode('utf-8').split('\n')
-        else:
-            lines = DiskSource(self._csv_url).read()
-
-        csv = CsvReader().filter(lines)

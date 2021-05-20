@@ -22,7 +22,7 @@ class ArffReader_Tests(unittest.TestCase):
         lines = [
             "@relation news20",
             "@attribute a numeric",
-            "@attribute b numeric",
+            "@attribute B numeric",
             "@attribute c {0, class_B, class_C, class_D}",
             "@data",
             "1,2,class_B",
@@ -30,9 +30,9 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['a','b','c'],
-            ['1','2','class_B'],
-            ['2','3','0']
+            ('a','B','c'),
+            (1,2,(0,1,0,0)),
+            (2,3,(1,0,0,0))
         ]
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
@@ -40,9 +40,9 @@ class ArffReader_Tests(unittest.TestCase):
     def test_dense_with_empty(self):
         lines = [
             "@relation news20",
-            "@attribute a numeric",
-            "@attribute b numeric",
-            "@attribute c {0, class_B, class_C, class_D}",
+            "@attribute A numeric",
+            "@attribute B numeric",
+            "@attribute C {0, class_B, class_C, class_D}",
             "@data",
             "",
             "",
@@ -52,9 +52,9 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['a','b','c'],
-            ['1','2','class_B'],
-            ['2','3','0']
+            ('A','B','C'),
+            (1,2,(0,1,0,0)),
+            (2,3,(1,0,0,0))
         ]
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
@@ -72,9 +72,9 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['a','b','c'],
-            ['1','2','class_B'],
-            ['2','3','0']
+            ('a','b','c'),
+            (1,2,(0,1,0,0)),
+            (2,3,(1,0,0,0))
         ]
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
@@ -97,10 +97,10 @@ class ArffReader_Tests(unittest.TestCase):
 
         expected = [
             ((0,1,2),('a','b','c')), 
-            ((0,1),('2','3')), 
-            ((0,1,2),('1','1','class_B')),
-            ((1,),('1',)),
-            ((0,2),('1','class_D'))
+            ((0,1),(2,3)), 
+            ((0,1,2),(1,1,(0,1,0,0))),
+            ((1,),(1,)),
+            ((0,2),(1,(0,0,0,1)))
         ]
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
