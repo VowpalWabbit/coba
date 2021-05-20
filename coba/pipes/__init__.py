@@ -2,7 +2,7 @@
 from coba.pipes.core import Pipe, Filter, Source, Sink, StopPipe
 
 from coba.pipes.filters import (
-    Cartesian, JsonEncode, JsonDecode, ResponseToText, ArffReader, CsvReader, 
+    Cartesian, JsonEncode, JsonDecode, ResponseToLines, ArffReader, CsvReader, 
     LibSvmReader, Encode, Flatten, Transpose, IdentityFilter
 )
 
@@ -17,7 +17,7 @@ __all__ = [
     "Cartesian",
     "JsonEncode",
     "JsonDecode",
-    "ResponseToText",
+    "ResponseToLines",
     "ArffReader",
     "CsvReader",
     "LibSvmReader",

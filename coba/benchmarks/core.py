@@ -5,7 +5,7 @@ from coba.learners import Learner
 from coba.simulations import Simulation, Take, Shuffle, Batch
 from coba.registry import CobaRegistry
 from coba.config import CobaConfig
-from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToText, HttpSource, MemorySource, DiskSource
+from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpSource, MemorySource, DiskSource
 from coba.multiprocessing import MultiprocessFilter
 
 from coba.benchmarks.tasks import Tasks, Unfinished, GroupByNone, GroupBySource, Transactions
@@ -28,7 +28,7 @@ class Benchmark:
         """Instantiate a Benchmark from a config file."""
 
         if isinstance(arg,str) and arg.startswith('http'):
-            content = ResponseToText().filter(HttpSource(arg).read())
+            content = '\n'.join(ResponseToLines().filter(HttpSource(arg).read()))
         
         elif isinstance(arg,str) and not arg.startswith('http'):
             content = '\n'.join(DiskSource(arg).read())

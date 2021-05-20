@@ -5,10 +5,11 @@ import timeit
 from itertools import repeat
 from typing import List, Sequence, Tuple, cast, Optional
 
+from coba.pipes import MemorySource
 from coba.config import CobaConfig, NoneCacher, NoneLogger, MemoryCacher
 from coba.simulations import (
     Key, Action, Context, Interaction, ClassificationSimulation, MemoryReward, MemorySimulation, 
-    LambdaSimulation, OpenmlSimulation, Shuffle, Take, Batch, PCA, Sort, OpenmlSource
+    LambdaSimulation, OpenmlSimulation, Shuffle, Take, Batch, PCA, Sort, OpenmlSource, CsvSimulation
 )
 
 CobaConfig.Logger = NoneLogger()
@@ -439,6 +440,23 @@ class OpenmlSimulation_Tests(unittest.TestCase):
 
     def test_repr(self):
         self.assertEqual('{"OpenmlSimulation":150}', str(OpenmlSimulation(150)))
+
+class CsvSimulation_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        source = MemorySource(['a,b,c','1,2,3','4,5,6'])
+        simulation = CsvSimulation(source,'c',).read()
+
+        self.assertEqual(2, len(simulation.interactions))
+        
+        self.assertEqual(('1','2'), simulation.interactions[0].context)
+        self.assertEqual(('4','5'), simulation.interactions[1].context)
+
+        self.assertEqual([(1,0),(0,1)], simulation.interactions[0].actions)
+        self.assertEqual([(1,0),(0,1)], simulation.interactions[1].actions)
+
+        self.assertEqual([1,0], simulation.reward.observe( [(0, ('1','2'), (1,0)), (0, ('1','2'), (0,1) )] ))
+        self.assertEqual([0,1], simulation.reward.observe( [(1, ('4','5'), (1,0)), (1, ('4','5'), (0,1) )] ))
 
 class Shuffle_Tests(unittest.TestCase):
     

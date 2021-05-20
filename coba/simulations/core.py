@@ -1,14 +1,10 @@
 from abc import ABC, abstractmethod
-from coba.pipes.filters import CsvReader
-from coba.pipes.io import DiskSource
-
 from itertools import accumulate, repeat
-from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union
+from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union, Iterable
 
 import coba.random
-
-from coba.pipes import Source, HttpSource
 from coba.encodings import OneHotEncoder
+from coba.pipes import Pipe, CsvReader, ResponseToLines, Transpose, Source, DiskSource, HttpSource
 
 Action      = Hashable
 Key         = int
@@ -147,10 +143,12 @@ class ClassificationSimulation(MemorySimulation):
 
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
-        self.one_hot_encoder = OneHotEncoder(list(set(labels)))
+        self.one_hot_encoder = OneHotEncoder(list(sorted(set(labels), key=lambda i: labels.index(i))))
 
         labels     = self.one_hot_encoder.encode(labels)
-        action_set = list(set(labels))
+        action_set = list(sorted(set(labels), reverse=True))
+
+        print(labels)
 
         interactions = [ Interaction(i, context, action_set) for i, context in enumerate(features) ] #type: ignore
         reward       = ClassificationReward(list(enumerate(labels)))
@@ -220,3 +218,37 @@ class LambdaSimulation(Source[Simulation]):
 
     def __repr__(self) -> str:
         return '"LambdaSimulation"'
+
+class CsvSimulation(Source[Simulation]):
+
+    def __init__(self, csv_source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
+        
+        if isinstance(csv_source, str) and csv_source.startswith('http'):
+            self._csv_source = Pipe.join(HttpSource(csv_source), [ResponseToLines()])
+        elif isinstance(csv_source, str):
+            self._csv_source = DiskSource(csv_source)
+        else:
+            self._csv_source = csv_source
+        
+        self._label_column = label_column
+        self._with_header  = with_header
+
+    def read(self) -> Simulation:
+        parsed_rows_iter = iter(CsvReader().filter(self._csv_source.read()))
+
+        if self._with_header:
+            header = next(parsed_rows_iter)
+        else:
+            header = []
+
+        if isinstance(self._label_column, str):
+            label_col_index = header.index(self._label_column)
+        else:
+            label_col_index = self._label_column
+
+        parsed_cols = list(Transpose().filter(parsed_rows_iter))
+        
+        label_col    = parsed_cols.pop(label_col_index)
+        feature_rows = list(Transpose().filter(parsed_cols))
+
+        return ClassificationSimulation(feature_rows, label_col)

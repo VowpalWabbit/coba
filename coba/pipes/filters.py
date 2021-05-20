@@ -59,17 +59,18 @@ class StringJoin(Filter[Iterable[str], str]):
     def filter(self, item: Iterable[str]) -> str:
         return self._separator.join(item)
 
-class ResponseToText(Filter[Response, str]):
-    def filter(self, item: Response) -> str:
+class ResponseToLines(Filter[Response, Iterable[str]]):
+    def filter(self, item: Response) -> Iterable[str]:
         
         if item.status_code != 200:
+            
             message = (
                 f"The response from {item.url} reported an error. "
                 "The status and reason were {item.status_code}-{item.reason}.")
             
             raise Exception(message) from None
 
-        return item.content.decode('utf-8')
+        return item.content.decode('utf-8').split('\n')
 
 class JsonEncode(Filter[Any, str]):
     def __init__(self, encoder: json.encoder.JSONEncoder = CobaJsonEncoder()) -> None:

@@ -15,7 +15,7 @@ if __name__ == '__main__':
     benchmark_file   = "bakeoff_short.json" if Path("bakeoff_short.json").exists() else "./examples/bakeoff_short.json"
     transaction_file = "bakeoff_short.log"  if Path("bakeoff_short.json").exists() else "./examples/bakeoff_short.log"
 
-    #First, we define our learners that we wish to test
+    #First, we define the learners that we want to test
     learners = [
         RandomLearner(),
         UcbBanditLearner(),
