@@ -88,32 +88,31 @@ class VowpalLearner_Tests(unittest.TestCase):
             raise SkipTest("Vowpal Wabbit is not installed so no need to test VowpalLearner")
 
     def test_predict_epsilon_adf(self):
-        learner = VowpalLearner(epsilon=0.05, is_adf=True, seed=20) 
-
+        learner = VowpalLearner(epsilon=0.05, adf=True, seed=20) 
         self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, None, [1,2,3,4]))
 
     def test_predict_epsilon_dict_context_adf(self):
-        learner = VowpalLearner(epsilon=0.05, is_adf=True, seed=20) 
+        learner = VowpalLearner(epsilon=0.05, adf=True, seed=20) 
 
         self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, {1:10.2, 2:3.5}, [1,2,3,4])) #type: ignore
 
     def test_predict_epsilon_tuple_context_adf(self):
-        learner = VowpalLearner(epsilon=0.05, is_adf=True, seed=20) 
+        learner = VowpalLearner(epsilon=0.05, adf=True, seed=20) 
 
         self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, ((1,2),(10.2,3.5)), [1,2,3,4])) #type: ignore
 
     def test_predict_epsilon_not_adf(self):
-        learner = VowpalLearner(epsilon=0.75, is_adf=False, seed=30) 
+        learner = VowpalLearner(epsilon=0.75, adf=False, seed=30) 
 
         self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4]))
 
     def test_predict_bag_adf(self):
-        learner = VowpalLearner(bag=5, is_adf=True, seed=30)
+        learner = VowpalLearner(bag=5, adf=True, seed=30)
 
-        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, None, ['1','2','3','4']))
 
     def test_predict_bag_not_adf(self):
-        learner = VowpalLearner(bag=5, is_adf=False, seed=30)
+        learner = VowpalLearner(bag=5, adf=False, seed=30)
 
         self.assertEqual([1,0,0,0], learner.predict(1, None, [1,2,3,4]))
 

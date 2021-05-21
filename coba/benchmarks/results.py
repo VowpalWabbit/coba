@@ -302,7 +302,7 @@ class Result:
         ax2.set_position([box2.x0, box2.y0 + box2.height * (1-scale), box2.width, box2.height * scale])
 
         # Put a legend below current axis
-        fig.legend(*ax1.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=2, fontsize='small') #type: ignore
+        fig.legend(*ax1.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='small') #type: ignore
 
         plt.show()
 
