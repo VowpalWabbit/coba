@@ -238,7 +238,7 @@ class LibSvmReader(Filter[Iterable[str], _T_Data]):
 
         for input_line in filter(None,input_lines):
 
-            items  = input_line.split(' ')
+            items  = input_line.strip().split(' ')
             labels = items[0].split(',')
             label  = labels[0] if len(labels) == 1 else tuple(labels)
 

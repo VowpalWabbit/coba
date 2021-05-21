@@ -123,6 +123,23 @@ class LibsvmReader_Tests(unittest.TestCase):
         
         self.assertEqual(expected, list(LibSvmReader().filter(lines)))
 
+    def test_trailing_whitespace(self):
+        lines = [
+            "0 1:2 2:3",
+            "1 1:1 2:1   ",
+            "2 2:1",
+            "1 1:1",
+        ]
+
+        expected = [
+            ((0,1,2),('0', 2, 3)),
+            ((0,1,2),('1', 1, 1)),
+            ((0,2)  ,('2', 1   )),
+            ((0,1)  ,('1', 1   )),
+        ]
+        
+        self.assertEqual(expected, list(LibSvmReader().filter(lines)))
+
 class Transpose_Tests(unittest.TestCase):
 
     def test_dense_transpose(self):

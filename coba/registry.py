@@ -160,5 +160,5 @@ class CobaRegistry:
         except KeyError:
             raise Exception(f"Unknown recipe {str(recipe)}")
 
-        except:
+        except Exception as e:
             raise Exception(f"Unable to create recipe {str(recipe)}")
