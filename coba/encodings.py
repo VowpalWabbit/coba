@@ -256,7 +256,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         if self.is_fit:
             raise Exception("This encoder has already been fit.")
 
-        fit_values = sorted(set(values))
+        fit_values = sorted(set(values), key=lambda v: values.index(v))
 
         return OneHotEncoder(
             fit_values         = fit_values, 

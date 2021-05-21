@@ -103,13 +103,13 @@ class NumericEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
     def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:
-        return OneHotEncoder(), ["d","a","b","b","b","d"], ["a"], [(1, 0, 0)]
+        return OneHotEncoder(), ["d","a","b","b","b","d"], ["a"], [(0, 1, 0)]
 
     def test_singular_if_binary(self):
         encoder = OneHotEncoder(singular_if_binary=True).fit(["1","1","1","0","0"])
 
-        self.assertEqual(encoder.encode(["0"]), [(1,)])
-        self.assertEqual(encoder.encode(["1"]), [(0,)])
+        self.assertEqual(encoder.encode(["0"]), [(0,)])
+        self.assertEqual(encoder.encode(["1"]), [(1,)])
 
     def test_error_if_unkonwn_true(self):
         encoder = OneHotEncoder(error_if_unknown=True).fit(["1","1","1","0","0"])

@@ -257,21 +257,21 @@ class Encode_Tests(unittest.TestCase):
     def test_sparse_encode_numeric(self):
         encode = Encode([NumericEncoder(), NumericEncoder()])
         given    = [([0,1,2],["1","2","3"]),([0,1,2],["4","5","6"])]
-        expected = [([0,1,2],[1,2,3]),([0,1,2],[4,5,6])]
+        expected = [((0,1,2),(1,2,3)),((0,1,2),(4,5,6))]
 
         self.assertEqual(expected, list(encode.filter(given)))
 
     def test_sparse_encode_onehot(self):
         encode   = Encode([OneHotEncoder([1,2,3]), OneHotEncoder()])
         given    = [([0,1,2],[1,2,2]),([0,1,2],[4,5,6])]
-        expected = [([0,1,2],[(1,0,0),(0,1,0),(0,1,0)]),([0,1,2],[(1,0,0),(0,1,0),(0,0,1)])]
+        expected = [((0,1,2),((1,0,0),(0,1,0),(0,1,0))),((0,1,2),((1,0,0),(0,1,0),(0,0,1)))]
 
         self.assertEqual(expected, list(encode.filter(given)))
 
     def test_sparse_encode_mixed(self):
         encode = Encode([NumericEncoder(), OneHotEncoder()])
         given    = [([0,1,2],[1,2,3]),([0,1,2],[4,5,5])]
-        expected = [([0,1,2],[1,2,3]),([0,1,2],[(1,0),(0,1),(0,1)])]
+        expected = [((0,1,2),(1,2,3)),((0,1,2),((1,0),(0,1),(0,1)))]
 
         self.assertEqual(expected, list(encode.filter(given)))
 

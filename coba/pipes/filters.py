@@ -223,22 +223,20 @@ class LibSvmReader(Filter[Iterable[str], _T_Data]):
     
     def filter(self, items: Iterable[str]) -> _T_Data:
 
-        features: List[Tuple[Tuple[int,...], Tuple[float,...]]] = []
-        labels  : List[float]                                   = []
+        lines: List[Tuple[Tuple[int,...], Tuple[float,...]]] = []
 
         for line in items:
 
             items = line.strip().split(' ')
 
-            label    = float(items[0])
-            splits   = [ i.split(":") for i in items[1:] ]
-            encoded  = [ (int(s[0]), float(s[1])) for s in splits ]
-            sparse   = cast(Tuple[Tuple[int,...], Tuple[float,...]], tuple(zip( (0,label), *encoded)))
+            label   = float(items[0])
+            splits  = [ i.split(":") for i in items[1:] ]
+            encoded = [ (int(s[0]), float(s[1])) for s in splits ]
+            line    = cast(Tuple[Tuple[int,...], Tuple[float,...]], tuple(zip( (0,label), *encoded)))
 
-            features.append(sparse)
-            labels.append(label)
+            lines.append(line)
 
-        return features
+        return lines
 
 class Transpose(Filter[_T_Data, _T_Data]):
     def filter(self, items: _T_Data) -> _T_Data:
@@ -308,4 +306,4 @@ class Encode(Filter[_T_Data, _T_Data]):
 
             encoded_values = encoder.encode(raw_values)
 
-            yield encoded_values if is_dense else (column[0], encoded_values)
+            yield encoded_values if is_dense else (tuple(column[0]), tuple(encoded_values))

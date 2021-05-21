@@ -1,8 +1,8 @@
 
 from coba.registry    import CobaRegistry
-from coba.pipes       import ArffReader, CsvReader, LibSvmReader, DiskSource, HttpSource, NoneSink, ConsoleSink, DiskSink
+from coba.pipes       import NoneSink, ConsoleSink, DiskSink
 from coba.config      import DiskCacher, NoneCacher, MemoryCacher, IndentLogger, NoneLogger, BasicLogger
-from coba.simulations import OpenmlSimulation, PCA, Shuffle, Take, Sort, ClassificationSimulation
+from coba.simulations import OpenmlSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation, PCA, Shuffle, Take, Sort
 from coba.benchmarks  import BenchmarkFileFmtV1, BenchmarkFileFmtV2
 
 CobaRegistry.register("NoneSink"   , NoneSink   )
@@ -17,15 +17,10 @@ CobaRegistry.register("DiskCacher"   , DiskCacher  )
 CobaRegistry.register("NoneCacher"   , NoneCacher  )
 CobaRegistry.register("MemoryCacher" , MemoryCacher)
 
-CobaRegistry.register("DiskSource", DiskSource)
-CobaRegistry.register("HttpSource", HttpSource)
-
-CobaRegistry.register("CsvReader"   , CsvReader   )
-CobaRegistry.register("ArffReader"  , ArffReader  )
-CobaRegistry.register("LibSvmReader", LibSvmReader)
-
-CobaRegistry.register("OpenmlSimulation"        , OpenmlSimulation        )
-CobaRegistry.register("ClassificationSimulation", ClassificationSimulation)
+CobaRegistry.register("OpenmlSimulation", OpenmlSimulation)
+CobaRegistry.register("LibsvmSimulation", LibsvmSimulation)
+CobaRegistry.register("CsvSimulation"   , CsvSimulation   )
+CobaRegistry.register("ArffSimulation"  , ArffSimulation  )
 
 CobaRegistry.register("Take"            , Take   )
 CobaRegistry.register("Shuffle"         , Shuffle)

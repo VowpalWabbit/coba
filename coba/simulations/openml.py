@@ -1,14 +1,13 @@
 import json
 
-from numbers import Number
-from itertools import compress, count, repeat
+from itertools import compress
 from hashlib import md5
 from typing import Tuple, Sequence, Any, List, cast
 
 from coba.pipes import Source, HttpSource
 from coba.config import CobaConfig
 
-from coba.simulations.core import Context, Action, Interaction, ClassificationReward, MemorySimulation, Simulation
+from coba.simulations.core import Context, Action, ClassificationSimulation, Simulation
 
 class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
@@ -72,7 +71,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 else:
                     encoders[headers.index(target)] = OneHotEncoder()
 
-            csv_url = f"http://www.openml.org/data/v1/get_csv/{d_object['file_id']}"
+            csv_url  = f"http://www.openml.org/data/v1/get_csv/{d_object['file_id']}"
             arff_url = f"http://www.openml.org/data/v1/download/{d_object['file_id']}"
 
             try:
@@ -101,43 +100,18 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             else:
                 file_headers  = [ header.lower() for header in file_rows.pop(0)]
 
-            file_encoders = [ encoders[file_headers.index(header)] for header in headers]
-
             file_cols = list(Transpose().filter(file_rows))
 
-            if is_sparse_data:
-                target_index = file_headers.index(target)
-                
-                target_col   = file_cols[target_index]
-                missing_rows = list(set(range(len(file_rows))) - set(target_col[0]))
-
-                if isinstance(target_col[1][0], Number):
-                    replace_val = 0
-                elif isinstance(target_col[1][0], tuple):
-                    replace_val = tuple([0]*len(target_col[1][0]))
-                else:
-                    replace_val = "0"
-
-                #we densify the target column to make sure classes of value '0' are encoded with the rest of the target column
-                file_cols[target_index] = ( target_col[0] + tuple(missing_rows),  target_col[1] + tuple([replace_val]*len(missing_rows)) )
-
-            file_cols = list(Encode(file_encoders).filter(file_cols))
-
             for ignored_header in compress(headers, ignored):
-                file_cols.pop(file_headers.index(ignored_header))
-                file_headers.remove(ignored_header)
+                if ignored_header in file_headers:
+                    file_cols.pop(file_headers.index(ignored_header))
+                    file_headers.remove(ignored_header)
 
+            file_encoders = [ encoders[headers.index(file_header)] for file_header in file_headers]
+
+            file_cols    = list(Encode(file_encoders).filter(file_cols))
             label_col    = file_cols.pop(file_headers.index(target))
             feature_rows = list(Transpose().filter(Flatten().filter(file_cols)))
-
-            if is_sparse_data:
-                label_rows = label_col[0]
-                label_col  = label_col[1]
-
-                #A quick sanity check just in case the label column is missing values
-                feature_rows = [feature_rows[i] for i in label_rows]
-
-            assert len(feature_rows) == len(label_col),  "Mismatched lengths of features and labels"
 
             #we only cache after all the data has been successfully loaded
             for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:
@@ -238,18 +212,12 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 class OpenmlSimulation(Source[Simulation]):
     """A simulation created from openml data with features and labels.
 
-    OpenmlSimulation turns labeled observations from a classification data set
-    set, into interactions. For each interaction the feature set becomes the context and 
+    OpenmlSimulation turns labeled observations from a classification data set,
+    into interactions. For each interaction the feature set becomes the context and 
     all possible labels become the actions. Rewards for each interaction are created by 
     assigning a reward of 1 for taking the correct action (i.e., choosing the correct
     label) and a reward of 0 for taking any other action (i.e., choosing any of the
     incorrect lables).
-
-    Remark:
-        This class when created from a data set will load all data into memory. Be careful when 
-        doing this if you are working with a large dataset. To reduce memory usage you can provide
-        meta information upfront that will allow features to be correctly encoded while the
-        dataset is being streamed instead of waiting until the end of the data to train an encoder.
     """
 
     def __init__(self, id: int, md5_checksum: str = None) -> None:
@@ -258,15 +226,7 @@ class OpenmlSimulation(Source[Simulation]):
     def read(self) -> Simulation:        
         feature_rows, label_col = self._source.read()
 
-        actions      = list(set(label_col))
-        reward       = ClassificationReward()
-        interactions = cast(List[Interaction],[])
-        
-        for key, context, label in zip(count(), feature_rows, label_col):
-            reward.add(key, label)
-            interactions.append(Interaction(key, context, actions))
-
-        return MemorySimulation(interactions, reward)
+        return ClassificationSimulation(feature_rows, label_col)
 
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._source._data_id}}}'

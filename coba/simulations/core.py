@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from itertools import accumulate, repeat
-from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union, Iterable
+from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union, Iterable, cast
 
 import coba.random
+
 from coba.encodings import OneHotEncoder
-from coba.pipes import Pipe, CsvReader, ResponseToLines, Transpose, Source, DiskSource, HttpSource
+from coba.pipes import Pipe, CsvReader, ArffReader, LibSvmReader, ResponseToLines, Transpose, Source, DiskSource, HttpSource, Filter, Flatten
+from coba.pipes.filters import _T_Data
 
 Action      = Hashable
 Key         = int
@@ -133,7 +135,7 @@ class ClassificationSimulation(MemorySimulation):
         dataset is being streamed instead of waiting until the end of the data to train an encoder.
     """
 
-    def __init__(self, features: Sequence[Any], labels: Sequence[Action]) -> None:
+    def __init__(self, features: Sequence[Any], labels: Union[Sequence[Action], Tuple[Tuple[int,...], Tuple[Action, ...]]]) -> None:
         """Instantiate a ClassificationSimulation.
 
         Args:
@@ -141,17 +143,28 @@ class ClassificationSimulation(MemorySimulation):
             labels: The collection of labels assigned to each observation of features.
         """
 
-        assert len(features) == len(labels), "Mismatched lengths of features and labels"
+        is_sparse = len(labels) == 2 and isinstance(labels[0], tuple) and isinstance(labels[1], tuple)
 
-        self.one_hot_encoder = OneHotEncoder(list(sorted(set(labels), key=lambda i: labels.index(i))))
+        assert is_sparse or len(features) == len(labels), "Mismatched lengths of features and labels"
 
-        labels     = self.one_hot_encoder.encode(labels)
-        action_set = list(sorted(set(labels), reverse=True))
+        if is_sparse:
+            label_rows   = cast(Tuple[int,...]   , labels[0])
+            label_vals   = cast(Tuple[Action,...], labels[1])
+            final_labels = cast(List[Any]        , [0]*len(features))
 
-        print(labels)
+            for row_index in range(len(features)):   
+                if row_index in label_rows:
+                    final_labels[row_index] = label_vals[label_rows.index(row_index)]
+        else:
+            final_labels = labels
+
+        self.one_hot_encoder = OneHotEncoder(list(sorted(set(final_labels), key=lambda i: final_labels.index(i))))
+
+        final_labels = self.one_hot_encoder.encode(final_labels)
+        action_set   = list(sorted(set(final_labels), reverse=True))
 
         interactions = [ Interaction(i, context, action_set) for i, context in enumerate(features) ] #type: ignore
-        reward       = ClassificationReward(list(enumerate(labels)))
+        reward       = ClassificationReward(list(enumerate(final_labels)))
 
         super().__init__(interactions, reward) #type:ignore
 
@@ -219,22 +232,28 @@ class LambdaSimulation(Source[Simulation]):
     def __repr__(self) -> str:
         return '"LambdaSimulation"'
 
-class CsvSimulation(Source[Simulation]):
+class ReaderSimulation(Source[Simulation]):
 
-    def __init__(self, csv_source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
+    def __init__(self, 
+        reader      : Filter[Iterable[str], _T_Data], 
+        source      : Union[str,Source[Iterable[str]]], 
+        label_column: Union[str,int], 
+        with_header : bool=True) -> None:
         
-        if isinstance(csv_source, str) and csv_source.startswith('http'):
-            self._csv_source = Pipe.join(HttpSource(csv_source), [ResponseToLines()])
-        elif isinstance(csv_source, str):
-            self._csv_source = DiskSource(csv_source)
+        self._reader = reader
+
+        if isinstance(source, str) and source.startswith('http'):
+            self._source = Pipe.join(HttpSource(source), [ResponseToLines()])
+        elif isinstance(source, str):
+            self._source = DiskSource(source)
         else:
-            self._csv_source = csv_source
+            self._source = source
         
         self._label_column = label_column
         self._with_header  = with_header
 
     def read(self) -> Simulation:
-        parsed_rows_iter = iter(CsvReader().filter(self._csv_source.read()))
+        parsed_rows_iter = iter(self._reader.filter(self._source.read()))
 
         if self._with_header:
             header = next(parsed_rows_iter)
@@ -249,6 +268,27 @@ class CsvSimulation(Source[Simulation]):
         parsed_cols = list(Transpose().filter(parsed_rows_iter))
         
         label_col    = parsed_cols.pop(label_col_index)
-        feature_rows = list(Transpose().filter(parsed_cols))
+        feature_rows = list(Transpose().filter(Flatten().filter(parsed_cols)))
 
         return ClassificationSimulation(feature_rows, label_col)
+
+class CsvSimulation(Source[Simulation]):
+    def __init__(self, csv_source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
+        self._simulation_source = ReaderSimulation(CsvReader(), csv_source, label_column, with_header)
+
+    def read(self) -> Simulation:
+        return self._simulation_source.read()
+
+class ArffSimulation(Source[Simulation]):
+    def __init__(self, arff_source:Union[str,Source[Iterable[str]]], label_column:Union[str,int]) -> None:
+        self._simulation_source = ReaderSimulation(ArffReader(), arff_source, label_column)
+
+    def read(self) -> Simulation:
+        return self._simulation_source.read()
+
+class LibsvmSimulation(Source[Simulation]):
+    def __init__(self, libsvm_source:Union[str,Source[Iterable[str]]]) -> None:
+        self._simulation_source = ReaderSimulation(LibSvmReader(), libsvm_source, 0, False)
+
+    def read(self) -> Simulation:
+        return self._simulation_source.read()
