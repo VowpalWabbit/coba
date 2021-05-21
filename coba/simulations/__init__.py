@@ -12,7 +12,7 @@ TODO Add RegressionSimulation
 from coba.simulations.core import (
     Context, Action, Key, Interaction, Simulation, Reward, MemorySimulation, 
     LambdaSimulation, ClassificationSimulation, BatchedSimulation, MemoryReward, ClassificationReward, 
-    CsvSimulation, ArffSimulation, LibsvmSimulation
+    CsvSimulation, ArffSimulation, LibsvmSimulation, ManikSimulation
 )
 from coba.simulations.openml  import OpenmlSource, OpenmlSimulation
 from coba.simulations.filters import Shuffle, Take, Batch, PCA, Sort
@@ -30,6 +30,7 @@ __all__ = [
     'CsvSimulation',
     'ArffSimulation',
     'LibsvmSimulation',
+    'ManikSimulation',
     'Reward',
     'MemoryReward',
     'ClassificationReward',

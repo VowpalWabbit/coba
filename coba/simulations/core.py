@@ -98,7 +98,7 @@ class ClassificationReward(Reward):
 
         for key, _, action in choices:
             key_label = self._labels[key]
-            reward    = int(action in key_label if isinstance(key_label, collections.Sequence) else action == key_label)
+            reward    = int(action in key_label if isinstance(key_label, collections.Sequence) and not isinstance(key_label, str) else action == key_label)
             rewards.append(reward)
 
         return rewards

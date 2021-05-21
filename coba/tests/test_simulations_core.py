@@ -26,6 +26,15 @@ class ClassifiactionReward_Tests(unittest.TestCase):
         self.assertEqual([0,1,0,0], reward.observe(list(zip(repeat(2),repeat(None),actions))))
         self.assertEqual([1,1,1,0], reward.observe(list(zip(repeat(3),repeat(None),actions))))
 
+    def test_string_classes(self):
+        reward = ClassificationReward([ (1,'abc'), (2,'a'), (3, 'bc') ])
+
+        actions = ['a','b','bc']
+
+        self.assertEqual([0,0,0], reward.observe(list(zip(repeat(1),repeat(None),actions))))
+        self.assertEqual([1,0,0], reward.observe(list(zip(repeat(2),repeat(None),actions))))
+        self.assertEqual([0,0,1], reward.observe(list(zip(repeat(3),repeat(None),actions))))
+
 class ClassificationSimulation_Tests(unittest.TestCase):
 
     def assert_simulation_for_data(self, simulation, features, answers) -> None:
