@@ -183,7 +183,8 @@ class VowpalLearner(Learner):
         """
 
         if self._vw is None:
-            cb_explore = "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}"
+            cb_explore = "" if "cb_explore" in self._args else "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}"
+
             self._args = cb_explore + " " + self._args
             
             # vowpal has an annoying warning that is written to stderr whether or not we provide
