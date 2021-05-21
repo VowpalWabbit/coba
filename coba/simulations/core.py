@@ -1,11 +1,17 @@
 from abc import ABC, abstractmethod
-from itertools import accumulate, repeat
+import collections
+
+from itertools import accumulate, repeat, chain
 from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union, Iterable, cast
 
 import coba.random
 
-from coba.encodings import OneHotEncoder
-from coba.pipes import Pipe, CsvReader, ArffReader, LibSvmReader, ResponseToLines, Transpose, Source, DiskSource, HttpSource, Filter, Flatten
+from coba.pipes import (
+    Pipe, Source, Filter,
+    CsvReader, ArffReader, LibSvmReader, 
+    DiskSource, HttpSource, 
+    ResponseToLines, Transpose, Flatten
+)
 from coba.pipes.filters import _T_Data
 
 Action      = Hashable
@@ -135,7 +141,7 @@ class ClassificationSimulation(MemorySimulation):
         dataset is being streamed instead of waiting until the end of the data to train an encoder.
     """
 
-    def __init__(self, features: Sequence[Any], labels: Union[Sequence[Action], Tuple[Tuple[int,...], Tuple[Action, ...]]]) -> None:
+    def __init__(self, features: Sequence[Any], labels: Union[Sequence[Action], Sequence[Sequence[Action]]] ) -> None:
         """Instantiate a ClassificationSimulation.
 
         Args:
@@ -143,28 +149,16 @@ class ClassificationSimulation(MemorySimulation):
             labels: The collection of labels assigned to each observation of features.
         """
 
-        is_sparse = len(labels) == 2 and isinstance(labels[0], tuple) and isinstance(labels[1], tuple)
+        assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
-        assert is_sparse or len(features) == len(labels), "Mismatched lengths of features and labels"
-
-        if is_sparse:
-            label_rows   = cast(Tuple[int,...]   , labels[0])
-            label_vals   = cast(Tuple[Action,...], labels[1])
-            final_labels = cast(List[Any]        , [0]*len(features))
-
-            for row_index in range(len(features)):   
-                if row_index in label_rows:
-                    final_labels[row_index] = label_vals[label_rows.index(row_index)]
+        if isinstance(labels[0], collections.Sequence) and not isinstance(labels[0],str):
+            labels_flat = list(chain.from_iterable(labels)) #type: ignore
         else:
-            final_labels = labels
-
-        self.one_hot_encoder = OneHotEncoder(list(sorted(set(final_labels), key=lambda i: final_labels.index(i))))
-
-        final_labels = self.one_hot_encoder.encode(final_labels)
-        action_set   = list(sorted(set(final_labels), reverse=True))
-
+            labels_flat = labels
+            
+        action_set   = list(sorted(set(labels_flat), key=lambda l: labels_flat.index(l) ))
         interactions = [ Interaction(i, context, action_set) for i, context in enumerate(features) ] #type: ignore
-        reward       = ClassificationReward(list(enumerate(final_labels)))
+        reward       = ClassificationReward(list(enumerate(labels)))
 
         super().__init__(interactions, reward) #type:ignore
 
@@ -270,7 +264,18 @@ class ReaderSimulation(Source[Simulation]):
         label_col    = parsed_cols.pop(label_col_index)
         feature_rows = list(Transpose().filter(Flatten().filter(parsed_cols)))
 
-        return ClassificationSimulation(feature_rows, label_col)
+        is_sparse_labels = len(label_col) == 2 and isinstance(label_col[0],tuple) and isinstance(label_col[1],tuple)
+        
+        if is_sparse_labels:
+            dense_labels = ['0']*len(feature_rows)
+            
+            for label_row, label_val in zip(*label_col): #type:ignore
+                dense_labels[label_row] = label_val
+
+        else:
+            dense_labels = label_col
+
+        return ClassificationSimulation(feature_rows, dense_labels)
 
 class CsvSimulation(Source[Simulation]):
     def __init__(self, csv_source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
@@ -281,12 +286,19 @@ class CsvSimulation(Source[Simulation]):
 
 class ArffSimulation(Source[Simulation]):
     def __init__(self, arff_source:Union[str,Source[Iterable[str]]], label_column:Union[str,int]) -> None:
-        self._simulation_source = ReaderSimulation(ArffReader(), arff_source, label_column)
+        self._simulation_source = ReaderSimulation(ArffReader(skip_encoding=[label_column]), arff_source, label_column)
 
     def read(self) -> Simulation:
         return self._simulation_source.read()
 
 class LibsvmSimulation(Source[Simulation]):
+    def __init__(self, libsvm_source:Union[str,Source[Iterable[str]]]) -> None:
+        self._simulation_source = ReaderSimulation(LibSvmReader(), libsvm_source, 0, False)
+
+    def read(self) -> Simulation:
+        return self._simulation_source.read()
+
+class ManikBowSimulation(Source[Simulation]):
     def __init__(self, libsvm_source:Union[str,Source[Iterable[str]]]) -> None:
         self._simulation_source = ReaderSimulation(LibSvmReader(), libsvm_source, 0, False)
 

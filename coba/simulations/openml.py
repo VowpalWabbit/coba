@@ -53,23 +53,19 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
                 if tipe['is_target'] == 'true':
                     target = tipe['name'].lower()
-
+                    
                 if tipe['data_type'] == 'numeric':
                     encoders.append(NumericEncoder())  
-                elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'false':
+                elif tipe['data_type'] == 'nominal':
                     encoders.append(OneHotEncoder(singular_if_binary=True))
-                elif tipe['data_type'] == 'nominal' and tipe['is_target'] == 'true':
-                    encoders.append(OneHotEncoder())
                 else:
                     encoders.append(StringEncoder())
 
             if isinstance(encoders[headers.index(target)], NumericEncoder):
                 target = self._get_classification_target(data_id)
-                ignored[headers.index(target)] = False
-                if isinstance(encoders[headers.index(target)], OneHotEncoder):
-                    cast(OneHotEncoder,encoders[headers.index(target)])._singular_if_binary = False
-                else:
-                    encoders[headers.index(target)] = OneHotEncoder()
+
+            ignored[headers.index(target)] = False
+            encoders[headers.index(target)] = StringEncoder()
 
             csv_url  = f"http://www.openml.org/data/v1/get_csv/{d_object['file_id']}"
             arff_url = f"http://www.openml.org/data/v1/download/{d_object['file_id']}"
@@ -82,12 +78,12 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 else:
                     o_key     = arff_url
                     o_bytes   = self._query(o_key, "obser", md5_checksum)
-                    file_rows = list(ArffReader().filter(o_bytes.decode('utf-8').splitlines()))
+                    file_rows = list(ArffReader(skip_encoding=[target]).filter(o_bytes.decode('utf-8').splitlines()))
             except:
                 if o_key == csv_url:
                     o_key     = arff_url
                     o_bytes   = self._query(o_key, "obser", md5_checksum)
-                    file_rows = list(ArffReader().filter(o_bytes.decode('utf-8').splitlines()))
+                    file_rows = list(ArffReader(skip_encoding=[target]).filter(o_bytes.decode('utf-8').splitlines()))
                 else:
                     o_key     = csv_url
                     o_bytes   = self._query(o_key, "obser", md5_checksum)
@@ -117,7 +113,15 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:
                 if key not in CobaConfig.Cacher: CobaConfig.Cacher.put(key,bytes)
 
-            return feature_rows, label_col
+            if is_sparse_data:
+                dense_label_col = ['0']*len(feature_rows)
+                for index, value in zip(label_col[0], label_col[1]):
+                    dense_label_col[index] = value
+
+            else:
+                dense_label_col = label_col
+
+            return feature_rows, dense_label_col
 
         except KeyboardInterrupt:
             raise
@@ -204,8 +208,6 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 for input in task['input']:
                     if input['name'] == 'target_feature':
                         return input['value'] #just take the first one
-
-        
 
         raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
 

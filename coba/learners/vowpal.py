@@ -33,7 +33,7 @@ class cb_explore_adf_Formatter:
     def learn(prob, actions, context: Context, action: Action, reward: float) -> str:
         vw_context   = None if context is None else f"shared |s {_features_format(context)}"
         vw_rewards  = [ "" if a != action else f"0:{-reward}:{prob}" for a in actions ]
-        vw_actions  = [ _features_format(a) for a in actions]
+        vw_actions  = [ f"{a}:1" for a in actions]
         vw_observed = [ f"{r} |a {a}" for r,a in zip(vw_rewards,vw_actions) ]
         return "\n".join(filter(None,[vw_context, *vw_observed]))
 

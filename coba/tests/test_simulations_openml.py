@@ -45,11 +45,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((8.3, 27, 1020, 0), feature_rows[3])
         self.assertEqual((7.6, 23, 4700, 0), feature_rows[4])
 
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((0,1), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
+        self.assertEqual('no', label_col[0])
+        self.assertEqual('no', label_col[1])
+        self.assertEqual('yes', label_col[2])
+        self.assertEqual('yes', label_col[3])
+        self.assertEqual('yes', label_col[4])
 
     def test_csv_default_classification(self):
 
@@ -76,11 +76,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((8.3, 27, 1020, 0), feature_rows[3])
         self.assertEqual((7.6, 23, 4700, 0), feature_rows[4])
 
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((0,1), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
+        self.assertEqual('no', label_col[0])
+        self.assertEqual('no', label_col[1])
+        self.assertEqual('yes', label_col[2])
+        self.assertEqual('yes', label_col[3])
+        self.assertEqual('yes', label_col[4])
 
     def test_csv_not_classification(self):
 
@@ -126,11 +126,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((8.3, 27, 1020, 4), feature_rows[3])
         self.assertEqual((7.6, 23, 4700, 5), feature_rows[4])
 
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((1,0), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
+        self.assertEqual('2', label_col[0])
+        self.assertEqual('2', label_col[1])
+        self.assertEqual('2', label_col[2])
+        self.assertEqual('1', label_col[3])
+        self.assertEqual('1', label_col[4])
 
     def test_arff_default_arff_classification(self):
 
@@ -157,11 +157,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((8.3, 27.0, 1020.0, 0), feature_rows[3])
         self.assertEqual((7.6, 23.0, 4700.0, 0), feature_rows[4])
 
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((0,1), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
+        self.assertEqual('no' , label_col[0])
+        self.assertEqual('no' , label_col[1])
+        self.assertEqual('yes', label_col[2])
+        self.assertEqual('yes', label_col[3])
+        self.assertEqual('yes', label_col[4])
 
     def test_arff_sparse_arff_classification(self):
 
@@ -183,17 +183,17 @@ class OpenmlSource_Tests(unittest.TestCase):
         feature_rows, label_col = OpenmlSource(1594).read()
 
         self.assertEqual(len(feature_rows), 4)
-        self.assertEqual(len(label_col[0]), 4)
+        self.assertEqual(len(label_col   ), 4)
 
         self.assertEqual(( (0,1)          , (2,3)          ), feature_rows[0])
         self.assertEqual(( (2,3,4,6,8)    , (1,1,1,1,1)    ), feature_rows[1])
         self.assertEqual(( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1)), feature_rows[2])
         self.assertEqual(( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  ), feature_rows[3])
 
-        self.assertEqual((1,0,0,0), label_col[1][0])
-        self.assertEqual((0,1,0,0), label_col[1][1])
-        self.assertEqual((0,0,1,0), label_col[1][2])
-        self.assertEqual((0,0,0,1), label_col[1][3])
+        self.assertEqual('class_A', label_col[0])
+        self.assertEqual('class_B', label_col[1])
+        self.assertEqual('class_C', label_col[2])
+        self.assertEqual('class_D', label_col[3])
 
     def test_arff_sparse_arff_missing_labels(self):
 
@@ -215,15 +215,18 @@ class OpenmlSource_Tests(unittest.TestCase):
         feature_rows, label_col = OpenmlSource(1594).read()
 
         self.assertEqual(len(feature_rows), 4)
-        self.assertEqual(len(label_col[1]), 2)
+        self.assertEqual(len(label_col)   , 4)
 
         self.assertEqual(( (0,1)          , (2,3)          ), feature_rows[0])
         self.assertEqual(( (2,3,4,6,8)    , (1,1,1,1,1)    ), feature_rows[1])
         self.assertEqual(( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1)), feature_rows[2])
         self.assertEqual(( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  ), feature_rows[3])
 
-        self.assertEqual((1,3), label_col[0])
-        self.assertEqual(((1,0),(0,1)), label_col[1])        
+
+        self.assertEqual('0'      , label_col[0])
+        self.assertEqual('class_B', label_col[1])
+        self.assertEqual('0'      , label_col[2])
+        self.assertEqual('class_D', label_col[3])
 
     def test_arff_not_classification(self):
 
@@ -270,11 +273,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((8.3, 27, 1020, 4), feature_rows[3])
         self.assertEqual((7.6, 23, 4700, 5), feature_rows[4])
 
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((1,0), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
+        self.assertEqual('2', label_col[0])
+        self.assertEqual('2', label_col[1])
+        self.assertEqual('2', label_col[2])
+        self.assertEqual('1', label_col[3])
+        self.assertEqual('1', label_col[4])
 
 class OpenmlSimulation_Tests(unittest.TestCase):
 
@@ -295,8 +298,8 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             hash(rnd.actions[1]) #make sure these are hashable
 
             self.assertEqual(len(cast(Tuple,rnd.context)), 268)
-            self.assertIn((1,0), rnd.actions)
-            self.assertIn((0,1), rnd.actions)
+            self.assertIn('0', rnd.actions)
+            self.assertIn('1', rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             
             actual_rewards  = simulation.reward.observe(_choices(rnd))

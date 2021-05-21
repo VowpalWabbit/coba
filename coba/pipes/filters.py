@@ -8,8 +8,9 @@ import collections
 import itertools
 import json
 
+from itertools import islice, count
 from collections import defaultdict
-from typing import Iterable, Any, Sequence, Union, Tuple, List, Optional, Dict, cast
+from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, cast
 
 from requests import Response
 
@@ -91,7 +92,9 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
         https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
 
-    def __init__(self):
+    def __init__(self, skip_encoding: List[Union[str,int]] = []):
+
+        self._skip_encoding = skip_encoding
 
         # Match a comment
         self._r_comment = re.compile(r'^%')
@@ -111,10 +114,13 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
         #The @data line indicates when the data begins. After @data there should be no more @ lines.
         self._r_data = re.compile(r'^@[Dd][Aa][Tt][Aa]')
 
-    def _determine_encoder(self, tipe: str) -> Encoder:
+    def _determine_encoder(self, index:int, name: str, tipe: str) -> Encoder:
 
         is_numeric = tipe in ['numeric', 'integer', 'real']
         is_one_hot = '{' in tipe
+
+        if index in self._skip_encoding or name in self._skip_encoding:
+            return StringEncoder()
 
         if is_numeric: return NumericEncoder()
         if is_one_hot: return OneHotEncoder(fit_values=[ v.strip() for v in tipe.strip("}{").split(',')], singular_if_binary=True)
@@ -139,12 +145,13 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
                 attribute_match = self._r_attribute.match(line)
 
                 if attribute_match:
-                    attribute_text = attribute_match.group(1).strip()
-                    attribute_type = re.split('[ ]', attribute_text, 1)[1]
-                    attribute_name = re.split('[ ]', attribute_text)[0]
+                    attribute_text  = attribute_match.group(1).strip()
+                    attribute_type  = re.split('[ ]', attribute_text, 1)[1]
+                    attribute_name  = re.split('[ ]', attribute_text)[0]
+                    attribute_index = len(headers)
 
                     headers.append(attribute_name)
-                    encoders.append(self._determine_encoder(attribute_type))
+                    encoders.append(self._determine_encoder(attribute_index,attribute_name,attribute_type))
 
                 if self._r_data.match(line):
                     in_data_section = True
@@ -221,22 +228,42 @@ class CsvReader(Filter[Iterable[str], _T_Data]):
 
 class LibSvmReader(Filter[Iterable[str], _T_Data]):
     
-    def filter(self, items: Iterable[str]) -> _T_Data:
+    """https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/"""
+    """https://github.com/cjlin1/libsvm"""
 
-        lines: List[Tuple[Tuple[int,...], Tuple[float,...]]] = []
+    def filter(self, input_lines: Iterable[str]) -> _T_Data:
 
-        for line in items:
+        output_lines: List[Tuple[Tuple[int,...], Tuple[Any,...]]] = []
+        feature_index = defaultdict(lambda x=count(1): next(x))
 
-            items = line.strip().split(' ')
+        for input_line in filter(None,input_lines):
 
-            label   = float(items[0])
-            splits  = [ i.split(":") for i in items[1:] ]
-            encoded = [ (int(s[0]), float(s[1])) for s in splits ]
-            line    = cast(Tuple[Tuple[int,...], Tuple[float,...]], tuple(zip( (0,label), *encoded)))
+            items  = input_line.split(' ')
+            labels = items[0].split(',')
+            label  = labels[0] if len(labels) == 1 else tuple(labels)
 
-            lines.append(line)
+            output_line: List[Tuple[int,Any]] = [ (0,label) ]
+            
+            for item in items[1:]:
+                split = item.split(":")
+                index = feature_index[split[0]]
+                value = float(split[1])
+                output_line.append((index,value))
 
-        return lines
+            output_lines.append(tuple(zip(*output_line))) #type: ignore
+            
+        return output_lines
+
+class ManikBowReader(Filter[Iterable[str], _T_Data]):
+    
+    """http://manikvarma.org/downloads/XC/XMLRepository.html"""
+    """https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view"""
+
+
+    def filter(self, input_lines: Iterable[str]) -> _T_Data:
+
+        # we skip first line because it just has metadata
+        return LibSvmReader().filter(islice(input_lines,1,None))
 
 class Transpose(Filter[_T_Data, _T_Data]):
     def filter(self, items: _T_Data) -> _T_Data:

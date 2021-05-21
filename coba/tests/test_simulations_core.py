@@ -21,8 +21,6 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(len(simulation.interactions), len(features))
 
-        answers = simulation.one_hot_encoder.encode(answers)
-
         #first we make sure that all the labels are included 
         #in the first interactions actions without any concern for order
         self.assertCountEqual(simulation.interactions[0].actions, set(answers))
@@ -83,7 +81,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
             ( (2,3), (30,40) )
         ]
 
-        label_column = ( (1,2), ((1,0),(0,1)) )
+        label_column = (1,1,0,2)
 
         sim = ClassificationSimulation(feature_rows, label_column)
 
@@ -92,15 +90,15 @@ class ClassificationSimulation_Tests(unittest.TestCase):
         self.assertEqual(feature_rows[2], sim.interactions[2].context)
         self.assertEqual(feature_rows[3], sim.interactions[3].context)
 
-        self.assertEqual([(1,0,0),(0,1,0),(0,0,1)], sim.interactions[0].actions)
-        self.assertEqual([(1,0,0),(0,1,0),(0,0,1)], sim.interactions[1].actions)
-        self.assertEqual([(1,0,0),(0,1,0),(0,0,1)], sim.interactions[2].actions)
-        self.assertEqual([(1,0,0),(0,1,0),(0,0,1)], sim.interactions[3].actions)
+        self.assertEqual([1,0,2], sim.interactions[0].actions)
+        self.assertEqual([1,0,2], sim.interactions[1].actions)
+        self.assertEqual([1,0,2], sim.interactions[2].actions)
+        self.assertEqual([1,0,2], sim.interactions[3].actions)
 
         self.assertEqual([1,0,0], sim.reward.observe(_choices(sim.interactions[0])))
-        self.assertEqual([0,1,0], sim.reward.observe(_choices(sim.interactions[1])))
-        self.assertEqual([0,0,1], sim.reward.observe(_choices(sim.interactions[2])))
-        self.assertEqual([1,0,0], sim.reward.observe(_choices(sim.interactions[3])))
+        self.assertEqual([1,0,0], sim.reward.observe(_choices(sim.interactions[1])))
+        self.assertEqual([0,1,0], sim.reward.observe(_choices(sim.interactions[2])))
+        self.assertEqual([0,0,1], sim.reward.observe(_choices(sim.interactions[3])))
 
 class MemorySimulation_Tests(unittest.TestCase):
 
@@ -154,7 +152,7 @@ class CsvSimulation_Tests(unittest.TestCase):
 
     def test_simple(self):
         source = MemorySource(['a,b,c','1,2,3','4,5,6','7,8,6'])
-        simulation = CsvSimulation(source,'c',).read()
+        simulation = CsvSimulation(source,'c').read()
 
         self.assertEqual(3, len(simulation.interactions))
         
@@ -162,8 +160,8 @@ class CsvSimulation_Tests(unittest.TestCase):
         self.assertEqual(('4','5'), simulation.interactions[1].context)
         self.assertEqual(('7','8'), simulation.interactions[2].context)
 
-        self.assertEqual([(1,0),(0,1)], simulation.interactions[0].actions)
-        self.assertEqual([(1,0),(0,1)], simulation.interactions[1].actions)
+        self.assertEqual(['3','6'], simulation.interactions[0].actions)
+        self.assertEqual(['3','6'], simulation.interactions[1].actions)
 
         self.assertEqual([1,0], simulation.reward.observe( _choices(simulation.interactions[0]) ))
         self.assertEqual([0,1], simulation.reward.observe( _choices(simulation.interactions[1]) ))
@@ -190,11 +188,11 @@ class ArffSimulation_Tests(unittest.TestCase):
         self.assertEqual((1,2), simulation.interactions[0].context)
         self.assertEqual((2,3), simulation.interactions[1].context)
 
-        self.assertEqual([(1,0),(0,1)], simulation.interactions[0].actions)
-        self.assertEqual([(1,0),(0,1)], simulation.interactions[1].actions)
+        self.assertEqual(['class_B','0'], simulation.interactions[0].actions)
+        self.assertEqual(['class_B','0'], simulation.interactions[1].actions)
 
-        self.assertEqual([1,0], simulation.reward.observe( [(0, ('1','2'), (1,0)), (0, ('1','2'), (0,1) )] ))
-        self.assertEqual([0,1], simulation.reward.observe( [(1, ('4','5'), (1,0)), (1, ('4','5'), (0,1) )] ))
+        self.assertEqual([1,0], simulation.reward.observe( _choices(simulation.interactions[0]) ))
+        self.assertEqual([0,1], simulation.reward.observe( _choices(simulation.interactions[1]) ))
 
     def test_one_hot(self):
 
@@ -218,9 +216,9 @@ class ArffSimulation_Tests(unittest.TestCase):
         self.assertEqual((2,0,0,0,1), simulation.interactions[1].context)
         self.assertEqual((3,0,1,0,0), simulation.interactions[2].context)
 
-        self.assertEqual([(1,0),(0,1)], simulation.interactions[0].actions)
-        self.assertEqual([(1,0),(0,1)], simulation.interactions[1].actions)
-        self.assertEqual([(1,0),(0,1)], simulation.interactions[2].actions)
+        self.assertEqual(['class_B','0'], simulation.interactions[0].actions)
+        self.assertEqual(['class_B','0'], simulation.interactions[1].actions)
+        self.assertEqual(['class_B','0'], simulation.interactions[2].actions)
 
         self.assertEqual([1,0], simulation.reward.observe(_choices(simulation.interactions[0])))
         self.assertEqual([0,1], simulation.reward.observe(_choices(simulation.interactions[1])))
@@ -240,13 +238,13 @@ class LibsvmSimulation_Tests(unittest.TestCase):
         simulation = LibsvmSimulation(source).read()
 
         self.assertEqual(3, len(simulation.interactions))
-        
-        self.assertEqual(((3,4),(2,3)), simulation.interactions[0].context)
-        self.assertEqual(((0,1),(1,1)), simulation.interactions[1].context)
-        self.assertEqual(((2, ),(4, )), simulation.interactions[2].context)
 
-        self.assertEqual([(1,0),(0,1)], simulation.interactions[0].actions)
-        self.assertEqual([(1,0),(0,1)], simulation.interactions[1].actions)
+        self.assertEqual(((0,1),(2,3)), simulation.interactions[0].context)
+        self.assertEqual(((2,3),(1,1)), simulation.interactions[1].context)
+        self.assertEqual(((4, ),(4, )), simulation.interactions[2].context)
+
+        self.assertEqual(['0', '1'], simulation.interactions[0].actions)
+        self.assertEqual(['0', '1'], simulation.interactions[1].actions)
 
         self.assertEqual([1,0], simulation.reward.observe( _choices(simulation.interactions[0]) ))
         self.assertEqual([0,1], simulation.reward.observe( _choices(simulation.interactions[1]) ))
