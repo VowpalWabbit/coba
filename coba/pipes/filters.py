@@ -254,7 +254,7 @@ class LibSvmReader(Filter[Iterable[str], _T_Data]):
             
         return output_lines
 
-class ManikBowReader(Filter[Iterable[str], _T_Data]):
+class ManikReader(Filter[Iterable[str], _T_Data]):
     
     """http://manikvarma.org/downloads/XC/XMLRepository.html"""
     """https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view"""

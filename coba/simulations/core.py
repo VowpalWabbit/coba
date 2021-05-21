@@ -12,7 +12,7 @@ from coba.pipes import (
     DiskSource, HttpSource, 
     ResponseToLines, Transpose, Flatten
 )
-from coba.pipes.filters import _T_Data
+from coba.pipes.filters import ManikReader, _T_Data
 
 Action      = Hashable
 Key         = int
@@ -87,14 +87,21 @@ class MemoryReward(Reward):
         return [ self._rewards[(key,action)] for key,_,action in choices ]
 
 class ClassificationReward(Reward):
-    def __init__(self, labels: Sequence[Tuple[Key,Action]] = []) -> None:
+    def __init__(self, labels: Sequence[Tuple[Key,Union[Action, Sequence[Action]]]] = []) -> None:
         self._labels = dict(labels)
 
     def add(self, key: Key, action: Action):
         self._labels[key] = action
 
     def observe(self, choices: Sequence[Tuple[Key,Context,Action]] ) -> Sequence[float]:
-        return [ float(self._labels[key] == action) for key, _, action in choices ]
+        rewards = []
+
+        for key, _, action in choices:
+            key_label = self._labels[key]
+            reward    = int(action in key_label if isinstance(key_label, collections.Sequence) else action == key_label)
+            rewards.append(reward)
+
+        return rewards
 
 class MemorySimulation(Simulation):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
@@ -277,30 +284,45 @@ class ReaderSimulation(Source[Simulation]):
 
         return ClassificationSimulation(feature_rows, dense_labels)
 
+    def __repr__(self) -> str:
+        return str(self._source)
+
 class CsvSimulation(Source[Simulation]):
-    def __init__(self, csv_source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
-        self._simulation_source = ReaderSimulation(CsvReader(), csv_source, label_column, with_header)
+    def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
+        self._simulation_source = ReaderSimulation(CsvReader(), source, label_column, with_header)
 
     def read(self) -> Simulation:
         return self._simulation_source.read()
+
+    def __repr__(self) -> str:
+        return f'{{"CsvSimulation":"{self._simulation_source}"}}'
 
 class ArffSimulation(Source[Simulation]):
-    def __init__(self, arff_source:Union[str,Source[Iterable[str]]], label_column:Union[str,int]) -> None:
-        self._simulation_source = ReaderSimulation(ArffReader(skip_encoding=[label_column]), arff_source, label_column)
+    def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int]) -> None:
+        self._simulation_source = ReaderSimulation(ArffReader(skip_encoding=[label_column]), source, label_column)
 
     def read(self) -> Simulation:
         return self._simulation_source.read()
+
+    def __repr__(self) -> str:
+        return f'{{"ArffSimulation":"{self._simulation_source}"}}'    
 
 class LibsvmSimulation(Source[Simulation]):
-    def __init__(self, libsvm_source:Union[str,Source[Iterable[str]]]) -> None:
-        self._simulation_source = ReaderSimulation(LibSvmReader(), libsvm_source, 0, False)
+    def __init__(self, source:Union[str,Source[Iterable[str]]]) -> None:
+        self._simulation_source = ReaderSimulation(LibSvmReader(), source, 0, False)
 
     def read(self) -> Simulation:
         return self._simulation_source.read()
 
-class ManikBowSimulation(Source[Simulation]):
-    def __init__(self, libsvm_source:Union[str,Source[Iterable[str]]]) -> None:
-        self._simulation_source = ReaderSimulation(LibSvmReader(), libsvm_source, 0, False)
+    def __repr__(self) -> str:
+        return f'{{"LibsvmSimulation":"{self._simulation_source}"}}'
+
+class ManikSimulation(Source[Simulation]):
+    def __init__(self, source:Union[str,Source[Iterable[str]]]) -> None:
+        self._simulation_source = ReaderSimulation(ManikReader(), source, 0, False)
 
     def read(self) -> Simulation:
         return self._simulation_source.read()
+
+    def __repr__(self) -> str:
+        return f'{{"ManikSimulation":"{self._simulation_source}"}}'

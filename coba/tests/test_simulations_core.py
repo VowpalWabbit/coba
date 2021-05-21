@@ -1,12 +1,12 @@
-from coba.simulations.core import ArffSimulation
 import unittest
 
+from itertools import repeat
 from typing import Sequence, Tuple, Optional, List
 
 from coba.pipes import MemorySource
 from coba.config import CobaConfig, NoneLogger
 from coba.simulations import (
-    Key, Action, Context, Interaction, MemoryReward,
+    Key, Action, Context, Interaction, MemoryReward, ClassificationReward,
     MemorySimulation, ClassificationSimulation, LambdaSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation
 )
 
@@ -14,6 +14,17 @@ CobaConfig.Logger = NoneLogger()
 
 def _choices(interaction: Interaction) -> Sequence[Tuple[Key, Optional[Context], Action]]:
     return [  (interaction.key, interaction.context, a) for a in interaction.actions]
+
+class ClassifiactionReward_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        reward = ClassificationReward([ (1,1), (2,2), (3, (1,2,3)) ])
+
+        actions = [1,2,3,4]
+
+        self.assertEqual([1,0,0,0], reward.observe(list(zip(repeat(1),repeat(None),actions))))
+        self.assertEqual([0,1,0,0], reward.observe(list(zip(repeat(2),repeat(None),actions))))
+        self.assertEqual([1,1,1,0], reward.observe(list(zip(repeat(3),repeat(None),actions))))
 
 class ClassificationSimulation_Tests(unittest.TestCase):
 
