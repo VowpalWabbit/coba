@@ -2,7 +2,7 @@
 
 ### What is it?
 
- Coba is a powerful benchmarking framework built specifically for research of contextual bandit algorithms.
+ Coba is a powerful benchmarking framework built specifically for research with contextual bandit algorithms.
 
 ### How do you benchmark?
 
