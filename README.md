@@ -58,15 +58,13 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  
  ## Benchmarks
  
- The `Benchmark` class contains all the logic for learner performance evaluation. This includes both evaluation logic (e.g., which simulations and how many interactions) and execution logic (e.g., how many processors to use and where to write results).
- 
- There is only one `Benchmark` implementation in Coba and it can be found in the `coba.benchmarks` module.
+ The `Benchmark` class contains all the logic for learner performance evaluation. This includes both evaluation logic (e.g., which simulations and how many interactions) and execution logic (e.g., how many processors to use and where to write results). There is only one `Benchmark` implementation in Coba and it can be found in the `coba.benchmarks` module.
  
  ## Learners
  
- Learners are algorithms which are able to improve their action selection through interactions with Simulations.
+ Learners are algorithms which are able to improve their action selection through interactions with simulations.
  
- A number of algorithms have been provided out of the box for quick comparsions. These include:
+ A number of algorithms are provided natively with Coba for quick comparsions. These include:
  
  * All contextual bandit learners in VowpalWabbit
  * UCB1-Tuned Bandit Learner by Auer et al. 2002
