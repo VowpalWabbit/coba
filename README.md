@@ -31,7 +31,7 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  
  Coba is architected around a simple workflow: Simulations -> Benchmark -> Learners -> Results.
  
- Simulations are the core unit of evaluation in Coba. A simulation contains all the necessary logic to produce interactions and rewards. With a collection of simulations we can then define a Benchmark. Benchmarks package up all rules for robust and repeatable evaluation. Finally, once we have a benchmark we can then apply that benchmark to learners to see how a learner is able to perform on the given benchmark.
+ Simulations contain all the necessary logic to define an environment. With a collection of simulations we then define a Benchmark. Benchmarks possess all the rules performance evaluation. Finally, once we have a benchmark we can then apply that benchmark to learners to see how a learner they perform on the benchmark.
  
  ## Simulations
  
