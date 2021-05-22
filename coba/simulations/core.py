@@ -51,6 +51,12 @@ class Interaction:
         """The interaction's available actions."""
         return self._actions
 
+class Reward(ABC):
+
+    @abstractmethod
+    def observe(self, choices: Sequence[Tuple[Key,Context,Action]] ) -> Sequence[float]:
+        ...
+
 class Simulation(ABC):
     """The simulation interface."""
 
@@ -69,15 +75,9 @@ class Simulation(ABC):
 
     @property
     @abstractmethod
-    def reward(self) -> 'Reward':
+    def reward(self) -> Reward:
         """The reward object which can observe rewards for pairs of actions and interaction keys."""
         ...    
-
-class Reward(ABC):
-
-    @abstractmethod
-    def observe(self, choices: Sequence[Tuple[Key,Context,Action]] ) -> Sequence[float]:
-        ...
 
 class MemoryReward(Reward):
     def __init__(self, rewards: Sequence[Tuple[Key,Action,float]] = []) -> None:

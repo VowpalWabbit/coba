@@ -1,6 +1,8 @@
 # Coba
 
-An agile, collaborative benchmarking framework for contextual bandit research.
+### What is it?
+
+ Coba is a powerful benchmarking framework built specifically for research of contextual bandit algorithms.
 
 ### How do you benchmark?
 
@@ -21,89 +23,61 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  * ... *verbose* (it has customizable, hierarchical logging for meaningful, readable feedback on log running jobs)
  * ... *robust* (benchmarks write every action to file so they can always be resumed whenever your system crashes)
  * ... *just-in-time* (no resources are loaded until needed, and they are released immediately to keep memory small)
- * ... *a duck?* (coba relies only on duck-typing so no inheritance is needed to implement our interfaces)
+ * ... *a duck?* (Coba relies only on duck-typing so no inheritance is needed to implement our interfaces)
  
- But don't take our word for it. We encourage you to look at the code yourself.
+ But don't take our word for it. We encourage you to look at the code yourself or read more below.
  
- ## Adding New Data Sets
+ ## Workflow
  
- ### Creating Simulations From Classification Data Sets
+ Coba is architected around a simple workflow: Simulations -> Benchmark -> Learners -> Results.
  
- Classification data sets are an easy way to quickly evaluate CB algorithms. So long as the data set is in CSV format it can easily be turned into a contextual bandit simulation. This method works both with local files and files available over http. When requesting over http Coba even allows you to cache a version of the file locally for fast re-runs later.
+ Simulations are the core unit of evaluation in Coba. A simulation contains all the necessary logic to produce interactions and rewards.
  
- ### Creating Simulations From Generative Models
+ With a collection of simulations we can then define a Benchmark. Benchmarks package up all rules for robust and repeatable evaluation.
  
- Certain domains have well defined models that an agent has to make decisions within. To add datasets from these domains one can use `LambdaSimulation` to define random functions that returns contexts, actions and rewards according to any defined distribution. 
+ Finally, once we have a benchmark we can then apply that benchmark to learners to see how a learner is able to perform on the given benchmark.
  
- ### Creating Custom Simulations From Scratch
+ ## Simulations
  
- If more customization is needed than what is offered above then a new simulation class can be created. Implementing such a class requires no inheritance or complex registration. One simply has to satisfy Coba's `Simulation` interface as shown below (with `Interaction` included for reference):
+ Simulations are the core unit of evaluation in Coba. They are nothing more than a collection of interactions with an environment and potential rewards.
  
-```python
-class Simulation:
+ A number of tools have been built into Coba to make simulation creation easier. All these tools are defined in the `coba.simulations` module. We describe these tools in more detail below.
  
-    @property
-    def interactions(self) -> Sequence[Interaction]:
-        """The sequence of interactions in a simulation."""
-        ...
-    
-    def rewards(self, choices: Sequence[Tuple[Key,int]] ) -> Sequence[float]:
-        """The observed rewards for interactions (identified by key) and their selected action indexes."""
-        ...
-    
-class Interaction:
-    @property
-    def context(self) -> Hashable:
-        """The interaction's context description."""
-        ...
+ ### Importing Simulations From Classification Data Sets
+ 
+ Classification data sets are the easiest way to quickly evaluate CB algorithms with Coba. Coba natively supports: 
+ 
+ * Binay, multiclass and multi-label problems
+ * Dense and sparse representations
+ * Openml, Csv, Arff, Libsvm, and the extreme classification (Manik) format
+ * Local files and files over http (with local caching)
+ 
+ The classification simulations built into Coba are `OpenmlSimulation`, `CsvSimulation`, `ArffSimulation`, `LibsvmSimulation`, and `ManikSimulation`.
 
-    @property
-    def actions(self) -> Sequence[Hashable]:
-        """The interactions's available actions."""
-        ...
-    
-    @property
-    def key(self) -> Key:
-        """A unique key identifying the interaction."""
-        ...
-```
-
- ## Adding New Algorithms
+ ### Generating Simulations From Generative Functions
  
- A number of algorithms have been implemented out of the box including epsilon-greedy, VowpalWabbit bagging, VowpWabbit softmax, VowpalWabbit cover, VowpalWabbit RND and upper confidence bounding. Adding algorithms is simply a matter of satisfying the `Learner` interface as shown below:
+ Sometimes we have well defined models that an agent has to make decisions within. To support evaluation in these domains one can use `LambdaSimulation` to define generative functions for . 
  
-```python
-class Learner:
-    """The interface for Learner implementations."""
-
-    @abstractmethod
-    def choose(self, key: int, context: Optional[Hashable], actions: Sequence[Hashable]) -> int:
-        """Choose which action index to take."""
-        ...
-
-    @abstractmethod
-    def learn(self, key: int, context: Optional[Hashable], action: Hashable, reward: float) -> None:
-        """Learn about the result of an action that was taken in a context.
-        ...
-```
+ ### Creating Simulations From Scratch
  
- ## Creating and Sharing Benchmarks
+ If more customization is needed beyond what is offered above then you can easily create your own simulation by implementing Coba's simple `Simulation` interface.
  
- Benchmarks are created using a json configuration file. In the configuration file one defines the data sets to include in the benchmark, the location of the datasets, how to break the datasets into batches, what random seed to use and if the data sets should be randomized. By placing all these characteristics into a single configuration file creating, modifying and sharing benchmarks is simply a matter of editing this file and emailing it to another researcher.
+ ## Benchmarks
  
-```json
- {
-    "templates"   : { "shuffled_openml_classification": { "seed":777, "type":"classification", "from": {"format":"openml", "id":"$id"} }},
-    "batches"     : { "count":51 },
-    "ignore_first": true,
-    "simulations" : [
-        {"template": "shuffled_openml_classification", "$id":3},
-        {"template": "shuffled_openml_classification", "$id":6},
-        {"template": "shuffled_openml_classification", "$id":8}
-    ]
-}
-```
+ The `Benchmark` class contains all the logic for learner performance evaluation. This includes both evaluation logic (e.g., which simulations and how many interactions) and execution logic (e.g., how many processors to use and where to write results).
  
+ There is only one `Benchmark` implementation in Coba and it can be found in the `coba.benchmarks` module.
+ 
+ ## Learners
+ 
+ Learners are algorithms which are able to improve their action selection through interactions with Simulations.
+ 
+ A number of algorithms have been provided out of the box for quick comparsions. These include:
+ 
+ * All contextual bandit learners in VowpalWabbit
+ * UCB1-Tuned Bandit Learner by Auer et al. 2002
+ * Corral by Agarwal et al. 2017
+  
  ## Examples
  
  An examples directory is included in the repository with a number of code demonstrations and benchmark demonstrations. These examples show how to create benchmarks, evaluate learners against them and plot the results.
