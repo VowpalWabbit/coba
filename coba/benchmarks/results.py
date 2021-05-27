@@ -183,7 +183,7 @@ class Result:
 
     def standard_plot(self, select_learners: Sequence[int] = None,  show_err: bool = False, show_sd: bool = False, figsize=(12,4)) -> None:
 
-        PackageChecker.matplotlib('Plots.standard_plot')
+        PackageChecker.matplotlib('Result.standard_plot')
 
         def _plot(axes, label, xs, ys, vs, ns):
             axes.plot(xs, ys, label=label)

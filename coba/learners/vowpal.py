@@ -8,8 +8,6 @@ import collections
 from os import devnull
 from typing import Any, Dict, Union, Sequence, overload
 
-from vowpalwabbit import pyvw
-
 from coba.utilities import PackageChecker, redirect_stderr
 from coba.simulations import Context, Action
 from coba.learners.core import Learner, Key
@@ -121,7 +119,7 @@ class VowpalLearner(Learner):
     def __init__(self,  **kwargs) -> None:
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
-        PackageChecker.vowpalwabbit('VowpalLearner.__init__')
+        PackageChecker.vowpalwabbit('VowpalLearner')
 
         self._params = {}
         interactions = "--interactions ssa --interactions sa --ignore_linear s"
@@ -183,6 +181,8 @@ class VowpalLearner(Learner):
         """
 
         if self._vw is None:
+            from vowpalwabbit import pyvw
+            
             cb_explore = "" if "cb_explore" in self._args else "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}"
 
             self._args = cb_explore + " " + self._args
