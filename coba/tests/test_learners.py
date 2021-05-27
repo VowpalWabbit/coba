@@ -119,7 +119,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_predict_cover_not_adf(self):
         learner = VowpalLearner(cover=5, seed=30)
 
-        self.assertEqual([1,0,0,0], learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([0.25,0.25,0.25,0.25], learner.predict(1, None, [1,2,3,4]))
         
 if __name__ == '__main__':
     unittest.main()
