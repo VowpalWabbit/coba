@@ -1,4 +1,5 @@
-from typing import Any, Iterable, Optional, Sequence, cast
+import collections
+from typing import Any, Iterable, Optional, Sequence
 
 from coba.learners import Learner
 from coba.pipes import Pipe, Filter, Source, Sink, Cartesian, JsonEncode, DiskSink, MemorySink
@@ -79,6 +80,9 @@ class Transaction:
             kwargs: The metadata to store about the batch.
         """
 
+        if 'reward' in kwargs and isinstance(kwargs['reward'], collections.Sequence) and len(kwargs['reward']) == 1:
+            kwargs['reward'] = kwargs['reward'][0]
+
         for col in ["C", "A", "N"]:
             if col in kwargs and len(set(kwargs[col])) == 1:
                 kwargs[col] = kwargs[col][0]
@@ -103,7 +107,7 @@ class TransactionIsNew(Filter):
             if tipe == "benchmark" and len(self._existing.benchmark) != 0:
                 continue
 
-            if tipe == "B" and transaction[1] in self._existing.batches:
+            if tipe == "B" and transaction[1] in self._existing.interactions:
                 continue
 
             if tipe == "S" and transaction[1] in self._existing.simulations:
@@ -134,7 +138,7 @@ class TransactionSink(Sink):
             final_sink = self._sink
 
         if isinstance(final_sink, MemorySink):
-            return Result.from_transactions(cast(Iterable[Any], final_sink.items))
+            return Result.from_transactions(final_sink.items)
 
         if isinstance(final_sink, DiskSink):
             return Result.from_file(final_sink.filename)

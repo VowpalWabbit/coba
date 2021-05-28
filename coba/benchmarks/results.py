@@ -2,8 +2,8 @@ import math
 import collections
 
 from pathlib import Path
-from itertools import chain, groupby, count
-from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, cast, Hashable
+from itertools import chain, groupby, count, repeat
+from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, cast, Hashable, Iterator, Union
 
 from coba.utilities import PackageChecker
 from coba.statistics import OnlineMean, OnlineVariance
@@ -12,7 +12,7 @@ from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe
 class Table:
     """A container class for storing tabular data."""
 
-    def __init__(self, name:str, primary: Sequence[str], default=float('nan')):
+    def __init__(self, name:str, primary: Sequence[str]):
         """Instantiate a Table.
         
         Args:
@@ -21,89 +21,141 @@ class Table:
         """
         self._name    = name
         self._primary = primary
-        self._columns = list(primary)
-        self._default = default
+        self._cols    = collections.OrderedDict(zip(primary,repeat(None)))
 
-        self.rows: Dict[Hashable, Sequence[Any]] = {}
+        self._rows: Dict[Tuple[Hashable,...], Dict[str,Any]] = {}
 
-    def add_row(self, *row, **kwrow) -> None:
-        """Add a row of data to the table. The row must contain all primary columns."""
+    @property
+    def name(self) -> str:
+        return self._name
 
-        if kwrow:
-            self._columns.extend([col for col in kwrow if col not in self._columns])
-
-        row = row + tuple( kwrow.get(col, self._default) for col in self._columns[len(row):] ) #type:ignore
-        self.rows[row[0] if len(self._primary) == 1 else tuple(row[0:len(self._primary)])] = row
-
-    def get_row(self, key: Hashable) -> Dict[str,Any]:
-        row = self.rows[key]
-        row = list(row) + [self._default] * (len(self._columns) - len(row))
-
-        return {k:v for k,v in zip(self._columns,row)}
-
-    def rmv_row(self, key: Hashable) -> None:
-        self.rows.pop(key, None)
-
-    def get_where(self, **kwargs) -> Iterable[Dict[str,Any]]:
-
-        if any([k not in self._columns for k in kwargs]):
-            return
-
-        idx_val = [ (self._columns.index(col), val) for col,val in kwargs.items() ]
-
-        for key,row in self.rows.items():
-            if all( row[i]==v for i,v in idx_val):
-                yield {k:v for k,v in zip(self._columns,row)}
-
-    def rmv_where(self, **kwrow) -> None:
-        idx_val = [ (self._columns.index(col), val) for col,val in kwrow.items() ]
-        rmv_keys  = []
-
-        for key,row in self.rows.items():
-            if all( row[i]==v for i,v in idx_val):
-                rmv_keys.append(key)
-
-        for key in rmv_keys: 
-            del self.rows[key] 
-
-    def to_tuples(self) -> Sequence[Any]:
-        """Convert a table into a sequence of namedtuples."""
-        return list(self.to_indexed_tuples().values())
-
-    def to_indexed_tuples(self) -> Dict[Hashable, Any]:
-        """Convert a table into a mapping of keys to tuples."""
-
-        my_type = collections.namedtuple(self._name, self._columns) #type: ignore #mypy doesn't like dynamic named tuples
-        my_type.__new__.__defaults__ = (self._default, ) * len(self._columns) #type: ignore #mypy doesn't like dynamic named tuples
-        
-        return { key:my_type(*value) for key,value in self.rows.items() } #type: ignore #mypy doesn't like dynamic named tuples
+    @property
+    def columns(self) -> Sequence[str]:
+        return self._cols.keys()
 
     def to_pandas(self) -> Any:
-        """Convert a table into a pandas dataframe."""
+        PackageChecker.pandas("Table.to_pandas")
+        import pandas as pd
+        return pd.DataFrame(self.to_tuples(), columns=self.columns)
 
-        PackageChecker.pandas('Table.to_pandas')
-        import pandas as pd #type: ignore #mypy complains otherwise
+    def to_tuples(self) -> Sequence[Tuple[Any,...]]:
+        return [ tuple([ row.get(col,float('nan')) for col in self.columns ]) for row in self]
 
-        return pd.DataFrame(self.to_tuples())
+    def _keyify(self, key: Union[Hashable, Sequence[Hashable]]) -> Tuple[Hashable,...]:
+        seq_key = tuple([key] if isinstance(key,str) or not isinstance(key, collections.Sequence) else key)
+        assert len(seq_key) == len(self._primary), "Incorrect primary key length given"
+        return seq_key
 
-    def __contains__(self, primary) -> bool:
+    def __iter__(self) -> Iterator[Dict[str,Any]]:
+        for row in self._rows.values(): yield row
 
-        if isinstance(primary, collections.Mapping):
-            primary = list(primary.values())[0] if len(self._primary) == 1 else tuple([primary[col] for col in self._primary])
-
-        return primary in self.rows
-
-    def __getitem__(self, key) -> Dict[str,Any]:
-        return self.get_row(key)
+    def __contains__(self, key: Union[Hashable, Sequence[Hashable]]) -> bool:
+        return self._keyify(key) in self._rows
 
     def __str__(self) -> str:
-        return str({"Table": self._name, "Columns": self._columns, "Rows": len(self.rows)})
-
-    def __repr__(self) -> str:
-        return str(self)
+        return str({"Table": self.name, "Columns": self.columns, "Rows": len(self)})
 
     def __len__(self) -> int:
-        return len(self.rows)
+        return len(self._rows)
+
+    def __setitem__(self, key: Union[Hashable, Sequence[Hashable]], values: Dict[str,Any]):
+
+        key = self._keyify(key)
+
+        row = values.copy()        
+        row.update(zip(self._primary, key))
+
+        self._cols.update(zip(values.keys(), repeat(None)))
+        self._rows[key] = row
+
+    def __getitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> Dict[str,Any]:
+        return self._rows[self._keyify(key)]
+
+    def __delitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> None:
+        del self._rows[self._keyify(key)]
+
+class PackedTable:
+    def __init__(self, name:str, primary: Sequence[str]) -> None:
+        self._packed_rows = Table(name, primary)
+        self._unpacked_sizes: Dict[Any,int] = {}
+
+        #make sure the index column is the 3rd column
+        self._packed_rows._cols['index'] = None
+
+    @property
+    def name(self) -> str:
+        self._packed_rows.name
+
+    @property
+    def columns(self) -> Sequence[str]:
+        return self._packed_rows.columns
+
+    def to_pandas(self) -> Any:
+        PackageChecker.pandas("Table.to_pandas")
+        import pandas as pd
+        return pd.DataFrame(self.to_tuples(), columns=self.columns)
+
+    def to_tuples(self) -> Sequence[Tuple[Any,...]]:
+        return [ tuple([ row.get(col,float('nan')) for col in self.columns ]) for row in self]
+
+    def __len__(self) -> int:
+        return sum(self._unpacked_sizes.values())
+
+    def __str__(self) -> str:
+        return str({"Table": self.name, "Columns": list(self.columns), "Rows": len(self)})
+
+    def __iter__(self) -> Iterator[Dict[str,Any]]:
+        for key in self._packed_rows._rows.keys():
+            if len(key) == 1: 
+                key=key[0]
+            
+            for row in self[key]:
+                yield row
+
+    def __contains__(self, key: Union[Hashable, Sequence[Hashable]]) -> bool:
+        return key in self._packed_rows
+
+    def __setitem__(self, key: Union[Hashable, Sequence[Hashable]], values: Dict[str,Any]):
+        
+        unpacked_size = 1
+        
+        for col in values:
+            value       = values.get(col, float('nan'))
+            is_singular = not isinstance(value,collections.Sequence) or isinstance(value,str)
+            
+            if is_singular: continue
+
+            unpacked_size = len(value) if unpacked_size == 1 else unpacked_size 
+            assert len(value) == unpacked_size, "When using a packed format all columns must be equal length or 1."
+
+        row = values.copy()
+
+        row['index'] = 1 if unpacked_size == 1 else list(range(1,unpacked_size+1))
+
+        self._packed_rows[key] = row
+        self._unpacked_sizes[key] = unpacked_size
+    
+    def __getitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> Sequence[Dict[str,Any]]:
+        unpacked_size = self._unpacked_sizes[key]
+
+        if unpacked_size == 1: return [ self._packed_rows[key] ]
+
+        unpacked_rows = [ {} for _ in range(unpacked_size) ]
+        
+        for col,value in self._packed_rows[key].items():
+
+            if isinstance(value, collections.Sequence) and not isinstance(value,str):
+                unpacked_value = value
+            else:
+                unpacked_value = [ value ] * unpacked_size
+
+            for i,unpacked_row in enumerate(unpacked_rows):
+                unpacked_row[col] = unpacked_value[i]
+
+        return unpacked_rows
+
+    def __delitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> None:
+        del self._packed_rows[key]
 
 class Result:
     """A class for creating and returning the result of a Benchmark evaluation."""
@@ -126,62 +178,28 @@ class Result:
 
         result = Result()
 
-        for transaction in transactions:
-            result.add_transaction(transaction)
+        for trx in transactions:
+            if trx[0] == "version"  : result.version   = trx[1]
+            if trx[0] == "benchmark": result.benchmark = trx[1]
+            if trx[0] == "L"        : result.learners    [trx[1]       ] = trx[2]
+            if trx[0] == "S"        : result.simulations [trx[1]       ] = trx[2]
+            if trx[0] == "B"        : result.interactions[tuple(trx[1])] = trx[2]
 
         return result
-
-    def add_transaction(self, transaction: Any) -> None:
-        if transaction[0] == "version"  : self.version = transaction[1]
-        if transaction[0] == "benchmark": self.benchmark = transaction[1]
-        if transaction[0] == "L"        : self.learners.add_row(transaction[1], **transaction[2])
-        if transaction[0] == "S"        : self.simulations.add_row(transaction[1], **transaction[2])
-        if transaction[0] == "B"        :
-            for col in ["C", "A", "N"]:
-                if "reward" in transaction[2] and col in transaction[2] and not isinstance(transaction[2][col], collections.Sequence):
-                    transaction[2][col] = [transaction[2][col]] * len(transaction[2]["reward"])
-
-            self.batches.add_row(*transaction[1], **transaction[2])
 
     def __init__(self) -> None:
         """Instantiate a Result class."""
 
-        self.version     = None
-        self.benchmark   = cast(Dict[str,Any],{})
-        self.learners    = Table("Learners"   , ['learner_id'])
-        self.simulations = Table("Simulations", ['simulation_id'])
+        self.version    : int            = None
+        self.benchmark  : Dict[str, Any] = {}
 
-        #Warning, if you change the order of the columns for batches then:
-        # 1. TransactionLogPromote.current_version() will need to be bumped to version 3
-        # 2. TransactionLogPromote.to_next_version() will need to promote version 2 to 3
-        # 3. TransactionLog.write_batch will need to be modified to write in new order
-        self.batches     = Table("Batches"    , ['simulation_id', 'learner_id'])
+        #Warning, if you change the order of the primary keys old transaction files will break:
+        #ResultPromote can be used to mitigate backwards compatability problems if this is necessary.
+        self.interactions = PackedTable("Interactions", ['simulation_id', 'learner_id'])
+        self.learners     = Table      ("Learners"    , ['learner_id'])
+        self.simulations  = Table      ("Simulations" , ['simulation_id'])
 
-    def to_tuples(self) -> Tuple[Sequence[Any], Sequence[Any], Sequence[Any]]:
-        return (
-            self.learners.to_tuples(),
-            self.simulations.to_tuples(),
-            self.batches.to_tuples()
-        )
-
-    def to_indexed_tuples(self) -> Tuple[Dict[int,Any], Dict[int,Any], Dict[Tuple[int,int,Optional[int],int],Any]]:
-        return (
-            cast(Dict[int,Any], self.learners.to_indexed_tuples()),
-            cast(Dict[int,Any], self.simulations.to_indexed_tuples()),
-            cast(Dict[Tuple[int,int,Optional[int],int],Any], self.batches.to_indexed_tuples())
-        )
-
-    def to_pandas(self) -> Tuple[Any,Any,Any]:
-
-        PackageChecker.pandas("Result.to_pandas")
-
-        l = self.learners.to_pandas()
-        s = self.simulations.to_pandas()
-        b = self.batches.to_pandas()
-
-        return (l,s,b)
-
-    def standard_plot(self, select_learners: Sequence[int] = None,  show_err: bool = False, show_sd: bool = False, figsize=(12,4)) -> None:
+    def plot_learners(self, select_learners: Sequence[int] = None, figsize=(12,4)) -> None:
 
         PackageChecker.matplotlib('Result.standard_plot')
 
@@ -307,7 +325,7 @@ class Result:
         plt.show()
 
     def __str__(self) -> str:
-        return str({ "Learners": len(self.learners), "Simulations": len(self.simulations), "Interactions": sum([len(b.reward) for b in self.batches.to_tuples()]) })
+        return str({ "Learners": len(self.learners), "Simulations": len(self.simulations), "Interactions": len(self.interactions) })
 
     def __repr__(self) -> str:
         return str(self)

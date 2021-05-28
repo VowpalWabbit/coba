@@ -107,12 +107,9 @@ class Unfinished(Filter[Iterable[BenchmarkTask], Iterable[BenchmarkTask]]):
         self._restored = restored
 
     def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[BenchmarkTask]:
-        
-        no_batch_sim_rows = self._restored.simulations.get_where(batch_count=0)
-        no_batch_sim_ids  = [ row['simulation_id'] for row in no_batch_sim_rows ]
 
         def is_not_complete(sim_id: int, learn_id: int):
-            return (sim_id,learn_id) not in self._restored.batches and sim_id not in no_batch_sim_ids
+            return (sim_id,learn_id) not in self._restored.interactions
 
         for task in tasks:
             if is_not_complete(task.sim_id, task.lrn_id):
@@ -145,7 +142,9 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
 
     def filter(self, task_groups: Iterable[Iterable[BenchmarkTask]]) -> Iterable[Any]:
         
-        task_group = chain.from_iterable(task_groups)
+        #materializing this all at once makes behavior between
+        #multiprocessing and singleprocessing consistent
+        task_group = list(chain.from_iterable(task_groups))
 
         for transaction in self._process_group(task_group):
             yield transaction
