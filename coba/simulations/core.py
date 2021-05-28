@@ -4,7 +4,7 @@ import collections
 from itertools import accumulate, repeat, chain
 from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union, Iterable, cast
 
-import coba.random
+from coba.random import CobaRandom
 
 from coba.pipes import (
     Pipe, Source, Filter,
@@ -197,9 +197,9 @@ class LambdaSimulation(Source[Simulation]):
 
     def __init__(self,
         n_interactions: int,
-        context       : Callable[[int               ],Context         ],
-        actions       : Callable[[int,Context       ],Sequence[Action]], 
-        reward        : Callable[[int,Context,Action],float           ],
+        context       : Callable[[CobaRandom,int               ],Context         ],
+        actions       : Callable[[CobaRandom,int,Context       ],Sequence[Action]], 
+        reward        : Callable[[CobaRandom,int,Context,Action],float           ],
         seed          : int = None) -> None:
         """Instantiate a LambdaSimulation.
 
@@ -210,15 +210,15 @@ class LambdaSimulation(Source[Simulation]):
             reward: A function that should return the reward for the index, context and action.
         """
 
-        coba.random.seed(seed)
+        rng = CobaRandom(seed)
 
         interaction_tuples: List[Tuple[Key, Context, Sequence[Action]]] = []
         reward_tuples     : List[Tuple[Key, Action , float           ]] = []
 
         for i in range(n_interactions):
-            _context  = context(i)
-            _actions  = actions(i,_context)
-            _rewards  = [ reward(i, _context, _action) for _action in _actions]
+            _context  = context(rng, i)
+            _actions  = actions(rng, i,_context)
+            _rewards  = [ reward(rng, i, _context, _action) for _action in _actions]
 
             interaction_tuples.append( (i, _context, _actions) )
             reward_tuples.extend(zip(repeat(i), _actions, _rewards))

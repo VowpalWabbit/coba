@@ -87,8 +87,8 @@ class Benchmark_Single_Tests(unittest.TestCase):
         CobaConfig.Benchmark['maxtasksperchild'] = None
 
     def test_sims(self):
-        sim1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        sim2       = LambdaSimulation(4, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
+        sim1       = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
+        sim2       = LambdaSimulation(4, lambda r,i: i, lambda r,i,c: [3,4,5], lambda r,i,c,a: cast(float,a))
         learner    = ModuloLearner()
         benchmark  = Benchmark([sim1,sim2], batch_count=1, ignore_raise=False)
 
@@ -106,7 +106,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_seeds(self):
-        sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        sim1      = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
         learner   = ModuloLearner()
         benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
 
@@ -124,8 +124,8 @@ class Benchmark_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_take(self):
-        sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        sim2      = LambdaSimulation(2, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
+        sim1      = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
+        sim2      = LambdaSimulation(2, lambda r,i: i, lambda r,i,c: [3,4,5], lambda r,i,c,a: cast(float,a))
         learner   = ModuloLearner()
         benchmark = Benchmark([sim1,sim2], take=3, ignore_raise=False)
 
@@ -143,7 +143,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_learners(self):
-        sim       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        sim       = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
         learner1  = ModuloLearner("0") #type: ignore
         learner2  = ModuloLearner("1") #type: ignore
         benchmark = Benchmark([sim], batch_count=1, ignore_raise=False)
@@ -162,7 +162,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_batches, expected_batches)
 
     def test_transaction_resume_1(self):
-        sim             = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        sim             = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
         working_learner = ModuloLearner()
         broken_learner  = BrokenLearner()
         benchmark       = Benchmark([sim], batch_count=1)
@@ -194,8 +194,8 @@ class Benchmark_Single_Tests(unittest.TestCase):
         log_sink = MemorySink()
         CobaConfig.Logger = IndentLogger(log_sink)
 
-        sim1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        sim2       = LambdaSimulation(4, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
+        sim1       = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
+        sim2       = LambdaSimulation(4, lambda r,i: i, lambda r,i,c: [3,4,5], lambda r,i,c,a: cast(float,a))
         learners   = [ModuloLearner(), BrokenLearner()]
         benchmark  = Benchmark([sim1,sim2], batch_count=1, ignore_raise=True)
 
@@ -226,7 +226,7 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
         CobaConfig.Benchmark['maxtasksperchild'] = None
 
     def test_not_picklable_learner(self):
-        sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        sim1      = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
         learner   = NotPicklableLearner()
         benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
 

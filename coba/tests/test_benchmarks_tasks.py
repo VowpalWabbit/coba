@@ -44,7 +44,7 @@ class OneTimeSource(Source):
 class Tasks_Tests(unittest.TestCase):
 
     def test_one_sim_two_learns(self):
-        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        sim1 = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
 
@@ -66,8 +66,8 @@ class Tasks_Tests(unittest.TestCase):
         self.assertEqual(1, len(set([id(t.simulation.source) for t in tasks ])))
 
     def test_two_sims_two_learns(self):
-        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        sim1 = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
+        sim2 = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
 
@@ -97,7 +97,7 @@ class Unifinshed_Tests(unittest.TestCase):
         restored.simulations[0]     = dict(batch_count=1)
         restored.interactions[(0,1)] = dict()
 
-        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        sim1 = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
 
         tasks = [
@@ -122,7 +122,7 @@ class Unifinshed_Tests(unittest.TestCase):
 class GroupBySource_Tests(unittest.TestCase):
 
     def test_one_group(self):
-        sim1 = OneTimeSource(LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a)))
+        sim1 = OneTimeSource(LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a)))
         lrn1 = ModuloLearner("1")
 
         tasks = [
@@ -139,8 +139,8 @@ class GroupBySource_Tests(unittest.TestCase):
         self.assertEqual(4, len(tasks))
 
     def test_two_groups(self):
-        sim1 = OneTimeSource(LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a)))
-        sim2 = OneTimeSource(LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a)))
+        sim1 = OneTimeSource(LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a)))
+        sim2 = OneTimeSource(LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a)))
         lrn1 = ModuloLearner("1")
 
         tasks = [
