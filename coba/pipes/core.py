@@ -34,7 +34,16 @@ class Pipe:
 
     class FiltersFilter(Filter):
         def __init__(self, filters: Sequence[Filter]):
-            self._filters = filters
+            
+            def flat_filters(filters: Sequence[Filter]) -> Iterable[Filter]:
+                for filter in filters:
+                    if isinstance(filter, Pipe.FiltersFilter):
+                        for filter in flat_filters(filter._filters):
+                            yield filter
+                    else:
+                        yield filter
+
+            self._filters = list(flat_filters(filters))
 
         def filter(self, items: Any) -> Any:
             for filter in self._filters:

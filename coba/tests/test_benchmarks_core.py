@@ -98,7 +98,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_batches     = result.interactions.to_tuples()
         
         expected_learners    = [(0,"Modulo(p=0)","Modulo",'0')]
-        expected_simulations = [(0, '"LambdaSimulation",{"Batch":{"count":1}}'), (1, '"LambdaSimulation",{"Batch":{"count":1}}')]
+        expected_simulations = [(0, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}'), (1, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}')]
         expected_batches     = [(0, 0, 1, 1, 3, 5, mean([0,1,2,0,1])), (1, 0, 1, 1, 3, 4, mean([3,4,5,3]))]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -116,7 +116,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_batches     = result.interactions.to_tuples()
 
         expected_learners    = [(0,"Modulo(p=0)","Modulo",'0')]
-        expected_simulations = [(0, '"LambdaSimulation",{"Shuffle":1},{"Batch":{"sizes":[2]}}'), (1, '"LambdaSimulation",{"Shuffle":4},{"Batch":{"sizes":[2]}}')]
+        expected_simulations = [(0, "LambdaSimulation", "1", "None", '"LambdaSimulation",{"Shuffle":1},{"Batch":{"sizes":[2]}}'), (1, "LambdaSimulation", "4", "None", '"LambdaSimulation",{"Shuffle":4},{"Batch":{"sizes":[2]}}')]
         expected_batches     = [(0, 0, 1, 1, 3, 2, mean([1,0])), (1, 0, 1, 1, 3, 2, mean([2,0]))]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -135,7 +135,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_batches     = result.interactions.to_tuples()
         
         expected_learners    = [(0,"Modulo(p=0)","Modulo",'0')]
-        expected_simulations = [(0, '"LambdaSimulation",{"Take":3}'), (1, '"LambdaSimulation",{"Take":3}')]
+        expected_simulations = [(0, "LambdaSimulation", "None", "3", '"LambdaSimulation",{"Take":3}'), (1, "LambdaSimulation", "None", "3", '"LambdaSimulation",{"Take":3}')]
         expected_batches     = [(0, 0, 1, 1, 3, 1, 0), (0, 0, 2, 1, 3, 1, 1), (0, 0, 3, 1, 3, 1, 2)]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -154,7 +154,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_batches     = actual_result.interactions.to_tuples()
 
         expected_learners     = [(0,"Modulo(p=0)","Modulo",'0'), (1,"Modulo(p=1)","Modulo",'1')]
-        expected_simulations  = [(0, '"LambdaSimulation",{"Batch":{"count":1}}')]
+        expected_simulations  = [(0, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}')]
         expected_batches      = [(0, 0, 1, 1, 3, 5, mean([0,1,2,0,1])), (0, 1, 1, 1, 3, 5, mean([0,1,2,0,1])) ]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -178,7 +178,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
             actual_batches     = second_result.interactions.to_tuples()
             
             expected_learners    = [(0,"Modulo(p=0)","Modulo",'0')]
-            expected_simulations = [(0, '"LambdaSimulation",{"Batch":{"count":1}}')]
+            expected_simulations = [(0, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}')]
             expected_batches     = [(0, 0, 1, 1, 3, 5, mean([0,1,2,0,1]))]
         except Exception as e:
             raise
@@ -205,7 +205,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_batches     = result.interactions.to_tuples()
 
         expected_learners    = [(0,"Modulo(p=0)","Modulo",'0'),(1,"Broken","Broken",float('nan'))]
-        expected_simulations = [(0,'"LambdaSimulation",{"Batch":{"count":1}}'), (1, '"LambdaSimulation",{"Batch":{"count":1}}')]
+        expected_simulations = [(0,"LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}'), (1, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}')]
         expected_batches     = [(0, 0, 1, 1, 3, 5, mean([0,1,2,0,1])), (1, 0, 1, 1, 3, 4, mean([3,4,5,3]))]
 
         self.assertEqual(2, sum([int("Exception after" in item) for item in log_sink.items]))

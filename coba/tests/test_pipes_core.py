@@ -81,5 +81,13 @@ class Pipe_Tests(unittest.TestCase):
         expected_repr = "ReprFilter,ReprFilter"
         self.assertEqual(expected_repr, str(filter))
 
+    def test_join_flattens_filters(self):
+
+        filter1 = Pipe.join([IdentityFilter(), IdentityFilter()])
+        filter2 = Pipe.join([filter1, IdentityFilter()])
+        filter3 = Pipe.join([filter2, filter2])
+
+        self.assertEqual(6, len(filter3._filters))
+
 if __name__ == '__main__':
     unittest.main()
