@@ -93,9 +93,9 @@ class Benchmark_Single_Tests(unittest.TestCase):
         benchmark  = Benchmark([sim1,sim2], batch_count=1, ignore_raise=False)
 
         result             = benchmark.evaluate([learner])
-        actual_learners    = result.learners.to_tuples()
-        actual_simulations = result.simulations.to_tuples()
-        actual_batches     = result.interactions.to_tuples()
+        actual_learners    = result._learners.to_tuples()
+        actual_simulations = result._simulations.to_tuples()
+        actual_batches     = result._interactions.to_tuples()
         
         expected_learners    = [(0,"Modulo(p=0)","Modulo",'0')]
         expected_simulations = [(0, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}'), (1, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}')]
@@ -111,9 +111,9 @@ class Benchmark_Single_Tests(unittest.TestCase):
         benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
 
         result             = benchmark.evaluate([learner])
-        actual_learners    = result.learners.to_tuples()
-        actual_simulations = result.simulations.to_tuples()
-        actual_batches     = result.interactions.to_tuples()
+        actual_learners    = result._learners.to_tuples()
+        actual_simulations = result._simulations.to_tuples()
+        actual_batches     = result._interactions.to_tuples()
 
         expected_learners    = [(0,"Modulo(p=0)","Modulo",'0')]
         expected_simulations = [(0, "LambdaSimulation", "1", "None", '"LambdaSimulation",{"Shuffle":1},{"Batch":{"sizes":[2]}}'), (1, "LambdaSimulation", "4", "None", '"LambdaSimulation",{"Shuffle":4},{"Batch":{"sizes":[2]}}')]
@@ -130,9 +130,9 @@ class Benchmark_Single_Tests(unittest.TestCase):
         benchmark = Benchmark([sim1,sim2], take=3, ignore_raise=False)
 
         result             = benchmark.evaluate([learner])
-        actual_learners    = result.learners.to_tuples()
-        actual_simulations = result.simulations.to_tuples()
-        actual_batches     = result.interactions.to_tuples()
+        actual_learners    = result._learners.to_tuples()
+        actual_simulations = result._simulations.to_tuples()
+        actual_batches     = result._interactions.to_tuples()
         
         expected_learners    = [(0,"Modulo(p=0)","Modulo",'0')]
         expected_simulations = [(0, "LambdaSimulation", "None", "3", '"LambdaSimulation",{"Take":3}'), (1, "LambdaSimulation", "None", "3", '"LambdaSimulation",{"Take":3}')]
@@ -149,9 +149,9 @@ class Benchmark_Single_Tests(unittest.TestCase):
         benchmark = Benchmark([sim], batch_count=1, ignore_raise=False)
 
         actual_result      = benchmark.evaluate([learner1, learner2])
-        actual_learners    = actual_result.learners.to_tuples()
-        actual_simulations = actual_result.simulations.to_tuples()
-        actual_batches     = actual_result.interactions.to_tuples()
+        actual_learners    = actual_result._learners.to_tuples()
+        actual_simulations = actual_result._simulations.to_tuples()
+        actual_batches     = actual_result._interactions.to_tuples()
 
         expected_learners     = [(0,"Modulo(p=0)","Modulo",'0'), (1,"Modulo(p=1)","Modulo",'1')]
         expected_simulations  = [(0, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}')]
@@ -173,9 +173,9 @@ class Benchmark_Single_Tests(unittest.TestCase):
             first_result  = benchmark.evaluate([working_learner], "coba/tests/.temp/transactions.log")
             second_result = benchmark.evaluate([broken_learner], "coba/tests/.temp/transactions.log")
 
-            actual_learners    = second_result.learners.to_tuples()
-            actual_simulations = second_result.simulations.to_tuples()
-            actual_batches     = second_result.interactions.to_tuples()
+            actual_learners    = second_result._learners.to_tuples()
+            actual_simulations = second_result._simulations.to_tuples()
+            actual_batches     = second_result._interactions.to_tuples()
             
             expected_learners    = [(0,"Modulo(p=0)","Modulo",'0')]
             expected_simulations = [(0, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}')]
@@ -200,9 +200,9 @@ class Benchmark_Single_Tests(unittest.TestCase):
         benchmark  = Benchmark([sim1,sim2], batch_count=1, ignore_raise=True)
 
         result             = benchmark.evaluate(learners)
-        actual_learners    = result.learners.to_tuples()
-        actual_simulations = result.simulations.to_tuples()
-        actual_batches     = result.interactions.to_tuples()
+        actual_learners    = result._learners.to_tuples()
+        actual_simulations = result._simulations.to_tuples()
+        actual_batches     = result._interactions.to_tuples()
 
         expected_learners    = [(0,"Modulo(p=0)","Modulo",'0'),(1,"Broken","Broken",float('nan'))]
         expected_simulations = [(0,"LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}'), (1, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}')]

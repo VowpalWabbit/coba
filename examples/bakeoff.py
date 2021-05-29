@@ -6,7 +6,7 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 from pathlib import Path
 
 from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner, UcbBanditLearner, CorralLearner
-from coba.benchmarks import Benchmark, Result
+from coba.benchmarks import Benchmark
 
 #this line is required by Python in order to use multi-processing
 if __name__ == '__main__':

@@ -131,7 +131,7 @@ class Table:
         del self._rows[self._key(key)]
 
 class Result:
-    """A class for creating and returning the result of a Benchmark evaluation."""
+    """A class representing the result of a Benchmark evaluation on a given collection of Simulations and Learners."""
 
     @staticmethod
     def from_file(filename: Optional[str]) -> 'Result':
@@ -154,9 +154,9 @@ class Result:
         for trx in transactions:
             if trx[0] == "version"  : result.version   = trx[1]
             if trx[0] == "benchmark": result.benchmark = trx[1]
-            if trx[0] == "L"        : result.learners    [trx[1]       ] = trx[2]
-            if trx[0] == "S"        : result.simulations [trx[1]       ] = trx[2]
-            if trx[0] == "B"        : result.interactions[tuple(trx[1])] = trx[2]
+            if trx[0] == "L"        : result._learners    [trx[1]       ] = trx[2]
+            if trx[0] == "S"        : result._simulations [trx[1]       ] = trx[2]
+            if trx[0] == "B"        : result._interactions[tuple(trx[1])] = trx[2]
 
         return result
 
@@ -167,9 +167,31 @@ class Result:
         self.benchmark  : Dict[str, Any] = {}
 
         #providing the types in advance makes to_pandas about 10 times faster since we can preallocate space
-        self.interactions = Table("Interactions", ['simulation_id', 'learner_id'], packed=True, types={'simulation_id':int, 'learner_id':int, 'C':int,'A':int,'N':int,'reward':float})
-        self.learners     = Table("Learners"    , ['learner_id'])
-        self.simulations  = Table("Simulations" , ['simulation_id'])
+        self._interactions = Table("Interactions", ['simulation_id', 'learner_id'], packed=True, types={'simulation_id':int, 'learner_id':int, 'C':int,'A':int,'N':int,'reward':float})
+        self._learners     = Table("Learners"    , ['learner_id'])
+        self._simulations  = Table("Simulations" , ['simulation_id'])
+
+    @property
+    def learners(self) -> Table:
+        """The collection of learners evaluated by Benchmark. The easiest way to work with the 
+            learners is to convert them to a pandas data frame via Result.learners.to_pandas()
+        """
+        return self._learners
+
+    @property
+    def simulations(self) -> Table:
+        """The collection of simulations used to evaluate each learner in the Benchmark. The easiest
+            way to work with simulations is to convert to a dataframe via Result.simulations.to_pandas()
+        """
+        return self._simulations
+
+    @property
+    def interactions(self) -> Table:
+        """The collection of interactions that learners chose actions for in the Benchmark. Each interaction
+            has a simulation_id and learner_id column to link them to the learners and simulations tables. The 
+            easiest way to work with interactions is to convert to a dataframe via Result.interactions.to_pandas()
+        """
+        return self._interactions
 
     def plot_learners(self, 
         source_matches : Sequence[Any] = [""], 
@@ -206,7 +228,7 @@ class Result:
         learner_ids    = []
         simulation_ids = []
         
-        for simulation in self.simulations:
+        for simulation in self._simulations:
             
             if 'source' in simulation:
                 source = simulation['source']
@@ -219,7 +241,7 @@ class Result:
             if any( fnmatch(source,"*"+str(s)+"*") for s in source_matches):
                 simulation_ids.append(simulation['simulation_id'])
 
-        for learner in self.learners:
+        for learner in self._learners:
 
             if any( fnmatch(learner['full_name'],"*"+str(l)+"*") for l in learner_matches):
                 learner_ids.append(learner['learner_id'])
@@ -229,9 +251,9 @@ class Result:
 
         for simulation_id, learner_id in product(simulation_ids,learner_ids):
             
-            if (simulation_id,learner_id) not in self.interactions: continue
+            if (simulation_id,learner_id) not in self._interactions: continue
 
-            rewards = self.interactions[(simulation_id,learner_id)]["reward"]
+            rewards = self._interactions[(simulation_id,learner_id)]["reward"]
 
             if span is None or span >= len(rewards):
                 cumwindow  = list(accumulate(rewards))
@@ -256,7 +278,7 @@ class Result:
 
         for i,learner_id in enumerate(learner_ids):
 
-            label = self.learners[learner_id]["full_name"]
+            label = self._learners[learner_id]["full_name"]
             Z     = list(zip(*progressives[learner_id]))
             Y     = [ sum(z)/len(z) for z in Z ]
             X     = list(range(1,len(Y)+1))
@@ -323,7 +345,7 @@ class Result:
 
         simulation_ids = []
         
-        for simulation in self.simulations:
+        for simulation in self._simulations:
             
             if 'source' in simulation:
                 sim_source = simulation['source']
@@ -336,7 +358,7 @@ class Result:
             if fnmatch(sim_source,"*"+str(source_match)+"*"):
                 simulation_ids.append(simulation['simulation_id'])
 
-        for learner in self.learners:
+        for learner in self._learners:
             if fnmatch(learner['full_name'],"*"+str(learner_match)+"*"):
                 learner_id = learner['learner_id']
 
@@ -345,9 +367,9 @@ class Result:
 
         for simulation_id in simulation_ids:
             
-            if (simulation_id,learner_id) not in self.interactions: continue
+            if (simulation_id,learner_id) not in self._interactions: continue
 
-            rewards = self.interactions[(simulation_id,learner_id)]["reward"]
+            rewards = self._interactions[(simulation_id,learner_id)]["reward"]
 
             if span is None or span >= len(rewards):
                 cumwindow  = list(accumulate(rewards))
@@ -401,7 +423,7 @@ class Result:
         plt.show()
 
     def __str__(self) -> str:
-        return str({ "Learners": len(self.learners), "Simulations": len(self.simulations), "Interactions": len(self.interactions) })
+        return str({ "Learners": len(self._learners), "Simulations": len(self._simulations), "Interactions": len(self._interactions) })
 
     def __repr__(self) -> str:
         return str(self)

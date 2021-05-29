@@ -109,7 +109,7 @@ class Unfinished(Filter[Iterable[BenchmarkTask], Iterable[BenchmarkTask]]):
     def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[BenchmarkTask]:
 
         def is_not_complete(sim_id: int, learn_id: int):
-            return (sim_id,learn_id) not in self._restored.interactions
+            return (sim_id,learn_id) not in self._restored._interactions
 
         for task in tasks:
             if is_not_complete(task.sim_id, task.lrn_id):

@@ -140,10 +140,10 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual("{'Learners': 0, 'Simulations': 0, 'Interactions': 4}", str(result))
 
-        self.assertTrue( (0,1) in result.interactions)
-        self.assertTrue( (0,2) in result.interactions)
+        self.assertTrue( (0,1) in result._interactions)
+        self.assertTrue( (0,2) in result._interactions)
 
-        self.assertEqual(len(result.interactions), 4)
+        self.assertEqual(len(result._interactions), 4)
 
     def test_has_version(self):
         result = Result.from_transactions([Transaction.version(1)])

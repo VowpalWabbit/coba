@@ -129,13 +129,13 @@ class TransactionIsNew(Filter):
             if tipe == "benchmark" and len(self._existing.benchmark) != 0:
                 continue
 
-            if tipe == "B" and transaction[1] in self._existing.interactions:
+            if tipe == "B" and transaction[1] in self._existing._interactions:
                 continue
 
-            if tipe == "S" and transaction[1] in self._existing.simulations:
+            if tipe == "S" and transaction[1] in self._existing._simulations:
                 continue
 
-            if tipe == "L" and transaction[1] in self._existing.learners:
+            if tipe == "L" and transaction[1] in self._existing._learners:
                 continue
 
             yield transaction

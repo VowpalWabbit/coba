@@ -94,8 +94,8 @@ class Unifinshed_Tests(unittest.TestCase):
 
         restored = Result()
 
-        restored.simulations[0]     = dict(batch_count=1)
-        restored.interactions[(0,1)] = dict()
+        restored._simulations[0]     = dict(batch_count=1)
+        restored._interactions[(0,1)] = dict()
 
         sim1 = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
