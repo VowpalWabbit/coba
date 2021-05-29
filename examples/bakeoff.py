@@ -6,7 +6,7 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 from pathlib import Path
 
 from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner, UcbBanditLearner, CorralLearner
-from coba.benchmarks import Benchmark
+from coba.benchmarks import Benchmark, Result
 
 #this line is required by Python in order to use multi-processing
 if __name__ == '__main__':
@@ -34,4 +34,10 @@ if __name__ == '__main__':
 
     #We can create a quick summary plot to get a sense of how the results looked
     #For more in-depth analysis it is useful to load the result into a Jupyter Notebook
-    result.standard_plot() #This line requires that Matplotlib be installed
+    result.plot_learners(span=100) #This line requires that Matplotlib be installed
+
+    #We can then zoom in on one simulation source
+    result.plot_learners(source_matches=[3], span=100) #This line requires that Matplotlib be installed
+
+    #Then we can zoom in on one simulation source and one learner to see how it performed on each shuffle
+    result.plot_shuffles(3, 'vw*epsilon', span=100) #This line requires that Matplotlib be installed

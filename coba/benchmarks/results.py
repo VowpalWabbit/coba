@@ -1,11 +1,11 @@
-import math
 import collections
 
+from fnmatch import fnmatch
 from operator import truediv
 from pathlib import Path
 from statistics import mean, stdev
 from itertools import chain, repeat, product, accumulate
-from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Callable
+from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union
 
 from coba.utilities import PackageChecker
 from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe, DiskSink, DiskSource 
@@ -172,22 +172,178 @@ class Result:
         self.simulations  = Table("Simulations" , ['simulation_id'])
 
     def plot_learners(self, 
-        sim_pipes: Sequence[str] = [""], 
-        lrn_names: Sequence[str] = [""], 
+        source_matches : Sequence[Any] = [""], 
+        learner_matches: Sequence[Any] = [""], 
         span=None,
-        show_sd=True,
-        show_se=True,
+        show_sd=30,
         figsize=(8,6)) -> None:
+        """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
+            performance for different learners across independent simulations. This plot is valuable in gaining insight 
+            into how various learners perform in comparison to one another. 
+
+        Args:
+            source_matches: The strings to match when determining which simulations to include in the plot. The "source" 
+                matched against is either the "source" column in the simulations table or the first item in the list in 
+                the simulation 'pipes' column. The simulations can be seen most easily by Result.simulations.to_pandas().
+                Matching supports the wildcards which match everything (*) and which match only one wild character (?).
+            learner_matches: The strings to match against the 'full_name' column in learners to determine which learners
+                to include in the plot. In the case of multiple matches only the last match is kept. Matching supports
+                wildcards which match everything (*) and which match only one wild character (?) . The leaners table in
+                this Result can be seen at Result.learners.to_pandas().
+            span: In general this indicates how many previous evaluations to average together. In practice this works
+                identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
+                rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
+                reward is plotted for each interaction.
+            show_sd: Determines if bars indicating the standard deviation of the population should be drawn. Standard 
+                deviation gives a sense of how well the plotted average represents the underlying distribution. Standard
+                deviation is most valuable when plotting against multiple simulations. If plotting against a single 
+                simulation standard error may be a more useful indicator of confidence. The numeric value for show_sd
+                determines how frequently the standard deviation bars are drawn.
+        """
 
         PackageChecker.matplotlib('Result.standard_plot')
 
-        learner_ids    = [ l["learner_id"] for l in self.learners if any(name in l["full_name"] for name in lrn_names ) ]
-        simulation_ids = [ s["simulation_id"] for s in self.simulations if any(pipe in s['pipe'] for pipe in sim_pipes) ]
+        learner_ids    = []
+        simulation_ids = []
         
+        for simulation in self.simulations:
+            
+            if 'source' in simulation:
+                source = simulation['source']
+            else:
+                #this is a hack...
+                source_end = max(simulation['pipe'].find("},{"), simulation['pipe'].find(","))
+                source_end = source_end if source_end > -1 else len(simulation['pipe'])
+                source     = simulation['pipe'][0:source_end]
+
+            if any( fnmatch(source,"*"+str(s)+"*") for s in source_matches):
+                simulation_ids.append(simulation['simulation_id'])
+
+        for learner in self.learners:
+
+            if any( fnmatch(learner['full_name'],"*"+str(l)+"*") for l in learner_matches):
+                learner_ids.append(learner['learner_id'])
+
         max_batch_N = 1
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
         for simulation_id, learner_id in product(simulation_ids,learner_ids):
+            
+            if (simulation_id,learner_id) not in self.interactions: continue
+
+            rewards = self.interactions[(simulation_id,learner_id)]["reward"]
+
+            if span is None or span >= len(rewards):
+                cumwindow  = list(accumulate(rewards))
+                cumdivisor = list(range(1,len(cumwindow)+1))
+            
+            elif span == 1:
+                cumwindow  = list(rewards)
+                cumdivisor = [1]*len(cumwindow)
+
+            else:
+                alpha = 2/(1+span)
+                cumwindow  = list(accumulate(rewards          , lambda a,c: c + (1-alpha)*a))
+                cumdivisor = list(accumulate([1.]*len(rewards), lambda a,c: c + (1-alpha)*a))
+
+            progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
+
+        import matplotlib.pyplot as plt #type: ignore
+
+        fig = plt.figure(figsize=figsize)
+        
+        ax = fig.add_subplot(1,1,1) #type: ignore
+
+        for i,learner_id in enumerate(learner_ids):
+
+            label = self.learners[learner_id]["full_name"]
+            Z     = list(zip(*progressives[learner_id]))
+            Y     = [ sum(z)/len(z) for z in Z ]
+            X     = list(range(1,len(Y)+1))
+
+            #this is much faster than python's native stdev
+            #and more or less free computationally so we always
+            #calculate it regardless of if they are showing them
+            #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
+            Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z ]
+            SD = [ (y2-y**2)**(1/2) for y,y2 in zip(Y,Y2) ]
+
+            if not show_sd:
+               ax.plot(X, Y,label=label)
+            else:
+                count = show_sd
+                every = int(len(X)/count)
+                start = int(len(X)/count) + i*int(len(X)/count**2)
+                ax.errorbar(X, Y, yerr=SD, elinewidth=0.5, errorevery=(start,every), label=label)
+
+        ax.set_title ("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}" + " Reward")
+        ax.set_ylabel("Reward")
+        ax.set_xlabel("Interactions" if max_batch_N ==1 else "Batches")
+
+        #make room for the legend
+        scale = 0.65
+        box1 = ax.get_position()
+        ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+
+        # Put a legend below current axis
+        fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='medium') #type: ignore
+
+        plt.show()
+
+    def plot_shuffles(self, 
+        source_match : Any, 
+        learner_match: Any, 
+        span=None,
+        start=0.05,
+        figsize=(8,6)) -> None:
+        """This plots the performance of a single Learner on multiple shuffles of the same source. It gives a sense of the
+            variance in peformance for the learner on the given simulation source. This plot is valuable if looking for a 
+            reliable learner on a fixed problem.
+
+        Args:
+            source_match: The string to match when determining which simulations to include. The "source" matched
+                against is either the "source" column in the simulations table or the first item in the list in the 
+                simulation 'pipes' column. The simulations can be seen most easily by Result.simulations.to_pandas().
+                Matching supports the wildcards which match everything (*) and which match only one wild character (?).
+            learner_match: The string to match against the 'full_name' column in learners to determine which learner
+                to include in the plot. In the case of multiple matches only the last match is kept. Matching supports
+                wildcards which match everything (*) and which match only one wild character (?) . The leaners table in
+                this Result can be seen at Result.learners.to_pandas().
+            span: In general this indicates how many previous evaluations to average together. In practice this works
+                identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
+                rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
+                reward is plotted for each interaction.
+            start: Thisindicates what percentage of starting interactions to exclude from the plot. The first few 
+                observations can be noisy and thus make it difficult for Matplotlib to appropriately scale the plot.
+                By excluding these values the plot will often be scaled at in a much more interpretable manner.
+
+        """
+
+        PackageChecker.matplotlib('Result.standard_plot')
+
+        simulation_ids = []
+        
+        for simulation in self.simulations:
+            
+            if 'source' in simulation:
+                sim_source = simulation['source']
+            else:
+                #this is a hack...
+                source_end = max(simulation['pipe'].find("},{"), simulation['pipe'].find(","))
+                source_end = source_end if source_end > -1 else len(simulation['pipe'])
+                sim_source = simulation['pipe'][0:source_end]
+
+            if fnmatch(sim_source,"*"+str(source_match)+"*"):
+                simulation_ids.append(simulation['simulation_id'])
+
+        for learner in self.learners:
+            if fnmatch(learner['full_name'],"*"+str(learner_match)+"*"):
+                learner_id = learner['learner_id']
+
+        max_batch_N = 1
+        progressives: List[Sequence[float]] = []
+
+        for simulation_id in simulation_ids:
             
             if (simulation_id,learner_id) not in self.interactions: continue
 
@@ -207,46 +363,40 @@ class Result:
                 cumwindow  = [ cumwindow[i] - cumwindow[i-span] for i in range(len(cumwindow)-span) ]
                 cumdivisor = list(range(1, span)) + [span]*(len(cumwindow)-span+1)
 
-            progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
+            progressives.append(list(map(truediv, cumwindow, cumdivisor)))
 
         import matplotlib.pyplot as plt #type: ignore
+        import numpy as np
 
         fig = plt.figure(figsize=figsize)
         
         ax = fig.add_subplot(1,1,1) #type: ignore
 
-        stder = lambda values: stdev(values)/math.sqrt(len(values))
+        for shuffle in progressives:
 
-        for learner_id in learner_ids:
-            label = self.learners[learner_id]["full_name"] 
-            Y     = list(map(mean ,zip(*progressives[learner_id])))
+            Y     = shuffle
             X     = list(range(1,len(Y)+1))
 
-            ax.plot(X, Y,label=label)
+            start_idx = int(start*len(X))
 
-            if show_sd and len(progressives[learner_id]) > 1:                
-                sd = list(map(stdev,zip(*progressives[learner_id])))
-                ls = [ y-s for y,s in zip(Y,sd) ]
-                us = [ y+s for y,s in zip(Y,sd) ]
-                ax.fill_between(X, ls, us, alpha = 0.1)
+            X = X[start_idx-1:]
+            Y = Y[start_idx-1:]
 
-            if show_se and len(progressives[learner_id]) > 1:
-                se = list(map(stder,zip(*progressives[learner_id])))
-                ls = [ y-s for y,s in zip(Y,se) ]
-                us = [ y+s for y,s in zip(Y,se) ]
-                ax.fill_between(X, ls, us, alpha = 0.1)
+            ax.plot(X, Y)
 
-        ax.set_title ("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}" + " Reward")
+        ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
+        
+        ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + f" Reward for Source {source_match} and {learner_match} Learner")
         ax.set_ylabel("Reward")
         ax.set_xlabel("Interactions" if max_batch_N ==1 else "Batches")
 
         #make room for the legend
-        scale = 0.65
-        box1 = ax.get_position()
-        ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+        #scale = 0.65
+        #box1 = ax.get_position()
+        #ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
 
         # Put a legend below current axis
-        fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='small') #type: ignore
+        #fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='small') #type: ignore
 
         plt.show()
 
