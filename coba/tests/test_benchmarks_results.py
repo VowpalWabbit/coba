@@ -1,5 +1,6 @@
 import math
 import unittest
+import timeit
 
 from coba.benchmarks.transactions import Transaction
 from coba.benchmarks.results import Result, Table, PackedTable
@@ -20,7 +21,7 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(table))
 
-        self.assertEqual([('A', 'B'), ('a', 'B')], table.to_tuples())
+        self.assertEqual([('A', 'B'), ('a', 'B')], list(table.to_tuples()))
 
     def test_update_item(self):
         table = Table("test", ['a'])
@@ -32,7 +33,7 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(table['a'], {'a':'a', 'b':'C'})
         self.assertEqual(1, len(table))
-        self.assertEqual([('a','C')], table.to_tuples())
+        self.assertEqual([('a','C')], list(table.to_tuples()))
 
     def test_missing_columns(self):
         table = Table("test", ['a'])
@@ -85,7 +86,7 @@ class PackedTable_Tests(unittest.TestCase):
 
         self.assertTrue('A' in table)
 
-        self.assertEqual(table['A'], [{'a':'A', 'index':1, 'b':'B'}])
+        self.assertEqual(table['A'], {'a':'A', 'index':1, 'b':'B'})
 
         self.assertEqual(1, len(table))
 
@@ -98,18 +99,18 @@ class PackedTable_Tests(unittest.TestCase):
 
         self.assertTrue('A' in table)
 
-        self.assertEqual(table['A'], [{'a':'A', 'index':1, 'b':'B', 'c':1, 'd':'D'}, {'a':'A', 'index':2, 'b':'b', 'c':1, 'd':'d'}])
+        self.assertEqual(table['A'], {'a':'A', 'index':[1,2], 'b':['B','b'], 'c':1, 'd':['D','d']})
 
         self.assertEqual(2, len(table))
 
         self.assertEqual([('A', 1, 'B', 1, 'D'), ('A', 2, 'b', 1, 'd')], table.to_tuples())
 
     def test_pandas_two_pack_item(self):
-        
+
         import pandas as pd
         import pandas.testing
 
-        table = PackedTable("test", ['a'])
+        table = PackedTable("test", ['a'], types={'a':str,'b':object,'c':float,'d':object,'e':object})
 
         table['A'] = dict(b=['B','b'],c=1,d=['D','d'])
         table['B'] = dict(e='E')
@@ -122,7 +123,19 @@ class PackedTable_Tests(unittest.TestCase):
 
         actual_df = table.to_pandas()
 
-        pandas.testing.assert_frame_equal(expected_df,actual_df)
+        pandas.testing.assert_frame_equal(expected_df,actual_df, check_dtype=False)
+
+    def test_pandas_huge_pack_item(self):
+
+        table = PackedTable("test", ['simulation_id', 'learner_id'], types={'simulation_id':int, 'learner_id':int, 'C':int,'A':int,'N':int,'reward':float})
+
+        for i in range(300):
+            table[(i,2)] = dict(C=5,A=5,N=1,reward=[2]*9000)
+
+        time = min(timeit.repeat(lambda:table.to_pandas(), repeat=6, number=1))
+
+        #best time on my laptop was 0.33
+        self.assertLess(time,1)
 
     def test_unequal_pack_exception(self):
         with self.assertRaises(Exception):

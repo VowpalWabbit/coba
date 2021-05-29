@@ -1,18 +1,19 @@
 import math
 import collections
 
+from operator import truediv
 from pathlib import Path
-from itertools import chain, groupby, count, repeat
-from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, cast, Hashable, Iterator, Union
+from statistics import mean, stdev
+from itertools import chain, repeat, product, accumulate
+from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Callable
 
 from coba.utilities import PackageChecker
-from coba.statistics import OnlineMean, OnlineVariance
 from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe, DiskSink, DiskSource 
 
 class Table:
     """A container class for storing tabular data."""
 
-    def __init__(self, name:str, primary: Sequence[str]):
+    def __init__(self, name:str, primary: Sequence[str], types: Dict[str,Any]={}):
         """Instantiate a Table.
         
         Args:
@@ -22,6 +23,7 @@ class Table:
         self._name    = name
         self._primary = primary
         self._cols    = collections.OrderedDict(zip(primary,repeat(None)))
+        self._types   = types
 
         self._rows: Dict[Tuple[Hashable,...], Dict[str,Any]] = {}
 
@@ -31,20 +33,22 @@ class Table:
 
     @property
     def columns(self) -> Sequence[str]:
-        return self._cols.keys()
+        return list(self._cols.keys())
 
     def to_pandas(self) -> Any:
         PackageChecker.pandas("Table.to_pandas")
         import pandas as pd
         return pd.DataFrame(self.to_tuples(), columns=self.columns)
 
-    def to_tuples(self) -> Sequence[Tuple[Any,...]]:
-        return [ tuple([ row.get(col,float('nan')) for col in self.columns ]) for row in self]
+    def to_tuples(self) -> Iterable[Tuple[Any,...]]:
+        return [ tuple( row.get(col,float('nan')) for col in self.columns) for row in self ]
 
     def _keyify(self, key: Union[Hashable, Sequence[Hashable]]) -> Tuple[Hashable,...]:
-        seq_key = tuple([key] if isinstance(key,str) or not isinstance(key, collections.Sequence) else key)
-        assert len(seq_key) == len(self._primary), "Incorrect primary key length given"
-        return seq_key
+        key_len = len(key) if isinstance(key,(list,tuple)) else 1
+        
+        assert key_len == len(self._primary), "Incorrect primary key length given"
+        
+        return tuple(key) if isinstance(key,(list,tuple)) else key
 
     def __iter__(self) -> Iterator[Dict[str,Any]]:
         for row in self._rows.values(): yield row
@@ -63,7 +67,7 @@ class Table:
         key = self._keyify(key)
 
         row = values.copy()        
-        row.update(zip(self._primary, key))
+        row.update(zip(self._primary, key if isinstance(key,tuple) else [key]))
 
         self._cols.update(zip(values.keys(), repeat(None)))
         self._rows[key] = row
@@ -75,12 +79,14 @@ class Table:
         del self._rows[self._keyify(key)]
 
 class PackedTable:
-    def __init__(self, name:str, primary: Sequence[str]) -> None:
+    def __init__(self, name:str, primary: Sequence[str], types: Dict[str,Any] = {}) -> None:
         self._packed_rows = Table(name, primary)
         self._unpacked_sizes: Dict[Any,int] = {}
+        self._types = types
 
         #make sure the index column is the 3rd column
         self._packed_rows._cols['index'] = None
+        self._types['index'] = int
 
     @property
     def name(self) -> str:
@@ -93,10 +99,30 @@ class PackedTable:
     def to_pandas(self) -> Any:
         PackageChecker.pandas("Table.to_pandas")
         import pandas as pd
-        return pd.DataFrame(self.to_tuples(), columns=self.columns)
+        import numpy as np
+
+        col_values = {col:np.empty(len(self),dtype=self._types.get(col,object)) for col in self.columns}
+        index = 0
+
+        for key in self._packed_rows._rows:
+
+            unpacked_size = self._unpacked_sizes[key]
+
+            for col in self.columns:
+                val = self._packed_rows[key].get(col,float('nan'))
+                col_values[col][index:(index+unpacked_size)] = val
+
+            index += unpacked_size
+
+        return pd.DataFrame(col_values, columns=self.columns)
 
     def to_tuples(self) -> Sequence[Tuple[Any,...]]:
-        return [ tuple([ row.get(col,float('nan')) for col in self.columns ]) for row in self]
+        items = []
+        for key,packed in zip(self._packed_rows._rows.keys(), self._packed_rows.to_tuples()):
+            unpacked_size = self._unpacked_sizes[key]
+            for unpacked in zip(*(v if isinstance(v,list) else repeat(v,unpacked_size) for v in packed)):
+                items.append(unpacked)
+        return items
 
     def __len__(self) -> int:
         return sum(self._unpacked_sizes.values())
@@ -105,12 +131,7 @@ class PackedTable:
         return str({"Table": self.name, "Columns": list(self.columns), "Rows": len(self)})
 
     def __iter__(self) -> Iterator[Dict[str,Any]]:
-        for key in self._packed_rows._rows.keys():
-            if len(key) == 1: 
-                key=key[0]
-            
-            for row in self[key]:
-                yield row
+        return self._packed_rows
 
     def __contains__(self, key: Union[Hashable, Sequence[Hashable]]) -> bool:
         return key in self._packed_rows
@@ -119,40 +140,19 @@ class PackedTable:
         
         unpacked_size = 1
         
-        for col in values:
-            value       = values.get(col, float('nan'))
-            is_singular = not isinstance(value,collections.Sequence) or isinstance(value,str)
-            
-            if is_singular: continue
-
+        for value in values.values():
+            if not isinstance(value,list): continue
             unpacked_size = len(value) if unpacked_size == 1 else unpacked_size 
             assert len(value) == unpacked_size, "When using a packed format all columns must be equal length or 1."
 
         row = values.copy()
-
         row['index'] = 1 if unpacked_size == 1 else list(range(1,unpacked_size+1))
 
-        self._packed_rows[key] = row
+        self._packed_rows[key]    = row
         self._unpacked_sizes[key] = unpacked_size
     
-    def __getitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> Sequence[Dict[str,Any]]:
-        unpacked_size = self._unpacked_sizes[key]
-
-        if unpacked_size == 1: return [ self._packed_rows[key] ]
-
-        unpacked_rows = [ {} for _ in range(unpacked_size) ]
-        
-        for col,value in self._packed_rows[key].items():
-
-            if isinstance(value, collections.Sequence) and not isinstance(value,str):
-                unpacked_value = value
-            else:
-                unpacked_value = [ value ] * unpacked_size
-
-            for i,unpacked_row in enumerate(unpacked_rows):
-                unpacked_row[col] = unpacked_value[i]
-
-        return unpacked_rows
+    def __getitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> Dict[str,Any]:
+        return self._packed_rows[key]
 
     def __delitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> None:
         del self._packed_rows[key]
@@ -193,134 +193,87 @@ class Result:
         self.version    : int            = None
         self.benchmark  : Dict[str, Any] = {}
 
-        #Warning, if you change the order of the primary keys old transaction files will break:
-        #ResultPromote can be used to mitigate backwards compatability problems if this is necessary.
-        self.interactions = PackedTable("Interactions", ['simulation_id', 'learner_id'])
+        #providing the types in advance makes to_pandas about 10 times faster since we can preallocate space
+        self.interactions = PackedTable("Interactions", ['simulation_id', 'learner_id'], types={'simulation_id':int, 'learner_id':int, 'C':int,'A':int,'N':int,'reward':float})
         self.learners     = Table      ("Learners"    , ['learner_id'])
         self.simulations  = Table      ("Simulations" , ['simulation_id'])
 
-    def plot_learners(self, select_learners: Sequence[int] = None, figsize=(12,4)) -> None:
+    def plot_learners(self, 
+        sim_pipes: Sequence[str] = [""], 
+        lrn_names: Sequence[str] = [""], 
+        span=None,
+        show_sd=True,
+        show_se=True,
+        figsize=(8,6)) -> None:
 
         PackageChecker.matplotlib('Result.standard_plot')
 
-        def _plot(axes, label, xs, ys, vs, ns):
-            axes.plot(xs, ys, label=label)
+        learner_ids    = [ l["learner_id"] for l in self.learners if any(name in l["full_name"] for name in lrn_names ) ]
+        simulation_ids = [ s["simulation_id"] for s in self.simulations if any(pipe in s['pipe'] for pipe in sim_pipes) ]
+        
+        max_batch_N = 1
+        progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-            if show_sd:
-                ls = [ y-math.sqrt(v) for y,v in zip(ys,vs) ]
-                us = [ y+math.sqrt(v) for y,v in zip(ys,vs) ]
-                axes.fill_between(xs, ls, us, alpha = 0.1)
+        for simulation_id, learner_id in product(simulation_ids,learner_ids):
+            
+            if (simulation_id,learner_id) not in self.interactions: continue
 
-            if show_err:
-                # I don't really understand what this is... For each x our distribution
-                # is changing so its VAR is also changing. What does it mean to calculate
-                # sample variance from a deterministic collection of random variables with
-                # different distributions? For example sample variance of 10 random variables
-                # from dist1 and 10 random variables from dist2... This is not the same as 20
-                # random variables with 50% chance drawing from dist1 and 50% chance of drawing
-                # from dist2. So the distribution can only be defined over the whole space (i.e.,
-                # all 20 random variables) and not for a specific random variable. Oh well, for
-                # now I'm leaving this as it is since I don't have any better ideas. I think what
-                # I've done is ok, but I need to more some more thought into it.
-                ls = [ y-math.sqrt(v/n) for y,v,n in zip(ys,vs,ns) ]
-                us = [ y+math.sqrt(v/n) for y,v,n in zip(ys,vs,ns) ]
-                axes.fill_between(xs, ls, us, alpha = 0.1)
+            rewards = self.interactions._packed_rows[(simulation_id,learner_id)]["reward"]
 
-        learners, _, batches = self.to_indexed_tuples()
+            if span is None or span >= len(rewards):
+                cumwindow  = list(accumulate(rewards))
+                cumdivisor = list(range(1,len(cumwindow)+1))
+            
+            elif span == 1:
+                cumwindow  = list(rewards)
+                cumdivisor = [1]*len(cumwindow)
 
-        learners = {key:value for key,value in learners.items() if select_learners is None or key in select_learners}
-        batches  = {key:value for key,value in batches.items() if select_learners is None or value.learner_id in select_learners}
+            else:
+                cumwindow  = list(accumulate(rewards))
+                cumwindow  = cumwindow + [0] * span
+                cumwindow  = [ cumwindow[i] - cumwindow[i-span] for i in range(len(cumwindow)-span) ]
+                cumdivisor = list(range(1, span)) + [span]*(len(cumwindow)-span+1)
 
-        sorted_batches  = sorted(batches.values(), key=lambda batch: batch.learner_id)
-        grouped_batches = groupby(sorted_batches , key=lambda batch: batch.learner_id)
-
-        max_batch_N = 0
-
-        indexes     = cast(Dict[int,List[int  ]], collections.defaultdict(list))
-        incounts    = cast(Dict[int,List[int  ]], collections.defaultdict(list))
-        inmeans     = cast(Dict[int,List[float]], collections.defaultdict(list))
-        invariances = cast(Dict[int,List[float]], collections.defaultdict(list))
-        cucounts    = cast(Dict[int,List[int  ]], collections.defaultdict(list))
-        cumeans     = cast(Dict[int,List[float]], collections.defaultdict(list))
-        cuvariances = cast(Dict[int,List[float]], collections.defaultdict(list))
-
-        for learner_id, learner_batches in grouped_batches:
-
-            cucount    = 0
-            cumean     = OnlineMean()
-            cuvariance = OnlineVariance()
-
-            Ns, Rs = list(zip(*[ (b.N, b.reward) for b in learner_batches ]))
-
-            Ns = list(zip(*Ns))
-            Rs = list(zip(*Rs))
-
-            for batch_index, batch_Ns, batch_Rs in zip(count(), Ns,Rs):
-
-                incount    = 0
-                inmean     = OnlineMean()
-                invariance = OnlineVariance()
-
-                for N, reward in zip(batch_Ns, batch_Rs):
-                    
-                    max_batch_N = max(N, max_batch_N)
-                    
-                    incount     = incount + 1
-                    inmean      .update(reward)
-                    invariance  .update(reward)
-                    cucount     = cucount + 1
-                    cumean      .update(reward)
-                    cuvariance  .update(reward)
-
-                #sanity check, sorting above (in theory) should take care of this...
-                #if this isn't the case then the cu* values will be incorrect...
-                assert indexes[learner_id] == [] or batch_index > indexes[learner_id][-1]
-
-                incounts[learner_id].append(incount)
-                indexes[learner_id].append(batch_index)
-                inmeans[learner_id].append(inmean.mean)
-                invariances[learner_id].append(invariance.variance)
-                cucounts[learner_id].append(cucount)
-                cumeans[learner_id].append(cumean.mean)
-                cuvariances[learner_id].append(cuvariance.variance)
+            progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
 
         import matplotlib.pyplot as plt #type: ignore
 
         fig = plt.figure(figsize=figsize)
-
-        index_unit = "Interactions" if max_batch_N ==1 else "Batches"
         
-        ax1 = fig.add_subplot(1,2,1) #type: ignore
-        ax2 = fig.add_subplot(1,2,2) #type: ignore
+        ax = fig.add_subplot(1,1,1) #type: ignore
 
-        for learner_id in learners:
-            _plot(ax1, learners[learner_id].full_name, indexes[learner_id], inmeans[learner_id], invariances[learner_id], incounts[learner_id])
+        stder = lambda values: stdev(values)/math.sqrt(len(values))
 
-        ax1.set_title(f"Instantaneous Reward")
-        ax1.set_ylabel("Reward")
-        ax1.set_xlabel(f"{index_unit}")
+        for learner_id in learner_ids:
+            label = self.learners[learner_id]["full_name"] 
+            Y     = list(map(mean ,zip(*progressives[learner_id])))
+            X     = list(range(1,len(Y)+1))
 
-        for learner_id in learners:
-            _plot(ax2, learners[learner_id].full_name, indexes[learner_id], cumeans[learner_id], cuvariances[learner_id], cucounts[learner_id])
+            ax.plot(X, Y,label=label)
 
-        ax2.set_title("Progressive Reward")
-        #ax2.set_ylabel("Reward")
-        ax2.set_xlabel(f"{index_unit}")
+            if show_sd and len(progressives[learner_id]) > 1:                
+                sd = list(map(stdev,zip(*progressives[learner_id])))
+                ls = [ y-s for y,s in zip(Y,sd) ]
+                us = [ y+s for y,s in zip(Y,sd) ]
+                ax.fill_between(X, ls, us, alpha = 0.1)
 
-        (bot1, top1) = ax1.get_ylim()
-        (bot2, top2) = ax2.get_ylim()
+            if show_se and len(progressives[learner_id]) > 1:
+                se = list(map(stder,zip(*progressives[learner_id])))
+                ls = [ y-s for y,s in zip(Y,se) ]
+                us = [ y+s for y,s in zip(Y,se) ]
+                ax.fill_between(X, ls, us, alpha = 0.1)
 
-        ax1.set_ylim(min(bot1,bot2), max(top1,top2))
-        ax2.set_ylim(min(bot1,bot2), max(top1,top2))
+        ax.set_title ("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}" + " Reward")
+        ax.set_ylabel("Reward")
+        ax.set_xlabel("Interactions" if max_batch_N ==1 else "Batches")
 
-        scale = 0.5
-        box1 = ax1.get_position()
-        box2 = ax2.get_position()
-        ax1.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
-        ax2.set_position([box2.x0, box2.y0 + box2.height * (1-scale), box2.width, box2.height * scale])
+        #make room for the legend
+        scale = 0.65
+        box1 = ax.get_position()
+        ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
 
         # Put a legend below current axis
-        fig.legend(*ax1.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='small') #type: ignore
+        fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='small') #type: ignore
 
         plt.show()
 
