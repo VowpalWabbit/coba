@@ -1,6 +1,6 @@
 import unittest
 
-from coba.pipes import LibSvmReader, ArffReader, CsvReader, Flatten, Transpose, Encode
+from coba.pipes import LibSvmReader, ArffReader, CsvReader, Flatten, Transpose, Encode, JsonEncode
 from coba.encodings import NumericEncoder, OneHotEncoder
 from coba.config import NoneLogger, CobaConfig
 
@@ -291,6 +291,19 @@ class Encode_Tests(unittest.TestCase):
         expected = [((0,1,2),(1,2,3)),((0,1,2),((1,0),(0,1),(0,1)))]
 
         self.assertEqual(expected, list(encode.filter(given)))
+
+class JsonEncode_Tests(unittest.TestCase):
+    def test_list_minified(self):
+        self.assertEqual('[1,2]',JsonEncode().filter([1,2.]))
+
+    def test_list_list_minified(self):
+        self.assertEqual('[1,[2,[1,2]]]',JsonEncode().filter([1,[2.,[1,2.]]]))
+    
+    def test_tuple_minified(self):
+        self.assertEqual('[1,2]',JsonEncode().filter((1,2.)))
+
+    def test_dict_minified(self):
+        self.assertEqual('{"a":[1.23,2],"b":{"c":1}}',JsonEncode().filter({'a':[1.23,2],'b':{'c':1.}}))
 
 if __name__ == '__main__':
     unittest.main()

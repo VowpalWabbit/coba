@@ -74,11 +74,40 @@ class ResponseToLines(Filter[Response, Iterable[str]]):
         return item.content.decode('utf-8').split('\n')
 
 class JsonEncode(Filter[Any, str]):
-    def __init__(self, encoder: json.encoder.JSONEncoder = CobaJsonEncoder()) -> None:
-        self._encoder = encoder
+
+    def _intify(self,obj):
+
+        if isinstance(obj,float) and obj.is_integer():
+            return int(obj)
+
+        if isinstance(obj,tuple):
+            obj = list(obj)
+
+        if isinstance(obj,list):
+            for i in range(len(obj)):
+                obj[i] = self._intify(obj[i])
+
+        if isinstance(obj,dict):
+            for key in obj:
+                obj[key] = self._intify(obj[key])
+
+        return obj
+
+    def __init__(self, minify=True) -> None:
+        self._minify = minify
+
+        if self._minify:
+            self._encoder = CobaJsonEncoder(separators=(',', ':'))
+        else:
+            self._encoder = CobaJsonEncoder()
 
     def filter(self, item: Any) -> str:
-        return self._encoder.encode(item)
+        if self._minify:
+            #JsonEncoder writes floats with .0 regardless of if they are integers
+            #Therefore we preprocess and turn all float whole numbers into integers
+            return self._encoder.encode(self._intify(item))
+        else:
+            return self._encoder.encode(item)
 
 class JsonDecode(Filter[str, Any]):
     def __init__(self, decoder: json.decoder.JSONDecoder = CobaJsonDecoder()) -> None:
