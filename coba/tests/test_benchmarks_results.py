@@ -149,5 +149,9 @@ class Result_Tests(unittest.TestCase):
         result = Result.from_transactions([Transaction.version(1)])
         self.assertEqual(result.version, 1)
 
+    def test_exception_when_no_file(self):
+        with self.assertRaises(Exception):
+            Result.from_file("abcd")
+
 if __name__ == '__main__':
     unittest.main()

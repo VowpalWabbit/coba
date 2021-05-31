@@ -115,7 +115,7 @@ class Unfinished(Filter[Iterable[BenchmarkTask], Iterable[BenchmarkTask]]):
             if is_not_complete(task.sim_id, task.lrn_id):
                 yield task
 
-class GroupBySource(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
+class ChunkBySource(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
 
     def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[Iterable[BenchmarkTask]]:
 
@@ -128,7 +128,7 @@ class GroupBySource(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkT
             a = list(group)
             yield a
 
-class GroupByNone(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
+class ChunkByNone(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
 
     def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[Iterable[BenchmarkTask]]:
 

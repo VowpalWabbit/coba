@@ -1,3 +1,4 @@
+from pathlib import Path
 from itertools import product
 from typing import Iterable, Sequence, cast, Optional, overload, List, Union
 
@@ -8,7 +9,7 @@ from coba.config import CobaConfig
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpSource, MemorySource, DiskSource
 from coba.multiprocessing import MultiprocessFilter
 
-from coba.benchmarks.tasks import Tasks, Unfinished, GroupByNone, GroupBySource, Transactions
+from coba.benchmarks.tasks import Tasks, Unfinished, ChunkByNone, ChunkBySource, Transactions
 from coba.benchmarks.transactions import Transaction, TransactionSink
 from coba.benchmarks.results import Result
 
@@ -131,10 +132,10 @@ class Benchmark:
         Returns:
             See the base class for more information.
         """
-        restored         = Result.from_file(transaction_log)
+        restored         = Result.from_file(transaction_log) if transaction_log and Path(transaction_log).exists() else Result()
         tasks            = Tasks(self._simulations, learners, seed)
         unfinished       = Unfinished(restored)
-        grouped          = GroupByNone() if CobaConfig.Benchmark.get("group_by","source") == "none" else GroupBySource()
+        grouped          = ChunkByNone() if CobaConfig.Benchmark.get("chunk_by","source") == "none" else ChunkBySource()
         process          = Transactions(self._ignore_raise)
         transaction_sink = TransactionSink(transaction_log, restored)
 

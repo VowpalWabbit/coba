@@ -1,6 +1,8 @@
+import timeit
+import time
 import unittest
 
-from multiprocessing import current_process
+from multiprocessing import current_process, Process
 from typing import Iterable, Any
 
 from coba.config          import CobaConfig, IndentLogger
@@ -9,14 +11,18 @@ from coba.multiprocessing import MultiprocessFilter
 
 class Multiprocess_Tests(unittest.TestCase):
 
+    class SleepingFilter(Filter):
+        def filter(self, seconds: Iterable[float]) -> Any:
+            seconds = next(iter(seconds))
+            #print(current_process().name + f" {seconds}")
+            time.sleep(seconds)
+            yield None
+
     class ProcessNameFilter(Filter):
         def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-
             process_name = current_process().name
-
-            for _ in items:
-                CobaConfig.Logger.log(process_name)
-                yield process_name
+            CobaConfig.Logger.log(process_name)
+            yield process_name
 
     class ExceptionFilter(Filter):
         def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -33,6 +39,17 @@ class Multiprocess_Tests(unittest.TestCase):
     def test_multiprocess_singletask(self):
         items = list(MultiprocessFilter([Multiprocess_Tests.ProcessNameFilter()], 2, 1).filter(range(4)))
         self.assertEqual(len(set(items)), 4)
+
+    def test_multiprocess_sleeping_task(self):
+
+        start_time = time.time()
+        list(MultiprocessFilter([Multiprocess_Tests.SleepingFilter()], 2, 1).filter([2,2,0.25,0.25]))
+        end_time = time.time()
+
+        self.assertLess(end_time-start_time, 3)
+
+    def test(self):
+        timeit.repeat(lambda: Process(target=time.sleep, args=(0,)).start(), repeat=1,number=100)
 
     def test_exception(self):
         with self.assertRaises(Exception):

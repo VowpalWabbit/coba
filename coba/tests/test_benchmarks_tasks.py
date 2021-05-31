@@ -7,7 +7,7 @@ from coba.pipes import Source
 from coba.learners import Learner
 
 from coba.benchmarks.results import Result
-from coba.benchmarks.tasks import BenchmarkTask, Tasks, Unfinished, GroupBySource
+from coba.benchmarks.tasks import BenchmarkTask, Tasks, Unfinished, ChunkBySource
 
 #for testing purposes
 class ModuloLearner(Learner):
@@ -132,7 +132,7 @@ class GroupBySource_Tests(unittest.TestCase):
             BenchmarkTask(0,1,1,sim1,lrn1,10),
         ]
 
-        groups = list(GroupBySource().filter(tasks))
+        groups = list(ChunkBySource().filter(tasks))
         tasks  = list(groups[0])
         
         self.assertEqual(1, len(groups))
@@ -150,7 +150,7 @@ class GroupBySource_Tests(unittest.TestCase):
             BenchmarkTask(1,1,1,sim2,lrn1,10),
         ]
 
-        groups = list(GroupBySource().filter(tasks))
+        groups = list(ChunkBySource().filter(tasks))
         
         group_1_tasks = list(groups[0])
         group_2_tasks = list(groups[1])

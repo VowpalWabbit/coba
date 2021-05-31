@@ -134,10 +134,11 @@ class Result:
     """A class representing the result of a Benchmark evaluation on a given collection of Simulations and Learners."""
 
     @staticmethod
-    def from_file(filename: Optional[str]) -> 'Result':
+    def from_file(filename: str) -> 'Result':
         """Create a Result from a transaction file."""
         
-        if filename is None or not Path(filename).exists(): return Result()
+        #Why is this here??? This is really confusing in practice
+        #if filename is None or not Path(filename).exists(): return Result()
 
         json_encode = Cartesian(JsonEncode())
         json_decode = Cartesian(JsonDecode())
@@ -282,6 +283,8 @@ class Result:
             Z     = list(zip(*progressives[learner_id]))
             Y     = [ sum(z)/len(z) for z in Z ]
             X     = list(range(1,len(Y)+1))
+
+            if len(X) == 0: continue
 
             #this is much faster than python's native stdev
             #and more or less free computationally so we always

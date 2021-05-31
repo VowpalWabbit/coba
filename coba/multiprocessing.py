@@ -80,7 +80,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
             log_thread.start()
 
-            result = pool.map_async(processor.process, items, callback=finished_callback, error_callback=error_callback) 
+            result = pool.map_async(processor.process, items, callback=finished_callback, error_callback=error_callback, chunksize=1) 
 
             # When items is empty finished_callback will not be called and we'll get stuck waiting for the poison pill.
             # When items is empty ready() will be true immediately and this check will place the poison pill into the queues.
