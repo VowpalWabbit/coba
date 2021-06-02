@@ -100,9 +100,10 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
             except Exception as e:
                 if "Can't pickle" in str(e) or "Pickling" in str(e):
                     message = (
-                            "Learners are required to be picklable in order to evaluate a Benchmark in multiple processes. "
-                            "To help with this learner's have an optional `def init(self) -> None` that is only called "
-                            "after pickling has occured. Any non-picklable objects can be created within `init()` safely.")
+                            str(e) + ". Learners must be picklable to evaluate a Learner on a Benchmark in multiple processes. "
+                            "To make a currently unpiclable learner picklable it should implement `__reduce(self)__`. "
+                            "The simplest return from reduce is `return (<the learner class>, (<tuple of constructor arguments>))`. "
+                            "For more information see https://docs.python.org/3/library/pickle.html#object.__reduce.")
                     raise Exception(message) from e
 
             # in the case where an exception occurred in one of our processes

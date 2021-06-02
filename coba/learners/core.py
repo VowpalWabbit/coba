@@ -1,7 +1,7 @@
 """The expected interface for all learner implementations."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Sequence, Dict
+from typing import Any, Sequence, Dict, Union, Tuple
 
 from coba.simulations import Context, Action, Key
 
@@ -26,10 +26,6 @@ class Learner(ABC):
         """
         ...
 
-    def init(self) -> None:
-        """An optional initialization method called once after pickling."""        
-        pass
-
     @abstractmethod
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
@@ -52,7 +48,7 @@ class Learner(ABC):
                 ("fantasy", "razzie")]).
 
         Returns:
-            A sequence of probabilities indicating the probability for each action.
+            A sequence of probabilities indicating the probability of taking each action.
         """
         ...
 
@@ -79,3 +75,7 @@ class Learner(ABC):
             probability: The probability with wich the given action was selected.
         """
         ...
+    
+    def __reduce__(self) -> Union[str, Tuple[Any, ...]]:
+        """An optional method that can be overridden for Learner implimentations that are not picklable by default."""
+        return super().__reduce__()

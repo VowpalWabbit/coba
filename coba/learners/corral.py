@@ -66,13 +66,6 @@ class CorralLearner(Learner):
         """        
         return {"eta": self._eta_init, "B": [ b.family for b in self._base_learners ] }
 
-    def init(self) -> None:
-        for learner in self._base_learners:
-            try:
-                learner.init()
-            except:
-                pass
-
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
 

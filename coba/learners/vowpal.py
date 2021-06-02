@@ -83,7 +83,7 @@ class VowpalLearner(Learner):
         Args:
             bag: An integer value greater than 0. This value determines how many separate policies will be
                 learned. Each policy will be learned from bootstrap aggregation, making each policy unique. 
-                For each choice one policy will be selected according to a uniform distribution and followed.
+                When predicting one policy will be selected according to a uniform distribution and followed.
         """
         ...
 
@@ -93,7 +93,7 @@ class VowpalLearner(Learner):
         Args:
             cover: An integer value greater than 0. This value value determines how many separate policies will be
                 learned. These policies are learned in such a way to explicitly optimize policy diversity in order
-                to control exploration. For each choice one policy will be selected according to a uniform distribution
+                to control exploration. When predicting one policy will be selected according to a uniform distribution
                 and followed. For more information on this algorithm see Agarwal et al. (2014).
         References:
             Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming 
@@ -115,8 +115,20 @@ class VowpalLearner(Learner):
     @overload
     def __init__(self, *, adf: bool, args:str) -> None:
         ...
+        """Instantiate a VowpalLearner.
+        Args:
+            adf: A boolean indicating whether --cb_explore_adf or --cb_explore should be used. In the case that
+                --cb_explore is used (i.e., `adf = False`) VowpalLearner will appropriately set the action count
+                at runtime so that it matches the Simulation currently being evaluated. Consequently, --cb_explore
+                and --cb_explore_adf should not be included in args.
+            args: A string of command line arguments which instantiates a Vowpal Wabbit contextual bandit learner. 
+                For examples and documentation on how to instantiate VW learners from command line arguments see 
+                https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms. It is assumed that
+                either the --cb_explore or --cb_explore_adf flag is used. When formatting examples for VW context
+                features are namespaced with `x` and action features, when relevant, are namespaced with with `a`.
+        """
 
-    def __init__(self,  **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
         PackageChecker.vowpalwabbit('VowpalLearner')
@@ -124,7 +136,10 @@ class VowpalLearner(Learner):
         self._params = {}
         interactions = "--interactions ssa --interactions sa --ignore_linear s"
 
-        if 'epsilon' in kwargs:
+        if len(args) >0:
+            self._adf = "--cb_explore_adf" in args[0]
+
+        elif 'epsilon' in kwargs:
             self._adf  = kwargs.get('adf', True)
             self._args = interactions + f" --epsilon {kwargs['epsilon']}"
 
@@ -143,6 +158,9 @@ class VowpalLearner(Learner):
         else:
             self._adf  = kwargs['adf']
             self._args = kwargs['args']
+
+            for explore in ["--cb_explore_adf", "--cb_explore"]:
+                assert explore not in self._args, f"{explore} should not be specified in VowpalLearner `args` as it will be added at runtime based on the `adf` argument." 
 
         if 'seed' in kwargs:
             self._args += f" --random_seed {kwargs['seed']}"
@@ -172,7 +190,7 @@ class VowpalLearner(Learner):
         """Determine a PMF with which to select the given actions.
 
         Args:
-            key: The key identifying the interaction we are choosing for.
+            key: The key identifying the interaction we are predicting for.
             context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 

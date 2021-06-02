@@ -36,12 +36,6 @@ class BenchmarkTask:
             self._learner = learner
             self._random  = CobaRandom(seed)
 
-        def init(self) -> None:
-            try:
-                self._learner.init()
-            except AttributeError:
-                pass
-
         def choose(self, key: Key, context: Context, actions: Sequence[Action]) -> Tuple[Action, float]:
             p = self.predict(key,context,actions)
             c = list(zip(actions,p))
@@ -189,7 +183,6 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                             learner = learners[i]
 
                             try:
-                                learner.init()
                                 with CobaConfig.Logger.time(f"Evaluating learner {lrn_id} on Simulation {sim_id}..."):
                                     context_sizes = [ int(median(self._context_sizes(batch)))                for batch in batches ]
                                     action_counts = [ int(median(self._action_counts(batch)))                for batch in batches ]

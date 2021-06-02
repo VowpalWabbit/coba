@@ -47,23 +47,37 @@ class BrokenLearner(Learner):
     def learn(self, key, context, action, reward, probability):
         pass
 
-class NotPicklableLearner(Learner):
+class NotPicklableLearner(ModuloLearner):
+    def __init__(self):
+        self._val = lambda x: 1
+        super().__init__()
+
+class NotPicklableLearnerWithReduce(NotPicklableLearner):
+    def __init__(self):
+        self._val = lambda x: 1
+        super().__init__()
+
+    def __reduce__(self):
+        return (NotPicklableLearnerWithReduce, ())
+
+class WrappedLearner(Learner):
+
     @property
-    def family(self):
-        return "0"
+    def family(self) -> str:
+        return 'family'
 
     @property
     def params(self):
         return {}
 
-    def __init__(self):
-        self._val = lambda x: 1
+    def __init__(self, learner):
+        self._learner = learner
 
     def predict(self, key, context, actions):
-        return 0
-
-    def learn(self, key, context, action, reward, probability):
-        pass
+        return self._learner.predict(key, context, actions)
+    
+    def learn(self, key, context, action, reward, probability) -> None:
+        return self._learner.learn(key, context, action, reward, probability)
 
 class OneTimeSource(Source):
 
@@ -225,7 +239,7 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
         CobaConfig.Benchmark['processes'] = 2
         CobaConfig.Benchmark['maxtasksperchild'] = None
 
-    def test_not_picklable_learner(self):
+    def test_not_picklable_learner_sans_reduce(self):
         sim1      = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
         learner   = NotPicklableLearner()
         benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
@@ -233,7 +247,31 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
         with self.assertRaises(Exception) as cm:
             benchmark.evaluate([learner])
 
-        self.assertTrue("Learners are required to be picklable" in str(cm.exception))
+        self.assertTrue("Learners must be picklable to evaluate" in str(cm.exception))
+
+    def test_wrapped_not_picklable_learner_sans_reduce(self):
+        sim1      = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
+        learner   = WrappedLearner(NotPicklableLearner())
+        benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
+
+        with self.assertRaises(Exception) as cm:
+            benchmark.evaluate([learner])
+
+        self.assertTrue("Learners must be picklable to evaluate" in str(cm.exception))
+
+    def test_not_picklable_learner_with_reduce(self):
+        sim1      = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
+        learner   = NotPicklableLearnerWithReduce()
+        benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
+
+        benchmark.evaluate([learner])
+
+    def test_wrapped_not_picklable_learner_with_reduce(self):
+        sim1      = LambdaSimulation(5, lambda r,i: i, lambda r,i,c: [0,1,2], lambda r,i,c,a: cast(float,a))
+        learner   = WrappedLearner(NotPicklableLearnerWithReduce())
+        benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
+
+        benchmark.evaluate([learner])
 
 if __name__ == '__main__':
     unittest.main()
