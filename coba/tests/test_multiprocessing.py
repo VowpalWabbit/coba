@@ -46,7 +46,7 @@ class Multiprocess_Tests(unittest.TestCase):
         list(MultiprocessFilter([Multiprocess_Tests.SleepingFilter()], 2, 1).filter([2,2,0.25,0.25]))
         end_time = time.time()
 
-        self.assertLess(end_time-start_time, 3)
+        self.assertLess(end_time-start_time, 4)
 
     def test(self):
         timeit.repeat(lambda: Process(target=time.sleep, args=(0,)).start(), repeat=1,number=100)

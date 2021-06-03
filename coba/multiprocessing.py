@@ -9,11 +9,12 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
     class Processor:
 
-        def __init__(self, filters: Sequence[Filter], stdout: Sink, stderr: Sink, stdlog:Sink) -> None:
+        def __init__(self, filters: Sequence[Filter], stdout: Sink, stderr: Sink, stdlog:Sink, n_proc:int) -> None:
             self._filter = Pipe.join(filters)
             self._stdout = stdout
             self._stderr = stderr
             self._stdlog = stdlog
+            self._n_proc = n_proc
 
         def process(self, item) -> None:
             
@@ -21,7 +22,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
             #aren't propogated to this logger. For example, with_stamp and with_name.
             #A possible solution is to deep copy the CobaConfig.Logger, set its `sink`
             #property to the `stdlog` and then pass it to `Processor.__init__`.
-            CobaConfig.Logger = IndentLogger(self._stdlog, with_name=True)
+            CobaConfig.Logger = IndentLogger(self._stdlog, with_name=self._n_proc > 1)
 
             try:
                 self._stdout.write(self._filter.filter([item]))
@@ -66,7 +67,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
             stdlog_writer, stdlog_reader = QueueSink(log_queue), QueueSource(log_queue)
 
             log_thread = Thread(target=Pipe.join(stdlog_reader, [], CobaConfig.Logger.sink).run)
-            processor  = MultiprocessFilter.Processor(self._filters, stdout_writer, stderr_writer, stdlog_writer)
+            processor  = MultiprocessFilter.Processor(self._filters, stdout_writer, stderr_writer, stdlog_writer, self._processes)
 
             def finished_callback(result):
                 std_queue.put(None)

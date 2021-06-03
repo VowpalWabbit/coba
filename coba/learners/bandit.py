@@ -26,7 +26,7 @@ class RandomLearner(Learner):
         
         See the base class for more information
         """
-        return { }
+        return {}
 
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Choose a random action from the action set.
@@ -56,7 +56,7 @@ class RandomLearner(Learner):
 class EpsilonBanditLearner(Learner):
     """A lookup table bandit learner with epsilon-greedy exploration."""
 
-    def __init__(self, epsilon: float, include_context: bool = False) -> None:
+    def __init__(self, epsilon: float) -> None:
         """Instantiate an EpsilonBanditLearner.
 
         Args:
@@ -64,8 +64,7 @@ class EpsilonBanditLearner(Learner):
             include_context: If true lookups are a function of context-action otherwise they are a function of action.
         """
 
-        self._epsilon         = epsilon
-        self._include_context = include_context
+        self._epsilon = epsilon
 
         self._N: Dict[Tuple[Context, Action], int            ] = defaultdict(int)
         self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(int)
@@ -76,10 +75,8 @@ class EpsilonBanditLearner(Learner):
 
         See the base class for more information
         """
-        if self._include_context:
-            return "cb_epsilongreedy"
-        else:
-            return "bandit_epsilongreedy"
+
+        return "bandit_epsilongreedy"
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -130,8 +127,8 @@ class EpsilonBanditLearner(Learner):
         self._Q[sa_key] = (1-alpha) * old_Q + alpha * reward
         self._N[sa_key] = self._N[sa_key] + 1
 
-    def _key(self, context: Context, action: Action) -> Tuple[Context,Action]:
-        return (context, action) if self._include_context else (None, action)
+    def _key(self, context: Context, action: Action) -> Action:
+        return action
 
 class UcbBanditLearner(Learner):
     """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.

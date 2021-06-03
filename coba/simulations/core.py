@@ -2,17 +2,16 @@ from abc import ABC, abstractmethod
 import collections
 
 from itertools import accumulate, repeat, chain
-from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union, Iterable, cast
+from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union, Iterable
 
 from coba.random import CobaRandom
 
 from coba.pipes import (
     Pipe, Source, Filter,
-    CsvReader, ArffReader, LibSvmReader, 
+    CsvReader, ArffReader, LibSvmReader, ManikReader, 
     DiskSource, HttpSource, 
     ResponseToLines, Transpose, Flatten
 )
-from coba.pipes.filters import ManikReader, _T_Data
 
 Action      = Hashable
 Key         = int
@@ -44,7 +43,19 @@ class Interaction:
     @property
     def context(self) -> Optional[Context]:
         """The interaction's context description."""
-        return self._context
+
+        #context is non-existant or singular so return it as is
+        if self._context is None or not isinstance(self._context, collections.Sequence):
+            return self._context
+
+        #The context appears to be a sparse representation. Return it as a dictionary. This may be an incorrect assumption.
+        #In the future we should probably improve the back end so we can explicit indicate if our context is sparse rather
+        #than trying to infer it based on the structure of the context.
+        if len(self._context) == 2 and isinstance(self._context[0],tuple) and isinstance(self._context[1],tuple):
+            return dict(zip(*self._context))
+
+        #context is a standard feature vector so return it as is
+        return self._context 
 
     @property
     def actions(self) -> Sequence[Action]:
@@ -236,7 +247,7 @@ class LambdaSimulation(Source[Simulation]):
 class ReaderSimulation(Source[Simulation]):
 
     def __init__(self, 
-        reader      : Filter[Iterable[str], _T_Data], 
+        reader      : Filter[Iterable[str], Any], 
         source      : Union[str,Source[Iterable[str]]], 
         label_column: Union[str,int], 
         with_header : bool=True) -> None:

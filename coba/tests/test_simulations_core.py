@@ -106,10 +106,10 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 
         sim = ClassificationSimulation(feature_rows, label_column)
 
-        self.assertEqual(feature_rows[0], sim.interactions[0].context)
-        self.assertEqual(feature_rows[1], sim.interactions[1].context)
-        self.assertEqual(feature_rows[2], sim.interactions[2].context)
-        self.assertEqual(feature_rows[3], sim.interactions[3].context)
+        self.assertEqual(dict(zip(*feature_rows[0])), sim.interactions[0].context)
+        self.assertEqual(dict(zip(*feature_rows[1])), sim.interactions[1].context)
+        self.assertEqual(dict(zip(*feature_rows[2])), sim.interactions[2].context)
+        self.assertEqual(dict(zip(*feature_rows[3])), sim.interactions[3].context)
 
         self.assertEqual([1,0,2], sim.interactions[0].actions)
         self.assertEqual([1,0,2], sim.interactions[1].actions)
@@ -260,9 +260,9 @@ class LibsvmSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(3, len(simulation.interactions))
 
-        self.assertEqual(((0,1),(2,3)), simulation.interactions[0].context)
-        self.assertEqual(((2,3),(1,1)), simulation.interactions[1].context)
-        self.assertEqual(((4, ),(4, )), simulation.interactions[2].context)
+        self.assertEqual({0:2,1:3}, simulation.interactions[0].context)
+        self.assertEqual({2:1,3:1}, simulation.interactions[1].context)
+        self.assertEqual({4:4    }, simulation.interactions[2].context)
 
         self.assertEqual(['0', '1'], simulation.interactions[0].actions)
         self.assertEqual(['0', '1'], simulation.interactions[1].actions)
