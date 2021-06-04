@@ -201,7 +201,7 @@ class VowpalLearner(Learner):
         if self._vw is None:
             from vowpalwabbit import pyvw
             
-            cb_explore = "" if "cb_explore" in self._args else "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}"
+            cb_explore = "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}"
 
             self._args = cb_explore + " " + self._args
             
@@ -250,7 +250,7 @@ class VowpalLearner(Learner):
         if self._adf:
             vw_context   = None if context is None else f"shared |s {_features_format(context)}"
             vw_rewards  = [ "" if a != action else f"0:{-reward}:{prob}" for a in actions ]
-            vw_actions  = [ f"{a}:1" for a in actions]
+            vw_actions = [ f"|a {_features_format(a)}" for a in actions]
             vw_observed = [ f"{r} |a {a}" for r,a in zip(vw_rewards,vw_actions) ]
             return "\n".join(filter(None,[vw_context, *vw_observed]))
         else:
