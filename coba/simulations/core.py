@@ -13,9 +13,9 @@ from coba.pipes import (
     ResponseToLines, Transpose, Flatten
 )
 
-Action      = Hashable
+Action      = Union[Hashable,dict]
 Key         = int
-Context     = Optional[Hashable]
+Context     = Optional[Union[Hashable,dict]]
 
 class Interaction:
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
@@ -92,10 +92,13 @@ class Simulation(ABC):
 
 class MemoryReward(Reward):
     def __init__(self, rewards: Sequence[Tuple[Key,Action,float]] = []) -> None:
-        self._rewards: Dict[Tuple[Key,Action], float] = { (r[0],r[1]):r[2] for r in rewards }
+        self._rewards: Dict[Tuple[Key,Action], float] = { (r[0],self._key(r[1])):r[2] for r in rewards }
 
     def observe(self, choices: Sequence[Tuple[Key,Context,Action]] ) -> Sequence[float]:
-        return [ self._rewards[(key,action)] for key,_,action in choices ]
+        return [ self._rewards[(key,self._key(action))] for key,_,action in choices ]
+
+    def _key(self, action):
+        return tuple(action.items()) if isinstance(action,dict) else action
 
 class ClassificationReward(Reward):
     def __init__(self, labels: Sequence[Tuple[Key,Union[Action, Sequence[Action]]]] = []) -> None:
@@ -336,7 +339,7 @@ class ManikSimulation(Source[Simulation]):
         return f'{{"ManikSimulation":"{self._simulation_source}"}}'
 
 class ValidationSimulation(LambdaSimulation):
-    def __init__(self, n_interactions: int, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, seed:int=0) -> None:
+    def __init__(self, n_interactions: int, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, sparse: bool=False, seed:int=0) -> None:
 
         self._n_bandits        = n_actions
         self._n_features       = n_features
@@ -345,6 +348,9 @@ class ValidationSimulation(LambdaSimulation):
         self._seed             = seed
 
         r = CobaRandom(seed)
+
+        sparsify = lambda x: dict(enumerate(x)) if sparse else tuple(x)
+        unsparse = lambda x: [ x[k] for k in range(len(x.keys())) ] if isinstance(x,dict) else x
 
         if not context_features and not action_features:
 
@@ -357,8 +363,8 @@ class ValidationSimulation(LambdaSimulation):
                 actions_features.append(tuple(action))
 
             context = lambda i     : None
-            actions = lambda i,c   : actions_features
-            rewards = lambda i,c,a : means[a.index(1)] + (r.random()-.5)/n_actions
+            actions = lambda i,c   : sparsify(actions_features)
+            rewards = lambda i,c,a : means[unsparse(a).index(1)] + (r.random()-.5)/n_actions
 
         if context_features and not action_features:
             #normalizing allows us to make sure our reward is in [0,1]
@@ -372,23 +378,23 @@ class ValidationSimulation(LambdaSimulation):
                 action[i] = 1
                 actions_features.append(tuple(action))
 
-            context = lambda i     : tuple(r.randoms(n_features))
-            actions = lambda i,c   : actions_features
-            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(c,bandit_thetas[a.index(1)])])
+            context = lambda i     : sparsify(r.randoms(n_features))
+            actions = lambda i,c   : [sparsify(af) for af in actions_features]
+            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(c,bandit_thetas[unsparse(a).index(1)])])
 
         if not context_features and action_features:
 
             theta = r.randoms(n_features)
 
             context = lambda i     :   None
-            actions = lambda i,c   : [ tuple(r.randoms(n_features)) for _ in range(r.randint(2,10)) ]
-            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(theta,a)])/sum(theta)
+            actions = lambda i,c   : [ sparsify(r.randoms(n_features)) for _ in range(r.randint(2,10)) ]
+            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(theta,unsparse(a))])/sum(theta)
 
         if context_features and action_features:
 
-            context = lambda i     :   tuple(r.randoms(n_features))
-            actions = lambda i,c   : [ tuple(r.randoms(n_features)) for _ in range(r.randint(2,10)) ]
-            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(c,a)])/sum(a)
+            context = lambda i     :   sparsify(r.randoms(n_features))
+            actions = lambda i,c   : [ sparsify(r.randoms(n_features)) for _ in range(r.randint(2,10)) ]
+            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(unsparse(c),unsparse(a))])/sum(unsparse(a))
 
 
         super().__init__(n_interactions, context, actions, rewards)
