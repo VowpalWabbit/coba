@@ -198,8 +198,10 @@ class Result:
         source_matches : Sequence[Any] = [""], 
         learner_matches: Sequence[Any] = [""], 
         span=None,
-        show_sd=30,
-        figsize=(8,6)) -> None:
+        sd_every=.05,
+        start=0.05,
+        figsize=(8,6),
+        ax=None) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
             performance for different learners across independent simulations. This plot is valuable in gaining insight 
             into how various learners perform in comparison to one another. 
@@ -217,11 +219,11 @@ class Result:
                 identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
                 rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
                 reward is plotted for each interaction.
-            show_sd: Determines if bars indicating the standard deviation of the population should be drawn. Standard 
-                deviation gives a sense of how well the plotted average represents the underlying distribution. Standard
-                deviation is most valuable when plotting against multiple simulations. If plotting against a single 
-                simulation standard error may be a more useful indicator of confidence. The numeric value for show_sd
-                determines how frequently the standard deviation bars are drawn.
+            sd_every: Determines frequency of bars indicating the standard deviation of the population should be drawn. 
+                Standard deviation gives a sense of how well the plotted average represents the underlying distribution. 
+                Standard deviation is most valuable when plotting against multiple simulations. If plotting against a single 
+                simulation standard error may be a more useful indicator of confidence. The value for sd_every should be
+                between 0 to 1 and will determine how frequently the standard deviation bars are drawn.
         """
 
         PackageChecker.matplotlib('Result.standard_plot')
@@ -272,10 +274,13 @@ class Result:
             progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
 
         import matplotlib.pyplot as plt #type: ignore
+        import numpy as np
 
-        fig = plt.figure(figsize=figsize)
-        
-        ax = fig.add_subplot(1,1,1) #type: ignore
+        full_figure = ax is None
+
+        if full_figure:
+            fig = plt.figure(figsize=figsize)
+            ax = fig.add_subplot(1,1,1) #type: ignore
 
         for i,learner_id in enumerate(learner_ids):
 
@@ -283,6 +288,12 @@ class Result:
             Z     = list(zip(*progressives[learner_id]))
             Y     = [ sum(z)/len(z) for z in Z ]
             X     = list(range(1,len(Y)+1))
+
+            start_idx = int(start*len(X))
+
+            X = X[start_idx:]
+            Y = Y[start_idx:]
+            Z = Z[start_idx:]
 
             if len(X) == 0: continue
 
@@ -293,27 +304,28 @@ class Result:
             Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z ]
             SD = [ (y2-y**2)**(1/2) for y,y2 in zip(Y,Y2) ]
 
-            if not show_sd:
+            if not sd_every:
                ax.plot(X, Y,label=label)
             else:
-                count = show_sd
-                every = int(len(X)/count)
-                start = int(len(X)/count) + i*int(len(X)/count**2)
-                ax.errorbar(X, Y, yerr=SD, elinewidth=0.5, errorevery=(start,every), label=label)
+                err_every = int(len(X)*sd_every)
+                err_start = int(X[0] + i*len(X)*sd_every**2)
+                ax.errorbar(X, Y, yerr=SD, elinewidth=0.5, errorevery=(err_start,err_every), label=label)
 
-        ax.set_title ("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}" + " Reward")
-        ax.set_ylabel("Reward")
-        ax.set_xlabel("Interactions" if max_batch_N ==1 else "Batches")
+        if full_figure:
+            ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
+            ax.set_title ("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}" + " Reward")
+            ax.set_ylabel("Reward")
+            ax.set_xlabel("Interactions" if max_batch_N ==1 else "Batches")
 
-        #make room for the legend
-        scale = 0.65
-        box1 = ax.get_position()
-        ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+            #make room for the legend
+            scale = 0.65
+            box1 = ax.get_position()
+            ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
 
-        # Put a legend below current axis
-        fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='medium') #type: ignore
+            # Put a legend below current axis
+            fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='medium') #type: ignore
 
-        plt.show()
+            plt.show()
 
     def plot_shuffles(self, 
         source_match : Any, 
@@ -346,7 +358,8 @@ class Result:
 
         PackageChecker.matplotlib('Result.standard_plot')
 
-        simulation_ids = []
+        simulation_ids     = []
+        simulation_sources = []
         
         for simulation in self._simulations:
             
@@ -360,6 +373,7 @@ class Result:
 
             if fnmatch(sim_source,"*"+str(source_match)+"*"):
                 simulation_ids.append(simulation['simulation_id'])
+                simulation_sources.append(sim_source)
 
         for learner in self._learners:
             if fnmatch(learner['full_name'],"*"+str(learner_match)+"*"):
@@ -377,7 +391,7 @@ class Result:
             if span is None or span >= len(rewards):
                 cumwindow  = list(accumulate(rewards))
                 cumdivisor = list(range(1,len(cumwindow)+1))
-            
+
             elif span == 1:
                 cumwindow  = list(rewards)
                 cumdivisor = [1]*len(cumwindow)
@@ -397,6 +411,8 @@ class Result:
         
         ax = fig.add_subplot(1,1,1) #type: ignore
 
+        color = next(ax._get_lines.prop_cycler)['color']
+
         for shuffle in progressives:
 
             Y     = shuffle
@@ -404,24 +420,30 @@ class Result:
 
             start_idx = int(start*len(X))
 
-            X = X[start_idx-1:]
-            Y = Y[start_idx-1:]
+            X = X[start_idx:]
+            Y = Y[start_idx:]
 
-            ax.plot(X, Y)
+            ax.plot(X, Y, label='_nolegend_', color=color, alpha=0.15)
+
+        plt.gca().set_prop_cycle(None)
+        self.plot_learners([source_match], [learner_match], span=None, start=start, ax=ax)
 
         ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
-        
-        ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + f" Reward for Source {source_match} and {learner_match} Learner")
+
+        simulation_sources = list(set(simulation_sources))
+        source = simulation_sources[0] if len(simulation_sources) == 1 else str(simulation_sources)
+
+        ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + f" Reward for '{source}'")
         ax.set_ylabel("Reward")
         ax.set_xlabel("Interactions" if max_batch_N ==1 else "Batches")
 
         #make room for the legend
-        #scale = 0.65
-        #box1 = ax.get_position()
-        #ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+        scale = 0.85
+        box1 = ax.get_position()
+        ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
 
-        # Put a legend below current axis
-        #fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='small') #type: ignore
+        #Put a legend below current axis
+        fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .1), ncol=1, fontsize='small') #type: ignore
 
         plt.show()
 

@@ -137,13 +137,13 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
     def test_interactions(self):
         
-        def C(rng:CobaRandom,i:int) -> int:
+        def C(i:int) -> int:
             return [1,2][i]
 
-        def A(rng:CobaRandom,i:int,c:int) -> List[int]:
+        def A(i:int,c:int) -> List[int]:
             return [[1,2,3],[4,5,6]][i]
         
-        def R(rng:CobaRandom,i:int,c:int,a:int) -> int:
+        def R(i:int,c:int,a:int) -> int:
             return a-c
 
         simulation = LambdaSimulation(2,C,A,R).read() #type: ignore
@@ -157,13 +157,13 @@ class LambdaSimulation_Tests(unittest.TestCase):
         self.assertEqual([2,3,4], simulation.reward.observe([(1,1,4),(1,1,5),(1,1,6)]))
 
     def test_interactions_len(self):
-        def C(rng:CobaRandom,i:int) -> int:
+        def C(i:int) -> int:
             return [1,2][i]
 
-        def A(rng:CobaRandom,i:int,c:int) -> List[int]:
+        def A(i:int,c:int) -> List[int]:
             return [[1,2,3],[4,5,6]][i]
 
-        def R(rng:CobaRandom,i:int, c:int,a:int) -> int:
+        def R(i:int,c:int,a:int) -> int:
             return a-c
 
         simulation = LambdaSimulation(2,C,A,R).read() #type: ignore

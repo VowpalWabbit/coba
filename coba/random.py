@@ -47,7 +47,7 @@ class CobaRandom:
         self._seed: int = std_random.randint(0,self._m_minus_1) if seed is None else seed
 
     def randoms(self, n:int=1) -> Sequence[float]:
-        """Generate `n` random numbers in [0,1].
+        """Generate `n` uniform random numbers in [0,1].
 
         Args:
             n: How many random numbers should be generated.

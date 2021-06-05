@@ -123,7 +123,7 @@ class Benchmark:
         self._maxtasksperchild = value
         return self
 
-    def evaluate(self, learners: Sequence[Learner], transaction_log:str = None, seed:int = None) -> Result:
+    def evaluate(self, learners: Sequence[Learner], transaction_log:str = None) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
@@ -133,7 +133,7 @@ class Benchmark:
             See the base class for more information.
         """
         restored         = Result.from_file(transaction_log) if transaction_log and Path(transaction_log).exists() else Result()
-        tasks            = Tasks(self._simulations, learners, seed)
+        tasks            = Tasks(self._simulations, learners, 10)
         unfinished       = Unfinished(restored)
         grouped          = ChunkByNone() if CobaConfig.Benchmark.get("chunk_by","source") == "none" else ChunkBySource()
         process          = Transactions(self._ignore_raise)

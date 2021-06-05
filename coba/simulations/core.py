@@ -208,10 +208,9 @@ class LambdaSimulation(Source[Simulation]):
 
     def __init__(self,
         n_interactions: int,
-        context       : Callable[[CobaRandom,int               ],Context         ],
-        actions       : Callable[[CobaRandom,int,Context       ],Sequence[Action]], 
-        reward        : Callable[[CobaRandom,int,Context,Action],float           ],
-        seed          : int = None) -> None:
+        context       : Callable[[int               ],Context         ],
+        actions       : Callable[[int,Context       ],Sequence[Action]], 
+        reward        : Callable[[int,Context,Action],float           ]) -> None:
         """Instantiate a LambdaSimulation.
 
         Args:
@@ -221,15 +220,13 @@ class LambdaSimulation(Source[Simulation]):
             reward: A function that should return the reward for the index, context and action.
         """
 
-        rng = CobaRandom(seed)
-
         interaction_tuples: List[Tuple[Key, Context, Sequence[Action]]] = []
         reward_tuples     : List[Tuple[Key, Action , float           ]] = []
 
         for i in range(n_interactions):
-            _context  = context(rng, i)
-            _actions  = actions(rng, i,_context)
-            _rewards  = [ reward(rng, i, _context, _action) for _action in _actions]
+            _context  = context(i)
+            _actions  = actions(i, _context)
+            _rewards  = [ reward(i, _context, _action) for _action in _actions]
 
             interaction_tuples.append( (i, _context, _actions) )
             reward_tuples.extend(zip(repeat(i), _actions, _rewards))
@@ -337,3 +334,64 @@ class ManikSimulation(Source[Simulation]):
 
     def __repr__(self) -> str:
         return f'{{"ManikSimulation":"{self._simulation_source}"}}'
+
+class ValidationSimulation(LambdaSimulation):
+    def __init__(self, n_interactions: int, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, seed:int=0) -> None:
+
+        self._n_bandits        = n_actions
+        self._n_features       = n_features
+        self._context_features = context_features
+        self._action_features  = action_features
+        self._seed             = seed
+
+        r = CobaRandom(seed)
+
+        if not context_features and not action_features:
+
+            means = [ m/n_actions + 1/(2*n_actions) for m in r.randoms(n_actions) ]
+
+            actions_features = []
+            for i in range(n_actions):
+                action = [0] * n_actions
+                action[i] = 1
+                actions_features.append(tuple(action))
+
+            context = lambda i     : None
+            actions = lambda i,c   : actions_features
+            rewards = lambda i,c,a : means[a.index(1)] + (r.random()-.5)/n_actions
+
+        if context_features and not action_features:
+            #normalizing allows us to make sure our reward is in [0,1]
+            bandit_thetas = [ r.randoms(n_features) for _ in range(n_actions) ]
+            theta_totals  = [ sum(theta) for theta in bandit_thetas]
+            bandit_thetas = [ [t/norm for t in theta ] for theta,norm in zip(bandit_thetas,theta_totals)]
+
+            actions_features = []
+            for i in range(n_actions):
+                action = [0] * n_actions
+                action[i] = 1
+                actions_features.append(tuple(action))
+
+            context = lambda i     : tuple(r.randoms(n_features))
+            actions = lambda i,c   : actions_features
+            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(c,bandit_thetas[a.index(1)])])
+
+        if not context_features and action_features:
+
+            theta = r.randoms(n_features)
+
+            context = lambda i     :   None
+            actions = lambda i,c   : [ tuple(r.randoms(n_features)) for _ in range(r.randint(2,10)) ]
+            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(theta,a)])/sum(theta)
+
+        if context_features and action_features:
+
+            context = lambda i     :   tuple(r.randoms(n_features))
+            actions = lambda i,c   : [ tuple(r.randoms(n_features)) for _ in range(r.randint(2,10)) ]
+            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(c,a)])/sum(a)
+
+
+        super().__init__(n_interactions, context, actions, rewards)
+
+    def __repr__(self) -> str:
+        return f"ValidationSimulation(cf={self._context_features},af={self._action_features},seed={self._seed})"
