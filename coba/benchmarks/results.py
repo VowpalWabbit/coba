@@ -360,6 +360,7 @@ class Result:
 
         simulation_ids     = []
         simulation_sources = []
+        learner_id         = None
         
         for simulation in self._simulations:
             
@@ -381,6 +382,12 @@ class Result:
 
         max_batch_N = 1
         progressives: List[Sequence[float]] = []
+
+        if len(simulation_ids) == 0:
+            raise Exception(f"No simulation was found with a source matching '{source_match}'")
+
+        if learner_id is None:
+            raise Exception(f"No learner was found who's fullname matched '{learner_match}'")
 
         for simulation_id in simulation_ids:
             

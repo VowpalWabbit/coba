@@ -14,7 +14,7 @@ from coba.benchmarks.transactions import Transaction, TransactionSink
 from coba.benchmarks.results import Result
 
 class Benchmark:
-    """A Benchmark which uses simulations to estimate performance statistics of learners."""
+    """A Benchmark which uses simulations to calculate performance statistics for learners."""
     
     @overload
     @staticmethod
@@ -41,49 +41,54 @@ class Benchmark:
 
     @overload
     def __init__(self, 
-        simulations : Sequence[Source[Simulation]],
+        simulations: Sequence[Source[Simulation]],
         *,
-        batch_size      : int = 1,
-        take            : int = None,
-        shuffle         : Sequence[Optional[int]] = [None],
-        ignore_raise    : bool = True,
-        processes       : int = None,
-        maxtasksperchild: int = None) -> None: ...
+        batch_size : int = 1,
+        shuffle    : Sequence[Optional[int]] = [None],
+        take       : int = None) -> None:
+        """Instantiate a Benchmark.
+
+        Args:
+            simulations: The collection of simulations to benchmark against.
+            batch_size: The number of interactions to predict before receiving reward feedback to learn from.
+            shuffle: A collection of seeds to use for simulation shuffling. A seed of `None` means no shuffle will be applied.
+            take: The number of interactions to take from each simulation for evaluation.
+        """
+        ...
 
     @overload
     def __init__(self,
-        simulations : Sequence[Source[Simulation]],
+        simulations: Sequence[Source[Simulation]],
         *,
-        batch_count     : int,
-        take            : int = None,
-        shuffle         : Sequence[Optional[int]] = [None],
-        ignore_raise    : bool = True,
-        processes       : int = None,
-        maxtasksperchild: int = None) -> None: ...
+        batch_count: int,
+        shuffle    : Sequence[Optional[int]] = [None],
+        take       : int = None) -> None:
+        """Instantiate a Benchmark.
+
+        Args:
+            simulations: The collection of simulations to benchmark against.
+            batch_count: The number of times feedback will be given to each learner during a simulation.
+            shuffle: A collection of seeds to use for simulation shuffling. A seed of `None` means no shuffle will be applied.
+            take: The number of interactions to take from each simulation for evaluation.
+        """
+        ...
 
     @overload
     def __init__(self, 
         simulations : Sequence[Source[Simulation]],
         *,
         batch_sizes     : Sequence[int],
-        shuffle         : Sequence[Optional[int]] = [None],
-        ignore_raise    : bool = True,
-        processes       : int = None,
-        maxtasksperchild: int = None) -> None: ...
-
-    def __init__(self,*args, **kwargs) -> None:
-        """Instantiate a UniversalBenchmark.
+        shuffle         : Sequence[Optional[int]] = [None]) -> None:
+        """Instantiate a Benchmark.
 
         Args:
-            simulations: The sequence of simulations to benchmark against.
-            batcher: How each simulation is broken into evaluation batches.
-            ignore_raise: Should exceptions be raised or logged during evaluation.
-            shuffle: A sequence of seeds for simulation shuffling. None means no shuffle.
-            processes: The number of process to spawn during evalution (overrides coba config).
-            maxtasksperchild: The number of tasks each process will perform before a refresh.
-        
-        See the overloads for more information.
+            simulations: The collection of simulations to benchmark against.
+            batch_sizes: The number of interactions to predict on each learning iteration before providing feedback to learners.
+            shuffle: A collection of seeds to use for simulation shuffling. A seed of `None` means no shuffle will be applied.
         """
+        ...
+
+    def __init__(self,*args, **kwargs) -> None:
 
         sources = cast(Sequence[Source[Simulation]], args[0])
         filters: List[Sequence[Filter[Simulation,Simulation]]] = []
@@ -107,9 +112,9 @@ class Benchmark:
             simulations = list(sources)
 
         self._simulations      = simulations
-        self._ignore_raise     = cast(bool         , kwargs.get('ignore_raise'    , True))
-        self._processes        = cast(Optional[int], kwargs.get('processes'       , None))
-        self._maxtasksperchild = cast(Optional[int], kwargs.get('maxtasksperchild', None))
+        self._ignore_raise     = True
+        self._processes        = None
+        self._maxtasksperchild = None
 
     def ignore_raise(self, value:bool=True) -> 'Benchmark':
         self._ignore_raise = value
@@ -123,21 +128,23 @@ class Benchmark:
         self._maxtasksperchild = value
         return self
 
-    def evaluate(self, learners: Sequence[Learner], transaction_log:str = None) -> Result:
+    def evaluate(self, learners: Sequence[Learner], result_file:str = None, seed:int = 1) -> Result:
         """Collect observations of a Learner playing the benchmark's simulations to calculate Results.
 
         Args:
-            factories: See the base class for more information.
+            learners: The collection of learners that we'd like to evalute.
+            result_file: The file we'd like to use for writing/restoring results for the requested evaluation.
+            seed: The random seed we'd like to use when choosing which action to take from the learner's predictions.
 
         Returns:
             See the base class for more information.
         """
-        restored         = Result.from_file(transaction_log) if transaction_log and Path(transaction_log).exists() else Result()
-        tasks            = Tasks(self._simulations, learners, 10)
+        restored         = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
+        tasks            = Tasks(self._simulations, learners, seed)
         unfinished       = Unfinished(restored)
         grouped          = ChunkByNone() if CobaConfig.Benchmark.get("chunk_by","source") == "none" else ChunkBySource()
         process          = Transactions(self._ignore_raise)
-        transaction_sink = TransactionSink(transaction_log, restored)
+        transaction_sink = TransactionSink(result_file, restored)
 
         n_given_learners    = len(learners)
         n_given_simulations = len(self._simulations)
