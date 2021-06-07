@@ -195,8 +195,8 @@ class Result:
         return self._interactions
 
     def plot_learners(self, 
-        source_matches : Sequence[Any] = [""], 
-        learner_matches: Sequence[Any] = [""], 
+        source_matches : Sequence[Any] = ["*"], 
+        learner_matches: Sequence[Any] = ["*"], 
         span=None,
         sd_every=.05,
         start=0.05,
@@ -230,6 +230,9 @@ class Result:
 
         learner_ids    = []
         simulation_ids = []
+
+        source_matches = [ s if isinstance(s,str) else "*"+str(s)+"*" for s in source_matches]
+        learner_matches = [ l if isinstance(l,str) else "*"+str(l)+"*" for l in learner_matches] 
         
         for simulation in self._simulations:
             
@@ -241,12 +244,12 @@ class Result:
                 source_end = source_end if source_end > -1 else len(simulation['pipe'])
                 source     = simulation['pipe'][0:source_end]
 
-            if any( fnmatch(source,"*"+str(s)+"*") for s in source_matches):
+            if any(fnmatch(source,source_match) for source_match in source_matches):
                 simulation_ids.append(simulation['simulation_id'])
 
         for learner in self._learners:
 
-            if any( fnmatch(learner['full_name'],"*"+str(l)+"*") for l in learner_matches):
+            if any( fnmatch(learner['full_name'],learner_match) for learner_match in learner_matches):
                 learner_ids.append(learner['learner_id'])
 
         max_batch_N = 1
@@ -361,6 +364,9 @@ class Result:
         simulation_ids     = []
         simulation_sources = []
         learner_id         = None
+
+        source_match = source_match if isinstance(source_match,str) else "*"+str(source_match)+"*"
+        learner_match = learner_match if isinstance(learner_match,str) else "*"+str(learner_match)+"*"
         
         for simulation in self._simulations:
             
@@ -372,22 +378,25 @@ class Result:
                 source_end = source_end if source_end > -1 else len(simulation['pipe'])
                 sim_source = simulation['pipe'][0:source_end]
 
-            if fnmatch(sim_source,"*"+str(source_match)+"*"):
+            if fnmatch(sim_source, source_match):
                 simulation_ids.append(simulation['simulation_id'])
                 simulation_sources.append(sim_source)
 
         for learner in self._learners:
-            if fnmatch(learner['full_name'],"*"+str(learner_match)+"*"):
+
+            if fnmatch(learner['full_name'], learner_match):
                 learner_id = learner['learner_id']
 
         max_batch_N = 1
         progressives: List[Sequence[float]] = []
 
         if len(simulation_ids) == 0:
-            raise Exception(f"No simulation was found with a source matching '{source_match}'")
+            print(f"No simulation was found with a source matching '{source_match}' when executing `plot_shuffles`.")
+            return
 
         if learner_id is None:
-            raise Exception(f"No learner was found who's fullname matched '{learner_match}'")
+            print(f"No learner was found who's fullname matched '{learner_match}' when executing `plot_shuffles`.")
+            return
 
         for simulation_id in simulation_ids:
             

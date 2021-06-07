@@ -339,7 +339,7 @@ class ManikSimulation(Source[Simulation]):
         return f'{{"ManikSimulation":"{self._simulation_source}"}}'
 
 class ValidationSimulation(LambdaSimulation):
-    def __init__(self, n_interactions: int, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, sparse: bool=False, seed:int=0) -> None:
+    def __init__(self, n_interactions: int, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, sparse: bool=False, seed:int=1000) -> None:
 
         self._n_bandits        = n_actions
         self._n_features       = n_features
