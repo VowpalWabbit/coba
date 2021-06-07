@@ -133,7 +133,6 @@ class VowpalLearner(Learner):
 
         PackageChecker.vowpalwabbit('VowpalLearner')
 
-        self._params = {}
         interactions = "--interactions ssa --interactions sa --ignore_linear s"
 
         if len(args) >0:
@@ -199,10 +198,9 @@ class VowpalLearner(Learner):
         """
 
         if self._vw is None:
-            from vowpalwabbit import pyvw
-            
-            cb_explore = "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}"
+            from vowpalwabbit import pyvw #type: ignore
 
+            cb_explore = "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}"
             self._args = cb_explore + " " + self._args
             
             # vowpal has an annoying warning that is written to stderr whether or not we provide
@@ -211,7 +209,9 @@ class VowpalLearner(Learner):
             # so if you are here because of strange problems with threads we may just need to suck
             # it up and accept that there will be an obnoxious warning message.
             with open(devnull, 'w') as f, redirect_stderr(f):
-                self._vw   = pyvw.vw(self._args + " --quiet")
+                self._vw = pyvw.vw(self._args + " --quiet")
+
+        assert self._vw is not None, "Something went wrong and vw was not initialized"
 
         probs = self._vw.predict(self._predict_format(context, actions))
 
@@ -233,6 +233,8 @@ class VowpalLearner(Learner):
             reward: The reward that was gained from the action. See the base class for more information.
             probability: The probability that the given action was taken.
         """
+
+        assert self._vw is not None, "You must call predict before learn in order to initialize the VW learner"
 
         actions = self._get_actions(key)
         

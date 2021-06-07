@@ -35,7 +35,7 @@ if __name__ == '__main__':
     result = benchmark.evaluate(learners, result_file)
 
     #After evaluating can create a quick summary plot to get a sense of how the learners performed
-    result.plot_learners(start=0,span=200)
+    result.plot_learners()
 
     #We can also create a plot examining how one specific learner did across each shuffle of a simulation
     result.plot_shuffles("*Validation*True*True*", "*vw*epsilon*")

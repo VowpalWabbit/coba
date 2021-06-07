@@ -216,9 +216,9 @@ class CsvReader(Filter[Iterable[str], _T_Data]):
         try:
             row2 = next(lines)
         except StopIteration:
-            row2 = None
+            row2 = []
 
-        data_row = row2 if row2 is not None else row1
+        data_row = row2 if row2 else row1
 
         is_sparse  = data_row[0].startswith("{") and data_row[-1].endswith("}")
 
@@ -262,8 +262,9 @@ class LibSvmReader(Filter[Iterable[str], _T_Data]):
 
     def filter(self, input_lines: Iterable[str]) -> _T_Data:
 
+        indexer = count(1)
         output_lines: List[Tuple[Tuple[int,...], Tuple[Any,...]]] = []
-        feature_index = defaultdict(lambda x=count(1): next(x))
+        feature_index: Dict[str, int] = defaultdict(lambda: next(indexer))
 
         for input_line in filter(None,input_lines):
 
