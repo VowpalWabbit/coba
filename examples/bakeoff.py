@@ -5,39 +5,37 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 
 from pathlib import Path
 
-from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner, UcbBanditLearner, CorralLearner
+from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner
+from coba.simulations import ValidationSimulation
 from coba.benchmarks import Benchmark
 
 #this line is required by Python in order to use multi-processing
 if __name__ == '__main__':
 
-    #The existence check is only needed to provide a failsafe against different execution environments
-    benchmark_file   = "bakeoff_short.json" if Path("bakeoff_short.json").exists() else "./examples/bakeoff_short.json"
-    transaction_file = "bakeoff_short.log"  if Path("bakeoff_short.json").exists() else "./examples/bakeoff_short.log"
+    #This existence check is only needed to provide a fail safe against different execution environments
+    result_file = "bakeoff.log" if Path("bakeoff.py").exists() else "./examples/bakeoff.log"
 
     #First, we define the learners that we want to test
     learners = [
         RandomLearner(),
-        UcbBanditLearner(),
         EpsilonBanditLearner(epsilon=0.025),
-        VowpalLearner(bag=5, seed=10),      #This learner requires that VowpalWabbit be installed
         VowpalLearner(epsilon=.1, seed=10), #This learner requires that VowpalWabbit be installed
-        CorralLearner([VowpalLearner(bag=5, seed=10), VowpalLearner(epsilon=.1, seed=10)], eta=.075, T=300, seed=10),
     ]
 
-    #Then we create our benchmark from the benchmark configuration file
-    benchmark = Benchmark.from_file(benchmark_file)
+    #Then we define the simulations that we want to test our learners on
+    simulations = [ ValidationSimulation(5000, context_features=True, action_features=True) ]
 
-    #Next we evaluate our learners given our benchmark. 
-    #The provided log file is where results will be written and restored on evaluation.
-    result = benchmark.evaluate(learners, transaction_file, seed=10)
+    #And also define a collection of seeds used to shuffle our simulations
+    seeds = [0,1,2,3,4,5]
 
-    #We can create a quick summary plot to get a sense of how the results looked
-    #For more in-depth analysis it is useful to load the result into a Jupyter Notebook
-    result.plot_learners(span=100) #This line requires that Matplotlib be installed
+    #We then create our benchmark using our simulations and seeds
+    benchmark = Benchmark(simulations, shuffle=seeds)
 
-    #We can then zoom in on one simulation source
-    result.plot_learners(source_matches=[3], span=100) #This line requires that Matplotlib be installed
+    #Finally we evaluate our learners on our benchmark (the results will be saved in `result_file`).
+    result = benchmark.evaluate(learners, result_file)
 
-    #Then we can zoom in on one simulation source and one learner to see how it performed on each shuffle
-    result.plot_shuffles(3, 'vw*epsilon', span=100) #This line requires that Matplotlib be installed
+    #After evaluating can create a quick summary plot to get a sense of how the learners performed
+    result.plot_learners(start=0,span=200)
+
+    #We can also create a plot examining how one specific learner did across each shuffle of a simulation
+    result.plot_shuffles("*Validation*True*True*", "*vw*epsilon*")
