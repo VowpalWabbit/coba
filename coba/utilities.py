@@ -142,3 +142,23 @@ class PackageChecker:
                 caller_name + " requires numpy. You can "
                 "install numpy with `pip install numpy`."
             ) from e
+
+    @staticmethod
+    def sklearn(caller_name: str) -> None:
+        """Raise ImportError with detailed error message if numpy is not installed.
+
+        Functionality requiring numpy should call this helper and then lazily import.
+
+        Args:
+            caller_name: The name of the caller that requires numpy.
+
+        Remarks:
+            This pattern was inspired by sklearn (see `PackageChecker.matplotlib` for more information).
+        """
+        try:
+            import sklearn # type: ignore
+        except ImportError as e:
+            raise ImportError(
+                caller_name + " requires sklearn. You can "
+                "install sklearn with `pip install sklearn`."
+            ) from e
