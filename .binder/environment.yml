@@ -1,0 +1,8 @@
+name: coba_example
+dependencies:
+    - python=3.6.*
+    - pip=21.0.*
+    - pip:
+        - matplotlib
+        - vowpalwabbit
+        - coba
