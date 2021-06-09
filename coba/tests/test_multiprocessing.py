@@ -13,9 +13,9 @@ class Multiprocess_Tests(unittest.TestCase):
 
     class SleepingFilter(Filter):
         def filter(self, seconds: Iterable[float]) -> Any:
-            seconds = next(iter(seconds))
+            second = next(iter(seconds)) #type: ignore
             #print(current_process().name + f" {seconds}")
-            time.sleep(seconds)
+            time.sleep(second)
             yield None
 
     class ProcessNameFilter(Filter):

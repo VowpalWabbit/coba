@@ -66,8 +66,8 @@ class EpsilonBanditLearner(Learner):
 
         self._epsilon = epsilon
 
-        self._N: Dict[Tuple[Context, Action], int            ] = defaultdict(int)
-        self._Q: Dict[Tuple[Context, Action], Optional[float]] = defaultdict(int)
+        self._N: Dict[Hashable, int            ] = defaultdict(int)
+        self._Q: Dict[Hashable, Optional[float]] = defaultdict(int)
 
     @property
     def family(self) -> str:
@@ -119,13 +119,13 @@ class EpsilonBanditLearner(Learner):
             probability: The probability that the given action was taken.
         """
 
-        key   = self._key(action)
-        alpha = 1/(self._N[key]+1)
+        a_key = self._key(action)
+        alpha = 1/(self._N[a_key]+1)
 
-        old_Q = cast(float, 0 if self._Q[key] is None else self._Q[key])
+        old_Q = cast(float, 0 if self._Q[a_key] is None else self._Q[a_key])
 
-        self._Q[key] = (1-alpha) * old_Q + alpha * reward
-        self._N[key] = self._N[key] + 1
+        self._Q[a_key] = (1-alpha) * old_Q + alpha * reward
+        self._N[a_key] = self._N[a_key] + 1
 
     def _key(self, action: Action) -> Hashable:
         return tuple(action.items()) if isinstance(action,dict) else action

@@ -115,11 +115,11 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             if is_sparse_data:
                 dense_label_col = ['0']*len(feature_rows)
+                
                 for index, value in zip(label_col[0], label_col[1]):
                     dense_label_col[index] = value
-
             else:
-                dense_label_col = label_col
+                dense_label_col = list(label_col)
 
             return feature_rows, dense_label_col
 

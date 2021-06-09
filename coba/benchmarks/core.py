@@ -111,10 +111,10 @@ class Benchmark:
         else:
             simulations = list(sources)
 
-        self._simulations      = simulations
-        self._ignore_raise     = True
-        self._processes        = None
-        self._maxtasksperchild = None
+        self._simulations: Sequence[Source[Simulation]] = simulations
+        self._ignore_raise: bool                        = True
+        self._processes: Optional[int]                  = None
+        self._maxtasksperchild: Optional[int]           = None
 
     def ignore_raise(self, value:bool=True) -> 'Benchmark':
         self._ignore_raise = value
@@ -162,7 +162,7 @@ class Benchmark:
         mp = self._processes        if self._processes        else CobaConfig.Benchmark['processes']
         mt = self._maxtasksperchild if self._maxtasksperchild else CobaConfig.Benchmark['maxtasksperchild']
         
-        if mp > 1 or mt is not None: process = MultiprocessFilter([process], mp, mt)
+        if mp > 1 or mt is not None: process = MultiprocessFilter([process], mp, mt) #type: ignore
 
         grouped_tasks = Pipe.join(tasks, [unfinished,grouped])
 

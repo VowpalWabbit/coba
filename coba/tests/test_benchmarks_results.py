@@ -61,8 +61,8 @@ class Table_Tests(unittest.TestCase):
 
     def test_pandas(self):
         
-        import pandas as pd
-        import pandas.testing
+        import pandas as pd #type: ignore
+        import pandas.testing #type: ignore
 
         table = Table("test", ['a'], types={"c":float,})
 

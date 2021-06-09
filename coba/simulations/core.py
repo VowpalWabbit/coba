@@ -52,7 +52,7 @@ class Interaction:
         #In the future we should probably improve the back end so we can explicit indicate if our context is sparse rather
         #than trying to infer it based on the structure of the context.
         if len(self._context) == 2 and isinstance(self._context[0],tuple) and isinstance(self._context[1],tuple):
-            return dict(zip(*self._context))
+            return dict(zip(self._context[0], self._context[1]))
 
         #context is a standard feature vector so return it as is
         return self._context 
@@ -175,7 +175,7 @@ class ClassificationSimulation(MemorySimulation):
         if isinstance(labels[0], collections.Sequence) and not isinstance(labels[0],str):
             labels_flat = list(chain.from_iterable(labels)) #type: ignore
         else:
-            labels_flat = labels
+            labels_flat = labels #type: ignore
             
         action_set   = list(sorted(set(labels_flat), key=lambda l: labels_flat.index(l) ))
         interactions = [ Interaction(i, context, action_set) for i, context in enumerate(features) ] #type: ignore
@@ -285,13 +285,13 @@ class ReaderSimulation(Source[Simulation]):
         is_sparse_labels = len(label_col) == 2 and isinstance(label_col[0],tuple) and isinstance(label_col[1],tuple)
         
         if is_sparse_labels:
-            dense_labels = ['0']*len(feature_rows)
+            dense_labels: List[Any] = ['0']*len(feature_rows)
             
             for label_row, label_val in zip(*label_col): #type:ignore
                 dense_labels[label_row] = label_val
 
         else:
-            dense_labels = label_col
+            dense_labels = list(label_col)
 
         return ClassificationSimulation(feature_rows, dense_labels)
 
@@ -349,8 +349,12 @@ class ValidationSimulation(LambdaSimulation):
 
         r = CobaRandom(seed)
 
-        sparsify = lambda x: dict(enumerate(x)) if sparse else tuple(x)
-        unsparse = lambda x: [ x[k] for k in range(len(x.keys())) ] if isinstance(x,dict) else x
+        context: Callable[[int               ], Context         ]
+        actions: Callable[[int,Context       ], Sequence[Action]]
+        rewards: Callable[[int,Context,Action], float           ]
+
+        sparsify = lambda x: (tuple(range(len(x))), tuple(x)) if sparse else tuple(x)
+        unsparse = lambda x: x[1] if sparse else x
 
         if not context_features and not action_features:
 
@@ -380,7 +384,7 @@ class ValidationSimulation(LambdaSimulation):
 
             context = lambda i     : sparsify(r.randoms(n_features))
             actions = lambda i,c   : [sparsify(af) for af in actions_features]
-            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(c,bandit_thetas[unsparse(a).index(1)])])
+            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(unsparse(c),bandit_thetas[unsparse(a).index(1)])])
 
         if not context_features and action_features:
 
@@ -388,14 +392,13 @@ class ValidationSimulation(LambdaSimulation):
 
             context = lambda i     :   None
             actions = lambda i,c   : [ sparsify(r.randoms(n_features)) for _ in range(r.randint(2,10)) ]
-            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(theta,unsparse(a))])/sum(theta)
+            rewards = lambda i,c,a : float(sum([cc*t for cc,t in zip(theta,unsparse(a))]))/sum(theta)
 
         if context_features and action_features:
 
             context = lambda i     :   sparsify(r.randoms(n_features))
             actions = lambda i,c   : [ sparsify(r.randoms(n_features)) for _ in range(r.randint(2,10)) ]
             rewards = lambda i,c,a : sum([cc*t for cc,t in zip(unsparse(c),unsparse(a))])/sum(unsparse(a))
-
 
         super().__init__(n_interactions, context, actions, rewards)
 
