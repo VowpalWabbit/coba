@@ -55,12 +55,32 @@ class Interaction:
             return dict(zip(self._context[0], self._context[1]))
 
         #context is a standard feature vector so return it as is
-        return self._context 
+        return self._context
 
     @property
     def actions(self) -> Sequence[Action]:
         """The interaction's available actions."""
-        return self._actions
+
+        actions = []
+
+        for action in self._actions:
+            #context is non-existant or singular so return it as is
+            if not isinstance(action, collections.Sequence):
+                actions.append(action)
+
+            #The context appears to be a sparse representation. Return it as a dictionary. This may be an incorrect assumption.
+            #In the future we should probably improve the back end so we can explicit indicate if our context is sparse rather
+            #than trying to infer it based on the structure of the context.
+            elif len(action) == 2 and isinstance(action[0],tuple) and isinstance(action[1],tuple):
+                actions.append(dict(zip(action[0], action[1])))
+
+            elif isinstance(action, str):
+                actions.append(action)
+            
+            else:
+                actions.append(action)
+
+        return actions
 
 class Reward(ABC):
 
@@ -353,8 +373,9 @@ class ValidationSimulation(LambdaSimulation):
         actions: Callable[[int,Context       ], Sequence[Action]]
         rewards: Callable[[int,Context,Action], float           ]
 
-        sparsify = lambda x: (tuple(range(len(x))), tuple(x)) if sparse else tuple(x)
-        unsparse = lambda x: x[1] if sparse else x
+        sparsify  = lambda x: (tuple(range(len(x))), tuple(x)) if sparse else tuple(x)
+        unsparse  = lambda x: x[1] if sparse else x
+        normalize = lambda X: [x/sum(X) for x in X]
 
         if not context_features and not action_features:
 
@@ -391,13 +412,13 @@ class ValidationSimulation(LambdaSimulation):
             theta = r.randoms(n_features)
 
             context = lambda i     :   None
-            actions = lambda i,c   : [ sparsify(r.randoms(n_features)) for _ in range(r.randint(2,10)) ]
-            rewards = lambda i,c,a : float(sum([cc*t for cc,t in zip(theta,unsparse(a))]))/sum(theta)
+            actions = lambda i,c   : [ sparsify(normalize(r.randoms(n_features))) for _ in range(r.randint(2,10)) ]
+            rewards = lambda i,c,a : float(sum([cc*t for cc,t in zip(theta,unsparse(a))]))
 
         if context_features and action_features:
 
             context = lambda i     :   sparsify(r.randoms(n_features))
-            actions = lambda i,c   : [ sparsify(r.randoms(n_features)) for _ in range(r.randint(2,10)) ]
+            actions = lambda i,c   : [ sparsify(normalize(r.randoms(n_features))) for _ in range(r.randint(2,10)) ]
             rewards = lambda i,c,a : sum([cc*t for cc,t in zip(unsparse(c),unsparse(a))])/sum(unsparse(a))
 
         super().__init__(n_interactions, context, actions, rewards)

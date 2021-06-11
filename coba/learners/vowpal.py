@@ -70,7 +70,7 @@ class VowpalLearner(Learner):
     """
 
     @overload
-    def __init__(self, *, epsilon: float, adf: bool = True, seed: int = None) -> None:
+    def __init__(self, *, epsilon: float = 0.1, adf: bool = True, seed: int = None) -> None:
         """Instantiate a VowpalLearner.
         Args:
             epsilon: A value between 0 and 1. If provided exploration will follow epsilon-greedy.
@@ -135,7 +135,10 @@ class VowpalLearner(Learner):
 
         interactions = "--interactions ssa --interactions sa --ignore_linear s"
 
-        if len(args) >0:
+        if all(e not in kwargs for e in ['epsilon', 'softmax', 'bag', 'cover', 'args']): 
+            kwargs['epsilon'] = 0.1
+
+        if len(args) > 0:
             self._adf = "--cb_explore_adf" in args[0]
 
         elif 'epsilon' in kwargs:
@@ -183,7 +186,9 @@ class VowpalLearner(Learner):
         See the base class for more information
         """
 
-        return {'args': self._args}
+        explore = "--cb_explore_adf" if self._adf else f"--cb_explore"
+
+        return {'args': explore + " " + self._args}
 
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
@@ -201,7 +206,6 @@ class VowpalLearner(Learner):
             from vowpalwabbit import pyvw #type: ignore
 
             cb_explore = "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}"
-            self._args = cb_explore + " " + self._args
             
             # vowpal has an annoying warning that is written to stderr whether or not we provide
             # the --quiet flag. Therefore, we temporarily redirect all stderr output to null so that
@@ -209,7 +213,7 @@ class VowpalLearner(Learner):
             # so if you are here because of strange problems with threads we may just need to suck
             # it up and accept that there will be an obnoxious warning message.
             with open(devnull, 'w') as f, redirect_stderr(f):
-                self._vw = pyvw.vw(self._args + " --quiet")
+                self._vw = pyvw.vw(cb_explore + " " + self._args + " --quiet")
 
         assert self._vw is not None, "Something went wrong and vw was not initialized"
 
