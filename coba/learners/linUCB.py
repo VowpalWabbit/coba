@@ -1,3 +1,5 @@
+import time
+
 from coba.utilities import PackageChecker
 from coba.simulations import Context, Action
 from coba.learners.core import Learner, Key
@@ -23,7 +25,7 @@ class LinUCBLearner(Learner):
         dict = {'alpha': self._alpha, 'interactions': self._interactions}
         return dict
 
-    def __init__(self, *, alpha: float, interactions: Sequence[str] = ['xa', 'a']) -> None:
+    def __init__(self, *, alpha: float, interactions: Sequence[str] = ['a', 'ax'], timeit: bool = False) -> None:
         """Instantiate a linUCBLearner.
         Args:
             alpha: number of standard deviations
@@ -31,16 +33,25 @@ class LinUCBLearner(Learner):
                 e.g. xaa would mean interactions between context and actions and actions. 
         """
         PackageChecker.numpy("linUCBLearner.__init__")
-        PackageChecker.sklearn("linUCBLearner.__init__")
-        import numpy as np
-        from sklearn.feature_extraction import FeatureHasher
 
-        self._A = None
-        self.b = None
-        self._alpha = alpha
-        self._theta: Any
+        self._A            = None
+        self._b            = None
+        self._alpha        = alpha
         self._interactions = interactions
-        self._terms = None
+        self._terms        = []
+        self._times        = [0,0]
+        self._i            = 0
+        self._timeit       = timeit
+
+        for term in self._interactions:
+            term = term.lower()
+            x_num = term.count('x')
+            a_num = term.count('a')
+            
+            if x_num + a_num != len(term):
+                raise Exception("Letters other than x and a were passed for parameter interactions. Please remove other letters/characters.")
+            
+            self._terms.append((x_num, a_num))
 
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
@@ -54,89 +65,44 @@ class LinUCBLearner(Learner):
             The probability of taking each action. See the base class for more information.
         """
         import numpy as np
-        from sklearn.feature_extraction import FeatureHasher
-        import scipy.sparse as sp
-        from scipy.sparse import linalg
 
+        self._i += 1
 
-        self._d = len(actions[0])
-        actions_array = context_array = interactions = temp_array = None
-        self._terms = []
-        is_sparse = type(actions[0])==dict
+        self._d   = len(actions[0])
+        is_sparse = isinstance(actions[0], dict) or isinstance(context, dict)
 
-        if (self._terms is not None):
-            for term in self._interactions:
-                term = term.lower()
-                x_num = term.count('x')
-                a_num = term.count('a')
-                if(x_num + a_num != len(term)):
-                    raise Exception("Letters other than x and a were passed for parameter interactions. Please remove other letters/characters.")
-                self._terms.append((x_num, a_num))
-
-        if (is_sparse):
+        if is_sparse:
             raise Exception("Sparse data cannot be handled by this algorithm.")
-            """ Legacy Code
-            h = FeatureHasher()
-            actions = [{str(k):v for k,v in x.items()} for x in actions]
-            actions_array = h.transform(actions)
-            context_array = np.fromiter(context.values(), dtype=float) 
-            context_array = np.append(context_array, 1.0)
-            context_array = context_array[context_array != np.array(None)]
-            
-            if(self._A is None):
-                self._A = sp.csc_matrix(sp.identity(2**20))
-                self._b = sp.csr_matrix((2**20, 1), dtype=np.float32)
-            
-            interactions = []
-            for i in range(len(actions)):
-                interactions.append(np.outer(actions_array[i], context_array).reshape(-1))
-            A_inv = linalg.inv(self._A)
-            """
-        else:
-            actions_array = np.array(actions)
-            context_array = np.array(context)
-            if (context is None):
-                context_array = np.append(context_array, 1.0)
-                context_array = context_array[context_array != np.array(None)]
-                interactions = np.apply_along_axis(lambda x: np.outer(x, context_array).reshape(-1), 1, actions_array)
-            else:
-                for term in self._terms:
-                    temp_array_1 = [[1.0]]
-                    temp_array_2 = np.ones((len(actions), 1 ), dtype=float)
-                    for i in range(term[0]):
-                        temp_array_1 = np.outer(temp_array_1, context_array).reshape(-1)
-                    for j in range(term[1]):
-                        temp_array_2 = [np.outer(temp_array_2[i], actions_array[i]).reshape(-1) for i in range(len(actions_array))]
-                    temp_array = np.apply_along_axis(lambda x: np.outer(x, temp_array_1).reshape(-1), 1, temp_array_2)
 
-                    if (interactions is None):
-                        interactions = temp_array
-                    else:
-                        interactions = np.hstack((interactions, temp_array))
+        features: np.ndarray = self._featurize(context, actions)
 
-            if(self._A is None):
-                self._A = np.identity((len(interactions[0])))
-                self._b = np.zeros([(len(interactions[0])), 1])
-            
-            A_inv = np.linalg.inv(self._A)
+        if(self._A is None):
+            self._A = np.identity(features.shape[0])
+            self._b = np.zeros((features.shape[0], 1))
+        
+        start_predict = time.time()
 
-        self._theta = np.dot(A_inv, self._b)
+        A_inv = np.linalg.inv(self._A)
+
+        self._times[0] += time.time() - start_predict
+
+        theta = np.dot(A_inv, self._b)
         
         term_one = np.zeros([len(actions),1])
         term_two = np.zeros([len(actions),1])
+
         for i in range(len(actions)):
-            term_one[i] = np.dot(self._theta.T, interactions[i])
-            term_two[i] = self._alpha * np.sqrt(np.dot(np.dot(interactions[i].T, A_inv), interactions[i]))
+            term_one[i] = theta.T @ features[:,i]
+            term_two[i] = self._alpha * np.sqrt(features[:,i].T @ A_inv @ features[:,i])
 
-        # pick greatest probability set all others to 0 and it to 1
-        action_values = np.add(term_one, term_two)
+        action_values = term_one + term_two
 
-        index = np.where(action_values == np.amax(action_values))[0]
-        ret = [0] * len(action_values)
-        ret = [1 if ind in index else 0 for ind, x in enumerate(ret)]
+        if (self._i-1) % 100 == 0 and self._timeit:
+            print(self._times[0]/(self._i+1))
+            print(self._times[1]/(self._i+1))
 
-
-        return ret
+        max_indexes = np.where(action_values == np.amax(action_values))[0]
+        return [1/len(max_indexes) if ind in max_indexes else 0 for ind in range(len(actions))]
 
     def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         """Learn from the given interaction.
@@ -150,31 +116,35 @@ class LinUCBLearner(Learner):
         """
         import numpy as np
 
-        action_array = np.array(action)
-        context_array = np.array(context)
-        interactions: np.ndarray = None
+        learn_start = time.time()
         
-        if (context==None):
-            interactions = action_array.T
-        else:
-            for term in self._terms:
-                temp_array_1 = [[1.0]]
-                temp_array_2 = [[1.0]]
-                for i in range(term[0]):
-                    temp_array_1 = np.outer(temp_array_1, context_array).reshape(-1)
-                for j in range(term[1]):
-                    temp_array_2 = np.outer(temp_array_2, action_array).reshape(-1)
-                temp_array = np.outer(temp_array_2, temp_array_1).reshape(-1)
+        features: np.ndarray = self._featurize(context, [action])
 
-                if (interactions is None):
-                    interactions = temp_array
-                else:
-                    interactions = np.hstack((interactions, temp_array))
+        self._A = self._A + features@features.T
+        self._b = self._b + features*reward 
 
+        self._times[1] += time.time() - learn_start
 
-        interactions = np.expand_dims(interactions, axis=(1,))
+    def _featurize(self, context, actions):
+        import numpy as np
 
-        action = interactions
-        self._A = self._A + action*action.T
-        self._b = self._b + action*reward 
-        ...
+        features = np.array([[]]*len(actions))
+
+        context_array = np.array(context) if context is not None else np.array([[1]])
+        actions_array = np.array(actions)
+
+        for term in self._terms:
+            temp_array_1 = [[1.0]]
+            temp_array_2 = np.ones((len(actions), 1 ), dtype=float)
+
+            for _ in range(term[0]):
+                temp_array_1 = np.outer(temp_array_1, context_array).reshape(-1)
+            
+            for _ in range(term[1]):
+                temp_array_2 = [np.outer(temp_array_2[i], actions_array[i]).reshape(-1) for i in range(len(actions_array))]
+            
+            temp_array = np.apply_along_axis(lambda x: np.outer(x, temp_array_1).reshape(-1), 1, temp_array_2)
+
+            features = np.hstack([features, temp_array])
+
+        return features.T

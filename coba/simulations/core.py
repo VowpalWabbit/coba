@@ -118,7 +118,14 @@ class MemoryReward(Reward):
         return [ self._rewards[(key,self._key(action))] for key,_,action in choices ]
 
     def _key(self, action):
-        return tuple(action.items()) if isinstance(action,dict) else action
+
+        if len(action) == 2 and isinstance(action[0], tuple) and isinstance(action[1],tuple):
+            return tuple(zip(action[0], action[1]))
+
+        if isinstance(action,dict):
+            return tuple(action.items())
+
+        return action
 
 class ClassificationReward(Reward):
     def __init__(self, labels: Sequence[Tuple[Key,Union[Action, Sequence[Action]]]] = []) -> None:
