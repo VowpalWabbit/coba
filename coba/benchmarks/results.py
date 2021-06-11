@@ -39,8 +39,8 @@ class Table:
 
     def to_pandas(self) -> Any:
         PackageChecker.pandas("Table.to_pandas")
-        import pandas as pd
-        import numpy as np #pandas installs numpy so if we have pandas we have numpy
+        import pandas as pd #type: ignore
+        import numpy as np #type: ignore #pandas installs numpy so if we have pandas we have numpy
 
         col_values = {col:np.empty(len(self),dtype=self._types.get(col,object)) for col in self.columns}
         index = 0
@@ -76,7 +76,7 @@ class Table:
         
         return tooples
 
-    def _key(self, key: Union[Hashable, Sequence[Hashable]]) -> Tuple[Hashable,...]:
+    def _key(self, key: Union[Hashable, Sequence[Hashable]]) -> Union[Hashable,Tuple[Hashable,...]]:
         key_len = len(key) if isinstance(key,(list,tuple)) else 1
         
         assert key_len == len(self._primary), "Incorrect primary key length given"
@@ -164,7 +164,7 @@ class Result:
     def __init__(self) -> None:
         """Instantiate a Result class."""
 
-        self.version    : int            = None
+        self.version    : Optional[int]  = None
         self.benchmark  : Dict[str, Any] = {}
 
         #providing the types in advance makes to_pandas about 10 times faster since we can preallocate space
@@ -195,8 +195,8 @@ class Result:
         return self._interactions
 
     def plot_learners(self, 
-        source_matches : Sequence[Any] = ["*"], 
-        learner_matches: Sequence[Any] = ["*"], 
+        source_matches : Union[Any,Sequence[Any]] = "*",
+        learner_matches: Union[Any,Sequence[Any]] = "*", 
         span=None,
         sd_every=.05,
         start=0.05,
@@ -230,6 +230,12 @@ class Result:
 
         learner_ids    = []
         simulation_ids = []
+
+        sm_is_singular = not isinstance(source_matches,collections.Sequence) or isinstance(source_matches,str)
+        lm_is_singular = not isinstance(learner_matches,collections.Sequence) or isinstance(learner_matches,str)
+
+        source_matches = [source_matches] if sm_is_singular else source_matches
+        learner_matches = [learner_matches] if lm_is_singular else learner_matches
 
         source_matches = [ s if isinstance(s,str) else "*"+str(s)+"*" for s in source_matches]
         learner_matches = [ l if isinstance(l,str) else "*"+str(l)+"*" for l in learner_matches] 
@@ -271,8 +277,8 @@ class Result:
 
             else:
                 alpha = 2/(1+span)
-                cumwindow  = list(accumulate(rewards          , lambda a,c: c + (1-alpha)*a))
-                cumdivisor = list(accumulate([1.]*len(rewards), lambda a,c: c + (1-alpha)*a))
+                cumwindow  = list(accumulate(rewards         , lambda a,c: c + (1-alpha)*a))
+                cumdivisor = list(accumulate([1]*len(rewards), lambda a,c: c + (1-alpha)*a))
 
             progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
 
@@ -442,7 +448,7 @@ class Result:
             ax.plot(X, Y, label='_nolegend_', color=color, alpha=0.15)
 
         plt.gca().set_prop_cycle(None)
-        self.plot_learners([source_match], [learner_match], span=None, start=start, ax=ax)
+        self.plot_learners(source_match, learner_match, span=span, start=start, ax=ax)
 
         ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
 
