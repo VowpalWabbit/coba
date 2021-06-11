@@ -10,6 +10,7 @@ from coba.learners.core import Learner
 from coba.learners.bandit import RandomLearner, EpsilonBanditLearner, UcbBanditLearner
 from coba.learners.corral import CorralLearner
 from coba.learners.vowpal import VowpalLearner
+from coba.learners.linUCB import LinUCBLearner
 
 __all__ = [
     'Learner',
@@ -17,5 +18,6 @@ __all__ = [
     'EpsilonBanditLearner',
     'UcbBanditLearner',
     'CorralLearner',
-    'VowpalLearner'
+    'VowpalLearner',
+    'LinUCBLearner'
 ]
