@@ -20,16 +20,15 @@ class LinUCBLearner(Learner):
 
         See the base class for more information
         """
-        dict = {'alpha': self._alpha}
+        dict = {'alpha': self._alpha, 'interactions': self._interactions}
         return dict
 
-    def __init__(self, *, alpha: float) -> None:
+    def __init__(self, *, alpha: float, interactions: Sequence[str] = ['xa', 'a']) -> None:
         """Instantiate a linUCBLearner.
         Args:
-            alpha: number of standard deviations???
-            K: number of actions
-            d: number of dimensions
-            T: number of rounds
+            alpha: number of standard deviations
+            interactions: the set of interactions the learner will use. x refers to context and a refers to actions, 
+                e.g. xaa would mean interactions between context and actions and actions. 
         """
         PackageChecker.numpy("linUCBLearner.__init__")
         PackageChecker.sklearn("linUCBLearner.__init__")
@@ -40,6 +39,8 @@ class LinUCBLearner(Learner):
         self.b = None
         self._alpha = alpha
         self._theta: Any
+        self._interactions = interactions
+        self._terms = None
 
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
@@ -59,14 +60,22 @@ class LinUCBLearner(Learner):
 
 
         self._d = len(actions[0])
-        actions_array = None
-        context_array = None
-        h = None
-        interactions = None
-
+        actions_array = context_array = interactions = temp_array = None
+        self._terms = []
         is_sparse = type(actions[0])==dict
 
+        if (self._terms is not None):
+            for term in self._interactions:
+                term = term.lower()
+                x_num = term.count('x')
+                a_num = term.count('a')
+                if(x_num + a_num != len(term)):
+                    raise Exception("Letters other than x and a were passed for parameter interactions. Please remove other letters/characters.")
+                self._terms.append((x_num, a_num))
+
         if (is_sparse):
+            raise Exception("Sparse data cannot be handled by this algorithm.")
+            """ Legacy Code
             h = FeatureHasher()
             actions = [{str(k):v for k,v in x.items()} for x in actions]
             actions_array = h.transform(actions)
@@ -82,17 +91,33 @@ class LinUCBLearner(Learner):
             for i in range(len(actions)):
                 interactions.append(np.outer(actions_array[i], context_array).reshape(-1))
             A_inv = linalg.inv(self._A)
+            """
         else:
             actions_array = np.array(actions)
             context_array = np.array(context)
-            context_array = np.append(context_array, 1.0)
-            context_array = context_array[context_array != np.array(None)]
+            if (context is None):
+                context_array = np.append(context_array, 1.0)
+                context_array = context_array[context_array != np.array(None)]
+                interactions = np.apply_along_axis(lambda x: np.outer(x, context_array).reshape(-1), 1, actions_array)
+            else:
+                for term in self._terms:
+                    temp_array_1 = [[1.0]]
+                    temp_array_2 = np.ones((len(actions), 1 ), dtype=float)
+                    for i in range(term[0]):
+                        temp_array_1 = np.outer(temp_array_1, context_array).reshape(-1)
+                    for j in range(term[1]):
+                        temp_array_2 = [np.outer(temp_array_2[i], actions_array[i]).reshape(-1) for i in range(len(actions_array))]
+                    temp_array = np.apply_along_axis(lambda x: np.outer(x, temp_array_1).reshape(-1), 1, temp_array_2)
+
+                    if (interactions is None):
+                        interactions = temp_array
+                    else:
+                        interactions = np.hstack((interactions, temp_array))
 
             if(self._A is None):
-                self._A = np.identity(self._d*(len(context_array)))
-                self._b = np.zeros([self._d*(len(context_array)), 1])
+                self._A = np.identity((len(interactions[0])))
+                self._b = np.zeros([(len(interactions[0])), 1])
             
-            interactions = np.apply_along_axis(lambda x: np.outer(x, context_array).reshape(-1), 1, actions_array)
             A_inv = np.linalg.inv(self._A)
 
         self._theta = np.dot(A_inv, self._b)
@@ -125,17 +150,31 @@ class LinUCBLearner(Learner):
         """
         import numpy as np
 
-        actions_array = np.array(action)
-
-
-        if (context!=None):
-            context_array = np.array(context)
-            context_array = np.append(context_array, 1.0)
-            action = np.outer(actions_array, context_array).reshape(-1)
+        action_array = np.array(action)
+        context_array = np.array(context)
+        interactions: np.ndarray = None
+        
+        if (context==None):
+            interactions = action_array.T
         else:
-            pass
+            for term in self._terms:
+                temp_array_1 = [[1.0]]
+                temp_array_2 = [[1.0]]
+                for i in range(term[0]):
+                    temp_array_1 = np.outer(temp_array_1, context_array).reshape(-1)
+                for j in range(term[1]):
+                    temp_array_2 = np.outer(temp_array_2, action_array).reshape(-1)
+                temp_array = np.outer(temp_array_2, temp_array_1).reshape(-1)
 
-        action = np.array([action]).T
+                if (interactions is None):
+                    interactions = temp_array
+                else:
+                    interactions = np.hstack((interactions, temp_array))
+
+
+        interactions = np.expand_dims(interactions, axis=(1,))
+
+        action = interactions
         self._A = self._A + action*action.T
         self._b = self._b + action*reward 
         ...
