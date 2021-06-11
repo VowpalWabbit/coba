@@ -18,7 +18,7 @@ class LinUCBLearner(Learner):
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
 
-        See the base class for more information
+        See the base class for more information.
         """
         dict = {'alpha': self._alpha, 'interactions': self._interactions}
         return dict
