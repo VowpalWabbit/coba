@@ -1,4 +1,4 @@
 {
     "cacher"   : { "DiskCacher"  : "../.coba_cache/" },
-    "benchmark": { "processes": 1, "maxtasksperchild":null }
+    "benchmark": { "maxtasksperchild":null }
 }
