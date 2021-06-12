@@ -15,7 +15,7 @@ build/
 dist/
 
 #ignored examples files
-examples/*.log
+examples/**/*.log
 
 # Editors
 .vscode/
