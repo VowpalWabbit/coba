@@ -160,8 +160,9 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
         grp_sim = lambda t: t.sim_id
 
         try:
-            for src_id, tasks_by_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
-                with CobaConfig.Logger.log(f"Processing group..."):
+            with CobaConfig.Logger.log(f"Processing chunk..."):
+
+                for src_id, tasks_by_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
 
                     with CobaConfig.Logger.time(f"Creating source {src_id} from {source_by_id[src_id]}..."):
                         loaded_source = source_by_id[src_id].read()
