@@ -323,7 +323,7 @@ class Result:
 
         if full_figure:
             ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
-            ax.set_title ("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}" + " Reward")
+            ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward")
             ax.set_ylabel("Reward")
             ax.set_xlabel("Interactions" if max_batch_N ==1 else "Batches")
 
