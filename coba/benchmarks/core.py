@@ -116,6 +116,13 @@ class Benchmark:
         self._processes: Optional[int]                  = None
         self._maxtasksperchild: Optional[int]           = None
         self._maxtasksperchild_set: bool                = False
+        self._chunk_by: str                             = "source"
+        self._chunk_by_set: bool                        = False
+
+    def chunk_by(self, value: Optional[str]) -> 'Benchmark':
+        self._chunk_by_set = True
+        self._chunk_by = value
+        return self
 
     def ignore_raise(self, value:bool=True) -> 'Benchmark':
         self._ignore_raise = value
@@ -142,11 +149,6 @@ class Benchmark:
             See the base class for more information.
         """
         restored         = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
-        tasks            = Tasks(self._simulations, learners, seed)
-        unfinished       = Unfinished(restored)
-        grouped          = ChunkByNone() if CobaConfig.Benchmark.get("chunk_by","source") == "none" else ChunkBySource()
-        process          = Transactions(self._ignore_raise)
-        transaction_sink = TransactionSink(result_file, restored)
 
         n_given_learners    = len(learners)
         n_given_simulations = len(self._simulations)
@@ -161,14 +163,19 @@ class Benchmark:
         preamble.extend(Transaction.learners(learners))
         preamble.extend(Transaction.simulations(self._simulations))
 
+        cb = self._chunk_by         if self._chunk_by_set         else CobaConfig.Benchmark['chunk_by']
         mp = self._processes        if self._processes            else CobaConfig.Benchmark['processes']
         mt = self._maxtasksperchild if self._maxtasksperchild_set else CobaConfig.Benchmark['maxtasksperchild']
-        
-        if mp > 1 or mt is not None: process = MultiprocessFilter([process], mp, mt) #type: ignore
+            
+        tasks            = Tasks(self._simulations, learners, seed)
+        unfinished       = Unfinished(restored)
+        chunked          = ChunkByNone() if cb is None or cb == 'none' else ChunkBySource()
+        process          = Transactions(self._ignore_raise)
+        transaction_sink = TransactionSink(result_file, restored)
 
-        grouped_tasks = Pipe.join(tasks, [unfinished,grouped])
+        if mp > 1 or mt is not None  : process = MultiprocessFilter([process], mp, mt) #type: ignore
 
-        Pipe.join(MemorySource(preamble), []       , transaction_sink).run()
-        Pipe.join(grouped_tasks         , [process], transaction_sink).run()
+        Pipe.join(MemorySource(preamble), []                            , transaction_sink).run()
+        Pipe.join(tasks                 , [unfinished, chunked, process], transaction_sink).run()
 
         return transaction_sink.result
