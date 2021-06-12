@@ -151,26 +151,29 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
             else:
                 return [ [interaction] for interaction in simulation.interactions ]
 
+        source_by_id = { t.src_id: t.simulation.source for t in task_group }
+        filter_by_id = { t.sim_id: t.simulation.filter for t in task_group }
+
         srt_src = lambda t: t.src_id
-        grp_src = lambda t: (t.src_id, t.simulation.source)
+        grp_src = lambda t: t.src_id
         srt_sim = lambda t: t.sim_id
-        grp_sim = lambda t: (t.sim_id, t.simulation)
+        grp_sim = lambda t: t.sim_id
 
         try:
-            for (src_id, source), tasks_by_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
+            for src_id, tasks_by_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
                 with CobaConfig.Logger.log(f"Processing group..."):
 
-                    with CobaConfig.Logger.time(f"Creating source {src_id} from {source}..."):
-                        loaded_source = source.read()
+                    with CobaConfig.Logger.time(f"Creating source {src_id} from {source_by_id[src_id]}..."):
+                        loaded_source = source_by_id[src_id].read()
 
-                    for (sim_id,sim), tasks_by_src_sim in groupby(sorted(tasks_by_src, key=srt_sim), key=grp_sim):
+                    for sim_id, tasks_by_src_sim in groupby(sorted(tasks_by_src, key=srt_sim), key=grp_sim):
 
                         tasks_by_src_sim_list = list(tasks_by_src_sim)
                         learner_ids           = [t.lrn_id  for t in tasks_by_src_sim_list] 
                         learners              = [t.learner for t in tasks_by_src_sim_list] 
 
                         with CobaConfig.Logger.time(f"Creating simulation {sim_id} from source {src_id}..."):
-                            simulation = sim.filter.filter(loaded_source)
+                            simulation = filter_by_id[sim_id].filter(loaded_source)
                             batches    = batchify(simulation)
 
                         if not batches:
