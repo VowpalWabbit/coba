@@ -119,29 +119,30 @@ class ChunkBySource(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkT
         tasks = list(tasks)
 
         for _, group in groupby(sorted(tasks, key=srt_key), key=grp_key):
-            a = list(group)
-            yield a
+            yield list(group)
 
-class ChunkByNone(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
+class ChunkByTask(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
 
     def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[Iterable[BenchmarkTask]]:
 
         for task in tasks:
             yield [ task ]
 
+class ChunkByNone(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
+
+    def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[Iterable[BenchmarkTask]]:
+        yield list(tasks)
+
 class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
 
     def __init__(self, ignore_raise: bool) -> None:
         self._ignore_raise = ignore_raise
 
-    def filter(self, task_groups: Iterable[Iterable[BenchmarkTask]]) -> Iterable[Any]:
-        
-        #materializing this all at once makes behavior between
-        #multiprocessing and singleprocessing consistent
-        task_group = list(chain.from_iterable(task_groups))
+    def filter(self, task_chunks: Iterable[Iterable[BenchmarkTask]]) -> Iterable[Any]:
 
-        for transaction in self._process_group(task_group):
-            yield transaction
+        for task_chunk in task_chunks:
+            for transaction in self._process_group(task_chunk):
+                yield transaction
 
     def _process_group(self, task_group: Iterable[BenchmarkTask]) -> Iterable[Any]:
 

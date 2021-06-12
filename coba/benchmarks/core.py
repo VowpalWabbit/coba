@@ -9,7 +9,7 @@ from coba.config import CobaConfig
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpSource, MemorySource, DiskSource
 from coba.multiprocessing import MultiprocessFilter
 
-from coba.benchmarks.tasks import Tasks, Unfinished, ChunkByNone, ChunkBySource, Transactions
+from coba.benchmarks.tasks import ChunkByNone, Tasks, Unfinished, ChunkByTask, ChunkBySource, Transactions
 from coba.benchmarks.transactions import Transaction, TransactionSink
 from coba.benchmarks.results import Result
 
@@ -116,23 +116,50 @@ class Benchmark:
         self._processes: Optional[int]                  = None
         self._maxtasksperchild: Optional[int]           = None
         self._maxtasksperchild_set: bool                = False
-        self._chunk_by: str                             = "source"
-        self._chunk_by_set: bool                        = False
+        self._chunk_by: str                             = None
 
-    def chunk_by(self, value: Optional[str]) -> 'Benchmark':
-        self._chunk_by_set = True
+    def chunk_by(self, value: str = 'source') -> 'Benchmark':
+        """Determines how tasks are chunked for processing.
+        
+        Args:
+            value: Allowable values are 'task', 'source' and 'none'.
+        """
+
+        assert value in ['task', 'source', 'none'], "The given chunk_by value wasn't recognized. Allowed values are 'task', 'source' and 'none'"
+
         self._chunk_by = value
+
         return self
 
     def ignore_raise(self, value:bool=True) -> 'Benchmark':
+        """Determines how unexpected Exceptions are handled by Benchmark.
+        
+        Args:
+            value: If the value is `True` then Benchmark will exit on an exception. Otherwise
+                Benchmark will log the exception and continue running the rest of the tasks.
+        """
+
         self._ignore_raise = value
         return self
 
-    def processes(self, value:int) -> 'Benchmark':
+    def processes(self, value:int = 1) -> 'Benchmark':
+        """Determines how many processes will be utilized for processing Benchmark chunks.
+        
+        Args:
+            value: This is the number of processes Benchmark will use.
+        """
+
         self._processes = value
         return self
 
-    def maxtasksperchild(self, value:Optional[int]) -> 'Benchmark':
+    def maxtasksperchild(self, value: Optional[int] = 1) -> 'Benchmark':
+        """Determines how many chunks a process can handle before it will be torn down and recreated.
+        
+        Args:
+            value: This is the number of chunks a process will handle before being recreated. If this
+                value is None then processes will remain alive for the life of the Benchmark evaluation.
+        """
+
         self._maxtasksperchild_set = True
         self._maxtasksperchild = value
         return self
@@ -148,7 +175,7 @@ class Benchmark:
         Returns:
             See the base class for more information.
         """
-        restored         = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
+        restored = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
 
         n_given_learners    = len(learners)
         n_given_simulations = len(self._simulations)
@@ -163,13 +190,13 @@ class Benchmark:
         preamble.extend(Transaction.learners(learners))
         preamble.extend(Transaction.simulations(self._simulations))
 
-        cb = self._chunk_by         if self._chunk_by_set         else CobaConfig.Benchmark['chunk_by']
+        cb = self._chunk_by         if self._chunk_by             else CobaConfig.Benchmark['chunk_by']
         mp = self._processes        if self._processes            else CobaConfig.Benchmark['processes']
         mt = self._maxtasksperchild if self._maxtasksperchild_set else CobaConfig.Benchmark['maxtasksperchild']
             
         tasks            = Tasks(self._simulations, learners, seed)
         unfinished       = Unfinished(restored)
-        chunked          = ChunkByNone() if cb is None or cb == 'none' else ChunkBySource()
+        chunked          = ChunkByTask() if cb == 'task' else ChunkByNone() if cb == 'none' else ChunkBySource()
         process          = Transactions(self._ignore_raise)
         transaction_sink = TransactionSink(result_file, restored)
 
