@@ -281,7 +281,7 @@ class Result:
             progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
 
         import matplotlib.pyplot as plt #type: ignore
-        import numpy as np
+        import numpy as np #type: ignore
 
         full_figure = ax is None
 
@@ -426,7 +426,7 @@ class Result:
             progressives.append(list(map(truediv, cumwindow, cumdivisor)))
 
         import matplotlib.pyplot as plt #type: ignore
-        import numpy as np
+        import numpy as np #type: ignore
 
         fig = plt.figure(figsize=figsize)
         

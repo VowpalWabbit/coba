@@ -1,3 +1,4 @@
+import collections
 import time
 
 from coba.utilities import PackageChecker
@@ -39,7 +40,7 @@ class LinUCBLearner(Learner):
         self._alpha        = alpha
         self._interactions = interactions
         self._terms        = []
-        self._times        = [0,0]
+        self._times        = [0.,0.]
         self._i            = 0
         self._timeit       = timeit
 
@@ -64,11 +65,11 @@ class LinUCBLearner(Learner):
         Returns:
             The probability of taking each action. See the base class for more information.
         """
-        import numpy as np
+        import numpy as np #type: ignore
 
         self._i += 1
 
-        self._d   = len(actions[0])
+        self._d   = len(actions[0]) if isinstance(actions[0], collections.Sequence) else 1
         is_sparse = isinstance(actions[0], dict) or isinstance(context, dict)
 
         if is_sparse:
@@ -114,7 +115,7 @@ class LinUCBLearner(Learner):
             reward: The reward that was gained from the action. See the base class for more information.
             probability: The probability that the given action was taken.
         """
-        import numpy as np
+        import numpy as np #type: ignore
 
         learn_start = time.time()
         
@@ -126,7 +127,7 @@ class LinUCBLearner(Learner):
         self._times[1] += time.time() - learn_start
 
     def _featurize(self, context, actions):
-        import numpy as np
+        import numpy as np #type: ignore
 
         features = np.array([[]]*len(actions))
 

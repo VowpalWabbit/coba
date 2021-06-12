@@ -116,7 +116,7 @@ class Benchmark:
         self._processes: Optional[int]                  = None
         self._maxtasksperchild: Optional[int]           = None
         self._maxtasksperchild_set: bool                = False
-        self._chunk_by: str                             = None
+        self._chunk_by: Optional[str]                   = None
 
     def chunk_by(self, value: str = 'source') -> 'Benchmark':
         """Determines how tasks are chunked for processing.

@@ -13,9 +13,9 @@ from coba.pipes import (
     ResponseToLines, Transpose, Flatten
 )
 
-Action      = Union[Hashable,dict]
+Action      = Union[Tuple[Hashable,...], Hashable, dict]
 Key         = int
-Context     = Optional[Union[Hashable,dict]]
+Context     = Optional[Union[Tuple[Hashable,...], Hashable, dict]]
 
 class Interaction:
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
