@@ -177,7 +177,7 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                             batches    = batchify(simulation)
 
                         if not batches:
-                            CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate. (likely due to `Take` being larger than the source)")
+                            CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate (likely due to `take` being larger than the simulation).")
                             continue
 
                         for i in sorted(range(len(learners)), reverse=True):
