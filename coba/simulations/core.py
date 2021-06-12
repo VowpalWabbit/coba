@@ -119,7 +119,7 @@ class MemoryReward(Reward):
 
     def _key(self, action):
 
-        if isinstance(action,str) or not isinstance(action,collections.Sequence):
+        if isinstance(action,str) or not isinstance(action,(collections.Sequence,dict)) :
             return action
 
         if len(action) == 2 and isinstance(action[0], tuple) and isinstance(action[1],tuple):

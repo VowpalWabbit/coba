@@ -115,6 +115,7 @@ class Benchmark:
         self._ignore_raise: bool                        = True
         self._processes: Optional[int]                  = None
         self._maxtasksperchild: Optional[int]           = None
+        self._maxtasksperchild_set: bool                = False
 
     def ignore_raise(self, value:bool=True) -> 'Benchmark':
         self._ignore_raise = value
@@ -124,7 +125,8 @@ class Benchmark:
         self._processes = value
         return self
 
-    def maxtasksperchild(self, value:int) -> 'Benchmark':
+    def maxtasksperchild(self, value:Optional[int]) -> 'Benchmark':
+        self._maxtasksperchild_set = True
         self._maxtasksperchild = value
         return self
 
@@ -159,8 +161,8 @@ class Benchmark:
         preamble.extend(Transaction.learners(learners))
         preamble.extend(Transaction.simulations(self._simulations))
 
-        mp = self._processes        if self._processes        else CobaConfig.Benchmark['processes']
-        mt = self._maxtasksperchild if self._maxtasksperchild else CobaConfig.Benchmark['maxtasksperchild']
+        mp = self._processes        if self._processes            else CobaConfig.Benchmark['processes']
+        mt = self._maxtasksperchild if self._maxtasksperchild_set else CobaConfig.Benchmark['maxtasksperchild']
         
         if mp > 1 or mt is not None: process = MultiprocessFilter([process], mp, mt) #type: ignore
 

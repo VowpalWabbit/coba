@@ -313,11 +313,12 @@ class Result:
             Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z ]
             SD = [ (y2-y**2)**(1/2) for y,y2 in zip(Y,Y2) ]
 
-            if not sd_every:
+            err_every = int(len(X)*sd_every)
+            err_start = int(X[0] + i*len(X)*sd_every**2)
+
+            if not err_every:
                ax.plot(X, Y,label=label)
             else:
-                err_every = int(len(X)*sd_every)
-                err_start = int(X[0] + i*len(X)*sd_every**2)
                 ax.errorbar(X, Y, yerr=SD, elinewidth=0.5, errorevery=(err_start,err_every), label=label)
 
         if full_figure:

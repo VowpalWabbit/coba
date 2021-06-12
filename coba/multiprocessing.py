@@ -41,6 +41,33 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 # and all we have to do in our child processes is make sure they don't become zombified.
                 pass
 
+    class ResultGet:
+        def __init__(self, result, std_queue, err_queue, log_queue) -> None:
+            self._result    = result
+            self._std_queue = std_queue
+            self._err_queue = err_queue
+            self._log_queue = log_queue
+
+        def run(self) -> None:
+            # if an error occured within map_async this will cause it to re-throw 
+            # in the main thread allowing us to capture it and handle it appropriately 
+            try:
+                self._result.get()
+            except Exception as e:
+                if "Can't pickle" in str(e) or "Pickling" in str(e):
+                    message = (
+                            str(e) + ". Learners must be picklable to evaluate a Learner on a Benchmark in multiple processes. "
+                            "To make a currently unpiclable learner picklable it should implement `__reduce(self)__`. "
+                            "The simplest return from reduce is `return (<the learner class>, (<tuple of constructor arguments>))`. "
+                            "For more information see https://docs.python.org/3/library/pickle.html#object.__reduce.")
+                    self._err_queue.put(Exception(message))
+                else:
+                    self._err_queue.put(e)
+                    
+            self._std_queue.put(None)
+            self._err_queue.put(None)
+            self._log_queue.put(None)
+
     def __init__(self, filters: Sequence[Filter], processes=1, maxtasksperchild=None) -> None:
         self._filters          = filters
         self._processes        = processes
@@ -65,47 +92,19 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
             stdout_writer, stdout_reader = QueueSink(std_queue), QueueSource(std_queue)
             stderr_writer, stderr_reader = QueueSink(err_queue), QueueSource(err_queue)
             stdlog_writer, stdlog_reader = QueueSink(log_queue), QueueSource(log_queue)
-
+ 
             log_thread = Thread(target=Pipe.join(stdlog_reader, [], CobaConfig.Logger.sink).run)
-            processor  = MultiprocessFilter.Processor(self._filters, stdout_writer, stderr_writer, stdlog_writer, self._processes)
-
-            def finished_callback(result):
-                std_queue.put(None)
-                err_queue.put(None)
-                log_queue.put(None)
-
-            def error_callback(error):
-                std_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in some lost work.
-                err_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in some lost work.
-                log_queue.put(None) #not perfect but I'm struggling to think of a better way. May result in some lost work.
-
             log_thread.start()
 
-            result = pool.map_async(processor.process, items, callback=finished_callback, error_callback=error_callback, chunksize=1) 
+            processor = MultiprocessFilter.Processor(self._filters, stdout_writer, stderr_writer, stdlog_writer, self._processes)
+            result    = pool.map_async(processor.process, items, chunksize=1) 
 
-            # When items is empty finished_callback will not be called and we'll get stuck waiting for the poison pill.
-            # When items is empty ready() will be true immediately and this check will place the poison pill into the queues.
-            if result.ready():
-                std_queue.put(None)
-                err_queue.put(None)
-                log_queue.put(None)
+            get_thread = Thread(target=MultiprocessFilter.ResultGet(result, std_queue, err_queue, log_queue).run)
+            get_thread.start()
 
             #this structure is necessary to make sure we don't exit the context before we're done
             for item in stdout_reader.read():
                 yield item
-
-            # if an error occured within map_async this will cause it to re-throw 
-            # in the main thread allowing us to capture it and handle it appropriately 
-            try:
-                result.get()
-            except Exception as e:
-                if "Can't pickle" in str(e) or "Pickling" in str(e):
-                    message = (
-                            str(e) + ". Learners must be picklable to evaluate a Learner on a Benchmark in multiple processes. "
-                            "To make a currently unpiclable learner picklable it should implement `__reduce(self)__`. "
-                            "The simplest return from reduce is `return (<the learner class>, (<tuple of constructor arguments>))`. "
-                            "For more information see https://docs.python.org/3/library/pickle.html#object.__reduce.")
-                    raise Exception(message) from e
 
             # in the case where an exception occurred in one of our processes
             # we will have poisoned the std and err queue even though the pool
@@ -113,6 +112,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
             # kill it in the error_callback because that will cause a hang.
             pool.terminate()
             log_thread.join()
+            get_thread.join()
 
             for err in stderr_reader.read():
                 if not isinstance(err, StopPipe):

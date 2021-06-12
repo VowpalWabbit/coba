@@ -3,11 +3,10 @@ import unittest
 from itertools import repeat
 from typing import Sequence, Tuple, Optional, List
 
-from coba.random import CobaRandom
 from coba.pipes import MemorySource
 from coba.config import CobaConfig, NoneLogger
 from coba.simulations import (
-    Key, Action, Context, Interaction, MemoryReward, ClassificationReward,
+    Key, Action, Context, Interaction, MemoryReward, ClassificationReward, MemoryReward,
     MemorySimulation, ClassificationSimulation, LambdaSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation
 )
 
@@ -15,6 +14,14 @@ CobaConfig.Logger = NoneLogger()
 
 def _choices(interaction: Interaction) -> Sequence[Tuple[Key, Optional[Context], Action]]:
     return [  (interaction.key, interaction.context, a) for a in interaction.actions]
+
+class MemoryReward_Tests(unittest.TestCase):
+
+    def test_dict_action(self):
+        reward = MemoryReward([ (1, {0:1}, 2)])
+
+        self.assertEqual(2, reward.observe([(1,None,{0:1})])[0])
+
 
 class ClassifiactionReward_Tests(unittest.TestCase):
 

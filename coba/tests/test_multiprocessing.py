@@ -9,41 +9,48 @@ from coba.config          import CobaConfig, IndentLogger
 from coba.pipes           import Filter, MemorySink
 from coba.multiprocessing import MultiprocessFilter
 
-class Multiprocess_Tests(unittest.TestCase):
+class NotPicklableFilter(Filter):
+    def __init__(self):
+        self._a = lambda : None
 
-    class SleepingFilter(Filter):
-        def filter(self, seconds: Iterable[float]) -> Any:
-            second = next(iter(seconds)) #type: ignore
-            #print(current_process().name + f" {seconds}")
-            time.sleep(second)
-            yield None
+    def filter(self, item):
+        return 'a'
 
-    class ProcessNameFilter(Filter):
-        def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-            process_name = current_process().name
-            CobaConfig.Logger.log(process_name)
-            yield process_name
+class SleepingFilter(Filter):
+    def filter(self, seconds: Iterable[float]) -> Any:
+        second = next(iter(seconds)) #type: ignore
+        #print(current_process().name + f" {seconds}")
+        time.sleep(second)
+        yield second
 
-    class ExceptionFilter(Filter):
-        def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-            raise Exception("Exception Filter")
+class ProcessNameFilter(Filter):
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        process_name = current_process().name
+        CobaConfig.Logger.log(process_name)
+        yield process_name
+
+class ExceptionFilter(Filter):
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        raise Exception("Exception Filter")
+
+class MultiprocessFilter_Tests(unittest.TestCase):
 
     def test_singleprocess_singletask(self):
-        items = list(MultiprocessFilter([Multiprocess_Tests.ProcessNameFilter()], 1, 1).filter(range(4)))
+        items = list(MultiprocessFilter([ProcessNameFilter()], 1, 1).filter(range(4)))
         self.assertEqual(len(set(items)), 4)
 
     def test_multiprocess_multitask(self):
-        items = list(MultiprocessFilter([Multiprocess_Tests.ProcessNameFilter()], 2).filter(range(40)))
+        items = list(MultiprocessFilter([ProcessNameFilter()], 2).filter(range(40)))
         self.assertEqual(len(set(items)), 2)
 
     def test_multiprocess_singletask(self):
-        items = list(MultiprocessFilter([Multiprocess_Tests.ProcessNameFilter()], 2, 1).filter(range(4)))
+        items = list(MultiprocessFilter([ProcessNameFilter()], 2, 1).filter(range(4)))
         self.assertEqual(len(set(items)), 4)
 
     def test_multiprocess_sleeping_task(self):
 
         start_time = time.time()
-        list(MultiprocessFilter([Multiprocess_Tests.SleepingFilter()], 2, 1).filter([2,2,0.25,0.25]))
+        list(MultiprocessFilter([SleepingFilter()], 2, 1).filter([2,2,0.25,0.25]))
         end_time = time.time()
 
         self.assertLess(end_time-start_time, 4)
@@ -53,7 +60,7 @@ class Multiprocess_Tests(unittest.TestCase):
 
     def test_exception(self):
         with self.assertRaises(Exception):
-            list(MultiprocessFilter([Multiprocess_Tests.ExceptionFilter()], 2, 1).filter(range(4)))
+            list(MultiprocessFilter([ExceptionFilter()], 2, 1).filter(range(4)))
 
     def test_logging(self):
         
@@ -65,11 +72,19 @@ class Multiprocess_Tests(unittest.TestCase):
 
         CobaConfig.Logger = logger
 
-        items = list(MultiprocessFilter([Multiprocess_Tests.ProcessNameFilter()], 2, 1).filter(range(4)))
+        items = list(MultiprocessFilter([ProcessNameFilter()], 2, 1).filter(range(4)))
 
         self.assertEqual(len(logger_sink.items), 4)
         self.assertEqual(items, [ l.split(' ')[3] for l in logger_sink.items ] )
         self.assertEqual(items, [ l.split(' ')[5] for l in logger_sink.items ] )
+
+    def test_not_picklable_sans_reduce(self):
+        with self.assertRaises(Exception):
+            list(MultiprocessFilter([NotPicklableFilter()], 2, 1).filter(range(4)))
+
+    def test_empty_list(self):
+        items = list(MultiprocessFilter([ProcessNameFilter()], 1, 1).filter([]))
+        self.assertEqual(len(items), 0)
 
 if __name__ == '__main__':
     unittest.main()
