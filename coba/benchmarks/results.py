@@ -2,8 +2,6 @@ import collections
 
 from fnmatch import fnmatch
 from operator import truediv
-from pathlib import Path
-from statistics import mean, stdev
 from itertools import chain, repeat, product, accumulate
 from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union
 
