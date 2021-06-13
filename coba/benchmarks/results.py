@@ -1,6 +1,7 @@
+import re
 import collections
 
-from fnmatch import fnmatch
+from numbers import Number
 from operator import truediv
 from itertools import chain, repeat, product, accumulate
 from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union
@@ -193,23 +194,24 @@ class Result:
         return self._interactions
 
     def plot_learners(self, 
-        source_matches : Union[Any,Sequence[Any]] = "*",
-        learner_matches: Union[Any,Sequence[Any]] = "*", 
-        span=None,
-        sd_every=.05,
-        start=0.05,
-        figsize=(8,6),
+        source_pattern :Union[str,int] = ".*",
+        learner_pattern:Union[str,int] = ".*", 
+        span:int = None,
+        start:Union[int,float]=0.05,
+        err_every:Union[int,float]=.05,
+        err_type:str=None,
+        figsize=(9,6),
         ax=None) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
             performance for different learners across independent simulations. This plot is valuable in gaining insight 
             into how various learners perform in comparison to one another. 
 
         Args:
-            source_matches: The strings to match when determining which simulations to include in the plot. The "source" 
+            source_pattern: The pattern to match when determining which simulations to include in the plot. The "source" 
                 matched against is either the "source" column in the simulations table or the first item in the list in 
                 the simulation 'pipes' column. The simulations can be seen most easily by Result.simulations.to_pandas().
                 Matching supports the wildcards which match everything (*) and which match only one wild character (?).
-            learner_matches: The strings to match against the 'full_name' column in learners to determine which learners
+            learner_pattern: The pattern to match against the 'full_name' column in learners to determine which learners
                 to include in the plot. In the case of multiple matches only the last match is kept. Matching supports
                 wildcards which match everything (*) and which match only one wild character (?) . The leaners table in
                 this Result can be seen at Result.learners.to_pandas().
@@ -217,29 +219,33 @@ class Result:
                 identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
                 rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
                 reward is plotted for each interaction.
-            sd_every: Determines frequency of bars indicating the standard deviation of the population should be drawn. 
+            start: Determines at which interaction the plot will start at. If start is greater than 1 we assume start is
+                an interaction index. If start is less than 1 we assume start is the percent of interactions to skip
+                before starting the plot.
+            err_every: Determines frequency of bars indicating the standard deviation of the population should be drawn. 
                 Standard deviation gives a sense of how well the plotted average represents the underlying distribution. 
                 Standard deviation is most valuable when plotting against multiple simulations. If plotting against a single 
                 simulation standard error may be a more useful indicator of confidence. The value for sd_every should be
                 between 0 to 1 and will determine how frequently the standard deviation bars are drawn.
+            err_type: Determines what the error bars are. Valid types are `None`, 'se', and 'sd'. If err_type is None then 
+                plot will use SEM when there is only one source simulation otherwise it will use SD. Otherwise plot will
+                display the standard error of the mean for 'se' and the standard deviation for 'sd'.
         """
 
         PackageChecker.matplotlib('Result.standard_plot')
 
         learner_ids    = []
+        sources        = set()
         simulation_ids = []
 
-        sm_is_singular = not isinstance(source_matches,collections.Sequence) or isinstance(source_matches,str)
-        lm_is_singular = not isinstance(learner_matches,collections.Sequence) or isinstance(learner_matches,str)
+        if isinstance(source_pattern, Number):
+            source_pattern = f'(\D|^){source_pattern}(\D|$)'
 
-        source_matches = [source_matches] if sm_is_singular else source_matches
-        learner_matches = [learner_matches] if lm_is_singular else learner_matches
+        if isinstance(learner_pattern, Number):
+            learner_pattern = f'(\D|^){learner_pattern}(\D|$)'
 
-        source_matches = [ s if isinstance(s,str) else "*"+str(s)+"*" for s in source_matches]
-        learner_matches = [ l if isinstance(l,str) else "*"+str(l)+"*" for l in learner_matches] 
-        
         for simulation in self._simulations:
-            
+
             if 'source' in simulation:
                 source = simulation['source']
             else:
@@ -248,13 +254,25 @@ class Result:
                 source_end = source_end if source_end > -1 else len(simulation['pipe'])
                 source     = simulation['pipe'][0:source_end]
 
-            if any(fnmatch(source,source_match) for source_match in source_matches):
+            if re.search(source_pattern, source):
+                sources.add(source)
                 simulation_ids.append(simulation['simulation_id'])
 
         for learner in self._learners:
-
-            if any( fnmatch(learner['full_name'],learner_match) for learner_match in learner_matches):
+            if re.search(learner_pattern, learner['full_name']):
                 learner_ids.append(learner['learner_id'])
+
+        if len(learner_ids) == 0:
+            print(f"No learners were found matching {learner_pattern}")
+
+        if len(simulation_ids) == 0:
+            print(f"No simulations were found with a source matching {source_pattern}")
+
+        if len(learner_ids) == 0 or len(simulation_ids) == 0:
+            return
+
+        if err_type is None and len(sources) == 1: err_type = 'se'
+        if err_type is None and len(sources) >= 2: err_type = 'sd'
 
         max_batch_N = 1
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
@@ -293,6 +311,7 @@ class Result:
 
             label = self._learners[learner_id]["full_name"]
             Z     = list(zip(*progressives[learner_id]))
+            N     = [ len(z) for z in Z        ]
             Y     = [ sum(z)/len(z) for z in Z ]
             X     = list(range(1,len(Y)+1))
 
@@ -309,15 +328,17 @@ class Result:
             #calculate it regardless of if they are showing them
             #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
             Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z ]
-            SD = [ (y2-y**2)**(1/2) for y,y2 in zip(Y,Y2) ]
+            SD = [ (y2-y**2)**(1/2) for y,y2 in zip(Y,Y2)     ]
+            SE = [ sd/(n**(1/2)) for sd,n in zip(SD,N)        ]
 
-            err_every = int(len(X)*sd_every)
-            err_start = int(X[0] + i*len(X)*sd_every**2)
+            err_every = int(len(X)*err_every) if err_every < 1 else err_every
+            err_start = int(X[0] + i*len(X)*err_every**2) if err_every < 1 else err_every
 
             if not err_every:
                ax.plot(X, Y,label=label)
             else:
-                ax.errorbar(X, Y, yerr=SD, elinewidth=0.5, errorevery=(err_start,err_every), label=label)
+                yerr = SE if err_type.lower() == 'se' else SD
+                ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(err_start,err_every), label=label)
 
         if full_figure:
             ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
@@ -336,21 +357,21 @@ class Result:
             plt.show()
 
     def plot_shuffles(self, 
-        source_match : Any, 
-        learner_match: Any, 
-        span=None,
-        start=0.05,
+        source_pattern:str = ".*", 
+        learner_pattern:str = ".*", 
+        span:int=None,
+        start:Union[int,float]=0.05,
         figsize=(8,6)) -> None:
         """This plots the performance of a single Learner on multiple shuffles of the same source. It gives a sense of the
             variance in peformance for the learner on the given simulation source. This plot is valuable if looking for a 
             reliable learner on a fixed problem.
 
         Args:
-            source_match: The string to match when determining which simulations to include. The "source" matched
-                against is either the "source" column in the simulations table or the first item in the list in the 
-                simulation 'pipes' column. The simulations can be seen most easily by Result.simulations.to_pandas().
+            source_pattern: The pattern to match when determining which simulations to include in the plot. The "source" 
+                matched against is either the "source" column in the simulations table or the first item in the list in 
+                the simulation 'pipes' column. The simulations can be seen most easily by Result.simulations.to_pandas().
                 Matching supports the wildcards which match everything (*) and which match only one wild character (?).
-            learner_match: The string to match against the 'full_name' column in learners to determine which learner
+            learner_pattern: The pattern to match against the 'full_name' column in learners to determine which learners
                 to include in the plot. In the case of multiple matches only the last match is kept. Matching supports
                 wildcards which match everything (*) and which match only one wild character (?) . The leaners table in
                 this Result can be seen at Result.learners.to_pandas().
@@ -358,9 +379,9 @@ class Result:
                 identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
                 rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
                 reward is plotted for each interaction.
-            start: Thisindicates what percentage of starting interactions to exclude from the plot. The first few 
-                observations can be noisy and thus make it difficult for Matplotlib to appropriately scale the plot.
-                By excluding these values the plot will often be scaled at in a much more interpretable manner.
+            start: Determines at which interaction the plot will start at. If start is greater than 1 we assume start is
+                an interaction index. If start is less than 1 we assume start is the percent of interactions to skip
+                before starting the plot.
 
         """
 
@@ -370,8 +391,11 @@ class Result:
         simulation_sources = []
         learner_id         = None
 
-        source_match = source_match if isinstance(source_match,str) else "*"+str(source_match)+"*"
-        learner_match = learner_match if isinstance(learner_match,str) else "*"+str(learner_match)+"*"
+        if isinstance(source_pattern, Number):
+            source_pattern = f'(\D|^){source_pattern}(\D|$)'
+
+        if isinstance(learner_pattern, Number):
+            learner_pattern = f'(\D|^){learner_pattern}(\D|$)'
         
         for simulation in self._simulations:
             
@@ -383,24 +407,23 @@ class Result:
                 source_end = source_end if source_end > -1 else len(simulation['pipe'])
                 sim_source = simulation['pipe'][0:source_end]
 
-            if fnmatch(sim_source, source_match):
+            if re.search(source_pattern, sim_source):
                 simulation_ids.append(simulation['simulation_id'])
                 simulation_sources.append(sim_source)
 
         for learner in self._learners:
-
-            if fnmatch(learner['full_name'], learner_match):
+            if re.search(learner_pattern,learner['full_name']):
                 learner_id = learner['learner_id']
 
         max_batch_N = 1
         progressives: List[Sequence[float]] = []
 
         if len(simulation_ids) == 0:
-            print(f"No simulation was found with a source matching '{source_match}' when executing `plot_shuffles`.")
+            print(f"No simulation was found with a source matching '{source_pattern}' when executing `plot_shuffles`.")
             return
 
         if learner_id is None:
-            print(f"No learner was found who's fullname matched '{learner_match}' when executing `plot_shuffles`.")
+            print(f"No learner was found who's fullname matched '{learner_pattern}' when executing `plot_shuffles`.")
             return
 
         for simulation_id in simulation_ids:
@@ -439,7 +462,7 @@ class Result:
             Y     = shuffle
             X     = list(range(1,len(Y)+1))
 
-            start_idx = int(start*len(X))
+            start_idx = int(start*len(X)) if start < 1 else start
 
             X = X[start_idx:]
             Y = Y[start_idx:]
@@ -447,7 +470,7 @@ class Result:
             ax.plot(X, Y, label='_nolegend_', color=color, alpha=0.15)
 
         plt.gca().set_prop_cycle(None)
-        self.plot_learners(source_match, learner_match, span=span, start=start, ax=ax)
+        self.plot_learners(source_pattern, learner_pattern, span=span, start=start, ax=ax)
 
         ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
 

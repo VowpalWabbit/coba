@@ -32,5 +32,5 @@ if __name__ == '__main__':
     #After evaluating can create a quick summary plot to get a sense of how the learners performed
     result.plot_learners()
 
-    #We can also create a plot examining how one specific learner did across each shuffle of a simulation
-    result.plot_shuffles("*Validation*True*True*", "*vw*epsilon*")
+    #We can also create a plot examining how one specific learner did across each shuffle of our simulation
+    result.plot_shuffles(learner_pattern="vw")
