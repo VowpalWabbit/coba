@@ -235,6 +235,7 @@ class Result:
         PackageChecker.matplotlib('Result.standard_plot')
 
         learner_ids    = []
+        learner_names  = {}
         sources        = set()
         simulation_ids = []
 
@@ -260,6 +261,7 @@ class Result:
 
         for learner in self._learners:
             if re.search(learner_pattern, learner['full_name']):
+                learner_names[learner['learner_id']] = learner['full_name']
                 learner_ids.append(learner['learner_id'])
 
         if len(learner_ids) == 0:
@@ -270,6 +272,8 @@ class Result:
 
         if len(learner_ids) == 0 or len(simulation_ids) == 0:
             return
+
+        learner_ids = sorted(learner_ids, key=lambda id: learner_names[id])
 
         if err_type is None and len(sources) == 1: err_type = 'se'
         if err_type is None and len(sources) >= 2: err_type = 'sd'
