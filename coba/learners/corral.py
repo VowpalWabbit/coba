@@ -47,8 +47,8 @@ class CorralLearner(Learner):
 
         self._random   = CobaRandom(seed)
 
-        self._base_actions : Dict[Key, Sequence[Action]] = {}
-        self._base_predicts: Dict[Key, Sequence[float]]  = {}
+        self._base_action_picks : Dict[Key, Sequence[Action]] = {}
+        self._base_action_probs: Dict[Key, Sequence[float]]  = {}
 
     @property
     def family(self) -> str:
@@ -78,15 +78,15 @@ class CorralLearner(Learner):
             The probability of taking each action. See the base class for more information.
         """
         
-        predicts = [ base_algorithm.predict(key, context, actions) for base_algorithm in self._base_learners ]
+        base_predicts = [ base_algorithm.predict(key, context, actions) for base_algorithm in self._base_learners ]
         
-        base_actions  = [ self._random.choice(actions, predict) for predict in predicts                   ]
-        base_predicts = [ predict[actions.index(action)] for action,predict in zip(base_actions,predicts) ]
+        base_action_picks = [ self._random.choice(actions, predict) for predict in base_predicts                   ]
+        base_action_probs = [ predict[actions.index(action)] for action,predict in zip(base_action_picks,base_predicts) ]
 
-        self._base_actions[key]  = base_actions
-        self._base_predicts[key] = base_predicts
+        self._base_action_picks[key] = base_action_picks
+        self._base_action_probs[key] = base_action_probs
 
-        return [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
+        return [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_action_picks)]) for a in actions ]
 
     def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         """Learn from the given interaction.
@@ -103,13 +103,13 @@ class CorralLearner(Learner):
 
         assert  0 <= loss and loss <= 1, "The current Corral implementation assumes a loss between 0 and 1"
 
-        base_actions  = self._base_actions.pop(key)
-        base_predicts = self._base_predicts.pop(key)
+        base_action_picks = self._base_action_picks.pop(key)
+        base_action_probs = self._base_action_probs.pop(key)
 
-        losses  = [ loss/probability   * int(act==action) for act in base_actions ]
-        rewards = [ reward/probability * int(act==action) for act in base_actions ]
+        losses  = [ loss/probability   * int(act==action) for act in base_action_picks ]
+        rewards = [ reward/probability * int(act==action) for act in base_action_picks ]
 
-        for learner, action, R, P in zip(self._base_learners, base_actions, rewards, base_predicts):
+        for learner, action, R, P in zip(self._base_learners, base_action_picks, rewards, base_action_probs):
             learner.learn(key, context, action, R, P) # COBA learners assume a reward
 
         self._ps     = list(self._log_barrier_omd(losses))
