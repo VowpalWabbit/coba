@@ -306,6 +306,9 @@ class Result:
         import matplotlib.pyplot as plt #type: ignore
         import numpy as np #type: ignore
 
+        if not progressives:
+            CobaConfig.Logger.log("No interaction data was found for plot_learners.")
+            return
         full_figure = ax is None
 
         if full_figure:
@@ -457,7 +460,7 @@ class Result:
             progressives.append(list(map(truediv, cumwindow, cumdivisor)))
 
         if not progressives:
-            CobaConfig.Logger.log("No interaction data was found for the shuffles plot learner.")
+            CobaConfig.Logger.log("No interaction data was found for the plot_shuffles.")
             return
 
         import matplotlib.pyplot as plt #type: ignore
