@@ -29,44 +29,14 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
             except Exception as e:
                 self._stderr.write([e])
-                raise
 
             except KeyboardInterrupt:
-                # if you are here because keyboard interrupt isn't working for multiprocessing
-                # or you want to improve it in some way I can only say good luck. After many hours
-                # of spelunking through stackoverflow and the python stdlib I still don't understand
-                # why it works the way it does. I arrived at this solution not based on understanding
-                # but based on experimentation. This seemed to fix my problem. As best I can tell 
-                # KeyboardInterrupt is a very special kind of exception that propogates up everywhere
-                # and all we have to do in our child processes is make sure they don't become zombified.
+                #When ctrl-c is pressed on the keyboard KeyboardInterrupt is raised in each
+                #process. We need to handle this here because Processor is always ran in a
+                #background process and receives this. We can ignore this because the exception will
+                #also be raised in our main process. Therefore we simply ignore and trust the main to
+                #handle the keyboard interrupt gracefully.
                 pass
-
-    class ResultGet:
-        def __init__(self, result, std_queue, err_queue, log_queue) -> None:
-            self._result    = result
-            self._std_queue = std_queue
-            self._err_queue = err_queue
-            self._log_queue = log_queue
-
-        def run(self) -> None:
-            # if an error occured within map_async this will cause it to re-throw 
-            # in the main thread allowing us to capture it and handle it appropriately 
-            try:
-                self._result.get()
-            except Exception as e:
-                if "Can't pickle" in str(e) or "Pickling" in str(e):
-                    message = (
-                            str(e) + ". Learners must be picklable to evaluate a Learner on a Benchmark in multiple processes. "
-                            "To make a currently unpiclable learner picklable it should implement `__reduce(self)__`. "
-                            "The simplest return from reduce is `return (<the learner class>, (<tuple of constructor arguments>))`. "
-                            "For more information see https://docs.python.org/3/library/pickle.html#object.__reduce.")
-                    self._err_queue.put(Exception(message))
-                else:
-                    self._err_queue.put(e)
-                    
-            self._std_queue.put(None)
-            self._err_queue.put(None)
-            self._log_queue.put(None)
 
     def __init__(self, filters: Sequence[Filter], processes=1, maxtasksperchild=None) -> None:
         self._filters          = filters
@@ -85,35 +55,68 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
         with Pool(self._processes, maxtasksperchild=self._maxtasksperchild) as pool, Manager() as manager:
 
-            std_queue = manager.Queue() #type: ignore
-            err_queue = manager.Queue() #type: ignore
-            log_queue = manager.Queue() #type: ignore
+            stdout_queue = manager.Queue() #type: ignore
+            stderr_queue = manager.Queue() #type: ignore
+            stdlog_queue = manager.Queue() #type: ignore
 
-            stdout_writer, stdout_reader = QueueSink(std_queue), QueueSource(std_queue)
-            stderr_writer, stderr_reader = QueueSink(err_queue), QueueSource(err_queue)
-            stdlog_writer, stdlog_reader = QueueSink(log_queue), QueueSource(log_queue)
- 
+            stdout_writer, stdout_reader = QueueSink(stdout_queue), QueueSource(stdout_queue)
+            stderr_writer, stderr_reader = QueueSink(stderr_queue), QueueSource(stderr_queue)
+            stdlog_writer, stdlog_reader = QueueSink(stdlog_queue), QueueSource(stdlog_queue)
+
+            # handle not picklable (this is handled by done_or_failed)
+            # handle empty list (this is done by checking result.ready())
+            # handle exceptions in process (unhandled exceptions can cause children to hang so we pass them to stderr)
+            # handle ctrl-c without hanging 
+            #   > don't call result.get when KeyboardInterrupt has been hit
+            #   > handle EOFError,BrokenPipeError errors with queue since ctr-c kills manager
+
+            def done_or_failed(a=None):
+
+                if isinstance(a, Exception):
+                    stderr_writer.write([a])
+
+                stdout_writer.write([None])
+                stdlog_writer.write([None])
+                stderr_writer.write([None])
+
             log_thread = Thread(target=Pipe.join(stdlog_reader, [], CobaConfig.Logger.sink).run)
             log_thread.start()
 
             processor = MultiprocessFilter.Processor(self._filters, stdout_writer, stderr_writer, stdlog_writer, self._processes)
-            result    = pool.map_async(processor.process, items, chunksize=1) 
+            result    = pool.map_async(processor.process, items, callback=done_or_failed, error_callback=done_or_failed, chunksize=1)
 
-            get_thread = Thread(target=MultiprocessFilter.ResultGet(result, std_queue, err_queue, log_queue).run)
-            get_thread.start()
+            # When items is empty finished_callback will not be called and we'll get stuck waiting for the poison pill.
+            # When items is empty ready() will be true immediately and this check will place the poison pill into the queues.
+            if result.ready(): done_or_failed()
 
-            #this structure is necessary to make sure we don't exit the context before we're done
-            for item in stdout_reader.read():
-                yield item
+            try:
+                for item in stdout_reader.read():
+                    yield item
+            except KeyboardInterrupt:
+                try:
+                    pool.terminate()
+                except:
+                    pass
+                log_thread.join()
+                raise
+            else:
 
-            # in the case where an exception occurred in one of our processes
-            # we will have poisoned the std and err queue even though the pool
-            # isn't finished yet, so we need to kill it here. We are unable to
-            # kill it in the error_callback because that will cause a hang.
-            pool.terminate()
-            log_thread.join()
-            get_thread.join()
+                pool.close()
+                pool.join()
+                log_thread.join()
 
-            for err in stderr_reader.read():
-                if not isinstance(err, StopPipe):
-                    raise err
+                for err in stderr_reader.read():
+
+                    if isinstance(err, StopPipe):
+                        continue
+
+                    elif "Can't pickle" in str(err) or "Pickling" in str(err):
+                        message = (
+                            str(err) + ". Learners must be picklable to evaluate a Learner on a Benchmark in multiple processes. "
+                            "To make a currently unpiclable learner picklable it should implement `__reduce(self)__`. "
+                            "The simplest return from reduce is `return (<the learner class>, (<tuple of constructor arguments>))`. "
+                            "For more information see https://docs.python.org/3/library/pickle.html#object.__reduce.")
+                        raise Exception(message)
+
+                    else:
+                        raise err

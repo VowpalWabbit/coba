@@ -6,6 +6,7 @@ from operator import truediv
 from itertools import chain, repeat, product, accumulate
 from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union
 
+from coba.config import CobaConfig
 from coba.utilities import PackageChecker
 from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe, DiskSink, DiskSource 
 
@@ -265,10 +266,10 @@ class Result:
                 learner_ids.append(learner['learner_id'])
 
         if len(learner_ids) == 0:
-            print(f"No learners were found matching {learner_pattern}")
+            CobaConfig.Logger.log(f"No learners were found matching {learner_pattern}")
 
         if len(simulation_ids) == 0:
-            print(f"No simulations were found with a source matching {source_pattern}")
+            CobaConfig.Logger.log(f"No simulations were found with a source matching {source_pattern}")
 
         if len(learner_ids) == 0 or len(simulation_ids) == 0:
             return
@@ -315,6 +316,9 @@ class Result:
 
             label = self._learners[learner_id]["full_name"]
             Z     = list(zip(*progressives[learner_id]))
+            
+            if not Z: continue
+
             N     = [ len(z) for z in Z        ]
             Y     = [ sum(z)/len(z) for z in Z ]
             X     = list(range(1,len(Y)+1))
@@ -423,11 +427,11 @@ class Result:
         progressives: List[Sequence[float]] = []
 
         if len(simulation_ids) == 0:
-            print(f"No simulation was found with a source matching '{source_pattern}' when executing `plot_shuffles`.")
+            CobaConfig.Logger.log(f"No simulation was found with a source matching '{source_pattern}' when executing `plot_shuffles`.")
             return
 
         if learner_id is None:
-            print(f"No learner was found who's fullname matched '{learner_pattern}' when executing `plot_shuffles`.")
+            CobaConfig.Logger.log(f"No learner was found who's fullname matched '{learner_pattern}' when executing `plot_shuffles`.")
             return
 
         for simulation_id in simulation_ids:
@@ -451,6 +455,10 @@ class Result:
                 cumdivisor = list(range(1, span)) + [span]*(len(cumwindow)-span+1)
 
             progressives.append(list(map(truediv, cumwindow, cumdivisor)))
+
+        if not progressives:
+            CobaConfig.Logger.log("No interaction data was found for the shuffles plot learner.")
+            return
 
         import matplotlib.pyplot as plt #type: ignore
         import numpy as np #type: ignore

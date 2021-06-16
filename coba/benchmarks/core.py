@@ -202,7 +202,10 @@ class Benchmark:
 
         if mp > 1 or mt is not None  : process = MultiprocessFilter([process], mp, mt) #type: ignore
 
-        Pipe.join(MemorySource(preamble), []                            , transaction_sink).run()
-        Pipe.join(tasks                 , [unfinished, chunked, process], transaction_sink).run()
+        try:
+            Pipe.join(MemorySource(preamble), []                            , transaction_sink).run()
+            Pipe.join(tasks                 , [unfinished, chunked, process], transaction_sink).run()
+        except KeyboardInterrupt:
+            CobaConfig.Logger.log("Benchmark evaluation was canceled via a keyboard interrupt command.")
 
         return transaction_sink.result

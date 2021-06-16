@@ -40,7 +40,10 @@ class QueueSink(Sink[Iterable[Any]]):
         self._queue = sink
 
     def write(self, items:Iterable[Any]) -> None:
-        for item in items: self._queue.put(item)
+        try:
+            for item in items: self._queue.put(item)
+        except (EOFError,BrokenPipeError):
+            pass
 
 class DiskSource(Source[Iterable[str]]):
     def __init__(self, filename:str):
@@ -64,13 +67,16 @@ class QueueSource(Source[Iterable[Any]]):
         self._poison = poison
 
     def read(self) -> Iterable[Any]:
-        while True:
-            item = self._queue.get()
+        try:
+            while True:
+                item = self._queue.get()
 
-            if item == self._poison:
-                return
+                if item == self._poison:
+                    return
 
-            yield item
+                yield item
+        except (EOFError,BrokenPipeError):
+            pass
 
 class HttpSource(Source[requests.Response]):
     def __init__(self, url: str) -> None:
