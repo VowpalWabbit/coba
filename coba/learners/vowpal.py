@@ -3,10 +3,11 @@
 TODO Add unittests
 """
 
+import re
 import collections
 
 from os import devnull
-from typing import Any, Dict, Union, Sequence, overload
+from typing import Any, Dict, Union, Sequence, overload, cast
 
 from coba.utilities import PackageChecker, redirect_stderr
 from coba.simulations import Context, Action
@@ -113,19 +114,15 @@ class VowpalLearner(Learner):
         ...
 
     @overload
-    def __init__(self, *, adf: bool, args:str) -> None:
+    def __init__(self, args:str) -> None:
         ...
         """Instantiate a VowpalLearner.
         Args:
-            adf: A boolean indicating whether --cb_explore_adf or --cb_explore should be used. In the case that
-                --cb_explore is used (i.e., `adf = False`) VowpalLearner will appropriately set the action count
-                at runtime so that it matches the Simulation currently being evaluated. Consequently, --cb_explore
-                and --cb_explore_adf should not be included in args.
             args: A string of command line arguments which instantiates a Vowpal Wabbit contextual bandit learner. 
                 For examples and documentation on how to instantiate VW learners from command line arguments see 
                 https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms. It is assumed that
                 either the --cb_explore or --cb_explore_adf flag is used. When formatting examples for VW context
-                features are namespaced with `x` and action features, when relevant, are namespaced with with `a`.
+                features are namespaced with `s` and action features, when relevant, are namespaced with with `a`.
         """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -135,11 +132,15 @@ class VowpalLearner(Learner):
 
         interactions = "--interactions ssa --interactions sa --ignore_linear s"
 
-        if all(e not in kwargs for e in ['epsilon', 'softmax', 'bag', 'cover', 'args']): 
+        if not args and all(e not in kwargs for e in ['epsilon', 'softmax', 'bag', 'cover', 'args']): 
             kwargs['epsilon'] = 0.1
 
         if len(args) > 0:
-            self._adf = "--cb_explore_adf" in args[0]
+            self._adf  = "--cb_explore_adf" in args[0]
+            self._args = cast(str,args[0])
+
+            self._args = self._args.replace("--cb_explore_adf","")
+            self._args = re.sub("--cb_explore(\s+\d+)?\s+", '', self._args, count=1)
 
         elif 'epsilon' in kwargs:
             self._adf  = kwargs.get('adf', True)
@@ -156,13 +157,6 @@ class VowpalLearner(Learner):
         elif 'cover' in kwargs:
             self._adf  = False
             self._args = interactions + f" --cover {kwargs['cover']}"
-
-        else:
-            self._adf  = kwargs['adf']
-            self._args = kwargs['args']
-
-            for explore in ["--cb_explore_adf", "--cb_explore"]:
-                assert explore not in self._args, f"{explore} should not be specified in VowpalLearner `args` as it will be added at runtime based on the `adf` argument." 
 
         if 'seed' in kwargs:
             self._args += f" --random_seed {kwargs['seed']}"
@@ -223,6 +217,9 @@ class VowpalLearner(Learner):
 
         if not self._adf:
             #in this case probs are always in order of self._actions but we want to return in order of actions
+            if any(action not in self._actions for action in actions) or len(actions) != len(self._actions):
+                raise Exception("It appears that actions are changing between predictions. When this happens you need to use VW's `--cb_explore_adf`.")
+            
             return [ probs[self._actions.index(action)] for action in actions ]
         else:
             return probs

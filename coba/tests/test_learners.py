@@ -1,3 +1,4 @@
+from re import S
 import unittest
 from unittest.case import SkipTest
 
@@ -91,6 +92,10 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner(epsilon=0.05, adf=True, seed=20) 
         self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, None, [1,2,3,4]))
 
+    def test_predict_epsilon_adf_args(self):
+        learner = VowpalLearner("--cb_explore_adf --epsilon 0.05 --random_seed 20") 
+        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, None, [1,2,3,4]))
+
     def test_predict_epsilon_dict_context_adf(self):
         learner = VowpalLearner(epsilon=0.05, adf=True, seed=20) 
 
@@ -105,6 +110,28 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner(epsilon=0.75, adf=False, seed=30) 
 
         self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4]))
+
+    def test_predict_epsilon_not_adf_args(self):
+        learner = VowpalLearner("--cb_explore 20 --epsilon 0.75 --random_seed 20") 
+        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4]))
+
+    def test_predict_epsilon_not_adf_args_error_1(self):
+        learner = VowpalLearner("--cb_explore --epsilon 0.75 --random_seed 20")
+        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4]))
+
+        with self.assertRaises(Exception) as e:
+            self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4,5]))
+
+        self.assertTrue("--cb_explore_adf" in str(e.exception))
+
+    def test_predict_epsilon_not_adf_args_error_2(self):
+        learner = VowpalLearner("--cb_explore --epsilon 0.75 --random_seed 20")
+        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4]))
+
+        with self.assertRaises(Exception) as e:
+            self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3]))
+
+        self.assertTrue("--cb_explore_adf" in str(e.exception))
 
     def test_predict_bag_adf(self):
         learner = VowpalLearner(bag=5, adf=True, seed=30)
