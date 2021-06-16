@@ -68,7 +68,7 @@ class CobaConfig_meta(type):
             "api_keys" : collections.defaultdict(lambda:None),
             "cacher"   : "NoneCacher",
             "logger"   : { "IndentLogger": "ConsoleSink" },
-            "benchmark": {"processes": 1, "maxtasksperchild": 1, "chunk_by": "source", "file_fmt": "BenchmarkFileV2"}
+            "benchmark": {"processes": 1, "maxtasksperchild": None, "chunk_by": "source", "file_fmt": "BenchmarkFileV2"}
         }
 
         for key,value in CobaConfig_meta._load_file_configs().items():

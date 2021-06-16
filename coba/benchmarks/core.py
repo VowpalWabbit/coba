@@ -152,7 +152,7 @@ class Benchmark:
         self._processes = value
         return self
 
-    def maxtasksperchild(self, value: Optional[int] = 1) -> 'Benchmark':
+    def maxtasksperchild(self, value: Optional[int] = None) -> 'Benchmark':
         """Determines how many chunks a process can handle before it will be torn down and recreated.
         
         Args:
