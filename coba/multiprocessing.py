@@ -80,6 +80,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 stderr_writer.write([None])
 
             log_thread = Thread(target=Pipe.join(stdlog_reader, [], CobaConfig.Logger.sink).run)
+            log_thread.daemon = True
             log_thread.start()
 
             processor = MultiprocessFilter.Processor(self._filters, stdout_writer, stderr_writer, stdlog_writer, self._processes)
