@@ -2,10 +2,11 @@ from pathlib import Path
 from itertools import product
 from typing import Iterable, Sequence, cast, Optional, overload, List, Union
 
+
 from coba.learners import Learner
 from coba.simulations import Simulation, Take, Shuffle, Batch
 from coba.registry import CobaRegistry
-from coba.config import CobaConfig
+from coba.config import CobaConfig, CobaFatal
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpSource, MemorySource, DiskSource
 from coba.multiprocessing import MultiprocessFilter
 
@@ -112,7 +113,6 @@ class Benchmark:
             simulations = list(sources)
 
         self._simulations: Sequence[Source[Simulation]] = simulations
-        self._ignore_raise: bool                        = True
         self._processes: Optional[int]                  = None
         self._maxtasksperchild: Optional[int]           = None
         self._maxtasksperchild_set: bool                = False
@@ -129,17 +129,6 @@ class Benchmark:
 
         self._chunk_by = value
 
-        return self
-
-    def ignore_raise(self, value:bool=True) -> 'Benchmark':
-        """Determines how unexpected Exceptions are handled by Benchmark.
-        
-        Args:
-            value: If the value is `True` then Benchmark will exit on an exception. Otherwise
-                Benchmark will log the exception and continue running the rest of the tasks.
-        """
-
-        self._ignore_raise = value
         return self
 
     def processes(self, value:int = 1) -> 'Benchmark':
@@ -175,6 +164,7 @@ class Benchmark:
         Returns:
             See the base class for more information.
         """
+
         restored = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
 
         n_given_learners    = len(learners)
@@ -197,7 +187,7 @@ class Benchmark:
         tasks            = Tasks(self._simulations, learners, seed)
         unfinished       = Unfinished(restored)
         chunked          = ChunkByTask() if cb == 'task' else ChunkByNone() if cb == 'none' else ChunkBySource()
-        process          = Transactions(self._ignore_raise)
+        process          = Transactions()
         transaction_sink = TransactionSink(result_file, restored)
 
         if mp > 1 or mt is not None  : process = MultiprocessFilter([process], mp, mt) #type: ignore
@@ -205,7 +195,9 @@ class Benchmark:
         try:
             Pipe.join(MemorySource(preamble), []                            , transaction_sink).run()
             Pipe.join(tasks                 , [unfinished, chunked, process], transaction_sink).run()
-        except KeyboardInterrupt:
-            CobaConfig.Logger.log("Benchmark evaluation was canceled via a keyboard interrupt command.")
+        except CobaFatal:
+            raise
+        except Exception as ex:
+            CobaConfig.Logger.log_exception(ex)
 
         return transaction_sink.result

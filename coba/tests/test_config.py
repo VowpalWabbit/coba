@@ -159,7 +159,7 @@ class BasicLogger_Tests(unittest.TestCase):
         try:
             raise Exception("Test Exception")
         except Exception as ex:
-            logger.log_exception('error:',ex)
+            logger.log_exception(ex, 'error:')
 
             tb = ''.join(traceback.format_tb(ex.__traceback__))
             msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
@@ -178,7 +178,7 @@ class BasicLogger_Tests(unittest.TestCase):
         exception = Exception("Test Exception")
 
         logger.log('a')
-        logger.log_exception('',exception)
+        logger.log_exception(exception, '')
 
         tb = ''.join(traceback.format_tb(exception.__traceback__))
         msg = ''.join(traceback.TracebackException.from_exception(exception).format_exception_only())
@@ -325,7 +325,7 @@ class IndentLogger_Tests(unittest.TestCase):
         try:
             raise Exception("Test Exception")
         except Exception as ex:
-            logger.log_exception('error:',ex)
+            logger.log_exception(ex,'error:')
 
             tb = ''.join(traceback.format_tb(ex.__traceback__))
             msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
@@ -344,7 +344,7 @@ class IndentLogger_Tests(unittest.TestCase):
         exception = Exception("Test Exception")
 
         logger.log('a')
-        logger.log_exception('',exception)
+        logger.log_exception(exception,'')
 
         tb = ''.join(traceback.format_tb(exception.__traceback__))
         msg = ''.join(traceback.TracebackException.from_exception(exception).format_exception_only())

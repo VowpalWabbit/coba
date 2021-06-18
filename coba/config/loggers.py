@@ -1,5 +1,6 @@
 """Basic logging implementation and interface."""
 
+from coba.config.exceptions import CobaException
 import time
 import collections
 import traceback
@@ -29,7 +30,7 @@ class Logger(ABC):
         ...
 
     @abstractmethod
-    def log_exception(self, message: str, exception:Exception) -> None:
+    def log_exception(self, exception:Exception, message: str = "Unexpected exception:") -> None:
         ...
 
 class NoneLogger(Logger):
@@ -48,7 +49,7 @@ class NoneLogger(Logger):
     def time(self, message: str) -> 'ContextManager[Logger]':
         return self._context()
 
-    def log_exception(self, message: str, exception: Exception) -> None:
+    def log_exception(self, exception:Exception, message:str = "Unexpected exception:") -> None:
         pass
 
 class BasicLogger(Logger):
@@ -112,7 +113,7 @@ class BasicLogger(Logger):
 
         return self._time_context(message)
 
-    def log_exception(self, message:str, ex: Exception) -> None:
+    def log_exception(self, ex: Exception, message:str="Unexpected exception:") -> None:
         """log an exception if it hasn't already been logged."""
 
         # we don't want to mask any information so we're not using the formally
@@ -124,10 +125,13 @@ class BasicLogger(Logger):
         if not hasattr(ex, '__logged__'):
             setattr(ex, '__logged__', True)
 
-            tb = ''.join(traceback.format_tb(ex.__traceback__))
-            msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
+            if isinstance(ex, CobaException):
+                self.log(str(ex))
 
-            self.log(f"{message}\n\n{tb}\n  {msg}")
+            else: 
+                tb = ''.join(traceback.format_tb(ex.__traceback__))
+                msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
+                self.log(f"{message}\n\n{tb}\n  {msg}")
 
 class IndentLogger(Logger):
     """A Logger with context indentation, exception tracking and a consistent preamble."""
@@ -186,7 +190,7 @@ class IndentLogger(Logger):
             except KeyboardInterrupt:
                 raise
             except Exception as e:
-                self.log_exception(f"Exception after {round(time.time() - self._starts[-1], 2)} seconds:", e)
+                self.log_exception(e, f"Unexpected exception after {round(time.time() - self._starts[-1], 2)} seconds:")
                 raise
             finally:
                 self._starts.pop()
@@ -232,7 +236,7 @@ class IndentLogger(Logger):
 
         return self._time_context(message)
 
-    def log_exception(self, message:str, ex: Exception) -> None:
+    def log_exception(self, ex: Exception, message:str = "Unexpected exception:") -> None:
         """log an exception if it hasn't already been logged."""
 
         # we don't want to mask any information so we're not using the formally
@@ -244,7 +248,10 @@ class IndentLogger(Logger):
         if not hasattr(ex, '__logged__'):
             setattr(ex, '__logged__', True)
 
-            tb = ''.join(traceback.format_tb(ex.__traceback__))
-            msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
+            if isinstance(ex, CobaException):
+                self.log(str(ex))
+            else:
+                tb = ''.join(traceback.format_tb(ex.__traceback__))
+                msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
 
-            self.log(f"{message}\n\n{tb}\n  {msg}")
+                self.log(f"{message}\n\n{tb}\n  {msg}")

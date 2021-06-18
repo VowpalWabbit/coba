@@ -1,3 +1,4 @@
+from coba.config.loggers import BasicLogger
 import unittest
 import math
 
@@ -211,7 +212,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         sim1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(4, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         learners   = [ModuloLearner(), BrokenLearner()]
-        benchmark  = Benchmark([sim1,sim2], batch_count=1, ignore_raise=True)
+        benchmark  = Benchmark([sim1,sim2], batch_count=1)
 
         result             = benchmark.evaluate(learners)
         actual_learners    = result._learners.to_tuples()
@@ -222,7 +223,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         expected_simulations = [(0,"LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}'), (1, "LambdaSimulation", "None", "None", '"LambdaSimulation",{"Batch":{"count":1}}')]
         expected_batches     = [(0, 0, 1, 1, 3, 5, mean([0,1,2,0,1])), (1, 0, 1, 1, 3, 4, mean([3,4,5,3]))]
 
-        self.assertEqual(2, sum([int("Exception after" in item) for item in log_sink.items]))
+        self.assertEqual(2, sum([int("Unexpected exception after" in item) for item in log_sink.items]))
 
         self.assertCountEqual(actual_learners[0], expected_learners[0])
         self.assertCountEqual(actual_learners[1][:3], expected_learners[1][:3])
@@ -242,22 +243,27 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
     def test_not_picklable_learner_sans_reduce(self):
         sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner   = NotPicklableLearner()
-        benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
+        benchmark = Benchmark([sim1], batch_sizes=[2], shuffle=[1,4])
 
-        with self.assertRaises(Exception) as cm:
-            benchmark.evaluate([learner])
+        CobaConfig.Logger = BasicLogger(MemorySink())
 
-        self.assertTrue("Learners must be picklable to evaluate" in str(cm.exception))
+        benchmark.evaluate([learner])
+
+        CobaConfig.Logger.sink.items
+
+        #self.assertTrue("Learners must be picklable to evaluate" in str(cm.exception))
 
     def test_wrapped_not_picklable_learner_sans_reduce(self):
         sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner   = WrappedLearner(NotPicklableLearner())
         benchmark = Benchmark([sim1], batch_sizes=[2], ignore_raise=False, shuffle=[1,4])
 
-        with self.assertRaises(Exception) as cm:
-            benchmark.evaluate([learner])
+        CobaConfig.Logger = BasicLogger(MemorySink())
+        
+        benchmark.evaluate([learner])
 
-        self.assertTrue("Learners must be picklable to evaluate" in str(cm.exception))
+        self.assertEqual(1, len(CobaConfig.Logger.sink.items))
+        self.assertIn("pickle", CobaConfig.Logger.sink.items[0])
 
     def test_not_picklable_learner_with_reduce(self):
         sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))

@@ -5,7 +5,7 @@ from hashlib import md5
 from typing import Tuple, Sequence, Any, List, cast
 
 from coba.pipes import Source, HttpSource
-from coba.config import CobaConfig
+from coba.config import CobaConfig, CobaException
 
 from coba.simulations.core import Context, Action, ClassificationSimulation, Simulation
 
@@ -124,10 +124,11 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             return feature_rows, dense_label_col
 
         except KeyboardInterrupt:
+            #we don't want to clear the cache in the case of a KeyboardInterrupt
             raise
         
-        except Exception as e:
-            #if something went wrong we want to clear the 
+        except Exception:
+            #if something went wrong we want to clear the
             #cache just in case it was corrupted somehow
             for k in [d_key, t_key, o_key]:
                 if k is not None: CobaConfig.Cacher.rmv(k)
@@ -152,20 +153,20 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                         "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
                         "openml account at openml.org. Once a key has been obtained it should be placed within "
                         "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
-                    raise Exception(message) from None
+                    raise CobaException(message) from None
 
                 if 'authentication failed' in response.text:
                     message = (
                         "The API Key you provided no longer seems to be valid. You may need to create a new one"
                         "longing into your openml account and regenerating a key. After regenerating the new key "
                         "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
-                    raise Exception(message) from None
+                    raise CobaException(message) from None
 
             if response.status_code == 404:
                 message = (
                     "We're sorry but we were unable to find the requested dataset on openml. The most likely cause "
                     "for this is openml not providing the requested dataset in a format that COBA can process.")
-                raise Exception(message) from None
+                raise CobaException(message) from None
 
             if "Usually due to high server load" in response.text:
                 message = (
@@ -173,10 +174,10 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                     "Openml recommends that you try again in a few seconds. Additionally, if not already "
                     "done, consider setting up a DiskCache in coba config to reduce the number of openml "
                     "calls in the future.")
-                raise Exception(message) from None
+                raise CobaException(message) from None
 
             if '' == response.text:
-                raise Exception("The http response was empty. Try re-running the benchmark.") from None
+                raise CobaException("The http response was empty. Try re-running the benchmark.") from None
 
             bites = response.content
 
@@ -189,7 +190,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 f"The response from {url} did not match the given checksum {checksum}. This could be the result "
                 "of network errors or the file becoming corrupted. Please consider downloading the file again. "
                 "If the error persists you may want to manually download and reference the file.")
-            raise Exception(message) from None
+            raise CobaException(message) from None
 
         return bites
 
@@ -209,7 +210,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                     if input['name'] == 'target_feature':
                         return input['value'] #just take the first one
 
-        raise Exception(f"Openml {data_id} does not appear to be a classification dataset")
+        raise CobaException(f"Openml {data_id} does not appear to be a classification dataset")
 
 class OpenmlSimulation(Source[Simulation]):
     """A simulation created from openml data with features and labels.

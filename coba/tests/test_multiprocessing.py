@@ -1,7 +1,9 @@
+from coba.config.loggers import BasicLogger
 import timeit
 import time
 import unittest
 
+from threading import Thread
 from multiprocessing import current_process, Process
 from typing import Iterable, Any
 
@@ -15,6 +17,15 @@ class NotPicklableFilter(Filter):
 
     def filter(self, item):
         return 'a'
+
+class NotPicklableFilter2(Filter):
+    def __init__(self):
+        self._a = lambda : None
+
+    def filter(self, item):
+        return 'a'
+
+
 
 class SleepingFilter(Filter):
     def filter(self, seconds: Iterable[float]) -> Any:
@@ -32,6 +43,11 @@ class ProcessNameFilter(Filter):
 class ExceptionFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         raise Exception("Exception Filter")
+
+#this is needed for testing purposes
+if current_process().name == 'MainProcess':
+    class Test:
+        pass
 
 class MultiprocessFilter_Tests(unittest.TestCase):
 
@@ -59,8 +75,12 @@ class MultiprocessFilter_Tests(unittest.TestCase):
         timeit.repeat(lambda: Process(target=time.sleep, args=(0,)).start(), repeat=1,number=100)
 
     def test_exception(self):
-        with self.assertRaises(Exception):
-            list(MultiprocessFilter([ExceptionFilter()], 2, 1).filter(range(4)))
+        CobaConfig.Logger = BasicLogger(MemorySink())
+        
+        list(MultiprocessFilter([ExceptionFilter()], 2, 1).filter(range(4)))
+
+        for item in CobaConfig.Logger.sink.items:
+            self.assertIn("Unexpected exception:", item)
 
     def test_logging(self):
         
@@ -79,12 +99,27 @@ class MultiprocessFilter_Tests(unittest.TestCase):
         self.assertEqual(items, [ l.split(' ')[5] for l in logger_sink.items ] )
 
     def test_not_picklable_sans_reduce(self):
-        with self.assertRaises(Exception):
-            list(MultiprocessFilter([NotPicklableFilter()], 2, 1).filter(range(4)))
+        CobaConfig.Logger = BasicLogger(MemorySink())
+
+        list(MultiprocessFilter([ProcessNameFilter()], 2, 1).filter([NotPicklableFilter()]))
+
+        self.assertEqual(1, len(CobaConfig.Logger.sink.items))
+        self.assertIn("pickle", CobaConfig.Logger.sink.items[0])
 
     def test_empty_list(self):
         items = list(MultiprocessFilter([ProcessNameFilter()], 1, 1).filter([]))
         self.assertEqual(len(items), 0)
+
+    def test_attribute_error_doesnt_freeze_process(self): 
+
+        def test_function():
+            list(MultiprocessFilter([ProcessNameFilter()], 2, 1).filter([Test()]*2))
+
+        t = Thread(target=test_function)
+        t.start()
+        t.join(2)
+
+        self.assertFalse(t.is_alive())
 
 if __name__ == '__main__':
     unittest.main()

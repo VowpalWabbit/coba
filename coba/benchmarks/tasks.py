@@ -135,9 +135,6 @@ class ChunkByNone(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTas
 
 class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
 
-    def __init__(self, ignore_raise: bool) -> None:
-        self._ignore_raise = ignore_raise
-
     def filter(self, task_chunks: Iterable[Iterable[BenchmarkTask]]) -> Iterable[Any]:
 
         for task_chunk in task_chunks:
@@ -160,11 +157,12 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
         srt_sim = lambda t: t.sim_id
         grp_sim = lambda t: t.sim_id
 
-        try:
-            with CobaConfig.Logger.log(f"Processing chunk..."):
+        with CobaConfig.Logger.log(f"Processing chunk..."):
 
-                for src_id, tasks_by_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
-
+            for src_id, tasks_by_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
+                
+                try:
+                    
                     with CobaConfig.Logger.time(f"Creating source {src_id} from {source_by_id[src_id]}..."):
                         loaded_source = source_by_id[src_id].read()
 
@@ -194,18 +192,17 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                                     batch_sizes   = [ len(batch)                                             for batch in batches ]
                                     mean_rewards  = [ self._process_batch(batch, learner, simulation.reward) for batch in batches ]
                                     yield Transaction.batch(sim_id, lrn_id, C=context_sizes, A=action_counts, N=batch_sizes, reward=mean_rewards)
+                            
                             except Exception as e:
-                                CobaConfig.Logger.log_exception("Unhandled exception:", e)
-                                if not self._ignore_raise: raise e
+                                CobaConfig.Logger.log_exception(e)
+
                             finally:
                                 del learner_ids[i]
                                 del learners[i]
+                
+                except Exception as e:
+                    CobaConfig.Logger.log_exception(e)
 
-        except KeyboardInterrupt:
-            raise
-        except Exception as e:
-            CobaConfig.Logger.log_exception("unhandled exception:", e)
-            if not self._ignore_raise: raise e
 
     def _process_batch(self, batch, learner, reward) -> float:
         
