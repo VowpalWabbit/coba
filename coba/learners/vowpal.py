@@ -239,7 +239,7 @@ class VowpalLearner(Learner):
 
         actions = self._get_actions(key)
         
-        self._vw.learn(self._learn_format(probability, actions, context, action, reward))
+        self._vw.learn(self._learn_format(self._adf, probability, actions, context, action, reward))
 
     def _create_format(self, actions) -> str:
         
