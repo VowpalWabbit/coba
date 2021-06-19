@@ -326,7 +326,7 @@ class Result:
             Y     = [ sum(z)/len(z) for z in Z ]
             X     = list(range(1,len(Y)+1))
 
-            start_idx = int(start*len(X))
+            start_idx = int(start*len(X)) if start < 1 else int(start)
 
             X = X[start_idx:]
             Y = Y[start_idx:]

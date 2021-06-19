@@ -13,6 +13,10 @@ super_worker = multiprocessing.pool.worker #type: ignore
 def worker(inqueue, outqueue, initializer=None, initargs=(), maxtasks=None, wrap_exception=False):
         try:
             super_worker(inqueue, outqueue, initializer, initargs, maxtasks, wrap_exception)
+        except KeyboardInterrupt:
+            #we handle this exception because otherwise it is thrown and written to console
+            #by handling it ourself we can prevent it from being written to console
+            sys.exit(2000)
         except AttributeError:
             #we handle this exception because otherwise it is thrown and written to console
             #by handling it ourself we can prevent it from being written to console
