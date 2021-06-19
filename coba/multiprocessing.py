@@ -90,12 +90,12 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                                 MyPool._missing_error_definition_error_is_new = False
 
                                 message = (
-                                    "Coba attempted to process your benchmark on multiple processes and the pickle module was unable to "
-                                    "find all the class definitions that it needed to unpickle the message. The two most common causes of "
-                                    "this error are: 1) using a learner or simulation defined in a Jupyter Notebook cell or 2) a necessary "
-                                    "class definition existing inside the if __name__=='__main__': clause in the main execution script. In "
+                                    "Coba attempted to evaluate your benchmark in multiple processes but the pickle module was unable to "
+                                    "find all the definitions needed to pass the tasks to the processes. The two most common causes of "
+                                    "this error are: 1) a learner or simulation is defined in a Jupyter Notebook cell or 2) a necessary "
+                                    "class definition exists inside the `__name__=='__main__'` code block in the main execution script. In "
                                     "either case there are two simple solutions: 1) evalute your benchmark in a single processed with no "
-                                    "limit on child tasks or 2) define all you classes in a separate python script that is imported at when "
+                                    "limit on child tasks or 2) define all you classes in a separate python file that is imported when "
                                     "evaluating."                                    
                                 )
 
