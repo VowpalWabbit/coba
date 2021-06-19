@@ -117,7 +117,10 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                     # handle ctrl-c without hanging 
                     #   > don't call result.get when KeyboardInterrupt has been hit
                     #   > handle EOFError,BrokenPipeError errors with queue since ctr-c kills manager
-                    # handle AttributeErrors
+                    # handle AttributeErrors. These occure when... (this is handled by shadowing several pool methods)
+                    #   > a class that is defined in a Jupyter Notebook cell is pickled
+                    #   > a class that is defined inside the __name__=='__main__' block is pickeled
+                    # handle Benchmark.evaluate not being called inside of __name__=='__main__' (this is handled by a big try/catch)
 
                     def done_or_failed(results_or_exception=None):
 
@@ -164,7 +167,6 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                             pass
                         raise
                     finally:
-
                         pool.join()
                         log_thread.join()
 
