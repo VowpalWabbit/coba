@@ -199,6 +199,7 @@ class Result:
         learner_pattern:Union[str,int] = ".*", 
         span:int = None,
         start:Union[int,float]=0.05,
+        end:Union[int,float] = 1.,
         err_every:Union[int,float]=.05,
         err_type:str=None,
         figsize=(9,6),
@@ -309,6 +310,7 @@ class Result:
         if not progressives:
             CobaConfig.Logger.log("No interaction data was found for plot_learners.")
             return
+        
         full_figure = ax is None
 
         if full_figure:
@@ -326,11 +328,19 @@ class Result:
             Y     = [ sum(z)/len(z) for z in Z ]
             X     = list(range(1,len(Y)+1))
 
-            start_idx = int(start*len(X)) if start < 1 else int(start)
+            start_idx = int(start*len(X)) if start <  1 else int(start)
+            end_idx   = int(end*len(X))   if end   <= 1 else int(end)
 
-            X = X[start_idx:]
-            Y = Y[start_idx:]
-            Z = Z[start_idx:]
+            end_idx   = len(X) if end_idx   > len(X) else end_idx
+            start_idx = 0      if start_idx < 0      else start_idx
+
+            if start_idx >= end_idx:
+                CobaConfig.Logger.log("The plot's selected end is greater than its start making plotting impossible.")
+                return
+
+            X = X[start_idx:end_idx]
+            Y = Y[start_idx:end_idx]
+            Z = Z[start_idx:end_idx]
 
             if len(X) == 0: continue
 
@@ -372,6 +382,7 @@ class Result:
         learner_pattern:str = ".*", 
         span:int=None,
         start:Union[int,float]=0.05,
+        end:Union[int,float] = 1.,
         figsize=(8,6)) -> None:
         """This plots the performance of a single Learner on multiple shuffles of the same source. It gives a sense of the
             variance in peformance for the learner on the given simulation source. This plot is valuable if looking for a 
@@ -477,10 +488,18 @@ class Result:
             Y     = shuffle
             X     = list(range(1,len(Y)+1))
 
-            start_idx = int(start*len(X)) if start < 1 else int(start)
+            start_idx = int(start*len(X)) if start <  1 else int(start)
+            end_idx   = int(end*len(X))   if end   <= 1 else int(end)
 
-            X = X[start_idx:]
-            Y = Y[start_idx:]
+            end_idx   = len(X) if end_idx   > len(X) else end_idx
+            start_idx = 0      if start_idx < 0      else start_idx
+
+            if start_idx >= end_idx:
+                CobaConfig.Logger.log("The Plot's selected end is greater than its start making plotting impossible.")
+                return
+
+            X = X[start_idx:end_idx]
+            Y = Y[start_idx:end_idx]
 
             ax.plot(X, Y, label='_nolegend_', color=color, alpha=0.15)
 

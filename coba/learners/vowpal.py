@@ -9,6 +9,7 @@ import collections
 from os import devnull
 from typing import Any, Dict, Union, Sequence, overload, cast, Optional
 
+from coba.config import CobaException
 from coba.utilities import PackageChecker, redirect_stderr
 from coba.simulations import Context, Action
 from coba.learners.core import Learner, Key
@@ -142,7 +143,7 @@ class VowpalLearner(Learner):
             self._adf  = "--cb_explore_adf" in args[0]
             self._args = cast(str,args[0])
 
-            self._args = self._args.replace("--cb_explore_adf","")
+            self._args = re.sub("--cb_explore_adf\s+", '', self._args, count=1)
             self._args = re.sub("--cb_explore(\s+\d+)?\s+", '', self._args, count=1)
 
         elif 'epsilon' in kwargs:
@@ -166,7 +167,7 @@ class VowpalLearner(Learner):
 
         self._actions: Any = None
         self._vw           = None
-        
+
     @property
     def family(self) -> str:
         """The family of the learner.
@@ -183,9 +184,7 @@ class VowpalLearner(Learner):
         See the base class for more information
         """
 
-        explore = "--cb_explore_adf" if self._adf else f"--cb_explore"
-
-        return {'args': explore + " " + self._args}
+        return {'args': self._create_format(None)}
 
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
@@ -201,31 +200,29 @@ class VowpalLearner(Learner):
 
         if self._vw is None:
             from vowpalwabbit import pyvw #type: ignore
-
-            cb_explore = "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}"
-            
             # vowpal has an annoying warning that is written to stderr whether or not we provide
             # the --quiet flag. Therefore, we temporarily redirect all stderr output to null so that
             # this warning isn't shown during creation. It should be noted this isn't thread-safe
             # so if you are here because of strange problems with threads we may just need to suck
             # it up and accept that there will be an obnoxious warning message.
             with open(devnull, 'w') as f, redirect_stderr(f):
-                self._vw = pyvw.vw(cb_explore + " " + self._args + " --quiet")
+                self._vw = pyvw.vw(self._create_format(actions) + " --quiet")
 
         assert self._vw is not None, "Something went wrong and vw was not initialized"
 
-        probs = self._vw.predict(self._predict_format(context, actions))
+        probs = self._vw.predict(VowpalLearner._predict_format(self._adf, context, actions))
 
         self._set_actions(key, actions)
 
-        if not self._adf:
-            #in this case probs are always in order of self._actions but we want to return in order of actions
-            if any(action not in self._actions for action in actions) or len(actions) != len(self._actions):
-                raise Exception("It appears that actions are changing between predictions. When this happens you need to use VW's `--cb_explore_adf`.")
-            
-            return [ probs[self._actions.index(action)] for action in actions ]
-        else:
+        if self._adf:
             return probs
+
+        else:
+            if any(action not in self._actions for action in actions) or len(actions) != len(self._actions):
+                raise CobaException("It appears that actions are changing between predictions. When this happens you need to use VW's `--cb_explore_adf`.")
+
+            #in this case probs will be in order of self._actions but we want to return in order of actions
+            return [ probs[self._actions.index(action)] for action in actions ]            
 
     def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         """Learn from the given interaction.
@@ -244,29 +241,37 @@ class VowpalLearner(Learner):
         
         self._vw.learn(self._learn_format(probability, actions, context, action, reward))
 
-    def _predict_format(self, context, actions) -> str:
-        if self._adf:
+    def _create_format(self, actions) -> str:
+        
+        cb_explore = "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}" if actions else "--cb_explore"
+        
+        return cb_explore + " " + self._args
+
+    @staticmethod
+    def _predict_format(adf, context, actions) -> str:
+        if adf:
             vw_context = None if context is None else f"shared |s {_features_format(context)}"
             vw_actions = [ f"|a {_features_format(a)}" for a in actions]
             return "\n".join(filter(None,[vw_context, *vw_actions]))
         else:
             return f"|s {_features_format(context)}"
 
-    def _learn_format(self, prob, actions, context, action, reward) -> str:
-        if self._adf:
-            vw_context   = None if context is None else f"shared |s {_features_format(context)}"
-            vw_rewards  = [ "" if a != action else f"0:{-reward}:{prob}" for a in actions ]
-            vw_actions = [ f"|a {_features_format(a)}" for a in actions]
-            vw_observed = [ f"{r} |a {a}" for r,a in zip(vw_rewards,vw_actions) ]
+    @staticmethod
+    def _learn_format(adf, prob, actions, context, action, reward) -> str:
+        if adf:
+            vw_context  = None if context is None else f"shared |s {_features_format(context)}"
+            vw_rewards  = [ "" if a != action else f"0:{-reward}:{prob} " for a in actions ]
+            vw_actions  = [ f"|a {_features_format(a)}" for a in actions]
+            vw_observed = [ f"{r}{a}" for r,a in zip(vw_rewards,vw_actions) ]
             return "\n".join(filter(None,[vw_context, *vw_observed]))
         else:
             return f"{actions.index(action)+1}:{-reward}:{prob} |s {_features_format(context)}"
 
     def _set_actions(self, key: Key, actions: Sequence[Action]) -> None:
-        
+
         if self._actions is None and not self._adf:
             self._actions = actions
-        
+
         if self._actions is None and self._adf:
             self._actions = {}
 
