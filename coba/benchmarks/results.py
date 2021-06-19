@@ -298,8 +298,8 @@ class Result:
 
             else:
                 alpha = 2/(1+span)
-                cumwindow  = list(accumulate(rewards         , lambda a,c: c + (1-alpha)*a))
-                cumdivisor = list(accumulate([1]*len(rewards), lambda a,c: c + (1-alpha)*a))
+                cumwindow  = list(accumulate(rewards          , lambda a,c: c + (1-alpha)*a))
+                cumdivisor = list(accumulate([1.]*len(rewards), lambda a,c: c + (1-alpha)*a)) #type: ignore
 
             progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
 
@@ -348,7 +348,7 @@ class Result:
             if not err_every:
                ax.plot(X, Y,label=label)
             else:
-                yerr = SE if err_type.lower() == 'se' else SD
+                yerr = SE if err_type.lower() == 'se' else SD #type: ignore
                 ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(err_start,err_every), label=label)
 
         if full_figure:
@@ -477,7 +477,7 @@ class Result:
             Y     = shuffle
             X     = list(range(1,len(Y)+1))
 
-            start_idx = int(start*len(X)) if start < 1 else start
+            start_idx = int(start*len(X)) if start < 1 else int(start)
 
             X = X[start_idx:]
             Y = Y[start_idx:]

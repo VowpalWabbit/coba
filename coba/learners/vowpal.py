@@ -34,7 +34,7 @@ def _features_format(features: Union[Context,Action]) -> str:
     if isinstance(features, dict):
         return " ". join([_feature_format(k,v) for k,v in features.items() if v is not None and v != 0 ])
 
-    if isinstance(features, tuple) and len(features) == 2 and isinstance(features[0], tuple):
+    if isinstance(features, tuple) and len(features) == 2 and isinstance(features[0], tuple) and isinstance(features[1], tuple):
         return " ". join([_feature_format(k,v) for k,v in zip(features[0], features[1]) if v is not None and v != 0 ])
 
     if not isinstance(features, collections.Sequence):

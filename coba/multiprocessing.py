@@ -8,7 +8,7 @@ from typing          import Sequence, Iterable, Any
 from coba.config import CobaConfig, IndentLogger, CobaFatal
 from coba.pipes  import Filter, Sink, Pipe, StopPipe, QueueSource, QueueSink
 
-super_worker = multiprocessing.pool.worker
+super_worker = multiprocessing.pool.worker #type: ignore
 
 def worker(inqueue, outqueue, initializer=None, initargs=(), maxtasks=None, wrap_exception=False):
         try:
@@ -18,7 +18,7 @@ def worker(inqueue, outqueue, initializer=None, initargs=(), maxtasks=None, wrap
             #by handling it ourself we can prevent it from being written to console
             sys.exit(1000) #this is the exitcode we use to indicate when we're exiting due to import errors
 
-multiprocessing.pool.worker = worker
+multiprocessing.pool.worker = worker #type: ignore
 
 class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
