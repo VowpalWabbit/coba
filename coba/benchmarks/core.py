@@ -195,6 +195,8 @@ class Benchmark:
         try:
             Pipe.join(MemorySource(preamble), []                            , transaction_sink).run()
             Pipe.join(tasks                 , [unfinished, chunked, process], transaction_sink).run()
+        except KeyboardInterrupt:
+            CobaConfig.Logger.log("Benchmark evaluation was manually aborted via Ctrl-C")
         except CobaFatal:
             raise
         except Exception as ex:
