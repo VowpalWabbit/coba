@@ -1,13 +1,12 @@
-from coba.config.loggers import BasicLogger
 import timeit
 import time
 import unittest
 
-from threading import Thread
+from threading       import Thread
 from multiprocessing import current_process, Process
-from typing import Iterable, Any
+from typing          import Iterable, Any
 
-from coba.config          import CobaConfig, IndentLogger
+from coba.config          import CobaConfig, IndentLogger, BasicLogger
 from coba.pipes           import Filter, MemorySink
 from coba.multiprocessing import MultiprocessFilter
 

@@ -31,7 +31,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
             self._n_proc = n_proc
 
         def process(self, item) -> None:
-            
+
             #One problem with this is that the settings on the main thread's logger 
             #aren't propogated to this logger. For example, with_stamp and with_name.
             #A possible solution is to deep copy the CobaConfig.Logger, set its `sink`
@@ -123,12 +123,16 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                     # handle Benchmark.evaluate not being called inside of __name__=='__main__' (this is handled by a big try/catch)
 
                     def done_or_failed(results_or_exception=None):
+                        #This method is called one time at the completion of map_async
+                        #in the case that one of our jobs threw an exception the argument
+                        #will contain an exception otherwise it will be the returned results
+                        #of all the jobs. This method is executed on a thread in the Main context.
 
                         if isinstance(results_or_exception, Exception):
                             from coba.config import CobaConfig
 
                             if "Can't pickle" in str(results_or_exception) or "Pickling" in str(results_or_exception):
-                                
+
                                 message = (
                                     str(results_or_exception) + ". Coba attempted to process your Benchmark on multiple processes and "
                                     "the named class was not able to be pickled. This problem can be fixed in one of two ways: 1) "
@@ -141,7 +145,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                                 CobaConfig.Logger.log(message)
                             else:
                                 CobaConfig.Logger.log_exception(results_or_exception)
-                            
+
                         stdout_writer.write([None])
                         stdlog_writer.write([None])
 
