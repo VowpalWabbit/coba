@@ -7,7 +7,7 @@ import re
 import collections
 
 from os import devnull
-from typing import Any, Dict, Union, Sequence, overload, cast
+from typing import Any, Dict, Union, Sequence, overload, cast, Optional
 
 from coba.utilities import PackageChecker, redirect_stderr
 from coba.simulations import Context, Action
@@ -71,7 +71,7 @@ class VowpalLearner(Learner):
     """
 
     @overload
-    def __init__(self, *, epsilon: float = 0.1, adf: bool = True, seed: int = None) -> None:
+    def __init__(self, *, epsilon: float = 0.1, adf: bool = True, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             epsilon: A value between 0 and 1. If provided exploration will follow epsilon-greedy.
@@ -79,7 +79,7 @@ class VowpalLearner(Learner):
         ...
 
     @overload
-    def __init__(self, *, bag: int, adf: bool = True, seed: int = None) -> None:
+    def __init__(self, *, bag: int, adf: bool = True, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             bag: An integer value greater than 0. This value determines how many separate policies will be
@@ -89,7 +89,7 @@ class VowpalLearner(Learner):
         ...
 
     @overload
-    def __init__(self, *, cover: int, seed: int = None) -> None:
+    def __init__(self, *, cover: int, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             cover: An integer value greater than 0. This value value determines how many separate policies will be
@@ -104,7 +104,7 @@ class VowpalLearner(Learner):
         ...
 
     @overload
-    def __init__(self, *, softmax: float, seed: int = None) -> None:
+    def __init__(self, *, softmax: float, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             softmax: An exploration parameter with 0 indicating uniform exploration is desired and infinity
@@ -132,6 +132,9 @@ class VowpalLearner(Learner):
 
         interactions = "--interactions ssa --interactions sa --ignore_linear s"
 
+        if not args and 'seed' not in kwargs:
+            kwargs['seed'] = 1
+
         if not args and all(e not in kwargs for e in ['epsilon', 'softmax', 'bag', 'cover', 'args']): 
             kwargs['epsilon'] = 0.1
 
@@ -158,7 +161,7 @@ class VowpalLearner(Learner):
             self._adf  = False
             self._args = interactions + f" --cover {kwargs['cover']}"
 
-        if 'seed' in kwargs:
+        if 'seed' in kwargs and kwargs['seed'] is not None:
             self._args += f" --random_seed {kwargs['seed']}"
 
         self._actions: Any = None
