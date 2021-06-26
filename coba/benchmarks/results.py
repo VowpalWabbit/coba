@@ -212,11 +212,9 @@ class Result:
             source_pattern: The pattern to match when determining which simulations to include in the plot. The "source" 
                 matched against is either the "source" column in the simulations table or the first item in the list in 
                 the simulation 'pipes' column. The simulations can be seen most easily by Result.simulations.to_pandas().
-                Matching supports the wildcards which match everything (*) and which match only one wild character (?).
             learner_pattern: The pattern to match against the 'full_name' column in learners to determine which learners
-                to include in the plot. In the case of multiple matches only the last match is kept. Matching supports
-                wildcards which match everything (*) and which match only one wild character (?) . The leaners table in
-                this Result can be seen at Result.learners.to_pandas().
+                to include in the plot. In the case of multiple matches only the last match is kept. The learners table in
+                Result can be examined via result.learners.to_pandas().
             span: In general this indicates how many previous evaluations to average together. In practice this works
                 identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
                 rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
@@ -224,6 +222,8 @@ class Result:
             start: Determines at which interaction the plot will start at. If start is greater than 1 we assume start is
                 an interaction index. If start is less than 1 we assume start is the percent of interactions to skip
                 before starting the plot.
+            end: Determines at which interaction the plot will stop at. If end is greater than 1 we assume end is
+                an interaction index. If end is less than 1 we assume end is the percent of interactions to end on.
             err_every: Determines frequency of bars indicating the standard deviation of the population should be drawn. 
                 Standard deviation gives a sense of how well the plotted average represents the underlying distribution. 
                 Standard deviation is most valuable when plotting against multiple simulations. If plotting against a single 
@@ -335,7 +335,7 @@ class Result:
             start_idx = 0      if start_idx < 0      else start_idx
 
             if start_idx >= end_idx:
-                CobaConfig.Logger.log("The plot's selected end is greater than its start making plotting impossible.")
+                CobaConfig.Logger.log("The plot's given end <= start making plotting impossible.")
                 return
 
             X = X[start_idx:end_idx]
@@ -383,6 +383,8 @@ class Result:
         span:int=None,
         start:Union[int,float]=0.05,
         end:Union[int,float] = 1.,
+        err_every:Union[int,float]=.05,
+        err_type:str=None,
         figsize=(8,6)) -> None:
         """This plots the performance of a single Learner on multiple shuffles of the same source. It gives a sense of the
             variance in peformance for the learner on the given simulation source. This plot is valuable if looking for a 
@@ -392,11 +394,9 @@ class Result:
             source_pattern: The pattern to match when determining which simulations to include in the plot. The "source" 
                 matched against is either the "source" column in the simulations table or the first item in the list in 
                 the simulation 'pipes' column. The simulations can be seen most easily by Result.simulations.to_pandas().
-                Matching supports the wildcards which match everything (*) and which match only one wild character (?).
             learner_pattern: The pattern to match against the 'full_name' column in learners to determine which learners
-                to include in the plot. In the case of multiple matches only the last match is kept. Matching supports
-                wildcards which match everything (*) and which match only one wild character (?) . The leaners table in
-                this Result can be seen at Result.learners.to_pandas().
+                to include in the plot. In the case of multiple matches only the last match is kept. The learners table in
+                Result can be examined via result.learners.to_pandas().
             span: In general this indicates how many previous evaluations to average together. In practice this works
                 identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
                 rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
@@ -404,6 +404,16 @@ class Result:
             start: Determines at which interaction the plot will start at. If start is greater than 1 we assume start is
                 an interaction index. If start is less than 1 we assume start is the percent of interactions to skip
                 before starting the plot.
+            end: Determines at which interaction the plot will stop at. If end is greater than 1 we assume end is
+                an interaction index. If end is less than 1 we assume end is the percent of interactions to end on.
+            err_every: Determines frequency of bars indicating the standard deviation of the population should be drawn. 
+                Standard deviation gives a sense of how well the plotted average represents the underlying distribution. 
+                Standard deviation is most valuable when plotting against multiple simulations. If plotting against a single 
+                simulation standard error may be a more useful indicator of confidence. The value for sd_every should be
+                between 0 to 1 and will determine how frequently the standard deviation bars are drawn.
+            err_type: Determines what the error bars are. Valid types are `None`, 'se', and 'sd'. If err_type is None then 
+                plot will use SEM when there is only one source simulation otherwise it will use SD. Otherwise plot will
+                display the standard error of the mean for 'se' and the standard deviation for 'sd'.
 
         """
 
@@ -495,7 +505,7 @@ class Result:
             start_idx = 0      if start_idx < 0      else start_idx
 
             if start_idx >= end_idx:
-                CobaConfig.Logger.log("The Plot's selected end is greater than its start making plotting impossible.")
+                CobaConfig.Logger.log("The plot's given end <= start making plotting impossible.")
                 return
 
             X = X[start_idx:end_idx]
@@ -504,7 +514,7 @@ class Result:
             ax.plot(X, Y, label='_nolegend_', color=color, alpha=0.15)
 
         plt.gca().set_prop_cycle(None)
-        self.plot_learners(source_pattern, learner_pattern, span=span, start=start, ax=ax)
+        self.plot_learners(source_pattern, learner_pattern, span=span, start=start, end=end, err_every=err_every, err_type=err_type, ax=ax)
 
         ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
 
