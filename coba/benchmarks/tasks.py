@@ -1,3 +1,4 @@
+import time
 from copy import deepcopy
 from statistics import mean
 from itertools import groupby, product, count, chain
@@ -92,9 +93,8 @@ class Tasks(Source[Iterable[BenchmarkTask]]):
         source_ids: Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
 
         for (sim_id,sim), (lrn_id,lrn) in product(enumerate(self._simulations), enumerate(self._learners)):
-
             sim_source = sim._source if isinstance(sim, (Pipe.SourceFilters)) else sim
-            yield BenchmarkTask(source_ids[sim_source], sim_id, lrn_id, sim, deepcopy(lrn), self._seed)                
+            yield BenchmarkTask(source_ids[sim_source], sim_id, lrn_id, sim, lrn, self._seed)                
 
 class Unfinished(Filter[Iterable[BenchmarkTask], Iterable[BenchmarkTask]]):
     def __init__(self, restored: Result) -> None:
@@ -183,7 +183,7 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                         for i in sorted(range(len(learners)), reverse=True):
 
                             lrn_id  = learner_ids[i]
-                            learner = learners[i]
+                            learner = deepcopy(learners[i])
 
                             try:
                                 with CobaConfig.Logger.time(f"Evaluating learner {lrn_id} on Simulation {sim_id}..."):
