@@ -132,10 +132,10 @@ class PackedTable_Tests(unittest.TestCase):
 
 class Result_Tests(unittest.TestCase):
 
-    def test_has_batches_key(self):
+    def test_has_interactions_key(self):
         result = Result.from_transactions([
-            Transaction.batch(0, 1, a='A', reward=[1,1]),
-            Transaction.batch(0, 2, b='B', reward=[1,1])
+            Transaction.interactions(0, 1, a='A', reward=[1,1]),
+            Transaction.interactions(0, 2, b='B', reward=[1,1])
         ])
 
         self.assertEqual("{'Learners': 0, 'Simulations': 0, 'Interactions': 4}", str(result))

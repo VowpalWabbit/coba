@@ -94,7 +94,7 @@ class Unifinshed_Tests(unittest.TestCase):
 
         restored = Result()
 
-        restored._simulations[0]     = dict(batch_count=1)
+        restored._simulations[0]      = dict()
         restored._interactions[(0,1)] = dict()
 
         sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))

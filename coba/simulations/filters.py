@@ -1,12 +1,12 @@
 import json
 import collections
 
-from typing import Optional, Sequence, Tuple, overload, cast, Union
+from typing import Optional, Sequence, Tuple, cast, Union
 
 from coba.utilities import PackageChecker
 from coba.random import CobaRandom
 from coba.pipes import Filter
-from coba.simulations.core import Simulation, MemorySimulation, BatchedSimulation, Interaction
+from coba.simulations.core import Simulation, MemorySimulation, Interaction
 
 class Shuffle(Filter[Simulation,Simulation]):
     def __init__(self, seed:Optional[int]) -> None:
@@ -43,53 +43,6 @@ class Take(Filter[Simulation,Simulation]):
 
     def __repr__(self) -> str:
         return f'{{"Take":{json.dumps(self._count)}}}'
-
-class Batch(Filter[Simulation,BatchedSimulation]):
-    
-    @overload
-    def __init__(self,*,count: int): ...
-
-    @overload
-    def __init__(self,*,size: int): ...
-
-    @overload
-    def __init__(self,*,sizes: Sequence[int]): ...
-
-    def __init__(self, **kwargs) -> None:
-        
-        if not any(key in kwargs for key in ['count', 'size', 'sizes']):
-            raise ValueError(f"Invalid parameters for Batch: {kwargs}. A count, size or sizes kwarg was expected.")
-
-        self._kwargs = kwargs
-
-        self._count  = cast(Optional[int], kwargs.get("count", None))
-        self._size   = cast(Optional[int], kwargs.get("size", None))
-        self._sizes  = cast(Optional[Sequence[int]], kwargs.get("sizes", None))
-
-    def filter(self, item: Simulation) -> BatchedSimulation:
-        
-        sizes: Optional[Sequence[int]] = None
-
-        if self._count is not None:
-            n         = len(item.interactions)
-            sizes     = [int(float(n)/(self._count))] * self._count
-            remainder = n - sum(sizes)
-            for i in range(remainder): sizes[int(i*len(sizes)/remainder)] += 1
-        
-        if self._size is not None:
-            n     = len(item.interactions)
-            sizes = [self._size] * int(n/self._size)
-
-        if self._sizes is not None:
-            sizes = self._sizes
-
-        if sizes is None:
-            raise Exception("We were unable to determine an approriate batch sizes")
-        else:
-            return BatchedSimulation(item, sizes)
-
-    def __repr__(self) -> str:
-        return f'{{"Batch":{json.dumps(self._kwargs, separators=(",",":"))}}}'
 
 class PCA(Filter[Simulation,Simulation]):
 

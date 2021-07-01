@@ -280,7 +280,6 @@ class Result:
         if err_type is None and len(sources) == 1: err_type = 'se'
         if err_type is None and len(sources) >= 2: err_type = 'sd'
 
-        max_batch_N = 1
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
         for simulation_id, learner_id in product(simulation_ids,learner_ids):
@@ -365,7 +364,7 @@ class Result:
             ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
             ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward")
             ax.set_ylabel("Reward")
-            ax.set_xlabel("Interactions" if max_batch_N ==1 else "Batches")
+            ax.set_xlabel("Interactions")
 
             #make room for the legend
             scale = 0.65
@@ -447,7 +446,6 @@ class Result:
             if re.search(learner_pattern,learner['full_name']):
                 learner_id = learner['learner_id']
 
-        max_batch_N = 1
         progressives: List[Sequence[float]] = []
 
         if len(simulation_ids) == 0:
@@ -523,7 +521,7 @@ class Result:
 
         ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + f" Reward for '{source}'")
         ax.set_ylabel("Reward")
-        ax.set_xlabel("Interactions" if max_batch_N ==1 else "Batches")
+        ax.set_xlabel("Interactions")
 
         #make room for the legend
         scale = 0.85

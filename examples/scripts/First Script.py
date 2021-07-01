@@ -18,7 +18,7 @@ if __name__ == '__main__':
     ]
 
     #Then we define the simulations that we want to test our learners on
-    simulations = [ ValidationSimulation(300, context_features=True, action_features=False) ]
+    simulations = [ ValidationSimulation(300, context_features=True, action_features=False, seed=1000) ]
 
     #And also define a collection of seeds used to shuffle our simulations
     seeds = [0,1,2,3]

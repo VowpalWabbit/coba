@@ -1,11 +1,4 @@
-"""The data.statistics module contains algorithms and methods to calculate statistics."""
-
-import collections
-
-from math import isnan, sqrt, isclose, trunc, ceil, floor
-from statistics import mean, variance
-from numbers import Real, Rational, Complex
-from typing import Sequence, Union, Any, overload, cast
+"""The coba.statistics module contains algorithms and methods to calculate various statistics."""
 
 class OnlineVariance():
     """Calculate sample variance in an online fashion.

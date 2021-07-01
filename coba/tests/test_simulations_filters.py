@@ -3,8 +3,7 @@ import unittest
 from itertools import repeat
 
 from coba.config import CobaConfig, NoneLogger
-from coba.simulations import Interaction, MemoryReward, MemorySimulation, Shuffle, Take, Batch, PCA, Sort
-
+from coba.simulations import Interaction, MemoryReward, MemorySimulation, Shuffle, Take, PCA, Sort
 
 CobaConfig.Logger = NoneLogger()
 
@@ -99,106 +98,6 @@ class Take_Tests(unittest.TestCase):
     def test_repr(self):
         self.assertEqual('{"Take":2}', str(Take(2)))
         self.assertEqual('{"Take":null}', str(Take(None)))
-
-class Batch_Tests(unittest.TestCase):
-
-    def test_size_batch1(self):
-        interactions = list(map(Interaction, range(3), repeat(1), repeat([1,2])))
-        reward       = MemoryReward([ (0,1,3), (0,2,3), (1,1,4), (1,2,4), (2,1,5), (2,2,5) ])
-
-        simulation = MemorySimulation(interactions,reward)
-        batch_simulation = Batch(size=1).filter(simulation)
-
-        self.assertEqual(3, len(batch_simulation.interaction_batches))
-
-        self.assertEqual(1, len(batch_simulation.interaction_batches[0]))
-        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
-
-        self.assertEqual(1, len(batch_simulation.interaction_batches[1]))
-        self.assertEqual(1, batch_simulation.interaction_batches[1][0].key)
-
-        self.assertEqual(1, len(batch_simulation.interaction_batches[2]))
-        self.assertEqual(2, batch_simulation.interaction_batches[2][0].key)
-
-    def test_size_batch2(self):
-        interactions = list(map(Interaction, range(3), repeat(1), repeat([1,2])))
-        reward       = MemoryReward([ (0,1,3), (0,2,3), (1,1,4), (1,2,4), (2,1,5), (2,2,5) ])
-
-        simulation = MemorySimulation(interactions,reward)
-        batch_simulation = Batch(size=2).filter(simulation)
-
-        self.assertEqual(1, len(batch_simulation.interaction_batches))
-
-        self.assertEqual(2, len(batch_simulation.interaction_batches[0]))
-        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
-        self.assertEqual(1, batch_simulation.interaction_batches[0][1].key)
-
-    def test_size_batch3(self):
-        interactions = list(map(Interaction, range(3), repeat(1), repeat([1,2])))
-        reward       = MemoryReward([ (0,1,3), (0,2,3), (1,1,4), (1,2,4), (2,1,5), (2,2,5) ])
-
-        simulation = MemorySimulation(interactions,reward)
-        batch_simulation = Batch(size=3).filter(simulation)
-
-        self.assertEqual(1, len(batch_simulation.interaction_batches))
-
-        self.assertEqual(3, len(batch_simulation.interaction_batches[0]))
-        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
-        self.assertEqual(1, batch_simulation.interaction_batches[0][1].key)
-        self.assertEqual(2, batch_simulation.interaction_batches[0][2].key)
-
-    def test_count_batch1(self):
-        interactions = list(map(Interaction, range(3), repeat(1), repeat([1,2])))
-        reward       = MemoryReward([ (0,1,3), (0,2,3), (1,1,4), (1,2,4), (2,1,5), (2,2,5) ])
-
-        simulation = MemorySimulation(interactions,reward)
-        batch_simulation = Batch(count=1).filter(simulation)
-
-        self.assertEqual(1, len(batch_simulation.interaction_batches))
-
-        self.assertEqual(3, len(batch_simulation.interaction_batches[0]))
-        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
-        self.assertEqual(1, batch_simulation.interaction_batches[0][1].key)
-        self.assertEqual(2, batch_simulation.interaction_batches[0][2].key)
-
-    def test_count_batch2(self):
-        interactions = list(map(Interaction, range(3), repeat(1), repeat([1,2])))
-        reward       = MemoryReward([ (0,1,3), (0,2,3), (1,1,4), (1,2,4), (2,1,5), (2,2,5) ])
-
-        simulation = MemorySimulation(interactions,reward)
-        batch_simulation = Batch(count=2).filter(simulation)
-
-        self.assertEqual(2, len(batch_simulation.interaction_batches))
-
-        self.assertEqual(2, len(batch_simulation.interaction_batches[0]))
-        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
-        self.assertEqual(1, batch_simulation.interaction_batches[0][1].key)
-        
-        self.assertEqual(1, len(batch_simulation.interaction_batches[1]))
-        self.assertEqual(2, batch_simulation.interaction_batches[1][0].key)
-
-    def test_count_batch3(self):
-        interactions = list(map(Interaction, range(3), repeat(1), repeat([1,2])))
-        reward       = MemoryReward([ (0,1,3), (0,2,3), (1,1,4), (1,2,4), (2,1,5), (2,2,5) ])
-
-        simulation = MemorySimulation(interactions,reward)
-        batch_simulation = Batch(count=3).filter(simulation)
-
-        self.assertEqual(3, len(batch_simulation.interaction_batches))
-
-        self.assertEqual(1, len(batch_simulation.interaction_batches[0]))
-        self.assertEqual(0, batch_simulation.interaction_batches[0][0].key)
-
-        self.assertEqual(1, len(batch_simulation.interaction_batches[1]))
-        self.assertEqual(1, batch_simulation.interaction_batches[1][0].key)
-
-        self.assertEqual(1, len(batch_simulation.interaction_batches[2]))
-        self.assertEqual(2, batch_simulation.interaction_batches[2][0].key)
-
-    def test_repr(self):
-        self.assertEqual('{"Batch":{"count":2}}', str(Batch(count=2)))
-        self.assertEqual('{"Batch":{"size":2}}', str(Batch(size=2)))
-        self.assertEqual('{"Batch":{"sizes":[1,2,3]}}', str(Batch(sizes=[1,2,3])))
 
 class Interaction_Tests(unittest.TestCase):
 

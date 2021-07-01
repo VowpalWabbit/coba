@@ -92,14 +92,13 @@ class Transaction:
             yield Transaction.simulation(index, source=source, shuffle=shuffle, take=take, pipe=str(simulation))
 
     @staticmethod
-    def batch(simulation_id:int, learner_id:int, **kwargs) -> Any:
-        """Write batch metadata row to Result.
+    def interactions(simulation_id:int, learner_id:int, **kwargs) -> Any:
+        """Write interaction evaluation metadata row to Result.
 
         Args:
-            learner_id: The primary key for the learner we observed the batch for.
-            simulation_id: The primary key for the simulation the batch came from.
-            batch_index: The index of the batch within the simulation.
-            kwargs: The metadata to store about the batch.
+            learner_id: The primary key for the learner we observed on the interaction.
+            simulation_id: The primary key for the simulation the interaction came from.
+            kwargs: The metadata to store about the interaction with the learner.
         """
 
         if 'reward' in kwargs and isinstance(kwargs['reward'], collections.Sequence) and len(kwargs['reward']) == 1:

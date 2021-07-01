@@ -1,56 +1,7 @@
 import json
 import unittest
 
-from coba.benchmarks.formats import BenchmarkFileFmtV1, BenchmarkFileFmtV2
-
-class BenchmarkFileFmtV1_Tests(unittest.TestCase):
-    def test_materialize_templates_sans_template_1(self):        
-        self.assertEqual(BenchmarkFileFmtV1().materialize_templates(json.loads("[1,2,3]")), [1,2,3])
-
-    def test_materialize_templates_sans_template_2(self):
-        actual = BenchmarkFileFmtV1().materialize_templates(json.loads('{"a":1}'))
-
-        self.assertCountEqual(actual.keys(), ["a"])
-        self.assertEqual(actual["a"], 1)
-
-    def test_materialize_template_with_templates(self):
-        json_str = """{
-            "templates"  : { "shuffled_openml_classification": { "seed":1283, "type":"classification", "from": {"format":"openml", "id":"$id"} } },
-            "batches"    : { "count":100 },
-            "simulations": [
-                {"template":"shuffled_openml_classification", "$id":3},
-                {"template":"shuffled_openml_classification", "$id":6}
-            ]
-        }"""
-
-        actual = BenchmarkFileFmtV1().materialize_templates(json.loads(json_str))
-
-        self.assertCountEqual(actual.keys(), ["batches", "simulations"])
-        self.assertCountEqual(actual["batches"], ["count"])
-        self.assertEqual(len(actual["simulations"]), 2)
-
-        for simulation in actual["simulations"]:
-            self.assertCountEqual(simulation, ["seed", "type", "from"])
-            self.assertEqual(simulation["seed"], 1283)
-            self.assertEqual(simulation["type"], "classification")
-            self.assertCountEqual(simulation["from"], ["format", "id"])
-            self.assertEqual(simulation["from"]["format"], "openml")
-
-        self.assertCountEqual([ sim["from"]["id"] for sim in actual["simulations"] ], [3,6])
-
-    def test_parse(self):
-        json_txt = """{
-            "batches"     : {"count":1},
-            "ignore_first": false,
-            "shuffle"     : [1283],
-            "simulations" : [
-                {"type":"classification","from":{"format":"openml","id":1116}}
-            ]
-        }"""
-
-        benchmark = BenchmarkFileFmtV1().filter(json.loads(json_txt))
-
-        self.assertEqual(1, len(benchmark._simulations))
+from coba.benchmarks.formats import BenchmarkFileFmtV2
 
 class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 

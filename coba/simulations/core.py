@@ -213,25 +213,6 @@ class ClassificationSimulation(MemorySimulation):
 
         super().__init__(interactions, reward) #type:ignore
 
-class BatchedSimulation(MemorySimulation):
-    """A simulation whose interactions have been batched."""
-
-    def __init__(self, simulation: Simulation, batch_sizes: Sequence[int]) -> None:
-        self._simulation = simulation
-
-        #remove Nones and 0s
-        batch_sizes  = list(filter(None, batch_sizes))
-        batch_slices = list(accumulate([0] + list(batch_sizes)))
-
-        self._batches = [ simulation.interactions[batch_slices[i]:batch_slices[i+1]] for i in range(len(batch_slices)-1) ]
-
-        super().__init__(simulation.interactions[0:sum(batch_sizes)], simulation.reward)
-
-    @property
-    def interaction_batches(self) -> Sequence[Sequence[Interaction]]:
-        """The sequence of batches of interactions in a simulation."""
-        return self._batches
-
 class LambdaSimulation(Source[Simulation]):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
 
@@ -369,7 +350,7 @@ class ManikSimulation(Source[Simulation]):
         return f'{{"ManikSimulation":"{self._simulation_source}"}}'
 
 class ValidationSimulation(LambdaSimulation):
-    def __init__(self, n_interactions: int=500, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, sparse: bool=False, seed:int=1000) -> None:
+    def __init__(self, n_interactions: int=500, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, sparse: bool=False, seed:int=1) -> None:
 
         self._n_bandits        = n_actions
         self._n_features       = n_features

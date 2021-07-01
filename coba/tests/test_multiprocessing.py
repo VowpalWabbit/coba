@@ -116,7 +116,7 @@ class MultiprocessFilter_Tests(unittest.TestCase):
 
         t = Thread(target=test_function)
         t.start()
-        t.join(2)
+        t.join(4)
 
         self.assertFalse(t.is_alive())
 

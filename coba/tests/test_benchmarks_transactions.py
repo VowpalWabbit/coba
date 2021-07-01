@@ -11,7 +11,7 @@ class TransactionIsNew_Test(unittest.TestCase):
         existing = Result.from_transactions([
             Transaction.learner(0, a='A'),
             Transaction.simulation(0, b='B'),
-            Transaction.batch(0, 1, reward=mean([1,2,3]))
+            Transaction.interactions(0, 1, reward=mean([1,2,3]))
         ])
 
         filter = TransactionIsNew(existing)
@@ -19,7 +19,7 @@ class TransactionIsNew_Test(unittest.TestCase):
         transactions = list(filter.filter([
             Transaction.learner(0, a='A'), 
             Transaction.simulation(0, b='B'), 
-            Transaction.batch(0, 1, reward=mean([1,2,3]))]
+            Transaction.interactions(0, 1, reward=mean([1,2,3]))]
         ))
 
         self.assertEqual(len(transactions), 0)
@@ -28,7 +28,7 @@ class TransactionIsNew_Test(unittest.TestCase):
         existing = Result.from_transactions([
             Transaction.learner(0, a='A'),
             Transaction.simulation(0, b='B'),
-            Transaction.batch(0, 1, reward=mean([1,2,3]))
+            Transaction.interactions(0, 1, reward=mean([1,2,3]))
         ])
 
         filter = TransactionIsNew(existing)
@@ -36,7 +36,7 @@ class TransactionIsNew_Test(unittest.TestCase):
         transactions = list(filter.filter([
             Transaction.learner(1, a='A'), 
             Transaction.simulation(1, b='B'), 
-            Transaction.batch(1, 1, reward=mean([1,2,3]))]
+            Transaction.interactions(1, 1, reward=mean([1,2,3]))]
         ))
 
         self.assertEqual(len(transactions), 3)

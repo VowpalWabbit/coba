@@ -4,7 +4,7 @@ from typing import Iterable, Sequence, cast, Optional, overload, List, Union
 
 
 from coba.learners import Learner
-from coba.simulations import Simulation, Take, Shuffle, Batch
+from coba.simulations import Simulation, Take, Shuffle
 from coba.registry import CobaRegistry
 from coba.config import CobaConfig, CobaFatal
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpSource, MemorySource, DiskSource
@@ -40,83 +40,38 @@ class Benchmark:
 
         return CobaRegistry.construct(CobaConfig.Benchmark['file_fmt']).filter(JsonDecode().filter(content))
 
-    @overload
     def __init__(self, 
         simulations: Sequence[Source[Simulation]],
-        *,
-        batch_size : int = 1,
         shuffle    : Sequence[Optional[int]] = [None],
         take       : int = None) -> None:
         """Instantiate a Benchmark.
 
         Args:
             simulations: The collection of simulations to benchmark against.
-            batch_size: The number of interactions to predict before receiving reward feedback to learn from.
             shuffle: A collection of seeds to use for simulation shuffling. A seed of `None` means no shuffle will be applied.
             take: The number of interactions to take from each simulation for evaluation.
         """
         ...
 
-    @overload
-    def __init__(self,
-        simulations: Sequence[Source[Simulation]],
-        *,
-        batch_count: int,
-        shuffle    : Sequence[Optional[int]] = [None],
-        take       : int = None) -> None:
-        """Instantiate a Benchmark.
-
-        Args:
-            simulations: The collection of simulations to benchmark against.
-            batch_count: The number of times feedback will be given to each learner during a simulation.
-            shuffle: A collection of seeds to use for simulation shuffling. A seed of `None` means no shuffle will be applied.
-            take: The number of interactions to take from each simulation for evaluation.
-        """
-        ...
-
-    @overload
-    def __init__(self, 
-        simulations : Sequence[Source[Simulation]],
-        *,
-        batch_sizes     : Sequence[int],
-        shuffle         : Sequence[Optional[int]] = [None]) -> None:
-        """Instantiate a Benchmark.
-
-        Args:
-            simulations: The collection of simulations to benchmark against.
-            batch_sizes: The number of interactions to predict on each learning iteration before providing feedback to learners.
-            shuffle: A collection of seeds to use for simulation shuffling. A seed of `None` means no shuffle will be applied.
-        """
-        ...
-
-    def __init__(self,*args, **kwargs) -> None:
-
-        sources = cast(Sequence[Source[Simulation]], args[0])
+        sources = simulations
         filters: List[Sequence[Filter[Simulation,Simulation]]] = []
 
-        if 'shuffle' in kwargs and kwargs['shuffle'] != [None]:
-            filters.append([ Shuffle(seed) for seed in kwargs['shuffle'] ])
+        if shuffle != [None]:
+            filters.append([ Shuffle(seed) for seed in shuffle ])
 
-        if 'take' in kwargs:
-            filters.append([ Take(kwargs['take']) ])
-
-        if 'batch_count' in kwargs:
-            filters.append([ Batch(count=kwargs['batch_count']) ])
-        elif 'batch_size' in kwargs:
-            filters.append([ Batch(size=kwargs['batch_size']) ])
-        elif 'batch_sizes' in kwargs:
-            filters.append([ Batch(sizes=kwargs['batch_sizes']) ])
+        if take is not None:
+            filters.append([ Take(take) ])
 
         if len(filters) > 0:
             simulations = [cast(Source[Simulation],Pipe.join(s,f)) for s,f in product(sources, product(*filters))]
         else:
             simulations = list(sources)
 
-        self._simulations: Sequence[Source[Simulation]] = simulations
-        self._processes: Optional[int]                  = None
-        self._maxtasksperchild: Optional[int]           = None
-        self._maxtasksperchild_set: bool                = False
-        self._chunk_by: Optional[str]                   = None
+        self._simulations         : Sequence[Source[Simulation]] = simulations
+        self._processes           : Optional[int]                = None
+        self._maxtasksperchild    : Optional[int]                = None
+        self._maxtasksperchild_set: bool                         = False
+        self._chunk_by            : Optional[str]                = None
 
     def chunk_by(self, value: str = 'source') -> 'Benchmark':
         """Determines how tasks are chunked for processing.
