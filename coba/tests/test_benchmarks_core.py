@@ -108,7 +108,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_learners     = result.learners.to_tuples()
         actual_simulations  = result.simulations.to_tuples()
         actual_interactions = result.interactions.to_tuples()
-        
+
         expected_learners     = [(0,"Modulo(p=0)","Modulo",'0')]
         expected_simulations  = [(0, "LambdaSimulation", "None", "None", '"LambdaSimulation"'), (1, "LambdaSimulation", "None", "None", '"LambdaSimulation"')]
         expected_interactions = [(0,0,1,0), (0,0,2,1), (1,0,1,3), (1,0,2,4), (1,0,3,5)]

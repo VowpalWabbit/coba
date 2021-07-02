@@ -4,7 +4,7 @@ import collections
 from numbers import Number
 from operator import truediv
 from itertools import chain, repeat, product, accumulate
-from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union
+from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type
 
 from coba.config import CobaConfig
 from coba.utilities import PackageChecker
@@ -13,7 +13,7 @@ from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe
 class Table:
     """A container class for storing tabular data."""
 
-    def __init__(self, name:str, primary: Sequence[str], types: Dict[str,Any]={}, packed=False):
+    def __init__(self, name:str, primary: Sequence[str], packed=False):
         """Instantiate a Table.
         
         Args:
@@ -23,7 +23,6 @@ class Table:
         self._name    = name
         self._primary = primary
         self._cols    = collections.OrderedDict(zip(primary,repeat(None)))
-        self._types   = types
         self._packed  = packed
 
         self._rows : Dict[Hashable, Dict[str,Any]] = {}
@@ -42,7 +41,7 @@ class Table:
         import pandas as pd #type: ignore
         import numpy as np #type: ignore #pandas installs numpy so if we have pandas we have numpy
 
-        col_values = {col:np.empty(len(self),dtype=self._types.get(col,object)) for col in self.columns}
+        col_values = {col:np.empty(len(self),dtype=self._cols.get(col,object)) for col in self.columns}
         index = 0
 
         for key,row in self._rows.items():
@@ -75,6 +74,19 @@ class Table:
                 tooples.extend(list(zip(*iterables)))
         
         return tooples
+
+    def _type_resolution(self, old_type: Optional[Type[Any]], new_type: Optional[Type[Any]]) -> Type[Any]:
+
+        if old_type == new_type:
+            return new_type
+        elif old_type is None and new_type in [int,float]:
+            return new_type
+        elif old_type in [int, float] and new_type is None:
+            return float
+        elif old_type == int and new_type == float:
+            return float
+        else:
+            return object
 
     def _key(self, key: Union[Hashable, Sequence[Hashable]]) -> Union[Hashable,Tuple[Hashable,...]]:
         key_len = len(key) if isinstance(key,(list,tuple)) else 1
@@ -120,7 +132,19 @@ class Table:
         if 'index' in self._cols and 'index' not in row:
             row['index'] = 1 if size == 1 else list(range(1,size+1))
         
-        self._cols.update(zip(values.keys(), repeat(None)))
+        for primary, k in zip(self._primary, key if len(self._primary) > 1 else [key]):
+            self._cols[primary] = type(k)
+
+        for col,value in values.items():
+            if self._rows:
+                self._cols[col] = self._type_resolution(self._cols.get(col,None), type(value))
+            else:
+                self._cols[col] =  type(value)
+
+        for col,value in self._cols.items():
+            if col not in values:
+                self._cols[col] = self._type_resolution(value, None)
+
         self._rows[key] = row
         self._sizes[key] = size
 
@@ -168,7 +192,7 @@ class Result:
         self.benchmark  : Dict[str, Any] = {}
 
         #providing the types in advance makes to_pandas about 10 times faster since we can preallocate space
-        self._interactions = Table("Interactions", ['simulation_id', 'learner_id'], packed=True, types={'simulation_id':int, 'learner_id':int, 'C':int,'A':int,'N':int,'reward':float})
+        self._interactions = Table("Interactions", ['simulation_id', 'learner_id'], packed=True)
         self._learners     = Table("Learners"    , ['learner_id'])
         self._simulations  = Table("Simulations" , ['simulation_id'])
 

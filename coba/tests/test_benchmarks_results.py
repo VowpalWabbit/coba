@@ -64,7 +64,7 @@ class Table_Tests(unittest.TestCase):
         import pandas as pd #type: ignore
         import pandas.testing #type: ignore
 
-        table = Table("test", ['a'], types={"c":float,})
+        table = Table("test", ['a'])
 
         table['A'] = dict(b='B',c=1,d='d')
         table['B'] = dict(e='E')
@@ -96,7 +96,7 @@ class Table_Tests(unittest.TestCase):
         import pandas as pd
         import pandas.testing
 
-        table = Table("test", ['a'], types={'a':str,'b':object,'c':float,'d':object,'e':object})
+        table = Table("test", ['a'])
 
         table['A'] = dict(b=['B','b'],c=1,d=['D','d'])
         table['B'] = dict(e='E')
@@ -113,17 +113,18 @@ class Table_Tests(unittest.TestCase):
 
     def test_pandas_huge_pack_item(self):
 
-        table = Table("test", ['simulation_id', 'learner_id'], types={'simulation_id':int, 'learner_id':int, 'C':int,'A':int,'N':int,'reward':float})
+        table = Table("test", ['simulation_id', 'learner_id'])
 
-        for i in range(300):
-            table[(i,2)] = dict(C=5,A=5,N=1,reward=[2]*9000)
+        for i in range(2):
+            if i % 2 == 0:
+                table[(i,2)] = dict(C=5,A=5,N=1,reward=[2]*9000)
+            else:
+                table[(i,2)] = dict(C=5,A=5,reward=[2]*9000)
 
         time = min(timeit.repeat(lambda:table.to_pandas(), repeat=6, number=1))
 
         #best time on my laptop was 0.33
         self.assertLess(time,1)
-
-class PackedTable_Tests(unittest.TestCase):
 
     def test_unequal_pack_exception(self):
         with self.assertRaises(Exception):
