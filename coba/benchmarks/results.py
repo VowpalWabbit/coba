@@ -124,7 +124,7 @@ class Table:
 
         #Try to make sure index is 3rd in order. 
         #It makes things look nicer in a data frame.
-        if size > 1 or self._packed: self._cols["index"] = None
+        if size > 1 or self._packed: self._cols["index"] = int
 
         row = values.copy()
         row.update(zip(self._primary, key if isinstance(key,tuple) else [key]))
@@ -181,7 +181,7 @@ class Result:
             if trx[0] == "benchmark": result.benchmark = trx[1]
             if trx[0] == "L"        : result._learners    [trx[1]       ] = trx[2]
             if trx[0] == "S"        : result._simulations [trx[1]       ] = trx[2]
-            if trx[0] == "B"        : result._interactions[tuple(trx[1])] = trx[2]
+            if trx[0] == "I"        : result._interactions[tuple(trx[1])] = trx[2]
 
         return result
 
@@ -565,7 +565,7 @@ class Result:
 
 class ResultPromote(Filter):
 
-    CurrentVersion = 2
+    CurrentVersion = 3
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         items_iter = iter(items)
@@ -684,5 +684,16 @@ class ResultPromote(Filter):
 
                 items   = promoted_items
                 version = 2
+
+            if version == 2:
+
+                promoted_items = [["version",3]]
+
+                for transaction in items:
+                    if transaction[0] == "B": transaction[0] = "I"
+                    promoted_items.append(transaction)
+
+                items   = promoted_items
+                version = 3
 
         return items

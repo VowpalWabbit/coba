@@ -63,7 +63,7 @@ class CorralLearner(Learner):
         """The parameters of the learner.
 
         See the base class for more information
-        """        
+        """
         return {"eta": self._eta_init, "B": [ b.family for b in self._base_learners ] }
 
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:

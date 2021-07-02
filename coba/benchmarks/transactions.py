@@ -101,14 +101,7 @@ class Transaction:
             kwargs: The metadata to store about the interaction with the learner.
         """
 
-        if 'reward' in kwargs and isinstance(kwargs['reward'], collections.Sequence) and len(kwargs['reward']) == 1:
-            kwargs['reward'] = kwargs['reward'][0]
-
-        for col in ["C", "A", "N"]:
-            if col in kwargs and len(set(kwargs[col])) == 1:
-                kwargs[col] = kwargs[col][0]
-
-        return ["B", (simulation_id, learner_id), kwargs]
+        return ["I", (simulation_id, learner_id), kwargs]
 
 class TransactionIsNew(Filter):
 
@@ -128,7 +121,7 @@ class TransactionIsNew(Filter):
             if tipe == "benchmark" and len(self._existing.benchmark) != 0:
                 continue
 
-            if tipe == "B" and transaction[1] in self._existing._interactions:
+            if tipe == "I" and transaction[1] in self._existing._interactions:
                 continue
 
             if tipe == "S" and transaction[1] in self._existing._simulations:
