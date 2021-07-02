@@ -116,10 +116,7 @@ class Table_Tests(unittest.TestCase):
         table = Table("test", ['simulation_id', 'learner_id'])
 
         for i in range(2):
-            if i % 2 == 0:
-                table[(i,2)] = dict(C=5,A=5,N=1,reward=[2]*9000)
-            else:
-                table[(i,2)] = dict(C=5,A=5,reward=[2]*9000)
+            table[(i,2)] = dict(C=5,A=5,N=1,reward=[2]*9000)
 
         time = min(timeit.repeat(lambda:table.to_pandas(), repeat=6, number=1))
 

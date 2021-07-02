@@ -22,11 +22,11 @@ class Table:
         """
         self._name    = name
         self._primary = primary
-        self._cols    = collections.OrderedDict(zip(primary,repeat(None)))
+        self._columns = collections.OrderedDict(zip(primary,repeat(None)))
         self._packed  = packed
 
-        self._rows : Dict[Hashable, Dict[str,Any]] = {}
-        self._sizes: Dict[Hashable, int          ] = {}
+        self._rows     : Dict[Hashable, Dict[str,Any]] = {}
+        self._row_sizes: Dict[Hashable, int          ] = {}
 
     @property
     def name(self) -> str:
@@ -34,34 +34,39 @@ class Table:
 
     @property
     def columns(self) -> Sequence[str]:
-        return list(self._cols.keys())
+        return list(self._columns.keys())
+
+    @property
+    def dtypes(self) -> Sequence[Type[Union[int,float,bool,object]]]:
+        return [ self._infer_type([row.get(col,float('nan')) for row in self._rows.values()]) for col in self.columns]
 
     def to_pandas(self) -> Any:
         PackageChecker.pandas("Table.to_pandas")
         import pandas as pd #type: ignore
         import numpy as np #type: ignore #pandas installs numpy so if we have pandas we have numpy
 
-        col_values = {col:np.empty(len(self),dtype=self._cols.get(col,object)) for col in self.columns}
+        col_numpy = { col: np.empty(len(self), dtype=dtype) for col,dtype in zip(self.columns,self.dtypes)}
+
         index = 0
 
         for key,row in self._rows.items():
 
-            size = self._sizes[key]
+            size = self._row_sizes[key]
 
             for col in self.columns:
                 val = row.get(col,float('nan'))
-                col_values[col][index:(index+size)] = val
+                col_numpy[col][index:(index+size)] = val
 
             index += size
 
-        return pd.DataFrame(col_values, columns=self.columns)
+        return pd.DataFrame(col_numpy, columns=self.columns)
 
     def to_tuples(self) -> Sequence[Tuple[Any,...]]:
 
         tooples = []
 
         for key,row in self._rows.items():
-            size = self._sizes[key]
+            size = self._row_sizes[key]
 
             if size == 1:
                 tooples.append(tuple( row.get(col,float('nan')) for col in self.columns))
@@ -75,18 +80,30 @@ class Table:
         
         return tooples
 
-    def _type_resolution(self, old_type: Optional[Type[Any]], new_type: Optional[Type[Any]]) -> Type[Any]:
+    def _infer_type(self, values: Sequence[Any]) -> Type[Union[int,float,bool,object]]:
 
-        if old_type == new_type:
-            return new_type
-        elif old_type is None and new_type in [int,float]:
-            return new_type
-        elif old_type in [int, float] and new_type is None:
-            return float
-        elif old_type == int and new_type == float:
-            return float
-        else:
+        types = []
+
+        to_type = lambda value: None if value is None else type(value)
+
+        for value in values:
+            types.extend([to_type(v) for v in value] if isinstance(value,list) else [to_type(value)])
+        
+        return self._resolve_types(types)
+
+    def _resolve_types(self, types: Sequence[Type[Any]]) -> Type[Union[int,float,bool,object]]:
+        types = list(set(types))
+
+        if len(types) == 1 and types[0] in [dict,str]:
             return object
+        
+        if len(types) == 1 and types[0] in [int,float,bool]:
+            return types[0]
+
+        if all(t in [None,int,float] for t in types):
+            return float
+
+        return object
 
     def _key(self, key: Union[Hashable, Sequence[Hashable]]) -> Union[Hashable,Tuple[Hashable,...]]:
         key_len = len(key) if isinstance(key,(list,tuple)) else 1
@@ -115,7 +132,7 @@ class Table:
         return str({"Table": self.name, "Columns": self.columns, "Rows": len(self)})
 
     def __len__(self) -> int:
-        return sum(self._sizes.values())
+        return sum(self._row_sizes.values())
 
     def __setitem__(self, key: Union[Hashable, Sequence[Hashable]], values: Dict[str,Any]):
 
@@ -124,29 +141,17 @@ class Table:
 
         #Try to make sure index is 3rd in order. 
         #It makes things look nicer in a data frame.
-        if size > 1 or self._packed: self._cols["index"] = int
+        if self._packed or size > 1: self._columns["index"] = None
 
         row = values.copy()
         row.update(zip(self._primary, key if isinstance(key,tuple) else [key]))
 
-        if 'index' in self._cols and 'index' not in row:
+        if 'index' in self._columns and 'index' not in row:
             row['index'] = 1 if size == 1 else list(range(1,size+1))
         
-        for primary, k in zip(self._primary, key if len(self._primary) > 1 else [key]):
-            self._cols[primary] = type(k)
-
-        for col,value in values.items():
-            if self._rows:
-                self._cols[col] = self._type_resolution(self._cols.get(col,None), type(value))
-            else:
-                self._cols[col] =  type(value)
-
-        for col,value in self._cols.items():
-            if col not in values:
-                self._cols[col] = self._type_resolution(value, None)
-
-        self._rows[key] = row
-        self._sizes[key] = size
+        self._columns.update(zip(values.keys(), repeat(None)))
+        self._rows[key]      = row
+        self._row_sizes[key] = size
 
     def __getitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> Dict[str,Any]:
         return self._rows[self._key(key)]
