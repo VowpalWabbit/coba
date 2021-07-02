@@ -66,14 +66,20 @@ class CobaRandom:
 
         Returns:
             A new sequence with the order of items shuffled.
+
+        Remarks:
+            This is the Richard Durstenfeld's method popularized by Donald Knuth in The Art of Computer Programming.
+            This algorithm is unbiased (i.e., all possible permutations are equally likely to occur).
         """
 
         n = len(sequence)
         r = self.randoms(n)
         l = list(sequence)
 
-        for i in range(n):
-            j = min(int(i + (r[i] * (n-i))), n-1) #min() handles the edge case of r[i]==1
+        for i in range(0,n-1):
+
+            j = int(i + (r[i] * (n-i))) # i <= j <= n
+            j = min(j, n-1)             # i <= j <= n-1 (min handles the edge case of r[i]==1 which would make j=n)
             
             l[i], l[j] = l[j], l[i]
 

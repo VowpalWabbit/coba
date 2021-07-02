@@ -96,7 +96,30 @@ class Random_Tests(unittest.TestCase):
         self.assertEqual(len(numbers), 500000)
         self.assertNotEqual(numbers, list(range(500000)))
 
-    def test_randoms_repetability(self):
+    def test_coba_randoms_is_unchanged(self):
+        coba.random.seed(10)
+
+        actual_random_numbers = [ round(n,2) for n in coba.random.randoms(5) ]
+
+        self.assertEqual([0.09, 0.18, 0.16, 0.98, 0.14], actual_random_numbers)
+
+    def test_coba_choice_is_unchanged(self):
+
+        coba.random.seed(10)
+
+        choice = coba.random.choice(list(range(1000)), [1/1000]*1000)
+
+        self.assertEqual(86, choice)
+
+    def test_coba_shuffle_is_unchaged(self):
+
+        coba.random.seed(10)
+
+        shuffle = coba.random.shuffle(list(range(20)))
+
+        self.assertEqual([1, 4, 0, 19, 6, 15, 3, 16, 11, 10, 7, 17, 13, 8, 9, 14, 18, 12, 5, 2],shuffle)
+
+    def test_randoms_repeatability(self):
 
         coba.random.seed(10)
 
@@ -107,6 +130,30 @@ class Random_Tests(unittest.TestCase):
         actual_random_numbers_2 = coba.random.randoms(5)
 
         self.assertSequenceEqual(actual_random_numbers_1, actual_random_numbers_2)
+
+    def test_shuffles_repeatability(self):
+
+        coba.random.seed(10)
+
+        shuffle_1 = coba.random.shuffle([1,2,3,4,5])
+
+        coba.random.seed(10)
+
+        shuffle_2 = coba.random.shuffle([1,2,3,4,5])
+
+        self.assertEqual(shuffle_1, shuffle_2)
+
+    def test_choice_repeatability(self):
+
+        coba.random.seed(10)
+
+        choice_1 = coba.random.choice(list(range(1000)), [1/1000]*1000)
+
+        coba.random.seed(10)
+
+        choice_2 = coba.random.choice(list(range(1000)), [1/1000]*1000)
+
+        self.assertEqual(choice_1, choice_2)
 
     def test_randoms_is_uniform_0_1(self):
         #this test will fail maybe 1% of the time

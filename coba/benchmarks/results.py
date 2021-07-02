@@ -13,7 +13,7 @@ from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe
 class Table:
     """A container class for storing tabular data."""
 
-    def __init__(self, name:str, primary: Sequence[str], packed=False):
+    def __init__(self, name:str, primary: Sequence[str]):
         """Instantiate a Table.
         
         Args:
@@ -23,10 +23,9 @@ class Table:
         self._name    = name
         self._primary = primary
         self._columns = collections.OrderedDict(zip(primary,repeat(None)))
-        self._packed  = packed
 
-        self._rows     : Dict[Hashable, Dict[str,Any]] = {}
-        self._row_sizes: Dict[Hashable, int          ] = {}
+        self._rows_flat: Dict[Hashable, Dict[str,Any]] = {}
+        self._rows_pack: Dict[Hashable, Dict[str,Any]] = {}
 
     @property
     def name(self) -> str:
@@ -38,7 +37,15 @@ class Table:
 
     @property
     def dtypes(self) -> Sequence[Type[Union[int,float,bool,object]]]:
-        return [ self._infer_type([row.get(col,float('nan')) for row in self._rows.values()]) for col in self.columns]
+
+        flats = self._rows_flat
+        packs = self._rows_pack
+        keys  = self._rows_flat.keys()
+
+        columns_packed = [ any([ col in packs[key] for key in keys]) for col in self.columns ]
+        columns_values = [ [flats[key].get(col, packs[key].get(col, self._default(col))) for key in keys] for col in self.columns ]
+
+        return [ self._infer_type(column_packed, column_values) for column_packed, column_values in zip(columns_packed,columns_values)]
 
     def to_pandas(self) -> Any:
         PackageChecker.pandas("Table.to_pandas")
@@ -49,12 +56,26 @@ class Table:
 
         index = 0
 
-        for key,row in self._rows.items():
+        for key in self._rows_flat.keys():
 
-            size = self._row_sizes[key]
+            flat = self._rows_flat[key]
+            pack = self._rows_pack[key]
+
+            size = 1 if not pack else len(pack['index'])
 
             for col in self.columns:
-                val = row.get(col,float('nan'))
+                if col in pack:
+                    val = pack[col]
+
+                elif col in flat:
+                    if isinstance(flat[col], (tuple,list)):
+                        val = [flat[col]]
+                    else:
+                        val = flat[col]
+
+                else:
+                    val = self._default(col)
+                    
                 col_numpy[col][index:(index+size)] = val
 
             index += size
@@ -65,29 +86,32 @@ class Table:
 
         tooples = []
 
-        for key,row in self._rows.items():
-            size = self._row_sizes[key]
+        for key in self._rows_flat.keys():
+            
+            flat = self._rows_flat[key]
+            pack = self._rows_pack[key]
 
-            if size == 1:
-                tooples.append(tuple( row.get(col,float('nan')) for col in self.columns))
+            if not pack:
+                tooples.append(tuple(flat.get(col,self._default(col)) for col in self.columns))
             else:
-                iterables = []
-                for col in self.columns:
-                    v = row.get(col,float('nan'))
-                    iterables.append(v if isinstance(v,list) else repeat(v,size))
+                tooples.extend(zip(*[pack.get(col,repeat(flat.get(col,self._default(col)))) for col in self.columns]))
                 
-                tooples.extend(list(zip(*iterables)))
-        
         return tooples
 
-    def _infer_type(self, values: Sequence[Any]) -> Type[Union[int,float,bool,object]]:
+    def _default(self, column:str) -> Any:
+        return [1] if column == "index" else float('nan')
+
+    def _infer_type(self, is_packed: bool, values: Sequence[Any]) -> Type[Union[int,float,bool,object]]:
 
         types = []
 
         to_type = lambda value: None if value is None else type(value)
 
         for value in values:
-            types.extend([to_type(v) for v in value] if isinstance(value,list) else [to_type(value)])
+            if is_packed and isinstance(value, (list,tuple)):
+                types.extend([to_type(v) for v in value])
+            else:
+                types.append(to_type(value))
         
         return self._resolve_types(types)
 
@@ -112,52 +136,47 @@ class Table:
         
         return tuple(key) if isinstance(key,(list,tuple)) else key
 
-    def _size(self, values: Dict[str,Any]) -> int:
-        unpacked_size = 1
-        
-        for value in values.values():
-            if not isinstance(value,list): continue
-            unpacked_size = len(value) if unpacked_size == 1 else unpacked_size 
-            assert len(value) == unpacked_size, "When using a packed format all columns must be equal length or 1."
-        
-        return unpacked_size
-
     def __iter__(self) -> Iterator[Dict[str,Any]]:
-        return iter(self._rows.values())
+        for key in self._rows_flat.keys():
+            yield self[key]
 
     def __contains__(self, key: Union[Hashable, Sequence[Hashable]]) -> bool:
-        return self._key(key) in self._rows
+        return self._key(key) in self._rows_flat
 
     def __str__(self) -> str:
         return str({"Table": self.name, "Columns": self.columns, "Rows": len(self)})
 
     def __len__(self) -> int:
-        return sum(self._row_sizes.values())
+        return sum([len(p['index']) if p else 1 for p in self._rows_pack.values()])
 
     def __setitem__(self, key: Union[Hashable, Sequence[Hashable]], values: Dict[str,Any]):
 
-        key  = self._key(key)
-        size = self._size(values)
+        key = self._key(key)
 
         #Try to make sure index is 3rd in order. 
         #It makes things look nicer in a data frame.
-        if self._packed or size > 1: self._columns["index"] = None
+        if "_packed" in values: 
+            self._columns["index"] = None
 
-        row = values.copy()
-        row.update(zip(self._primary, key if isinstance(key,tuple) else [key]))
+        row_flat = dict(zip(self._primary, key if isinstance(key,tuple) else [key]), **values)
+        row_pack = row_flat.pop("_packed", {})
 
-        if 'index' in self._columns and 'index' not in row:
-            row['index'] = 1 if size == 1 else list(range(1,size+1))
-        
-        self._columns.update(zip(values.keys(), repeat(None)))
-        self._rows[key]      = row
-        self._row_sizes[key] = size
+        if row_pack:
+            assert len(set([len(value) for value in row_pack.values()])) == 1, "All packed columns must be equal length."
+
+        if row_pack:
+            row_pack['index'] = list(range(1,len(list(row_pack.values())[0])+1))
+
+        self._rows_flat[key] = row_flat
+        self._rows_pack[key] = row_pack
+        self._columns.update(zip(list(row_flat.keys()) + list(row_pack.keys()), repeat(None)))
 
     def __getitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> Dict[str,Any]:
-        return self._rows[self._key(key)]
+        return dict(**self._rows_flat[self._key(key)], **self._rows_pack[self._key(key)])
 
     def __delitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> None:
-        del self._rows[self._key(key)]
+        del self._rows_flat[self._key(key)]
+        del self._rows_pack[self._key(key)]
 
 class Result:
     """A class representing the result of a Benchmark evaluation on a given collection of Simulations and Learners."""
@@ -197,7 +216,7 @@ class Result:
         self.benchmark  : Dict[str, Any] = {}
 
         #providing the types in advance makes to_pandas about 10 times faster since we can preallocate space
-        self._interactions = Table("Interactions", ['simulation_id', 'learner_id'], packed=True)
+        self._interactions = Table("Interactions", ['simulation_id', 'learner_id'])
         self._learners     = Table("Learners"    , ['learner_id'])
         self._simulations  = Table("Simulations" , ['simulation_id'])
 
@@ -695,7 +714,17 @@ class ResultPromote(Filter):
                 promoted_items = [["version",3]]
 
                 for transaction in items:
-                    if transaction[0] == "B": transaction[0] = "I"
+                    
+                    #upgrade all reward entries to the packed format which will now allow array types and dict types.
+                    if transaction[0] == "B":
+                        rewards = transaction[2]["reward"]
+                        del transaction[2]["reward"]
+                        transaction[2]["_packed"] = {"reward": rewards}
+                    
+                    #Change from B to I to be consistent with result property name: `interactions`
+                    if transaction[0] == "B": 
+                        transaction[0] = "I"
+                    
                     promoted_items.append(transaction)
 
                 items   = promoted_items

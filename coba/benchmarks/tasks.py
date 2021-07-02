@@ -191,7 +191,7 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                                         learner.learn(interaction.key, interaction.context, action, reward, prob)
                                         rewards.append(reward)
 
-                                    yield Transaction.interactions(sim_id, lrn_id, reward=rewards)
+                                    yield Transaction.interactions(sim_id, lrn_id, _packed={"reward":rewards})
 
                             except Exception as e:
                                 CobaConfig.Logger.log_exception(e)
