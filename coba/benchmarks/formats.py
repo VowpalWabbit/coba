@@ -5,8 +5,9 @@ from itertools import product
 from typing import Sequence, Dict, Any
 
 from coba.registry import CobaRegistry
-from coba.benchmarks import Benchmark
 from coba.pipes import Pipe, Filter
+
+from coba.benchmarks.core import Benchmark
 
 class BenchmarkFileFmtV2(Filter[Dict[str,Any], Benchmark]):
 

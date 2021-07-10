@@ -44,7 +44,7 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[0], 'a')
         self.assertEqual(logs[1], 'c')
         self.assertEqual(logs[2], 'd')
-        self.assertEqual(logs[3], 'a (finish)')
+        self.assertEqual(logs[3], 'a (completed)')
         self.assertEqual(logs[4], 'e')
 
     def test_time_with_1(self):
@@ -68,7 +68,7 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertEqual        (logs[0], 'a')
         self.assertEqual        (logs[1], 'c')
         self.assertEqual        (logs[2], 'd')
-        self.assertRegexpMatches(logs[3], 'a \\(\\d+\\.\\d+ seconds\\)')
+        self.assertRegexpMatches(logs[3], '^a \\(\\d+\\.\\d+ seconds\\) \\(completed\\)$')
         self.assertEqual        (logs[4], 'e')
 
 
@@ -98,13 +98,13 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertEqual        (logs[1 ], 'c')
         self.assertEqual        (logs[2 ], 'd')
         self.assertEqual        (logs[3 ], 'e')
-        self.assertRegexpMatches(logs[4 ], 'd \\(\\d+\\.\\d+ seconds\\)')
+        self.assertRegexpMatches(logs[4 ], '^d \\(\\d+\\.\\d+ seconds\\) \\(completed\\)$')
         self.assertEqual        (logs[5 ], 'd')
         self.assertEqual        (logs[6 ], 'e')
-        self.assertRegexpMatches(logs[7 ], 'd \\(\\d+\\.\\d+ seconds\\)')
-        self.assertEqual        (logs[8 ], 'c (finish)')
+        self.assertRegexpMatches(logs[7 ], '^d \\(\\d+\\.\\d+ seconds\\) \\(completed\\)$')
+        self.assertEqual        (logs[8 ], 'c (completed)')
         self.assertEqual        (logs[9 ], 'f')
-        self.assertRegexpMatches(logs[10], 'a \\(\\d+\\.\\d+ seconds\\)')
+        self.assertRegexpMatches(logs[10], '^a \\(\\d+\\.\\d+ seconds\\) \\(completed\\)$')
         self.assertEqual        (logs[11], 'g')
 
         self.assertAlmostEqual(float(logs[4 ][3:7]), 0.05, 1)
@@ -243,7 +243,7 @@ class IndentLogger_Tests(unittest.TestCase):
         logger.log('e')
 
         self.assertEqual(4, len(logs))
-        self.assertRegexpMatches(logs[0], 'a \\(\\d+\\.\\d+ seconds\\)')
+        self.assertRegexpMatches(logs[0], '^a \\(\\d+\\.\\d+ seconds\\) \\(completed\\)$')
         self.assertEqual        (logs[1], '  * c')
         self.assertEqual        (logs[2], '  * d')
         self.assertEqual        (logs[3], 'e'    )
@@ -269,11 +269,11 @@ class IndentLogger_Tests(unittest.TestCase):
         logger.log('g')
 
         self.assertEqual(8, len(logs))
-        self.assertRegexpMatches(logs[0], 'a \\(\\d+\\.\\d+ seconds\\)')
+        self.assertRegexpMatches(logs[0], '^a \\(\\d+\\.\\d+ seconds\\) \\(completed\\)')
         self.assertEqual        (logs[1], '  * c')
-        self.assertRegexpMatches(logs[2], '    > d \\(\\d+\\.\\d+ seconds\\)')
+        self.assertRegexpMatches(logs[2], '^    > d \\(\\d+\\.\\d+ seconds\\) \\(completed\\)$')
         self.assertEqual        (logs[3], '      - e')
-        self.assertRegexpMatches(logs[4], '    > d \\(\\d+\\.\\d+ seconds\\)')
+        self.assertRegexpMatches(logs[4], '^    > d \\(\\d+\\.\\d+ seconds\\) \\(completed\\)$')
         self.assertEqual        (logs[5], '      - e')
         self.assertEqual        (logs[6], '  * f')
         self.assertEqual        (logs[7], 'g'    )

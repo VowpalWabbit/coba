@@ -2,7 +2,6 @@ from pathlib import Path
 from itertools import product
 from typing import Iterable, Sequence, cast, Optional, overload, List, Union
 
-
 from coba.learners import Learner
 from coba.simulations import Simulation, Take, Shuffle
 from coba.registry import CobaRegistry

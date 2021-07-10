@@ -415,4 +415,4 @@ class ValidationSimulation(LambdaSimulation):
         super().__init__(n_interactions, context, actions, rewards)
 
     def __repr__(self) -> str:
-        return f"ValidationSimulation(cf={self._context_features},af={self._action_features},seed={self._seed})"
+        return f"Validation"

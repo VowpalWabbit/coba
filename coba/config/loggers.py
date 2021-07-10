@@ -1,6 +1,5 @@
 """Basic logging implementation and interface."""
 
-from coba.config.exceptions import CobaException
 import time
 import collections
 import traceback
@@ -9,9 +8,11 @@ from multiprocessing import current_process
 from contextlib import contextmanager
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import ContextManager, List, cast, Iterator, Iterable, Dict
+from typing import ContextManager, List, cast, Iterator, Iterable
 
 from coba.pipes import Sink, NoneSink
+from coba.config.exceptions import CobaException
+
 
 class Logger(ABC):
     """A more advanced logging interface allowing different types of logs to be written."""
@@ -68,15 +69,31 @@ class BasicLogger(Logger):
 
     @contextmanager
     def _log_context(self, message:str) -> 'Iterator[Logger]':
-        yield self
-        self.log(message + " (finish)")
+        try:
+            yield self
+        except KeyboardInterrupt:
+            self.log(message + " (interrupt)")
+            raise
+        except Exception as e:
+            self.log(message + " (exception)")
+            raise
+        else:
+            self.log(message + " (completed)")
     
     @contextmanager
     def _time_context(self, message:str) -> 'Iterator[Logger]':
         self.log(message)
         self._starts.append(time.time())
-        yield self
-        self.log(message + f" ({round(time.time()-self._starts.pop(),2)} seconds)")
+        try:
+            yield self
+        except KeyboardInterrupt:
+            self.log(message + f" ({round(time.time()-self._starts.pop(),2)} seconds) (interrupt)")
+            raise
+        except Exception:
+            self.log(message + f" ({round(time.time()-self._starts.pop(),2)} seconds) (exception)")
+            raise
+        else:
+            self.log(message + f" ({round(time.time()-self._starts.pop(),2)} seconds) (completed)")
         
     @property
     def sink(self) -> Sink[Iterable[str]]:
@@ -142,14 +159,10 @@ class IndentLogger(Logger):
         self._with_stamp  = with_stamp
         self._with_name   = with_name
 
-        self._messages  = cast(List[str],[])
-        self._starts    = cast(List[float],[])
-        self._indexes   = cast(List[int],[])
-        self._durations = cast(Dict[int,float],{})
+        self._messages: List[str] = []
 
-        self._indent_lvl = 0
-        self._bullets    = collections.defaultdict(lambda: '~', enumerate(['','* ','> ','- ','+ ']))
-        self._unwinding  = False
+        self._level   = 0
+        self._bullets = collections.defaultdict(lambda: '~', enumerate(['','* ','> ','- ','+ ']))
 
     @property
     def _in_time_context(self) -> bool:
@@ -171,33 +184,52 @@ class IndentLogger(Logger):
     @contextmanager
     def _indent_context(self) -> 'Iterator[Logger]':
         try:
-            self._indent_lvl += 1
+            self._level += 1
             yield self
         finally:
-            self._indent_lvl -= 1
+            self._level -= 1
 
     @contextmanager
     def _time_context(self, message:str) -> 'Iterator[Logger]':
-
-        self._starts.append(time.time())
-        self._indexes.append(len(self._messages))
-        self.log(message)
+        
+        # we don't have all the information we need to write 
+        # our message but we want to save our place in line
+        # we also level our message before entering context
+        place_in_line = len(self._messages)
+        self._messages.append(None)
+        message = self._level_message(message)
 
         with self._indent_context():
             try:
+                start = time.time()
                 yield self
-                self._durations[self._indexes[-1]] = round(time.time() - self._starts[-1],2)
             except KeyboardInterrupt:
+                outcome = "(interrupt)"
                 raise
-            except Exception as e:
-                self.log_exception(e, f"Unexpected exception after {round(time.time() - self._starts[-1], 2)} seconds:")
+            except Exception:
+                outcome = "(exception)"
                 raise
+            else:
+                outcome = "(completed)"
             finally:
-                self._starts.pop()
-                self._indexes.pop()
+                
+                self._messages[place_in_line] = message + f" ({round(time.time()-start,2)} seconds) {outcome}"
 
-                if len(self._starts) == 0:
-                    self._unwind_time_context()
+                if place_in_line == 0:
+                    while self._messages:
+                        self._sink.write([self._stamp_message(self._messages.pop(0))])
+
+    def _level_message(self, message: str) -> str:
+        indent = '  ' * self._level
+        bullet = self._bullets[self._level]
+
+        return indent + bullet + message
+
+    def _stamp_message(self, message:str) -> None:
+        stamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' if self._with_stamp else ''
+        name  = "-- " + current_process().name + " -- " if self._with_name else ''
+
+        return stamp + name + message
 
     @property
     def sink(self) -> Sink[Iterable[str]]:
@@ -210,15 +242,10 @@ class IndentLogger(Logger):
             message: The message that should be logged.
         """
 
-        if not self._unwinding:
-            message = '  ' * self._indent_lvl + self._bullets[self._indent_lvl] + message
-
-        if self._in_time_context:
-            self._messages.append(message)
+        if self._messages:
+            self._messages.append(self._level_message(message))
         else:
-            name   = "-- " + current_process().name + " -- " if self._with_name else ''
-            stamp  = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' if self._with_stamp else ''
-            self._sink.write([stamp + name + message])
+            self._sink.write([self._stamp_message(self._level_message(message))])
 
         return self._indent_context()
 
@@ -229,9 +256,7 @@ class IndentLogger(Logger):
             message: The message that should be logged.
 
         Returns:
-            A ContextManager that maintains the indentation level of the logger.
-            Calling `__enter__` on the manager increases the loggers indentation 
-            while calling `__exit__` decreases the logger's indentation.
+            A ContextManager that maintains the timing context. 
         """
 
         return self._time_context(message)
@@ -251,7 +276,7 @@ class IndentLogger(Logger):
             if isinstance(ex, CobaException):
                 self.log(str(ex))
             else:
-                tb = ''.join(traceback.format_tb(ex.__traceback__))
+                tb  = ''.join(traceback.format_tb(ex.__traceback__))
                 msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
 
                 self.log(f"{message}\n\n{tb}\n  {msg}")
