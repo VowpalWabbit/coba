@@ -10,7 +10,7 @@ import json
 
 from itertools import islice, count
 from collections import defaultdict
-from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, cast
+from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict
 
 from requests import Response
 

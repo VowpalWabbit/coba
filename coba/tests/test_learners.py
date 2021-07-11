@@ -296,22 +296,6 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertEqual(actual, expected)
 
-    def test_create_cover(self):
-        actual   = VowpalLearner(cover=2)._create_format([1,2,3])
-        expected = "--cb_explore 3 --interactions ssa --interactions sa --ignore_linear s --cover 2 --random_seed 1"
-
-        self.assertEqual(actual, expected)
-
-        actual   = VowpalLearner(cover=2,seed=10)._create_format([1,2,3])
-        expected = "--cb_explore 3 --interactions ssa --interactions sa --ignore_linear s --cover 2 --random_seed 10"
-
-        self.assertEqual(actual, expected)
-
-        actual   = VowpalLearner(cover=2, seed=None)._create_format([1,2,3])
-        expected = "--cb_explore 3 --interactions ssa --interactions sa --ignore_linear s --cover 2"
-
-        self.assertEqual(actual, expected)
-
     def test_create_softmax(self):
         actual   = VowpalLearner(softmax=0.5)._create_format([1,2,3])
         expected = "--cb_explore_adf --interactions ssa --interactions sa --ignore_linear s --softmax --lambda 0.5 --random_seed 1"

@@ -1,8 +1,8 @@
-from abc import ABC, abstractmethod
 import collections
 
+from abc import ABC, abstractmethod
 from itertools import repeat, chain
-from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union, Iterable
+from typing import Optional, Sequence, List, Callable, Hashable, Any, Union, Iterable, cast
 
 from coba.random import CobaRandom
 
@@ -154,9 +154,9 @@ class ClassificationSimulation(Simulation):
         else:
             labels_flat = labels #type: ignore
 
-        feedback      = lambda action,label: int(is_label(action,label) or in_multilabel(action,label))
-        is_label      = lambda action,label: action == label
-        in_multilabel = lambda action,label: isinstance(label,collections.Sequence) and action in label
+        feedback      = lambda action,label: int(is_label(action,label) or in_multilabel(action,label)) #type: ignore
+        is_label      = lambda action,label: action == label #type: ignore
+        in_multilabel = lambda action,label: isinstance(label,collections.Sequence) and action in label #type: ignore
 
         contexts  = features 
         actions   = list(sorted(set(labels_flat), key=lambda l: labels_flat.index(l)))
@@ -224,7 +224,7 @@ class ReaderSimulation(Simulation):
         
         self._label_column = label_column
         self._with_header  = with_header
-        self._interactions = None
+        self._interactions = cast(Optional[Sequence[Interaction]], None)
 
     @property
     def interactions(self) -> Sequence[Interaction]:

@@ -8,7 +8,7 @@ from multiprocessing import current_process
 from contextlib import contextmanager
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import ContextManager, List, cast, Iterator, Iterable
+from typing import ContextManager, List, cast, Iterator, Iterable, Optional
 
 from coba.pipes import Sink, NoneSink
 from coba.config.exceptions import CobaException
@@ -164,23 +164,6 @@ class IndentLogger(Logger):
         self._level   = 0
         self._bullets = collections.defaultdict(lambda: '~', enumerate(['','* ','> ','- ','+ ']))
 
-    @property
-    def _in_time_context(self) -> bool:
-        return len(self._starts) > 0
-
-    def _unwind_time_context(self) -> None:
-
-        self._unwinding = True
-
-        for index, message in enumerate(self._messages):
-            time = f' ({self._durations[index]} seconds)' if index in self._durations else ''            
-            
-            self.log(f"{message}{time}")
-
-        self._unwinding = False
-        self._messages = []
-        self._durations.clear()
-
     @contextmanager
     def _indent_context(self) -> 'Iterator[Logger]':
         try:
@@ -191,12 +174,12 @@ class IndentLogger(Logger):
 
     @contextmanager
     def _time_context(self, message:str) -> 'Iterator[Logger]':
-        
+
         # we don't have all the information we need to write 
         # our message but we want to save our place in line
         # we also level our message before entering context
         place_in_line = len(self._messages)
-        self._messages.append(None)
+        self._messages.append("Placeholder")
         message = self._level_message(message)
 
         with self._indent_context():
@@ -225,7 +208,7 @@ class IndentLogger(Logger):
 
         return indent + bullet + message
 
-    def _stamp_message(self, message:str) -> None:
+    def _stamp_message(self, message:str) -> str:
         stamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' if self._with_stamp else ''
         name  = "-- " + current_process().name + " -- " if self._with_name else ''
 

@@ -52,7 +52,7 @@ class Benchmark:
         """
         ...
 
-        sources = [MemorySource(simulation) for simulation in simulations] 
+        sources: List[Source[Simulation]] = [ MemorySource(simulation) for simulation in simulations] 
         filters: List[Sequence[Filter[Simulation,Simulation]]] = []
 
         if shuffle != [None]:
@@ -62,11 +62,11 @@ class Benchmark:
             filters.append([ Take(take) ])
 
         if len(filters) > 0:
-            simulations = [cast(Source[Simulation],Pipe.join(s,f)) for s,f in product(sources, product(*filters))]
+            simulation_sources = [cast(Source[Simulation],Pipe.join(s,f)) for s,f in product(sources, product(*filters))]
         else:
-            simulations = list(sources)
+            simulation_sources = list(sources)
 
-        self._simulations         : Sequence[Source[Simulation]] = simulations
+        self._simulations         : Sequence[Source[Simulation]] = simulation_sources
         self._processes           : Optional[int]                = None
         self._maxtasksperchild    : Optional[int]                = None
         self._maxtasksperchild_set: bool                         = False

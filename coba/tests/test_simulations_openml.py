@@ -308,7 +308,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         CobaConfig.Cacher = MemoryCacher()
         
         OpenmlSource(154).read() #this will cause it to read and cache in memory so we don't measure read time
-        time = min(timeit.repeat(lambda:OpenmlSimulation(154).read(), repeat=1, number=1))
+        time = min(timeit.repeat(lambda:OpenmlSimulation(154).interactions, repeat=1, number=1))
 
         print(time)
 

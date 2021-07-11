@@ -2,7 +2,7 @@ import json
 
 from itertools import compress
 from hashlib import md5
-from typing import Tuple, Sequence, Any, List
+from typing import Optional, Tuple, Sequence, Any, List
 
 from coba.pipes import Source, HttpSource
 from coba.config import CobaConfig, CobaException
@@ -225,7 +225,7 @@ class OpenmlSimulation(Simulation):
 
     def __init__(self, id: int, md5_checksum: str = None) -> None:
         self._source = OpenmlSource(id, md5_checksum)
-        self._interactions = None
+        self._interactions: Optional[Sequence[Interaction]] = None
 
     def _load_interactions(self) -> Sequence[Interaction]:
         return ClassificationSimulation(*self._source.read()).interactions

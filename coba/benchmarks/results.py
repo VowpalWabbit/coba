@@ -103,7 +103,7 @@ class Table:
 
     def _infer_type(self, is_packed: bool, values: Sequence[Any]) -> Type[Union[int,float,bool,object]]:
 
-        types = []
+        types: List[Optional[Type[Any]]] = []
 
         to_type = lambda value: None if value is None else type(value)
 
@@ -115,7 +115,7 @@ class Table:
         
         return self._resolve_types(types)
 
-    def _resolve_types(self, types: Sequence[Type[Any]]) -> Type[Union[int,float,bool,object]]:
+    def _resolve_types(self, types: Sequence[Optional[Type[Any]]]) -> Type[Union[int,float,bool,object]]:
         types = list(set(types))
 
         if len(types) == 1 and types[0] in [dict,str]:
