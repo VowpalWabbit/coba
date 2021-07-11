@@ -117,7 +117,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
         def R(i:int,c:int,a:int) -> int:
             return a-c
 
-        simulation = LambdaSimulation(2,C,A,R).read() #type: ignore
+        simulation = LambdaSimulation(2,C,A,R)
 
         self.assertEqual(1      , simulation.interactions[0].context)
         self.assertEqual([1,2,3], simulation.interactions[0].actions)
@@ -137,14 +137,14 @@ class LambdaSimulation_Tests(unittest.TestCase):
         def R(i:int,c:int,a:int) -> int:
             return a-c
 
-        simulation = LambdaSimulation(2,C,A,R).read() #type: ignore
+        simulation = LambdaSimulation(2,C,A,R)
         self.assertEqual(len(simulation.interactions), 2)
 
 class CsvSimulation_Tests(unittest.TestCase):
 
     def test_simple(self):
         source = MemorySource(['a,b,c','1,2,3','4,5,6','7,8,6'])
-        simulation = CsvSimulation(source,'c').read()
+        simulation = CsvSimulation(source,'c')
 
         self.assertEqual(3, len(simulation.interactions))
         
@@ -173,7 +173,7 @@ class ArffSimulation_Tests(unittest.TestCase):
         ]
 
         source = MemorySource(lines)
-        simulation = ArffSimulation(source,'c',).read()
+        simulation = ArffSimulation(source,'c',)
 
         self.assertEqual(2, len(simulation.interactions))
         
@@ -200,7 +200,7 @@ class ArffSimulation_Tests(unittest.TestCase):
         ]
 
         source     = MemorySource(lines)
-        simulation = ArffSimulation(source,'c',).read()
+        simulation = ArffSimulation(source,'c',)
 
         self.assertEqual(3, len(simulation.interactions))
         
@@ -227,7 +227,7 @@ class LibsvmSimulation_Tests(unittest.TestCase):
         ]
 
         source     = MemorySource(lines)
-        simulation = LibsvmSimulation(source).read()
+        simulation = LibsvmSimulation(source)
 
         self.assertEqual(3, len(simulation.interactions))
 

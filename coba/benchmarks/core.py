@@ -40,7 +40,7 @@ class Benchmark:
         return CobaRegistry.construct(CobaConfig.Benchmark['file_fmt']).filter(JsonDecode().filter(content))
 
     def __init__(self, 
-        simulations: Sequence[Source[Simulation]],
+        simulations: Sequence[Simulation],
         shuffle    : Sequence[Optional[int]] = [None],
         take       : int = None) -> None:
         """Instantiate a Benchmark.
@@ -52,7 +52,7 @@ class Benchmark:
         """
         ...
 
-        sources = simulations
+        sources = [MemorySource(simulation) for simulation in simulations] 
         filters: List[Sequence[Filter[Simulation,Simulation]]] = []
 
         if shuffle != [None]:

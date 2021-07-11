@@ -55,11 +55,14 @@ class DiskSource(Source[Iterable[str]]):
                 yield line
 
 class MemorySource(Source[_T_out]):
-    def __init__(self, item: _T_out): #type:ignore
+    def __init__(self, item: _T_out, __repr__: str = None): #type:ignore
         self._item = item
 
     def read(self) -> _T_out:
         return self._item
+
+    def __repr__(self) -> str:
+        return repr(self._item)
 
 class QueueSource(Source[Iterable[Any]]):
     def __init__(self, source: Any, poison=None) -> None:

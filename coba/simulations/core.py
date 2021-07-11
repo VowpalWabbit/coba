@@ -122,7 +122,7 @@ class MemorySimulation(Simulation):
         """
         return self._interactions
 
-class ClassificationSimulation(MemorySimulation):
+class ClassificationSimulation(Simulation):
     """A simulation created from classification dataset with features and labels.
 
     ClassificationSimulation turns labeled observations from a classification data set
@@ -162,11 +162,13 @@ class ClassificationSimulation(MemorySimulation):
         actions   = list(sorted(set(labels_flat), key=lambda l: labels_flat.index(l)))
         feedbacks = [ [ feedback(action,label) for action in actions ] for label in labels ]
 
-        interactions = list(map(Interaction, contexts, repeat(actions), feedbacks))
+        self._interactions = list(map(Interaction, contexts, repeat(actions), feedbacks))
 
-        super().__init__(interactions)
+    @property
+    def interactions(self) -> Sequence[Interaction]:
+        return self._interactions   
 
-class LambdaSimulation(Source[Simulation]):
+class LambdaSimulation(Simulation):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
 
     Remarks:
@@ -187,24 +189,23 @@ class LambdaSimulation(Source[Simulation]):
             reward: A function that should return the reward for the index, context and action.
         """
 
-        interactions: List[Interaction] = []
+        self._interactions: List[Interaction] = []
 
         for i in range(n_interactions):
             _context  = context(i)
             _actions  = actions(i, _context)
             _rewards  = [ reward(i, _context, _action) for _action in _actions]
 
-            interactions.append(Interaction(_context, _actions, _rewards))
+            self._interactions.append(Interaction(_context, _actions, _rewards))
 
-        self._simulation = MemorySimulation(interactions)
-
-    def read(self) -> Simulation:
-        return self._simulation
+    @property
+    def interactions(self) -> Sequence[Interaction]:
+        return self._interactions
 
     def __repr__(self) -> str:
         return '"LambdaSimulation"'
 
-class ReaderSimulation(Source[Simulation]):
+class ReaderSimulation(Simulation):
 
     def __init__(self, 
         reader      : Filter[Iterable[str], Any], 
@@ -223,8 +224,17 @@ class ReaderSimulation(Source[Simulation]):
         
         self._label_column = label_column
         self._with_header  = with_header
+        self._interactions = None
 
-    def read(self) -> Simulation:
+    @property
+    def interactions(self) -> Sequence[Interaction]:
+
+        if self._interactions is None:
+            self._interactions = self._load_interactions()
+
+        return self._interactions
+
+    def _load_interactions(self) -> Sequence[Interaction]:
         parsed_rows_iter = iter(self._reader.filter(self._source.read()))
 
         if self._with_header:
@@ -253,50 +263,38 @@ class ReaderSimulation(Source[Simulation]):
         else:
             dense_labels = list(label_col)
 
-        return ClassificationSimulation(feature_rows, dense_labels)
+        return ClassificationSimulation(feature_rows, dense_labels).interactions
 
     def __repr__(self) -> str:
         return str(self._source)
 
-class CsvSimulation(Source[Simulation]):
+class CsvSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
-        self._simulation_source = ReaderSimulation(CsvReader(), source, label_column, with_header)
-
-    def read(self) -> Simulation:
-        return self._simulation_source.read()
+        super().__init__(CsvReader(), source, label_column, with_header)
 
     def __repr__(self) -> str:
-        return f'{{"CsvSimulation":"{self._simulation_source}"}}'
+        return f'{{"CsvSimulation":"{super().__repr__()}"}}'
 
-class ArffSimulation(Source[Simulation]):
+class ArffSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int]) -> None:
-        self._simulation_source = ReaderSimulation(ArffReader(skip_encoding=[label_column]), source, label_column)
-
-    def read(self) -> Simulation:
-        return self._simulation_source.read()
+        super().__init__(ArffReader(skip_encoding=[label_column]), source, label_column)
 
     def __repr__(self) -> str:
-        return f'{{"ArffSimulation":"{self._simulation_source}"}}'    
+        return f'{{"ArffSimulation":"{super().__repr__()}"}}'    
 
-class LibsvmSimulation(Source[Simulation]):
+class LibsvmSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]]) -> None:
-        self._simulation_source = ReaderSimulation(LibSvmReader(), source, 0, False)
-
-    def read(self) -> Simulation:
-        return self._simulation_source.read()
+        super().__init__(LibSvmReader(), source, 0, False)
 
     def __repr__(self) -> str:
-        return f'{{"LibsvmSimulation":"{self._simulation_source}"}}'
+        return f'{{"LibsvmSimulation":"{super().__repr__()}"}}'
 
-class ManikSimulation(Source[Simulation]):
+class ManikSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]]) -> None:
-        self._simulation_source = ReaderSimulation(ManikReader(), source, 0, False)
-
-    def read(self) -> Simulation:
-        return self._simulation_source.read()
+        super().__init__(ManikReader(), source, 0, False)
 
     def __repr__(self) -> str:
-        return f'{{"ManikSimulation":"{self._simulation_source}"}}'
+        return f'{{"ManikSimulation":"{super().__repr__()}"}}'
 
 class ValidationSimulation(LambdaSimulation):
     def __init__(self, n_interactions: int=500, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, sparse: bool=False, seed:int=1) -> None:

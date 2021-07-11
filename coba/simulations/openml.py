@@ -2,12 +2,12 @@ import json
 
 from itertools import compress
 from hashlib import md5
-from typing import Tuple, Sequence, Any, List, cast
+from typing import Tuple, Sequence, Any, List
 
 from coba.pipes import Source, HttpSource
 from coba.config import CobaConfig, CobaException
 
-from coba.simulations.core import Context, Action, ClassificationSimulation, Simulation
+from coba.simulations.core import Context, Action, ClassificationSimulation, Interaction, Simulation
 
 class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
@@ -212,7 +212,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
         raise CobaException(f"Openml {data_id} does not appear to be a classification dataset")
 
-class OpenmlSimulation(Source[Simulation]):
+class OpenmlSimulation(Simulation):
     """A simulation created from openml data with features and labels.
 
     OpenmlSimulation turns labeled observations from a classification data set,
@@ -225,11 +225,17 @@ class OpenmlSimulation(Source[Simulation]):
 
     def __init__(self, id: int, md5_checksum: str = None) -> None:
         self._source = OpenmlSource(id, md5_checksum)
+        self._interactions = None
 
-    def read(self) -> Simulation:        
-        feature_rows, label_col = self._source.read()
+    def _load_interactions(self) -> Sequence[Interaction]:
+        return ClassificationSimulation(*self._source.read()).interactions
 
-        return ClassificationSimulation(feature_rows, label_col)
+    @property
+    def interactions(self) -> Sequence[Interaction]:
+        if self._interactions is None:
+            self._interactions = self._load_interactions()
+
+        return self._interactions
 
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._source._data_id}}}'

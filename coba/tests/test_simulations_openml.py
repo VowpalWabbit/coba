@@ -283,7 +283,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
 
         CobaConfig.Cacher = NoneCacher()
 
-        simulation = OpenmlSimulation(1116).read()
+        simulation = OpenmlSimulation(1116)
         #simulation = ClassificationSimulation.from_source(OpenmlSource(273))
 
         self.assertEqual(len(simulation.interactions), 6598)
