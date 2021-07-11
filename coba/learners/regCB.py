@@ -6,9 +6,11 @@ from coba.learners.core import Learner, Key
 from typing import Any, Dict, Sequence
 
 from copy import deepcopy
+from itertools import product
 
 class RegCB(Learner):
-    """A learner using the RegCB algorithm from "Practical Contextual Bandits with Regression Oracles" by Foster et al.
+    """A learner using the RegCB algorithm by Foster et al.
+        and the online bin search implementation by Bietti et al. 
     
     References:
         Foster, Dylan, Alekh Agarwal, Miroslav Dudík, Haipeng Luo, and Robert Schapire.
@@ -95,7 +97,6 @@ class RegCB(Learner):
         Returns:
             The probability of taking each action. See the base class for more information.
         """
-        self._is_sparse = type(actions[0])==dict
 
         if (self._iter < 30):
             return [1/len(actions)] * len(actions)
@@ -107,7 +108,7 @@ class RegCB(Learner):
 
             for action in actions:
 
-                score = self.bin_search(self._featurize(context,action), len(actions)) if not self._is_sparse else self.bin_search(self._h.transform([self._featurize(context,action)]), len(actions))
+                score = self.bin_search(self._featurize(context,action), len(actions))
                 
                 if score > maxScore:
                     maxAction = action
@@ -159,61 +160,30 @@ class RegCB(Learner):
             reward: The reward that was gained from the action. See the base class for more information.
             probability: The probability that the given action was taken.
         """
-        self._core_model.partial_fit(self._featurize(context, action), [reward], [1]) if not self._is_sparse else self._core_model.partial_fit(self._h.transform([self._featurize(context, action)]), [reward], [1])
+        self._core_model.partial_fit(self._featurize(context, action), [reward], [1])
         
         self._iter += 1
 
     def _featurize(self, context, action):
         import numpy as np #type: ignore
 
-        features = np.array([[]]*len(action))
-        feature_names = []
+        feature_names = feature_values = []
 
-        if (self._is_sparse):
-            action_array = np.array(list(action.values()))
-            action_names = list(map(str,action.keys()))
-
-            if (context is not None):
-                context_names = list(map(str,context.keys()))
-                context_array = np.array(list(context.values()))
-
-            for term in self._terms:
-                temp_array_1 = [""]
-                temp_array_2 = [""]
-
-                if (context is not None):
-                    for _ in range(term[0]):
-                        temp_array_1 = [ x + y for x in temp_array_1 for y in context_names ]
-                
-                for _ in range(term[1]):
-                    temp_array_2 = [ x + y for x in temp_array_2 for y in action_names ]
-            
-                temp_array = [ x + y for x in temp_array_1 for y in temp_array_2 ]
-
-                feature_names = feature_names + temp_array
+        if isinstance(context, dict):
+            context_names = list(context.keys())
+            context_values = list(context.values())
         else:
-            context_array = np.array(context) if context is not None else np.array([])
-            action_array = np.array(action)
+            context_names, context_values = [''], (context or [1])
+
+        if isinstance(action, dict):
+            action_names = list(action.keys())
+            action_values = list(action.values())
+        else:
+            action_names, action_values = [''], action
 
         for term in self._terms:
-            temp_array_1 = [[1.0]]
-            temp_array_2 = [[1.0]]
+            feature_names = feature_names + [ "".join(str(names)) for names in product(*[context_names]*term[0], *[action_names]*term[1]) ]
+            feature_values = feature_values + [ np.prod(values) for values in product(*[context_values]*term[0], *[action_values]*term[1]) ]
 
-            if (context is not None):
-                for _ in range(term[0]):
-                    temp_array_1 = np.outer(temp_array_1, context_array).reshape(-1)
-            
-            for _ in range(term[1]):
-                temp_array_2 = np.outer(temp_array_2, action_array).reshape(-1)
-            
-            temp_array_2 = np.expand_dims(temp_array_2, axis=0)
-
-            temp_array = np.apply_along_axis(lambda x: np.outer(x, temp_array_1).reshape(-1), 1, temp_array_2)
-
-            if(features.shape[1] == 0):
-                features  = temp_array
-            else:
-                features = np.hstack([features, temp_array])
-
+        return feature_values if len(feature_names) != len(feature_values) else self._h.transform([dict(zip(feature_names, feature_values))])
         
-        return features if not self._is_sparse else dict(zip(feature_names, features.reshape(-1).tolist()))
