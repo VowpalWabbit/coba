@@ -6,6 +6,7 @@ from typing import Optional, Sequence, Tuple, cast, Union
 from coba.utilities import PackageChecker
 from coba.random import CobaRandom
 from coba.pipes import Filter
+
 from coba.simulations.core import Simulation, MemorySimulation, Interaction
 
 class Shuffle(Filter[Simulation,Simulation]):
@@ -18,7 +19,7 @@ class Shuffle(Filter[Simulation,Simulation]):
 
     def filter(self, item: Simulation) -> Simulation:  
         shuffled_interactions = CobaRandom(self._seed).shuffle(item.interactions)
-        return MemorySimulation(shuffled_interactions, item.reward)
+        return MemorySimulation(shuffled_interactions)
 
     def __repr__(self) -> str:
         return f'{{"Shuffle":{self._seed}}}'
@@ -36,10 +37,10 @@ class Take(Filter[Simulation,Simulation]):
         if self._count is None:
             return item
 
-        if self._count > len(item.interactions):
-            return MemorySimulation([], item.reward)
+        if len(item.interactions) < self._count:
+            return MemorySimulation([])
 
-        return MemorySimulation(item.interactions[0:self._count], item.reward)
+        return MemorySimulation(item.interactions[0:self._count])
 
     def __repr__(self) -> str:
         return f'{{"Take":{json.dumps(self._count)}}}'
@@ -66,9 +67,9 @@ class PCA(Filter[Simulation,Simulation]):
         new_contexts = (feat_matrix @ comp_vecs ) / np.sqrt(comp_vals) #type:ignore
         new_contexts = new_contexts[:,np.argsort(-comp_vals)]
 
-        interactions = [ Interaction(i.key, tuple(c), i.actions) for c, i in zip(new_contexts,simulation.interactions) ]
+        interactions = [ Interaction(tuple(c),i.actions,i.feedbacks) for c, i in zip(new_contexts,simulation.interactions) ]
 
-        return MemorySimulation(interactions, simulation.reward)
+        return MemorySimulation(interactions)
 
     def __repr__(self) -> str:
         return '"PCA"'
@@ -86,10 +87,10 @@ class Sort(Filter[Simulation,Simulation]):
 
     def filter(self, simulation: Simulation) -> Simulation:
         
-        sort_key            = lambda interaction: tuple([interaction.context[i] for i in self.indexes ])
+        sort_key            = lambda interaction: tuple(interaction.context[i] for i in self.indexes)
         sorted_interactions = list(sorted(simulation.interactions, key=sort_key))
 
-        return MemorySimulation(sorted_interactions, simulation.reward)
+        return MemorySimulation(sorted_interactions)
 
     def __repr__(self) -> str:
         return f'{{"Sort":{json.dumps(self.indexes, separators=(",",":"))}}}'

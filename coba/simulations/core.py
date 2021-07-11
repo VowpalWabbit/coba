@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import collections
 
-from itertools import accumulate, repeat, chain
+from itertools import repeat, chain
 from typing import Optional, Sequence, List, Callable, Hashable, Tuple, Dict, Any, Union, Iterable
 
 from coba.random import CobaRandom
@@ -13,32 +13,30 @@ from coba.pipes import (
     ResponseToLines, Transpose, Flatten
 )
 
-Action      = Union[Tuple[Hashable,...], Hashable, dict]
+Action      = Union[Hashable, dict]
 Key         = int
-Context     = Optional[Union[Tuple[Hashable,...], Hashable, dict]]
+Context     = Optional[Union[Hashable, dict]]
+Feedback    = Any
 
 class Interaction:
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
-    def __init__(self, key: Key, context: Context, actions: Sequence[Action]) -> None:
+    def __init__(self, context: Context, actions: Sequence[Action], feedbacks: Sequence[Feedback]) -> None:
         """Instantiate Interaction.
 
         Args
-            context: Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
-            actions: Features describing available actions in the interaction.
-            key    : A unique key assigned to this interaction.
+            context  : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
+            actions  : Features describing available actions in the interaction.
+            feedbacks: Feedback that will be received based on the action that is taken in the interaction.
         """
 
-        assert actions, "At least one action must be provided to interact"
+        assert actions, "At least one action must be provided for each interaction."
 
-        self._key     = key
-        self._context = context
-        self._actions = actions
+        assert len(actions) == len(feedbacks), "The interaction should have a feedback for each action."
 
-    @property
-    def key(self) -> Key:
-        """A unique key identifying the interaction."""
-        return self._key
+        self._context   = context
+        self._actions   = actions
+        self._feedbacks = feedbacks
 
     @property
     def context(self) -> Optional[Context]:
@@ -49,7 +47,7 @@ class Interaction:
             return self._context
 
         #The context appears to be a sparse representation. Return it as a dictionary. This may be an incorrect assumption.
-        #In the future we should probably improve the back end so we can explicit indicate if our context is sparse rather
+        #In the future we should probably improve the back end so we can explicitly indicate if our context is sparse rather
         #than trying to infer it based on the structure of the context.
         if len(self._context) == 2 and isinstance(self._context[0],tuple) and isinstance(self._context[1],tuple):
             return dict(zip(self._context[0], self._context[1]))
@@ -64,13 +62,13 @@ class Interaction:
         actions = []
 
         for action in self._actions:
-            #context is non-existant or singular so return it as is
+            #action is non-existant or singular so return it as is
             if not isinstance(action, collections.Sequence):
                 actions.append(action)
 
-            #The context appears to be a sparse representation. Return it as a dictionary. This may be an incorrect assumption.
-            #In the future we should probably improve the back end so we can explicit indicate if our context is sparse rather
-            #than trying to infer it based on the structure of the context.
+            #The action appears to be a sparse representation. Return it as a dictionary. This may be an incorrect assumption.
+            #In the future we should probably improve the back end so we can explicitly indicate if our action is sparse rather
+            #than trying to infer it based on the structure of the action.
             elif len(action) == 2 and isinstance(action[0],tuple) and isinstance(action[1],tuple):
                 actions.append(dict(zip(action[0], action[1])))
 
@@ -82,11 +80,10 @@ class Interaction:
 
         return actions
 
-class Reward(ABC):
-
-    @abstractmethod
-    def observe(self, choices: Sequence[Tuple[Key,Context,Action]] ) -> Sequence[float]:
-        ...
+    @property
+    def feedbacks(self) -> Sequence[Feedback]:
+        """The interaction's feedback associated with each action."""
+        return self._feedbacks
 
 class Simulation(ABC):
     """The simulation interface."""
@@ -104,62 +101,17 @@ class Simulation(ABC):
         """
         ...
 
-    @property
-    @abstractmethod
-    def reward(self) -> Reward:
-        """The reward object which can observe rewards for pairs of actions and interaction keys."""
-        ...    
-
-class MemoryReward(Reward):
-    def __init__(self, rewards: Sequence[Tuple[Key,Action,float]] = []) -> None:
-        self._rewards: Dict[Tuple[Key,Action], float] = { (r[0],self._key(r[1])):r[2] for r in rewards }
-
-    def observe(self, choices: Sequence[Tuple[Key,Context,Action]] ) -> Sequence[float]:
-        return [ self._rewards[(key,self._key(action))] for key,_,action in choices ]
-
-    def _key(self, action):
-
-        if isinstance(action,str) or not isinstance(action,(collections.Sequence,dict)) :
-            return action
-
-        if len(action) == 2 and isinstance(action[0], tuple) and isinstance(action[1],tuple):
-            return tuple(zip(action[0], action[1]))
-
-        if isinstance(action,dict):
-            return tuple(action.items())
-
-        return action
-
-class ClassificationReward(Reward):
-    def __init__(self, labels: Sequence[Tuple[Key,Union[Action, Sequence[Action]]]] = []) -> None:
-        self._labels = dict(labels)
-
-    def add(self, key: Key, action: Action):
-        self._labels[key] = action
-
-    def observe(self, choices: Sequence[Tuple[Key,Context,Action]] ) -> Sequence[float]:
-        rewards = []
-
-        for key, _, action in choices:
-            key_label = self._labels[key]
-            reward    = int(action in key_label if isinstance(key_label, collections.Sequence) and not isinstance(key_label, str) else action == key_label)
-            rewards.append(reward)
-
-        return rewards
-
 class MemorySimulation(Simulation):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
 
-    def __init__(self, interactions: Sequence[Interaction], reward: Reward) -> None:
+    def __init__(self, interactions: Sequence[Interaction]) -> None:
         """Instantiate a MemorySimulation.
 
         Args:
             interactions: The sequence of interactions in this simulation.
-            reward: The reward object to observe in this simulation.
         """
 
         self._interactions = interactions
-        self._reward       = reward
 
     @property
     def interactions(self) -> Sequence[Interaction]:
@@ -169,11 +121,6 @@ class MemorySimulation(Simulation):
             See the Simulation base class for more information.
         """
         return self._interactions
-
-    @property
-    def reward(self) -> Reward:
-        """The reward object which can observe rewards for pairs of actions and interaction keys."""
-        return self._reward
 
 class ClassificationSimulation(MemorySimulation):
     """A simulation created from classification dataset with features and labels.
@@ -206,12 +153,18 @@ class ClassificationSimulation(MemorySimulation):
             labels_flat = list(chain.from_iterable(labels)) #type: ignore
         else:
             labels_flat = labels #type: ignore
-            
-        action_set   = list(sorted(set(labels_flat), key=lambda l: labels_flat.index(l) ))
-        interactions = [ Interaction(i, context, action_set) for i, context in enumerate(features) ] #type: ignore
-        reward       = ClassificationReward(list(enumerate(labels)))
 
-        super().__init__(interactions, reward) #type:ignore
+        feedback      = lambda action,label: int(is_label(action,label) or in_multilabel(action,label))
+        is_label      = lambda action,label: action == label
+        in_multilabel = lambda action,label: isinstance(label,collections.Sequence) and action in label
+
+        contexts  = features 
+        actions   = list(sorted(set(labels_flat), key=lambda l: labels_flat.index(l)))
+        feedbacks = [ [ feedback(action,label) for action in actions ] for label in labels ]
+
+        interactions = list(map(Interaction, contexts, repeat(actions), feedbacks))
+
+        super().__init__(interactions)
 
 class LambdaSimulation(Source[Simulation]):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
@@ -234,20 +187,16 @@ class LambdaSimulation(Source[Simulation]):
             reward: A function that should return the reward for the index, context and action.
         """
 
-        interaction_tuples: List[Tuple[Key, Context, Sequence[Action]]] = []
-        reward_tuples     : List[Tuple[Key, Action , float           ]] = []
+        interactions: List[Interaction] = []
 
         for i in range(n_interactions):
             _context  = context(i)
             _actions  = actions(i, _context)
             _rewards  = [ reward(i, _context, _action) for _action in _actions]
 
-            interaction_tuples.append( (i, _context, _actions) )
-            reward_tuples.extend(zip(repeat(i), _actions, _rewards))
+            interactions.append(Interaction(_context, _actions, _rewards))
 
-        self._interactions = [ Interaction(key, context, actions) for key,context,actions in interaction_tuples ]
-        self._reward       = MemoryReward(reward_tuples)
-        self._simulation   = MemorySimulation(self._interactions, self._reward)
+        self._simulation = MemorySimulation(interactions)
 
     def read(self) -> Simulation:
         return self._simulation

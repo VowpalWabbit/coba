@@ -6,9 +6,6 @@ from typing import cast, Tuple, Sequence, Optional
 from coba.config import CobaConfig, NoneLogger, MemoryCacher, NoneCacher
 from coba.simulations import OpenmlSimulation, OpenmlSource, Key, Action, Context, Interaction
 
-def _choices(interaction: Interaction) -> Sequence[Tuple[Key, Optional[Context], Action]]:
-    return [  (interaction.key, interaction.context, a) for a in interaction.actions]
-
 CobaConfig.Logger = NoneLogger()
 
 class PutOnceCacher(MemoryCacher):
@@ -301,11 +298,8 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             self.assertIn('0', rnd.actions)
             self.assertIn('1', rnd.actions)
             self.assertEqual(len(rnd.actions),2)
-            
-            actual_rewards  = simulation.reward.observe(_choices(rnd))
-
-            self.assertIn(1, actual_rewards)
-            self.assertIn(0, actual_rewards)
+            self.assertIn(1, rnd.feedbacks)
+            self.assertIn(0, rnd.feedbacks)
 
     @unittest.skip("much of what makes this openml set slow is now tested locally in `test_large_from_table`")
     def test_large_from_openml(self) -> None:

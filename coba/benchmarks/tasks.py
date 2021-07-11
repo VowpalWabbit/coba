@@ -168,27 +168,27 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                             CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate (likely due to `take` being larger than the simulation).")
                             continue
 
-                        for i in sorted(range(len(learners)), reverse=True):
+                        for index in sorted(range(len(learners)), reverse=True):
 
-                            lrn_id  = learner_ids[i]
-                            learner = deepcopy(learners[i])
-                            random  = CobaRandom(seeds[i])
+                            lrn_id  = learner_ids[index]
+                            learner = deepcopy(learners[index])
+                            random  = CobaRandom(seeds[index])
 
                             try:
                                 with CobaConfig.Logger.time(f"Evaluating learner {lrn_id} on Simulation {sim_id}..."):
 
                                     rewards = []
 
-                                    for interaction in simulation.interactions:
-                                        probs  = learner.predict(interaction.key, interaction.context, interaction.actions)
+                                    for i, interaction in enumerate(simulation.interactions):
+                                        probs  = learner.predict(i, interaction.context, interaction.actions)
                                         
                                         assert abs(sum(probs) - 1) < .0001, "The learner returned invalid proabilities for action choices."
                                         
                                         action = random.choice(interaction.actions, probs)
-                                        reward = simulation.reward.observe([(interaction.key, interaction.context, action)])[0]
+                                        reward = interaction.feedbacks[interaction.actions.index(action)]
                                         prob   = probs[interaction.actions.index(action)]
                                         
-                                        learner.learn(interaction.key, interaction.context, action, reward, prob)
+                                        learner.learn(i, interaction.context, action, reward, prob)
                                         rewards.append(reward)
 
                                     yield Transaction.interactions(sim_id, lrn_id, _packed={"reward":rewards})
@@ -197,8 +197,8 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                                 CobaConfig.Logger.log_exception(e)
 
                             finally:
-                                del learner_ids[i]
-                                del learners[i]
+                                del learner_ids[index]
+                                del learners[index]
 
                 except Exception as e:
                     CobaConfig.Logger.log_exception(e)
