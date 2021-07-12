@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import cast
 
 from coba.simulations import LambdaSimulation
-from coba.pipes import Source, MemorySink
+from coba.pipes import Source, MemorySink, MemorySource
 from coba.learners import Learner, RandomLearner
 from coba.config import CobaConfig, NoneLogger, IndentLogger, BasicLogger
 from coba.benchmarks import Benchmark
@@ -115,6 +115,24 @@ class Benchmark_Single_Tests(unittest.TestCase):
         CobaConfig.Logger = NoneLogger()
         CobaConfig.Benchmark['processes'] = 1
         CobaConfig.Benchmark['maxtasksperchild'] = None
+
+    def test_sources(self):
+        sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        learner    = ModuloLearner()
+        benchmark  = Benchmark([MemorySource(sim1)])
+
+        result              = benchmark.evaluate([learner])
+        actual_learners     = result.learners.to_tuples()
+        actual_simulations  = result.simulations.to_tuples()
+        actual_interactions = result.interactions.to_tuples()
+
+        expected_learners     = [(0,"Modulo(p=0)","Modulo",'0')]
+        expected_simulations  = [(0, "LambdaSimulation", "None", "None", '"LambdaSimulation"')]
+        expected_interactions = [(0,0,1,0), (0,0,2,1)]
+
+        self.assertCountEqual(actual_learners, expected_learners)
+        self.assertCountEqual(actual_simulations, expected_simulations)
+        self.assertCountEqual(actual_interactions, expected_interactions)
 
     def test_sims(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
