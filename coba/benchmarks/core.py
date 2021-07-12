@@ -52,11 +52,7 @@ class Benchmark:
         """
         ...
 
-        if not hasattr(simulations[0], 'read'):
-            sources: List[Source[Simulation]] = [ MemorySource(simulation) for simulation in simulations]
-        else:
-            sources: List[Source[Simulation]] = simulations
-        
+        sources: Sequence[Source[Simulation]] = [ s if hasattr(s,'read') else MemorySource(s) for s in simulations] #type: ignore     
         filters: List[Sequence[Filter[Simulation,Simulation]]] = []
 
         if shuffle != [None]:
