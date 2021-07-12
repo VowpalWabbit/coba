@@ -37,8 +37,8 @@ class BenchmarkTask:
         def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
             return self._learner.predict(key, context, actions) #type: ignore
 
-        def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
-            self._learner.learn(key, context, action, reward, probability) #type: ignore
+        def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> Optional[Dict[str,Any]]:
+            return self._learner.learn(key, context, action, reward, probability) #type: ignore
 
     class BenchmarkTaskSimulation(Source[Simulation]):
 
@@ -177,7 +177,7 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                             try:
                                 with CobaConfig.Logger.time(f"Evaluating learner {lrn_id} on Simulation {sim_id}..."):
 
-                                    rewards = []
+                                    row_data = defaultdict(list)
 
                                     for i, interaction in enumerate(simulation.interactions):
                                         probs  = learner.predict(i, interaction.context, interaction.actions)
@@ -188,10 +188,12 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                                         reward = interaction.feedbacks[interaction.actions.index(action)]
                                         prob   = probs[interaction.actions.index(action)]
                                         
-                                        learner.learn(i, interaction.context, action, reward, prob)
-                                        rewards.append(reward)
+                                        info = learner.learn(i, interaction.context, action, reward, prob) or {}
+                                                                                
+                                        for key,value in info.items() | {('reward',reward)}: 
+                                            row_data[key].append(value)
 
-                                    yield Transaction.interactions(sim_id, lrn_id, _packed={"reward":rewards})
+                                    yield Transaction.interactions(sim_id, lrn_id, _packed=row_data)
 
                             except Exception as e:
                                 CobaConfig.Logger.log_exception(e)

@@ -1,7 +1,7 @@
 """The expected interface for all learner implementations."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Sequence, Dict, Union, Tuple
+from typing import Any, Sequence, Dict, Union, Tuple, Optional
 
 from coba.simulations import Context, Action, Key
 
@@ -53,7 +53,7 @@ class Learner(ABC):
         ...
 
     @abstractmethod
-    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> Optional[Dict[str,Any]]:
         """Learn about the result of an action that was taken in a context.
 
         Args:

@@ -45,6 +45,24 @@ class BrokenLearner(Learner):
     def learn(self, key, context, action, reward, probability):
         pass
 
+class InfoLearner(Learner):
+    def __init__(self, param:str="0"):
+        self._param = param
+
+    @property
+    def family(self):
+        return "Modulo"
+
+    @property
+    def params(self):
+        return {"p":self._param}
+
+    def predict(self, key, context, actions):
+        return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
+
+    def learn(self, key, context, action, reward, probability):
+        return {"Modulo": self._param}
+
 class NotPicklableLearner(ModuloLearner):
     def __init__(self):
         self._val = lambda x: 1
@@ -190,6 +208,30 @@ class Benchmark_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_simulations, expected_simulations)
         self.assertCountEqual(actual_interactions, expected_interactions)
+
+    def test_info_learners(self):
+        sim       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        learner1  = InfoLearner("0") #type: ignore
+        benchmark = Benchmark([sim])
+
+        actual_result       = benchmark.evaluate([learner1])
+        actual_learners     = actual_result._learners.to_tuples()
+        actual_simulations  = actual_result._simulations.to_tuples()
+        actual_interactions = actual_result._interactions.to_tuples()
+
+        expected_learners       = [(0, "Modulo(p=0)", "Modulo", '0')]
+        expected_simulations    = [(0, "LambdaSimulation", "None", "None", '"LambdaSimulation"')]
+        expected_interactions_1 = [(0,0,1,0,'0'),(0,0,2,1,'0')]
+        expected_interactions_2 = [(0,0,1,'0',0),(0,0,2,'0',1)]
+
+        self.assertCountEqual(actual_learners, expected_learners)
+        self.assertCountEqual(actual_simulations, expected_simulations)
+        
+        try:
+            self.assertCountEqual(actual_interactions, expected_interactions_1)
+        except:
+            self.assertCountEqual(actual_interactions, expected_interactions_2)
+
 
     def test_transaction_resume_1(self):
         sim             = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
