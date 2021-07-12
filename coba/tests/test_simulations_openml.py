@@ -283,12 +283,11 @@ class OpenmlSimulation_Tests(unittest.TestCase):
 
         CobaConfig.Cacher = NoneCacher()
 
-        simulation = OpenmlSimulation(1116)
-        #simulation = ClassificationSimulation.from_source(OpenmlSource(273))
+        interactions = list(OpenmlSimulation(1116).read())
+        
+        self.assertEqual(len(interactions), 6598)
 
-        self.assertEqual(len(simulation.interactions), 6598)
-
-        for rnd in simulation.interactions:
+        for rnd in interactions:
 
             hash(rnd.context)    #make sure these are hashable
             hash(rnd.actions[0]) #make sure these are hashable
@@ -300,20 +299,6 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             self.assertEqual(len(rnd.actions),2)
             self.assertIn(1, rnd.feedbacks)
             self.assertIn(0, rnd.feedbacks)
-
-    @unittest.skip("much of what makes this openml set slow is now tested locally in `test_large_from_table`")
-    def test_large_from_openml(self) -> None:
-        #this test requires interet acess to download the data
-
-        CobaConfig.Cacher = MemoryCacher()
-        
-        OpenmlSource(154).read() #this will cause it to read and cache in memory so we don't measure read time
-        time = min(timeit.repeat(lambda:OpenmlSimulation(154).interactions, repeat=1, number=1))
-
-        print(time)
-
-        #with caching took approximately 17 seconds to encode
-        self.assertLess(time, 30)
 
     def test_repr(self):
         self.assertEqual('{"OpenmlSimulation":150}', str(OpenmlSimulation(150)))

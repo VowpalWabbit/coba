@@ -10,77 +10,67 @@ CobaConfig.Logger = NoneLogger()
 class Shuffle_Tests(unittest.TestCase):
     
     def test_shuffle(self):
-        interactions = list(map(Interaction, repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]] ))
-        
-        simulation = MemorySimulation(interactions)
-        shuffled_simulation = Shuffle(40).filter(simulation)
+        interactions = list(map(Interaction, repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]] ))        
+        shuffled_interactions = list(Shuffle(40).filter(interactions))
 
-        self.assertEqual(3, len(simulation.interactions))
-        self.assertEqual(interactions[0], simulation.interactions[0])
-        self.assertEqual(interactions[1], simulation.interactions[1])
-        self.assertEqual(interactions[2], simulation.interactions[2])
+        self.assertEqual(3, len(interactions))
+        self.assertEqual(interactions[0], interactions[0])
+        self.assertEqual(interactions[1], interactions[1])
+        self.assertEqual(interactions[2], interactions[2])
 
-        self.assertEqual(3, len(shuffled_simulation.interactions))
-        self.assertEqual(interactions[1], shuffled_simulation.interactions[0])
-        self.assertEqual(interactions[2], shuffled_simulation.interactions[1])
-        self.assertEqual(interactions[0], shuffled_simulation.interactions[2])
+        self.assertEqual(3, len(shuffled_interactions))
+        self.assertEqual(interactions[1], shuffled_interactions[0])
+        self.assertEqual(interactions[2], shuffled_interactions[1])
+        self.assertEqual(interactions[0], shuffled_interactions[2])
 
 class Take_Tests(unittest.TestCase):
     
     def test_take1(self):
 
         interactions = list(map(Interaction, repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]))
+        take_interactions = list(Take(1).filter(interactions))
 
-        simulation = MemorySimulation(interactions)
-        take_simulation = Take(1).filter(simulation)
+        self.assertEqual(1, len(take_interactions))
+        self.assertEqual(interactions[0], take_interactions[0])
 
-        self.assertEqual(1, len(take_simulation.interactions))
-        self.assertEqual(interactions[0], take_simulation.interactions[0])
-
-        self.assertEqual(3, len(simulation.interactions))
-        self.assertEqual(interactions[0], simulation.interactions[0])
-        self.assertEqual(interactions[1], simulation.interactions[1])
-        self.assertEqual(interactions[2], simulation.interactions[2])
+        self.assertEqual(3, len(interactions))
+        self.assertEqual(interactions[0], interactions[0])
+        self.assertEqual(interactions[1], interactions[1])
+        self.assertEqual(interactions[2], interactions[2])
 
     def test_take2(self):
         interactions = list(map(Interaction, repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]))
+        take_interactions = list(Take(2).filter(interactions))
 
-        simulation = MemorySimulation(interactions)
-        take_simulation = Take(2).filter(simulation)
+        self.assertEqual(2, len(take_interactions))
+        self.assertEqual(interactions[0], take_interactions[0])
+        self.assertEqual(interactions[1], take_interactions[1])
 
-        self.assertEqual(2              , len(take_simulation.interactions))
-        self.assertEqual(interactions[0], take_simulation.interactions[0])
-        self.assertEqual(interactions[1], take_simulation.interactions[1])
-
-        self.assertEqual(3              , len(simulation.interactions))
-        self.assertEqual(interactions[0], simulation.interactions[0])
-        self.assertEqual(interactions[1], simulation.interactions[1])
-        self.assertEqual(interactions[2], simulation.interactions[2])
+        self.assertEqual(3, len(interactions))
+        self.assertEqual(interactions[0], interactions[0])
+        self.assertEqual(interactions[1], interactions[1])
+        self.assertEqual(interactions[2], interactions[2])
 
     def test_take3(self):
         interactions = list(map(Interaction, repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]] ))
-        
-        simulation = MemorySimulation(interactions)
-        take_simulation = Take(3).filter(simulation)
+        take_interactions = list(Take(3).filter(interactions))
 
-        self.assertEqual(3              , len(take_simulation.interactions))
-        self.assertEqual(interactions[0], take_simulation.interactions[0])
-        self.assertEqual(interactions[1], take_simulation.interactions[1])
-        self.assertEqual(interactions[2], take_simulation.interactions[2])
+        self.assertEqual(3, len(take_interactions))
+        self.assertEqual(interactions[0], take_interactions[0])
+        self.assertEqual(interactions[1], take_interactions[1])
+        self.assertEqual(interactions[2], take_interactions[2])
 
-        self.assertEqual(3              , len(simulation.interactions))
-        self.assertEqual(interactions[0], simulation.interactions[0])
-        self.assertEqual(interactions[1], simulation.interactions[1])
-        self.assertEqual(interactions[2], simulation.interactions[2])
+        self.assertEqual(3, len(interactions))
+        self.assertEqual(interactions[0], interactions[0])
+        self.assertEqual(interactions[1], interactions[1])
+        self.assertEqual(interactions[2], interactions[2])
 
     def test_take4(self):
-        interactions = list(map(Interaction, repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]))
-        
-        simulation = MemorySimulation(interactions)
-        take_simulation = Take(4).filter(simulation)
+        interactions = list(map(Interaction, repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]))        
+        take_interactions = list(Take(4).filter(interactions))
 
-        self.assertEqual(3, len(simulation.interactions))
-        self.assertEqual(0, len(take_simulation.interactions))
+        self.assertEqual(3, len(interactions))
+        self.assertEqual(0, len(take_interactions))
 
     def test_repr(self):
         self.assertEqual('{"Take":2}', str(Take(2)))
@@ -114,16 +104,16 @@ class PCA_Tests(unittest.TestCase):
             Interaction((7,3), [1], [1])
         ]
 
-        mem_sim = MemorySimulation(interactions)
-        pca_sim = PCA().filter(mem_sim)
+        mem_interactions = interactions
+        pca_interactions = list(PCA().filter(interactions))
 
-        self.assertEqual((1,2), mem_sim.interactions[0].context)
-        self.assertEqual((1,9), mem_sim.interactions[1].context)
-        self.assertEqual((7,3), mem_sim.interactions[2].context)
+        self.assertEqual((1,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((7,3), mem_interactions[2].context)
 
-        self.assertNotEqual((1,2), pca_sim.interactions[0].context)
-        self.assertNotEqual((1,9), pca_sim.interactions[1].context)
-        self.assertNotEqual((7,3), pca_sim.interactions[2].context)
+        self.assertNotEqual((1,2), pca_interactions[0].context)
+        self.assertNotEqual((1,9), pca_interactions[1].context)
+        self.assertNotEqual((7,3), pca_interactions[2].context)
 
     def test_repr(self):
         self.assertEqual('"PCA"', str(PCA()))
@@ -138,16 +128,16 @@ class Sort_tests(unittest.TestCase):
             Interaction((8,3), [1], [1])
         ]
 
-        mem_sim = MemorySimulation(interactions)
-        srt_sim = Sort([0]).filter(mem_sim)
+        mem_interactions = interactions
+        srt_interactions = list(Sort([0]).filter(mem_interactions))
 
-        self.assertEqual((7,2), mem_sim.interactions[0].context)
-        self.assertEqual((1,9), mem_sim.interactions[1].context)
-        self.assertEqual((8,3), mem_sim.interactions[2].context)
+        self.assertEqual((7,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((8,3), mem_interactions[2].context)
 
-        self.assertEqual((1,9), srt_sim.interactions[0].context)
-        self.assertEqual((7,2), srt_sim.interactions[1].context)
-        self.assertEqual((8,3), srt_sim.interactions[2].context)
+        self.assertEqual((1,9), srt_interactions[0].context)
+        self.assertEqual((7,2), srt_interactions[1].context)
+        self.assertEqual((8,3), srt_interactions[2].context)
 
     def test_sort2(self) -> None:
 
@@ -157,16 +147,16 @@ class Sort_tests(unittest.TestCase):
             Interaction((1,3), [1], [1])
         ]
 
-        mem_sim = MemorySimulation(interactions)
-        srt_sim = Sort([0,1]).filter(mem_sim)
+        mem_interactions = interactions
+        srt_interactions = list(Sort([0,1]).filter(mem_interactions))
 
-        self.assertEqual((1,2), mem_sim.interactions[0].context)
-        self.assertEqual((1,9), mem_sim.interactions[1].context)
-        self.assertEqual((1,3), mem_sim.interactions[2].context)
+        self.assertEqual((1,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((1,3), mem_interactions[2].context)
 
-        self.assertEqual((1,2), srt_sim.interactions[0].context)
-        self.assertEqual((1,3), srt_sim.interactions[1].context)
-        self.assertEqual((1,9), srt_sim.interactions[2].context)
+        self.assertEqual((1,2), srt_interactions[0].context)
+        self.assertEqual((1,3), srt_interactions[1].context)
+        self.assertEqual((1,9), srt_interactions[2].context)
 
     def test_sort3(self) -> None:
         interactions = [
@@ -175,16 +165,16 @@ class Sort_tests(unittest.TestCase):
             Interaction((1,3), [1], [1])
         ]
 
-        mem_sim = MemorySimulation(interactions)
-        srt_sim = Sort(*[0,1]).filter(mem_sim)
+        mem_interactions = interactions
+        srt_interactions = list(Sort(*[0,1]).filter(mem_interactions))
 
-        self.assertEqual((1,2), mem_sim.interactions[0].context)
-        self.assertEqual((1,9), mem_sim.interactions[1].context)
-        self.assertEqual((1,3), mem_sim.interactions[2].context)
+        self.assertEqual((1,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((1,3), mem_interactions[2].context)
 
-        self.assertEqual((1,2), srt_sim.interactions[0].context)
-        self.assertEqual((1,3), srt_sim.interactions[1].context)
-        self.assertEqual((1,9), srt_sim.interactions[2].context)
+        self.assertEqual((1,2), srt_interactions[0].context)
+        self.assertEqual((1,3), srt_interactions[1].context)
+        self.assertEqual((1,9), srt_interactions[2].context)
     
     def test_repr(self):
         self.assertEqual('{"Sort":[0]}', str(Sort([0])))

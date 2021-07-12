@@ -1,15 +1,24 @@
+from abc import abstractmethod
 import json
 import collections
 
-from typing import Optional, Sequence, Tuple, cast, Union
+from itertools import islice
+from typing import Optional, Sequence, Tuple, cast, Union, Iterable
 
 from coba.utilities import PackageChecker
 from coba.random import CobaRandom
 from coba.pipes import Filter
 
-from coba.simulations.core import Simulation, MemorySimulation, Interaction
+from coba.simulations.core import Interaction
 
-class Shuffle(Filter[Simulation,Simulation]):
+class SimulationFilter(Filter[Iterable[Interaction],Iterable[Interaction]]):
+
+    @abstractmethod
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        """Apply a filter to a Simulation's interactions."""
+        ...
+
+class Shuffle(SimulationFilter):
     def __init__(self, seed:Optional[int]) -> None:
         
         if seed is not None and (not isinstance(seed,int) or seed < 0):
@@ -17,14 +26,13 @@ class Shuffle(Filter[Simulation,Simulation]):
 
         self._seed = seed
 
-    def filter(self, item: Simulation) -> Simulation:  
-        shuffled_interactions = CobaRandom(self._seed).shuffle(item.interactions)
-        return MemorySimulation(shuffled_interactions)
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:  
+        return CobaRandom(self._seed).shuffle(list(interactions))
 
     def __repr__(self) -> str:
         return f'{{"Shuffle":{self._seed}}}'
 
-class Take(Filter[Simulation,Simulation]):
+class Take(SimulationFilter):
     def __init__(self, count:Optional[int]) -> None:
         
         if count is not None and (not isinstance(count,int) or count < 0):
@@ -32,31 +40,31 @@ class Take(Filter[Simulation,Simulation]):
 
         self._count = count
 
-    def filter(self, item: Simulation) -> Simulation:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        if self._count is None:
-            return item
+        if self._count is None: return interactions
 
-        if len(item.interactions) < self._count:
-            return MemorySimulation([])
+        materialized = list(islice(interactions,self._count))
 
-        return MemorySimulation(item.interactions[0:self._count])
+        return materialized if len(materialized) == self._count else []
 
     def __repr__(self) -> str:
         return f'{{"Take":{json.dumps(self._count)}}}'
 
-class PCA(Filter[Simulation,Simulation]):
+class PCA(SimulationFilter):
 
     def __init__(self) -> None:
         PackageChecker.numpy("PCA.__init__")
 
-    def filter(self, simulation: Simulation) -> Simulation:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         
         PackageChecker.numpy("PcaSimulation.__init__")
 
         import numpy as np #type: ignore
 
-        contexts = [ list(cast(Tuple[float,...],i.context)) for i in simulation.interactions]
+        interactions = list(interactions)
+
+        contexts = [ list(cast(Tuple[float,...],i.context)) for i in interactions]
 
         feat_matrix          = np.array(contexts)
         comp_vals, comp_vecs = np.linalg.eig(np.cov(feat_matrix.T))
@@ -64,17 +72,15 @@ class PCA(Filter[Simulation,Simulation]):
         comp_vecs = comp_vecs[:,comp_vals > 0]
         comp_vals = comp_vals[comp_vals > 0]
 
-        new_contexts = (feat_matrix @ comp_vecs ) / np.sqrt(comp_vals) #type:ignore
-        new_contexts = new_contexts[:,np.argsort(-comp_vals)]
+        pca_contexts = (feat_matrix @ comp_vecs ) / np.sqrt(comp_vals) #type:ignore
+        pca_contexts = pca_contexts[:,np.argsort(-comp_vals)]
 
-        interactions = [ Interaction(tuple(c),i.actions,i.feedbacks) for c, i in zip(new_contexts,simulation.interactions) ]
-
-        return MemorySimulation(interactions)
+        return [ Interaction(tuple(c),i.actions,i.feedbacks) for c, i in zip(pca_contexts,interactions) ]
 
     def __repr__(self) -> str:
         return '"PCA"'
 
-class Sort(Filter[Simulation,Simulation]):
+class Sort(SimulationFilter):
 
     def __init__(self, *indexes: Union[int,Sequence[int]]) -> None:
         
@@ -85,12 +91,9 @@ class Sort(Filter[Simulation,Simulation]):
 
         self.indexes = flat_indexes
 
-    def filter(self, simulation: Simulation) -> Simulation:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         
-        sort_key            = lambda interaction: tuple(interaction.context[i] for i in self.indexes)
-        sorted_interactions = list(sorted(simulation.interactions, key=sort_key))
-
-        return MemorySimulation(sorted_interactions)
+        return sorted(interactions, key=lambda interaction: tuple(interaction.context[i] for i in self.indexes))
 
     def __repr__(self) -> str:
         return f'{{"Sort":{json.dumps(self.indexes, separators=(",",":"))}}}'

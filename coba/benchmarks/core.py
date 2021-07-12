@@ -1,3 +1,4 @@
+from coba.simulations.core import Interaction
 from pathlib import Path
 from itertools import product
 from typing import Iterable, Sequence, cast, Optional, overload, List, Union
@@ -40,7 +41,7 @@ class Benchmark:
         return CobaRegistry.construct(CobaConfig.Benchmark['file_fmt']).filter(JsonDecode().filter(content))
 
     def __init__(self, 
-        simulations: Union[Sequence[Simulation], Sequence[Source[Simulation]]],
+        simulations: Sequence[Simulation],
         shuffle    : Sequence[Optional[int]] = [None],
         take       : int = None) -> None:
         """Instantiate a Benchmark.
@@ -52,8 +53,8 @@ class Benchmark:
         """
         ...
 
-        sources: Sequence[Source[Simulation]] = [ s if hasattr(s,'read') else MemorySource(s) for s in simulations] #type: ignore     
-        filters: List[Sequence[Filter[Simulation,Simulation]]] = []
+        sources: List[Simulation] = simulations
+        filters: List[Sequence[Filter[Iterable[Interaction],Iterable[Interaction]]]] = []
 
         if shuffle != [None]:
             filters.append([ Shuffle(seed) for seed in shuffle ])

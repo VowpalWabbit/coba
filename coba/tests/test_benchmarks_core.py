@@ -119,7 +119,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
     def test_sources(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
-        benchmark  = Benchmark([MemorySource(sim1)])
+        benchmark  = Benchmark([sim1])
 
         result              = benchmark.evaluate([learner])
         actual_learners     = result.learners.to_tuples()

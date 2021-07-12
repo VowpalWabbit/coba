@@ -1,13 +1,14 @@
+from coba.simulations.core import Interaction
 from copy import deepcopy
 from itertools import groupby, product, count
 from collections import defaultdict
-from typing import Iterable, Sequence, Any, Optional, Dict, Tuple, Hashable
+from typing import Iterable, Sequence, Any, Optional, Dict, Hashable
 
 from coba.random import CobaRandom
 from coba.learners import Learner
 from coba.config import CobaConfig
 from coba.pipes import Pipe, Filter, Source, IdentityFilter
-from coba.simulations import Context, Action, Key, Simulation
+from coba.simulations import Context, Action, Key, Simulation, SimulationFilter
 
 from coba.benchmarks.transactions import Transaction
 from coba.benchmarks.results import Result
@@ -40,20 +41,20 @@ class BenchmarkTask:
         def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> Optional[Dict[str,Any]]:
             return self._learner.learn(key, context, action, reward, probability) #type: ignore
 
-    class BenchmarkTaskSimulation(Source[Simulation]):
+    class BenchmarkTaskSimulation(Simulation):
 
-        def __init__(self, pipe: Source[Simulation]) -> None:
+        def __init__(self, pipe: Simulation) -> None:
             self._pipe = pipe
 
         @property
-        def source(self) -> Source[Simulation]:
+        def source(self) -> Simulation:
             return self._pipe._source if isinstance(self._pipe, (Pipe.SourceFilters)) else self._pipe
 
         @property
-        def filter(self) -> Filter[Simulation,Simulation]:
+        def filter(self) -> SimulationFilter:
             return self._pipe._filter if isinstance(self._pipe, Pipe.SourceFilters) else IdentityFilter()
 
-        def read(self) -> Simulation:
+        def read(self) -> Iterable[Interaction]:
             return self._pipe.read()
 
         def __repr__(self) -> str:
@@ -149,7 +150,8 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                 try:
 
                     with CobaConfig.Logger.time(f"Creating source {src_id} from {source_by_id[src_id]}..."):
-                        loaded_source = source_by_id[src_id].read()
+                        #Rhis is not ideal. I'm not sure how it should be improved and leaving this for now.
+                        loaded_source = list(source_by_id[src_id].read())
 
                     for sim_id, tasks_by_src_sim in groupby(sorted(tasks_by_src, key=srt_sim), key=grp_sim):
 
@@ -162,9 +164,9 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                         learners.reverse() 
 
                         with CobaConfig.Logger.time(f"Creating simulation {sim_id} from source {src_id}..."):
-                            simulation = filter_by_id[sim_id].filter(loaded_source)
+                            interactions = filter_by_id[sim_id].filter(loaded_source)
 
-                        if not simulation.interactions:
+                        if not interactions:
                             CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate (likely due to `take` being larger than the simulation).")
                             continue
 
@@ -179,7 +181,7 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
 
                                     row_data = defaultdict(list)
 
-                                    for i, interaction in enumerate(simulation.interactions):
+                                    for i, interaction in enumerate(interactions):
                                         probs  = learner.predict(i, interaction.context, interaction.actions)
                                         
                                         assert abs(sum(probs) - 1) < .0001, "The learner returned invalid proabilities for action choices."

@@ -15,7 +15,7 @@ from coba.simulations.core import (
     LibsvmSimulation, ManikSimulation, ValidationSimulation
 )
 from coba.simulations.openml  import OpenmlSource, OpenmlSimulation
-from coba.simulations.filters import Shuffle, Take, PCA, Sort
+from coba.simulations.filters import SimulationFilter, Shuffle, Take, PCA, Sort
 
 __all__ = [
     'Context',
@@ -34,6 +34,7 @@ __all__ = [
     'ManikSimulation',
     'OpenmlSimulation',
     'ValidationSimulation',
+    "SimulationFilter",
     'Shuffle',
     'Take',
     'PCA',

@@ -1,6 +1,6 @@
 import collections
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from itertools import repeat, chain
 from typing import Optional, Sequence, List, Callable, Hashable, Any, Union, Iterable, cast
 
@@ -85,19 +85,15 @@ class Interaction:
         """The interaction's feedback associated with each action."""
         return self._feedbacks
 
-class Simulation(ABC):
+class Simulation(Source[Iterable[Interaction]]):
     """The simulation interface."""
 
-    @property
     @abstractmethod
-    def interactions(self) -> Sequence[Interaction]:
+    def read(self) -> Iterable[Interaction]:
         """The sequence of interactions in a simulation.
 
         Remarks:
-            Interactions should always be re-iterable. So long as interactions is a Sequence 
-            this will always be the case. If interactions is changed to Iterable in the future
-            then it will be possible for it to only allow enumeration one time and care will need
-            to be taken.
+            Interactions should always be re-iterable.
         """
         ...
 
@@ -113,13 +109,9 @@ class MemorySimulation(Simulation):
 
         self._interactions = interactions
 
-    @property
-    def interactions(self) -> Sequence[Interaction]:
-        """The interactions in this simulation.
-
-        Remarks:
-            See the Simulation base class for more information.
-        """
+    def read(self) -> Iterable[Interaction]:
+        """Read the interactions in this simulation."""
+        
         return self._interactions
 
 class ClassificationSimulation(Simulation):
@@ -164,9 +156,10 @@ class ClassificationSimulation(Simulation):
 
         self._interactions = list(map(Interaction, contexts, repeat(actions), feedbacks))
 
-    @property
-    def interactions(self) -> Sequence[Interaction]:
-        return self._interactions   
+    def read(self) -> Iterable[Interaction]:
+        """Read the interactions in this simulation."""
+        
+        return self._interactions
 
 class LambdaSimulation(Simulation):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
@@ -198,8 +191,9 @@ class LambdaSimulation(Simulation):
 
             self._interactions.append(Interaction(_context, _actions, _rewards))
 
-    @property
-    def interactions(self) -> Sequence[Interaction]:
+    def read(self) -> Iterable[Interaction]:
+        """Read the interactions in this simulation."""
+        
         return self._interactions
 
     def __repr__(self) -> str:
@@ -226,13 +220,9 @@ class ReaderSimulation(Simulation):
         self._with_header  = with_header
         self._interactions = cast(Optional[Sequence[Interaction]], None)
 
-    @property
-    def interactions(self) -> Sequence[Interaction]:
-
-        if self._interactions is None:
-            self._interactions = self._load_interactions()
-
-        return self._interactions
+    def read(self) -> Iterable[Interaction]:
+        """Read the interactions in this simulation."""
+        return self._load_interactions()
 
     def _load_interactions(self) -> Sequence[Interaction]:
         parsed_rows_iter = iter(self._reader.filter(self._source.read()))
@@ -263,7 +253,7 @@ class ReaderSimulation(Simulation):
         else:
             dense_labels = list(label_col)
 
-        return ClassificationSimulation(feature_rows, dense_labels).interactions
+        return ClassificationSimulation(feature_rows, dense_labels).read()
 
     def __repr__(self) -> str:
         return str(self._source)
