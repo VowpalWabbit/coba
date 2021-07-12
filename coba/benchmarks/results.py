@@ -3,7 +3,7 @@ import collections
 
 from numbers import Number
 from operator import truediv
-from itertools import chain, repeat, product, accumulate
+from itertools import chain, repeat, product, accumulate, compress
 from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type
 
 from coba.config import CobaConfig
@@ -250,6 +250,7 @@ class Result:
         end:Union[int,float] = 1.,
         err_every:Union[int,float]=.05,
         err_type:str=None,
+        complete_sims:bool = True,
         figsize=(9,6),
         ax=None) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
@@ -280,6 +281,8 @@ class Result:
             err_type: Determines what the error bars are. Valid types are `None`, 'se', and 'sd'. If err_type is None then 
                 plot will use SEM when there is only one source simulation otherwise it will use SD. Otherwise plot will
                 display the standard error of the mean for 'se' and the standard deviation for 'sd'.
+            complete_sims: Determines if the plotted simulations only includes those simulations with all learners. This
+                can be important if plotting a long running benchmark that is still in the process of finishing evaluation.
         """
 
         PackageChecker.matplotlib('Result.standard_plot')
@@ -329,6 +332,10 @@ class Result:
         if err_type is None and len(sources) >= 2: err_type = 'sd'
 
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
+
+        if complete_sims:
+            all_learners_sim = lambda sim_id: all( (lrn_id,sim_id) in self._interactions for lrn_id in learner_ids )
+            simulation_ids = list(filter(all_learners_sim, simulation_ids))
 
         for simulation_id, learner_id in product(simulation_ids,learner_ids):
             
