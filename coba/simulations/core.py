@@ -347,7 +347,7 @@ class ValidationSimulation(LambdaSimulation):
 
             context = lambda i     :   sparsify(r.randoms(n_features))
             actions = lambda i,c   : [ sparsify(normalize(r.randoms(n_features))) for _ in range(r.randint(2,10)) ]
-            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(unsparse(c),unsparse(a))])/sum(unsparse(a))
+            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(unsparse(c),unsparse(a))])
 
         super().__init__(n_interactions, context, actions, rewards)
 

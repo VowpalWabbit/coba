@@ -1,12 +1,13 @@
+import time
 import math
+
+from collections import defaultdict
+from itertools import product
+from typing import Any, Dict, Sequence
 
 from coba.utilities import PackageChecker
 from coba.simulations import Context, Action
 from coba.learners.core import Learner, Key
-from typing import Any, Dict, Sequence
-
-from copy import deepcopy
-from itertools import product
 
 class RegCB(Learner):
     """A learner using the RegCB algorithm by Foster et al.
@@ -40,7 +41,7 @@ class RegCB(Learner):
         dict = {'beta': self._beta, 'alpha': self._alpha, 'interactions': self._interactions}
         return dict
 
-    def __init__(self, *, beta: float, alpha: float, seed:int=1, interactions: Sequence[str] = ['a', 'ax']) -> None:
+    def __init__(self, *, beta: float, alpha: float, learning_rate:float=0.1, interactions: Sequence[str] = ['a', 'ax']) -> None:
         """Instantiate a RegCBLearner.
         Args:
             beta: square-loss tolerance
@@ -51,40 +52,36 @@ class RegCB(Learner):
         """
         PackageChecker.numpy("RegCBLearner.__init__")
         PackageChecker.sklearn("RegCBLearner.__init__")
-        import numpy as np
-        from sklearn.linear_model import SGDRegressor
         from sklearn.feature_extraction import FeatureHasher
+        from sklearn.preprocessing import PolynomialFeatures
         
         self._beta = beta
         self._alpha = alpha
         self._iter = 0
-        self._epoch = 0
 
-        self._actionEpoch = None
-        self._contextEpoch = []
-        self._rewardEpoch = None
+        self._core_model = []
 
-        self._actionHistory = []
-        self._contextHistory = []
-        self._rewardHistory = []
-
-        self._core_model = SGDRegressor(eta0=1,power_t=0, random_state=np.random.RandomState(seed))
-
-        self._time = [0,0,0,0]
-        self._interactions = interactions
-        self._terms        = []
-        self._is_sparse = False
-        self._h = FeatureHasher()
+        self._times         = [0,0,0,0]
+        self._interactions  = interactions
+        self._terms         = []
+        self._learning_rate = learning_rate
 
         for term in self._interactions:
             term = term.lower()
             x_num = term.count('x')
             a_num = term.count('a')
-            
+
             if x_num + a_num != len(term):
                 raise Exception("Letters other than x and a were passed for parameter interactions. Please remove other letters/characters.")
-            
+
             self._terms.append((x_num, a_num))
+
+        max_x_term = max(max(term[0] for term in self._terms),1)
+        max_a_term = max(max(term[1] for term in self._terms),1)
+
+        self._x_p = PolynomialFeatures(degree=max_x_term, include_bias=False, interaction_only=False)
+        self._a_p = PolynomialFeatures(degree=max_a_term, include_bias=False, interaction_only=False)
+        self._h   = FeatureHasher(input_type='pair')
 
     def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
@@ -98,48 +95,57 @@ class RegCB(Learner):
             The probability of taking each action. See the base class for more information.
         """
 
-        if (self._iter < 30):
+        import numpy as np
+        from scipy import sparse
+
+        if self._iter == 0:
+            if isinstance(context,dict) or isinstance(actions[0],dict):
+                self._core_model = sparse.csr_matrix(self._featurize(context, actions[0]).shape)
+            else:
+                self._core_model = np.zeros(self._featurize(context, actions[0]).shape)
+
+        if (self._iter < 200):
             return [1/len(actions)] * len(actions)
-        
+
         else:
-            
             maxScore  = -float('inf')
             maxAction = None
 
             for action in actions:
+                features = self._featurize(context,action)
+                score = self._bin_search(features, len(actions))
 
-                score = self.bin_search(self._featurize(context,action), len(actions))
-                
                 if score > maxScore:
                     maxAction = action
                     maxScore  = score
-            
-            return [int(action == maxAction) for action in actions]
-    
-    def bin_search(self, features, K_t) -> float:
 
-        y_l = 2
+            return [int(action == maxAction) for action in actions]
+
+    def _bin_search(self, features, K_t) -> float:
+
+        start = time.time()
+
+        y_u = 2
         w   = 1
 
-        f_l_a_w = deepcopy(self._core_model)
-        f_l_a_w.partial_fit(features,[y_l],[w])
+        f_u_a_w = self._update_model(self._core_model, features, y_u, w)
 
-        f_x_t_a = self._core_model.predict(features)[0]
-        s_l_a   = (f_l_a_w.predict(features)[0] - f_x_t_a) / w
+        f_x_t_a = self._predict_model(self._core_model, features)
+        s_u_a   = (self._predict_model(f_u_a_w, features) - f_x_t_a) / w
 
-        obj = lambda w: w*(f_x_t_a-y_l)**2 - w*(f_x_t_a+s_l_a*w-y_l)**2
+        obj = lambda w: w*(f_x_t_a-y_u)**2 - w*(f_x_t_a+s_u_a*w-y_u)**2
 
-        range = [0, (f_x_t_a-y_l)/(-s_l_a)]
-
-        h = range[1]/2
+        lower_search_bound = 0
+        upper_search_bound = (f_x_t_a-y_u)/(-s_u_a)
+        width_search_bound = upper_search_bound - lower_search_bound
 
         constraint = self._alpha * math.log(K_t)
 
-        w_old = 0
-        w_now = range[1]/2
+        w_old = lower_search_bound
+        w_now = lower_search_bound + 1/2*width_search_bound
         o     = obj(w_now)
 
-        while abs(w_now-w_old) > (range[1])*(1/2)**30 or o >= constraint:
+        while abs(w_now-w_old) > width_search_bound*(1/2)**30 or o >= constraint:
             w_diff = abs(w_now-w_old)
             w_old  = w_now
             if o < constraint:
@@ -148,7 +154,9 @@ class RegCB(Learner):
                 w_now -= w_diff/2
             o = obj(w_now)
 
-        return f_x_t_a + s_l_a*w_now
+        self._times[1] += time.time() - start
+
+        return f_x_t_a + s_u_a*w_now
 
     def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
         """Learn from the given interaction.
@@ -160,30 +168,90 @@ class RegCB(Learner):
             reward: The reward that was gained from the action. See the base class for more information.
             probability: The probability that the given action was taken.
         """
-        self._core_model.partial_fit(self._featurize(context, action), [reward], [1])
-        
+
+        start = time.time()
+        features = self._featurize(context, action)
+        self._core_model = self._update_model(self._core_model, features, reward, 1)
+        self._times[2] += time.time()-start
+
         self._iter += 1
+
+        if self._iter % 800 == 0:
+            print(f'avg phi time: {round(self._times[0]/(self._iter),2)}')
+            print(f'avg bin time: {round(self._times[1]/(self._iter),2)}')
+            print(f'avg lrn time: {round(self._times[2]/(self._iter),2)}')
 
     def _featurize(self, context, action):
         import numpy as np #type: ignore
 
-        feature_names = feature_values = []
+        start = time.time()
+
+        is_sparse = isinstance(context, dict) or isinstance(action, dict)
 
         if isinstance(context, dict):
-            context_names = list(context.keys())
             context_values = list(context.values())
+            context_names  = list([ f"x{k}" for k in context.keys() ])
         else:
-            context_names, context_values = [''], (context or [1])
+            context_values = (context or [1])
+            context_names  = [''] if not is_sparse else [ f"x{i}" for i in range(len(context_values)) ]
 
         if isinstance(action, dict):
-            action_names = list(action.keys())
+            action_names  = list([ f"a{k}" for k in action.keys() ])
             action_values = list(action.values())
         else:
-            action_names, action_values = [''], action
-
-        for term in self._terms:
-            feature_names = feature_names + [ "".join(str(names)) for names in product(*[context_names]*term[0], *[action_names]*term[1]) ]
-            feature_values = feature_values + [ np.prod(values) for values in product(*[context_values]*term[0], *[action_values]*term[1]) ]
-
-        return feature_values if len(feature_names) != len(feature_values) else self._h.transform([dict(zip(feature_names, feature_values))])
+            action_values = action
+            action_names  = [''] if not is_sparse else [ f"a{i}" for i in range(len(action_values)) ]
         
+        x_feat = self._x_p.fit_transform([context_values])
+        a_feat = self._a_p.fit_transform([action_values])
+        
+        if is_sparse:
+            x_names = self._x_p.get_feature_names(context_names)
+            a_names = self._a_p.get_feature_names(action_names)
+
+        x_terms_by_degree = {0:[1]}
+        a_terms_by_degree = {0:[1]}
+        a_names_by_degree = {0:['']}
+        x_names_by_degree = {0:['']}
+
+        index = 0
+        for degree in range(1,self._x_p.degree+1):
+            degree_count = int((len(context_values)**degree + len(context_values))/2)
+            x_terms_by_degree[degree] = x_feat[0,index:degree_count]
+            
+            if is_sparse:
+                x_names_by_degree[degree] = x_names[index:degree_count]
+            
+            index+=degree_count
+            
+        index = 0
+        for degree in range(1,self._a_p.degree+1):
+            degree_count = int((len(action_values)**degree + len(action_values))/2)
+            a_terms_by_degree[degree] = a_feat[0,index:degree_count]
+            
+            if is_sparse:
+                a_names_by_degree[degree] = a_names[index:degree_count]
+            
+            index+=degree_count
+
+        features = np.empty((1,0))
+        names    = []
+
+        for term in self._terms:            
+            features = np.hstack([features,np.outer(x_terms_by_degree[term[0]],a_terms_by_degree[term[1]]).T.reshape((1,-1))])
+            
+            if is_sparse:
+                names += list(map("".join,product(x_names_by_degree[term[0]],a_names_by_degree[term[1]])))
+
+        final_features = features if not is_sparse else self._h.fit_transform([list(zip(names,features[0]))])
+
+        self._times[0] += time.time() - start
+
+        return final_features
+
+    def _predict_model(self, model, features):
+        return (model @ features.T)[0,0]
+
+    def _update_model(self, model, features, value, importance):
+        error = self._predict_model(model, features) - value
+        return model - self._learning_rate*features*error*importance
