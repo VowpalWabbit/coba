@@ -334,7 +334,7 @@ class Result:
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
         if complete_sims:
-            all_learners_sim = lambda sim_id: all( (lrn_id,sim_id) in self._interactions for lrn_id in learner_ids )
+            all_learners_sim = lambda sim_id: all( (sim_id,lrn_id) in self._interactions for lrn_id in learner_ids )
             simulation_ids = list(filter(all_learners_sim, simulation_ids))
 
         for simulation_id, learner_id in product(simulation_ids,learner_ids):
