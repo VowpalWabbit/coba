@@ -337,6 +337,9 @@ class Result:
             all_learners_sim = lambda sim_id: all( (sim_id,lrn_id) in self._interactions for lrn_id in learner_ids )
             simulation_ids = list(filter(all_learners_sim, simulation_ids))
 
+        if len(simulation_ids) == 0:
+            CobaConfig.Logger.log(f"No simulations matching {source_pattern} had data for all learners.")
+
         for simulation_id, learner_id in product(simulation_ids,learner_ids):
             
             if (simulation_id,learner_id) not in self._interactions: continue
