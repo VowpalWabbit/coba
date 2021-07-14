@@ -1,18 +1,16 @@
 import time
 import math
 
-from collections import defaultdict
-from itertools import product
 from typing import Any, Dict, Sequence
 
 from coba.utilities import PackageChecker
 from coba.simulations import Context, Action
 from coba.learners.core import Learner, Key
 
-class RegCB(Learner):
+class RegCBLearner(Learner):
     """A learner using the RegCB algorithm by Foster et al.
         and the online bin search implementation by Bietti et al. 
-    
+
     References:
         Foster, Dylan, Alekh Agarwal, Miroslav Dudík, Haipeng Luo, and Robert Schapire.
         "Practical contextual bandits with regression oracles." In International 
@@ -21,7 +19,6 @@ class RegCB(Learner):
         Bietti, Alberto, Alekh Agarwal, and John Langford.
         "A contextual bandit bake-off." arXiv preprint 
         arXiv:1802.04064 (2018).
-        
     """
 
     @property
@@ -43,21 +40,21 @@ class RegCB(Learner):
 
     def __init__(self, *, beta: float, alpha: float, learning_rate:float=0.1, interactions: Sequence[str] = ['a', 'ax']) -> None:
         """Instantiate a RegCBLearner.
+
         Args:
-            beta: square-loss tolerance
+            beta : square-loss tolerance
             alpha: confidence bounds precision
-            seed: randomization of the regressor
             interactions: the set of interactions the learner will use. x refers to context and a refers to actions, 
-                e.g. xaa would mean interactions between context and actions and actions. 
+                e.g. xaa would mean interactions between context, actions and actions. 
         """
-        PackageChecker.numpy("RegCBLearner.__init__")
-        PackageChecker.sklearn("RegCBLearner.__init__")
+
+        PackageChecker.sklearn("RegCBLearner")
         from sklearn.feature_extraction import FeatureHasher
         from sklearn.preprocessing import PolynomialFeatures
-        
-        self._beta = beta
+
+        self._beta  = beta
         self._alpha = alpha
-        self._iter = 0
+        self._iter  = 0
 
         self._core_model = []
 
@@ -104,6 +101,9 @@ class RegCB(Learner):
             else:
                 self._core_model = np.zeros(self._featurize(context, actions[0]).shape)
 
+        if self._iter == 200:
+            self._times = [0,0,0,0]
+
         if (self._iter < 200):
             return [1/len(actions)] * len(actions)
 
@@ -121,6 +121,29 @@ class RegCB(Learner):
 
             return [int(action == maxAction) for action in actions]
 
+    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
+        """Learn from the given interaction.
+
+        Args:
+            key: The key identifying the interaction this observed reward came from.
+            context: The context we're learning about. See the base class for more information.
+            action: The action that was selected in the context. See the base class for more information.
+            reward: The reward that was gained from the action. See the base class for more information.
+            probability: The probability that the given action was taken.
+        """
+
+        start = time.time()
+        features = self._featurize(context, action)
+        self._core_model = self._update_model(self._core_model, features, reward, 1)
+        self._times[2] += time.time()-start
+
+        self._iter += 1
+
+        if (self._iter-200-1) % 50 == 0 and self._iter > 200:
+            print(f'avg phi time: {round(self._times[0]/(self._iter-200),2)}')
+            print(f'avg bin time: {round(self._times[1]/(self._iter-200),2)}')
+            print(f'avg lrn time: {round(self._times[2]/(self._iter-200),2)}')
+
     def _bin_search(self, features, K_t) -> float:
 
         start = time.time()
@@ -129,7 +152,6 @@ class RegCB(Learner):
         w   = 1
 
         f_u_a_w = self._update_model(self._core_model, features, y_u, w)
-
         f_x_t_a = self._predict_model(self._core_model, features)
         s_u_a   = (self._predict_model(f_u_a_w, features) - f_x_t_a) / w
 
@@ -158,29 +180,6 @@ class RegCB(Learner):
 
         return f_x_t_a + s_u_a*w_now
 
-    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
-        """Learn from the given interaction.
-
-        Args:
-            key: The key identifying the interaction this observed reward came from.
-            context: The context we're learning about. See the base class for more information.
-            action: The action that was selected in the context. See the base class for more information.
-            reward: The reward that was gained from the action. See the base class for more information.
-            probability: The probability that the given action was taken.
-        """
-
-        start = time.time()
-        features = self._featurize(context, action)
-        self._core_model = self._update_model(self._core_model, features, reward, 1)
-        self._times[2] += time.time()-start
-
-        self._iter += 1
-
-        if self._iter % 800 == 0:
-            print(f'avg phi time: {round(self._times[0]/(self._iter),2)}')
-            print(f'avg bin time: {round(self._times[1]/(self._iter),2)}')
-            print(f'avg lrn time: {round(self._times[2]/(self._iter),2)}')
-
     def _featurize(self, context, action):
         import numpy as np #type: ignore
 
@@ -201,56 +200,64 @@ class RegCB(Learner):
         else:
             action_values = action
             action_names  = [''] if not is_sparse else [ f"a{i}" for i in range(len(action_values)) ]
-        
-        x_feat = self._x_p.fit_transform([context_values])
-        a_feat = self._a_p.fit_transform([action_values])
-        
+
+        x_terms_by_degree = self._terms_by_degree(len(context_values), self._x_p.fit_transform([context_values])[0])
+        a_terms_by_degree = self._terms_by_degree(len(action_values) , self._a_p.fit_transform([action_values])[0])
+        features          = self._interaction_terms(x_terms_by_degree, a_terms_by_degree, [1])
+
         if is_sparse:
-            x_names = self._x_p.get_feature_names(context_names)
-            a_names = self._a_p.get_feature_names(action_names)
+            x_names_by_degree = self._terms_by_degree(len(context_values), self._x_p.get_feature_names(context_names))
+            a_names_by_degree = self._terms_by_degree(len(context_values), self._a_p.get_feature_names(action_names))
+            names             = self._interaction_terms(x_names_by_degree, a_names_by_degree, [''])
 
-        x_terms_by_degree = {0:[1]}
-        a_terms_by_degree = {0:[1]}
-        a_names_by_degree = {0:['']}
-        x_names_by_degree = {0:['']}
-
-        index = 0
-        for degree in range(1,self._x_p.degree+1):
-            degree_count = int((len(context_values)**degree + len(context_values))/2)
-            x_terms_by_degree[degree] = x_feat[0,index:degree_count]
-            
-            if is_sparse:
-                x_names_by_degree[degree] = x_names[index:degree_count]
-            
-            index+=degree_count
-            
-        index = 0
-        for degree in range(1,self._a_p.degree+1):
-            degree_count = int((len(action_values)**degree + len(action_values))/2)
-            a_terms_by_degree[degree] = a_feat[0,index:degree_count]
-            
-            if is_sparse:
-                a_names_by_degree[degree] = a_names[index:degree_count]
-            
-            index+=degree_count
-
-        features = np.empty((1,0))
-        names    = []
-
-        for term in self._terms:            
-            features = np.hstack([features,np.outer(x_terms_by_degree[term[0]],a_terms_by_degree[term[1]]).T.reshape((1,-1))])
-            
-            if is_sparse:
-                names += list(map("".join,product(x_names_by_degree[term[0]],a_names_by_degree[term[1]])))
-
-        final_features = features if not is_sparse else self._h.fit_transform([list(zip(names,features[0]))])
+        final_features = np.array(features) if not is_sparse else self._h.fit_transform([list(zip(names,features))])
 
         self._times[0] += time.time() - start
 
         return final_features
 
+    def _terms_by_degree(self, base_term_count:int, terms:Sequence[Any], with_bias:bool = False) -> Dict[int,Sequence[Any]]:
+        terms_by_degree = {} 
+
+        index  = 0 if not with_bias else 1
+        degree = 1
+
+        while index != len(terms):
+            degree_terms_count = int((base_term_count**degree + base_term_count)/2)
+            terms_by_degree[degree] = terms[index:degree_terms_count]
+
+            index  += degree_terms_count
+            degree += 1
+
+        return terms_by_degree
+
+    def _interaction_terms(self, x_terms_by_degree, a_terms_by_degree, default):
+
+        import numpy as np
+
+        interaction_terms = []
+
+        for term in self._terms:
+            x_for_degree = x_terms_by_degree.get(term[0], default)
+            a_for_degree = a_terms_by_degree.get(term[1], default)
+
+            if not isinstance(x_for_degree[0],str):
+                outer = np.outer(x_for_degree, a_for_degree)
+            else:
+                outer = np.char.array(x_for_degree)[:,None] + np.char.array(a_for_degree)
+
+            interaction_terms += outer.T.reshape((1,-1)).squeeze().tolist()
+
+        return interaction_terms
+
     def _predict_model(self, model, features):
-        return (model @ features.T)[0,0]
+        import numpy as np
+        import scipy.sparse as sp
+
+        if sp.issparse(model):
+            return model.multiply(features).sum()
+        else:
+            return np.dot(model, features)
 
     def _update_model(self, model, features, value, importance):
         error = self._predict_model(model, features) - value
