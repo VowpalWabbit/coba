@@ -255,7 +255,7 @@ class RegCBLearner(Learner):
         import scipy.sparse as sp
 
         if sp.issparse(model):
-            return model.multiply(features).sum()
+            return model.multiply(features).data.sum()
         else:
             return np.dot(model, features)
 
