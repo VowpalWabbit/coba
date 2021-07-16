@@ -210,7 +210,7 @@ class IndentLogger(Logger):
 
     def _stamp_message(self, message:str) -> str:
         stamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' if self._with_stamp else ''
-        name  = "-- " + current_process().name + " -- " if self._with_name else ''
+        name  = f"-- pid-{current_process().pid:<6} -- " if self._with_name else ''
 
         return stamp + name + message
 

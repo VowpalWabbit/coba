@@ -24,8 +24,6 @@ class NotPicklableFilter2(Filter):
     def filter(self, item):
         return 'a'
 
-
-
 class SleepingFilter(Filter):
     def filter(self, seconds: Iterable[float]) -> Any:
         second = next(iter(seconds)) #type: ignore
@@ -35,7 +33,7 @@ class SleepingFilter(Filter):
 
 class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        process_name = current_process().name
+        process_name = f"pid-{current_process().pid}"
         CobaConfig.Logger.log(process_name)
         yield process_name
 
@@ -94,8 +92,8 @@ class MultiprocessFilter_Tests(unittest.TestCase):
         items = list(MultiprocessFilter([ProcessNameFilter()], 2, 1).filter(range(4)))
 
         self.assertEqual(len(logger_sink.items), 4)
-        self.assertEqual(items, [ l.split(' ')[3] for l in logger_sink.items ] )
-        self.assertEqual(items, [ l.split(' ')[5] for l in logger_sink.items ] )
+        self.assertEqual(items, [ l.split(' ')[ 3] for l in logger_sink.items ] )
+        self.assertEqual(items, [ l.split(' ')[-1] for l in logger_sink.items ] )
 
     def test_not_picklable_sans_reduce(self):
         CobaConfig.Logger = BasicLogger(MemorySink())
