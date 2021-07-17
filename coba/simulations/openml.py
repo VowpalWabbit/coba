@@ -199,7 +199,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
         t_key = f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'
         t_bites = self._query(t_key, "tasks")
 
-        tasks = json.loads(t_bites.decode('utf-8'))["tasks"]["task"]
+        tasks = json.loads(t_bites.decode('utf-8')).get("tasks",{}).get("task",[])
         
         if t_key not in CobaConfig.Cacher:
             CobaConfig.Cacher.put(t_key,t_bites)
