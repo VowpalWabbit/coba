@@ -242,7 +242,6 @@ class Flatten_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(Flatten().filter(given)) )
 
-
     def test_sparse_onehot_col_flatten(self):
 
         given_col0 = [ [0,1,2], [(0,1), (1,0), (1,0)] ]
@@ -254,6 +253,16 @@ class Flatten_Tests(unittest.TestCase):
 
         given    = [given_col0, given_col1]
         expected = [expected_col0, expected_col1, expected_col2]
+
+        self.assertEqual(expected, list(Flatten().filter(given)) )
+
+    def test_string_col_flatten(self):
+        given_col0 = [ "abc", "def", "ghi" ]
+
+        expected_col0 = ( "abc", "def", "ghi" )
+
+        given    = [ given_col0    ]
+        expected = [ expected_col0 ]
 
         self.assertEqual(expected, list(Flatten().filter(given)) )
 

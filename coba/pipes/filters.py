@@ -326,7 +326,7 @@ class Flatten(Filter[_T_Data, _T_Data]):
             is_sparse = (len(col) == 2) and isinstance(col[0], collections.Sequence) and isinstance(col[0], collections.Sequence)
 
             if not is_sparse: 
-                if isinstance(col[0],collections.Sequence):
+                if isinstance(col[0],collections.Sequence) and not isinstance(col[0],str):
                     for flat_col in zip(*col):
                         yield flat_col
                 else:
