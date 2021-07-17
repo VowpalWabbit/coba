@@ -61,7 +61,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 else:
                     encoders.append(StringEncoder())
 
-            if isinstance(encoders[headers.index(target)], NumericEncoder):
+            if target=="" or isinstance(encoders[headers.index(target)], NumericEncoder):
                 target = self._get_classification_target(data_id)
 
             ignored[headers.index(target)] = False
@@ -170,7 +170,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             if "Usually due to high server load" in response.text:
                 message = (
-                    "Openml reported an error that they believe is likely caused by high server loads ."
+                    "Openml has experienced an error that they believe is the result of high server loads ."
                     "Openml recommends that you try again in a few seconds. Additionally, if not already "
                     "done, consider setting up a DiskCache in coba config to reduce the number of openml "
                     "calls in the future.")
