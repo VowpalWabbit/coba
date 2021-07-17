@@ -338,7 +338,8 @@ class Result:
             simulation_ids = list(filter(all_learners_sim, simulation_ids))
 
         if len(simulation_ids) == 0:
-            CobaConfig.Logger.log(f"No simulations matching {source_pattern} had data for all learners.")
+            CobaConfig.Logger.log(f"No simulation was found with interaction data for every learner.")
+            return
 
         for simulation_id, learner_id in product(simulation_ids,learner_ids):
             
