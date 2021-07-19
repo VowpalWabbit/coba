@@ -250,7 +250,7 @@ class Result:
         end:Union[int,float] = 1.,
         err_every:Union[int,float]=.05,
         err_type:str=None,
-        complete_sims:bool = True,
+        complete:bool = True,
         figsize=(9,6),
         ax=None) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
@@ -281,7 +281,7 @@ class Result:
             err_type: Determines what the error bars are. Valid types are `None`, 'se', and 'sd'. If err_type is None then 
                 plot will use SEM when there is only one source simulation otherwise it will use SD. Otherwise plot will
                 display the standard error of the mean for 'se' and the standard deviation for 'sd'.
-            complete_sims: Determines if the plotted simulations only includes those simulations with all learners. This
+            complete: Determines if the plotted simulations only includes those simulations with all learners. This
                 can be important if plotting a long running benchmark that is still in the process of finishing evaluation.
         """
 
@@ -333,7 +333,7 @@ class Result:
 
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-        if complete_sims:
+        if complete:
             all_learners_sim = lambda sim_id: all( (sim_id,lrn_id) in self._interactions for lrn_id in learner_ids )
             simulation_ids = list(filter(all_learners_sim, simulation_ids))
 
@@ -386,11 +386,11 @@ class Result:
             Y     = [ sum(z)/len(z) for z in Z ]
             X     = list(range(1,len(Y)+1))
 
-            start_idx = int(start*len(X)) if start <  1 else int(start)
-            end_idx   = int(end*len(X))   if end   <= 1 else int(end)
+            start = int(start*len(X)) if start <  1 else int(start)
+            end   = int(end*len(X))   if end   <= 1 else int(end)
 
-            end_idx   = len(X) if end_idx   > len(X) else end_idx
-            start_idx = 0      if start_idx < 0      else start_idx
+            end_idx   = min(len(X), end)
+            start_idx = max(0, start)
 
             if start_idx >= end_idx:
                 CobaConfig.Logger.log("The plot's given end <= start making plotting impossible.")
@@ -420,7 +420,14 @@ class Result:
                 ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(err_start,err_every), label=label)
 
         if full_figure:
-            ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
+            
+            if start == start_idx and end == end_idx:
+                ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
+            else:
+                padding = - (end-start)*.01
+                ax.set_xlim(start - padding, end + padding)
+                ax.set_xticks(np.clip(ax.get_xticks(), start, end))
+
             ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward")
             ax.set_ylabel("Reward")
             ax.set_xlabel("Interactions")
@@ -555,11 +562,11 @@ class Result:
             Y     = shuffle
             X     = list(range(1,len(Y)+1))
 
-            start_idx = int(start*len(X)) if start <  1 else int(start)
-            end_idx   = int(end*len(X))   if end   <= 1 else int(end)
+            start = int(start*len(X)) if start <  1 else int(start)
+            end   = int(end*len(X))   if end   <= 1 else int(end)
 
-            end_idx   = len(X) if end_idx   > len(X) else end_idx
-            start_idx = 0      if start_idx < 0      else start_idx
+            end_idx   = min(len(X), end)
+            start_idx = max(0, start)
 
             if start_idx >= end_idx:
                 CobaConfig.Logger.log("The plot's given end <= start making plotting impossible.")
@@ -573,7 +580,12 @@ class Result:
         plt.gca().set_prop_cycle(None)
         self.plot_learners(source_pattern, learner_pattern, span=span, start=start, end=end, err_every=err_every, err_type=err_type, ax=ax)
 
-        ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
+        if start == start_idx and end == end_idx:
+            ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
+        else:
+            padding = - (end-start)*.01
+            ax.set_xlim(start - padding, end + padding)
+            ax.set_xticks(np.clip(ax.get_xticks(), start, end))
 
         simulation_sources = list(set(simulation_sources))
         source = simulation_sources[0] if len(simulation_sources) == 1 else str(simulation_sources)

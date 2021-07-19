@@ -22,7 +22,9 @@ class DiskSink(Sink[Iterable[str]]):
 
     def write(self, items: Iterable[str]) -> None:
         with open(self.filename, self._mode) as f:
-            for item in items: f.write(item + '\n')
+            for item in items: 
+                f.write(item + '\n')
+                f.flush()
 
 class MemorySink(Sink[_T_in]):
     def __init__(self):
