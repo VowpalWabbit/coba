@@ -92,8 +92,8 @@ class MultiprocessFilter_Tests(unittest.TestCase):
         items = list(MultiprocessFilter([ProcessNameFilter()], 2, 1).filter(range(4)))
 
         self.assertEqual(len(logger_sink.items), 4)
-        self.assertEqual(items, [ l.split(' ')[ 3] for l in logger_sink.items ] )
-        self.assertEqual(items, [ l.split(' ')[-1] for l in logger_sink.items ] )
+        self.assertCountEqual(items, [ l.split(' ')[ 3] for l in logger_sink.items ] )
+        self.assertCountEqual(items, [ l.split(' ')[-1] for l in logger_sink.items ] )
 
     def test_not_picklable_sans_reduce(self):
         CobaConfig.Logger = BasicLogger(MemorySink())
