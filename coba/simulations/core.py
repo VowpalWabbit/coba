@@ -93,7 +93,7 @@ class Simulation(Source[Iterable[Interaction]]):
         """The sequence of interactions in a simulation.
 
         Remarks:
-            Interactions should always be re-iterable.
+            This function should always be "re-iterable".
         """
         ...
 
