@@ -79,3 +79,28 @@ class Learner(ABC):
     def __reduce__(self) -> Union[str, Tuple[Any, ...]]:
         """An optional method that can be overridden for Learner implimentations that are not picklable by default."""
         return super().__reduce__()
+
+class SafeLearner(Learner):
+
+        @property
+        def family(self) -> str:
+            try:
+                return self._learner.family
+            except AttributeError:
+                return self._learner.__class__.__name__
+
+        @property
+        def params(self) -> Dict[str, Any]:
+            try:
+                return self._learner.params
+            except AttributeError:
+                return {}
+
+        def __init__(self, learner: Learner) -> None:
+            self._learner = learner
+
+        def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
+            return self._learner.predict(key, context, actions)
+
+        def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> Optional[Dict[str,Any]]:
+            return self._learner.learn(key, context, action, reward, probability)

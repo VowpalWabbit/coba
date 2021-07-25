@@ -1,13 +1,13 @@
 import unittest
 
-from typing import cast
+from typing import cast, Iterable, Any
 
-from coba.simulations import LambdaSimulation
-from coba.pipes import Source
+from coba.simulations import LambdaSimulation, Interaction
+from coba.pipes import Source, Pipe, IdentityFilter
 from coba.learners import Learner
 
 from coba.benchmarks.results import Result
-from coba.benchmarks.tasks import BenchmarkTask, Tasks, Unfinished, ChunkBySource
+from coba.benchmarks.tasks import Task, EvaluationTask, CreateTasks, FilterFinished, ChunkBySource, ProcessTasks
 
 #for testing purposes
 class ModuloLearner(Learner):
@@ -41,37 +41,38 @@ class OneTimeSource(Source):
 
         return self._source.read()
 
+class ObserveTask(Task):
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Any]:
+        self.observed = list(interactions)
+
+class CountReadSimulation:
+    def __init__(self) -> None:
+        self._reads = 0
+
+    def read(self) -> Iterable[Interaction]:
+        yield Interaction(self._reads, [0,1], [0,1])
+        self._reads += 1
+
+class CountFilters:
+    def __init__(self) -> None:
+        self._filters = 0
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        for interaction in interactions:
+            yield Interaction((interaction.context, self._filters), interaction.actions, interaction.feedbacks)
+
+        self._filters += 1
+#for testing purposes
+
 class Tasks_Tests(unittest.TestCase):
 
     def test_one_sim_two_learns(self):
-        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        lrn1 = ModuloLearner("1")
-        lrn2 = ModuloLearner("2")
-
-        tasks = list(Tasks([sim1,sim1], [lrn1,lrn2], seed=10).read())
-
-        self.assertEqual(4, len(tasks))
-
-        self.assertEqual(0, tasks[0].sim_id)
-        self.assertEqual(0, tasks[1].sim_id)
-        self.assertEqual(1, tasks[2].sim_id)
-        self.assertEqual(1, tasks[3].sim_id)
-
-        self.assertEqual(0, tasks[0].lrn_id)
-        self.assertEqual(1, tasks[1].lrn_id)
-        self.assertEqual(0, tasks[2].lrn_id)
-        self.assertEqual(1, tasks[3].lrn_id)
-
-        self.assertEqual(4, len(set([id(t.learner) for t in tasks ])))
-        self.assertEqual(1, len(set([id(t.simulation.source) for t in tasks ])))
-
-    def test_two_sims_two_learns(self):
         sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
 
-        tasks = list(Tasks([sim1,sim2], [lrn1,lrn2], seed=10).read())
+        tasks = list(CreateTasks([sim1,sim2], [lrn1,lrn2], seed=10).read())
 
         self.assertEqual(4, len(tasks))
 
@@ -86,7 +87,32 @@ class Tasks_Tests(unittest.TestCase):
         self.assertEqual(1, tasks[3].lrn_id)
 
         self.assertEqual(4, len(set([id(t.learner) for t in tasks ])))
-        self.assertEqual(2, len(set([id(t.simulation.source) for t in tasks ])))
+        self.assertEqual(2, len(set([id(t.sim_source) for t in tasks ])))
+
+    def test_one_src_two_sims_two_learns(self):
+        src1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        
+        sim1 = Pipe.join(src1, [IdentityFilter()])
+        sim2 = Pipe.join(src1, [IdentityFilter()])
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
+
+        tasks = list(CreateTasks([sim1,sim2], [lrn1,lrn2], seed=10).read())
+
+        self.assertEqual(4, len(tasks))
+
+        self.assertEqual(0, tasks[0].sim_id)
+        self.assertEqual(0, tasks[1].sim_id)
+        self.assertEqual(1, tasks[2].sim_id)
+        self.assertEqual(1, tasks[3].sim_id)
+
+        self.assertEqual(0, tasks[0].lrn_id)
+        self.assertEqual(1, tasks[1].lrn_id)
+        self.assertEqual(0, tasks[2].lrn_id)
+        self.assertEqual(1, tasks[3].lrn_id)
+
+        self.assertEqual(4, len(set([id(t.learner) for t in tasks ])))
+        self.assertEqual(1, len(set([id(t.sim_source) for t in tasks ])))
 
 class Unifinshed_Tests(unittest.TestCase):
 
@@ -101,13 +127,13 @@ class Unifinshed_Tests(unittest.TestCase):
         lrn1 = ModuloLearner("1")
 
         tasks = [
-            BenchmarkTask(0,0,0,sim1,lrn1,10),
-            BenchmarkTask(0,0,1,sim1,lrn1,10),
-            BenchmarkTask(0,1,0,sim1,lrn1,10),
-            BenchmarkTask(0,1,1,sim1,lrn1,10),
+            EvaluationTask(0,0,0,sim1,lrn1,10),
+            EvaluationTask(0,0,1,sim1,lrn1,10),
+            EvaluationTask(0,1,0,sim1,lrn1,10),
+            EvaluationTask(0,1,1,sim1,lrn1,10),
         ]
 
-        unfinished_tasks = list(Unfinished(restored).filter(tasks))
+        unfinished_tasks = list(FilterFinished(restored).filter(tasks))
 
         self.assertEqual(3, len(unfinished_tasks))
 
@@ -126,10 +152,10 @@ class GroupBySource_Tests(unittest.TestCase):
         lrn1 = ModuloLearner("1")
 
         tasks = [
-            BenchmarkTask(0,0,0,sim1,lrn1,10),
-            BenchmarkTask(0,0,1,sim1,lrn1,10),
-            BenchmarkTask(0,1,0,sim1,lrn1,10),
-            BenchmarkTask(0,1,1,sim1,lrn1,10),
+            EvaluationTask(0,0,0,sim1,lrn1,10),
+            EvaluationTask(0,0,1,sim1,lrn1,10),
+            EvaluationTask(0,1,0,sim1,lrn1,10),
+            EvaluationTask(0,1,1,sim1,lrn1,10),
         ]
 
         groups = list(ChunkBySource().filter(tasks))
@@ -144,10 +170,10 @@ class GroupBySource_Tests(unittest.TestCase):
         lrn1 = ModuloLearner("1")
 
         tasks = [
-            BenchmarkTask(0,0,0,sim1,lrn1,10),
-            BenchmarkTask(0,0,1,sim1,lrn1,10),
-            BenchmarkTask(1,1,0,sim2,lrn1,10),
-            BenchmarkTask(1,1,1,sim2,lrn1,10),
+            EvaluationTask(0,0,0,sim1,lrn1,10),
+            EvaluationTask(0,0,1,sim1,lrn1,10),
+            EvaluationTask(1,1,0,sim2,lrn1,10),
+            EvaluationTask(1,1,1,sim2,lrn1,10),
         ]
 
         groups = list(ChunkBySource().filter(tasks))
@@ -168,6 +194,72 @@ class GroupBySource_Tests(unittest.TestCase):
         self.assertEqual(1, group_1_tasks[1].lrn_id)
         self.assertEqual(0, group_2_tasks[0].lrn_id)
         self.assertEqual(1, group_2_tasks[1].lrn_id)
+
+class EvaluationTask_Tests(unittest.TestCase):
+
+    def test_simple(self):
+
+        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        lrn1 = ModuloLearner("1")
+        task = ObserveTask(0, 0, 0, sim1, lrn1)
+
+        list(ProcessTasks().filter([[task]]))
+
+        self.assertEqual(len(task.observed), 5)
+
+    def test_two_tasks_one_source_one_simulation(self):
+
+        sim1 = CountReadSimulation()
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
+
+        task1 = ObserveTask(0, 0, 0, sim1, lrn1)
+        task2 = ObserveTask(0, 0, 1, sim1, lrn2)
+
+        list(ProcessTasks().filter([[task1, task2]]))
+
+        self.assertEqual(len(task1.observed), 1)
+        self.assertEqual(len(task2.observed), 1)
+
+        self.assertEqual(task1.observed[0].context, 0)
+        self.assertEqual(task2.observed[0].context, 0)
+
+    def test_two_tasks_two_sources_two_simulations(self):
+
+        sim1 = CountReadSimulation()
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
+
+        task1 = ObserveTask(0, 0, 0, sim1, lrn1)
+        task2 = ObserveTask(1, 1, 1, sim1, lrn2)
+
+        list(ProcessTasks().filter([[task1, task2]]))
+
+        self.assertEqual(len(task1.observed), 1)
+        self.assertEqual(len(task2.observed), 1)
+
+        self.assertEqual(task1.observed[0].context, 0)
+        self.assertEqual(task2.observed[0].context, 1)
+
+    def test_two_tasks_one_source_two_simulations(self):
+
+        filter = CountFilters()
+        src1 = CountReadSimulation()
+        sim1 = Pipe.join(src1, [filter])
+        sim2 = Pipe.join(src1, [filter])
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
+
+        task1 = ObserveTask(0, 0, 0, sim1, lrn1)
+        task2 = ObserveTask(0, 1, 1, sim2, lrn2)
+
+        list(ProcessTasks().filter([[task1, task2]]))
+
+        self.assertEqual(len(task1.observed), 1)
+        self.assertEqual(len(task2.observed), 1)
+
+        self.assertEqual(task1.observed[0].context, (0,0))
+        self.assertEqual(task2.observed[0].context, (0,1))
 
 if __name__ == '__main__':
     unittest.main()

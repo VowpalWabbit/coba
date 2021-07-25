@@ -1,109 +1,123 @@
-from coba.simulations.core import Interaction
 from copy import deepcopy
 from itertools import groupby, product, count
 from collections import defaultdict
-from typing import Iterable, Sequence, Any, Optional, Dict, Hashable
+from typing import Iterable, Sequence, Any, Optional, Dict, Hashable, Tuple
 
 from coba.random import CobaRandom
-from coba.learners import Learner
+from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
-from coba.pipes import Pipe, Filter, Source, IdentityFilter
-from coba.simulations import Context, Action, Key, Simulation, SimulationFilter
+from coba.pipes import Source, Pipe, Filter, IdentityFilter
+from coba.simulations import Simulation, Interaction
 
 from coba.benchmarks.transactions import Transaction
 from coba.benchmarks.results import Result
 
-class BenchmarkTask:
+class Identifier():
+    
+    def __init__(self) -> None:
+        self._source_ids   : Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
+        self._learner_ids  : Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
+        self._simulaion_ids: Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
 
-    class BenchmarkTaskLearner(Learner):
-
-        @property
-        def family(self) -> str:
-            try:
-                return self._learner.family
-            except AttributeError:
-                return self._learner.__class__.__name__
-
-        @property
-        def params(self) -> Dict[str, Any]:
-            try:
-                return self._learner.params
-            except AttributeError:
-                return {}
-
-        def __init__(self, learner: Learner, seed: Optional[int]) -> None:
-            self._learner = learner
-            self._random  = CobaRandom(seed)
-
-        def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
-            return self._learner.predict(key, context, actions) #type: ignore
-
-        def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> Optional[Dict[str,Any]]:
-            return self._learner.learn(key, context, action, reward, probability) #type: ignore
-
-    class BenchmarkTaskSimulation(Simulation):
-
-        def __init__(self, pipe: Simulation) -> None:
-            self._pipe = pipe
-
-        @property
-        def source(self) -> Simulation:
-            return self._pipe._source if isinstance(self._pipe, (Pipe.SourceFilters)) else self._pipe
-
-        @property
-        def filter(self) -> SimulationFilter:
-            return self._pipe._filter if isinstance(self._pipe, Pipe.SourceFilters) else IdentityFilter()
-
-        def read(self) -> Iterable[Interaction]:
-            return self._pipe.read()
-
-        def __repr__(self) -> str:
-            return self._pipe.__repr__()
-
-    def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Source[Simulation], learner: Learner, seed: int = None) -> None:
-        self.src_id     = src_id
-        self.sim_id     = sim_id
-        self.lrn_id     = lrn_id
+    def id(self, simulation: Simulation, learner: Learner) -> Tuple[int,int,int]:
+        source = simulation._source if isinstance(simulation, Pipe.SourceFilters) else simulation
         
-        self.seed       = seed
-        self.simulation = BenchmarkTask.BenchmarkTaskSimulation(simulation)
-        self.learner    = BenchmarkTask.BenchmarkTaskLearner(learner, seed)
+        src_id = self._source_ids[source]
+        sim_id = self._simulaion_ids[simulation]
+        lrn_id = self._learner_ids[learner] if learner else None
+        
+        return (src_id, sim_id, lrn_id)
 
-class Tasks(Source[Iterable[BenchmarkTask]]):
+class Task(Filter[Iterable[Interaction], Iterable[Any]]):
 
-    def __init__(self, simulations: Sequence[Source[Simulation]], learners: Sequence[Learner], seed: int = None) -> None:
+    def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Optional[Learner]) -> None:
+
+        self.sim_source = simulation._source if isinstance(simulation, Pipe.SourceFilters) else simulation
+        self.sim_filter = simulation._filter if isinstance(simulation, Pipe.SourceFilters) else IdentityFilter()
+        self.learner    = SafeLearner(learner)
+
+        self.src_id = src_id
+        self.sim_id = sim_id
+        self.lrn_id = lrn_id
+
+class EvaluationTask(Task):
+
+    def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Learner, seed: int) -> None:
+        self._seed = seed
+        super().__init__(src_id, sim_id, lrn_id, simulation, learner)
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Any]:
+        
+        learner = deepcopy(self.learner)
+        random  = CobaRandom(self._seed)
+
+        with CobaConfig.Logger.time(f"Evaluating learner {self.lrn_id} on Simulation {self.sim_id}..."):
+
+            row_data = defaultdict(list)
+
+            for i, interaction in enumerate(interactions):
+                probs  = learner.predict(i, interaction.context, interaction.actions)
+
+                assert abs(sum(probs) - 1) < .0001, "The learner returned invalid proabilities for action choices."
+
+                action = random.choice(interaction.actions, probs)
+                reward = interaction.feedbacks[interaction.actions.index(action)]
+                prob   = probs[interaction.actions.index(action)]
+
+                info = learner.learn(i, interaction.context, action, reward, prob) or {}
+                                                        
+                for key,value in info.items() | {('reward',reward)}: 
+                    row_data[key].append(value)
+
+            yield Transaction.interactions(self.sim_id, self.lrn_id, _packed=row_data)
+
+class SimulationTask(Task):
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Any]:
+        return super().filter(interactions)
+
+class CreateTasks(Source[Iterable[Task]]):
+
+    def __init__(self, simulations: Sequence[Simulation], learners: Sequence[Learner], seed: int = None) -> None:
         self._simulations = simulations
         self._learners    = learners
         self._seed        = seed
 
-    def read(self) -> Iterable[BenchmarkTask]:
+    def read(self) -> Iterable[Task]:
 
         #we rely on sim_id to make sure we don't do duplicate work. So long as self._simulations
         #is always in the exact same order we should be fine. In the future we may want to consider.
         #adding a better check for simulations other than assigning an index based on their order.
 
-        source_ids: Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
+        identifier = Identifier()
 
-        for (sim_id,sim), (lrn_id,lrn) in product(enumerate(self._simulations), enumerate(self._learners)):
-            sim_source = sim._source if isinstance(sim, (Pipe.SourceFilters)) else sim
-            yield BenchmarkTask(source_ids[sim_source], sim_id, lrn_id, sim, lrn, self._seed)                
+        # for simulation in self._simulations:
+        #     yield SimulationTask(*identifier.id(simulation,learner), simulation, None)
 
-class Unfinished(Filter[Iterable[BenchmarkTask], Iterable[BenchmarkTask]]):
+        for simulation, learner in product(self._simulations, self._learners):
+            yield EvaluationTask(*identifier.id(simulation,learner), simulation, learner, self._seed)
+
+class FilterFinished(Filter[Iterable[Task], Iterable[Task]]):
     def __init__(self, restored: Result) -> None:
         self._restored = restored
 
-    def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[BenchmarkTask]:
+    def filter(self, tasks: Iterable[Task]) -> Iterable[Task]:
 
-        def is_not_complete(sim_id: int, learn_id: int):
-            return (sim_id,learn_id) not in self._restored._interactions
+        def is_not_complete(task: Task):
 
-        for task in tasks:
-            if is_not_complete(task.sim_id, task.lrn_id):
-                yield task
+            if isinstance(task,SimulationTask):
+                return task.sim_id not in self._restored.simulations
 
-class ChunkBySource(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
+            if isinstance(task,EvaluationTask):
+                return (task.sim_id,task.lrn_id) not in self._restored._interactions
 
-    def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[Iterable[BenchmarkTask]]:
+            raise Exception("Unrecognized Task")
+
+        return filter(is_not_complete, tasks)
+
+class ChunkBySource(Filter[Iterable[Task], Iterable[Iterable[Task]]]):
+
+    def filter(self, tasks: Iterable[Task]) -> Iterable[Iterable[Task]]:
 
         srt_key = lambda t: t.src_id
         grp_key = lambda t: t.src_id
@@ -113,30 +127,30 @@ class ChunkBySource(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkT
         for _, group in groupby(sorted(tasks, key=srt_key), key=grp_key):
             yield list(group)
 
-class ChunkByTask(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
+class ChunkByTask(Filter[Iterable[Task], Iterable[Iterable[Task]]]):
 
-    def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[Iterable[BenchmarkTask]]:
+    def filter(self, tasks: Iterable[Task]) -> Iterable[Iterable[Task]]:
 
         for task in tasks:
             yield [ task ]
 
-class ChunkByNone(Filter[Iterable[BenchmarkTask], Iterable[Iterable[BenchmarkTask]]]):
+class ChunkByNone(Filter[Iterable[Task], Iterable[Iterable[Task]]]):
 
-    def filter(self, tasks: Iterable[BenchmarkTask]) -> Iterable[Iterable[BenchmarkTask]]:
+    def filter(self, tasks: Iterable[Task]) -> Iterable[Iterable[Task]]:
         yield list(tasks)
 
-class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
+class ProcessTasks(Filter[Iterable[Iterable[Task]], Iterable[Any]]):
 
-    def filter(self, chunks: Iterable[Iterable[BenchmarkTask]]) -> Iterable[Any]:
+    def filter(self, chunks: Iterable[Iterable[Task]]) -> Iterable[Any]:
 
         for chunk in chunks:
             for transaction in self._process_chunk(chunk):
                 yield transaction
 
-    def _process_chunk(self, task_group: Iterable[BenchmarkTask]) -> Iterable[Any]:
+    def _process_chunk(self, task_group: Iterable[Task]) -> Iterable[Any]:
 
-        source_by_id = { t.src_id: t.simulation.source for t in task_group }
-        filter_by_id = { t.sim_id: t.simulation.filter for t in task_group }
+        source_by_id = { t.src_id: t.sim_source for t in task_group }
+        filter_by_id = { t.sim_id: t.sim_filter for t in task_group }
 
         srt_src = lambda t: t.src_id
         grp_src = lambda t: t.src_id
@@ -150,18 +164,10 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                 try:
 
                     with CobaConfig.Logger.time(f"Creating source {src_id} from {source_by_id[src_id]}..."):
-                        #Rhis is not ideal. I'm not sure how it should be improved and leaving this for now.
+                        #This is not ideal. I'm not sure how it should be improved so it is being left for now.
                         loaded_source = list(source_by_id[src_id].read())
 
                     for sim_id, tasks_by_src_sim in groupby(sorted(tasks_by_src, key=srt_sim), key=grp_sim):
-
-                        tasks_by_src_sim_list = list(tasks_by_src_sim)
-                        learner_ids           = [t.lrn_id  for t in tasks_by_src_sim_list]
-                        learners              = [t.learner for t in tasks_by_src_sim_list]
-                        seeds                 = [t.seed    for t in tasks_by_src_sim_list]
-
-                        learner_ids.reverse()
-                        learners.reverse() 
 
                         with CobaConfig.Logger.time(f"Creating simulation {sim_id} from source {src_id}..."):
                             interactions = filter_by_id[sim_id].filter(loaded_source)
@@ -170,39 +176,12 @@ class Transactions(Filter[Iterable[Iterable[BenchmarkTask]], Iterable[Any]]):
                             CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate (likely due to `take` being larger than the simulation).")
                             continue
 
-                        for index in sorted(range(len(learners)), reverse=True):
-
-                            lrn_id  = learner_ids[index]
-                            learner = deepcopy(learners[index])
-                            random  = CobaRandom(seeds[index])
-
+                        for task in tasks_by_src_sim:
                             try:
-                                with CobaConfig.Logger.time(f"Evaluating learner {lrn_id} on Simulation {sim_id}..."):
-
-                                    row_data = defaultdict(list)
-
-                                    for i, interaction in enumerate(interactions):
-                                        probs  = learner.predict(i, interaction.context, interaction.actions)
-                                        
-                                        assert abs(sum(probs) - 1) < .0001, "The learner returned invalid proabilities for action choices."
-                                        
-                                        action = random.choice(interaction.actions, probs)
-                                        reward = interaction.feedbacks[interaction.actions.index(action)]
-                                        prob   = probs[interaction.actions.index(action)]
-                                        
-                                        info = learner.learn(i, interaction.context, action, reward, prob) or {}
-                                                                                
-                                        for key,value in info.items() | {('reward',reward)}: 
-                                            row_data[key].append(value)
-
-                                    yield Transaction.interactions(sim_id, lrn_id, _packed=row_data)
-
+                                for transaction in task.filter(interactions): 
+                                    yield transaction
                             except Exception as e:
                                 CobaConfig.Logger.log_exception(e)
-
-                            finally:
-                                del learner_ids[index]
-                                del learners[index]
 
                 except Exception as e:
                     CobaConfig.Logger.log_exception(e)

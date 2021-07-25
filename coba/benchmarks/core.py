@@ -10,7 +10,7 @@ from coba.config import CobaConfig, CobaFatal
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpSource, MemorySource, DiskSource
 from coba.multiprocessing import MultiprocessFilter
 
-from coba.benchmarks.tasks import ChunkByNone, Tasks, Unfinished, ChunkByTask, ChunkBySource, Transactions
+from coba.benchmarks.tasks import ChunkByNone, CreateTasks, FilterFinished, ChunkByTask, ChunkBySource, ProcessTasks
 from coba.benchmarks.transactions import Transaction, TransactionSink
 from coba.benchmarks.results import Result
 
@@ -139,10 +139,10 @@ class Benchmark:
         mp = self._processes        if self._processes            else CobaConfig.Benchmark['processes']
         mt = self._maxtasksperchild if self._maxtasksperchild_set else CobaConfig.Benchmark['maxtasksperchild']
             
-        tasks            = Tasks(self._simulations, learners, seed)
-        unfinished       = Unfinished(restored)
+        tasks            = CreateTasks(self._simulations, learners, seed)
+        unfinished       = FilterFinished(restored)
         chunked          = ChunkByTask() if cb == 'task' else ChunkByNone() if cb == 'none' else ChunkBySource()
-        process          = Transactions()
+        process          = ProcessTasks()
         transaction_sink = TransactionSink(result_file, restored)
 
         if mp > 1 or mt is not None  : process = MultiprocessFilter([process], mp, mt) #type: ignore
