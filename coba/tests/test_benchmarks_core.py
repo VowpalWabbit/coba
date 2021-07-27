@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import cast
 
 from coba.simulations import LambdaSimulation
-from coba.pipes import Source, MemorySink, MemorySource
+from coba.pipes import Source, MemorySink
 from coba.learners import Learner, RandomLearner
 from coba.config import CobaConfig, NoneLogger, IndentLogger, BasicLogger
 from coba.benchmarks import Benchmark

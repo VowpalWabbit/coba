@@ -1,3 +1,4 @@
+from coba.simulations.core import ClassificationSimulation
 import unittest
 
 from typing import cast, Iterable, Any
@@ -7,7 +8,9 @@ from coba.pipes import Source, Pipe, IdentityFilter
 from coba.learners import Learner
 
 from coba.benchmarks.results import Result
-from coba.benchmarks.tasks import Task, EvaluationTask, CreateTasks, FilterFinished, ChunkBySource, ProcessTasks
+from coba.benchmarks.tasks import (
+    Task, SimulationTask, EvaluationTask, CreateTasks, FilterFinished, ChunkBySource, ProcessTasks
+)
 
 #for testing purposes
 class ModuloLearner(Learner):
@@ -206,6 +209,22 @@ class GroupBySource_Tests(unittest.TestCase):
         self.assertEqual(1, group_1_tasks[1].lrn_id)
         self.assertEqual(0, group_2_tasks[0].lrn_id)
         self.assertEqual(1, group_2_tasks[1].lrn_id)
+
+class SimulationTask_Tests(unittest.TestCase):
+
+    def test_classification_statistics(self):
+        simulation   = ClassificationSimulation([(1,2)]*20, ["A","B"]*10)
+        task         = SimulationTask(0, 1, None, simulation, None)
+        transactions = list(task.filter(simulation.read()))
+
+        self.assertEqual(1  , len(transactions))
+        self.assertEqual('S', transactions[0][0])
+        self.assertEqual(1  , transactions[0][1])
+        self.assertEqual(2  , transactions[0][2]["action_cardinality"])
+        self.assertEqual(2  , transactions[0][2]["context_dimensions"])
+        self.assertEqual(.5 , transactions[0][2]["bayes_rate"])
+        self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
+
 
 class EvaluationTask_Tests(unittest.TestCase):
 
