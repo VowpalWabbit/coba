@@ -212,8 +212,27 @@ class GroupBySource_Tests(unittest.TestCase):
 
 class SimulationTask_Tests(unittest.TestCase):
 
-    def test_classification_statistics(self):
+    def test_classification_statistics_dense(self):
         simulation   = ClassificationSimulation([(1,2)]*20, ["A","B"]*10)
+        task         = SimulationTask(0, 1, None, simulation, None)
+        transactions = list(task.filter(simulation.read()))
+
+        self.assertEqual(1  , len(transactions))
+        self.assertEqual('S', transactions[0][0])
+        self.assertEqual(1  , transactions[0][1])
+        self.assertEqual(2  , transactions[0][2]["action_cardinality"])
+        self.assertEqual(2  , transactions[0][2]["context_dimensions"])
+        self.assertEqual(.5 , transactions[0][2]["bayes_rate"])
+        self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
+
+    def test_classification_statistics_sparse(self):
+        
+        #we want the keys to be numeric not strings
+        context    = dict()
+        context[1] = 1  
+        context[2] = 2
+
+        simulation   = ClassificationSimulation([context]*20, ["A","B"]*10)
         task         = SimulationTask(0, 1, None, simulation, None)
         transactions = list(task.filter(simulation.read()))
 

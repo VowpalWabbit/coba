@@ -79,66 +79,72 @@ class SimulationTask(Task):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Any]:
         
-        extra_statistics = {}
+        with CobaConfig.Logger.time(f"Calculating Simulation {self.sim_id} statistics..."):
+            extra_statistics = {}
 
-        if isinstance(self.sim_source, (ClassificationSimulation,OpenmlSimulation)):
+            if isinstance(self.sim_source, (ClassificationSimulation,OpenmlSimulation)):
 
-            try:
-                PackageChecker.sklearn("")
+                try:
+                    PackageChecker.sklearn("")
 
-                from sklearn.ensemble import RandomForestClassifier
-                from sklearn.model_selection import cross_val_score
+                    from sklearn.feature_extraction import FeatureHasher
+                    from sklearn.ensemble import RandomForestClassifier
+                    from sklearn.model_selection import cross_val_score
 
-                X   = [inter.context for inter in interactions]
-                y   = [inter.actions[inter.feedbacks.index(1)] for inter in interactions]
-                clf = RandomForestClassifier(n_estimators=50)
+                    X   = [inter.context for inter in interactions]
+                    y   = [inter.actions[inter.feedbacks.index(1)] for inter in interactions]
+                    clf = RandomForestClassifier(n_estimators=50)
 
-                if len(X) > 5:
-                    extra_statistics["bayes_rate"] = cross_val_score(clf, X, y, cv=5).mean()
+                    if isinstance(X[0],dict):
+                        X = [ dict(zip(map(str,x.keys()), x.values())) for x in X ]
+                        X = FeatureHasher(n_features=2**17).fit_transform(X)
 
-            except ImportError:
-                pass
+                    if len(y) > 5:
+                        extra_statistics["bayes_rate"] = round(cross_val_score(clf, X, y, cv=5).mean(),4)
 
-            labels     = set()
-            features   = set() 
-            label_cnts = defaultdict(int)
+                except ImportError:
+                    pass
 
-            for inter in interactions:
+                labels     = set()
+                features   = set() 
+                label_cnts = defaultdict(int)
 
-                inter_label = inter.actions[inter.feedbacks.index(1)]
-                inter_feats = inter.context.keys() if isinstance(inter.context,dict) else range(len(inter.context))
+                for inter in interactions:
 
-                labels.add(inter_label)
-                features.update(inter_feats)
-                label_cnts[inter_label] += 1
+                    inter_label = inter.actions[inter.feedbacks.index(1)]
+                    inter_feats = inter.context.keys() if isinstance(inter.context,dict) else range(len(inter.context))
 
-            extra_statistics["action_cardinality"] = len(labels)
-            extra_statistics["context_dimensions"] = len(features)
-            extra_statistics["imbalance_ratio"]    = max(label_cnts.values())/min(label_cnts.values())
+                    labels.add(inter_label)
+                    features.update(inter_feats)
+                    label_cnts[inter_label] += 1
 
-        if isinstance(self.sim_filter,Pipe.FiltersFilter):
-            filters = self.sim_filter._filters
-        elif isinstance(self.sim_filter, IdentityFilter):
-            filters = []
-        else:
-            filters = [self.sim_filter]
+                extra_statistics["action_cardinality"] = len(labels)
+                extra_statistics["context_dimensions"] = len(features)
+                extra_statistics["imbalance_ratio"]    = round(max(label_cnts.values())/min(label_cnts.values()),4)
 
-        source  = str(self.sim_source).strip('"')
-        shuffle = "None"
-        take    = "None"
-        pipe    = str(self.sim_pipe) 
+            if isinstance(self.sim_filter,Pipe.FiltersFilter):
+                filters = self.sim_filter._filters
+            elif isinstance(self.sim_filter, IdentityFilter):
+                filters = []
+            else:
+                filters = [self.sim_filter]
 
-        for filter in filters:
-            if isinstance(filter, Shuffle): shuffle = str(filter._seed )
-            if isinstance(filter, Take   ): take    = str(filter._count)
+            source  = str(self.sim_source).strip('"')
+            shuffle = "None"
+            take    = "None"
+            pipe    = str(self.sim_pipe) 
 
-        yield Transaction.simulation(self.sim_id, 
-            source=source, 
-            shuffle=shuffle, 
-            take=take, 
-            pipe=pipe, 
-            **extra_statistics
-        )
+            for filter in filters:
+                if isinstance(filter, Shuffle): shuffle = str(filter._seed )
+                if isinstance(filter, Take   ): take    = str(filter._count)
+
+            yield Transaction.simulation(self.sim_id, 
+                source=source, 
+                shuffle=shuffle, 
+                take=take, 
+                pipe=pipe, 
+                **extra_statistics
+            )
 
 class CreateTasks(Source[Iterable[Task]]):
 
