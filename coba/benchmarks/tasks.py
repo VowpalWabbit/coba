@@ -7,7 +7,7 @@ from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
 from coba.pipes import Source, Pipe, Filter, IdentityFilter
-from coba.simulations import Simulation, Interaction
+from coba.simulations import Simulation, Interaction, Shuffle, Take
 
 from coba.benchmarks.transactions import Transaction
 from coba.benchmarks.results import Result
@@ -32,9 +32,10 @@ class Task(Filter[Iterable[Interaction], Iterable[Any]]):
 
     def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Optional[Learner]) -> None:
 
+        self.sim_pipe   = simulation
         self.sim_source = simulation._source if isinstance(simulation, Pipe.SourceFilters) else simulation
         self.sim_filter = simulation._filter if isinstance(simulation, Pipe.SourceFilters) else IdentityFilter()
-        self.learner    = SafeLearner(learner)
+        self.learner    = SafeLearner(learner) if learner else None
 
         self.src_id = src_id
         self.sim_id = sim_id
@@ -74,7 +75,31 @@ class EvaluationTask(Task):
 class SimulationTask(Task):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Any]:
-        return super().filter(interactions)
+        
+        #parametric misspecification and noiseless CMT probably does better
+        #parametric misspecification and noisy probably VW
+
+        #Bayes Error
+        #dimension of context
+        #number of actions
+        #class imbalance
+
+        if isinstance(self.sim_filter,Pipe.FiltersFilter):
+            filters = self.sim_filter._filters
+        elif isinstance(self.sim_filter, IdentityFilter):
+            filters = []
+        else:
+            filters = [self.sim_filter]
+
+        source  = str(self.sim_source).strip('"')
+        shuffle = "None"
+        take    = "None"
+
+        for filter in filters:
+            if isinstance(filter, Shuffle): shuffle = str(filter._seed )
+            if isinstance(filter, Take   ): take    = str(filter._count)
+
+        yield Transaction.simulation(self.sim_id, source=source, shuffle=shuffle, take=take, pipe=str(self.sim_pipe))
 
 class CreateTasks(Source[Iterable[Task]]):
 
@@ -91,11 +116,11 @@ class CreateTasks(Source[Iterable[Task]]):
 
         identifier = Identifier()
 
-        # for simulation in self._simulations:
-        #     yield SimulationTask(*identifier.id(simulation,learner), simulation, None)
+        for simulation in self._simulations:
+            yield SimulationTask(*identifier.id(simulation, None), simulation, None)
 
         for simulation, learner in product(self._simulations, self._learners):
-            yield EvaluationTask(*identifier.id(simulation,learner), simulation, learner, self._seed)
+            yield EvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed)
 
 class FilterFinished(Filter[Iterable[Task], Iterable[Task]]):
     def __init__(self, restored: Result) -> None:
@@ -174,7 +199,7 @@ class ProcessTasks(Filter[Iterable[Iterable[Task]], Iterable[Any]]):
 
                         if not interactions:
                             CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate (likely due to `take` being larger than the simulation).")
-                            continue
+                            tasks_by_src_sim = filter(lambda f: not isinstance(f,EvaluationTask), tasks_by_src_sim)
 
                         for task in tasks_by_src_sim:
                             try:

@@ -63,15 +63,15 @@ class Benchmark:
             filters.append([ Take(take) ])
 
         if len(filters) > 0:
-            simulation_sources = [cast(Source[Simulation],Pipe.join(s,f)) for s,f in product(sources, product(*filters))]
+            simulation_sources = [cast(Simulation,Pipe.join(s,f)) for s,f in product(sources, product(*filters))]
         else:
             simulation_sources = list(sources)
 
-        self._simulations         : Sequence[Source[Simulation]] = simulation_sources
-        self._processes           : Optional[int]                = None
-        self._maxtasksperchild    : Optional[int]                = None
-        self._maxtasksperchild_set: bool                         = False
-        self._chunk_by            : Optional[str]                = None
+        self._simulations         : Sequence[Simulation] = simulation_sources
+        self._processes           : Optional[int]        = None
+        self._maxtasksperchild    : Optional[int]        = None
+        self._maxtasksperchild_set: bool                 = False
+        self._chunk_by            : Optional[str]        = None
 
     def chunk_by(self, value: str = 'source') -> 'Benchmark':
         """Determines how tasks are chunked for processing.
@@ -133,7 +133,6 @@ class Benchmark:
         preamble.append(Transaction.version())
         preamble.append(Transaction.benchmark(n_given_learners, n_given_simulations))
         preamble.extend(Transaction.learners(learners))
-        preamble.extend(Transaction.simulations(self._simulations))
 
         cb = self._chunk_by         if self._chunk_by             else CobaConfig.Benchmark['chunk_by']
         mp = self._processes        if self._processes            else CobaConfig.Benchmark['processes']

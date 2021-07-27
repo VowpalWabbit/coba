@@ -74,19 +74,25 @@ class Tasks_Tests(unittest.TestCase):
 
         tasks = list(CreateTasks([sim1,sim2], [lrn1,lrn2], seed=10).read())
 
-        self.assertEqual(4, len(tasks))
+        self.assertEqual(6, len(tasks))
 
         self.assertEqual(0, tasks[0].sim_id)
-        self.assertEqual(0, tasks[1].sim_id)
-        self.assertEqual(1, tasks[2].sim_id)
-        self.assertEqual(1, tasks[3].sim_id)
+        self.assertEqual(1, tasks[1].sim_id)
 
-        self.assertEqual(0, tasks[0].lrn_id)
-        self.assertEqual(1, tasks[1].lrn_id)
+        self.assertEqual(0, tasks[2].sim_id)
+        self.assertEqual(0, tasks[3].sim_id)
+        self.assertEqual(1, tasks[4].sim_id)
+        self.assertEqual(1, tasks[5].sim_id)
+
+        self.assertEqual(None, tasks[0].lrn_id)
+        self.assertEqual(None, tasks[1].lrn_id)
+
         self.assertEqual(0, tasks[2].lrn_id)
         self.assertEqual(1, tasks[3].lrn_id)
+        self.assertEqual(0, tasks[4].lrn_id)
+        self.assertEqual(1, tasks[5].lrn_id)
 
-        self.assertEqual(4, len(set([id(t.learner) for t in tasks ])))
+        self.assertEqual(5, len(set([id(t.learner) for t in tasks ])))
         self.assertEqual(2, len(set([id(t.sim_source) for t in tasks ])))
 
     def test_one_src_two_sims_two_learns(self):
@@ -99,19 +105,25 @@ class Tasks_Tests(unittest.TestCase):
 
         tasks = list(CreateTasks([sim1,sim2], [lrn1,lrn2], seed=10).read())
 
-        self.assertEqual(4, len(tasks))
+        self.assertEqual(6, len(tasks))
 
         self.assertEqual(0, tasks[0].sim_id)
-        self.assertEqual(0, tasks[1].sim_id)
-        self.assertEqual(1, tasks[2].sim_id)
-        self.assertEqual(1, tasks[3].sim_id)
+        self.assertEqual(1, tasks[1].sim_id)
+        
+        self.assertEqual(0, tasks[2].sim_id)
+        self.assertEqual(0, tasks[3].sim_id)
+        self.assertEqual(1, tasks[4].sim_id)
+        self.assertEqual(1, tasks[5].sim_id)
 
-        self.assertEqual(0, tasks[0].lrn_id)
-        self.assertEqual(1, tasks[1].lrn_id)
+        self.assertEqual(None, tasks[0].lrn_id)
+        self.assertEqual(None, tasks[1].lrn_id)
+
         self.assertEqual(0, tasks[2].lrn_id)
         self.assertEqual(1, tasks[3].lrn_id)
+        self.assertEqual(0, tasks[4].lrn_id)
+        self.assertEqual(1, tasks[5].lrn_id)
 
-        self.assertEqual(4, len(set([id(t.learner) for t in tasks ])))
+        self.assertEqual(5, len(set([id(t.learner) for t in tasks ])))
         self.assertEqual(1, len(set([id(t.sim_source) for t in tasks ])))
 
 class Unifinshed_Tests(unittest.TestCase):

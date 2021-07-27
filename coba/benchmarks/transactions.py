@@ -64,34 +64,6 @@ class Transaction:
         return ["S", simulation_id, kwargs]
 
     @staticmethod
-    def simulations(simulations:Sequence[Source[Simulation]]) -> Iterable[Any]:
-
-        def get_source(simulation: Source[Simulation]) -> Source[Simulation]:
-
-            if isinstance(simulation, Pipe.SourceFilters):
-                return get_source(simulation._source)
-            else:
-                return simulation
-
-        def get_filters(pipes: Source[Simulation]) -> Sequence[Filter[Simulation,Simulation]]:
-            if isinstance(simulation, Pipe.SourceFilters):
-                return simulation._filter._filters #we know these are flattened already
-            else:
-                return []
-
-        for index, simulation in enumerate(simulations):
-
-            source  = str(get_source(simulation)).strip('"')
-            shuffle = "None"
-            take    = "None"
-
-            for filter in get_filters(simulation):
-                if isinstance(filter, Shuffle): shuffle = str(filter._seed )
-                if isinstance(filter, Take   ): take    = str(filter._count)
-
-            yield Transaction.simulation(index, source=source, shuffle=shuffle, take=take, pipe=str(simulation))
-
-    @staticmethod
     def interactions(simulation_id:int, learner_id:int, **kwargs) -> Any:
         """Write interaction evaluation metadata row to Result.
 

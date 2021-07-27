@@ -132,6 +132,8 @@ class RegCBLearner(Learner):
             probability: The probability that the given action was taken.
         """
 
+        assert 0 <= reward and reward <= 1, "This regCB implementation assumes reward is in [0,1]."
+
         start = time.time()
         features = self._featurize(context, action)
         self._core_model = self._update_model(self._core_model, features, reward, 1)

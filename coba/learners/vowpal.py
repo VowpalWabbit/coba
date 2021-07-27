@@ -258,14 +258,17 @@ class VowpalLearner(Learner):
 
     @staticmethod
     def _learn_format(adf, prob, actions, context, action, reward) -> str:
+        
+        vw_reward = lambda a: "" if a != action else f"{actions.index(action)+1}:{round(-reward,4)}:{round(prob,5)} "
+
         if adf:
             vw_context  = None if context is None else f"shared |s {_features_format(context)}"
-            vw_rewards  = [ "" if a != action else f"0:{-reward}:{prob} " for a in actions ]
+            vw_rewards  = [ vw_reward(a) for a in actions ]
             vw_actions  = [ f"|a {_features_format(a)}" for a in actions]
             vw_observed = [ f"{r}{a}" for r,a in zip(vw_rewards,vw_actions) ]
             return "\n".join(filter(None,[vw_context, *vw_observed]))
         else:
-            return f"{actions.index(action)+1}:{-reward}:{prob} |s {_features_format(context)}"
+            return f"{vw_reward(action)}|s {_features_format(context)}"
 
     def _set_actions(self, key: Key, actions: Sequence[Action]) -> None:
 
