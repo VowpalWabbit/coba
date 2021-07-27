@@ -95,6 +95,9 @@ class SimulationTask(Task):
                     y   = [inter.actions[inter.feedbacks.index(1)] for inter in interactions]
                     clf = RandomForestClassifier(n_estimators=50)
 
+                    if any(isinstance(f,str) for f in X[0]):
+                        X = [ dict(enumerate(x)) for x in X ]
+
                     if isinstance(X[0],dict):
                         X = [ dict(zip(map(str,x.keys()), x.values())) for x in X ]
                         X = FeatureHasher(n_features=2**17).fit_transform(X)
