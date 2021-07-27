@@ -1,4 +1,3 @@
-from re import S
 import unittest
 from unittest.case import SkipTest
 
