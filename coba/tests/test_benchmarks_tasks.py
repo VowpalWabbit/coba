@@ -133,10 +133,7 @@ class Unifinshed_Tests(unittest.TestCase):
 
     def test_one_finished(self):
 
-        restored = Result()
-
-        restored._simulations[0]      = dict()
-        restored._interactions[(0,1)] = dict()
+        restored = Result(sim_rows=[dict(simulation_id=0)],int_rows=[dict(simulation_id=0,learner_id=1)])
 
         sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")

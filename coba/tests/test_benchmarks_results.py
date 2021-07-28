@@ -8,10 +8,7 @@ from coba.benchmarks.results import Result, Table
 class Table_Tests(unittest.TestCase):
 
     def test_insert_item(self):
-        table = Table("test", ['a'])
-
-        table['A'] = dict(b='B')
-        table['a'] = dict(b='B')
+        table = Table("test", ['a'], [{'a':'a', 'b':'B'}, {'a':'A', 'b':'B'}])
 
         self.assertTrue('A' in table)
         self.assertTrue('a' in table)
@@ -21,25 +18,10 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(table))
 
-        self.assertEqual([('A', 'B'), ('a', 'B')], list(table.to_tuples()))
-
-    def test_update_item(self):
-        table = Table("test", ['a'])
-
-        table['a'] = dict(b='B')
-        table['a'] = dict(b='C')
-
-        self.assertTrue('a' in table)
-
-        self.assertEqual(table['a'], {'a':'a', 'b':'C'})
-        self.assertEqual(1, len(table))
-        self.assertEqual([('a','C')], list(table.to_tuples()))
+        self.assertEqual([('a', 'B'), ('A', 'B')], list(table.to_tuples()))
 
     def test_missing_columns(self):
-        table = Table("test", ['a'])
-
-        table['A'] = dict(b='B')
-        table['a'] = dict(c='C')
+        table = Table("test", ['a'], [{'a':'A', 'b':'B'}, {'a':'a', 'c':'C'}])
 
         self.assertTrue('A' in table)
         self.assertTrue('a' in table)
@@ -61,10 +43,7 @@ class Table_Tests(unittest.TestCase):
 
     def test_tuples_with_array_column(self):
 
-        table = Table("test", ['a'])
-
-        table['A'] = dict(b='B',c=[1,2],d='d')
-        table['B'] = dict(e='E')
+        table = Table("test", ['a'], [dict(a='A', b='B', c=[1,2], d='d'), dict(a='B', e='E') ])
 
         expected_tuples = [ ('A', 'B', [1,2], 'd', float('nan')), ('B', float('nan'), float('nan'), float('nan'), 'E') ]
         actual_tuples = table.to_tuples()
@@ -74,10 +53,7 @@ class Table_Tests(unittest.TestCase):
 
     def test_tuples_with_dict_column(self):
 
-        table = Table("test", ['a'])
-
-        table['A'] = dict(b='B',c={'z':5},d='d')
-        table['B'] = dict(e='E')
+        table = Table("test", ['a'], [dict(a='A',b='B',c={'z':5},d='d'), dict(a='B',e='E')])
 
         expected_tuples = [ ('A', 'B', {'z':5}, 'd', float('nan')), ('B', float('nan'), float('nan'), float('nan'), 'E') ]
         actual_tuples = table.to_tuples()
@@ -90,10 +66,7 @@ class Table_Tests(unittest.TestCase):
         import pandas as pd #type: ignore
         import pandas.testing #type: ignore
 
-        table = Table("test", ['a'])
-
-        table['A'] = dict(b='B',c=1,d='d')
-        table['B'] = dict(e='E')
+        table = Table("test", ['a'], [dict(a='A',b='B',c=1,d='d'),dict(a='B',e='E')])
 
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c=1,d='d'),
@@ -108,10 +81,7 @@ class Table_Tests(unittest.TestCase):
         import pandas as pd   #type: ignore
         import pandas.testing #type: ignore
 
-        table = Table("test", ['a'])
-
-        table['A'] = dict(b='B',c=[1,2],d='d')
-        table['B'] = dict(e='E')
+        table = Table("test", ['a'], [dict(a='A',b='B',c=[1,2],d='d'),dict(a='B',e='E')])
 
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c=[1,2],d='d'),
@@ -126,10 +96,7 @@ class Table_Tests(unittest.TestCase):
         import pandas as pd   #type: ignore
         import pandas.testing #type: ignore
 
-        table = Table("test", ['a'])
-
-        table['A'] = dict(b=1.,c=[1,2],d='d',_packed={'z':[[1,2],[3,4]]} )
-        table['B'] = dict(b=2.,e='E')
+        table = Table("test", ['a'], [dict(a='A',b=1.,c=[1,2],d='d',_packed={'z':[[1,2],[3,4]]}),dict(a='B',b=2.,e='E')])
 
         expected_df = pd.DataFrame([
             dict(a='A',index=1,b=1.,c=[1,2],d='d',z=[1,2]),
@@ -145,10 +112,7 @@ class Table_Tests(unittest.TestCase):
         import pandas as pd   #type: ignore
         import pandas.testing #type: ignore
 
-        table = Table("test", ['a'])
-
-        table['A'] = dict(b='B',c={'z':10},d='d')
-        table['B'] = dict(e='E')
+        table = Table("test", ['a'],[dict(a='A',b='B',c={'z':10},d='d'),dict(a='B',e='E')])        
 
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c={'z':10},d='d'),
@@ -159,10 +123,8 @@ class Table_Tests(unittest.TestCase):
 
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
-    def test_insert_two_pack_item(self):
-        table = Table("test", ['a'])
-
-        table['A'] = dict(c=1, _packed=dict(b=['B','b'],d=['D','d']))
+    def test_two_packed_items(self):
+        table = Table("test", ['a'], [dict(a='A', c=1, _packed=dict(b=['B','b'],d=['D','d']))])
 
         self.assertTrue('A' in table)
 
@@ -170,21 +132,18 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(table))
 
-        self.assertEqual([('A', 1, 1, 'B', 'D'), ('A', 2, 1, 'b', 'd')], list(table.to_tuples()))
+        self.assertEqual([('A', 1, 'B', 1, 'D'), ('A', 2, 'b', 1, 'd')], list(table.to_tuples()))
 
     def test_pandas_two_pack_item(self):
 
         import pandas as pd
         import pandas.testing
 
-        table = Table("test", ['a'])
-
-        table['A'] = dict(c=1, _packed=dict(b=['B','b'],d=['D','d']))
-        table['B'] = dict(e='E')
+        table = Table("test", ['a'], [dict(a='A', c=1, _packed=dict(b=['B','b'],d=['D','d'])), dict(a='B', e='E')])
 
         expected_df = pd.DataFrame([
-            dict(a='A',index=1,c=1,b='B',d='D'),
-            dict(a='A',index=2,c=1,b='b',d='d'),
+            dict(a='A',index=1,b='B',c=1,d='D'),
+            dict(a='A',index=2,b='b',c=1,d='d'),
             dict(a='B',index=1,e='E')
         ])
 
@@ -194,13 +153,10 @@ class Table_Tests(unittest.TestCase):
 
     def test_pandas_huge_pack_item(self):
 
-        table = Table("test", ['simulation_id', 'learner_id'])
-
-        for i in range(2):
-            table[(i,2)] = dict(C=5,A=5,N=1,_packed=dict(reward=[2]*9000))
-
+        rows  = [dict(simulation_id=i,learner_id=2,C=5,A=5,N=1,_packed=dict(reward=[2]*9000)) for i in range(2) ]
+        table = Table("test", ['simulation_id', 'learner_id'], rows)
         time = min(timeit.repeat(lambda:table.to_pandas(), repeat=6, number=1))
-
+        
         #best time on my laptop was 0.15
         self.assertLess(time,1)
 

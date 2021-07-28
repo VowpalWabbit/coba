@@ -3,17 +3,17 @@ import collections
 
 from numbers import Number
 from operator import truediv
-from itertools import chain, repeat, product, accumulate, compress
-from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type
+from itertools import chain, repeat, product, accumulate
+from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Callable
 
 from coba.config import CobaConfig
 from coba.utilities import PackageChecker
-from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe, DiskSink, DiskSource 
+from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe, DiskSink, DiskSource
 
 class Table:
     """A container class for storing tabular data."""
 
-    def __init__(self, name:str, primary: Sequence[str]):
+    def __init__(self, name:str, primary_cols: Sequence[str], rows: Sequence[Dict[str,Any]] = []):
         """Instantiate a Table.
         
         Args:
@@ -21,47 +21,77 @@ class Table:
             default: The default values to fill in missing values with
         """
         self._name    = name
-        self._primary = primary
-        self._columns = collections.OrderedDict(zip(primary,repeat(None)))
+        self._primary = primary_cols
 
+        def index_cols():
+            for row in rows:
+                if '_packed' in row: 
+                    return ['index']
+            return []
+        
+        def data_cols():
+            return ( sorted(row.keys() - ['_packed'] | row.get('_packed',{}).keys()) for row in rows)
+
+        for row in rows:
+            assert len(row.keys() & primary_cols) == len(primary_cols), 'A Table row was provided without a primary key.'
+
+        all_columns   = list(chain(primary_cols, index_cols(), *data_cols()))
+        self._columns = sorted(set(all_columns), key=lambda col: all_columns.index(col))
+
+        self._rows_keys: List[Hashable               ] = []               
         self._rows_flat: Dict[Hashable, Dict[str,Any]] = {}
         self._rows_pack: Dict[Hashable, Dict[str,Any]] = {}
+
+        for row in rows:
+            row_key  = row[primary_cols[0]] if len(primary_cols) == 1 else tuple(row[col] for col in primary_cols)
+            row_pack = row.pop('_packed',{})
+            row_flat = row
+
+            if row_pack:
+                row_pack['index'] = list(range(1,len(list(row_pack.values())[0])+1))
+
+            self._rows_keys.append(row_key)
+            self._rows_pack[row_key] = row_pack
+            self._rows_flat[row_key] = row_flat
 
     @property
     def name(self) -> str:
         return self._name
 
     @property
+    def keys(self) -> Sequence[Hashable]:
+        return self._rows_keys
+
+    @property
     def columns(self) -> Sequence[str]:
-        return list(self._columns.keys())
+        return self._columns
 
     @property
     def dtypes(self) -> Sequence[Type[Union[int,float,bool,object]]]:
 
         flats = self._rows_flat
         packs = self._rows_pack
-        keys  = self._rows_flat.keys()
 
-        columns_packed = [ any([ col in packs[key] for key in keys]) for col in self.columns ]
-        columns_values = [ [flats[key].get(col, packs[key].get(col, self._default(col))) for key in keys] for col in self.columns ]
+        columns_packed = [ any([ col in packs[key] for key in self.keys]) for col in self.columns ]
+        columns_values = [ [flats[key].get(col, packs[key].get(col, self._default(col))) for key in self.keys] for col in self.columns ]
 
         return [ self._infer_type(column_packed, column_values) for column_packed, column_values in zip(columns_packed,columns_values)]
 
     def to_pandas(self) -> Any:
         PackageChecker.pandas("Table.to_pandas")
         import pandas as pd #type: ignore
-        import numpy as np #type: ignore #pandas installs numpy so if we have pandas we have numpy
+        import numpy as np  #type: ignore #pandas installs numpy so if we have pandas we have numpy
 
         col_numpy = { col: np.empty(len(self), dtype=dtype) for col,dtype in zip(self.columns,self.dtypes)}
 
-        index = 0
+        row_index = 0
 
-        for key in self._rows_flat.keys():
+        for key in self.keys:
 
             flat = self._rows_flat[key]
             pack = self._rows_pack[key]
 
-            size = 1 if not pack else len(pack['index'])
+            pack_size = 1 if not pack else len(pack['index'])
 
             for col in self.columns:
                 if col in pack:
@@ -76,9 +106,9 @@ class Table:
                 else:
                     val = self._default(col)
                     
-                col_numpy[col][index:(index+size)] = val
+                col_numpy[col][row_index:(row_index+pack_size)] = val
 
-            index += size
+            row_index += pack_size
 
         return pd.DataFrame(col_numpy, columns=self.columns)
 
@@ -86,7 +116,7 @@ class Table:
 
         tooples = []
 
-        for key in self._rows_flat.keys():
+        for key in self.keys:
             
             flat = self._rows_flat[key]
             pack = self._rows_pack[key]
@@ -95,7 +125,7 @@ class Table:
                 tooples.append(tuple(flat.get(col,self._default(col)) for col in self.columns))
             else:
                 tooples.extend(zip(*[pack.get(col,repeat(flat.get(col,self._default(col)))) for col in self.columns]))
-                
+
         return tooples
 
     def _default(self, column:str) -> Any:
@@ -129,54 +159,22 @@ class Table:
 
         return object
 
-    def _key(self, key: Union[Hashable, Sequence[Hashable]]) -> Union[Hashable,Tuple[Hashable,...]]:
-        key_len = len(key) if isinstance(key,(list,tuple)) else 1
-        
-        assert key_len == len(self._primary), "Incorrect primary key length given"
-        
-        return tuple(key) if isinstance(key,(list,tuple)) else key
-
     def __iter__(self) -> Iterator[Dict[str,Any]]:
         for key in self._rows_flat.keys():
             yield self[key]
 
     def __contains__(self, key: Union[Hashable, Sequence[Hashable]]) -> bool:
-        return self._key(key) in self._rows_flat
+        return key in self._rows_flat
 
     def __str__(self) -> str:
         return str({"Table": self.name, "Columns": self.columns, "Rows": len(self)})
 
     def __len__(self) -> int:
-        return sum([len(p['index']) if p else 1 for p in self._rows_pack.values()])
-
-    def __setitem__(self, key: Union[Hashable, Sequence[Hashable]], values: Dict[str,Any]):
-
-        key = self._key(key)
-
-        #Try to make sure index is 3rd in order. 
-        #It makes things look nicer in a data frame.
-        if "_packed" in values: 
-            self._columns["index"] = None
-
-        row_flat = dict(zip(self._primary, key if isinstance(key,tuple) else [key]), **values)
-        row_pack = row_flat.pop("_packed", {})
-
-        if row_pack:
-            assert len(set([len(value) for value in row_pack.values()])) == 1, "All packed columns must be equal length."
-
-        if row_pack:
-            row_pack['index'] = list(range(1,len(list(row_pack.values())[0])+1))
-
-        self._rows_flat[key] = row_flat
-        self._rows_pack[key] = row_pack
-        self._columns.update(zip(list(row_flat.keys()) + list(row_pack.keys()), repeat(None)))
+        return sum([ len(self._rows_pack[key].get('index',[None])) for key in self.keys ])
 
     def __getitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> Dict[str,Any]:
-        return dict(**self._rows_flat[self._key(key)], **self._rows_pack[self._key(key)])
-
-    def __delitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> None:
-        del self._rows_flat[self._key(key)]
-        del self._rows_pack[self._key(key)]
+        if key not in self.keys: raise KeyError(key)
+        return dict(**self._rows_flat[key], **self._rows_pack[key])
 
 class Result:
     """A class representing the result of a Benchmark evaluation on a given collection of Simulations and Learners."""
@@ -198,27 +196,35 @@ class Result:
     @staticmethod
     def from_transactions(transactions: Iterable[Any]) -> 'Result':
 
-        result = Result()
+        version   = None
+        benchmark = {}
+        lrn_rows  = []
+        sim_rows  = []
+        int_rows  = []
 
         for trx in transactions:
-            if trx[0] == "version"  : result.version   = trx[1]
-            if trx[0] == "benchmark": result.benchmark = trx[1]
-            if trx[0] == "L"        : result._learners    [trx[1]       ] = trx[2]
-            if trx[0] == "S"        : result._simulations [trx[1]       ] = trx[2]
-            if trx[0] == "I"        : result._interactions[tuple(trx[1])] = trx[2]
+            if trx[0] == "version"  : version   = trx[1]
+            if trx[0] == "benchmark": benchmark = trx[1]
+            if trx[0] == "S"        : sim_rows.append({**trx[2], "simulation_id": trx[1]})
+            if trx[0] == "L"        : lrn_rows.append({**trx[2], "learner_id"   : trx[1]})
+            if trx[0] == "I"        : int_rows.append({**trx[2], "simulation_id": trx[1][0], "learner_id": trx[1][1]})
 
-        return result
+        return Result(version, benchmark, sim_rows, lrn_rows, int_rows)
 
-    def __init__(self) -> None:
+    def __init__(self, 
+        version  : Optional[int] = None, 
+        benchmark: Dict[str,Any] = {}, 
+        sim_rows : Sequence[Dict[str,Any]] = [],
+        lrn_rows : Sequence[Dict[str,Any]] = [],        
+        int_rows : Sequence[Dict[str,Any]] = []) -> None:
         """Instantiate a Result class."""
 
-        self.version    : Optional[int]  = None
-        self.benchmark  : Dict[str, Any] = {}
+        self.version   = version
+        self.benchmark = benchmark
 
-        #providing the types in advance makes to_pandas about 10 times faster since we can preallocate space
-        self._interactions = Table("Interactions", ['simulation_id', 'learner_id'])
-        self._learners     = Table("Learners"    , ['learner_id'])
-        self._simulations  = Table("Simulations" , ['simulation_id'])
+        self._simulations  = Table("Simulations" , ['simulation_id']              , sim_rows)
+        self._learners     = Table("Learners"    , ['learner_id']                 , lrn_rows)
+        self._interactions = Table("Interactions", ['simulation_id', 'learner_id'], int_rows)
 
     @property
     def learners(self) -> Table:
@@ -244,7 +250,8 @@ class Result:
 
     def plot_learners(self, 
         source_pattern :Union[str,int] = ".*",
-        learner_pattern:Union[str,int] = ".*", 
+        learner_pattern:Union[str,int] = ".*",
+        sim_filter: Callable[[Dict[str,Any]], bool] = None,
         span:int = None,
         start:Union[int,float]=0.05,
         end:Union[int,float] = 1.,
@@ -308,7 +315,7 @@ class Result:
                 source_end = source_end if source_end > -1 else len(simulation['pipe'])
                 source     = simulation['pipe'][0:source_end]
 
-            if re.search(source_pattern, source):
+            if re.search(source_pattern, source) and (sim_filter is None or sim_filter(simulation)):
                 sources.add(source)
                 simulation_ids.append(simulation['simulation_id'])
 
@@ -442,9 +449,10 @@ class Result:
 
             plt.show()
 
-    def plot_shuffles(self, 
+    def plot_shuffles(self,
         source_pattern:str = ".*", 
-        learner_pattern:str = ".*", 
+        learner_pattern:str = ".*",
+        sim_filter: Callable[[Dict[str,Any]], bool] = lambda: True,
         span:int=None,
         start:Union[int,float]=0.05,
         end:Union[int,float] = 1.,
@@ -504,7 +512,7 @@ class Result:
                 source_end = source_end if source_end > -1 else len(simulation['pipe'])
                 sim_source = simulation['pipe'][0:source_end]
 
-            if re.search(source_pattern, sim_source):
+            if re.search(source_pattern, sim_source) and sim_filter(simulation):
                 simulation_ids.append(simulation['simulation_id'])
                 simulation_sources.append(sim_source)
 
