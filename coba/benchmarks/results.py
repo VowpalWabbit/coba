@@ -1,6 +1,7 @@
 import re
 import collections
 
+from copy import copy
 from numbers import Number
 from operator import truediv
 from itertools import chain, repeat, product, accumulate
@@ -76,6 +77,29 @@ class Table:
         columns_values = [ [flats[key].get(col, packs[key].get(col, self._default(col))) for key in self.keys] for col in self.columns ]
 
         return [ self._infer_type(column_packed, column_values) for column_packed, column_values in zip(columns_packed,columns_values)]
+
+    def filter(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Table':
+
+        def satisfies_all_filters(key):
+            row = self[key]
+
+            if pred is not None and not pred(row):
+                return False
+
+            for col,value in kwargs.items():
+                if isinstance(value,Number) and not re.search(f'(\D|^){value}(\D|$)', row[col]):
+                    return False
+                if isinstance(value,str) and not re.search(value, row[col]):
+                    return False
+                if callable(value) and not value(row[col]):
+                    return False
+
+            return True
+
+        new_result = copy(self)
+        new_result._rows_keys = list(filter(satisfies_all_filters,self.keys))
+
+        return new_result
 
     def to_pandas(self) -> Any:
         PackageChecker.pandas("Table.to_pandas")
@@ -160,7 +184,7 @@ class Table:
         return object
 
     def __iter__(self) -> Iterator[Dict[str,Any]]:
-        for key in self._rows_flat.keys():
+        for key in self.keys:
             yield self[key]
 
     def __contains__(self, key: Union[Hashable, Sequence[Hashable]]) -> bool:
@@ -211,11 +235,11 @@ class Result:
 
         return Result(version, benchmark, sim_rows, lrn_rows, int_rows)
 
-    def __init__(self, 
-        version  : Optional[int] = None, 
-        benchmark: Dict[str,Any] = {}, 
+    def __init__(self,
+        version  : Optional[int] = None,
+        benchmark: Dict[str,Any] = {},
         sim_rows : Sequence[Dict[str,Any]] = [],
-        lrn_rows : Sequence[Dict[str,Any]] = [],        
+        lrn_rows : Sequence[Dict[str,Any]] = [],
         int_rows : Sequence[Dict[str,Any]] = []) -> None:
         """Instantiate a Result class."""
 
@@ -248,29 +272,60 @@ class Result:
         """
         return self._interactions
 
+    def _copy(self) -> 'Result':
+        result = Result()
+
+        result.simulations  = copy(self._simulations)
+        result.learners     = copy(self._learners)
+        result.interactions = copy(self._interactions)
+
+        return result
+
+    def filter_fin(self) -> 'Result':
+
+        def is_complete_sim(sim_id):
+            return all((sim_id, lrn_id) in self.interactions for lrn_id in self.learners.keys)
+
+        new_result              = copy(self)
+        new_result._simulations = copy(new_result.simulations)
+        new_result._simulations._rows_keys = list(filter(is_complete_sim,self.simulations.keys))
+
+        if len(new_result.simulations) == 0:
+            CobaConfig.Logger.log(f"No simulation was found with interaction data for every learner.")
+
+        return new_result
+
+    def filter_sim(self, **kwargs) -> 'Result':
+
+        new_result = copy(self)
+        new_result._simulations = new_result.simulations.filter(**kwargs)
+
+        if len(new_result.simulations) == 0:
+            CobaConfig.Logger.log(f"No simulations matched the given filter: {kwargs}.")
+
+        return new_result
+
+    def filter_lrn(self,**kwargs) -> 'Result':
+        new_result = copy(self)
+        new_result._learners = new_result.learners.filter(**kwargs)
+
+        if len(new_result.learners) == 0:
+            CobaConfig.Logger.log(f"No learners matched the given filter: {kwargs}.")
+
+        return new_result
+
     def plot_learners(self, 
-        source_pattern :Union[str,int] = ".*",
-        learner_pattern:Union[str,int] = ".*",
-        sim_filter: Callable[[Dict[str,Any]], bool] = None,
         span:int = None,
         start:Union[int,float]=0.05,
         end:Union[int,float] = 1.,
         err_every:Union[int,float]=.05,
-        err_type:str=None,
-        complete:bool = True,
-        figsize=(9,6),
+        err_type:str='sd',
         ax=None) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
             performance for different learners across independent simulations. This plot is valuable in gaining insight 
             into how various learners perform in comparison to one another. 
 
         Args:
-            source_pattern: The pattern to match when determining which simulations to include in the plot. The "source" 
-                matched against is either the "source" column in the simulations table or the first item in the list in 
-                the simulation 'pipes' column. The simulations can be seen most easily by Result.simulations.to_pandas().
-            learner_pattern: The pattern to match against the 'full_name' column in learners to determine which learners
-                to include in the plot. In the case of multiple matches only the last match is kept. The learners table in
-                Result can be examined via result.learners.to_pandas().
             span: In general this indicates how many previous evaluations to average together. In practice this works
                 identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
                 rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
@@ -288,71 +343,20 @@ class Result:
             err_type: Determines what the error bars are. Valid types are `None`, 'se', and 'sd'. If err_type is None then 
                 plot will use SEM when there is only one source simulation otherwise it will use SD. Otherwise plot will
                 display the standard error of the mean for 'se' and the standard deviation for 'sd'.
-            complete: Determines if the plotted simulations only includes those simulations with all learners. This
-                can be important if plotting a long running benchmark that is still in the process of finishing evaluation.
         """
 
         PackageChecker.matplotlib('Result.standard_plot')
+        import matplotlib.pyplot as plt #type: ignore
+        import numpy as np              #type: ignore
 
-        learner_ids    = []
-        learner_names  = {}
-        sources        = set()
-        simulation_ids = []
-
-        if isinstance(source_pattern, Number):
-            source_pattern = f'(\D|^){source_pattern}(\D|$)'
-
-        if isinstance(learner_pattern, Number):
-            learner_pattern = f'(\D|^){learner_pattern}(\D|$)'
-
-        for simulation in self._simulations:
-
-            if 'source' in simulation:
-                source = simulation['source']
-            else:
-                #this is a hack...
-                source_end = max(simulation['pipe'].find("},{"), simulation['pipe'].find(","))
-                source_end = source_end if source_end > -1 else len(simulation['pipe'])
-                source     = simulation['pipe'][0:source_end]
-
-            if re.search(source_pattern, source) and (sim_filter is None or sim_filter(simulation)):
-                sources.add(source)
-                simulation_ids.append(simulation['simulation_id'])
-
-        for learner in self._learners:
-            if re.search(learner_pattern, learner['full_name']):
-                learner_names[learner['learner_id']] = learner['full_name']
-                learner_ids.append(learner['learner_id'])
-
-        if len(learner_ids) == 0:
-            CobaConfig.Logger.log(f"No learners were found matching {learner_pattern}")
-
-        if len(simulation_ids) == 0:
-            CobaConfig.Logger.log(f"No simulations were found with a source matching {source_pattern}")
-
-        if len(learner_ids) == 0 or len(simulation_ids) == 0:
-            return
-
-        learner_ids = sorted(learner_ids, key=lambda id: learner_names[id])
-
-        if err_type is None and len(sources) == 1: err_type = 'se'
-        if err_type is None and len(sources) >= 2: err_type = 'sd'
 
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-        if complete:
-            all_learners_sim = lambda sim_id: all( (sim_id,lrn_id) in self._interactions for lrn_id in learner_ids )
-            simulation_ids = list(filter(all_learners_sim, simulation_ids))
-
-        if len(simulation_ids) == 0:
-            CobaConfig.Logger.log(f"No simulation was found with interaction data for every learner.")
-            return
-
-        for simulation_id, learner_id in product(simulation_ids,learner_ids):
+        for simulation_id, learner_id in product(self.simulations.keys,self.learners.keys):
             
-            if (simulation_id,learner_id) not in self._interactions: continue
+            if (simulation_id,learner_id) not in self.interactions: continue
 
-            rewards = self._interactions[(simulation_id,learner_id)]["reward"]
+            rewards = self.interactions[(simulation_id,learner_id)]["reward"]
 
             if span is None or span >= len(rewards):
                 cumwindow  = list(accumulate(rewards))
@@ -369,20 +373,17 @@ class Result:
 
             progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
 
-        import matplotlib.pyplot as plt #type: ignore
-        import numpy as np #type: ignore
-
         if not progressives:
-            CobaConfig.Logger.log("No interaction data was found for plot_learners.")
+            #CobaConfig.Logger.log("No interaction data was found for plot_learners.")
             return
         
         full_figure = ax is None
 
         if full_figure:
-            fig = plt.figure(figsize=figsize)
+            fig = plt.figure(figsize=(9,6))
             ax = fig.add_subplot(1,1,1) #type: ignore
 
-        for i,learner_id in enumerate(learner_ids):
+        for i,learner_id in enumerate(sorted(self.learners.keys, key=lambda id: self.learners[id]["full_name"])):
 
             label = self._learners[learner_id]["full_name"]
             Z     = list(zip(*progressives[learner_id]))
@@ -400,7 +401,7 @@ class Result:
             start_idx = max(0, start)
 
             if start_idx >= end_idx:
-                CobaConfig.Logger.log("The plot's given end <= start making plotting impossible.")
+                CobaConfig.Logger.log("The plot's end is <= than the start making plotting impossible.")
                 return
 
             X = X[start_idx:end_idx]
@@ -450,26 +451,17 @@ class Result:
             plt.show()
 
     def plot_shuffles(self,
-        source_pattern:str = ".*", 
-        learner_pattern:str = ".*",
-        sim_filter: Callable[[Dict[str,Any]], bool] = lambda: True,
         span:int=None,
         start:Union[int,float]=0.05,
         end:Union[int,float] = 1.,
         err_every:Union[int,float]=.05,
-        err_type:str=None,
+        err_type:str='sd',
         figsize=(8,6)) -> None:
         """This plots the performance of a single Learner on multiple shuffles of the same source. It gives a sense of the
             variance in peformance for the learner on the given simulation source. This plot is valuable if looking for a 
             reliable learner on a fixed problem.
 
         Args:
-            source_pattern: The pattern to match when determining which simulations to include in the plot. The "source" 
-                matched against is either the "source" column in the simulations table or the first item in the list in 
-                the simulation 'pipes' column. The simulations can be seen most easily by Result.simulations.to_pandas().
-            learner_pattern: The pattern to match against the 'full_name' column in learners to determine which learners
-                to include in the plot. In the case of multiple matches only the last match is kept. The learners table in
-                Result can be examined via result.learners.to_pandas().
             span: In general this indicates how many previous evaluations to average together. In practice this works
                 identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
                 rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
@@ -491,46 +483,12 @@ class Result:
         """
 
         PackageChecker.matplotlib('Result.standard_plot')
+        import matplotlib.pyplot as plt #type: ignore
+        import numpy as np #type: ignore
 
-        simulation_ids     = []
-        simulation_sources = []
-        learner_id         = None
+        progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-        if isinstance(source_pattern, Number):
-            source_pattern = f'(\D|^){source_pattern}(\D|$)'
-
-        if isinstance(learner_pattern, Number):
-            learner_pattern = f'(\D|^){learner_pattern}(\D|$)'
-        
-        for simulation in self._simulations:
-            
-            if 'source' in simulation:
-                sim_source = simulation['source']
-            else:
-                #this is a hack...
-                source_end = max(simulation['pipe'].find("},{"), simulation['pipe'].find(","))
-                source_end = source_end if source_end > -1 else len(simulation['pipe'])
-                sim_source = simulation['pipe'][0:source_end]
-
-            if re.search(source_pattern, sim_source) and sim_filter(simulation):
-                simulation_ids.append(simulation['simulation_id'])
-                simulation_sources.append(sim_source)
-
-        for learner in self._learners:
-            if re.search(learner_pattern,learner['full_name']):
-                learner_id = learner['learner_id']
-
-        progressives: List[Sequence[float]] = []
-
-        if len(simulation_ids) == 0:
-            CobaConfig.Logger.log(f"No simulation was found with a source matching '{source_pattern}' when executing `plot_shuffles`.")
-            return
-
-        if learner_id is None:
-            CobaConfig.Logger.log(f"No learner was found who's fullname matched '{learner_pattern}' when executing `plot_shuffles`.")
-            return
-
-        for simulation_id in simulation_ids:
+        for simulation_id, learner_id in product(self.simulations.keys,self.learners.keys):
             
             if (simulation_id,learner_id) not in self._interactions: continue
 
@@ -550,14 +508,11 @@ class Result:
                 cumwindow  = [ cumwindow[i] - cumwindow[i-span] for i in range(len(cumwindow)-span) ]
                 cumdivisor = list(range(1, span)) + [span]*(len(cumwindow)-span+1)
 
-            progressives.append(list(map(truediv, cumwindow, cumdivisor)))
+            progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
 
         if not progressives:
             CobaConfig.Logger.log("No interaction data was found for the plot_shuffles.")
             return
-
-        import matplotlib.pyplot as plt #type: ignore
-        import numpy as np #type: ignore
 
         fig = plt.figure(figsize=figsize)
         
@@ -565,7 +520,7 @@ class Result:
 
         color = next(ax._get_lines.prop_cycler)['color']
 
-        for shuffle in progressives:
+        for shuffle in progressives[list(progressives.keys())[0]]:
 
             Y     = shuffle
             X     = list(range(1,len(Y)+1))
@@ -586,7 +541,7 @@ class Result:
             ax.plot(X, Y, label='_nolegend_', color=color, alpha=0.15)
 
         plt.gca().set_prop_cycle(None)
-        self.plot_learners(source_pattern, learner_pattern, span=span, start=start, end=end, err_every=err_every, err_type=err_type, ax=ax)
+        self.plot_learners(span=span, start=start, end=end, err_every=err_every, err_type=err_type, ax=ax)
 
         if start == start_idx and end == end_idx:
             ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
@@ -595,10 +550,7 @@ class Result:
             ax.set_xlim(start - padding, end + padding)
             ax.set_xticks(np.clip(ax.get_xticks(), start, end))
 
-        simulation_sources = list(set(simulation_sources))
-        source = simulation_sources[0] if len(simulation_sources) == 1 else str(simulation_sources)
-
-        ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + f" Reward for '{source}'")
+        ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + f" Reward")
         ax.set_ylabel("Reward")
         ax.set_xlabel("Interactions")
 

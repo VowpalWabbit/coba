@@ -165,6 +165,17 @@ class Table_Tests(unittest.TestCase):
             table = Table("test", ['a'])
             table['A'] = dict(c=1,_packed=dict(b=['B','b'],d=['D','d','e']))
 
+    def test_filter_item(self):
+        table = Table("test", ['a'], [{'a':'a', 'b':'b'}, {'a':'A', 'b':'B'}])
+
+        filtered_table = table.filter(b="B")
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([('a', 'b'), ('A', 'B')], list(table.to_tuples()))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([('A', 'B')], list(filtered_table.to_tuples()))
+
 class Result_Tests(unittest.TestCase):
 
     def test_has_interactions_key(self):

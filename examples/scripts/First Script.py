@@ -33,4 +33,5 @@ if __name__ == '__main__':
     result.plot_learners()
 
     #We can also create a plot examining how one specific learner did across each shuffle of our simulation
-    result.plot_shuffles(learner_pattern="vw")
+    result.filter_lrn(full_name="vw").plot_shuffles()
+    
