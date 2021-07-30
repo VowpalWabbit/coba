@@ -1,5 +1,3 @@
-from coba.simulations.openml import OpenmlSimulation
-from coba.simulations.core import ClassificationSimulation
 from copy import deepcopy
 from itertools import groupby, product, count
 from collections import defaultdict
@@ -10,7 +8,7 @@ from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
 from coba.utilities import PackageChecker
 from coba.pipes import Source, Pipe, Filter, IdentityFilter
-from coba.simulations import Simulation, Interaction, Shuffle, Take
+from coba.simulations import Simulation, Interaction, Shuffle, Take, OpenmlSimulation, ClassificationSimulation
 
 from coba.benchmarks.transactions import Transaction
 from coba.benchmarks.results import Result
@@ -51,7 +49,9 @@ class EvaluationTask(Task):
         super().__init__(src_id, sim_id, lrn_id, simulation, learner)
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Any]:
-        
+
+        if not interactions: return
+
         learner = deepcopy(self.learner)
         random  = CobaRandom(self._seed)
 
@@ -247,7 +247,7 @@ class ProcessTasks(Filter[Iterable[Iterable[Task]], Iterable[Any]]):
 
                         if not interactions:
                             CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate (likely due to `take` being larger than the simulation).")
-                            tasks_by_src_sim = filter(lambda f: not isinstance(f,EvaluationTask), tasks_by_src_sim)
+                            return
 
                         for task in tasks_by_src_sim:
                             try:

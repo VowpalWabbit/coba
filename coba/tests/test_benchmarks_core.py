@@ -201,7 +201,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_tuples()
         
         expected_learners     = [(0, "Modulo", "Modulo(p=0)", '0')]
-        expected_simulations  = [(0, '"LambdaSimulation",{"Take":3}', "None", "LambdaSimulation", "3"), (1, '"LambdaSimulation",{"Take":3}', "None", "LambdaSimulation", "3")]
+        expected_simulations  = [(0, '"LambdaSimulation",{"Take":3}', "None", "LambdaSimulation", "3")]
         expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 1), (0, 0, 3, 2)]
 
         self.assertCountEqual(actual_learners, expected_learners)

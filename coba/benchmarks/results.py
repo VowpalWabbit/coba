@@ -403,22 +403,24 @@ class Result:
             SE = [ sd/(n**(1/2))    for sd,n in zip(SD,N)     ]
 
             yerr = 0 if err is None else SE if err.lower() == 'se' else SD if err.lower() == 'sd' else 0
-            ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(0,int(len(X)*0.05)), label=label, color=color)
+            ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), label=label, color=color)
 
             if obs:
                 for Y in list(zip(*Z)):
                     ax.plot(X,Y, color=color, alpha=0.15)
 
-        start = xlim[0] if xlim else ax.get_xlim()[0]
-        end = xlim[1] if xlim else ax.get_xlim()[1]
+        ax.margins(0)
+
+        x_min = xlim[0] if xlim else ax.get_xlim()[0]
+        x_max = xlim[1] if xlim else ax.get_xlim()[1]
         y_min = ylim[0] if ylim else ax.get_ylim()[0]
         y_max = ylim[1] if ylim else ax.get_ylim()[1]
 
         padding = .05
 
-        x_pad = padding*(end-start)
-        ax.set_xlim(start-x_pad, end+x_pad)
-        ax.set_xticks(np.clip(ax.get_xticks(), start, end))
+        x_pad = padding*(x_max-x_min)
+        ax.set_xlim(x_min-x_pad, x_max+x_pad)
+        ax.set_xticks(np.clip(ax.get_xticks(), x_min, x_max))
 
         y_pad = padding*(y_max-y_min)
         ax.set_ylim(y_min-y_pad, y_max+y_pad)
