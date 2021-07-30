@@ -30,8 +30,7 @@ if __name__ == '__main__':
     result = benchmark.evaluate(learners)
 
     #After evaluating can create a quick summary plot to get a sense of how the learners performed
-    result.plot_learners()
+    result.plot_learners(err='sd')
 
     #We can also create a plot examining how one specific learner did across each shuffle of our simulation
-    result.filter_lrn(full_name="vw").plot_shuffles()
-    
+    result.filter_lrn(full_name="vw").plot_learners(err='sd',obs=True)

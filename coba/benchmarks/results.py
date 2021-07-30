@@ -315,44 +315,33 @@ class Result:
         return new_result
 
     def plot_learners(self, 
-        span:int = None,
-        start:Union[int,float]=0.05,
-        end:Union[int,float] = 1.,
-        err_every:Union[int,float]=.05,
-        err_type:str='sd',
-        ax=None) -> None:
+        xlim: Optional[Tuple[Number,Number]] = None,
+        ylim: Optional[Tuple[Number,Number]] = None,
+        span: int = None,
+        err : Optional[str] = None,
+        obs : bool = False) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
             performance for different learners across independent simulations. This plot is valuable in gaining insight 
             into how various learners perform in comparison to one another. 
 
         Args:
+            xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
+            ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             span: In general this indicates how many previous evaluations to average together. In practice this works
                 identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
-                rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
-                reward is plotted for each interaction.
-            start: Determines at which interaction the plot will start at. If start is greater than 1 we assume start is
-                an interaction index. If start is less than 1 we assume start is the percent of interactions to skip
-                before starting the plot.
-            end: Determines at which interaction the plot will stop at. If end is greater than 1 we assume end is
-                an interaction index. If end is less than 1 we assume end is the percent of interactions to end on.
-            err_every: Determines frequency of bars indicating the standard deviation of the population should be drawn. 
-                Standard deviation gives a sense of how well the plotted average represents the underlying distribution. 
-                Standard deviation is most valuable when plotting against multiple simulations. If plotting against a single 
-                simulation standard error may be a more useful indicator of confidence. The value for sd_every should be
-                between 0 to 1 and will determine how frequently the standard deviation bars are drawn.
-            err_type: Determines what the error bars are. Valid types are `None`, 'se', and 'sd'. If err_type is None then 
-                plot will use SEM when there is only one source simulation otherwise it will use SD. Otherwise plot will
-                display the standard error of the mean for 'se' and the standard deviation for 'sd'.
+                rewards are averaged together vs span = 1 WHERE the instantaneous reward is plotted for each interaction.
+            err: Determine what kind of error bars to plot (if any). Valid types are `None`, 'se', and 'sd'. If `None`
+                then no bars are plotted, if 'se' the standard error is shown, and if 'sd the standard deviation is shown.
+            obs: Determine whether each constituent observation used to estimate mean performance is also plotted.
         """
 
         PackageChecker.matplotlib('Result.standard_plot')
         import matplotlib.pyplot as plt #type: ignore
         import numpy as np              #type: ignore
 
-
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-        for simulation_id, learner_id in product(self.simulations.keys,self.learners.keys):
+        for simulation_id, learner_id in product(self.simulations.keys, self.learners.keys):
             
             if (simulation_id,learner_id) not in self.interactions: continue
 
@@ -374,16 +363,14 @@ class Result:
             progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
 
         if not progressives:
-            #CobaConfig.Logger.log("No interaction data was found for plot_learners.")
             return
         
-        full_figure = ax is None
+        fig = plt.figure(figsize=(9,6))
+        ax  = fig.add_subplot(1,1,1) #type: ignore
 
-        if full_figure:
-            fig = plt.figure(figsize=(9,6))
-            ax = fig.add_subplot(1,1,1) #type: ignore
+        for learner_id in sorted(self.learners.keys, key=lambda id: self.learners[id]["full_name"]):
 
-        for i,learner_id in enumerate(sorted(self.learners.keys, key=lambda id: self.learners[id]["full_name"])):
+            color = next(ax._get_lines.prop_cycler)['color']
 
             label = self._learners[learner_id]["full_name"]
             Z     = list(zip(*progressives[learner_id]))
@@ -394,19 +381,16 @@ class Result:
             Y     = [ sum(z)/len(z) for z in Z ]
             X     = list(range(1,len(Y)+1))
 
-            start = int(start*len(X)) if start <  1 else int(start)
-            end   = int(end*len(X))   if end   <= 1 else int(end)
+            start = xlim[0] if xlim else int(.05*len(X))
+            end   = xlim[1] if xlim else len(X)
 
-            end_idx   = min(len(X), end)
-            start_idx = max(0, start)
-
-            if start_idx >= end_idx:
-                CobaConfig.Logger.log("The plot's end is <= than the start making plotting impossible.")
+            if start >= end:
+                CobaConfig.Logger.log("The plot's end is less than the start making plotting impossible.")
                 return
 
-            X = X[start_idx:end_idx]
-            Y = Y[start_idx:end_idx]
-            Z = Z[start_idx:end_idx]
+            X = X[start:end]
+            Y = Y[start:end]
+            Z = Z[start:end]
 
             if len(X) == 0: continue
 
@@ -416,151 +400,40 @@ class Result:
             #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
             Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z ]
             SD = [ (y2-y**2)**(1/2) for y,y2 in zip(Y,Y2)     ]
-            SE = [ sd/(n**(1/2)) for sd,n in zip(SD,N)        ]
+            SE = [ sd/(n**(1/2))    for sd,n in zip(SD,N)     ]
 
-            err_every = int(len(X)*err_every) if err_every < 1 else err_every
-            err_start = int(X[0] + i*len(X)*err_every**2) if err_every < 1 else err_every
+            yerr = 0 if err is None else SE if err.lower() == 'se' else SD if err.lower() == 'sd' else 0
+            ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(0,int(len(X)*0.05)), label=label, color=color)
 
-            if not err_every:
-               ax.plot(X, Y,label=label)
-            else:
-                yerr = SE if err_type.lower() == 'se' else SD #type: ignore
-                ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(err_start,err_every), label=label)
+            if obs:
+                for Y in list(zip(*Z)):
+                    ax.plot(X,Y, color=color, alpha=0.15)
 
-        if full_figure:
-            
-            if start == start_idx and end == end_idx:
-                ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
-            else:
-                padding = - (end-start)*.01
-                ax.set_xlim(start - padding, end + padding)
-                ax.set_xticks(np.clip(ax.get_xticks(), start, end))
+        start = xlim[0] if xlim else ax.get_xlim()[0]
+        end = xlim[1] if xlim else ax.get_xlim()[1]
+        y_min = ylim[0] if ylim else ax.get_ylim()[0]
+        y_max = ylim[1] if ylim else ax.get_ylim()[1]
 
-            ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward")
-            ax.set_ylabel("Reward")
-            ax.set_xlabel("Interactions")
+        padding = .05
 
-            #make room for the legend
-            scale = 0.65
-            box1 = ax.get_position()
-            ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+        x_pad = padding*(end-start)
+        ax.set_xlim(start-x_pad, end+x_pad)
+        ax.set_xticks(np.clip(ax.get_xticks(), start, end))
 
-            # Put a legend below current axis
-            fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='medium') #type: ignore
+        y_pad = padding*(y_max-y_min)
+        ax.set_ylim(y_min-y_pad, y_max+y_pad)
 
-            plt.show()
-
-    def plot_shuffles(self,
-        span:int=None,
-        start:Union[int,float]=0.05,
-        end:Union[int,float] = 1.,
-        err_every:Union[int,float]=.05,
-        err_type:str='sd',
-        figsize=(8,6)) -> None:
-        """This plots the performance of a single Learner on multiple shuffles of the same source. It gives a sense of the
-            variance in peformance for the learner on the given simulation source. This plot is valuable if looking for a 
-            reliable learner on a fixed problem.
-
-        Args:
-            span: In general this indicates how many previous evaluations to average together. In practice this works
-                identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
-                rewards are averaged together and that value is plotted. Compare this to span = 1 WHERE only the current 
-                reward is plotted for each interaction.
-            start: Determines at which interaction the plot will start at. If start is greater than 1 we assume start is
-                an interaction index. If start is less than 1 we assume start is the percent of interactions to skip
-                before starting the plot.
-            end: Determines at which interaction the plot will stop at. If end is greater than 1 we assume end is
-                an interaction index. If end is less than 1 we assume end is the percent of interactions to end on.
-            err_every: Determines frequency of bars indicating the standard deviation of the population should be drawn. 
-                Standard deviation gives a sense of how well the plotted average represents the underlying distribution. 
-                Standard deviation is most valuable when plotting against multiple simulations. If plotting against a single 
-                simulation standard error may be a more useful indicator of confidence. The value for sd_every should be
-                between 0 to 1 and will determine how frequently the standard deviation bars are drawn.
-            err_type: Determines what the error bars are. Valid types are `None`, 'se', and 'sd'. If err_type is None then 
-                plot will use SEM when there is only one source simulation otherwise it will use SD. Otherwise plot will
-                display the standard error of the mean for 'se' and the standard deviation for 'sd'.
-
-        """
-
-        PackageChecker.matplotlib('Result.standard_plot')
-        import matplotlib.pyplot as plt #type: ignore
-        import numpy as np #type: ignore
-
-        progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
-
-        for simulation_id, learner_id in product(self.simulations.keys,self.learners.keys):
-            
-            if (simulation_id,learner_id) not in self._interactions: continue
-
-            rewards = self._interactions[(simulation_id,learner_id)]["reward"]
-
-            if span is None or span >= len(rewards):
-                cumwindow  = list(accumulate(rewards))
-                cumdivisor = list(range(1,len(cumwindow)+1))
-
-            elif span == 1:
-                cumwindow  = list(rewards)
-                cumdivisor = [1]*len(cumwindow)
-
-            else:
-                cumwindow  = list(accumulate(rewards))
-                cumwindow  = cumwindow + [0] * span
-                cumwindow  = [ cumwindow[i] - cumwindow[i-span] for i in range(len(cumwindow)-span) ]
-                cumdivisor = list(range(1, span)) + [span]*(len(cumwindow)-span+1)
-
-            progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
-
-        if not progressives:
-            CobaConfig.Logger.log("No interaction data was found for the plot_shuffles.")
-            return
-
-        fig = plt.figure(figsize=figsize)
-        
-        ax = fig.add_subplot(1,1,1) #type: ignore
-
-        color = next(ax._get_lines.prop_cycler)['color']
-
-        for shuffle in progressives[list(progressives.keys())[0]]:
-
-            Y     = shuffle
-            X     = list(range(1,len(Y)+1))
-
-            start = int(start*len(X)) if start <  1 else int(start)
-            end   = int(end*len(X))   if end   <= 1 else int(end)
-
-            end_idx   = min(len(X), end)
-            start_idx = max(0, start)
-
-            if start_idx >= end_idx:
-                CobaConfig.Logger.log("The plot's given end <= start making plotting impossible.")
-                return
-
-            X = X[start_idx:end_idx]
-            Y = Y[start_idx:end_idx]
-
-            ax.plot(X, Y, label='_nolegend_', color=color, alpha=0.15)
-
-        plt.gca().set_prop_cycle(None)
-        self.plot_learners(span=span, start=start, end=end, err_every=err_every, err_type=err_type, ax=ax)
-
-        if start == start_idx and end == end_idx:
-            ax.set_xticks(np.clip(ax.get_xticks(), min(X), max(X)))
-        else:
-            padding = - (end-start)*.01
-            ax.set_xlim(start - padding, end + padding)
-            ax.set_xticks(np.clip(ax.get_xticks(), start, end))
-
-        ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + f" Reward")
+        ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward")
         ax.set_ylabel("Reward")
         ax.set_xlabel("Interactions")
 
         #make room for the legend
-        scale = 0.85
+        scale = 0.65
         box1 = ax.get_position()
         ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
 
-        #Put a legend below current axis
-        fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .1), ncol=1, fontsize='medium') #type: ignore
+        # Put a legend below current axis
+        fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='medium') #type: ignore
 
         plt.show()
 
