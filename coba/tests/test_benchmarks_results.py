@@ -18,7 +18,7 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(table))
 
-        self.assertEqual([('a', 'B'), ('A', 'B')], list(table.to_tuples()))
+        self.assertEqual([('A', 'B'),('a', 'B')], list(table.to_tuples()))
 
     def test_missing_columns(self):
         table = Table("test", ['a'], [{'a':'A', 'b':'B'}, {'a':'a', 'c':'C'}])
@@ -171,7 +171,7 @@ class Table_Tests(unittest.TestCase):
         filtered_table = table.filter(b="B")
 
         self.assertEqual(2, len(table))
-        self.assertEqual([('a', 'b'), ('A', 'B')], list(table.to_tuples()))
+        self.assertEqual([('A', 'B'),('a', 'b')], list(table.to_tuples()))
 
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('A', 'B')], list(filtered_table.to_tuples()))
