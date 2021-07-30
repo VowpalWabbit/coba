@@ -55,6 +55,8 @@ class Table:
             self._rows_pack[row_key] = row_pack
             self._rows_flat[row_key] = row_flat
 
+        self._rows_keys = sorted(self._rows_keys)
+
     @property
     def name(self) -> str:
         return self._name
