@@ -1,7 +1,9 @@
 import json
 
+from math import isnan
 from itertools import compress
 from hashlib import md5
+from numbers import Number
 from typing import Optional, Tuple, Sequence, Any, List, Iterable
 
 from coba.pipes import Source, HttpSource
@@ -59,6 +61,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 elif tipe['data_type'] == 'nominal':
                     encoders.append(OneHotEncoder(singular_if_binary=True))
                 else:
+                    ignored[-1] = True
                     encoders.append(StringEncoder())
 
             if target=="" or isinstance(encoders[headers.index(target)], NumericEncoder):
@@ -121,6 +124,11 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             else:
                 dense_label_col = list(label_col)
 
+            no_missing = [ not any(isinstance(val,Number) and isnan(val) for val in row) for row in feature_rows ]
+
+            feature_rows    = list(compress(feature_rows, no_missing))
+            dense_label_col = list(compress(dense_label_col, no_missing)) 
+            
             return feature_rows, dense_label_col
 
         except KeyboardInterrupt:

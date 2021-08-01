@@ -121,7 +121,7 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
         https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
 
-    def __init__(self, skip_encoding: List[Union[str,int]] = []):
+    def __init__(self, skip_encoding: Union[bool,Sequence[Union[str,int]]] = False):
 
         self._skip_encoding = skip_encoding
 
@@ -148,7 +148,7 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
         is_numeric = tipe in ['numeric', 'integer', 'real']
         is_one_hot = '{' in tipe
 
-        if index in self._skip_encoding or name in self._skip_encoding:
+        if self._skip_encoding != False and (self._skip_encoding == True or index in self._skip_encoding or name in self._skip_encoding):
             return StringEncoder()
 
         if is_numeric: return NumericEncoder()
