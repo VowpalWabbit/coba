@@ -126,6 +126,9 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             no_missing_values = [ not any(isinstance(val,Number) and isnan(val) for val in row) for row in feature_rows ]
 
+            if not any(no_missing_values):
+                raise CobaException(f"Every example in openml {data_id} has a missing value. The simulation is being ignored.")
+
             feature_rows    = list(compress(feature_rows, no_missing_values))
             dense_label_col = list(compress(dense_label_col, no_missing_values)) 
             
