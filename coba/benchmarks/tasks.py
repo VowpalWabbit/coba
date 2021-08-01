@@ -83,9 +83,11 @@ class EvaluationTask(Task):
 class SimulationTask(Task):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Any]:
-        
+
         with CobaConfig.Logger.time(f"Calculating Simulation {self.sim_id} statistics..."):
             extra_statistics = {}
+
+            contexts,actions,feedbacks = zip(*[ (i.context, i.actions, i.feedbacks) for i in interactions])
 
             if isinstance(self.sim_source, (ClassificationSimulation,OpenmlSimulation)):
 
@@ -96,8 +98,8 @@ class SimulationTask(Task):
                     from sklearn.ensemble import RandomForestClassifier
                     from sklearn.model_selection import cross_val_score
 
-                    X   = [inter.context for inter in interactions]
-                    y   = [inter.actions[inter.feedbacks.index(1)] for inter in interactions]
+                    X   = contexts
+                    y   = [ a[f.index(1)] for a,f in zip(actions,feedbacks)]
                     clf = RandomForestClassifier(n_estimators=50)
 
                     if any(isinstance(f,str) for f in X[0]):
@@ -117,10 +119,10 @@ class SimulationTask(Task):
                 features   = set() 
                 label_cnts = defaultdict(int)
 
-                for inter in interactions:
+                for c,a,f in zip(contexts,actions,feedbacks):
 
-                    inter_label = inter.actions[inter.feedbacks.index(1)]
-                    inter_feats = inter.context.keys() if isinstance(inter.context,dict) else range(len(inter.context))
+                    inter_label = a[f.index(1)]
+                    inter_feats = c.keys() if isinstance(c,dict) else range(len(c))
 
                     labels.add(inter_label)
                     features.update(inter_feats)
