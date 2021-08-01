@@ -5,6 +5,7 @@ Remarks:
 """
 
 import json
+import array
 
 from collections import defaultdict
 from abc import ABC, abstractmethod
@@ -193,6 +194,16 @@ class NumericEncoder(Encoder[float]):
 class OneHotEncoder(Encoder[Tuple[int,...]]):
     """An Encoder implementation that turns incoming values into a one hot representation."""
 
+    class MemoryEffecientStorage(bytes):
+        def __repr__(self) -> str:
+            return str(tuple(self))
+
+        def __eq__(self, x: object) -> bool:
+            return x == tuple(self)
+
+        def __hash__(self) -> int:
+            return hash(tuple(self))
+
     def __init__(self, fit_values: Sequence[Any] = [], singular_if_binary: bool = False, error_if_unknown = True) -> None:
         """Instantiate a OneHotEncoder.
 
@@ -211,17 +222,18 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         if fit_values:
 
             if len(fit_values) == 2 and singular_if_binary:
-                unknown_onehot = tuple([0])
-                known_onehots = [[1],[0]]
+                unknown_onehot = OneHotEncoder.MemoryEffecientStorage([0])
+                known_onehots = [OneHotEncoder.MemoryEffecientStorage([1]),OneHotEncoder.MemoryEffecientStorage([0])]
             else:
-                unknown_onehot = tuple([0] * len(fit_values))
+                unknown_onehot = OneHotEncoder.MemoryEffecientStorage([0] * len(fit_values))
                 known_onehots  = [ [0] * len(fit_values) for _ in range(len(fit_values)) ]
                 
                 for i,k in enumerate(known_onehots):
                     k[i] = 1
 
-            keys_and_values = zip(fit_values, map(lambda k_oh: tuple(k_oh), known_onehots))
+            keys_and_values = zip(fit_values, map(OneHotEncoder.MemoryEffecientStorage, known_onehots))
             default_factory = lambda:unknown_onehot
+
 
             self._onehots: Dict[Any,Tuple[int,...]]
 
