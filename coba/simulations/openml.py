@@ -124,10 +124,10 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             else:
                 dense_label_col = list(label_col)
 
-            no_missing = [ not any(isinstance(val,Number) and isnan(val) for val in row) for row in feature_rows ]
+            no_missing_values = [ not any(isinstance(val,Number) and isnan(val) for val in row) for row in feature_rows ]
 
-            feature_rows    = list(compress(feature_rows, no_missing))
-            dense_label_col = list(compress(dense_label_col, no_missing)) 
+            feature_rows    = list(compress(feature_rows, no_missing_values))
+            dense_label_col = list(compress(dense_label_col, no_missing_values)) 
             
             return feature_rows, dense_label_col
 
