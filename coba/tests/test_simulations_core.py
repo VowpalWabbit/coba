@@ -1,4 +1,5 @@
 import unittest
+import timeit
 
 from typing import List
 
@@ -51,6 +52,15 @@ class Interaction_Tests(unittest.TestCase):
         interaction = Interaction({1:0}, (1,2,3), (4,5,6))
 
         self.assertEqual({1:0}, interaction.context)
+
+    def test_performance(self):
+
+        interaction = Interaction([1,2,3]*100, (1,2,3), (4,5,6))
+
+        time = timeit.timeit(lambda: interaction.context, number=10000)
+
+        #old best was 0.6 on my machine
+        self.assertLess(time, 1.5)
 
 class ClassificationSimulation_Tests(unittest.TestCase):
 

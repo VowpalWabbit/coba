@@ -60,15 +60,20 @@ class EvaluationTask(Task):
             row_data = defaultdict(list)
 
             for i, interaction in enumerate(interactions):
-                probs  = learner.predict(i, interaction.context, interaction.actions)
+
+                context   = interaction.context
+                actions   = interaction.actions
+                feedbacks = interaction.feedbacks
+
+                probs  = learner.predict(i, context, actions)
 
                 assert abs(sum(probs) - 1) < .0001, "The learner returned invalid proabilities for action choices."
 
-                action = random.choice(interaction.actions, probs)
-                reward = interaction.feedbacks[interaction.actions.index(action)]
-                prob   = probs[interaction.actions.index(action)]
+                action = random.choice(actions, probs)
+                reward = feedbacks[actions.index(action)]
+                prob   = probs[actions.index(action)]
 
-                info = learner.learn(i, interaction.context, action, reward, prob) or {}
+                info = learner.learn(i, context, action, reward, prob) or {}
                                                         
                 for key,value in info.items() | {('reward',reward)}: 
                     row_data[key].append(value)

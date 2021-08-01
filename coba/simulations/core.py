@@ -10,7 +10,7 @@ from coba.pipes import (
     Pipe, Source, Filter,
     CsvReader, ArffReader, LibSvmReader, ManikReader, 
     DiskSource, HttpSource, 
-    ResponseToLines, Transpose, Flatten
+    ResponseToLines, Transpose
 )
 
 Action      = Union[Hashable, dict]
@@ -40,13 +40,25 @@ class Interaction:
 
     def _is_sparse(self, feats):
 
-        is_pair     = isinstance(feats, collections.Sequence) and (len(feats) == 2) 
-        is_pair_seq = is_pair and all(isinstance(val,collections.Sequence) for val in feats) and len(feats[0]) == len(feats[1])
+        if isinstance(feats,dict):
+            return True
 
-        is_sparse_dict = isinstance(feats, dict)
-        is_sparse_pair = is_pair_seq and not isinstance(feats[0],str) and not isinstance(feats[1],str)
+        if not isinstance(feats, collections.Sequence):
+            return False
 
-        return is_sparse_dict or is_sparse_pair
+        if len(feats) != 2:
+            return False
+
+        if not isinstance(feats[0], collections.Sequence) or not isinstance(feats[1],collections.Sequence):
+            return False
+
+        if len(feats[0]) != len(feats[1]):
+            return False
+
+        if isinstance(feats[0],str) or isinstance(feats[1],str):
+            return False
+
+        return True
 
     def _flatten(self, feats):
 
@@ -58,13 +70,12 @@ class Interaction:
             flattened_dense_values = []
 
             for val in feats:
-                if isinstance(val,collections.Sequence) and not isinstance(val,str):
+                if isinstance(val,(list,tuple,bytes)):
                     flattened_dense_values.extend(val)
                 else:
                     flattened_dense_values.append(val)
-
+            
             return tuple(flattened_dense_values)
-
         else:
             flattened_sparse_values = {}
 
