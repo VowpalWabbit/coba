@@ -3,7 +3,7 @@ import setuptools
 
 MAJOR               = 2
 MINOR               = 9
-MICRO               = 2
+MICRO               = 3
 VERSION             = f"{MAJOR}.{MINOR}.{MICRO}"
 
 with open("README.md", "r") as f:
