@@ -110,7 +110,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             file_cols    = list(Encode(file_encoders).filter(file_cols))
             label_col    = file_cols.pop(file_headers.index(target))
-            feature_rows = list(Transpose().filter(Flatten().filter(file_cols)))
+            feature_rows = list(Transpose().filter(file_cols))
 
             #we only cache after all the data has been successfully loaded
             for key,bytes in [ (d_key, d_bytes), (t_key, t_bytes), (o_key, o_bytes) ]:

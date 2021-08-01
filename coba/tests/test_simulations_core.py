@@ -11,6 +11,47 @@ from coba.simulations import (
 
 CobaConfig.Logger = NoneLogger()
 
+class Interaction_Tests(unittest.TestCase):
+    def test_context_none(self):
+        interaction = Interaction(None, (1,2,3), (4,5,6))
+
+        self.assertEqual(None, interaction.context)
+
+    def test_context_str(self):
+        interaction = Interaction("A", (1,2,3), (4,5,6))
+
+        self.assertEqual("A", interaction.context)
+
+    def test_context_sparse_pairs_1(self):
+        interaction = Interaction(((1,2,3),(4,5,6)), (1,2,3), (4,5,6))
+
+        self.assertEqual({1:4, 2:5, 3:6}, interaction.context)
+
+    def test_context_sparse_pairs_2(self):
+        interaction = Interaction(((1,2,3),((0,0,1),5,6)), (1,2,3), (4,5,6))
+
+        self.assertEqual({"1_0":0, "1_1":0, "1_2":1, 2:5, 3:6}, interaction.context)
+
+    def test_context_bytes(self):
+        interaction = Interaction(bytes([0,0,1,1,0]), (1,2,3), (4,5,6))
+
+        self.assertEqual((0,0,1,1,0), interaction.context)
+
+    def test_context_dense(self):
+        interaction = Interaction((1,2,3), (1,2,3), (4,5,6))
+
+        self.assertEqual((1,2,3), interaction.context)
+
+    def test_context_dense_2(self):
+        interaction = Interaction((1,2,3,(0,0,1)), (1,2,3), (4,5,6))
+
+        self.assertEqual((1,2,3,0,0,1), interaction.context)
+
+    def test_context_sparse_dict(self):
+        interaction = Interaction({1:0}, (1,2,3), (4,5,6))
+
+        self.assertEqual({1:0}, interaction.context)
+
 class ClassificationSimulation_Tests(unittest.TestCase):
 
     def assert_simulation_for_data(self, simulation, features, answers) -> None:

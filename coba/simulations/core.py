@@ -38,52 +38,62 @@ class Interaction:
         self._actions   = actions
         self._feedbacks = feedbacks
 
+    def _is_sparse(self, feats):
+
+        is_pair     = isinstance(feats, collections.Sequence) and (len(feats) == 2) 
+        is_pair_seq = is_pair and all(isinstance(val,collections.Sequence) for val in feats) and len(feats[0]) == len(feats[1])
+
+        is_sparse_dict = isinstance(feats, dict)
+        is_sparse_pair = is_pair_seq and not isinstance(feats[0],str) and not isinstance(feats[1],str)
+
+        return is_sparse_dict or is_sparse_pair
+
+    def _flatten(self, feats):
+
+        if not isinstance(feats, collections.Sequence) or isinstance(feats, (str,dict)):
+            return feats
+
+        if not self._is_sparse(feats):
+
+            flattened_dense_values = []
+
+            for val in feats:
+                if isinstance(val,collections.Sequence) and not isinstance(val,str):
+                    flattened_dense_values.extend(val)
+                else:
+                    flattened_dense_values.append(val)
+
+            return tuple(flattened_dense_values)
+
+        else:
+            flattened_sparse_values = {}
+
+            for key,val in zip(*feats):
+
+                if isinstance(val, collections.Sequence):
+                    for sub_key,sub_val in enumerate(val):
+                        flattened_sparse_values[f"{key}_{sub_key}"] = sub_val
+                else:
+                    flattened_sparse_values[key] = val
+
+            return flattened_sparse_values
+
     @property
-    def context(self) -> Optional[Context]:
+    def context(self) -> Context:
         """The interaction's context description."""
 
-        #context is non-existant or singular so return it as is
-        if self._context is None or not isinstance(self._context, collections.Sequence):
-            return self._context
-
-        #The context appears to be a sparse representation. Return it as a dictionary. This may be an incorrect assumption.
-        #In the future we should probably improve the back end so we can explicitly indicate if our context is sparse rather
-        #than trying to infer it based on the structure of the context.
-        if len(self._context) == 2 and isinstance(self._context[0],tuple) and isinstance(self._context[1],tuple):
-            return dict(zip(self._context[0], self._context[1]))
-
-        #context is a standard feature vector so return it as is
-        return self._context
+        return self._flatten(self._context)
 
     @property
     def actions(self) -> Sequence[Action]:
         """The interaction's available actions."""
 
-        actions = []
-
-        for action in self._actions:
-            #action is non-existant or singular so return it as is
-            if not isinstance(action, collections.Sequence):
-                actions.append(action)
-
-            #The action appears to be a sparse representation. Return it as a dictionary. This may be an incorrect assumption.
-            #In the future we should probably improve the back end so we can explicitly indicate if our action is sparse rather
-            #than trying to infer it based on the structure of the action.
-            elif len(action) == 2 and isinstance(action[0],tuple) and isinstance(action[1],tuple):
-                actions.append(dict(zip(action[0], action[1])))
-
-            elif isinstance(action, str):
-                actions.append(action)
-            
-            else:
-                actions.append(action)
-
-        return actions
+        return [ self._flatten(action) for action in self._actions ]
 
     @property
     def feedbacks(self) -> Sequence[Feedback]:
         """The interaction's feedback associated with each action."""
-        return self._feedbacks
+        return list(self._feedbacks)
 
 class Simulation(Source[Iterable[Interaction]]):
     """The simulation interface."""
@@ -240,7 +250,7 @@ class ReaderSimulation(Simulation):
         parsed_cols = list(Transpose().filter(parsed_rows_iter))
         
         label_col    = parsed_cols.pop(label_col_index)
-        feature_rows = list(Transpose().filter(Flatten().filter(parsed_cols)))
+        feature_rows = list(Transpose().filter(parsed_cols))
 
         is_sparse_labels = len(label_col) == 2 and isinstance(label_col[0],tuple) and isinstance(label_col[1],tuple)
         
