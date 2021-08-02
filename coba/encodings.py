@@ -204,7 +204,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         def __hash__(self) -> int:
             return hash(tuple(self))
 
-    def __init__(self, fit_values: Sequence[Any] = [], singular_if_binary: bool = False, error_if_unknown = True) -> None:
+    def __init__(self, fit_values: Sequence[Any] = [], singular_if_binary: bool = False, error_if_unknown = False) -> None:
         """Instantiate a OneHotEncoder.
 
         Args:
@@ -222,10 +222,10 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         if fit_values:
 
             if len(fit_values) == 2 and singular_if_binary:
-                unknown_onehot = OneHotEncoder.MemoryEffecientStorage([0])
+                unknown_onehot = float('nan')
                 known_onehots = [OneHotEncoder.MemoryEffecientStorage([1]),OneHotEncoder.MemoryEffecientStorage([0])]
             else:
-                unknown_onehot = OneHotEncoder.MemoryEffecientStorage([0] * len(fit_values))
+                unknown_onehot = float('nan')
                 known_onehots  = [ [0] * len(fit_values) for _ in range(len(fit_values)) ]
                 
                 for i,k in enumerate(known_onehots):

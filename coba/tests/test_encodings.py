@@ -125,7 +125,8 @@ class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
         except:
             self.fail("An exception was raised when it shouldn't have been")
 
-        self.assertEqual(actual, [(0,0,0)])
+        self.assertEqual(1, len(actual))
+        self.assertTrue(math.isnan(actual[0]))
 
     def test_instantiated_fit_values(self):
         encoder = OneHotEncoder(fit_values=["0","1","2"])
