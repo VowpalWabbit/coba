@@ -310,7 +310,7 @@ class Result:
 
     def filter_lrn(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Result':
         new_result = copy(self)
-        new_result._learners = new_result.learners.filter(pred, **kwargs)
+        new_result._learners     = new_result.learners.filter(pred, **kwargs)
         new_result._interactions = new_result.interactions.filter(learner_id=lambda id: id in new_result.learners)
 
         if len(new_result.learners) == 0:
@@ -323,7 +323,9 @@ class Result:
         ylim: Optional[Tuple[Number,Number]] = None,
         span: int = None,
         err : Optional[str] = None,
-        obs : bool = False) -> None:
+        each: bool = False,
+        show: bool = True,
+        ax = None,) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
             performance for different learners across independent simulations. This plot is valuable in gaining insight 
             into how various learners perform in comparison to one another. 
@@ -336,7 +338,9 @@ class Result:
                 rewards are averaged together vs span = 1 WHERE the instantaneous reward is plotted for each interaction.
             err: Determine what kind of error bars to plot (if any). Valid types are `None`, 'se', and 'sd'. If `None`
                 then no bars are plotted, if 'se' the standard error is shown, and if 'sd the standard deviation is shown.
-            obs: Determine whether each constituent observation used to estimate mean performance is also plotted.
+            each: Determine whether each constituent observation used to estimate mean performance is also plotted.
+            show: Determines whether plot_learners actually shows the results after it is finished.
+            ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
         PackageChecker.matplotlib('Result.standard_plot')
@@ -369,8 +373,9 @@ class Result:
         if not progressives:
             return
         
-        fig = plt.figure(figsize=(9,6))
-        ax  = fig.add_subplot(1,1,1) #type: ignore
+        if ax is None:
+            fig = plt.figure(figsize=(9,6))
+            ax  = fig.add_subplot(1,1,1) #type: ignore
 
         for learner_id in sorted(self.learners.keys, key=lambda id: self.learners[id]["full_name"]):
 
@@ -409,7 +414,7 @@ class Result:
             yerr = 0 if err is None else SE if err.lower() == 'se' else SD if err.lower() == 'sd' else 0
             ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), label=label, color=color)
 
-            if obs:
+            if each:
                 for Y in list(zip(*Z)):
                     ax.plot(X,Y, color=color, alpha=0.15)
 
@@ -441,7 +446,8 @@ class Result:
         # Put a legend below current axis
         fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='medium') #type: ignore
 
-        plt.show()
+        if show:
+            plt.show()
 
     def __str__(self) -> str:
         return str({ "Learners": len(self._learners), "Simulations": len(self._simulations), "Interactions": len(self._interactions) })
