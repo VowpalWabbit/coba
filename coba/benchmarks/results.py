@@ -89,7 +89,7 @@ class Table:
                 return False
 
             for col,value in kwargs.items():
-                if isinstance(value,Number) and not re.search(f'(\D|^){value}(\D|$)', row[col]):
+                if isinstance(value,Number) and not re.search(f'(\D|^){value}(\D|$)', str(row[col])):
                     return False
                 if isinstance(value,str) and not re.search(value, row[col]):
                     return False
@@ -190,7 +190,7 @@ class Table:
             yield self[key]
 
     def __contains__(self, key: Union[Hashable, Sequence[Hashable]]) -> bool:
-        return key in self._rows_flat
+        return key in self.keys
 
     def __str__(self) -> str:
         return str({"Table": self.name, "Columns": self.columns, "Rows": len(self)})
@@ -288,28 +288,30 @@ class Result:
         def is_complete_sim(sim_id):
             return all((sim_id, lrn_id) in self.interactions for lrn_id in self.learners.keys)
 
-        new_result              = copy(self)
-        new_result._simulations = copy(new_result.simulations)
-        new_result._simulations._rows_keys = list(filter(is_complete_sim,self.simulations.keys))
+        new_result               = copy(self)
+        new_result._simulations  = self.simulations.filter(simulation_id=is_complete_sim)
+        new_result._interactions = self.interactions.filter(simulation_id=is_complete_sim)
 
         if len(new_result.simulations) == 0:
             CobaConfig.Logger.log(f"No simulation was found with interaction data for every learner.")
 
         return new_result
 
-    def filter_sim(self, **kwargs) -> 'Result':
+    def filter_sim(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Result':
 
         new_result = copy(self)
-        new_result._simulations = new_result.simulations.filter(**kwargs)
+        new_result._simulations  = new_result.simulations.filter(pred, **kwargs)
+        new_result._interactions = new_result.interactions.filter(simulation_id=lambda id: id in new_result.simulations)
 
         if len(new_result.simulations) == 0:
             CobaConfig.Logger.log(f"No simulations matched the given filter: {kwargs}.")
 
         return new_result
 
-    def filter_lrn(self,**kwargs) -> 'Result':
+    def filter_lrn(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Result':
         new_result = copy(self)
-        new_result._learners = new_result.learners.filter(**kwargs)
+        new_result._learners = new_result.learners.filter(pred, **kwargs)
+        new_result._interactions = new_result.interactions.filter(learner_id=lambda id: id in new_result.learners)
 
         if len(new_result.learners) == 0:
             CobaConfig.Logger.log(f"No learners matched the given filter: {kwargs}.")

@@ -165,7 +165,7 @@ class Table_Tests(unittest.TestCase):
             table = Table("test", ['a'])
             table['A'] = dict(c=1,_packed=dict(b=['B','b'],d=['D','d','e']))
 
-    def test_filter_item(self):
+    def test_filter_kwarg_str(self):
         table = Table("test", ['a'], [{'a':'a', 'b':'b'}, {'a':'A', 'b':'B'}])
 
         filtered_table = table.filter(b="B")
@@ -175,6 +175,74 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('A', 'B')], list(filtered_table.to_tuples()))
+
+    def test_filter_kwarg_int_1(self):
+        table = Table("test", ['a'], [{'a':'1', 'b':'b'}, {'a':'12', 'b':'B'}])
+
+        filtered_table = table.filter(a=1)
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([('1', 'b'),('12', 'B')], list(table.to_tuples()))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([('1', 'b')], list(filtered_table.to_tuples()))
+    
+    def test_filter_kwarg_int_2(self):
+        table = Table("test", ['a'], [{'a':1, 'b':'b'}, {'a':12, 'b':'B'}])
+
+        filtered_table = table.filter(a=1)
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([(1, 'b'),(12, 'B')], list(table.to_tuples()))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([(1, 'b')], list(filtered_table.to_tuples()))
+
+    def test_filter_kwarg_pred(self):
+        table = Table("test", ['a'], [{'a':'1', 'b':'b'}, {'a':'12', 'b':'B'}])
+
+        filtered_table = table.filter(a= lambda a: a =='1')
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([('1', 'b'),('12', 'B')], list(table.to_tuples()))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([('1', 'b')], list(filtered_table.to_tuples()))
+
+    def test_filter_kwarg_multi(self):
+        table = Table("test", ['a'], [
+            {'a':'1', 'b':'b', 'c':'c'}, 
+            {'a':'2', 'b':'b', 'c':'C'},
+            {'a':'3', 'b':'B', 'c':'c'},
+            {'a':'4', 'b':'B', 'c':'C'}
+        ])
+
+        filtered_table = table.filter(b="b", c="C")
+
+        self.assertEqual(4, len(table))
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([('2', 'b', "C")], list(filtered_table.to_tuples()))
+
+    def test_filter_pred(self):
+        table = Table("test", ['a'], [{'a':'a', 'b':'b'}, {'a':'A', 'b':'B'}])
+
+        filtered_table = table.filter(lambda row: row["b"]=="B")
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([('A', 'B'),('a', 'b')], list(table.to_tuples()))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([('A', 'B')], list(filtered_table.to_tuples()))
+
+    def test_filter_in(self):
+        table = Table("test", ['a'], [{'a':'a', 'b':'b'}, {'a':'A', 'b':'B'}])
+
+        filtered_table = table.filter(lambda row: row["b"]=="B")
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([('A', 'B'),('a', 'b')], list(table.to_tuples()))
+
+        self.assertNotIn("a", filtered_table)
 
 class Result_Tests(unittest.TestCase):
 
@@ -198,6 +266,57 @@ class Result_Tests(unittest.TestCase):
     def test_exception_when_no_file(self):
         with self.assertRaises(Exception):
             Result.from_file("abcd")
+
+    def test_filter_fin(self):
+
+        sims = [{"simulation_id":1},{"simulation_id":2}]
+        lrns = [{"learner_id":1}, {"learner_id":2}]
+        ints = [{"simulation_id":1, "learner_id":1},{"simulation_id":1,"learner_id":2}, {"simulation_id":2,"learner_id":1}]
+
+        original_result = Result(1, {}, sims, lrns, ints)
+        filtered_result = original_result.filter_fin()
+
+        self.assertEqual(2, len(original_result.simulations))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(3, len(original_result.interactions))
+
+        self.assertEqual(1, len(filtered_result.simulations))
+        self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(2, len(filtered_result.interactions))
+
+    def test_filter_sim(self):
+
+        sims = [{"simulation_id":1},{"simulation_id":2}]
+        lrns = [{"learner_id":1}, {"learner_id":2}]
+        ints = [{"simulation_id":1, "learner_id":1},{"simulation_id":1,"learner_id":2}, {"simulation_id":2,"learner_id":1}]
+
+        original_result = Result(1, {}, sims, lrns, ints)
+        filtered_result = original_result.filter_sim(simulation_id=2)
+
+        self.assertEqual(2, len(original_result.simulations))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(3, len(original_result.interactions))
+
+        self.assertEqual(1, len(filtered_result.simulations))
+        self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(1, len(filtered_result.interactions))
+
+    def test_filter_lrn(self):
+
+        sims = [{"simulation_id":1},{"simulation_id":2}]
+        lrns = [{"learner_id":1}, {"learner_id":2}]
+        ints = [{"simulation_id":1, "learner_id":1},{"simulation_id":1,"learner_id":2}, {"simulation_id":2,"learner_id":1}]
+
+        original_result = Result(1, {}, sims, lrns, ints)
+        filtered_result = original_result.filter_lrn(learner_id=2)
+
+        self.assertEqual(2, len(original_result.simulations))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(3, len(original_result.interactions))
+
+        self.assertEqual(2, len(filtered_result.simulations))
+        self.assertEqual(1, len(filtered_result.learners))
+        self.assertEqual(1, len(filtered_result.interactions)) 
 
 if __name__ == '__main__':
     unittest.main()
