@@ -14,53 +14,6 @@ from coba.utilities import PackageChecker, redirect_stderr
 from coba.simulations import Context, Action
 from coba.learners.core import Learner, Key
 
-def _features_format(features: Union[Context,Action]) -> str:
-    """convert features into the proper format for pyvw.
-
-    Args:
-        features: The feature set we wish to convert to pyvw representation.
-
-    Returns:
-        The context in pyvw representation.
-
-    Remarks:
-        Note, using the enumeration index for action features below only works if all actions
-        have the same number of features. If some actions simply leave out features in their
-        feature array a more advanced method may need to be implemented in the future...
-    """
-
-    if isinstance(features, str):
-        return features + ":1" #type: ignore
-
-    if isinstance(features, dict):
-        return " ". join([_feature_format(k,v) for k,v in features.items() if v is not None and v != 0 ])
-
-    if isinstance(features, tuple) and len(features) == 2 and isinstance(features[0], tuple) and isinstance(features[1], tuple):
-        return " ". join([_feature_format(k,v) for k,v in zip(features[0], features[1]) if v is not None and v != 0 ])
-
-    if not isinstance(features, collections.Sequence):
-        features = (features,)
-
-    if isinstance(features, collections.Sequence):
-        return " ". join([_feature_format(i,f) for i,f in enumerate(features) if f is not None and f != 0 ])
-
-    raise Exception("We were unable to determine an appropriate vw context format.")
-
-def _feature_format(name: Any, value: Any) -> str:
-    """Convert a feature into the proper format for pyvw.
-
-    Args:
-        name: The name of the feature.
-        value: The value of the feature.
-
-    Remarks:
-        In feature formatting we prepend a "name" to each feature. This makes it possible
-        to compare features across actions/contexts. See the definition of `Features` at 
-        the top of https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format for more info.
-    """
-
-    return f"{name}:{value}" if isinstance(value,(int,float)) else f"{value}"
-
 class VowpalLearner(Learner):
     """A learner using Vowpal Wabbit's contextual bandit command line interface.
 
@@ -72,31 +25,39 @@ class VowpalLearner(Learner):
     """
 
     @overload
-    def __init__(self, *, epsilon: float = 0.1, adf: bool = True, seed: Optional[int] = 1) -> None:
+    def __init__(self, *, epsilon: float = 0.1, adf: bool = True, seed: Optional[int] = 1, precision: int=5) -> None:
         """Instantiate a VowpalLearner.
         Args:
             epsilon: A value between 0 and 1. If provided exploration will follow epsilon-greedy.
+            adf: Indicate whether cb_explore or cb_explore_adf should be used.
+            seed: The seed used by VW to generate any necessary random numbers.
+            precision: Indicate how many decimal places to round to when passing example strings to VW.
         """
         ...
 
     @overload
-    def __init__(self, *, bag: int, adf: bool = True, seed: Optional[int] = 1) -> None:
+    def __init__(self, *, bag: int, adf: bool = True, seed: Optional[int] = 1, precision: int=5) -> None:
         """Instantiate a VowpalLearner.
         Args:
             bag: An integer value greater than 0. This value determines how many separate policies will be
                 learned. Each policy will be learned from bootstrap aggregation, making each policy unique. 
                 When predicting one policy will be selected according to a uniform distribution and followed.
+            adf: Indicate whether cb_explore or cb_explore_adf should be used.
+            seed: The seed used by VW to generate any necessary random numbers.
+            precision: Indicate how many decimal places to round to when passing example strings to VW.
         """
         ...
 
     @overload
-    def __init__(self, *, cover: int, seed: Optional[int] = 1) -> None:
+    def __init__(self, *, cover: int, seed: Optional[int] = 1, precision: int=5) -> None:
         """Instantiate a VowpalLearner.
         Args:
             cover: An integer value greater than 0. This value value determines how many separate policies will be
                 learned. These policies are learned in such a way to explicitly optimize policy diversity in order
                 to control exploration. When predicting one policy will be selected according to a uniform distribution
                 and followed. For more information on this algorithm see Agarwal et al. (2014).
+            seed: The seed used by VW to generate any necessary random numbers.
+            precision: Indicate how many decimal places to round to when passing example strings to VW.
         References:
             Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming 
             the monster: A fast and simple algorithm for contextual bandits." In International Conference on 
@@ -105,25 +66,28 @@ class VowpalLearner(Learner):
         ...
 
     @overload
-    def __init__(self, *, softmax: float, seed: Optional[int] = 1) -> None:
+    def __init__(self, *, softmax: float, seed: Optional[int] = 1, precision: int=5) -> None:
         """Instantiate a VowpalLearner.
         Args:
             softmax: An exploration parameter with 0 indicating uniform exploration is desired and infinity
                 indicating that no exploration is desired (aka, greedy action selection only). For more info
                 see `lambda` at https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms.
+            seed: The seed used by VW to generate any necessary random numbers.
+            precision: Indicate how many decimal places to round to when passing example strings to VW.
         """
         ...
 
     @overload
-    def __init__(self, args:str) -> None:
+    def __init__(self, args:str, precision: int=5) -> None:
         ...
         """Instantiate a VowpalLearner.
         Args:
-            args: A string of command line arguments which instantiates a Vowpal Wabbit contextual bandit learner. 
+            args: Command line argument to instantiates a Vowpal Wabbit contextual bandit learner. 
                 For examples and documentation on how to instantiate VW learners from command line arguments see 
                 https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms. It is assumed that
                 either the --cb_explore or --cb_explore_adf flag is used. When formatting examples for VW context
                 features are namespaced with `s` and action features, when relevant, are namespaced with with `a`.
+            precision: Indicate how many decimal places to round to when passing example strings to VW.
         """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -136,7 +100,7 @@ class VowpalLearner(Learner):
         if not args and 'seed' not in kwargs:
             kwargs['seed'] = 1
 
-        if not args and all(e not in kwargs for e in ['epsilon', 'softmax', 'bag', 'cover', 'args']): 
+        if not args and all(e not in kwargs for e in ['epsilon', 'softmax', 'bag', 'cover']): 
             kwargs['epsilon'] = 0.1
 
         if len(args) > 0:
@@ -165,6 +129,7 @@ class VowpalLearner(Learner):
         if 'seed' in kwargs and kwargs['seed'] is not None:
             self._args += f" --random_seed {kwargs['seed']}"
 
+        self._precision    = kwargs.get('precision',5) 
         self._actions: Any = None
         self._vw           = None
 
@@ -210,7 +175,7 @@ class VowpalLearner(Learner):
 
         assert self._vw is not None, "Something went wrong and vw was not initialized"
 
-        probs = self._vw.predict(VowpalLearner._predict_format(self._adf, context, actions))
+        probs = self._vw.predict(self._predict_format(self._adf, context, actions))
 
         self._set_actions(key, actions)
 
@@ -241,34 +206,82 @@ class VowpalLearner(Learner):
         
         self._vw.learn(self._learn_format(self._adf, probability, actions, context, action, reward))
 
+    def _round(self, value: float) -> float:
+        return round(value, self._precision)
+
+    def _feature_format(self, name: Any, value: Any) -> str:
+        """Convert a feature into the proper format for pyvw.
+
+        Args:
+            name: The name of the feature.
+            value: The value of the feature.
+
+        Remarks:
+            In feature formatting we prepend a "name" to each feature. This makes it possible
+            to compare features across actions/contexts. See the definition of `Features` at 
+            the top of https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format for more info.
+        """
+
+        return f"{name}:{self._round(value)}" if isinstance(value,(int,float)) else f"{value}"
+
+    def _features_format(self, features: Union[Context,Action]) -> str:
+        """convert features into the proper format for pyvw.
+
+        Args:
+            features: The feature set we wish to convert to pyvw representation.
+
+        Returns:
+            The context in pyvw representation.
+
+        Remarks:
+            Note, using the enumeration index for action features below only works if all actions
+            have the same number of features. If some actions simply leave out features in their
+            feature array a more advanced method may need to be implemented in the future...
+        """
+
+        if isinstance(features, str):
+            return features + ":1" #type: ignore
+
+        if isinstance(features, dict):
+            return " ". join([self._feature_format(k,v) for k,v in features.items() if v is not None and v != 0 ])
+
+        if isinstance(features, tuple) and len(features) == 2 and isinstance(features[0], tuple) and isinstance(features[1], tuple):
+            return " ". join([self._feature_format(k,v) for k,v in zip(features[0], features[1]) if v is not None and v != 0 ])
+
+        if not isinstance(features, collections.Sequence):
+            features = (features,)
+
+        if isinstance(features, collections.Sequence):
+            return " ". join([self._feature_format(i,f) for i,f in enumerate(features) if f is not None and f != 0 ])
+
+        raise Exception("We were unable to determine an appropriate vw context format.")
+
     def _create_format(self, actions) -> str:
         
         cb_explore = "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}" if actions else "--cb_explore"
         
         return cb_explore + " " + self._args
 
-    @staticmethod
-    def _predict_format(adf, context, actions) -> str:
+    def _predict_format(self, adf, context, actions) -> str:
         if adf:
-            vw_context = None if context is None else f"shared |s {_features_format(context)}"
-            vw_actions = [ f"|a {_features_format(a)}" for a in actions]
+            vw_context = None if context is None else f"shared |s {self._features_format(context)}"
+            vw_actions = [ f"|a {self._features_format(a)}" for a in actions]
             return "\n".join(filter(None,[vw_context, *vw_actions]))
         else:
-            return f"|s {_features_format(context)}"
+            return f"|s {self._features_format(context)}"
 
-    @staticmethod
-    def _learn_format(adf, prob, actions, context, action, reward) -> str:
+    def _learn_format(self, adf, prob, actions, context, action, reward) -> str:
         
-        vw_reward = lambda a: "" if a != action else f"{actions.index(action)+1}:{round(-reward,4)}:{round(prob,5)} "
+        vw_reward = lambda a: "" if a != action else f"{actions.index(action)+1}:{self._round(-reward)}:{self._round(prob)} "
 
         if adf:
-            vw_context  = None if context is None else f"shared |s {_features_format(context)}"
+            vw_context  = None if context is None else f"shared |s {self._features_format(context)}"
             vw_rewards  = [ vw_reward(a) for a in actions ]
-            vw_actions  = [ f"|a {_features_format(a)}" for a in actions]
+            vw_actions  = [ f"|a {self._features_format(a)}" for a in actions]
             vw_observed = [ f"{r}{a}" for r,a in zip(vw_rewards,vw_actions) ]
             return "\n".join(filter(None,[vw_context, *vw_observed]))
         else:
-            return f"{vw_reward(action)}|s {_features_format(context)}"
+            return f"{vw_reward(action)}|s {self._features_format(context)}"
 
     def _set_actions(self, key: Key, actions: Sequence[Action]) -> None:
 

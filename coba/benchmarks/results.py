@@ -325,7 +325,8 @@ class Result:
         err : Optional[str] = None,
         each: bool = False,
         show: bool = True,
-        ax = None,) -> None:
+        ax  = None,
+        fig = None) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
             performance for different learners across independent simulations. This plot is valuable in gaining insight 
             into how various learners perform in comparison to one another. 
@@ -441,8 +442,9 @@ class Result:
         box1 = ax.get_position()
         ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
 
-        # Put a legend below current axis
-        fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='medium') #type: ignore
+        if fig is not None:
+            # Put a legend below current axis
+            fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='medium') #type: ignore
 
         if show:
             plt.show()
