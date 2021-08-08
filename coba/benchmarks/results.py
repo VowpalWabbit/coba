@@ -349,11 +349,9 @@ class Result:
 
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-        for simulation_id, learner_id in product(self.simulations.keys, self.learners.keys):
+        for interactions in self.interactions:
             
-            if (simulation_id,learner_id) not in self.interactions: continue
-
-            rewards = self.interactions[(simulation_id,learner_id)]["reward"]
+            rewards = interactions["reward"]
 
             if span is None or span >= len(rewards):
                 cumwindow  = list(accumulate(rewards))
@@ -368,7 +366,7 @@ class Result:
                 cumwindow  = list(accumulate(rewards          , lambda a,c: c + (1-alpha)*a))
                 cumdivisor = list(accumulate([1.]*len(rewards), lambda a,c: c + (1-alpha)*a)) #type: ignore
 
-            progressives[learner_id].append(list(map(truediv, cumwindow, cumdivisor)))
+            progressives[interactions["learner_id"]].append(list(map(truediv, cumwindow, cumdivisor)))
 
         if not progressives:
             return
