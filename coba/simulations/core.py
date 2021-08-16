@@ -1,3 +1,4 @@
+from coba.utilities import HashableDict
 import collections
 
 from abc import abstractmethod
@@ -13,9 +14,8 @@ from coba.pipes import (
     ResponseToLines, Transpose
 )
 
-Action      = Union[Hashable, dict]
-Key         = int
-Context     = Optional[Union[Hashable, dict]]
+Action      = Union[Hashable, HashableDict]
+Context     = Union[None, Hashable, HashableDict]
 Feedback    = Any
 
 class Interaction:
@@ -34,8 +34,8 @@ class Interaction:
 
         assert len(actions) == len(feedbacks), "The interaction should have a feedback for each action."
 
-        self._context   = context
-        self._actions   = actions
+        self._context   =  context if not isinstance(context,dict) else HashableDict(context)
+        self._actions   = [ action if not isinstance(action, dict) else HashableDict(action) for action in actions ]
         self._feedbacks = feedbacks
 
     def _is_sparse(self, feats):
@@ -77,17 +77,20 @@ class Interaction:
             
             return tuple(flattened_dense_values)
         else:
-            flattened_sparse_values = {}
+            keys = []
+            vals = []
 
             for key,val in zip(*feats):
 
-                if isinstance(val, collections.Sequence):
+                if isinstance(val, (list,tuple,bytes)):
                     for sub_key,sub_val in enumerate(val):
-                        flattened_sparse_values[f"{key}_{sub_key}"] = sub_val
+                        keys.append(f"{key}_{sub_key}")
+                        vals.append(sub_val)
                 else:
-                    flattened_sparse_values[key] = val
+                    keys.append(key)
+                    vals.append(val)
 
-            return flattened_sparse_values
+            return HashableDict(zip(keys,vals))
 
     @property
     def context(self) -> Context:

@@ -1,9 +1,13 @@
 """The expected interface for all learner implementations."""
 
 from abc import ABC, abstractmethod
+from numbers import Number
 from typing import Any, Sequence, Dict, Union, Tuple, Optional
 
-from coba.simulations import Context, Action, Key
+from coba.simulations import Context, Action
+
+Info = Any
+Probs = Sequence[float]
 
 class Learner(ABC):
     """The interface for Learner implementations."""
@@ -27,14 +31,10 @@ class Learner(ABC):
         ...
 
     @abstractmethod
-    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
+    def predict(self, context: Context, actions: Sequence[Action]) -> Union[Probs,Tuple[Probs,Info]]:
         """Determine a PMF with which to select the given actions.
 
         Args:
-            key: A unique identifier for the interaction that the observed reward 
-                came from. This identifier allows learners to share information
-                between the choose and learn methods while still keeping the overall 
-                learner interface consistent and clean.
             context: The current context. This argument will be None when playing 
                 a multi-armed bandit simulation and will contain context features 
                 when playing a contextual bandit simulation. Context features could 
@@ -46,38 +46,29 @@ class Learner(ABC):
                 strings (e.g. ["high", "medium", "low"]), or a list of tuples such 
                 as in the case of movie recommendations (e.g., [("action", "oscar"), 
                 ("fantasy", "razzie")]).
-
         Returns:
-            A sequence of probabilities indicating the probability of taking each action.
+            Either a sequence of probabilities indicating the probability of taking each action
+            or a tuple with a sequence of probabliities and optional information for learning.
         """
         ...
 
     @abstractmethod
-    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> Optional[Dict[str,Any]]:
+    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> Optional[Dict[str,Any]]:
         """Learn about the result of an action that was taken in a context.
 
         Args:
-            key: A unique identifier for the interaction that the observed reward 
-                came from. This identifier allows learners to share information
-                between the choose and learn methods while still keeping the overall 
-                learner interface consistent and clean.
-            context: The current context. This argument will be None when playing 
-                a multi-armed bandit simulation and will contain context features 
-                when playing a contextual bandit simulation. Context features could 
-                be an individual number (e.g. 1.34), a string (e.g., "hot"), or a 
-                tuple of strings and numbers (e.g., (1.34, "hot")) depending on the 
-                simulation being played.
-            action: The action that was selected to play and observe its reward. 
-                An Action can be an individual number (e.g., 2), a string (e.g. 
-                "medium"), or a list of some combination of numbers or strings
-                (e.g., ["action", "oscar"]).
+            context: The context in which the action was taken.
+            action: The action that was selected to play and observe its reward.
             reward: The reward received for taking the given action in the given context.
-            probability: The probability with wich the given action was selected.
+            probability: The probability with which the given action was selected.
+            info: Optional information provided during prediction step for use in learning.
+        Returns:
+            An optional dictionary which will be passed to the interactions table in evaluation result.
         """
         ...
     
     def __reduce__(self) -> Union[str, Tuple[Any, ...]]:
-        """An optional method that can be overridden for Learner implimentations that are not picklable by default."""
+        """An optional method that can be overridden to make Learners picklable."""
         return super().__reduce__()
 
 class SafeLearner(Learner):
@@ -99,8 +90,12 @@ class SafeLearner(Learner):
         def __init__(self, learner: Learner) -> None:
             self._learner = learner
 
-        def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
-            return self._learner.predict(key, context, actions)
+        def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
+            predict = self._learner.predict(context, actions)
 
-        def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> Optional[Dict[str,Any]]:
-            return self._learner.learn(key, context, action, reward, probability)
+            predict_has_no_info = len(predict) != 2 or isinstance(predict[0],Number)
+
+            return (predict,None) if predict_has_no_info else predict
+
+        def learn(self, context: Context, action: Action, reward: float, probability:float, info: Info) -> Optional[Dict[str,Any]]:
+            return self._learner.learn(context, action, reward, probability, info)

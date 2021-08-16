@@ -3,11 +3,11 @@
 import math
 
 from collections import defaultdict
-from typing import Any, Dict, Tuple, Sequence, Optional, cast, Hashable
+from typing import Any, Dict, Sequence, Optional, cast, Hashable
 
 from coba.simulations import Context, Action
 from coba.statistics import OnlineVariance
-from coba.learners.core import Learner, Key
+from coba.learners.core import Learner, Probs, Info
 
 class RandomLearner(Learner):
     """A Learner implementation that selects an action at random and learns nothing."""
@@ -28,11 +28,10 @@ class RandomLearner(Learner):
         """
         return {}
 
-    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
+    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
         """Choose a random action from the action set.
         
         Args:
-            key: The key identifying the interaction we are choosing for.
             context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
@@ -41,15 +40,15 @@ class RandomLearner(Learner):
         """
         return [1/len(actions)] * len(actions)
 
-    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
         """Learns nothing.
 
         Args:
-            key: The key identifying the interaction this observed reward came from.
             context: The context we're learning about. See the base class for more information.
             action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
-            probability: The probability that the given action was taken.
+            probability: The probability with which the given action was selected.
+            info: Optional information provided during prediction step for use in learning.
         """
         pass
  
@@ -86,11 +85,10 @@ class EpsilonBanditLearner(Learner):
         """
         return {"epsilon": self._epsilon }
 
-    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
+    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
         """Determine a PMF with which to select the given actions.
 
         Args:
-            key: The key identifying the interaction we are choosing for.
             context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
@@ -98,8 +96,7 @@ class EpsilonBanditLearner(Learner):
             The probability of taking each action. See the base class for more information.
         """
 
-        keys        = [ self._key(action) for action in actions ]
-        values      = [ self._Q[key] for key in keys ]
+        values      = [ self._Q[action] for action in actions ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
 
@@ -108,27 +105,23 @@ class EpsilonBanditLearner(Learner):
 
         return [p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
 
-    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
         """Learn from the given interaction.
 
         Args:
-            key: The key identifying the interaction this observed reward came from.
             context: The context we're learning about. See the base class for more information.
             action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
-            probability: The probability that the given action was taken.
+            probability: The probability with wich the given action was selected.
+            info: Optional information provided during prediction step for use in learning.
         """
 
-        a_key = self._key(action)
-        alpha = 1/(self._N[a_key]+1)
+        alpha = 1/(self._N[action]+1)
 
-        old_Q = cast(float, 0 if self._Q[a_key] is None else self._Q[a_key])
+        old_Q = cast(float, 0 if self._Q[action] is None else self._Q[action])
 
-        self._Q[a_key] = (1-alpha) * old_Q + alpha * reward
-        self._N[a_key] = self._N[a_key] + 1
-
-    def _key(self, action: Action) -> Hashable:
-        return tuple(action.items()) if isinstance(action,dict) else action
+        self._Q[action] = (1-alpha) * old_Q + alpha * reward
+        self._N[action] = self._N[action] + 1
 
 class UcbBanditLearner(Learner):
     """This is an implementation of Auer et al. (2002) UCB1-Tuned algorithm.
@@ -165,19 +158,16 @@ class UcbBanditLearner(Learner):
         """
         return { }
 
-    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
+    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
         """Determine a PMF with which to select the given actions.
 
         Args:
-            key: The key identifying the interaction we are choosing for.
             context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
         Returns:
             The probability of taking each action. See the base class for more information.
         """
-
-        actions = [ self._key(a) for a in actions ]
 
         #initialize by playing every action once
         if self._init_a < len(actions):
@@ -191,20 +181,18 @@ class UcbBanditLearner(Learner):
 
             return [ int(i in max_indexes)/len(max_indexes) for i in range(len(actions)) ]
 
-    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
         """Learn from the given interaction.
 
         Args:
-            key: The key identifying the interaction this observed reward came from.
             context: The context we're learning about. See the base class for more information.
             action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
-            probability: The probability that the given action was taken.
+            probability: The probability with wich the given action was selected.
+            info: Optional information provided during prediction step for use in learning.
         """
 
         assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
-
-        action = self._key(action)
 
         if action not in self._m:
             self._m[action] = reward
@@ -214,9 +202,6 @@ class UcbBanditLearner(Learner):
         self._t         += 1
         self._s[action] += 1
         self._v[action].update(reward)
-
-    def _key(self, action: Action) -> Hashable:
-        return tuple(action.items()) if isinstance(action,dict) else action
 
     def _Avg_R_UCB(self, action: Action) -> float:
         """Produce the estimated upper confidence bound (UCB) for E[R|A].

@@ -8,7 +8,7 @@ class RandomLearner_Tests(unittest.TestCase):
     
     def test_predict(self):
         learner = RandomLearner()
-        self.assertEqual([0.25, 0.25, 0.25, 0.25], learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([0.25, 0.25, 0.25, 0.25], learner.predict(None, [1,2,3,4]))
 
     def test_learn(self):
         learner = RandomLearner()
@@ -18,62 +18,61 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
     def test_predict_no_learn(self):
         learner = EpsilonBanditLearner(epsilon=0.5)
 
-        self.assertEqual([.25,.25,.25,.25],learner.predict(1, None, [1,2,3,4]))
-        self.assertEqual([.25,.25,.25,.25],learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([.25,.25,.25,.25],learner.predict(None, [1,2,3,4]))
+        self.assertEqual([.25,.25,.25,.25],learner.predict(None, [1,2,3,4]))
 
     def test_predict_learn_no_epsilon(self):
         learner = EpsilonBanditLearner(epsilon=0)
 
-        learner.learn(1, None, 2, 1, 1)
-        learner.learn(2, None, 1, 2, 1)
-        learner.learn(3, None, 3, 3, 1)
+        learner.learn(None, 2, 1, 1, None)
+        learner.learn(None, 1, 2, 1, None)
+        learner.learn(None, 3, 3, 1, None)
 
-        self.assertEqual([0,0,1],learner.predict(4, None, [1,2,3]))
+        self.assertEqual([0,0,1],learner.predict(None, [1,2,3]))
 
 class UcbBanditLearner_Tests(unittest.TestCase):
     def test_predict_all_actions_first(self):
 
         learner = UcbBanditLearner()
-
-        self.assertEqual([1,0,0],learner.predict(1, None, [1,2,3]))
-        self.assertEqual([0,1,0],learner.predict(1, None, [1,2,3]))
-        self.assertEqual([0,0,1],learner.predict(1, None, [1,2,3]))
+        self.assertEqual([1,0,0],learner.predict(None, [1,2,3]))
+        self.assertEqual([0,1,0],learner.predict(None, [1,2,3]))
+        self.assertEqual([0,0,1],learner.predict(None, [1,2,3]))
 
     def test_learn_predict_best1(self):
         learner = UcbBanditLearner()
         actions = [1,2,3,4]
         
-        learner.predict(0, None, actions)
-        learner.learn(0, None, actions[0], 1, 1)
+        learner.predict(None, actions)
+        learner.learn(None, actions[0], 1, 1, None)
         
-        learner.predict(1, None, actions)
-        learner.learn(1, None, actions[1], 1, 1)
+        learner.predict(None, actions)
+        learner.learn(None, actions[1], 1, 1, None)
         
-        learner.predict(2, None, actions)
-        learner.learn(2, None, actions[2], 1, 1)
+        learner.predict(None, actions)
+        learner.learn(None, actions[2], 1, 1, None)
         
-        learner.predict(3, None, actions)
-        learner.learn(2, None, actions[3], 1, 1)
+        learner.predict(None, actions)
+        learner.learn(None, actions[3], 1, 1, None)
 
-        self.assertEqual([0.25,0.25,0.25,0.25], learner.predict(3, None, actions))
+        self.assertEqual([0.25,0.25,0.25,0.25], learner.predict(None, actions))
 
     def test_learn_predict_best2(self):
         learner = UcbBanditLearner()
         actions = [1,2,3,4]
         
-        learner.predict(0, None, actions)
-        learner.learn(0, None, actions[0], 0, 1)
+        learner.predict(None, actions)
+        learner.learn(None, actions[0], 0, 1, None)
         
-        learner.predict(1, None, actions)
-        learner.learn(1, None, actions[1], 0, 1)
+        learner.predict(None, actions)
+        learner.learn(None, actions[1], 0, 1, None)
         
-        learner.predict(2, None, actions)
-        learner.learn(2, None, actions[2], 0, 1)
+        learner.predict(None, actions)
+        learner.learn(None, actions[2], 0, 1, None)
         
-        learner.predict(3, None, actions)
-        learner.learn(2, None, actions[3], 1, 1)
+        learner.predict(None, actions)
+        learner.learn(None, actions[3], 1, 1, None)
 
-        self.assertEqual([0, 0, 0, 1], learner.predict(3, None, actions))
+        self.assertEqual([0, 0, 0, 1], learner.predict(None, actions))
 
 class VowpalLearner_Tests(unittest.TestCase):
     
@@ -89,150 +88,150 @@ class VowpalLearner_Tests(unittest.TestCase):
 
     def test_predict_epsilon_adf(self):
         learner = VowpalLearner(epsilon=0.05, adf=True, seed=20) 
-        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(None, [1,2,3,4])[0])
 
     def test_predict_epsilon_adf_args(self):
         learner = VowpalLearner("--cb_explore_adf --epsilon 0.05 --random_seed 20") 
-        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(None, [1,2,3,4])[0])
 
     def test_predict_epsilon_dict_context_adf(self):
         learner = VowpalLearner(epsilon=0.05, adf=True, seed=20) 
 
-        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, {1:10.2, 2:3.5}, [1,2,3,4])) #type: ignore
+        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict({1:10.2, 2:3.5}, [1,2,3,4])[0]) #type: ignore
 
     def test_predict_epsilon_tuple_context_adf(self):
         learner = VowpalLearner(epsilon=0.05, adf=True, seed=20) 
 
-        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, ((1,2),(10.2,3.5)), [1,2,3,4])) #type: ignore
+        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(((1,2),(10.2,3.5)), [1,2,3,4])[0]) #type: ignore
 
     def test_predict_epsilon_not_adf(self):
         learner = VowpalLearner(epsilon=0.75, adf=False, seed=30) 
 
-        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(None, [1,2,3,4])[0])
 
     def test_predict_epsilon_not_adf_args(self):
         learner = VowpalLearner("--cb_explore 20 --epsilon 0.75 --random_seed 20") 
-        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(None, [1,2,3,4])[0])
 
     def test_predict_epsilon_not_adf_args_error_1(self):
         learner = VowpalLearner("--cb_explore --epsilon 0.75 --random_seed 20")
-        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(None, [1,2,3,4])[0])
 
         with self.assertRaises(Exception) as e:
-            self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4,5]))
+            self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(None, [1,2,3,4,5])[0])
 
         self.assertTrue("--cb_explore_adf" in str(e.exception))
 
     def test_predict_epsilon_not_adf_args_error_2(self):
         learner = VowpalLearner("--cb_explore --epsilon 0.75 --random_seed 20")
-        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(None, [1,2,3,4])[0])
 
         with self.assertRaises(Exception) as e:
-            self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(1, None, [1,2,3]))
+            self.assertEqual([0.25+0.25*0.75,0.25*0.75,0.25*0.75,0.25*0.75],learner.predict(None, [1,2,3])[0])
 
         self.assertTrue("--cb_explore_adf" in str(e.exception))
 
     def test_predict_bag_adf(self):
         learner = VowpalLearner(bag=5, adf=True, seed=30)
 
-        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(1, None, ['1','2','3','4']))
+        self.assertEqual([0.25,0.25,0.25,0.25],learner.predict(None, ['1','2','3','4'])[0])
 
     def test_predict_bag_not_adf(self):
         learner = VowpalLearner(bag=5, adf=False, seed=30)
 
-        self.assertEqual([1,0,0,0], learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([1,0,0,0], learner.predict(None, [1,2,3,4])[0])
 
     def test_predict_cover_not_adf(self):
         learner = VowpalLearner(cover=5, seed=30)
 
-        self.assertEqual([0.25,0.25,0.25,0.25], learner.predict(1, None, [1,2,3,4]))
+        self.assertEqual([0.25,0.25,0.25,0.25], learner.predict(None, [1,2,3,4])[0])
 
     def test_predict_dense_cb_explore(self):
-        actual   = VowpalLearner()._predict_format(False, (1,2,3), ["A","B","C"])
+        actual   = VowpalLearner(adf=False)._predict_format((1,2,3), ["A","B","C"])
         expected = "|s 0:1 1:2 2:3"
 
         self.assertEqual(actual, expected)
 
     def test_predict_sparse_cb_explore_1(self):
-        actual   = VowpalLearner()._predict_format(False, {'a':1, 3:2}, ["A","B","C"])
+        actual   = VowpalLearner(adf=False)._predict_format({'a':1, 3:2}, ["A","B","C"])
         expected = "|s a:1 3:2"
 
         self.assertEqual(actual, expected)
 
     def test_predict_sparse_cb_explore_2(self):
-        actual   = VowpalLearner()._predict_format(False, ((1,5,7), (2,2,3)), ["A","B","C"])
+        actual   = VowpalLearner(adf=False)._predict_format(((1,5,7), (2,2,3)), ["A","B","C"])
         expected = "|s 1:2 5:2 7:3"
 
         self.assertEqual(actual, expected)
 
     def test_predict_dense_cb_explore_adf(self):
-        actual   = VowpalLearner()._predict_format(True, (1,2,3), [(1,0,0),(0,1,0),(0,0,1)])
+        actual   = VowpalLearner(adf=True)._predict_format((1,2,3), [(1,0,0),(0,1,0),(0,0,1)])
         expected = "shared |s 0:1 1:2 2:3\n|a 0:1\n|a 1:1\n|a 2:1"
 
         self.assertEqual(actual, expected)
 
     def test_predict_sparse_cb_explore_adf_1(self):
-        actual   = VowpalLearner()._predict_format(True, (1,2,3), ["A","B","C"])
+        actual   = VowpalLearner(adf=True)._predict_format((1,2,3), ["A","B","C"])
         expected = "shared |s 0:1 1:2 2:3\n|a A:1\n|a B:1\n|a C:1"
 
         self.assertEqual(actual, expected)
 
     def test_predict_sparse_cb_explore_adf_2(self):
-        actual   = VowpalLearner()._predict_format(True, {"D":1,"C":2}, ["A","B","C"])
+        actual   = VowpalLearner(adf=True)._predict_format({"D":1,"C":2}, ["A","B","C"])
         expected = "shared |s D:1 C:2\n|a A:1\n|a B:1\n|a C:1"
 
         self.assertEqual(actual, expected)
     
     def test_predict_sparse_cb_explore_adf_3(self):
-        actual   = VowpalLearner()._predict_format(True, ((1,3),(1,2)), ["A","B","C"])
+        actual   = VowpalLearner(adf=True)._predict_format(((1,3),(1,2)), ["A","B","C"])
         expected = "shared |s 1:1 3:2\n|a A:1\n|a B:1\n|a C:1"
 
         self.assertEqual(actual, expected)
 
     def test_learn_dense_cb_explore_1(self):
-        actual   = VowpalLearner()._learn_format(False, 0.25, [(1,0,0),(0,1,0),(0,0,1)], (1,2,3), (0,1,0), 1)
+        actual   = VowpalLearner(adf=False)._learn_format(0.25, [(1,0,0),(0,1,0),(0,0,1)], (1,2,3), (0,1,0), 1)
         expected = "2:-1:0.25 |s 0:1 1:2 2:3"
 
         self.assertEqual(actual, expected)
     
     def test_learn_dense_cb_explore_2(self):
-        actual   = VowpalLearner()._learn_format(False, 0.33, [(1,0,0),(0,1,0),(0,0,1)], (1,2,3), (1,0,0), .5)
+        actual   = VowpalLearner(adf=False)._learn_format(0.33, [(1,0,0),(0,1,0),(0,0,1)], (1,2,3), (1,0,0), .5)
         expected = "1:-0.5:0.33 |s 0:1 1:2 2:3"
 
         self.assertEqual(actual, expected)
 
     def test_learn_sparse_cb_explore_1(self):
-        actual   = VowpalLearner()._learn_format(False, 0.33, [(1,0,0),(0,1,0),(0,0,1)], {"A":1,"B":2}, (1,0,0), .25)
+        actual   = VowpalLearner(adf=False)._learn_format(0.33, [(1,0,0),(0,1,0),(0,0,1)], {"A":1,"B":2}, (1,0,0), .25)
         expected = "1:-0.25:0.33 |s A:1 B:2"
 
         self.assertEqual(actual, expected)
     
     def test_learn_sparse_cb_explore_2(self):
-        actual   = VowpalLearner()._learn_format(False, 0.33, [(1,0,0),(0,1,0),(0,0,1)], ((1,5),(3,4)), (1,0,0), 1)
+        actual   = VowpalLearner(adf=False)._learn_format(0.33, [(1,0,0),(0,1,0),(0,0,1)], ((1,5),(3,4)), (1,0,0), 1)
         expected = "1:-1:0.33 |s 1:3 5:4"
 
         self.assertEqual(actual, expected)
 
     def test_learn_dense_cb_explore_adf_1(self):
-        actual   = VowpalLearner()._learn_format(True, 0.25, [(1,0,0),(0,1,0),(0,0,1)], (1,2,3), (0,1,0), 1)
+        actual   = VowpalLearner(adf=True)._learn_format(0.25, [(1,0,0),(0,1,0),(0,0,1)], (1,2,3), (0,1,0), 1)
         expected = "shared |s 0:1 1:2 2:3\n|a 0:1\n2:-1:0.25 |a 1:1\n|a 2:1"
 
         self.assertEqual(actual, expected)
     
     def test_learn_dense_cb_explore_adf_2(self):
-        actual   = VowpalLearner()._learn_format(True, 0.33, [(1,0,0),(0,1,0),(0,0,1)], (1,2,3), (0,0,1), 0.25)
+        actual   = VowpalLearner(adf=True)._learn_format(0.33, [(1,0,0),(0,1,0),(0,0,1)], (1,2,3), (0,0,1), 0.25)
         expected = "shared |s 0:1 1:2 2:3\n|a 0:1\n|a 1:1\n3:-0.25:0.33 |a 2:1"
 
         self.assertEqual(actual, expected)
     
     def test_learn_sparse_cb_explore_adf_1(self):
-        actual   = VowpalLearner()._learn_format(True, 0.11, ["A","B","C"], {"D":1,"E":2}, "C", 0.33)
+        actual   = VowpalLearner(adf=True)._learn_format(0.11, ["A","B","C"], {"D":1,"E":2}, "C", 0.33)
         expected = "shared |s D:1 E:2\n|a A:1\n|a B:1\n3:-0.33:0.11 |a C:1"
 
         self.assertEqual(actual, expected)
     
     def test_learn_sparse_cb_explore_adf_2(self):
-        actual   = VowpalLearner()._learn_format(True, 0.1111111, ["A","B","C"], ((3,5), (2,3)), "B", 0.3333)
+        actual   = VowpalLearner(adf=True)._learn_format(0.1111111, ["A","B","C"], ((3,5), (2,3)), "B", 0.3333)
         expected = "shared |s 3:2 5:3\n|a A:1\n2:-0.3333:0.11111 |a B:1\n|a C:1"
 
         self.assertEqual(actual, expected)

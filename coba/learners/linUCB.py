@@ -1,10 +1,11 @@
 import collections
 import time
 
+from typing import Any, Dict, Sequence
+
 from coba.utilities import PackageChecker
 from coba.simulations import Context, Action
-from coba.learners.core import Learner, Key
-from typing import Any, Dict, Sequence
+from coba.learners.core import Info, Learner
 
 class LinUCBLearner(Learner):
     """A learner using the LinUCB algorithm from "Contextual Bandits with Linear Payoff Functions" by Wei Chu et al."""
@@ -54,11 +55,10 @@ class LinUCBLearner(Learner):
             
             self._terms.append((x_num, a_num))
 
-    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
+    def predict(self, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
 
         Args:
-            key: The key identifying the interaction we are choosing for.
             context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
@@ -103,17 +103,18 @@ class LinUCBLearner(Learner):
             print(self._times[1]/(self._i+1))
 
         max_indexes = np.where(action_values == np.amax(action_values))[0]
+        
         return [1/len(max_indexes) if ind in max_indexes else 0 for ind in range(len(actions))]
 
-    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
         """Learn from the given interaction.
 
         Args:
-            key: The key identifying the interaction this observed reward came from.
             context: The context we're learning about. See the base class for more information.
             action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
-            probability: The probability that the given action was taken.
+            probability: The probability with which the given action was selected.
+            info: Optional information provided during prediction step for use in learning.
         """
         import numpy as np #type: ignore
 

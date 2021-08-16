@@ -10,7 +10,7 @@ TODO Add RegressionSimulation
 """
 
 from coba.simulations.core import (
-    Context, Action, Key, Feedback, Interaction, Simulation, MemorySimulation, 
+    Context, Action, Feedback, Interaction, Simulation, MemorySimulation, 
     LambdaSimulation, ClassificationSimulation, CsvSimulation, ArffSimulation, 
     LibsvmSimulation, ManikSimulation, ValidationSimulation
 )
@@ -20,7 +20,6 @@ from coba.simulations.filters import SimulationFilter, Shuffle, Take, PCA, Sort
 __all__ = [
     'Context',
     'Action',
-    'Key',
     'Feedback',
     'Interaction',
     'Simulation',

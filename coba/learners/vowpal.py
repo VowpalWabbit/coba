@@ -7,12 +7,12 @@ import re
 import collections
 
 from os import devnull
-from typing import Any, Dict, Union, Sequence, overload, cast, Optional
+from typing import Any, Dict, Union, Sequence, overload, cast, Optional, Tuple
 
 from coba.config import CobaException
 from coba.utilities import PackageChecker, redirect_stderr
 from coba.simulations import Context, Action
-from coba.learners.core import Learner, Key
+from coba.learners.core import Learner, Probs, Info
 
 class VowpalLearner(Learner):
     """A learner using Vowpal Wabbit's contextual bandit command line interface.
@@ -28,7 +28,7 @@ class VowpalLearner(Learner):
     def __init__(self, *, epsilon: float = 0.1, adf: bool = True, seed: Optional[int] = 1, precision: int=5) -> None:
         """Instantiate a VowpalLearner.
         Args:
-            epsilon: A value between 0 and 1. If provided exploration will follow epsilon-greedy.
+            epsilon: A value between 0 and 1. If provided, exploration will follow epsilon-greedy.
             adf: Indicate whether cb_explore or cb_explore_adf should be used.
             seed: The seed used by VW to generate any necessary random numbers.
             precision: Indicate how many decimal places to round to when passing example strings to VW.
@@ -129,9 +129,9 @@ class VowpalLearner(Learner):
         if 'seed' in kwargs and kwargs['seed'] is not None:
             self._args += f" --random_seed {kwargs['seed']}"
 
-        self._precision    = kwargs.get('precision',5) 
-        self._actions: Any = None
-        self._vw           = None
+        self._precision                 = kwargs.get('precision',5) 
+        self._actions: Sequence[Action] = []
+        self._vw                        = None
 
     @property
     def family(self) -> str:
@@ -151,11 +151,10 @@ class VowpalLearner(Learner):
 
         return {'args': self._create_format(None)}
 
-    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
+    def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
         """Determine a PMF with which to select the given actions.
 
         Args:
-            key: The key identifying the interaction we are predicting for.
             context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
@@ -173,23 +172,23 @@ class VowpalLearner(Learner):
             with open(devnull, 'w') as f, redirect_stderr(f):
                 self._vw = pyvw.vw(self._create_format(actions) + " --quiet")
 
+            if not self._adf:
+                self._actions = actions
+
         assert self._vw is not None, "Something went wrong and vw was not initialized"
 
-        probs = self._vw.predict(self._predict_format(self._adf, context, actions))
-
-        self._set_actions(key, actions)
+        probs = self._vw.predict(self._predict_format(context, actions))
 
         if self._adf:
-            return probs
-
+            return probs, actions
         else:
             if any(action not in self._actions for action in actions) or len(actions) != len(self._actions):
                 raise CobaException("It appears that actions are changing between predictions. When this happens you need to use VW's `--cb_explore_adf`.")
 
             #in this case probs will be in order of self._actions but we want to return in order of actions
-            return [ probs[self._actions.index(action)] for action in actions ]            
+            return [ probs[self._actions.index(action)] for action in actions ], self._actions
 
-    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
         """Learn from the given interaction.
 
         Args:
@@ -201,10 +200,8 @@ class VowpalLearner(Learner):
         """
 
         assert self._vw is not None, "You must call predict before learn in order to initialize the VW learner"
-
-        actions = self._get_actions(key)
         
-        self._vw.learn(self._learn_format(self._adf, probability, actions, context, action, reward))
+        self._vw.learn(self._learn_format(probability, info, context, action, reward))
 
     def _round(self, value: float) -> float:
         return round(value, self._precision)
@@ -262,19 +259,19 @@ class VowpalLearner(Learner):
         
         return cb_explore + " " + self._args
 
-    def _predict_format(self, adf, context, actions) -> str:
-        if adf:
+    def _predict_format(self, context, actions) -> str:
+        if self._adf:
             vw_context = None if context is None else f"shared |s {self._features_format(context)}"
             vw_actions = [ f"|a {self._features_format(a)}" for a in actions]
             return "\n".join(filter(None,[vw_context, *vw_actions]))
         else:
             return f"|s {self._features_format(context)}"
 
-    def _learn_format(self, adf, prob, actions, context, action, reward) -> str:
+    def _learn_format(self, prob, actions, context, action, reward) -> str:
         
         vw_reward = lambda a: "" if a != action else f"{actions.index(action)+1}:{self._round(-reward)}:{self._round(prob)} "
 
-        if adf:
+        if self._adf:
             vw_context  = None if context is None else f"shared |s {self._features_format(context)}"
             vw_rewards  = [ vw_reward(a) for a in actions ]
             vw_actions  = [ f"|a {self._features_format(a)}" for a in actions]
@@ -282,17 +279,3 @@ class VowpalLearner(Learner):
             return "\n".join(filter(None,[vw_context, *vw_observed]))
         else:
             return f"{vw_reward(action)}|s {self._features_format(context)}"
-
-    def _set_actions(self, key: Key, actions: Sequence[Action]) -> None:
-
-        if self._actions is None and not self._adf:
-            self._actions = actions
-
-        if self._actions is None and self._adf:
-            self._actions = {}
-
-        if self._adf:
-            self._actions[key] = actions
-
-    def _get_actions(self, key) -> Sequence[Action]:
-        return self._actions.pop(key) if isinstance(self._actions, dict) else self._actions

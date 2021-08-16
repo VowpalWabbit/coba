@@ -5,7 +5,7 @@ import os
 
 from io import UnsupportedOperation
 from contextlib import contextmanager
-from typing import IO
+from typing import Hashable, IO, Mapping, Dict
 
 @contextmanager
 def redirect_stderr(to: IO[str]):
@@ -162,3 +162,15 @@ class PackageChecker:
                 caller_name + " requires sklearn. You can "
                 "install sklearn with `pip install sklearn`."
             ) from e
+
+class HashableDict(dict):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self._hash = hash(tuple(self.items()))
+
+    def __hash__(self) -> int:
+
+        assert self._hash == hash(tuple(self.items()))
+
+        return self._hash

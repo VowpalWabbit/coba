@@ -5,7 +5,7 @@ from typing import Any, Dict, Sequence
 
 from coba.utilities import PackageChecker
 from coba.simulations import Context, Action
-from coba.learners.core import Learner, Key
+from coba.learners.core import Learner, Info
 
 class RegCBLearner(Learner):
     """A learner using the RegCB algorithm by Foster et al.
@@ -80,11 +80,10 @@ class RegCBLearner(Learner):
         self._a_p = PolynomialFeatures(degree=max_a_term, include_bias=False, interaction_only=False)
         self._h   = FeatureHasher(input_type='pair')
 
-    def predict(self, key: Key, context: Context, actions: Sequence[Action]) -> Sequence[float]:
+    def predict(self, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
 
         Args:
-            key: The key identifying the interaction we are choosing for.
             context: The context we're currently in. See the base class for more information.
             actions: The actions to choose from. See the base class for more information.
 
@@ -121,15 +120,15 @@ class RegCBLearner(Learner):
 
             return [int(action == maxAction) for action in actions]
 
-    def learn(self, key: Key, context: Context, action: Action, reward: float, probability: float) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
         """Learn from the given interaction.
 
         Args:
-            key: The key identifying the interaction this observed reward came from.
             context: The context we're learning about. See the base class for more information.
             action: The action that was selected in the context. See the base class for more information.
             reward: The reward that was gained from the action. See the base class for more information.
             probability: The probability that the given action was taken.
+            info: Optional information provided during prediction step for use in learning.
         """
 
         assert 0 <= reward and reward <= 1, "This regCB implementation assumes reward is in [0,1]."
