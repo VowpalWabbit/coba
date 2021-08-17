@@ -375,5 +375,11 @@ class ValidationSimulation(LambdaSimulation):
 
         super().__init__(n_interactions, context, actions, rewards)
 
+    def read(self) -> Iterable[Interaction]:
+        for i in super().read():
+            yield i
+            #yield Interaction(i.context, i.actions, [ int(r == max(i.feedbacks)) for r in i.feedbacks ] )
+
+
     def __repr__(self) -> str:
         return f"Validation"

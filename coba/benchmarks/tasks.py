@@ -67,8 +67,6 @@ class EvaluationTask(Task):
 
                 probs,info  = learner.predict(context, actions)
 
-                assert abs(sum(probs) - 1) < .0001, "The learner returned invalid proabilities for action choices."
-
                 action = random.choice(actions, probs)
                 reward = feedbacks[actions.index(action)]
                 prob   = probs[actions.index(action)]

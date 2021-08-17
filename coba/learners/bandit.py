@@ -9,49 +9,6 @@ from coba.simulations import Context, Action
 from coba.statistics import OnlineVariance
 from coba.learners.core import Learner, Probs, Info
 
-class RandomLearner(Learner):
-    """A Learner implementation that selects an action at random and learns nothing."""
-
-    @property
-    def family(self) -> str:
-        """The family of the learner.
-
-        See the base class for more information
-        """  
-        return "random"
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        """The parameters of the learner.
-        
-        See the base class for more information
-        """
-        return {}
-
-    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
-        """Choose a random action from the action set.
-        
-        Args:
-            context: The context we're currently in. See the base class for more information.
-            actions: The actions to choose from. See the base class for more information.
-
-        Returns:
-            The probability of taking each action. See the base class for more information.
-        """
-        return [1/len(actions)] * len(actions)
-
-    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
-        """Learns nothing.
-
-        Args:
-            context: The context we're learning about. See the base class for more information.
-            action: The action that was selected in the context. See the base class for more information.
-            reward: The reward that was gained from the action. See the base class for more information.
-            probability: The probability with which the given action was selected.
-            info: Optional information provided during prediction step for use in learning.
-        """
-        pass
- 
 class EpsilonBanditLearner(Learner):
     """A lookup table bandit learner with epsilon-greedy exploration."""
 
@@ -103,7 +60,7 @@ class EpsilonBanditLearner(Learner):
         prob_selected_randomly = [1/len(actions) * self._epsilon] * len(actions)
         prob_selected_greedily = [ int(i in max_indexes)/len(max_indexes) * (1-self._epsilon) for i in range(len(actions))]
 
-        return [p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
+        return [ round(p1+p2,4) for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
 
     def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
         """Learn from the given interaction.

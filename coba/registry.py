@@ -7,10 +7,7 @@ and for the core functionality to specify classes creation recipes in config fil
 from itertools import repeat
 from importlib import reload
 
-try:
-    from importlib.metadata import entry_points #type: ignore
-except:
-    from importlib_metadata import entry_points #type: ignore 
+from importlib_metadata import entry_points #type: ignore 
 
 from typing import Dict, Any, Callable
 

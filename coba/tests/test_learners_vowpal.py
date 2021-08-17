@@ -1,78 +1,7 @@
 import unittest
-from unittest.case import SkipTest
 
 from coba.utilities import PackageChecker
-from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner, UcbBanditLearner
-
-class RandomLearner_Tests(unittest.TestCase):
-    
-    def test_predict(self):
-        learner = RandomLearner()
-        self.assertEqual([0.25, 0.25, 0.25, 0.25], learner.predict(None, [1,2,3,4]))
-
-    def test_learn(self):
-        learner = RandomLearner()
-        learner.learn(2, None, 1, 1, 1)
-
-class EpsilonBanditLearner_Tests(unittest.TestCase):
-    def test_predict_no_learn(self):
-        learner = EpsilonBanditLearner(epsilon=0.5)
-
-        self.assertEqual([.25,.25,.25,.25],learner.predict(None, [1,2,3,4]))
-        self.assertEqual([.25,.25,.25,.25],learner.predict(None, [1,2,3,4]))
-
-    def test_predict_learn_no_epsilon(self):
-        learner = EpsilonBanditLearner(epsilon=0)
-
-        learner.learn(None, 2, 1, 1, None)
-        learner.learn(None, 1, 2, 1, None)
-        learner.learn(None, 3, 3, 1, None)
-
-        self.assertEqual([0,0,1],learner.predict(None, [1,2,3]))
-
-class UcbBanditLearner_Tests(unittest.TestCase):
-    def test_predict_all_actions_first(self):
-
-        learner = UcbBanditLearner()
-        self.assertEqual([1,0,0],learner.predict(None, [1,2,3]))
-        self.assertEqual([0,1,0],learner.predict(None, [1,2,3]))
-        self.assertEqual([0,0,1],learner.predict(None, [1,2,3]))
-
-    def test_learn_predict_best1(self):
-        learner = UcbBanditLearner()
-        actions = [1,2,3,4]
-        
-        learner.predict(None, actions)
-        learner.learn(None, actions[0], 1, 1, None)
-        
-        learner.predict(None, actions)
-        learner.learn(None, actions[1], 1, 1, None)
-        
-        learner.predict(None, actions)
-        learner.learn(None, actions[2], 1, 1, None)
-        
-        learner.predict(None, actions)
-        learner.learn(None, actions[3], 1, 1, None)
-
-        self.assertEqual([0.25,0.25,0.25,0.25], learner.predict(None, actions))
-
-    def test_learn_predict_best2(self):
-        learner = UcbBanditLearner()
-        actions = [1,2,3,4]
-        
-        learner.predict(None, actions)
-        learner.learn(None, actions[0], 0, 1, None)
-        
-        learner.predict(None, actions)
-        learner.learn(None, actions[1], 0, 1, None)
-        
-        learner.predict(None, actions)
-        learner.learn(None, actions[2], 0, 1, None)
-        
-        learner.predict(None, actions)
-        learner.learn(None, actions[3], 1, 1, None)
-
-        self.assertEqual([0, 0, 0, 1], learner.predict(None, actions))
+from coba.learners import VowpalLearner
 
 class VowpalLearner_Tests(unittest.TestCase):
     
@@ -84,7 +13,7 @@ class VowpalLearner_Tests(unittest.TestCase):
             #if somebody is using the package with no intention of
             #using the VowpalLearner we don't want them to see failed
             #tests and think something is wrong so we skip these tests
-            raise SkipTest("Vowpal Wabbit is not installed so no need to test VowpalLearner")
+            raise unittest.SkipTest("Vowpal Wabbit is not installed so no need to test VowpalLearner")
 
     def test_predict_epsilon_adf(self):
         learner = VowpalLearner(epsilon=0.05, adf=True, seed=20) 

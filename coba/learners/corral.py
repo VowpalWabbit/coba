@@ -70,7 +70,7 @@ class CorralLearner(Learner):
 
         See the base class for more information
         """
-        return {"eta": self._eta_init, "type":self._type, "T": self._T, "B": [ b.family for b in self._base_learners ], "seed":self._random_pick._seed }
+        return { "eta": self._eta_init, "type":self._type, "T": self._T, "B": [ b.family for b in self._base_learners ], "seed":self._random_pick._seed }
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
         """Determine a PMF with which to select the given actions.
@@ -89,12 +89,17 @@ class CorralLearner(Learner):
         base_actions = [ self._random_pick.choice(actions, predict) for predict in base_predicts                   ]
         base_probs   = [ predict[actions.index(action)] for action,predict in zip(base_actions,base_predicts) ]
 
-        predict = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
-        info    = (base_actions, base_probs, base_infos, base_predicts, actions, predict)
+        if self._type in ["importance"]:
+            predict = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
+            info    = (base_actions, base_probs, base_infos, base_predicts, actions, predict)
+
+        if self._type in ["off-policy", "rejection"]:
+            predict = [ sum([p_b*b_p[i] for p_b,b_p in zip(self._p_bars, base_predicts)]) for i in range(len(actions)) ]
+            info    = (base_actions, base_probs, base_infos, base_predicts, actions, predict)
 
         return (predict, info)
 
-    def learn(self, context: Context, action: Action, reward: float, probability:float, info: Info) -> None:
+    def learn(self, context: Context, action: Action, reward: float, probability:float, info: Info) -> Dict[str, Any]:
         """Learn from the given interaction.
 
         Args:
@@ -105,9 +110,7 @@ class CorralLearner(Learner):
             info: Optional information provided during prediction step for use in learning.
         """
 
-        loss = 1-reward
-
-        assert  0 <= loss and loss <= 1, "This Corral implementation assumes a loss between 0 and 1"
+        assert  0 <= reward and reward <= 1, "This Corral implementation assumes a loss between 0 and 1"
 
         base_actions = info[0]
         base_probs   = info[1]
@@ -153,8 +156,12 @@ class CorralLearner(Learner):
         # action probabilities of the base learners while the Corral paper did not assume 
         # access to this information. This information allows for a loss esimator with the same 
         # expectation as the original Corral paper's estimator but with a lower variance.
-        instant_loss = [ loss * base_pred[actions.index(action)]/probability for base_pred in base_preds ]
-        self._ps     = list(self._log_barrier_omd(instant_loss))
+
+        loss = 1-reward
+
+        picked_index = actions.index(action)
+        instant_loss = [ loss * base_pred[picked_index]/probability for base_pred in base_preds ]
+        self._ps     = CorralLearner._log_barrier_omd(self._ps, instant_loss, self._etas)
         self._p_bars = [ (1-self._gamma)*p + self._gamma*1/len(self._base_learners) for p in self._ps ]
 
         for i in range(len(self._base_learners)):
@@ -162,12 +169,19 @@ class CorralLearner(Learner):
                 self._rhos[i] = 2/self._p_bars[i]
                 self._etas[i] *= self._beta
 
-    def _log_barrier_omd(self, losses) -> Sequence[float]:
+        base_predict_data = { f"predict_{i}": base_preds[i][picked_index] for i in range(len(self._base_learners)) }
+        base_pbar_data    = { f"pbar_{i}"   : self._p_bars[i]             for i in range(len(self._base_learners)) }
+        predict_data      = { "predict"     : probability, **base_predict_data, **base_pbar_data }
 
-        f  = lambda l: float(sum( [ 1/((1/p) + eta*(loss-l)) for p, eta, loss in zip(self._ps, self._etas, losses)]))
-        df = lambda l: float(sum( [ eta/((1/p) + eta*(loss-l))**2 for p, eta, loss in zip(self._ps, self._etas, losses)]))
+        return { k:round(v,4) for k,v in {**predict_data, **base_predict_data, **base_pbar_data}.items() }
 
-        denom_zeros = [ ((-1/p)-(eta*loss))/-eta for p, eta, loss in zip(self._ps, self._etas, losses) ]
+    @staticmethod
+    def _log_barrier_omd(ps, losses, etas) -> Sequence[float]:
+
+        f  = lambda l: float(sum( [ 1/((1/p) + eta*(loss-l)) for p, eta, loss in zip(ps, etas, losses)]))
+        df = lambda l: float(sum( [ eta/((1/p) + eta*(loss-l))**2 for p, eta, loss in zip(ps, etas, losses)]))
+
+        denom_zeros = [ ((-1/p)-(eta*loss))/-eta for p, eta, loss in zip(ps, etas, losses) ]
 
         min_loss = min(losses)
         max_loss = max(losses)
@@ -236,6 +250,10 @@ class CorralLearner(Learner):
             lmbda = find_root_of_1()
 
         if lmbda is None:
-            raise Exception(f'Something went wrong in Corral OMD {self._ps}, {self._etas}, {losses}')
+            raise Exception(f'Something went wrong in Corral OMD {ps}, {etas}, {losses}')
 
-        return [ max(1/((1/p) + eta*(loss-lmbda)),.00001) for p, eta, loss in zip(self._ps, self._etas, losses)]
+        new_ps = [ 1/((1/p) + eta*(loss-lmbda)) for p, eta, loss in zip(ps, etas, losses)]
+
+        assert round(sum(new_ps),precision) == 1, "An invalid update was made by the log barrier in Corral"
+
+        return new_ps
