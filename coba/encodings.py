@@ -5,11 +5,13 @@ Remarks:
 """
 
 import json
-import array
 
+from itertools import count, product
 from collections import defaultdict
 from abc import ABC, abstractmethod
-from typing import Iterator, Sequence, Generic, TypeVar, Any, Dict, Tuple
+from typing import Iterator, Sequence, Generic, TypeVar, Any, Dict, Tuple, Union
+
+from coba.utilities import PackageChecker
 
 _T_out = TypeVar('_T_out', bound=Any, covariant=True) 
 
@@ -390,3 +392,105 @@ class CobaJsonDecoder(json.JSONDecoder):
 
     def _object_hook(self, json_obj: Dict[str,Any]) -> Any:
         return json_obj
+
+class InteractionTermsEncoder:
+
+    def __init__(self, interactions: Sequence[str]) -> None:
+
+        self._terms = []
+
+        for term in interactions:
+            term = term.lower()
+            x_num = term.count('x')
+            a_num = term.count('a')
+
+            if x_num + a_num != len(term):
+                raise Exception("Letters other than x and a were passed for parameter interactions. Please remove other letters/characters.")
+
+            self._terms.append((x_num, a_num))
+
+    def encode(self,*, x: Union[list,dict], a: Union[list,dict]):
+        import numpy as np #type: ignore        
+
+        is_sparse = isinstance(x, dict) or isinstance(a, dict)
+
+        if isinstance(x, dict):
+            context_values = list(x.values())
+            context_names  = [ f"x{k}" for k in x.keys() ]
+        else:
+            context_values = (x or [1])
+            context_names  = [ f"x{i}" for i in range(len(context_values)) ]
+
+        if isinstance(a, dict):
+            action_values = list(a.values())
+            action_names  = [ f"a{k}" for k in a.keys() ]
+        else:
+            action_values = a
+            action_names  = [ f"a{i}" for i in range(len(action_values)) ]
+
+        max_x_term = max([t[0] for t in self._terms])
+        max_a_term = max([t[1] for t in self._terms])
+
+        #.16
+        x_f_n_by_degree = self._degree_terms(context_values, context_names, max_x_term, is_sparse)
+        a_f_n_by_degree = self._degree_terms(action_values , action_names , max_a_term, is_sparse)
+
+        #.22
+        features,names = self._interaction_terms(x_f_n_by_degree,a_f_n_by_degree)
+        
+        #.24
+        return features if not is_sparse else list(zip(names,features))
+
+    def _degree_terms(self,values,names,maxd,sparse):
+
+        s_by_degree = dict()
+        f_by_degree = dict()
+        n_by_degree = dict()
+
+        for degree in range(1,maxd+1):
+
+            if degree == 1:
+                n_by_degree[degree] = names
+                f_by_degree[degree] = values
+                s_by_degree[degree] = [1]*len(values)
+            else:
+                n_by_degree[degree] = []
+                f_by_degree[degree] = []
+                s_by_degree[degree] = []
+
+                j  = 0
+                for i in range(len(values)):
+                    for k in range(j, len(f_by_degree[degree-1])):
+                        f_by_degree[degree].append(f_by_degree[degree-1][k]*values[i])
+    
+                        if sparse:
+                            n_by_degree[degree].append(n_by_degree[degree-1][k]+names[i])
+                        
+                    s_by_degree[degree].append(sum(s_by_degree[degree-1][i:]))
+                    j = sum(s_by_degree[degree-1][:(i+1)])
+
+        return f_by_degree, n_by_degree
+
+    def _interaction_terms(self, x_f_n_by_degree, a_f_n_by_degree):
+
+        import numpy as np
+        #from operator import mul,add
+
+        f_interactions = []
+        n_interactions = []
+        
+
+        for term in self._terms:
+
+            f_x = x_f_n_by_degree[0].get(term[0], [1])
+            f_a = a_f_n_by_degree[0].get(term[1], [1])
+
+            n_x = x_f_n_by_degree[1].get(term[0], [''])
+            n_a = a_f_n_by_degree[1].get(term[1], [''])
+
+            #f_interactions.extend(map(mul,*zip(*product(f_x,f_a))))
+            f_interactions.extend([p[0]*p[1] for p in product(f_x,f_a)])
+            #f_interactions.extend(np.outer(f_x, f_a).reshape((1,-1)).tolist()[0])
+            n_interactions.extend([p[0]+p[1] for p in product(n_x,n_a)])
+
+        return f_interactions, n_interactions

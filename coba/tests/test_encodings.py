@@ -5,7 +5,7 @@ import math
 from abc import ABC, abstractmethod
 from typing import Sequence, Tuple, cast, Any
 
-from coba.encodings import Encoder,StringEncoder, NumericEncoder, OneHotEncoder, FactorEncoder
+from coba.encodings import Encoder,StringEncoder, NumericEncoder, OneHotEncoder, FactorEncoder, InteractionTermsEncoder
 
 class Encoder_Interface_Tests(ABC):
 
@@ -159,6 +159,72 @@ class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 class FactorEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
     def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:
         return FactorEncoder(), ["a","z","a","z","1"], ["1","a","z"], [1,2,3]
+
+class InteractionTermsEncoder_Tests(unittest.TestCase):
+
+    def test_dense_a(self):
+        encoder = InteractionTermsEncoder(["a"])
+
+        interactions = encoder.encode(x=[1,2,3], a=[1,2])
+
+        self.assertEqual([1,2], interactions)
+
+    def test_dense_x(self):
+        encoder = InteractionTermsEncoder(["x"])
+
+        interactions = encoder.encode(x=[1,2,3], a=[1,2])
+
+        self.assertEqual([1,2,3], interactions)
+
+    def test_dense_x_a(self):
+        encoder = InteractionTermsEncoder(["x", "a"])
+
+        interactions = encoder.encode(x=[1,2,3], a=[1,2])
+
+        self.assertEqual([1,2,3,1,2], interactions)
+
+    def test_dense_x_a_xa_xxa(self):
+        encoder = InteractionTermsEncoder(["x","a","xa","xxa"])
+
+        interactions1 = encoder.encode(x=[1,2,3], a=[1,2])
+        interactions2 = encoder.encode(x=[1,2,3], a=[1,2])
+
+        self.assertCountEqual([1,2,3,1,2,1,2,3,2,4,6,1,2,3,4,6,9,2,4,6,8,12,18], interactions1)
+        self.assertEqual(interactions1,interactions2)
+
+    def test_sparse_x_a(self):
+        encoder = InteractionTermsEncoder(["x","a"])
+
+        interactions = encoder.encode(x={"1":1,"2":2}, a={"1":3,"2":4})
+
+        self.assertEqual([("x1",1), ("x2",2), ("a1",3), ("a2",4)], interactions)
+
+    def test_sparse_xa(self):
+        encoder = InteractionTermsEncoder(["xa"])
+
+        interactions = encoder.encode(x={"1":1,"2":2}, a={"1":3,"2":4})
+
+        self.assertEqual([("x1a1",3), ("x1a2",4), ("x2a1",6), ("x2a2",8)], interactions)
+
+    def test_sparse_xxa(self):
+        encoder = InteractionTermsEncoder(["xxa"])
+
+        interactions = encoder.encode(x={"1":1,"2":2}, a={"1":3,"2":4})
+
+        self.assertEqual([("x1x1a1",3), ("x1x1a2",4), ("x2x1a1",6), ("x2x1a2",8), ("x2x2a1",12), ("x2x2a2",16)], interactions)
+
+    def test_performance(self):
+        encoder = InteractionTermsEncoder(["xxa"])
+
+        x = dict(zip(map(str,range(100)), range(100)))
+        a = [1,2,3]
+
+        
+        time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
+        
+        #best observed was 0.62
+        #performance time could be reduced to around .47 by using numpy and prime factorization of feature names 
+        self.assertLess(time, 0.8)
 
 if __name__ == '__main__':
     unittest.main()

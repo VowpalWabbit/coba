@@ -5,6 +5,7 @@ from typing import Any, Dict, Sequence
 
 from coba.utilities import PackageChecker
 from coba.simulations import Context, Action
+from coba.encodings import InteractionTermsEncoder
 from coba.learners.core import Info, Learner
 
 class LinUCBLearner(Learner):
@@ -39,21 +40,12 @@ class LinUCBLearner(Learner):
         self._A            = None
         self._b            = None
         self._alpha        = alpha
-        self._interactions = interactions
-        self._terms        = []
         self._times        = [0.,0.]
         self._i            = 0
         self._timeit       = timeit
 
-        for term in self._interactions:
-            term = term.lower()
-            x_num = term.count('x')
-            a_num = term.count('a')
-            
-            if x_num + a_num != len(term):
-                raise Exception("Letters other than x and a were passed for parameter interactions. Please remove other letters/characters.")
-            
-            self._terms.append((x_num, a_num))
+        self._interactions = interactions
+        self._interactions_encoder = InteractionTermsEncoder(interactions)
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
@@ -128,25 +120,11 @@ class LinUCBLearner(Learner):
         self._times[1] += time.time() - learn_start
 
     def _featurize(self, context, actions):
-        import numpy as np #type: ignore
-
-        features = np.array([[]]*len(actions))
-
-        context_array = np.array(context) if context is not None else np.array([[1]])
-        actions_array = np.array(actions)
-
-        for term in self._terms:
-            temp_array_1 = [[1.0]]
-            temp_array_2 = np.ones((len(actions), 1 ), dtype=float)
-
-            for _ in range(term[0]):
-                temp_array_1 = np.outer(temp_array_1, context_array).reshape(-1)
-            
-            for _ in range(term[1]):
-                temp_array_2 = [np.outer(temp_array_2[i], actions_array[i]).reshape(-1) for i in range(len(actions_array))]
-            
-            temp_array = np.apply_along_axis(lambda x: np.outer(x, temp_array_1).reshape(-1), 1, temp_array_2)
-
-            features = np.hstack([features, temp_array])
-
-        return features.T
+        import numpy as np
+        
+        features = []
+        
+        for action in actions:
+            features.append(self._interactions_encoder.encode(x=context,a=action))
+        
+        return np.array(features).T
