@@ -185,7 +185,7 @@ class RegCBLearner(Learner):
 
         features = self._interactions_encoder.encode(x=context,a=action)
 
-        if isinstance(context,dict) or isinstance(action,dict):
+        if isinstance(features[0],tuple):
             return self._feature_hasher.fit_transform([features])[0]
         else:
             return np.array(features)

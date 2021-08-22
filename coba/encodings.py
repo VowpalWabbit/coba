@@ -400,7 +400,7 @@ class InteractionTermsEncoder:
         self._terms = []
 
         for term in interactions:
-            term = term.lower()
+            term  = term.lower()
             x_num = term.count('x')
             a_num = term.count('a')
 
@@ -412,21 +412,33 @@ class InteractionTermsEncoder:
     def encode(self,*, x: Union[list,dict], a: Union[list,dict]):
         import numpy as np #type: ignore        
 
-        is_sparse = isinstance(x, dict) or isinstance(a, dict)
+        is_sparse = isinstance(x, dict) or isinstance(a, dict) or any([isinstance(xx,str) for xx in x]) or any([isinstance(aa,str) for aa in a])
 
-        if isinstance(x, dict):
-            context_values = list(x.values())
-            context_names  = [ f"x{k}" for k in x.keys() ]
-        else:
-            context_values = (x or [1])
-            context_names  = [ f"x{i}" for i in range(len(context_values)) ]
+        def get_name_values(namespace,features):
+            if isinstance(features, dict):
+                values = list(features.values())
+                names  = [ f"{namespace}{k}" for k in features.keys() ]
+            elif isinstance(features,str):
+                values = [1]
+                names  = [f"{namespace}{features}"]
+            else:
+                values = (features or [1])
+                names  = [ f"{namespace}{i}" for i in range(len(values)) ]
+            
+            return names,values
 
-        if isinstance(a, dict):
-            action_values = list(a.values())
-            action_names  = [ f"a{k}" for k in a.keys() ]
-        else:
-            action_values = a
-            action_names  = [ f"a{i}" for i in range(len(action_values)) ]
+        def handle_string_values(namespace,names,values):
+            for i in range(len(values)):
+                if isinstance(values[i],str):
+                    names[i] = f"{namespace}{values[i]}"
+                    values[i] = 1
+            return names,values
+
+        context_names,context_values = get_name_values("x",x)
+        action_names,action_values   = get_name_values("a",a)
+
+        context_names,context_values = handle_string_values("x",context_names,context_values)
+        action_names,action_values   = handle_string_values("a",action_names,action_values)
 
         max_x_term = max([t[0] for t in self._terms])
         max_a_term = max([t[1] for t in self._terms])

@@ -213,6 +213,41 @@ class InteractionTermsEncoder_Tests(unittest.TestCase):
 
         self.assertEqual([("x1x1a1",3), ("x1x1a2",4), ("x2x1a1",6), ("x2x1a2",8), ("x2x2a1",12), ("x2x2a2",16)], interactions)
 
+    def test_string_a(self):
+        encoder = InteractionTermsEncoder(["a"])
+
+        interactions = encoder.encode(x=["a","b","c"], a=["d","e"])
+
+        self.assertEqual([("ad",1), ("ae",1)], interactions)
+    
+    def test_string_x(self):
+        encoder = InteractionTermsEncoder(["x"])
+
+        interactions = encoder.encode(x=["a","b","c"], a=["d","e"])
+
+        self.assertEqual([("xa",1), ("xb",1), ("xc",1)], interactions)
+    
+    def test_string_xa(self):
+        encoder = InteractionTermsEncoder(["xa"])
+
+        interactions = encoder.encode(x=["a"], a=["d","e"])
+
+        self.assertEqual([("xaad",1), ("xaae",1)], interactions)
+
+    def test_singular_string_a(self):
+        encoder = InteractionTermsEncoder(["a"])
+
+        interactions = encoder.encode(x=["a"], a="d")
+
+        self.assertEqual([("ad",1)], interactions)
+
+    def test_singular_string_xa(self):
+        encoder = InteractionTermsEncoder(["xa"])
+
+        interactions = encoder.encode(x=["a"], a="d")
+
+        self.assertEqual([("xaad",1)], interactions)
+
     def test_performance(self):
         encoder = InteractionTermsEncoder(["xxa"])
 
