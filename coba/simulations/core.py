@@ -383,3 +383,47 @@ class ValidationSimulation(LambdaSimulation):
 
     def __repr__(self) -> str:
         return f"Validation"
+
+class RegressionSimulation(Simulation):
+    """A simulation created from regression dataset with features and labels.
+    RegressionSimulation turns labeled observations from a regression data set
+    into interactions. For each interaction the feature set becomes the context and 
+    all possible labels become the actions. Rewards for each interaction are created by 
+    assigning a minus absolute error. Rewards are close to zero for taking actions that are 
+    closer to the correct action (label) and lower ones for being far from the correct action.
+    Remark:
+        This class when created from a data set will load all data into memory. Be careful when 
+        doing this if you are working with a large dataset. To reduce memory usage you can provide
+        meta information upfront that will allow features to be correctly encoded while the
+        dataset is being streamed instead of waiting until the end of the data to train an encoder.
+    """
+
+    def __init__(self, features: Sequence[Any], labels: Union[Sequence[Action], Sequence[Sequence[Action]]] ) -> None:
+        """Instantiate a RegressionSimulation.
+        Args:
+            features: The collection of features used for the original regression problem.
+            labels: The collection of labels assigned to each observation of features.
+        """
+
+        assert len(features) == len(labels), "Mismatched lengths of features and labels"
+
+        if isinstance(labels[0], collections.Sequence) and not isinstance(labels[0],str):
+            labels_flat = list(chain.from_iterable(labels)) #type: ignore
+        else:
+            labels_flat = labels #type: ignore
+
+        feedback  = lambda action,label: -abs(float(action)-float(label))
+
+        contexts  = features 
+        actions   = list(sorted(set(labels_flat), key=lambda l: labels_flat.index(l)))
+        feedbacks = [ [ feedback(action,label) for action in actions ] for label in labels ]
+
+        self._interactions = list(map(Interaction, contexts, repeat(actions), feedbacks))
+
+    def read(self) -> Iterable[Interaction]:
+        """Read the interactions in this simulation."""
+        
+        return self._interactions
+
+    def __repr__(self) -> str:
+        return '"Regression Simulation"'
