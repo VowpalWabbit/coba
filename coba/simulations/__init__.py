@@ -14,7 +14,7 @@ from coba.simulations.core import (
     LambdaSimulation, ClassificationSimulation, CsvSimulation, ArffSimulation, 
     LibsvmSimulation, ManikSimulation, ValidationSimulation
 )
-from coba.simulations.openml  import OpenmlSource, OpenmlSimulation
+from coba.simulations.openml  import OpenmlSource, OpenmlRegressionSource, OpenmlSimulation, OpenmlRegressionSimulation
 from coba.simulations.filters import SimulationFilter, Shuffle, Take, PCA, Sort
 
 __all__ = [
@@ -24,6 +24,8 @@ __all__ = [
     'Interaction',
     'Simulation',
     'OpenmlSource',
+    'OpenmlRegressionSource',
+    'OpenmlRegressionSimulation',
     'MemorySimulation',
     'LambdaSimulation',
     'ClassificationSimulation',

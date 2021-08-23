@@ -298,7 +298,7 @@ class OpenmlRegressionSource(Source[Tuple[Sequence[Context], Sequence[Action]]])
                 else:
                     encoders.append(StringEncoder())
 
-            if target=="" or isinstance(encoders[headers.index(target)], NumericEncoder):
+            if target=="" or not isinstance(encoders[headers.index(target)], NumericEncoder):
                 target = self._get_regression_target(data_id)
 
             ignored[headers.index(target)] = False
