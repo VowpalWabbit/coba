@@ -86,7 +86,7 @@ class CorralLearner(Learner):
         base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_learners ]
         base_predicts, base_infos = zip(*base_predicts)
 
-        base_actions = [ self._random_pick.choice(actions, predict) for predict in base_predicts                   ]
+        base_actions = [ self._random_pick.choice(actions, predict) for predict in base_predicts              ]
         base_probs   = [ predict[actions.index(action)] for action,predict in zip(base_actions,base_predicts) ]
 
         if self._type in ["importance"]:
