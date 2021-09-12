@@ -245,7 +245,6 @@ class OpenmlSimulation(Simulation):
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._source._data_id}}}'
 
-
 class OpenmlRegressionSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
     def __init__(self, id:int, md5_checksum:str = None):
