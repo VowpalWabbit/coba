@@ -301,7 +301,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(1, len(filtered_result.interactions))
 
-    def test_filter_lrn(self):
+    def test_filter_lrn_1(self):
 
         sims = [{"simulation_id":1},{"simulation_id":2}]
         lrns = [{"learner_id":1}, {"learner_id":2}]
@@ -316,7 +316,24 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(filtered_result.simulations))
         self.assertEqual(1, len(filtered_result.learners))
-        self.assertEqual(1, len(filtered_result.interactions)) 
+        self.assertEqual(1, len(filtered_result.interactions))
+
+    def test_filter_lrn_2(self):
+
+        sims = [{"simulation_id":1},{"simulation_id":2}]
+        lrns = [{"learner_id":1}, {"learner_id":2}, {"learner_id":3}]
+        ints = [{"simulation_id":1, "learner_id":1},{"simulation_id":1,"learner_id":2}, {"simulation_id":2,"learner_id":3}]
+
+        original_result = Result(1, {}, sims, lrns, ints)
+        filtered_result = original_result.filter_lrn(learner_id=[2,1])
+
+        self.assertEqual(2, len(original_result.simulations))
+        self.assertEqual(3, len(original_result.learners))
+        self.assertEqual(3, len(original_result.interactions))
+
+        self.assertEqual(2, len(filtered_result.simulations))
+        self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(2, len(filtered_result.interactions))
 
 if __name__ == '__main__':
     unittest.main()

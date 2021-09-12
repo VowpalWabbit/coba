@@ -4,7 +4,8 @@ import collections
 from copy import copy
 from numbers import Number
 from operator import truediv
-from itertools import chain, repeat, product, accumulate
+from itertools import chain, repeat, accumulate
+from collections.abc import Container
 from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Callable
 
 from coba.config import CobaConfig
@@ -89,8 +90,10 @@ class Table:
                 return False
 
             for col,value in kwargs.items():
-                if isinstance(value,Number) and not re.search(f'(\D|^){value}(\D|$)', str(row[col])):
+                if isinstance(value,Container) and not isinstance(value,str) and row[col] not in value:
                     return False
+                if isinstance(value,Number) and not re.search(f'(\D|^){value}(\D|$)', str(row[col])):
+                    return False                
                 if isinstance(value,str) and not re.search(value, row[col]):
                     return False
                 if callable(value) and not value(row[col]):
@@ -301,7 +304,7 @@ class Result:
 
         new_result = copy(self)
         new_result._simulations  = new_result.simulations.filter(pred, **kwargs)
-        new_result._interactions = new_result.interactions.filter(simulation_id=lambda id: id in new_result.simulations)
+        new_result._interactions = new_result.interactions.filter(simulation_id=new_result.simulations)
 
         if len(new_result.simulations) == 0:
             CobaConfig.Logger.log(f"No simulations matched the given filter: {kwargs}.")
@@ -311,7 +314,7 @@ class Result:
     def filter_lrn(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Result':
         new_result = copy(self)
         new_result._learners     = new_result.learners.filter(pred, **kwargs)
-        new_result._interactions = new_result.interactions.filter(learner_id=lambda id: id in new_result.learners)
+        new_result._interactions = new_result.interactions.filter(learner_id=new_result.learners)
 
         if len(new_result.learners) == 0:
             CobaConfig.Logger.log(f"No learners matched the given filter: {kwargs}.")
@@ -324,9 +327,7 @@ class Result:
         span: int = None,
         err : Optional[str] = None,
         each: bool = False,
-        show: bool = True,
-        ax  = None,
-        fig = None) -> None:
+        ax  = None) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
             performance for different learners across independent simulations. This plot is valuable in gaining insight 
             into how various learners perform in comparison to one another. 
@@ -338,9 +339,8 @@ class Result:
                 identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
                 rewards are averaged together vs span = 1 WHERE the instantaneous reward is plotted for each interaction.
             err: Determine what kind of error bars to plot (if any). Valid types are `None`, 'se', and 'sd'. If `None`
-                then no bars are plotted, if 'se' the standard error is shown, and if 'sd the standard deviation is shown.
+                then no bars are plotted, if 'se' the standard error is shown, and if 'sd' the standard deviation is shown.
             each: Determine whether each constituent observation used to estimate mean performance is also plotted.
-            show: Determines whether plot_learners actually shows the results after it is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
@@ -372,9 +372,10 @@ class Result:
         if not progressives:
             return
         
+        show = ax is None
+
         if ax is None:
-            fig = plt.figure(figsize=(9,6))
-            ax  = fig.add_subplot(1,1,1) #type: ignore
+            ax  = plt.figure(figsize=(10,6)).add_subplot(111) #type: ignore
 
         for learner_id in sorted(self.learners.keys, key=lambda id: self.learners[id]["full_name"]):
 
@@ -406,9 +407,9 @@ class Result:
             #and more or less free computationally so we always
             #calculate it regardless of if they are showing them
             #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
-            Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z ]
-            SD = [ (y2-y**2)**(1/2) for y,y2 in zip(Y,Y2)     ]
-            SE = [ sd/(n**(1/2))    for sd,n in zip(SD,N)     ]
+            Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z            ]
+            SD = [ (round(y2-y**2,8))**(1/2)       for y,y2 in zip(Y,Y2) ]
+            SE = [ sd/(n**(1/2))                   for sd,n in zip(SD,N) ]
 
             yerr = 0 if err is None else SE if err.lower() == 'se' else SD if err.lower() == 'sd' else 0
             ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), label=label, color=color)
@@ -417,34 +418,31 @@ class Result:
                 for Y in list(zip(*Z)):
                     ax.plot(X,Y, color=color, alpha=0.15)
 
-        ax.margins(0)
-
-        x_min = xlim[0] if xlim else ax.get_xlim()[0]
-        x_max = xlim[1] if xlim else ax.get_xlim()[1]
-        y_min = ylim[0] if ylim else ax.get_ylim()[0]
-        y_max = ylim[1] if ylim else ax.get_ylim()[1]
-
         padding = .05
+        ax.margins(0)
+        ax.set_xticks(np.clip(ax.get_xticks(), *ax.get_xlim()))
+        ax.margins(padding)
 
-        x_pad = padding*(x_max-x_min)
-        ax.set_xlim(x_min-x_pad, x_max+x_pad)
-        ax.set_xticks(np.clip(ax.get_xticks(), x_min, x_max))
+        if xlim:
+            x_pad = padding*(xlim[1]-xlim[0])
+            ax.set_xlim(xlim[0]-x_pad, xlim[1]+x_pad)
 
-        y_pad = padding*(y_max-y_min)
-        ax.set_ylim(y_min-y_pad, y_max+y_pad)
+        if ylim:
+            y_pad = padding*(ylim[1]-ylim[0])
+            ax.set_ylim(ylim[0]-y_pad, ylim[1]+y_pad)
 
-        ax.set_title (("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward")
+        ax.set_title(("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward", loc='left',pad=15)
         ax.set_ylabel("Reward")
         ax.set_xlabel("Interactions")
 
-        #make room for the legend
-        scale = 0.65
-        box1 = ax.get_position()
-        ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+        if ax.get_legend() is None:
+            scale = 0.65
+            box1 = ax.get_position()
+            ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+        else:
+            ax.get_legend().remove()
 
-        if fig is not None:
-            # Put a legend below current axis
-            fig.legend(*ax.get_legend_handles_labels(), loc='upper center', bbox_to_anchor=(.5, .3), ncol=1, fontsize='medium') #type: ignore
+        ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium') #type: ignore
 
         if show:
             plt.show()
