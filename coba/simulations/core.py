@@ -174,8 +174,8 @@ class ClassificationSimulation(Simulation):
         is_label      = lambda action,label: action == label #type: ignore
         in_multilabel = lambda action,label: isinstance(label,collections.Sequence) and action in label #type: ignore
 
-        contexts  = features 
-        actions   = list(sorted(set(labels_flat), key=lambda l: labels_flat.index(l)))
+        contexts  = features
+        actions   = CobaRandom(1).shuffle(sorted(set(labels_flat))) # shuffling so that action order contains no statistical information
         feedbacks = [ [ feedback(action,label) for action in actions ] for label in labels ]
 
         self._interactions = list(map(Interaction, contexts, repeat(actions), feedbacks))
@@ -311,13 +311,14 @@ class ManikSimulation(ReaderSimulation):
         return f'{{"ManikSimulation":"{super().__repr__()}"}}'
 
 class ValidationSimulation(LambdaSimulation):
-    def __init__(self, n_interactions: int=500, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, sparse: bool=False, seed:int=1) -> None:
+    def __init__(self, n_interactions: int=500, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, sparse: bool=False, seed:int=1, make_binary=False) -> None:
 
         self._n_bandits        = n_actions
         self._n_features       = n_features
         self._context_features = context_features
         self._action_features  = action_features
         self._seed             = seed
+        self._make_binary      = make_binary
 
         r = CobaRandom(seed)
 
@@ -348,6 +349,7 @@ class ValidationSimulation(LambdaSimulation):
             bandit_thetas = [ r.randoms(n_features) for _ in range(n_actions) ]
             theta_totals  = [ sum(theta) for theta in bandit_thetas]
             bandit_thetas = [ [t/norm for t in theta ] for theta,norm in zip(bandit_thetas,theta_totals)]
+            scales        = [ 1 for _ in range(n_features) ]
 
             actions_features = []
             for i in range(n_actions):
@@ -355,7 +357,7 @@ class ValidationSimulation(LambdaSimulation):
                 action[i] = 1
                 actions_features.append(tuple(action))
 
-            context = lambda i     : sparsify(r.randoms(n_features))
+            context = lambda i     : sparsify([ f*s for f,s in zip(r.randoms(n_features),scales) ])
             actions = lambda i,c   : [sparsify(af) for af in actions_features]
             rewards = lambda i,c,a : sum([cc*t for cc,t in zip(unsparse(c),bandit_thetas[unsparse(a).index(1)])])
 
@@ -364,22 +366,23 @@ class ValidationSimulation(LambdaSimulation):
             theta = r.randoms(n_features)
 
             context = lambda i     :   None
-            actions = lambda i,c   : [ sparsify(normalize(r.randoms(n_features))) for _ in range(r.randint(2,10)) ]
+            actions = lambda i,c   : [ sparsify(normalize(r.randoms(n_features))) for _ in range(n_actions) ]
             rewards = lambda i,c,a : float(sum([cc*t for cc,t in zip(theta,unsparse(a))]))
 
         if context_features and action_features:
 
             context = lambda i     :   sparsify(r.randoms(n_features))
-            actions = lambda i,c   : [ sparsify(normalize(r.randoms(n_features))) for _ in range(r.randint(2,10)) ]
+            actions = lambda i,c   : [ sparsify(normalize(r.randoms(n_features))) for _ in range(n_actions) ]
             rewards = lambda i,c,a : sum([cc*t for cc,t in zip(unsparse(c),unsparse(a))])
 
         super().__init__(n_interactions, context, actions, rewards)
 
     def read(self) -> Iterable[Interaction]:
         for i in super().read():
-            yield i
-            #yield Interaction(i.context, i.actions, [ int(r == max(i.feedbacks)) for r in i.feedbacks ] )
-
+            if self._make_binary:
+                yield Interaction(i.context, i.actions, [ int(r == max(i.feedbacks)) for r in i.feedbacks ] )
+            else:
+                yield i
 
     def __repr__(self) -> str:
         return f"Validation"

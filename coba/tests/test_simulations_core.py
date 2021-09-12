@@ -139,15 +139,15 @@ class ClassificationSimulation_Tests(unittest.TestCase):
         self.assertEqual(dict(zip(*feature_rows[2])), interactions[2].context)
         self.assertEqual(dict(zip(*feature_rows[3])), interactions[3].context)
 
-        self.assertEqual([1,0,2], interactions[0].actions)
-        self.assertEqual([1,0,2], interactions[1].actions)
-        self.assertEqual([1,0,2], interactions[2].actions)
-        self.assertEqual([1,0,2], interactions[3].actions)
+        self.assertEqual([0,2,1], interactions[0].actions)
+        self.assertEqual([0,2,1], interactions[1].actions)
+        self.assertEqual([0,2,1], interactions[2].actions)
+        self.assertEqual([0,2,1], interactions[3].actions)
 
-        self.assertEqual([1,0,0], interactions[0].feedbacks)
-        self.assertEqual([1,0,0], interactions[1].feedbacks)
-        self.assertEqual([0,1,0], interactions[2].feedbacks)
-        self.assertEqual([0,0,1], interactions[3].feedbacks)
+        self.assertEqual([0,0,1], interactions[0].feedbacks)
+        self.assertEqual([0,0,1], interactions[1].feedbacks)
+        self.assertEqual([1,0,0], interactions[2].feedbacks)
+        self.assertEqual([0,1,0], interactions[3].feedbacks)
 
 class MemorySimulation_Tests(unittest.TestCase):
 
@@ -238,11 +238,11 @@ class ArffSimulation_Tests(unittest.TestCase):
         self.assertEqual((1,2), interactions[0].context)
         self.assertEqual((2,3), interactions[1].context)
 
-        self.assertEqual(['class_B','0'], interactions[0].actions)
-        self.assertEqual(['class_B','0'], interactions[1].actions)
+        self.assertEqual(['0','class_B'], interactions[0].actions)
+        self.assertEqual(['0','class_B'], interactions[1].actions)
 
-        self.assertEqual([1,0], interactions[0].feedbacks)
-        self.assertEqual([0,1], interactions[1].feedbacks)
+        self.assertEqual([0,1], interactions[0].feedbacks)
+        self.assertEqual([1,0], interactions[1].feedbacks)
 
     def test_one_hot(self):
 
@@ -267,13 +267,13 @@ class ArffSimulation_Tests(unittest.TestCase):
         self.assertEqual((2,0,0,0,1), interactions[1].context)
         self.assertEqual((3,0,1,0,0), interactions[2].context)
 
-        self.assertEqual(['class_B','0'], interactions[0].actions)
-        self.assertEqual(['class_B','0'], interactions[1].actions)
-        self.assertEqual(['class_B','0'], interactions[2].actions)
+        self.assertEqual(['0','class_B'], interactions[0].actions)
+        self.assertEqual(['0','class_B'], interactions[1].actions)
+        self.assertEqual(['0','class_B'], interactions[2].actions)
 
-        self.assertEqual([1,0], interactions[0].feedbacks)
-        self.assertEqual([0,1], interactions[1].feedbacks)
-        self.assertEqual([0,1], interactions[2].feedbacks)
+        self.assertEqual([0,1], interactions[0].feedbacks)
+        self.assertEqual([1,0], interactions[1].feedbacks)
+        self.assertEqual([1,0], interactions[2].feedbacks)
 
 class LibsvmSimulation_Tests(unittest.TestCase):
     
@@ -295,8 +295,8 @@ class LibsvmSimulation_Tests(unittest.TestCase):
         self.assertEqual({2:1,3:1}, interactions[1].context)
         self.assertEqual({4:4    }, interactions[2].context)
 
-        self.assertEqual(['0', '1'], interactions[0].actions)
-        self.assertEqual(['0', '1'], interactions[1].actions)
+        self.assertEqual(['0','1'], interactions[0].actions)
+        self.assertEqual(['0','1'], interactions[1].actions)
 
         self.assertEqual([1,0], interactions[0].feedbacks)
         self.assertEqual([0,1], interactions[1].feedbacks)
