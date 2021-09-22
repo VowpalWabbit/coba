@@ -42,9 +42,17 @@ class UcbBanditLearner_Tests(unittest.TestCase):
         learner = UcbBanditLearner()
         actions = [1,2,3]
 
-        self.assertEqual([1,0,0],learner.predict(None, actions))
-        self.assertEqual([0,1,0],learner.predict(None, actions))
-        self.assertEqual([0,0,1],learner.predict(None, actions))
+        self.assertEqual([1/3, 1/3, 1/3],learner.predict(None, actions))
+        learner.learn(None, actions[0], 0, 0, None)
+
+        self.assertEqual([0,1/2,1/2],learner.predict(None, actions))
+        learner.learn(None, actions[1], 0, 0, None)
+        
+        self.assertEqual([0,  0,  1],learner.predict(None, actions))
+        learner.learn(None, actions[2], 0, 0, None)
+
+        #the last time all actions have the same value so we pick randomly
+        self.assertEqual([1/3, 1/3, 1/3],learner.predict(None, actions))
 
     def test_learn_predict_best1(self):
         learner = UcbBanditLearner()

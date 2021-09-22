@@ -93,11 +93,10 @@ class UcbBanditLearner(Learner):
         """Instantiate a UcbBanditLearner."""
 
         #these variable names were selected for easier comparison with the original paper 
-        self._init_a: int = 0
         self._t     : int = 0
-        self._s     : Dict[Action, int           ] = defaultdict(int)
         self._m     : Dict[Action, float         ] = {}
-        self._v     : Dict[Action, OnlineVariance] = defaultdict(OnlineVariance)
+        self._s     : Dict[Action, int           ] = {}
+        self._v     : Dict[Action, OnlineVariance] = {}
 
     @property
     def family(self) -> str:
@@ -110,7 +109,7 @@ class UcbBanditLearner(Learner):
     @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
-        
+
         See the base class for more information
         """
         return { }
@@ -125,18 +124,17 @@ class UcbBanditLearner(Learner):
         Returns:
             The probability of taking each action. See the base class for more information.
         """
+        self._t += 1
+        never_observed_actions = [ a for a in actions if a not in self._m ]
 
-        #initialize by playing every action once
-        if self._init_a < len(actions):
-            self._init_a += 1
-            return [ int(i == (self._init_a-1)) for i in range(len(actions)) ]
-
+        if never_observed_actions:
+            max_actions = never_observed_actions
         else:
-            values      = [ self._m[a] + self._Avg_R_UCB(a) if a in self._m else None for a in actions ]
-            max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
-            max_indexes = [i for i in range(len(values)) if values[i]==max_value]
+            values      = [ self._m[a] + self._Avg_R_UCB(a) for a in actions ]
+            max_value   = max(values)
+            max_actions = [ a for a,v in zip(actions,values) if v==max_value ]
 
-            return [ int(i in max_indexes)/len(max_indexes) for i in range(len(actions)) ]
+        return [ int(action in max_actions)/len(max_actions) for action in actions ]
 
     def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
         """Learn from the given interaction.
@@ -153,12 +151,12 @@ class UcbBanditLearner(Learner):
 
         if action not in self._m:
             self._m[action] = reward
+            self._s[action] = 1
+            self._v[action] = OnlineVariance()
         else:
             self._m[action] = (1-1/self._s[action]) * self._m[action] + 1/self._s[action] * reward
-
-        self._t         += 1
-        self._s[action] += 1
-        self._v[action].update(reward)
+            self._s[action] += 1
+            self._v[action].update(reward)
 
     def _Avg_R_UCB(self, action: Action) -> float:
         """Produce the estimated upper confidence bound (UCB) for E[R|A].
