@@ -1,3 +1,5 @@
+import gc
+
 from copy import deepcopy
 from itertools import groupby, product, count
 from collections import defaultdict
@@ -237,24 +239,32 @@ class ProcessTasks(Filter[Iterable[Iterable[Task]], Iterable[Any]]):
 
         with CobaConfig.Logger.log(f"Processing chunk..."):
 
-            for src_id, tasks_by_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
+            for src_id, tasks_for_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
 
                 try:
 
+                    tasks_for_src = list(tasks_for_src)
+                    sim_cnt_for_src = len(set([task.sim_id for task in tasks_for_src]))
+
                     with CobaConfig.Logger.time(f"Creating source {src_id} from {source_by_id[src_id]}..."):
                         #This is not ideal. I'm not sure how it should be improved so it is being left for now.
+                        #Maybe add a flag to the Benchmark to say whether the source should be stashed in mem?
                         loaded_source = list(source_by_id[src_id].read())
 
-                    for sim_id, tasks_by_src_sim in groupby(sorted(tasks_by_src, key=srt_sim), key=grp_sim):
+                    for sim_id, tasks_for_sim in groupby(sorted(tasks_for_src, key=srt_sim), key=grp_sim):
 
                         with CobaConfig.Logger.time(f"Creating simulation {sim_id} from source {src_id}..."):
-                            interactions = filter_by_id[sim_id].filter(loaded_source)
+                            interactions = list(filter_by_id[sim_id].filter(loaded_source))
+
+                        if sim_cnt_for_src == 1:
+                            loaded_source = None
+                            gc.collect()
 
                         if not interactions:
                             CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate (likely due to `take` being larger than the simulation).")
                             return
 
-                        for task in tasks_by_src_sim:
+                        for task in tasks_for_sim:
                             try:
                                 for transaction in task.filter(interactions): 
                                     yield transaction
