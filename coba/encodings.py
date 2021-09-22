@@ -6,12 +6,10 @@ Remarks:
 
 import json
 
-from itertools import count, product
+from itertools import product
 from collections import defaultdict
 from abc import ABC, abstractmethod
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Dict, Tuple, Union
-
-from coba.utilities import PackageChecker
 
 _T_out = TypeVar('_T_out', bound=Any, covariant=True) 
 
@@ -196,6 +194,7 @@ class NumericEncoder(Encoder[float]):
 class OneHotEncoder(Encoder[Tuple[int,...]]):
     """An Encoder implementation that turns incoming values into a one hot representation."""
 
+    #this in theory could be made more efficient via bit array rather than a byte array
     class MemoryEffecientStorage(bytes):
         def __repr__(self) -> str:
             return str(tuple(self))
@@ -235,7 +234,6 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
 
             keys_and_values = zip(fit_values, map(OneHotEncoder.MemoryEffecientStorage, known_onehots))
             default_factory = lambda:unknown_onehot
-
 
             self._onehots: Dict[Any,Tuple[int,...]]
 
