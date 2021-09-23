@@ -74,6 +74,10 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 target = self._get_target_for_problem_type(data_id)
                 ignored[headers.index(target)] = False
 
+            if self._problem_type == "classification":
+                target_encoder = StringEncoder() if self._nominal_as_str else OneHotEncoder(singular_if_binary=False)
+                encoders[headers.index(target)] = target_encoder
+
             file_rows = self._get_dataset_rows(dataset_description["file_id"], target, md5_checksum)
             is_sparse = isinstance(file_rows[0], tuple) and len(file_rows[0]) == 2
 
