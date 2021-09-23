@@ -257,6 +257,7 @@ class ProcessTasks(Filter[Iterable[Iterable[Task]], Iterable[Any]]):
                             interactions = list(filter_by_id[sim_id].filter(loaded_source))
 
                         if sim_cnt_for_src == 1:
+                            #this will hopefully help with memory...
                             loaded_source = None
                             gc.collect()
 

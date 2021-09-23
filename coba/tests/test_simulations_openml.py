@@ -41,11 +41,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((8.3, 27, 1020, (0,)), feature_rows[3])
         self.assertEqual((7.6, 23, 4700, (0,)), feature_rows[4])
 
-        self.assertEqual('no', label_col[0])
-        self.assertEqual('no', label_col[1])
-        self.assertEqual('yes', label_col[2])
-        self.assertEqual('yes', label_col[3])
-        self.assertEqual('yes', label_col[4])
+        self.assertEqual((1,), label_col[0])
+        self.assertEqual((1,), label_col[1])
+        self.assertEqual((0,), label_col[2])
+        self.assertEqual((0,), label_col[3])
+        self.assertEqual((0,), label_col[4])
 
     def test_csv_default_classification(self):
 
@@ -72,11 +72,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((8.3, 27, 1020, (0,)), feature_rows[3])
         self.assertEqual((7.6, 23, 4700, (0,)), feature_rows[4])
 
-        self.assertEqual('no', label_col[0])
-        self.assertEqual('no', label_col[1])
-        self.assertEqual('yes', label_col[2])
-        self.assertEqual('yes', label_col[3])
-        self.assertEqual('yes', label_col[4])
+        self.assertEqual((1,), label_col[0])
+        self.assertEqual((1,), label_col[1])
+        self.assertEqual((0,), label_col[2])
+        self.assertEqual((0,), label_col[3])
+        self.assertEqual((0,), label_col[4])
 
     def test_csv_not_classification(self):
 
@@ -141,11 +141,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((8.3, 27, 1020, 4), feature_rows[3])
         self.assertEqual((7.6, 23, 4700, 5), feature_rows[4])
 
-        self.assertEqual('2', label_col[0])
-        self.assertEqual('2', label_col[1])
-        self.assertEqual('2', label_col[2])
-        self.assertEqual('1', label_col[3])
-        self.assertEqual('1', label_col[4])
+        self.assertEqual((1,), label_col[0])
+        self.assertEqual((1,), label_col[1])
+        self.assertEqual((1,), label_col[2])
+        self.assertEqual((0,), label_col[3])
+        self.assertEqual((0,), label_col[4])
 
     def test_arff_default_arff_classification(self):
 
@@ -172,11 +172,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((8.3, 27.0, 1020.0, (0,)), feature_rows[3])
         self.assertEqual((7.6, 23.0, 4700.0, (0,)), feature_rows[4])
 
-        self.assertEqual('no' , label_col[0])
-        self.assertEqual('no' , label_col[1])
-        self.assertEqual('yes', label_col[2])
-        self.assertEqual('yes', label_col[3])
-        self.assertEqual('yes', label_col[4])
+        self.assertEqual((1,), label_col[0])
+        self.assertEqual((1,), label_col[1])
+        self.assertEqual((0,), label_col[2])
+        self.assertEqual((0,), label_col[3])
+        self.assertEqual((0,), label_col[4])
 
     def test_arff_sparse_arff_classification(self):
 
@@ -205,10 +205,10 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1)), feature_rows[2])
         self.assertEqual(( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  ), feature_rows[3])
 
-        self.assertEqual('class_A', label_col[0])
-        self.assertEqual('class_B', label_col[1])
-        self.assertEqual('class_C', label_col[2])
-        self.assertEqual('class_D', label_col[3])
+        self.assertEqual((1,0,0,0), label_col[0])
+        self.assertEqual((0,1,0,0), label_col[1])
+        self.assertEqual((0,0,1,0), label_col[2])
+        self.assertEqual((0,0,0,1), label_col[3])
 
     def test_arff_sparse_arff_missing_labels(self):
 
@@ -238,10 +238,10 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  ), feature_rows[3])
 
 
-        self.assertEqual('0'      , label_col[0])
-        self.assertEqual('class_B', label_col[1])
-        self.assertEqual('0'      , label_col[2])
-        self.assertEqual('class_D', label_col[3])
+        self.assertEqual((1,0,0), label_col[0])
+        self.assertEqual((0,1,0), label_col[1])
+        self.assertEqual((1,0,0), label_col[2])
+        self.assertEqual((0,0,1), label_col[3])
 
     def test_arff_not_classification(self):
 
@@ -288,11 +288,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((8.3, 27, 1020, 4), feature_rows[3])
         self.assertEqual((7.6, 23, 4700, 5), feature_rows[4])
 
-        self.assertEqual('2', label_col[0])
-        self.assertEqual('2', label_col[1])
-        self.assertEqual('2', label_col[2])
-        self.assertEqual('1', label_col[3])
-        self.assertEqual('1', label_col[4])
+        self.assertEqual((1,), label_col[0])
+        self.assertEqual((1,), label_col[1])
+        self.assertEqual((1,), label_col[2])
+        self.assertEqual((0,), label_col[3])
+        self.assertEqual((0,), label_col[4])
 
     def test_regression_dataset(self):
         CobaConfig.Api_Keys['openml'] = None
@@ -324,6 +324,37 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(8.3, label_col[3])
         self.assertEqual(7.6, label_col[4])
 
+    def test_csv_nominal_as_str(self):
+
+        CobaConfig.Api_Keys['openml'] = None
+        CobaConfig.Cacher = MemoryCacher()
+
+        #data description query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}')
+        #data types query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":[1,2],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"nominal","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}')
+        #data content query
+        CobaConfig.Cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,1,yes\r\n7.6,23,4700,1,yes\r\n\r\n')
+        #trials query
+        CobaConfig.Cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\n    { "task_id":338754,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n,  { "task_id":359909,\n    "task_type_id":5,\n    "task_type":"Clustering",\n    "did":42693,\n    "name":"testdata",\n    "status":"active",\n    "format":"ARFF"\n        ,"input": [\n                    {"name":"estimation_procedure", "value":"17"}\n            ,              {"name":"source_data", "value":"42693"}\n            ]\n            ,"quality": [\n                    {"name":"NumberOfFeatures", "value":"5.0"}\n            ,              {"name":"NumberOfInstances", "value":"5.0"}\n            ,              {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfMissingValues", "value":"0.0"}\n            ,              {"name":"NumberOfNumericFeatures", "value":"4.0"}\n            ,              {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\n            ]\n          }\n  ]}\n}\n')
+
+        feature_rows, label_col = OpenmlSource(42693,nominal_as_str=True).read()
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_col), 5)
+
+        self.assertEqual((8.1, 27, 1410, '2'), feature_rows[0])
+        self.assertEqual((8.2, 29, 1180, '2'), feature_rows[1])
+        self.assertEqual((8.2, 28, 1410, '2'), feature_rows[2])
+        self.assertEqual((8.3, 27, 1020, '1'), feature_rows[3])
+        self.assertEqual((7.6, 23, 4700, '1'), feature_rows[4])
+
+        self.assertEqual('no', label_col[0])
+        self.assertEqual('no', label_col[1])
+        self.assertEqual('yes', label_col[2])
+        self.assertEqual('yes', label_col[3])
+        self.assertEqual('yes', label_col[4])
+
 class OpenmlSimulation_Tests(unittest.TestCase):
 
     def test_simple_openml_source(self) -> None:
@@ -342,8 +373,8 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             hash(rnd.actions[1]) #make sure these are hashable
 
             self.assertEqual(len(cast(Tuple,rnd.context)), 268)
-            self.assertIn('0', rnd.actions)
-            self.assertIn('1', rnd.actions)
+            self.assertIn((0,), rnd.actions)
+            self.assertIn((1,), rnd.actions)
             self.assertEqual(len(rnd.actions),2)
             self.assertIn(1, rnd.feedbacks)
             self.assertIn(0, rnd.feedbacks)

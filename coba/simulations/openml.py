@@ -13,14 +13,15 @@ from coba.simulations.core import Context, Action, Interaction, Simulation, Clas
 
 class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
-    def __init__(self, id:int, problem_type:str = "classification", md5_checksum:str = None):
+    def __init__(self, id:int, problem_type:str = "classification", nominal_as_str:bool=False, md5_checksum:str = None):
         
         assert problem_type in ["classification", "regression"]
         
-        self._data_id      = id
-        self._md5_checksum = md5_checksum
-        self._problem_type = problem_type 
-        self._cached_urls  = []
+        self._data_id        = id
+        self._md5_checksum   = md5_checksum
+        self._problem_type   = problem_type 
+        self._nominal_as_str = nominal_as_str
+        self._cached_urls    = []
 
         #add flag to allow regression simulations
         #if a known exception happens still cache the query results
@@ -58,19 +59,20 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 if tipe['data_type'] == 'numeric':
                     encoders.append(NumericEncoder())  
                 elif tipe['data_type'] == 'nominal':
-                    encoders.append(OneHotEncoder(singular_if_binary=True))
+                    if self._nominal_as_str:
+                        encoders.append(StringEncoder())
+                    else:
+                        encoders.append(OneHotEncoder(singular_if_binary=True))
                 else:
                     ignored[-1] = True
                     encoders.append(StringEncoder())
 
             target_encoder = encoders[headers.index(target)]
-            problem_encoder = NumericEncoder if self._problem_type == "regression" else OneHotEncoder
+            problem_encoder = NumericEncoder if self._problem_type == "regression" else (OneHotEncoder,StringEncoder)
 
             if target=="" or not isinstance(target_encoder, problem_encoder):
                 target = self._get_target_for_problem_type(data_id)
-
-            ignored[headers.index(target)] = False
-            encoders[headers.index(target)] = StringEncoder() if self._problem_type == "classification" else NumericEncoder()
+                ignored[headers.index(target)] = False
 
             file_rows = self._get_dataset_rows(dataset_description["file_id"], target, md5_checksum)
             is_sparse = isinstance(file_rows[0], tuple) and len(file_rows[0]) == 2
@@ -89,27 +91,32 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             file_encoders = [ encoders[headers.index(file_header)] for file_header in file_headers]
 
+            if is_sparse:
+                label_col = file_cols[file_headers.index(target)]
+                
+                dense_label_col = ['0']*len(file_rows)
+                
+                for index, value in zip(label_col[0], label_col[1]):
+                    dense_label_col[index] = value
+
+                file_cols[file_headers.index(target)] = (tuple(range(len(file_rows))), tuple(dense_label_col))
+
             file_cols    = list(Encode(file_encoders).filter(file_cols))
             label_col    = file_cols.pop(file_headers.index(target))
             feature_rows = list(Transpose().filter(file_cols))
 
             if is_sparse:
-                dense_label_col = ['0']*len(feature_rows)
-                
-                for index, value in zip(label_col[0], label_col[1]):
-                    dense_label_col[index] = value
-            else:
-                dense_label_col = list(label_col)
+                label_col = label_col[1]
 
             no_missing_values = [ not any(isinstance(val,Number) and isnan(val) for val in row) for row in feature_rows ]
 
             if not any(no_missing_values):
                 raise CobaException(f"Every example in openml {data_id} has a missing value. The simulation is being ignored.")
 
-            feature_rows    = list(compress(feature_rows, no_missing_values))
-            dense_label_col = list(compress(dense_label_col, no_missing_values)) 
+            feature_rows = list(compress(feature_rows, no_missing_values))
+            label_col    = list(compress(label_col, no_missing_values)) 
             
-            return feature_rows, dense_label_col
+            return feature_rows, label_col
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
@@ -245,8 +252,8 @@ class OpenmlSimulation(Simulation):
     incorrect lables).
     """
 
-    def __init__(self, id: int, simulation_type:str = "classification", md5_checksum: str = None) -> None:
-        self._source = OpenmlSource(id, simulation_type, md5_checksum)
+    def __init__(self, id: int, simulation_type:str = "classification", nominal_as_str:bool = False, md5_checksum: str = None) -> None:
+        self._source = OpenmlSource(id, simulation_type, nominal_as_str, md5_checksum)
         self._interactions: Optional[Sequence[Interaction]] = None
 
     def read(self) -> Iterable[Interaction]:
@@ -254,10 +261,11 @@ class OpenmlSimulation(Simulation):
 
         features,labels = self._source.read()
 
-        if isinstance(labels[0],str):
-            return ClassificationSimulation(features,labels).read()
-        else:
+        if isinstance(labels[0],Number):
             return RegressionSimulation(features,labels).read()
+        else:
+            return ClassificationSimulation(features,labels).read()
+            
 
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._source._data_id}}}'

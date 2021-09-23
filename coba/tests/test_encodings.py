@@ -234,6 +234,13 @@ class InteractionTermsEncoder_Tests(unittest.TestCase):
 
         self.assertEqual([("xaad",1), ("xaae",1)], interactions)
 
+    def test_string_numeric_xa(self):
+        encoder = InteractionTermsEncoder(["xa"])
+
+        interactions = encoder.encode(x=[2], a=["d","e"])
+
+        self.assertEqual([("x0ad",2), ("x0ae",2)], interactions)
+
     def test_singular_string_a(self):
         encoder = InteractionTermsEncoder(["a"])
 
