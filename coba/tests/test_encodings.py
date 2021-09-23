@@ -218,28 +218,28 @@ class InteractionTermsEncoder_Tests(unittest.TestCase):
 
         interactions = encoder.encode(x=["a","b","c"], a=["d","e"])
 
-        self.assertEqual([("ad",1), ("ae",1)], interactions)
+        self.assertEqual([("a0d",1), ("a1e",1)], interactions)
     
     def test_string_x(self):
         encoder = InteractionTermsEncoder(["x"])
 
         interactions = encoder.encode(x=["a","b","c"], a=["d","e"])
 
-        self.assertEqual([("xa",1), ("xb",1), ("xc",1)], interactions)
+        self.assertEqual([("x0a",1), ("x1b",1), ("x2c",1)], interactions)
     
     def test_string_xa(self):
         encoder = InteractionTermsEncoder(["xa"])
 
         interactions = encoder.encode(x=["a"], a=["d","e"])
 
-        self.assertEqual([("xaad",1), ("xaae",1)], interactions)
+        self.assertEqual([("x0aa0d",1), ("x0aa1e",1)], interactions)
 
     def test_string_numeric_xa(self):
         encoder = InteractionTermsEncoder(["xa"])
 
         interactions = encoder.encode(x=[2], a=["d","e"])
 
-        self.assertEqual([("x0ad",2), ("x0ae",2)], interactions)
+        self.assertEqual([("x0a0d",2), ("x0a1e",2)], interactions)
 
     def test_singular_string_a(self):
         encoder = InteractionTermsEncoder(["a"])
@@ -251,16 +251,34 @@ class InteractionTermsEncoder_Tests(unittest.TestCase):
     def test_singular_string_xa(self):
         encoder = InteractionTermsEncoder(["xa"])
 
-        interactions = encoder.encode(x=["a"], a="d")
+        interactions = encoder.encode(x="abc", a="dbc")
 
-        self.assertEqual([("xaad",1)], interactions)
+        self.assertEqual([("xabcadbc",1)], interactions)
+
+    def test_singular_numeric_xa(self):
+        encoder = InteractionTermsEncoder(["xa"])
+
+        interactions1 = encoder.encode(x=(1,2,3), a=2)
+        interactions2 = encoder.encode(x=(1,2,3), a=2)
+
+        self.assertCountEqual([2,4,6], interactions1)
+        self.assertEqual(interactions1,interactions2)
+
+    def test_string_tuple(self):
+        encoder = InteractionTermsEncoder(["xa"])
+
+        interactions1 = encoder.encode(x=('1',2), a=2)
+        interactions2 = encoder.encode(x=('1',2), a=2)
+
+        self.assertCountEqual([('x01a0', 2), ('x1a0',4) ], interactions1)
+        self.assertEqual(interactions1,interactions2)
+
 
     def test_performance(self):
         encoder = InteractionTermsEncoder(["xxa"])
 
         x = dict(zip(map(str,range(100)), range(100)))
         a = [1,2,3]
-
         
         time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
         

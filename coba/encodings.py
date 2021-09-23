@@ -5,9 +5,10 @@ Remarks:
 """
 
 import json
+import collections
 
+from numbers import Number
 from itertools import product
-from collections import defaultdict
 from abc import ABC, abstractmethod
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Dict, Tuple, Union
 
@@ -240,7 +241,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             if self._error_if_unknown:
                 self._onehots = dict(keys_and_values)
             else:
-                self._onehots = defaultdict(default_factory, keys_and_values)
+                self._onehots = collections.defaultdict(default_factory, keys_and_values)
 
     @property
     def is_fit(self) -> bool:
@@ -323,7 +324,7 @@ class FactorEncoder(Encoder[int]):
             if self._error_if_unknown:
                 self._levels = dict(keys_and_values)
             else:
-                self._levels = defaultdict(default_factory, keys_and_values)
+                self._levels = collections.defaultdict(default_factory, keys_and_values)
 
     @property
     def is_fit(self) -> bool:
@@ -410,8 +411,11 @@ class InteractionTermsEncoder:
     def encode(self,*, x: Union[list,dict], a: Union[list,dict]):
         import numpy as np #type: ignore        
 
-        is_sparse = isinstance(x, dict) or isinstance(a, dict) or any([isinstance(xx,str) for xx in x]) or any([isinstance(aa,str) for aa in a])
+        is_sparse_type = lambda f: isinstance(f,dict) or isinstance(f,str)
+        is_sparse_sequ = lambda f: isinstance(f, collections.Sequence) and any(map(is_sparse_type,f))
 
+        is_sparse = is_sparse_type(x) or is_sparse_sequ(x) or is_sparse_type(a) or is_sparse_sequ(a)
+        
         def get_name_values(namespace,features):
             if isinstance(features, dict):
                 values = list(features.values())
@@ -419,24 +423,29 @@ class InteractionTermsEncoder:
             elif isinstance(features,str):
                 values = [1]
                 names  = [f"{namespace}{features}"]
-            else:
-                values = (features or [1])
+            elif isinstance(features,Number):
+                values = [features]
+                names  = [f"{namespace}0"]
+            elif isinstance(features, collections.Sequence):
+                values = list(features or [1])
                 names  = [ f"{namespace}{i}" for i in range(len(values)) ]
+            else:
+                raise Exception("The features provided to InteractionTermsEncoder are not supported.")
             
             return names,values
 
-        def handle_string_values(namespace,names,values):
+        def handle_string_values(names,values):
             for i in range(len(values)):
                 if isinstance(values[i],str):
-                    names[i] = f"{namespace}{values[i]}"
+                    names[i] = f"{names[i]}{values[i]}"
                     values[i] = 1
             return names,values
 
         context_names,context_values = get_name_values("x",x)
         action_names,action_values   = get_name_values("a",a)
 
-        context_names,context_values = handle_string_values("x",context_names,context_values)
-        action_names,action_values   = handle_string_values("a",action_names,action_values)
+        context_names,context_values = handle_string_values(context_names,context_values)
+        action_names,action_values   = handle_string_values(action_names,action_values)
 
         max_x_term = max([t[0] for t in self._terms])
         max_a_term = max([t[1] for t in self._terms])
