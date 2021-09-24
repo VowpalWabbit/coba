@@ -67,10 +67,11 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                     ignored[-1] = True
                     encoders.append(StringEncoder())
 
-            target_encoder = encoders[headers.index(target)]
-            problem_encoder = NumericEncoder if self._problem_type == "regression" else (OneHotEncoder,StringEncoder)
+            if target != "":
+                target_encoder = encoders[headers.index(target)]
+                problem_encoder = NumericEncoder if self._problem_type == "regression" else (OneHotEncoder,StringEncoder)
 
-            if target=="" or not isinstance(target_encoder, problem_encoder):
+            if target == "" or not isinstance(target_encoder, problem_encoder):
                 target = self._get_target_for_problem_type(data_id)
                 ignored[headers.index(target)] = False
 
