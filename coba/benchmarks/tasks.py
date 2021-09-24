@@ -11,6 +11,7 @@ from coba.config import CobaConfig
 from coba.utilities import PackageChecker
 from coba.pipes import Source, Pipe, Filter, IdentityFilter
 from coba.simulations import Simulation, Interaction, Shuffle, Take, OpenmlSimulation, ClassificationSimulation
+from coba.encodings import InteractionTermsEncoder
 
 from coba.benchmarks.transactions import Transaction
 from coba.benchmarks.results import Result
@@ -96,18 +97,17 @@ class SimulationTask(Task):
 
                     from sklearn.feature_extraction import FeatureHasher
                     from sklearn.ensemble import RandomForestClassifier
+                    from sklearn.tree import DecisionTreeClassifier
                     from sklearn.model_selection import cross_val_score
 
-                    X   = contexts
+                    encoder = InteractionTermsEncoder('x')
+
+                    X   = [ encoder.encode(x=c, a=[]) for c in contexts ]
                     y   = [ a[f.index(1)] for a,f in zip(actions,feedbacks)]
-                    clf = RandomForestClassifier(n_estimators=50)
+                    clf = DecisionTreeClassifier(random_state=1)
 
-                    if any(isinstance(f,str) for f in X[0]):
-                        X = [ dict(enumerate(x)) for x in X ]
-
-                    if isinstance(X[0],dict):
-                        X = [ dict(zip(map(str,x.keys()), x.values())) for x in X ]
-                        X = FeatureHasher(n_features=2**17).fit_transform(X)
+                    if isinstance(X[0][0],tuple):
+                        X = FeatureHasher(n_features=2**14, input_type="pair").fit_transform(X)
 
                     if len(y) > 5:
                         extra_statistics["bayes_rate"] = round(cross_val_score(clf, X, y, cv=5).mean(),4)
