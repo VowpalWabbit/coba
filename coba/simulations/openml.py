@@ -178,7 +178,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 raise CobaException(message) from None
 
             if '' == response.text:
-                raise CobaException("Openml hit an unexpected error. Please try requesting the data again.") from None
+                raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
 
             bites = response.content
 
