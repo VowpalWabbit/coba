@@ -81,6 +81,17 @@ class Table:
 
         return [ self._infer_type(column_packed, column_values) for column_packed, column_values in zip(columns_packed,columns_values)]
 
+    def window(self, partition_by:Sequence[str], order_by:Sequence[str], window_lim:Tuple[float,float], functions: Dict[str,Callable]):
+        partitions = collections.defaultdict(list)
+
+        for key in self.keys:
+            flat = self._rows_flat[key]
+            part_key = tuple([flat[part_by] for part_by in partition_by])
+            partitions[part_key].append(flat)
+
+    def aggregate(self, group_by:Sequence[str], functions:Dict[str,Callable]):
+        pass
+
     def filter(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Table':
 
         def satisfies_all_filters(key):
@@ -205,6 +216,71 @@ class Table:
         if key not in self.keys: raise KeyError(key)
         return dict(**self._rows_flat[key], **self._rows_pack[key])
 
+class InteractionsTable(Table):
+
+    def to_progressive_list(self, span: int = None, each:bool=False):
+        #Learner, Simulation, Index
+        #Learner,             Index
+
+        lrn_sim_rows = []
+
+        for interactions in self:
+            
+            rewards = interactions["reward"]
+
+            if span is None or span >= len(rewards):
+                cumwindow  = list(accumulate(rewards))
+                cumdivisor = list(range(1,len(cumwindow)+1))
+            
+            elif span == 1:
+                cumwindow  = list(rewards)
+                cumdivisor = [1]*len(cumwindow)
+
+            else:
+                alpha = 2/(1+span)
+                cumwindow  = list(accumulate(rewards          , lambda a,c: c + (1-alpha)*a))
+                cumdivisor = list(accumulate([1.]*len(rewards), lambda a,c: c + (1-alpha)*a)) #type: ignore
+
+            lrn_sim_rows.append([interactions["learner_id"], interactions["simulation_id"], *list(map(truediv, cumwindow, cumdivisor))])
+
+        if each:
+            return lrn_sim_rows
+        
+        else:
+            grouped_lrn_sim_rows = collections.defaultdict(list)
+            
+            for row in lrn_sim_rows:
+                grouped_lrn_sim_rows[row[0]].append(row[2:])
+
+            lrn_rows = []
+
+            for learner_id in grouped_lrn_sim_rows.keys():
+
+                Z = list(zip(*grouped_lrn_sim_rows[learner_id]))
+                
+                if not Z: continue
+
+                Y = [ sum(z)/len(z) for z in Z ]
+
+                lrn_rows.append([learner_id, *Y])
+
+            return lrn_rows
+
+    def to_progressive_pandas(self, span: int = None, each:bool=False):
+        PackageChecker.pandas("Result.to_pandas")
+
+        import pandas as pd
+
+        data = self.to_lists(span, each)
+        
+        if each:
+            n_index = len(data[0][2:])
+            return pd.DataFrame(data, columns=["learner_id", "simulation_id", *range(1,n_index+1)])
+        
+        else:
+            n_index = len(data[0][1:])
+            return pd.DataFrame(data, columns=["learner_id", *range(1,n_index+1)])
+
 class Result:
     """A class representing the result of a Benchmark evaluation on a given collection of Simulations and Learners."""
 
@@ -251,9 +327,9 @@ class Result:
         self.version   = version
         self.benchmark = benchmark
 
-        self._simulations  = Table("Simulations" , ['simulation_id']              , sim_rows)
-        self._learners     = Table("Learners"    , ['learner_id']                 , lrn_rows)
-        self._interactions = Table("Interactions", ['simulation_id', 'learner_id'], int_rows)
+        self._simulations  = Table            ("Simulations" , ['simulation_id'              ], sim_rows)
+        self._learners     = Table            ("Learners"    , ['learner_id'                 ], lrn_rows)
+        self._interactions = InteractionsTable("Interactions", ['simulation_id', 'learner_id'], int_rows)
 
     @property
     def learners(self) -> Table:
@@ -270,7 +346,7 @@ class Result:
         return self._simulations
 
     @property
-    def interactions(self) -> Table:
+    def interactions(self) -> InteractionsTable:
         """The collection of interactions that learners chose actions for in the Benchmark. Each interaction
             has a simulation_id and learner_id column to link them to the learners and simulations tables. The 
             easiest way to work with interactions is to convert to a dataframe via Result.interactions.to_pandas()
@@ -344,30 +420,14 @@ class Result:
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
-        PackageChecker.matplotlib('Result.standard_plot')
+        PackageChecker.matplotlib('Result.plot_learners')
         import matplotlib.pyplot as plt #type: ignore
         import numpy as np              #type: ignore
 
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-        for interactions in self.interactions:
-            
-            rewards = interactions["reward"]
-
-            if span is None or span >= len(rewards):
-                cumwindow  = list(accumulate(rewards))
-                cumdivisor = list(range(1,len(cumwindow)+1))
-            
-            elif span == 1:
-                cumwindow  = list(rewards)
-                cumdivisor = [1]*len(cumwindow)
-
-            else:
-                alpha = 2/(1+span)
-                cumwindow  = list(accumulate(rewards          , lambda a,c: c + (1-alpha)*a))
-                cumdivisor = list(accumulate([1.]*len(rewards), lambda a,c: c + (1-alpha)*a)) #type: ignore
-
-            progressives[interactions["learner_id"]].append(list(map(truediv, cumwindow, cumdivisor)))
+        for progressive in self.interactions.to_progressive_list(each=True):
+            progressives[progressive[0]].append(progressive[2:])
 
         if not progressives:
             return

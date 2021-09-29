@@ -3,7 +3,7 @@ import unittest
 import timeit
 
 from coba.benchmarks.transactions import Transaction
-from coba.benchmarks.results import Result, Table
+from coba.benchmarks.results import Result, Table, InteractionsTable
 
 class Table_Tests(unittest.TestCase):
 
@@ -243,6 +243,69 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual([('A', 'B'),('a', 'b')], list(table.to_tuples()))
 
         self.assertNotIn("a", filtered_table)
+
+class InteractionTable_Tests(unittest.TestCase):
+    def test_simple_each_span_none(self):
+        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
+            {"simulation_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
+            {"simulation_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
+            {"simulation_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
+        ])
+
+        expected = [[0,0,1,1.5,2], [0,1,3,4.5,6], [1,0,2,3,4]]
+        actual   = table.to_progressive_list(each=True)
+
+        self.assertCountEqual(expected,actual)
+
+    def test_simple_not_each_span_none(self):
+        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
+            {"simulation_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
+            {"simulation_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
+            {"simulation_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
+        ])
+
+        expected = [[0,2,3,4], [1,2,3,4]]
+        actual   = table.to_progressive_list(each=False)
+
+        self.assertCountEqual(expected,actual)
+
+    def test_simple_each_span_one(self):
+        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
+            {"simulation_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
+            {"simulation_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
+            {"simulation_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
+        ])
+
+        expected = [[0,0,1,2,3], [0,1,3,6,9], [1,0,2,4,6]]
+        actual   = table.to_progressive_list(each=True,span=1)
+
+        self.assertCountEqual(expected,actual)
+
+    def test_simple_not_each_span_one(self):
+        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
+            {"simulation_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
+            {"simulation_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
+            {"simulation_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
+        ])
+
+        expected = [[0,2,4,6], [1,2,4,6]]
+        actual   = table.to_progressive_list(each=False,span=1)
+
+        self.assertCountEqual(expected,actual)
+
+    def test_simple_each_span_two(self):
+        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
+            {"simulation_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
+            {"simulation_id":1, "learner_id":0, "_packed": {"reward":[2,4,6]}},
+        ])
+        expected = [[0,0,1,1.75,2.6152],[0,1,2,3.5,5.2307]]
+        actual   = table.to_progressive_list(each=True,span=2)
+
+        self.assertEqual(len(expected), len(actual))
+
+        for E,A in zip(expected, actual):
+            for e,a in zip(E,A):
+                self.assertAlmostEqual(e,a,places=3)
 
 class Result_Tests(unittest.TestCase):
 
