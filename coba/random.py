@@ -86,6 +86,11 @@ class CobaRandom:
         return l
 
     def random(self) -> float:
+        """Generate a uniform random number in [0,1].
+
+        Returns:
+            The generated random number in [0,1].
+        """
         return self.randoms(1)[0]
 
     def randint(self, a:int, b:int) -> int:
