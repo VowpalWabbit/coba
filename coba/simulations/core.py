@@ -4,7 +4,7 @@ import collections
 from abc import abstractmethod
 from numbers import Number
 from itertools import repeat, chain
-from typing import Optional, Sequence, List, Callable, Hashable, Any, Union, Iterable, cast
+from typing import Optional, Sequence, List, Callable, Hashable, Any, Union, Iterable, cast, overload, Dict
 
 from coba.random import CobaRandom
 
@@ -17,27 +17,55 @@ from coba.pipes import (
 
 Action      = Union[Hashable, HashableDict]
 Context     = Union[None, Hashable, HashableDict]
-Feedback    = Any
 
 class Interaction:
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
-    def __init__(self, context: Context, actions: Sequence[Action], feedbacks: Sequence[Feedback]) -> None:
+    @overload
+    def __init__(self, context: Context, actions: Sequence[Action], rewards: Sequence[float], **kwargs: Sequence[Any]) -> None:
+        ...
         """Instantiate Interaction.
 
         Args
-            context  : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
-            actions  : Features describing available actions in the interaction.
-            feedbacks: Feedback that will be received based on the action that is taken in the interaction.
+            context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
+            actions : Features describing available actions in the interaction.
+            rewards : The rewards that will be revealed to learners based on the action that is taken.
+            **kwargs: Additional information beyond reward that will be recorded in the results of a benchmark.
         """
 
-        assert actions, "At least one action must be provided for each interaction."
+    @overload
+    def __init__(self, context: Context, actions: Sequence[Action], *, reveals: Sequence[Any], **kwargs: Sequence[Any]) -> None:
+        ...
+        """Instantiate Interaction.
 
-        assert len(actions) == len(feedbacks), "The interaction should have a feedback for each action."
+        Args
+            context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
+            actions : Features describing available actions in the interaction.
+            reveals : What will be revealed to learners based on the action that is taken.
+            **kwargs: Additional information beyond revealed that will be recorded in the results of a benchmark.
+        """
 
-        self._context   =  context if not isinstance(context,dict) else HashableDict(context)
-        self._actions   = [ action if not isinstance(action, dict) else HashableDict(action) for action in actions ]
-        self._feedbacks = feedbacks
+    
+    def __init__(self, *args, **kwargs) -> None:
+
+        assert 2 <= len(args) and len(args) <= 3, "An unexpected number of positional arguments was supplied to Interaction."
+        assert (len(args) == 3 or "reveals" in kwargs), "Interaction requires either a reward positional arg or reveals kwarg."
+
+        context = args[0]
+        actions = args[1]
+        reveals = args[2] if len(args) == 3 else kwargs["reveals"]
+        results = {**kwargs, **(dict(reward=args[2]) if len(args)==3 else dict()) }
+        
+        assert len(actions) == len(reveals), "Interaction requires information to reveal for each action."
+
+        if len(args) == 2 and "reveal" not in results:
+            results["reveal"] = results["reveals"]
+            del results["reveals"]
+
+        self._context =  context if not isinstance(context,dict) else HashableDict(context)
+        self._actions = [ action if not isinstance(action, dict) else HashableDict(action) for action in actions ]
+        self._reveals = reveals
+        self._results = results
 
     def _is_sparse(self, feats):
 
@@ -106,9 +134,28 @@ class Interaction:
         return [ self._flatten(action) for action in self._actions ]
 
     @property
-    def feedbacks(self) -> Sequence[Feedback]:
-        """The interaction's feedback associated with each action."""
-        return list(self._feedbacks)
+    def reveals(self) -> Sequence[Any]:
+        """The interaction's information revealed to learner's based on the selected action."""
+        return self._reveals
+
+    @property
+    def results(self) -> Sequence[Dict[str,Any]]:
+        """The interaction's information recorded in results based on the selected action."""
+        return self._results
+    
+    def reveal(self, action: Action) -> Any:
+        """Return the information revealed by taking the given action."""
+        return self._reveals[self._actions.index(action)]
+
+    def result(self, action: Action) -> Dict[str,Any]:
+        """Return the recorded result for taking the given action."""
+        result = {}
+        aindex = self._actions.index(action) 
+
+        for key in self._results:
+            result[key] = self._results[key][aindex]
+
+        return result
 
 class Simulation(Source[Iterable[Interaction]]):
     """The simulation interface."""
@@ -173,17 +220,17 @@ class ClassificationSimulation(Simulation):
         else:
             labels_flat = list(labels)
 
-        feedback      = lambda action,label: int(is_label(action,label) or in_multilabel(action,label)) #type: ignore
+        reveal        = lambda action,label: int(is_label(action,label) or in_multilabel(action,label)) #type: ignore
         is_label      = lambda action,label: action == label #type: ignore
         in_multilabel = lambda action,label: isinstance(label,collections.Sequence) and action in label #type: ignore
 
         # shuffling so that action order contains no statistical information
         # sorting so that the shuffled values are always shuffled in the same order
-        actions   = CobaRandom(1).shuffle(sorted(set(labels_flat))) 
-        contexts  = features
-        feedbacks = [ [ feedback(action,label) for action in actions ] for label in labels ]
+        actions  = CobaRandom(1).shuffle(sorted(set(labels_flat))) 
+        contexts = features
+        reveals  = [ [ reveal(action,label) for action in actions ] for label in labels ]
 
-        self._interactions = list(map(Interaction, contexts, repeat(actions), feedbacks))
+        self._interactions = list(map(Interaction, contexts, repeat(actions), reveals))
 
     def read(self) -> Iterable[Interaction]:
         """Read the interactions in this simulation."""
@@ -213,12 +260,12 @@ class RegressionSimulation(Simulation):
 
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
-        feedback  = lambda action,label: -abs(float(action)-float(label))
-        contexts  = features
-        actions   = CobaRandom(1).shuffle(sorted(set(labels)))
-        feedbacks = [ [ feedback(action,label) for action in actions ] for label in labels ]
+        reveal = lambda action,label: -abs(float(action)-float(label))
+        contexts = features
+        actions  = CobaRandom(1).shuffle(sorted(set(labels)))
+        reveals  = [ [ reveal(action,label) for action in actions ] for label in labels ]
 
-        self._interactions = list(map(Interaction, contexts, repeat(actions), feedbacks))
+        self._interactions = list(map(Interaction, contexts, repeat(actions), reveals))
 
     def read(self) -> Iterable[Interaction]:
         """Read the interactions in this simulation."""
@@ -423,7 +470,7 @@ class ValidationSimulation(LambdaSimulation):
     def read(self) -> Iterable[Interaction]:
         for i in super().read():
             if self._make_binary:
-                yield Interaction(i.context, i.actions, [ int(r == max(i.feedbacks)) for r in i.feedbacks ] )
+                yield Interaction(i.context, i.actions, [ int(r == max(i.reveals)) for r in i.reveals ] )
             else:
                 yield i
 

@@ -1,3 +1,4 @@
+from coba.learners.core import RandomLearner
 from coba.simulations.core import ClassificationSimulation
 import unittest
 
@@ -62,7 +63,7 @@ class CountFilters:
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         for interaction in interactions:
-            yield Interaction((interaction.context, self._filters), interaction.actions, interaction.feedbacks)
+            yield Interaction((interaction.context, self._filters), interaction.actions, interaction.reveals)
 
         self._filters += 1
 #for testing purposes
@@ -210,7 +211,7 @@ class GroupBySource_Tests(unittest.TestCase):
 class SimulationTask_Tests(unittest.TestCase):
 
     def test_classification_statistics_dense(self):
-        simulation   = ClassificationSimulation([(1,2)]*20, ["A","B"]*10)
+        simulation   = ClassificationSimulation([(1,2),(3,4)]*10, ["A","B"]*10)
         task         = SimulationTask(0, 1, None, simulation, None)
         transactions = list(task.filter(simulation.read()))
 
@@ -219,17 +220,17 @@ class SimulationTask_Tests(unittest.TestCase):
         self.assertEqual(1  , transactions[0][1])
         self.assertEqual(2  , transactions[0][2]["action_cardinality"])
         self.assertEqual(2  , transactions[0][2]["context_dimensions"])
-        self.assertEqual(.5 , transactions[0][2]["bayes_rate"])
+        self.assertEqual(1  , transactions[0][2]["bayes_rate"])
         self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
+        self.assertEqual(1  , transactions[0][2]["centroid_purity"])
+        self.assertEqual(0  , transactions[0][2]["centroid_distance"])
 
     def test_classification_statistics_sparse1(self):
         
-        #we want the keys to be numeric not strings
-        context    = dict()
-        context[1] = 1  
-        context[2] = 2
+        c1 = {"1":1, "2":2}
+        c2 = {"1":3, "2":4}
 
-        simulation   = ClassificationSimulation([context]*20, ["A","B"]*10)
+        simulation   = ClassificationSimulation([c1,c2]*10, ["A","B"]*10)
         task         = SimulationTask(0, 1, None, simulation, None)
         transactions = list(task.filter(simulation.read()))
 
@@ -238,8 +239,10 @@ class SimulationTask_Tests(unittest.TestCase):
         self.assertEqual(1  , transactions[0][1])
         self.assertEqual(2  , transactions[0][2]["action_cardinality"])
         self.assertEqual(2  , transactions[0][2]["context_dimensions"])
-        self.assertEqual(.5 , transactions[0][2]["bayes_rate"])
+        self.assertEqual(1  , transactions[0][2]["bayes_rate"])
         self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
+        self.assertEqual(1  , transactions[0][2]["centroid_purity"])
+        self.assertEqual(0  , transactions[0][2]["centroid_distance"])
 
     def test_classification_statistics_sparse2(self):
 
@@ -255,8 +258,39 @@ class SimulationTask_Tests(unittest.TestCase):
         self.assertEqual(.5 , transactions[0][2]["bayes_rate"])
         self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
 
-
 class EvaluationTask_Tests(unittest.TestCase):
+
+    def test_simple(self):
+
+        task = EvaluationTask(0,0,0,None,RandomLearner(),0)
+
+        transactions = list(task.filter([
+            Interaction(1,[1,2,3],[4,5,6]),
+            Interaction(1,[1,2,3],[4,5,6]),
+            Interaction(1,[1,2,3],[4,5,6]),
+            Interaction(1,[1,2,3],[4,5,6]),
+        ]))
+
+        self.assertEqual("I", transactions[0][0])
+        self.assertEqual((0,0), transactions[0][1])
+        self.assertEqual({"_packed": { 'reward':[4,6,5,4]}}, transactions[0][2])
+
+    def test_reveals_results(self):
+
+        task = EvaluationTask(0,0,0,None,RandomLearner(),0)
+
+        transactions = list(task.filter([
+            Interaction(1,[1,2,3],reveals=[4,5,6],reward=[1,2,3]),
+            Interaction(1,[1,2,3],reveals=[4,5,6],reward=[4,5,6]),
+            Interaction(1,[1,2,3],reveals=[4,5,6],reward=[7,8,9]),
+            Interaction(1,[1,2,3],reveals=[4,5,6],reward=[0,1,2]),
+        ]))
+
+        self.assertEqual("I", transactions[0][0])
+        self.assertEqual((0,0), transactions[0][1])
+        self.assertEqual({"_packed": { 'reveal':[4,6,5,4], 'reward':[1,6,8,0]}}, transactions[0][2])
+
+class ProcessTasks_Tests(unittest.TestCase):
 
     def test_simple(self):
 

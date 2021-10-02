@@ -438,8 +438,8 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             self.assertIn((0,1), rnd.actions)
             self.assertIn((1,0), rnd.actions)
             self.assertEqual(len(rnd.actions),2)
-            self.assertIn(1, rnd.feedbacks)
-            self.assertIn(0, rnd.feedbacks)
+            self.assertIn(1, rnd.reveals)
+            self.assertIn(0, rnd.reveals)
 
     def test_repr(self):
         self.assertEqual('{"OpenmlSimulation":150}', str(OpenmlSimulation(150)))

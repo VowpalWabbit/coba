@@ -2,6 +2,7 @@ import unittest
 import timeit
 
 from typing import List
+from unittest.signals import removeHandler
 
 from coba.pipes import MemorySource
 from coba.config import CobaConfig, NoneLogger
@@ -53,6 +54,35 @@ class Interaction_Tests(unittest.TestCase):
 
         self.assertEqual({1:0}, interaction.context)
 
+    def test_custom_rewards(self):
+        interaction = Interaction((1,2), (1,2,3), [4,5,6])
+
+        self.assertEqual((1,2), interaction.context)
+        self.assertCountEqual((1,2,3), interaction.actions)
+        self.assertCountEqual([4,5,6], interaction.reveals)
+        self.assertEqual({"reward":[4,5,6] }, interaction.results)
+        self.assertEqual(4, interaction.reveal(1))
+        self.assertEqual(5, interaction.reveal(2))
+        self.assertEqual(6, interaction.reveal(3))
+        self.assertEqual({"reward":4}, interaction.result(1) )
+        self.assertEqual({"reward":5}, interaction.result(2) )
+        self.assertEqual({"reward":6}, interaction.result(3) )
+
+    def test_reveals_results(self):
+        interaction = Interaction((1,2), (1,2,3), reveals=[(1,2),(3,4),(5,6)],reward=[4,5,6])
+
+        self.assertEqual((1,2), interaction.context)
+        self.assertCountEqual((1,2,3), interaction.actions)
+        self.assertCountEqual([(1,2),(3,4),(5,6)], interaction.reveals)
+        self.assertEqual({"reveal":[(1,2),(3,4),(5,6)], "reward":[4,5,6]}, interaction.results)
+        self.assertEqual((1,2), interaction.reveal(1))
+        self.assertEqual((3,4), interaction.reveal(2))
+        self.assertEqual((5,6), interaction.reveal(3))
+        self.assertEqual({"reveal":(1,2), "reward":4}, interaction.result(1))
+        self.assertEqual({"reveal":(3,4), "reward":5}, interaction.result(2))
+        self.assertEqual({"reveal":(5,6), "reward":6}, interaction.result(3))
+
+
     def test_performance(self):
 
         interaction = Interaction([1,2,3]*100, (1,2,3), (4,5,6))
@@ -86,7 +116,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 
             actual_context = i.context
             actual_actions = i.actions
-            actual_rewards = i.feedbacks
+            actual_rewards = i.reveals
 
             self.assertEqual(actual_context, expected_context)            
             self.assertSequenceEqual(actual_actions, expected_actions)
@@ -144,10 +174,10 @@ class ClassificationSimulation_Tests(unittest.TestCase):
         self.assertEqual([0,2,1], interactions[2].actions)
         self.assertEqual([0,2,1], interactions[3].actions)
 
-        self.assertEqual([0,0,1], interactions[0].feedbacks)
-        self.assertEqual([0,0,1], interactions[1].feedbacks)
-        self.assertEqual([1,0,0], interactions[2].feedbacks)
-        self.assertEqual([0,1,0], interactions[3].feedbacks)
+        self.assertEqual([0,0,1], interactions[0].reveals)
+        self.assertEqual([0,0,1], interactions[1].reveals)
+        self.assertEqual([1,0,0], interactions[2].reveals)
+        self.assertEqual([0,1,0], interactions[3].reveals)
 
 class MemorySimulation_Tests(unittest.TestCase):
 
@@ -176,11 +206,11 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(1      , interactions[0].context)
         self.assertEqual([1,2,3], interactions[0].actions)
-        self.assertEqual([0,1,2], interactions[0].feedbacks)
+        self.assertEqual([0,1,2], interactions[0].reveals)
 
         self.assertEqual(2      , interactions[1].context)
         self.assertEqual([4,5,6], interactions[1].actions)
-        self.assertEqual([2,3,4], interactions[1].feedbacks)
+        self.assertEqual([2,3,4], interactions[1].reveals)
 
     def test_interactions_len(self):
         def C(i:int) -> int:
@@ -212,8 +242,8 @@ class CsvSimulation_Tests(unittest.TestCase):
         self.assertEqual(['3','6'], interactions[0].actions)
         self.assertEqual(['3','6'], interactions[1].actions)
 
-        self.assertEqual([1,0], interactions[0].feedbacks)
-        self.assertEqual([0,1], interactions[1].feedbacks)
+        self.assertEqual([1,0], interactions[0].reveals)
+        self.assertEqual([0,1], interactions[1].reveals)
 
 class ArffSimulation_Tests(unittest.TestCase):
 
@@ -241,8 +271,8 @@ class ArffSimulation_Tests(unittest.TestCase):
         self.assertEqual(['0','class_B'], interactions[0].actions)
         self.assertEqual(['0','class_B'], interactions[1].actions)
 
-        self.assertEqual([0,1], interactions[0].feedbacks)
-        self.assertEqual([1,0], interactions[1].feedbacks)
+        self.assertEqual([0,1], interactions[0].reveals)
+        self.assertEqual([1,0], interactions[1].reveals)
 
     def test_one_hot(self):
 
@@ -271,9 +301,9 @@ class ArffSimulation_Tests(unittest.TestCase):
         self.assertEqual(['0','class_B'], interactions[1].actions)
         self.assertEqual(['0','class_B'], interactions[2].actions)
 
-        self.assertEqual([0,1], interactions[0].feedbacks)
-        self.assertEqual([1,0], interactions[1].feedbacks)
-        self.assertEqual([1,0], interactions[2].feedbacks)
+        self.assertEqual([0,1], interactions[0].reveals)
+        self.assertEqual([1,0], interactions[1].reveals)
+        self.assertEqual([1,0], interactions[2].reveals)
 
 class LibsvmSimulation_Tests(unittest.TestCase):
     
@@ -298,8 +328,8 @@ class LibsvmSimulation_Tests(unittest.TestCase):
         self.assertEqual(['0','1'], interactions[0].actions)
         self.assertEqual(['0','1'], interactions[1].actions)
 
-        self.assertEqual([1,0], interactions[0].feedbacks)
-        self.assertEqual([0,1], interactions[1].feedbacks)
+        self.assertEqual([1,0], interactions[0].reveals)
+        self.assertEqual([0,1], interactions[1].reveals)
 
 if __name__ == '__main__':
     unittest.main()

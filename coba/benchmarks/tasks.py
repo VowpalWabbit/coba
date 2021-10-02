@@ -1,6 +1,8 @@
+import collections
 import gc
 
 from copy import deepcopy
+from statistics import median
 from itertools import groupby, product, count
 from collections import defaultdict
 from typing import Iterable, Sequence, Any, Optional, Dict, Hashable, Tuple
@@ -64,19 +66,19 @@ class EvaluationTask(Task):
 
             for interaction in interactions:
 
-                context   = interaction.context
-                actions   = interaction.actions
-                feedbacks = interaction.feedbacks
+                context = interaction.context
+                actions = interaction.actions
 
-                probs,info  = learner.predict(context, actions)
+                probs,info = learner.predict(context, actions)
 
                 action = random.choice(actions, probs)
-                reward = feedbacks[actions.index(action)]
+                reveal = interaction.reveal(action)
+                result = interaction.result(action)
                 prob   = probs[actions.index(action)]
 
-                info = learner.learn(context, action, reward, prob, info) or {}
+                info = learner.learn(context, action, reveal, prob, info) or {}
                                                         
-                for key,value in info.items() | {('reward',reward)}: 
+                for key,value in info.items() | result.items(): 
                     row_data[key].append(value)
 
             yield Transaction.interactions(self.sim_id, self.lrn_id, _packed=row_data)
@@ -88,48 +90,71 @@ class SimulationTask(Task):
         with CobaConfig.Logger.time(f"Calculating Simulation {self.sim_id} statistics..."):
             extra_statistics = {}
 
-            contexts,actions,feedbacks = zip(*[ (i.context, i.actions, i.feedbacks) for i in interactions])
+            contexts,actions,reveals = zip(*[ (i.context, i.actions, i.reveals) for i in interactions])
 
             if isinstance(self.sim_source, (ClassificationSimulation,OpenmlSimulation)):
 
                 try:
                     PackageChecker.sklearn("")
 
+                    import numpy as np
+                    import scipy.sparse as sp
                     from sklearn.feature_extraction import FeatureHasher
-                    from sklearn.ensemble import RandomForestClassifier
                     from sklearn.tree import DecisionTreeClassifier
                     from sklearn.model_selection import cross_val_score
+                    from sklearn.metrics import pairwise_distances
 
                     encoder = InteractionTermsEncoder('x')
 
                     X   = [ encoder.encode(x=c, a=[]) for c in contexts ]
-                    y   = [ a[f.index(1)] for a,f in zip(actions,feedbacks)]
+                    Y   = [ a[r.index(1)] for a,r in zip(actions,reveals)]
+                    C   = collections.defaultdict(list)
                     clf = DecisionTreeClassifier(random_state=1)
 
                     if isinstance(X[0][0],tuple):
                         X = FeatureHasher(n_features=2**14, input_type="pair").fit_transform(X)
 
-                    if len(y) > 5:
-                        extra_statistics["bayes_rate"] = round(cross_val_score(clf, X, y, cv=5).mean(),4)
+                    if len(Y) > 5:
+                        extra_statistics["bayes_rate"] = round(cross_val_score(clf, X, Y, cv=5).mean(),4)
+
+                    for x,y in zip(X,Y):
+                        C[y].append(x)
+
+                    if sp.issparse(X):
+                        centroids = sp.vstack([sp.csr_matrix(sp.vstack(c).mean(0)) for c in C.values()])
+                    else:
+                        centroids = np.vstack([np.vstack(c).mean(0) for c in C.values()])
+
+                    centroid_order = list(C.keys())
+                    centroid_index = [ centroid_order.index(y) for y in Y ]
+                    centroid_dists = pairwise_distances(X,centroids)
+                    closest_index  = centroid_dists.argmin(1)
+                    cluster_purity = (closest_index == centroid_index).mean()
+
+                    extra_statistics["centroid_purity"]   = round(cluster_purity,4)
+                    extra_statistics["centroid_distance"] = round(median(centroid_dists[range(centroid_dists.shape[0]),centroid_index]),4)
 
                 except ImportError:
                     pass
 
                 labels     = set()
-                features   = set() 
+                features   = set()
+                feat_cnts  = []
                 label_cnts = defaultdict(int)
 
-                for c,a,f in zip(contexts,actions,feedbacks):
+                for c,a,f in zip(contexts,actions,reveals):
 
                     inter_label = a[f.index(1)]
                     inter_feats = c.keys() if isinstance(c,dict) else range(len(c))
 
                     labels.add(inter_label)
                     features.update(inter_feats)
+                    feat_cnts.append(len(inter_feats))
                     label_cnts[inter_label] += 1
 
                 extra_statistics["action_cardinality"] = len(labels)
                 extra_statistics["context_dimensions"] = len(features)
+                extra_statistics["context_median_nz"]  = median(feat_cnts)
                 extra_statistics["imbalance_ratio"]    = round(max(label_cnts.values())/min(label_cnts.values()),4)
 
             if isinstance(self.sim_filter,Pipe.FiltersFilter):

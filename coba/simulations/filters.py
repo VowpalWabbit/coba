@@ -75,7 +75,7 @@ class PCA(SimulationFilter):
         pca_contexts = (feat_matrix @ comp_vecs ) / np.sqrt(comp_vals) #type:ignore
         pca_contexts = pca_contexts[:,np.argsort(-comp_vals)]
 
-        return [ Interaction(tuple(c),i.actions,i.feedbacks) for c, i in zip(pca_contexts,interactions) ]
+        return [ Interaction(tuple(c),i.actions,i.reveals) for c, i in zip(pca_contexts,interactions) ]
 
     def __repr__(self) -> str:
         return '"PCA"'
