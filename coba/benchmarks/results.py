@@ -426,7 +426,7 @@ class Result:
 
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-        for progressive in self.interactions.to_progressive_list(each=True):
+        for progressive in self.interactions.to_progressive_list(span=span,each=True):
             progressives[progressive[0]].append(progressive[2:])
 
         if not progressives:
