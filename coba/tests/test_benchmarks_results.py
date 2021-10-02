@@ -253,9 +253,25 @@ class InteractionTable_Tests(unittest.TestCase):
         ])
 
         expected = [[0,0,1,1.5,2], [0,1,3,4.5,6], [1,0,2,3,4]]
-        actual   = table.to_progressive_list(each=True)
+        actual   = table.to_progressive_lists(each=True)
 
         self.assertCountEqual(expected,actual)
+
+    def test_simple_each_span_none_pandas(self):
+        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
+            {"learner_id":0, "simulation_id":0, "_packed": {"reward":[1,2,3]}},
+            {"learner_id":0, "simulation_id":1, "_packed": {"reward":[3,6,9]}},
+            {"learner_id":1, "simulation_id":0, "_packed": {"reward":[2,4,6]}}
+        ])
+
+        expected = [[0,0,1,1.5,2], [0,1,3,4.5,6], [1,0,2,3,4]]
+        actual   = table.to_progressive_pandas(each=True)
+
+        self.assertEqual(actual["learner_id"].tolist()   , [0,1,0])
+        self.assertEqual(actual["simulation_id"].tolist(), [0,0,1])
+        self.assertEqual(actual[1].tolist(), [1,2,3])
+        self.assertEqual(actual[2].tolist(), [1.5,3,4.5])
+        self.assertEqual(actual[3].tolist(), [2,4,6])
 
     def test_simple_not_each_span_none(self):
         table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
@@ -265,7 +281,7 @@ class InteractionTable_Tests(unittest.TestCase):
         ])
 
         expected = [[0,2,3,4], [1,2,3,4]]
-        actual   = table.to_progressive_list(each=False)
+        actual   = table.to_progressive_lists(each=False)
 
         self.assertCountEqual(expected,actual)
 
@@ -277,7 +293,7 @@ class InteractionTable_Tests(unittest.TestCase):
         ])
 
         expected = [[0,0,1,2,3], [0,1,3,6,9], [1,0,2,4,6]]
-        actual   = table.to_progressive_list(each=True,span=1)
+        actual   = table.to_progressive_lists(each=True,span=1)
 
         self.assertCountEqual(expected,actual)
 
@@ -289,7 +305,7 @@ class InteractionTable_Tests(unittest.TestCase):
         ])
 
         expected = [[0,2,4,6], [1,2,4,6]]
-        actual   = table.to_progressive_list(each=False,span=1)
+        actual   = table.to_progressive_lists(each=False,span=1)
 
         self.assertCountEqual(expected,actual)
 
@@ -299,7 +315,7 @@ class InteractionTable_Tests(unittest.TestCase):
             {"simulation_id":1, "learner_id":0, "_packed": {"reward":[2,4,6]}},
         ])
         expected = [[0,0,1,1.75,2.6152],[0,1,2,3.5,5.2307]]
-        actual   = table.to_progressive_list(each=True,span=2)
+        actual   = table.to_progressive_lists(each=True,span=2)
 
         self.assertEqual(len(expected), len(actual))
 

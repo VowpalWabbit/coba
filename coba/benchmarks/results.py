@@ -218,7 +218,7 @@ class Table:
 
 class InteractionsTable(Table):
 
-    def to_progressive_list(self, span: int = None, each:bool=False):
+    def to_progressive_lists(self, span: int = None, each:bool=False):
         #Learner, Simulation, Index
         #Learner,             Index
 
@@ -271,7 +271,7 @@ class InteractionsTable(Table):
 
         import pandas as pd
 
-        data = self.to_lists(span, each)
+        data = self.to_progressive_lists(span, each)
         
         if each:
             n_index = len(data[0][2:])
@@ -426,7 +426,7 @@ class Result:
 
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-        for progressive in self.interactions.to_progressive_list(span=span,each=True):
+        for progressive in self.interactions.to_progressive_lists(span=span,each=True):
             progressives[progressive[0]].append(progressive[2:])
 
         if not progressives:
