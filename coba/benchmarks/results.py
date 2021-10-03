@@ -218,7 +218,7 @@ class Table:
 
 class InteractionsTable(Table):
 
-    def to_progressive_lists(self, span: int = None, each:bool=False):
+    def to_progressive_lists(self, span: int = None, each: bool = False, yaxis: str = "reward"):
         #Learner, Simulation, Index
         #Learner,             Index
 
@@ -226,7 +226,7 @@ class InteractionsTable(Table):
 
         for interactions in self:
             
-            rewards = interactions["reward"]
+            rewards = interactions[yaxis]
 
             if span is None or span >= len(rewards):
                 cumwindow  = list(accumulate(rewards))
@@ -266,12 +266,12 @@ class InteractionsTable(Table):
 
             return lrn_rows
 
-    def to_progressive_pandas(self, span: int = None, each:bool=False):
+    def to_progressive_pandas(self, span: int = None, each: bool = False, yaxis: str = "reward"):
         PackageChecker.pandas("Result.to_pandas")
 
         import pandas as pd
 
-        data = self.to_progressive_lists(span, each)
+        data = self.to_progressive_lists(span, each, yaxis)
         
         if each:
             n_index = len(data[0][2:])
@@ -398,12 +398,13 @@ class Result:
         return new_result
 
     def plot_learners(self, 
-        xlim: Optional[Tuple[Number,Number]] = None,
-        ylim: Optional[Tuple[Number,Number]] = None,
-        span: int = None,
-        err : Optional[str] = None,
-        each: bool = False,
-        ax  = None) -> None:
+        xlim : Optional[Tuple[Number,Number]] = None,
+        ylim : Optional[Tuple[Number,Number]] = None,
+        yaxis: str = "reward",
+        span : int = None,
+        err  : Optional[str] = None,
+        each : bool = False,
+        ax = None) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
             performance for different learners across independent simulations. This plot is valuable in gaining insight 
             into how various learners perform in comparison to one another. 
