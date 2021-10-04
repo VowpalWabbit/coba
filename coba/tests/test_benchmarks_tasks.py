@@ -217,7 +217,7 @@ class SimulationTask_Tests(unittest.TestCase):
         self.assertEqual(2  , transactions[0][2]["action_cardinality"])
         self.assertEqual(2  , transactions[0][2]["context_dimensions"])
         self.assertEqual(1  , transactions[0][2]["bayes_rate_avg"])
-        self.assertEqual(0  , transactions[0][2]["bayes_rate_var"])
+        self.assertEqual(0  , transactions[0][2]["bayes_rate_iqr"])
         self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
         self.assertEqual(1  , transactions[0][2]["centroid_purity"])
         self.assertEqual(0  , transactions[0][2]["centroid_distance"])
@@ -237,7 +237,7 @@ class SimulationTask_Tests(unittest.TestCase):
         self.assertEqual(2  , transactions[0][2]["action_cardinality"])
         self.assertEqual(2  , transactions[0][2]["context_dimensions"])
         self.assertEqual(1  , transactions[0][2]["bayes_rate_avg"])
-        self.assertEqual(0  , transactions[0][2]["bayes_rate_var"])
+        self.assertEqual(0  , transactions[0][2]["bayes_rate_iqr"])
         self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
         self.assertEqual(1  , transactions[0][2]["centroid_purity"])
         self.assertEqual(0  , transactions[0][2]["centroid_distance"])
@@ -254,7 +254,7 @@ class SimulationTask_Tests(unittest.TestCase):
         self.assertEqual(2  , transactions[0][2]["action_cardinality"])
         self.assertEqual(2  , transactions[0][2]["context_dimensions"])
         self.assertEqual(.5 , transactions[0][2]["bayes_rate_avg"])
-        self.assertEqual(0  , transactions[0][2]["bayes_rate_var"])
+        self.assertEqual(0  , transactions[0][2]["bayes_rate_iqr"])
         self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
 
 class EvaluationTask_Tests(unittest.TestCase):
