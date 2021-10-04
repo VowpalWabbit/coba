@@ -103,25 +103,36 @@ class Table:
     def aggregate(self, group_by:Sequence[str], functions:Dict[str,Callable]):
         pass
 
-    def filter(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Table':
+    def filter(self, row_pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Table':
+
+        def satisifies_filter(col_filter,col_value):
+            if col_filter == col_value:
+                return True
+
+            if isinstance(col_filter,Number) and isinstance(col_value,str):
+                return re.search(f'(\D|^){col_filter}(\D|$)', col_value)
+
+            if isinstance(col_filter,str) and isinstance(col_value,str):
+                return re.search(col_filter, col_value)
+
+            if callable(col_filter):
+                return col_filter(col_value)
+
+            return False
 
         def satisfies_all_filters(key):
             row = self[key]
 
-            if pred is not None and not pred(row):
-                return False
+            row_filter_results = [ row_pred is None or row_pred(row) ]
+            col_filter_results = [ ]
 
-            for col,value in kwargs.items():
-                if isinstance(value,Container) and not isinstance(value,str) and row[col] not in value:
-                    return False
-                if isinstance(value,Number) and not re.search(f'(\D|^){value}(\D|$)', str(row[col])):
-                    return False                
-                if isinstance(value,str) and not re.search(value, row[col]):
-                    return False
-                if callable(value) and not value(row[col]):
-                    return False
+            for col,col_filter in kwargs.items():
+                if isinstance(col_filter,Container) and not isinstance(col_filter,str):
+                    col_filter_results.append(any([satisifies_filter(cf,row[col]) for cf in col_filter]))
+                else:
+                    col_filter_results.append(satisifies_filter(col_filter,row[col]))
 
-            return True
+            return all(row_filter_results+col_filter_results)
 
         new_result = copy(self)
         new_result._rows_keys = list(filter(satisfies_all_filters,self.keys))

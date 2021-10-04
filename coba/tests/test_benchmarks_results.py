@@ -234,7 +234,29 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_table))
         self.assertEqual([('A', 'B')], list(filtered_table.to_tuples()))
 
-    def test_filter_in(self):
+    def test_filter_sequence_1(self):
+        table = Table("test", ['a'], [{'a':'a', 'b':'b'}, {'a':'A', 'b':'B'}, {'a':'1', 'b':'C'}])
+
+        filtered_table = table.filter(a=['a','1'])
+
+        self.assertEqual(3, len(table))
+        self.assertCountEqual([('A', 'B'),('a', 'b'),('1','C')], list(table.to_tuples()))
+
+        self.assertEqual(2, len(filtered_table))
+        self.assertCountEqual([('a', 'b'),('1','C')], list(filtered_table.to_tuples()))
+
+    def test_filter_sequence_2(self):
+        table = Table("test", ['a'], [{'a':'1', 'b':'b'}, {'a':'2', 'b':'B'}, {'a':'3', 'b':'C'}])
+
+        filtered_table = table.filter(a=[1,2])
+
+        self.assertEqual(3, len(table))
+        self.assertCountEqual([('1', 'b'),('2', 'B'),('3','C')], list(table.to_tuples()))
+
+        self.assertEqual(2, len(filtered_table))
+        self.assertCountEqual([('1', 'b'),('2','B')], list(filtered_table.to_tuples()))
+
+    def test_filter_table_contains(self):
         table = Table("test", ['a'], [{'a':'a', 'b':'b'}, {'a':'A', 'b':'B'}])
 
         filtered_table = table.filter(lambda row: row["b"]=="B")
