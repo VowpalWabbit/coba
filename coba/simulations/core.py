@@ -1,7 +1,7 @@
 from coba.utilities import HashableDict
 import collections
 
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from numbers import Number
 from itertools import repeat, chain
 from typing import Optional, Sequence, List, Callable, Hashable, Any, Union, Iterable, cast, overload, Dict
@@ -157,9 +157,19 @@ class Interaction:
 
         return result
 
-class Simulation(Source[Iterable[Interaction]]):
+class Simulation(Source[Iterable[Interaction]], ABC):
     """The simulation interface."""
 
+    @property
+    @abstractmethod
+    def params(self) -> Dict[str,Any]:
+        """Paramaters describing the simulation.
+
+        Remarks:
+            These will be simulation columns in coba.benchmark.Result.
+        """
+        ...
+    
     @abstractmethod
     def read(self) -> Iterable[Interaction]:
         """The sequence of interactions in a simulation.
@@ -181,9 +191,13 @@ class MemorySimulation(Simulation):
 
         self._interactions = interactions
 
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return {}
+
     def read(self) -> Iterable[Interaction]:
         """Read the interactions in this simulation."""
-        
         return self._interactions
 
 class ClassificationSimulation(Simulation):
@@ -195,12 +209,6 @@ class ClassificationSimulation(Simulation):
     assigning a reward of 1 for taking the correct action (i.e., choosing the correct
     label)) and a reward of 0 for taking any other action (i.e., choosing any of the
     incorrect lables).
-
-    Remark:
-        This class when created from a data set will load all data into memory. Be careful when 
-        doing this if you are working with a large dataset. To reduce memory usage you can provide
-        meta information upfront that will allow features to be correctly encoded while the
-        dataset is being streamed instead of waiting until the end of the data to train an encoder.
     """
 
     def __init__(self, features: Sequence[Any], labels: Union[Sequence[Action], Sequence[List[Action]]] ) -> None:
@@ -232,6 +240,11 @@ class ClassificationSimulation(Simulation):
 
         self._interactions = list(map(Interaction, contexts, repeat(actions), reveals))
 
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return { }
+
     def read(self) -> Iterable[Interaction]:
         """Read the interactions in this simulation."""
 
@@ -239,20 +252,23 @@ class ClassificationSimulation(Simulation):
 
 class RegressionSimulation(Simulation):
     """A simulation created from regression dataset with features and labels.
+    
     RegressionSimulation turns labeled observations from a regression data set
     into interactions. For each interaction the feature set becomes the context and 
     all possible labels become the actions. Rewards for each interaction are created by 
     assigning a minus absolute error. Rewards are close to zero for taking actions that are 
     closer to the correct action (label) and lower ones for being far from the correct action.
-    Remark:
-        This class when created from a data set will load all data into memory. Be careful when 
-        doing this if you are working with a large dataset. To reduce memory usage you can provide
-        meta information upfront that will allow features to be correctly encoded while the
-        dataset is being streamed instead of waiting until the end of the data to train an encoder.
+    
     """
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return {}
 
     def __init__(self, features: Sequence[Any], labels: Sequence[Number] ) -> None:
         """Instantiate a RegressionSimulation.
+    
         Args:
             features: The collection of features used for the original regression problem.
             labels: The collection of labels assigned to each observation of features.
@@ -269,11 +285,7 @@ class RegressionSimulation(Simulation):
 
     def read(self) -> Iterable[Interaction]:
         """Read the interactions in this simulation."""
-
         return self._interactions
-
-    def __repr__(self) -> str:
-        return '"Regression Simulation"'
 
 class LambdaSimulation(Simulation):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
@@ -305,13 +317,15 @@ class LambdaSimulation(Simulation):
 
             self._interactions.append(Interaction(_context, _actions, _rewards))
 
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return {}
+
     def read(self) -> Iterable[Interaction]:
         """Read the interactions in this simulation."""
         
         return self._interactions
-
-    def __repr__(self) -> str:
-        return '"LambdaSimulation"'
 
 class ReaderSimulation(Simulation):
 
@@ -333,6 +347,11 @@ class ReaderSimulation(Simulation):
         self._label_column = label_column
         self._with_header  = with_header
         self._interactions = cast(Optional[Sequence[Interaction]], None)
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return {"source": str(self._source) }
 
     def read(self) -> Iterable[Interaction]:
         """Read the interactions in this simulation."""
@@ -376,31 +395,40 @@ class CsvSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
         super().__init__(CsvReader(), source, label_column, with_header)
 
-    def __repr__(self) -> str:
-        return f'{{"CsvSimulation":"{super().__repr__()}"}}'
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return { "csv": super().params["source"] }
 
 class ArffSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int]) -> None:
         super().__init__(ArffReader(skip_encoding=[label_column]), source, label_column)
 
-    def __repr__(self) -> str:
-        return f'{{"ArffSimulation":"{super().__repr__()}"}}'    
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return { "arff": super().params["source"] }
 
 class LibsvmSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]]) -> None:
         super().__init__(LibSvmReader(), source, 0, False)
 
-    def __repr__(self) -> str:
-        return f'{{"LibsvmSimulation":"{super().__repr__()}"}}'
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return { "libsvm": super().params["source"] }
 
 class ManikSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]]) -> None:
         super().__init__(ManikReader(), source, 0, False)
 
-    def __repr__(self) -> str:
-        return f'{{"ManikSimulation":"{super().__repr__()}"}}'
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return { "manik": super().params["source"] }
 
 class ValidationSimulation(LambdaSimulation):
+    
     def __init__(self, n_interactions: int=500, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, sparse: bool=False, seed:int=1, make_binary=False) -> None:
 
         self._n_bandits        = n_actions
@@ -467,12 +495,14 @@ class ValidationSimulation(LambdaSimulation):
 
         super().__init__(n_interactions, context, actions, rewards)
 
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return { }
+
     def read(self) -> Iterable[Interaction]:
         for i in super().read():
             if self._make_binary:
                 yield Interaction(i.context, i.actions, [ int(r == max(i.reveals)) for r in i.reveals ] )
             else:
                 yield i
-
-    def __repr__(self) -> str:
-        return f"Validation"

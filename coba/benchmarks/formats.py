@@ -5,7 +5,8 @@ from itertools import product
 from typing import Sequence, Dict, Any
 
 from coba.registry import CobaRegistry
-from coba.pipes import Pipe, Filter, MemorySource
+from coba.pipes import Filter
+from coba.simulations import SimSourceFilters
 
 from coba.benchmarks.core import Benchmark
 
@@ -30,8 +31,9 @@ class BenchmarkFileFmtV2(Filter[Dict[str,Any], Benchmark]):
             if isinstance(item, list):
                 if any([ isinstance(i,list) for i in item ]):
                     raise Exception("Recursive structures are not supported in benchmark simulation configs.")
+
                 pieces = list(map(_construct, item))
-                result = [ Pipe.join(s, f) for s in pieces[0] for f in product(*pieces[1:])]
+                result = [ SimSourceFilters(s, f) for s in pieces[0] for f in product(*pieces[1:])]
 
             if result is None:
                 raise Exception(f"We were unable to construct {item} in the given benchmark file.")

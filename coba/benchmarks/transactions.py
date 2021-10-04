@@ -1,9 +1,8 @@
-import collections
 from typing import Any, Iterable, Optional, Sequence
 
 from coba.learners import Learner
-from coba.pipes import Pipe, Filter, Source, Sink, Cartesian, JsonEncode, DiskSink, MemorySink
-from coba.simulations import Simulation, Take, Shuffle
+from coba.learners.core import SafeLearner
+from coba.pipes import Pipe, Filter, Sink, Cartesian, JsonEncode, DiskSink, MemorySink
 
 from coba.benchmarks.results import Result, ResultPromote
 
@@ -34,24 +33,8 @@ class Transaction:
 
     @staticmethod
     def learners(learners: Sequence[Learner]) -> Iterable[Any]:
-        for index, learner in enumerate(learners):
-
-            try:
-                params = learner.params
-            except:
-                params = {}
-
-            try:
-                family = learner.family
-            except:
-                family = type(learner).__name__
-
-            if len(learner.params) > 0:
-                full_name = f"{learner.family}({','.join(f'{k}={v}' for k,v in learner.params.items())})"
-            else:
-                full_name = learner.family
-
-            yield Transaction.learner(index, full_name=full_name, family=family, **params)
+        for index, learner in enumerate(map(SafeLearner,learners)):
+            yield Transaction.learner(index, full_name=learner.full_name, **learner.params)
 
     @staticmethod
     def simulation(simulation_id: int, **kwargs) -> Any:

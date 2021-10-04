@@ -2,6 +2,7 @@ import json
 import unittest
 
 from coba.benchmarks.formats import BenchmarkFileFmtV2
+from coba.simulations.core import Simulation
 
 class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 
@@ -14,8 +15,8 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
 
-        self.assertTrue(hasattr(benchmark._simulations[0], "read"))
-        self.assertEqual('[{"OpenmlSimulation":150}]', str(benchmark._simulations))
+        self.assertIsInstance(benchmark._simulations[0], Simulation)
+        self.assertEqual({'openml':150}, benchmark._simulations[0].params)
 
     def test_raw_simulation(self):
         json_txt = """{
@@ -24,8 +25,8 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
 
-        self.assertTrue(hasattr(benchmark._simulations[0], "read"))
-        self.assertEqual('[{"OpenmlSimulation":150}]', str(benchmark._simulations))
+        self.assertIsInstance(benchmark._simulations[0], Simulation)
+        self.assertEqual({'openml':150}, benchmark._simulations[0].params)
 
     def test_one_simulation_one_filter(self):
         json_txt = """{
@@ -36,8 +37,8 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
 
-        self.assertTrue(hasattr(benchmark._simulations[0]._source, "read"))
-        self.assertEqual('[{"OpenmlSimulation":150},{"Take":10}]', str(benchmark._simulations))
+        self.assertIsInstance(benchmark._simulations[0], Simulation)
+        self.assertEqual({"openml":150, "take":10}, benchmark._simulations[0].params)
 
     def test_one_simulation_two_filters(self):
         json_txt = """{
@@ -48,9 +49,11 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
 
-        self.assertTrue(hasattr(benchmark._simulations[0]._source, "read"))
-        self.assertTrue(hasattr(benchmark._simulations[1]._source, "read"))
-        self.assertEqual('[{"OpenmlSimulation":150},{"Take":10}, {"OpenmlSimulation":150},{"Take":20}]', str(benchmark._simulations))
+        self.assertEqual(2, len(benchmark._simulations))
+        self.assertIsInstance(benchmark._simulations[0], Simulation)
+        self.assertIsInstance(benchmark._simulations[1], Simulation)
+        self.assertEqual({"openml":150, "take":10}, benchmark._simulations[0].params)
+        self.assertEqual({"openml":150, "take":20}, benchmark._simulations[1].params)
 
     def test_two_simulations_two_filters(self):
         json_txt = """{
@@ -62,14 +65,14 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
 
         self.assertEqual(4, len(benchmark._simulations))        
-        self.assertTrue(hasattr(benchmark._simulations[0]._source, "read"))
-        self.assertTrue(hasattr(benchmark._simulations[1]._source, "read"))
-        self.assertTrue(hasattr(benchmark._simulations[2]._source, "read"))
-        self.assertTrue(hasattr(benchmark._simulations[3]._source, "read"))
-        self.assertEqual('{"OpenmlSimulation":150},{"Take":10}', str(benchmark._simulations[0]))
-        self.assertEqual('{"OpenmlSimulation":150},{"Take":20}', str(benchmark._simulations[1]))
-        self.assertEqual('{"OpenmlSimulation":151},{"Take":10}', str(benchmark._simulations[2]))
-        self.assertEqual('{"OpenmlSimulation":151},{"Take":20}', str(benchmark._simulations[3]))
+        self.assertIsInstance(benchmark._simulations[0], Simulation)
+        self.assertIsInstance(benchmark._simulations[1], Simulation)
+        self.assertIsInstance(benchmark._simulations[2], Simulation)
+        self.assertIsInstance(benchmark._simulations[3], Simulation)
+        self.assertEqual({"openml":150, "take":10}, benchmark._simulations[0].params)
+        self.assertEqual({"openml":150, "take":20}, benchmark._simulations[1].params)
+        self.assertEqual({"openml":151, "take":10}, benchmark._simulations[2].params)
+        self.assertEqual({"openml":151, "take":20}, benchmark._simulations[3].params)
 
     def test_two_singular_simulations(self):
         json_txt = """{
@@ -81,9 +84,10 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
 
-        self.assertTrue(hasattr(benchmark._simulations[0], "read"))
-        self.assertTrue(hasattr(benchmark._simulations[1], "read"))
-        self.assertEqual('[{"OpenmlSimulation":150}, {"OpenmlSimulation":151}]', str(benchmark._simulations))
+        self.assertIsInstance(benchmark._simulations[0], Simulation)
+        self.assertIsInstance(benchmark._simulations[1], Simulation)
+        self.assertEqual({"openml":150}, benchmark._simulations[0].params)
+        self.assertEqual({"openml":151}, benchmark._simulations[1].params)
 
     def test_one_foreach_simulation(self):
         json_txt = """{
@@ -94,9 +98,10 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
 
-        self.assertTrue(hasattr(benchmark._simulations[0], "read"))
-        self.assertTrue(hasattr(benchmark._simulations[1], "read"))
-        self.assertEqual('[{"OpenmlSimulation":150}, {"OpenmlSimulation":151}]', str(benchmark._simulations))
+        self.assertIsInstance(benchmark._simulations[0], Simulation)
+        self.assertIsInstance(benchmark._simulations[1], Simulation)
+        self.assertEqual({"openml":150}, benchmark._simulations[0].params)
+        self.assertEqual({"openml":151}, benchmark._simulations[1].params)
 
     def test_one_variable(self):
         json_txt = """{
@@ -106,9 +111,10 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
 
-        self.assertTrue(hasattr(benchmark._simulations[0], "read"))
-        self.assertTrue(hasattr(benchmark._simulations[1], "read"))
-        self.assertEqual('[{"OpenmlSimulation":150}, {"OpenmlSimulation":151}]', str(benchmark._simulations))
+        self.assertIsInstance(benchmark._simulations[0], Simulation)
+        self.assertIsInstance(benchmark._simulations[1], Simulation)
+        self.assertEqual({"openml":150}, benchmark._simulations[0].params)
+        self.assertEqual({"openml":151}, benchmark._simulations[1].params)
 
     def test_two_variables(self):
         json_txt = """{
@@ -125,18 +131,18 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
         benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
 
         self.assertEqual(6, len(benchmark._simulations))
-        self.assertTrue(hasattr(benchmark._simulations[0]._source, "read"))
-        self.assertTrue(hasattr(benchmark._simulations[1]._source, "read"))
-        self.assertTrue(hasattr(benchmark._simulations[2]._source, "read"))
-        self.assertTrue(hasattr(benchmark._simulations[3]._source, "read"))
-        self.assertTrue(hasattr(benchmark._simulations[4], "read"))
-        self.assertTrue(hasattr(benchmark._simulations[5], "read"))
-        self.assertEqual('{"OpenmlSimulation":150},{"Take":10}', str(benchmark._simulations[0]))
-        self.assertEqual('{"OpenmlSimulation":150},{"Take":20}', str(benchmark._simulations[1]))
-        self.assertEqual('{"OpenmlSimulation":151},{"Take":10}', str(benchmark._simulations[2]))
-        self.assertEqual('{"OpenmlSimulation":151},{"Take":20}', str(benchmark._simulations[3]))
-        self.assertEqual('{"OpenmlSimulation":150}'            , str(benchmark._simulations[4]))
-        self.assertEqual('{"OpenmlSimulation":151}'            , str(benchmark._simulations[5]))
+        self.assertIsInstance(benchmark._simulations[0], Simulation)
+        self.assertIsInstance(benchmark._simulations[1], Simulation)
+        self.assertIsInstance(benchmark._simulations[2], Simulation)
+        self.assertIsInstance(benchmark._simulations[3], Simulation)
+        self.assertIsInstance(benchmark._simulations[4], Simulation)
+        self.assertIsInstance(benchmark._simulations[5], Simulation)
+        self.assertEqual({"openml":150, "take":10}, benchmark._simulations[0].params)
+        self.assertEqual({"openml":150, "take":20}, benchmark._simulations[1].params)
+        self.assertEqual({"openml":151, "take":10}, benchmark._simulations[2].params)
+        self.assertEqual({"openml":151, "take":20}, benchmark._simulations[3].params)
+        self.assertEqual({"openml":150           }, benchmark._simulations[4].params)
+        self.assertEqual({"openml":151           }, benchmark._simulations[5].params)
 
 if __name__ == '__main__':
     unittest.main()

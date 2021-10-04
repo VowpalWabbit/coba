@@ -261,6 +261,11 @@ class OpenmlSimulation(Simulation):
         self._source = OpenmlSource(id, simulation_type, nominal_as_str, md5_checksum)
         self._interactions: Optional[Sequence[Interaction]] = None
 
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the simulation."""
+        return { "openml": self._source._data_id}
+
     def read(self) -> Iterable[Interaction]:
         """Read the interactions in this simulation."""
 
@@ -270,7 +275,6 @@ class OpenmlSimulation(Simulation):
             return RegressionSimulation(features,labels).read()
         else:
             return ClassificationSimulation(features,labels).read()
-            
 
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._source._data_id}}}'

@@ -19,12 +19,8 @@ class ModuloLearner(Learner):
         self._param = param
 
     @property
-    def family(self):
-        return "Modulo"
-
-    @property
     def params(self):
-        return {"p":self._param}
+        return {"family": "Modulo", "p":self._param}
 
     def predict(self, key, context, actions):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
@@ -68,7 +64,7 @@ class CountFilters:
         self._filters += 1
 #for testing purposes
 
-class Tasks_Tests(unittest.TestCase):
+class CreateTasks_Tests(unittest.TestCase):
 
     def test_one_sim_two_learns(self):
         sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))

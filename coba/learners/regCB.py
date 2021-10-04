@@ -23,20 +23,12 @@ class RegCBLearner(Learner):
     """
 
     @property
-    def family(self) -> str:
-        """The family of the learner.
-
-        See the base class for more information
-        """
-        return f"RegCB2"
-
-    @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
 
         See the base class for more information
         """
-        dict = {'beta': self._beta, 'alpha': self._alpha, 'interactions': self._interactions}
+        dict = {'family': 'RegCB', 'beta': self._beta, 'alpha': self._alpha, 'interactions': self._interactions}
         return dict
 
     def __init__(self, *, beta: float, alpha: float, learning_rate:float=0.1, interactions: Sequence[str] = ['a', 'ax']) -> None:

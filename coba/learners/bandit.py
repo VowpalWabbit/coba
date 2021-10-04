@@ -26,21 +26,12 @@ class EpsilonBanditLearner(Learner):
         self._Q: Dict[Hashable, Optional[float]] = defaultdict(int)
 
     @property
-    def family(self) -> str:
-        """The family of the learner.
-
-        See the base class for more information
-        """
-
-        return "bandit_epsilongreedy"
-
-    @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
         
         See the base class for more information
         """
-        return {"epsilon": self._epsilon }
+        return {"family": "bandit_epsilon", "epsilon": self._epsilon }
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
         """Determine a PMF with which to select the given actions.
@@ -99,20 +90,12 @@ class UcbBanditLearner(Learner):
         self._v     : Dict[Action, OnlineVariance] = {}
 
     @property
-    def family(self) -> str:
-        """The family of the learner.
-
-        See the base class for more information
-        """
-        return "bandit_UCB"
-
-    @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
 
         See the base class for more information
         """
-        return { }
+        return { "family": "bandit_UCB" }
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
         """Determine a PMF with which to select the given actions.

@@ -3,8 +3,8 @@ from pathlib import Path
 from itertools import product
 from typing import Iterable, Sequence, cast, Optional, overload, List, Union
 
-from coba.learners import Learner
-from coba.simulations import Simulation, Take, Shuffle
+from coba.learners import Learner, SafeLearner
+from coba.simulations import Simulation, Take, Shuffle, SimSourceFilters
 from coba.registry import CobaRegistry
 from coba.config import CobaConfig, CobaFatal
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpSource, MemorySource, DiskSource
@@ -51,7 +51,6 @@ class Benchmark:
             shuffle: A collection of seeds to use for simulation shuffling. A seed of `None` means no shuffle will be applied.
             take: The number of interactions to take from each simulation for evaluation.
         """
-        ...
 
         sources: List[Simulation] = simulations
         filters: List[Sequence[Filter[Iterable[Interaction],Iterable[Interaction]]]] = []
@@ -62,10 +61,7 @@ class Benchmark:
         if take is not None:
             filters.append([ Take(take) ])
 
-        if len(filters) > 0:
-            simulation_sources = [cast(Simulation,Pipe.join(s,f)) for s,f in product(sources, product(*filters))]
-        else:
-            simulation_sources = list(sources)
+        simulation_sources = [SimSourceFilters(s,f) for s,f in product(sources, product(*filters))]
 
         self._simulations         : Sequence[Simulation] = simulation_sources
         self._processes           : Optional[int]        = None
@@ -121,8 +117,9 @@ class Benchmark:
         """
 
         restored = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
+        safe_learners = list(map(SafeLearner, learners))
 
-        n_given_learners    = len(learners)
+        n_given_learners    = len(safe_learners)
         n_given_simulations = len(self._simulations)
  
         if len(restored.benchmark) != 0:
@@ -132,13 +129,13 @@ class Benchmark:
         preamble = []
         preamble.append(Transaction.version())
         preamble.append(Transaction.benchmark(n_given_learners, n_given_simulations))
-        preamble.extend(Transaction.learners(learners))
+        preamble.extend(Transaction.learners(safe_learners))
 
         cb = self._chunk_by         if self._chunk_by             else CobaConfig.Benchmark['chunk_by']
         mp = self._processes        if self._processes            else CobaConfig.Benchmark['processes']
         mt = self._maxtasksperchild if self._maxtasksperchild_set else CobaConfig.Benchmark['maxtasksperchild']
             
-        tasks            = CreateTasks(self._simulations, learners, seed)
+        tasks            = CreateTasks(self._simulations, safe_learners, seed)
         unfinished       = FilterFinished(restored)
         chunked          = ChunkByTask() if cb == 'task' else ChunkByNone() if cb == 'none' else ChunkBySource()
         process          = ProcessTasks()

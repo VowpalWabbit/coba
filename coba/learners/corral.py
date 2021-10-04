@@ -57,20 +57,12 @@ class CorralLearner(Learner):
         self._random_reject = CobaRandom(CobaRandom(seed).randint(0,10000))
 
     @property
-    def family(self) -> str:
-        """The family of the learner.
-
-        See the base class for more information
-        """
-        return "corral"
-
-    @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
 
         See the base class for more information
         """
-        return { "eta": self._eta_init, "type":self._type, "T": self._T, "B": [ b.family for b in self._base_learners ], "seed":self._random_pick._seed }
+        return { "family": "corral", "eta": self._eta_init, "type":self._type, "T": self._T, "B": [ b.params["family"] for b in self._base_learners ], "seed":self._random_pick._seed }
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
         """Determine a PMF with which to select the given actions.
@@ -203,28 +195,6 @@ class CorralLearner(Learner):
 
                 if y > 1:
                     r = x
-
-        def newtons_method(l,r) -> Optional[float]:
-
-            if (f(l+.00001)-1) * (f(r-.00001)-1) >= 0:
-                return None
-
-            i = 0
-            x = (l+r)/2
-
-            while True:
-                i += 1
-
-                if df(x) == 0:
-                    raise Exception(f'Something went wrong in Corral (0) {self._ps}, {self._etas}, {losses}, {x}')
-
-                x -= (f(x)-1)/df(x)
-
-                if round(f(x),precision) == 1:
-                    return x
-
-                if (i % 30000) == 0:
-                    print(i)
 
         def find_root_of_1():
             brackets = list(sorted(filter(lambda z: min_loss <= z and z <= max_loss, set(denom_zeros + [min_loss, max_loss]))))

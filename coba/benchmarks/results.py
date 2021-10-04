@@ -15,7 +15,7 @@ from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe
 class Table:
     """A container class for storing tabular data."""
 
-    def __init__(self, name:str, primary_cols: Sequence[str], rows: Sequence[Dict[str,Any]] = []):
+    def __init__(self, name:str, primary_cols: Sequence[str], rows: Sequence[Dict[str,Any]] = [], prefered_cols: Sequence[str] = []):
         """Instantiate a Table.
         
         Args:
@@ -38,7 +38,18 @@ class Table:
             assert len(row.keys() & primary_cols) == len(primary_cols), 'A Table row was provided without a primary key.'
 
         all_columns   = list(chain(primary_cols, index_cols(), *data_cols()))
-        self._columns = sorted(set(all_columns), key=lambda col: all_columns.index(col))
+        
+        def col_order(col):
+            if col in primary_cols:
+                return primary_cols.index(col)
+            
+            if col in prefered_cols:
+                return len(primary_cols) + prefered_cols.index(col)
+
+            return len(primary_cols) + len(prefered_cols) + all_columns.index(col)
+
+        self._columns = sorted(set(all_columns), key=col_order)
+
 
         self._rows_keys: List[Hashable               ] = []               
         self._rows_flat: Dict[Hashable, Dict[str,Any]] = {}
@@ -327,9 +338,9 @@ class Result:
         self.version   = version
         self.benchmark = benchmark
 
-        self._simulations  = Table            ("Simulations" , ['simulation_id'              ], sim_rows)
-        self._learners     = Table            ("Learners"    , ['learner_id'                 ], lrn_rows)
-        self._interactions = InteractionsTable("Interactions", ['simulation_id', 'learner_id'], int_rows)
+        self._simulations  = Table            ("Simulations" , ['simulation_id'              ], sim_rows, ["source"])
+        self._learners     = Table            ("Learners"    , ['learner_id'                 ], lrn_rows, ["family","shuffle","take"])
+        self._interactions = InteractionsTable("Interactions", ['simulation_id', 'learner_id'], int_rows, ["index","reward"])
 
     @property
     def learners(self) -> Table:

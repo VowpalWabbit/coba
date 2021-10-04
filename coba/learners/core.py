@@ -14,15 +14,6 @@ class Learner(ABC):
 
     @property
     @abstractmethod
-    def family(self) -> str:
-        """The family of the learner.
-
-        This value is used for descriptive purposes only when creating benchmark results.
-        """
-        ...
-
-    @property
-    @abstractmethod
     def params(self) -> Dict[str,Any]:
         """The parameters used to initialize the learner.
 
@@ -75,20 +66,12 @@ class FixedLearner(Learner):
     """A Learner implementation that selects actions according to a fixed distribution and learns nothing."""
 
     @property
-    def family(self) -> str:
-        """The family of the learner.
-
-        See the base class for more information
-        """  
-        return "fixed"
-
-    @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
         
         See the base class for more information
         """
-        return {}
+        return {"family":"fixed"}
 
     def __init__(self, fixed_pmf: Sequence[float]) -> None:
         
@@ -125,20 +108,12 @@ class RandomLearner(Learner):
     """A Learner implementation that selects an action at random and learns nothing."""
 
     @property
-    def family(self) -> str:
-        """The family of the learner.
-
-        See the base class for more information
-        """  
-        return "random"
-
-    @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
         
         See the base class for more information
         """
-        return {}
+        return {"family":"random"}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
         """Choose a random action from the action set.
@@ -167,21 +142,30 @@ class RandomLearner(Learner):
 class SafeLearner(Learner):
 
         @property
-        def family(self) -> str:
-            try:
-                return self._learner.family
-            except AttributeError:
-                return self._learner.__class__.__name__
-
-        @property
         def params(self) -> Dict[str, Any]:
             try:
-                return self._learner.params
+                params = self._learner.params
             except AttributeError:
-                return {}
+                params = {}
+
+            if "family" not in params:
+                params["family"] = self._learner.__class__.__name__
+
+            return params
+
+        @property
+        def full_name(self) -> str:
+            params = dict(self.params)
+            family = params.pop("family")
+
+            if len(params) > 0:
+                return f"{family}({','.join(f'{k}={v}' for k,v in params.items())})"
+            else:
+                return family
 
         def __init__(self, learner: Learner) -> None:
-            self._learner = learner
+            
+            self._learner = learner if not isinstance(learner, SafeLearner) else learner._learner
 
         def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
             predict = self._learner.predict(context, actions)

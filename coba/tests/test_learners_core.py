@@ -47,13 +47,9 @@ class SafeLearner_Tests(unittest.TestCase):
             else:
                 return self._pmf, self._info
 
-    def test_no_family(self):
+    def test_no_params_no_family(self):
         learner = SafeLearner(SafeLearner_Tests.NoFamilyOrParamLearner())
-        self.assertEqual("NoFamilyOrParamLearner", learner.family)
-
-    def test_no_params(self):
-        learner = SafeLearner(SafeLearner_Tests.NoFamilyOrParamLearner())
-        self.assertEqual({}, learner.params)
+        self.assertEqual("NoFamilyOrParamLearner", learner.params["family"])
 
     def test_no_sum_one_no_info_action_match_predict(self):
         learner = SafeLearner(SafeLearner_Tests.UncheckedFixedLearner([1/3,1/2], None))

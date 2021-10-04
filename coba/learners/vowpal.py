@@ -134,22 +134,13 @@ class VowpalLearner(Learner):
         self._vw                        = None
 
     @property
-    def family(self) -> str:
-        """The family of the learner.
-
-        See the base class for more information
-        """
-        
-        return f"vw"
-
-    @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
         
         See the base class for more information
         """
 
-        return {'args': self._create_format(None)}
+        return {"family": "vw", 'args': self._create_format(None)}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
         """Determine a PMF with which to select the given actions.

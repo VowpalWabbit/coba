@@ -3,7 +3,7 @@ import unittest
 from itertools import repeat
 
 from coba.config import CobaConfig, NoneLogger
-from coba.simulations import Interaction, MemorySimulation, Shuffle, Take, PCA, Sort
+from coba.simulations import Interaction, Shuffle, Take, Sort
 
 CobaConfig.Logger = NoneLogger()
 
@@ -22,6 +22,10 @@ class Shuffle_Tests(unittest.TestCase):
         self.assertEqual(interactions[1], shuffled_interactions[0])
         self.assertEqual(interactions[2], shuffled_interactions[1])
         self.assertEqual(interactions[0], shuffled_interactions[2])
+
+    def test_params(self):
+        self.assertEqual({'shuffle':2}, Shuffle(2).params)
+        self.assertEqual({'shuffle':None}, Shuffle(None).params)
 
 class Take_Tests(unittest.TestCase):
     
@@ -72,9 +76,9 @@ class Take_Tests(unittest.TestCase):
         self.assertEqual(3, len(interactions))
         self.assertEqual(0, len(take_interactions))
 
-    def test_repr(self):
-        self.assertEqual('{"Take":2}', str(Take(2)))
-        self.assertEqual('{"Take":null}', str(Take(None)))
+    def test_params(self):
+        self.assertEqual({'take':2}, Take(2).params)
+        self.assertEqual({'take':None}, Take(None).params)
 
 class Interaction_Tests(unittest.TestCase):
 
@@ -95,28 +99,6 @@ class Interaction_Tests(unittest.TestCase):
 
     def test_actions_correct_3(self) -> None:
         self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)], [1,2]).actions)
-
-class PCA_Tests(unittest.TestCase):
-    def test_PCA(self):        
-        interactions = [
-            Interaction((1,2), [1], [1]),
-            Interaction((1,9), [1], [1]),
-            Interaction((7,3), [1], [1])
-        ]
-
-        mem_interactions = interactions
-        pca_interactions = list(PCA().filter(interactions))
-
-        self.assertEqual((1,2), mem_interactions[0].context)
-        self.assertEqual((1,9), mem_interactions[1].context)
-        self.assertEqual((7,3), mem_interactions[2].context)
-
-        self.assertNotEqual((1,2), pca_interactions[0].context)
-        self.assertNotEqual((1,9), pca_interactions[1].context)
-        self.assertNotEqual((7,3), pca_interactions[2].context)
-
-    def test_repr(self):
-        self.assertEqual('"PCA"', str(PCA()))
 
 class Sort_tests(unittest.TestCase):
 
@@ -176,9 +158,9 @@ class Sort_tests(unittest.TestCase):
         self.assertEqual((1,3), srt_interactions[1].context)
         self.assertEqual((1,9), srt_interactions[2].context)
     
-    def test_repr(self):
-        self.assertEqual('{"Sort":[0]}', str(Sort([0])))
-        self.assertEqual('{"Sort":[1,2]}', str(Sort([1,2])))
+    def test_params(self):
+        self.assertEqual({'sort':[0]}, Sort([0]).params)
+        self.assertEqual({'sort':[1,2]}, Sort([1,2]).params)
 
 if __name__ == '__main__':
     unittest.main()

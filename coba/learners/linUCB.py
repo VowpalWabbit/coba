@@ -12,20 +12,12 @@ class LinUCBLearner(Learner):
     """A learner using the LinUCB algorithm from "Contextual Bandits with Linear Payoff Functions" by Wei Chu et al."""
 
     @property
-    def family(self) -> str:
-        """The family of the learner.
-
-        See the base class for more information
-        """
-        return f"linUCB"
-
-    @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
 
         See the base class for more information.
         """
-        dict = {'alpha': self._alpha, 'interactions': self._interactions}
+        dict = {'family': 'linUCB', 'alpha': self._alpha, 'interactions': self._interactions}
         return dict
 
     def __init__(self, *, alpha: float, interactions: Sequence[str] = ['a', 'ax'], timeit: bool = False) -> None:

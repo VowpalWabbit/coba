@@ -7,12 +7,14 @@ from itertools import groupby, product, count
 from collections import defaultdict
 from typing import Iterable, Sequence, Any, Optional, Dict, Hashable, Tuple
 
+from numpy.lib.arraysetops import isin
+
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
 from coba.utilities import PackageChecker
 from coba.pipes import Source, Pipe, Filter, IdentityFilter
-from coba.simulations import Simulation, Interaction, Shuffle, Take, OpenmlSimulation, ClassificationSimulation
+from coba.simulations import Simulation, Interaction, OpenmlSimulation, ClassificationSimulation, SimSourceFilters
 from coba.encodings import InteractionTermsEncoder
 
 from coba.benchmarks.transactions import Transaction
@@ -38,10 +40,18 @@ class Task(Filter[Iterable[Interaction], Iterable[Any]]):
 
     def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Optional[Learner]) -> None:
 
-        self.sim_pipe   = simulation
-        self.sim_source = simulation._source if isinstance(simulation, Pipe.SourceFilters) else simulation
-        self.sim_filter = simulation._filter if isinstance(simulation, Pipe.SourceFilters) else IdentityFilter()
-        self.learner    = SafeLearner(learner) if learner else None
+        self.sim_pipe = simulation
+        self.learner  = SafeLearner(learner) if learner else None
+
+        if isinstance(simulation, SimSourceFilters):
+            self.sim_source = simulation._source
+            self.sim_filter = Pipe.join(simulation._filters)
+        elif isinstance(simulation, Pipe.SourceFilters):
+            self.sim_source = simulation._source
+            self.sim_filter = simulation._filter
+        else:
+            self.sim_source = simulation
+            self.sim_filter = IdentityFilter()
 
         self.src_id = src_id
         self.sim_id = sim_id
@@ -157,29 +167,27 @@ class SimulationTask(Task):
                 extra_statistics["context_median_nz"]  = median(feat_cnts)
                 extra_statistics["imbalance_ratio"]    = round(max(label_cnts.values())/min(label_cnts.values()),4)
 
-            if isinstance(self.sim_filter,Pipe.FiltersFilter):
-                filters = self.sim_filter._filters
-            elif isinstance(self.sim_filter, IdentityFilter):
-                filters = []
-            else:
-                filters = [self.sim_filter]
-
-            source  = str(self.sim_source).strip('"')
-            shuffle = "None"
-            take    = "None"
-            pipe    = str(self.sim_pipe) 
-
-            for filter in filters:
-                if isinstance(filter, Shuffle): shuffle = str(filter._seed )
-                if isinstance(filter, Take   ): take    = str(filter._count)
+            source = self._source_repr()
+            params = self._pipe_params()
 
             yield Transaction.simulation(self.sim_id, 
-                source=source, 
-                shuffle=shuffle, 
-                take=take, 
-                pipe=pipe, 
+                source=source,
+                **params,
                 **extra_statistics
             )
+
+    def _source_repr(self) -> str:
+        if isinstance(self.sim_pipe, SimSourceFilters):
+            return self.sim_pipe.source_repr
+        else:
+            return str(self.sim_pipe)
+    
+    def _pipe_params(self) -> Dict[str,Any]:
+        if isinstance(self.sim_pipe, SimSourceFilters):
+            return self.sim_pipe.params
+        else:
+            return {}
+
 
 class CreateTasks(Source[Iterable[Task]]):
 

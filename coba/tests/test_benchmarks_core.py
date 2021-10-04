@@ -16,12 +16,8 @@ class ModuloLearner(Learner):
         self._param = param
 
     @property
-    def family(self):
-        return "Modulo"
-
-    @property
     def params(self):
-        return {"p":self._param}
+        return {"family": "Modulo", "p":self._param}
 
     def predict(self, context, actions):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
@@ -30,14 +26,10 @@ class ModuloLearner(Learner):
         pass
 
 class BrokenLearner(Learner):
-    
-    @property
-    def family(self):
-        return "Broken"
 
     @property
     def params(self):
-        return {}
+        return {"family": "Broken"}
 
     def predict(self, context, actions):
         raise Exception("Broken Learner")
@@ -50,12 +42,8 @@ class PredictInfoLearner(Learner):
         self._param = param
 
     @property
-    def family(self):
-        return "Modulo"
-
-    @property
     def params(self):
-        return {"p":self._param}
+        return {"family": "Modulo", "p":self._param}
 
     def predict(self, context, actions):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ], (0,1)
@@ -68,12 +56,8 @@ class LearnInfoLearner(Learner):
         self._param = param
 
     @property
-    def family(self):
-        return "Modulo"
-
-    @property
     def params(self):
-        return {"p":self._param}
+        return {"family": "Modulo", "p":self._param}
 
     def predict(self, context, actions):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
@@ -97,12 +81,8 @@ class NotPicklableLearnerWithReduce(NotPicklableLearner):
 class WrappedLearner(Learner):
 
     @property
-    def family(self) -> str:
-        return 'family'
-
-    @property
     def params(self):
-        return {}
+        return {"family": "family"}
 
     def __init__(self, learner):
         self._learner = learner
@@ -145,7 +125,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_tuples()
 
         expected_learners     = [(0, "Modulo","Modulo(p=0)",'0')]
-        expected_simulations  = [(0, '"LambdaSimulation"', "None", "LambdaSimulation", "None")]
+        expected_simulations  = [(0, 'LambdaSimulation')]
         expected_interactions = [(0,0,1,0), (0,0,2,1)]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -164,7 +144,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_tuples()
 
         expected_learners     = [(0,"Modulo","Modulo(p=0)",'0')]
-        expected_simulations  = [(0, '"LambdaSimulation"', "None", "LambdaSimulation", "None"), (1, '"LambdaSimulation"', "None", "LambdaSimulation", "None")]
+        expected_simulations  = [(0, 'LambdaSimulation'), (1, 'LambdaSimulation')]
         expected_interactions = [(0,0,1,0), (0,0,2,1), (1,0,1,3), (1,0,2,4), (1,0,3,5)]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -182,7 +162,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_tuples()
 
         expected_learners     = [(0, "Modulo", "Modulo(p=0)", '0')]
-        expected_simulations  = [(0, '"LambdaSimulation",{"Shuffle":1}', "1", "LambdaSimulation", "None"), (1, '"LambdaSimulation",{"Shuffle":4}', "4", "LambdaSimulation", "None",)]
+        expected_simulations  = [(0, 'LambdaSimulation', 1), (1, 'LambdaSimulation', 4)]
         expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 2), (0, 0, 3, 1), (1, 0, 1, 1), (1, 0, 2, 0), (1, 0, 3, 2)]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -200,7 +180,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_tuples()
 
         expected_learners     = [(0, "random", "random")]
-        expected_simulations  = [(0, '"LambdaSimulation",{"Shuffle":1}', "1", "LambdaSimulation", "None"), (1, '"LambdaSimulation",{"Shuffle":4}', "4", "LambdaSimulation", "None")]
+        expected_simulations  = [(0, 'LambdaSimulation', 1), (1, 'LambdaSimulation', 4)]
         expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 2), (0, 0, 3, 1), (1, 0, 1, 0), (1, 0, 2, 2), (1, 0, 3, 1)]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -219,7 +199,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_tuples()
         
         expected_learners     = [(0, "Modulo", "Modulo(p=0)", '0')]
-        expected_simulations  = [(0, '"LambdaSimulation",{"Take":3}', "None", "LambdaSimulation", "3")]
+        expected_simulations  = [(0, 'LambdaSimulation', 3)]
         expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 1), (0, 0, 3, 2)]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -238,7 +218,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_interactions = actual_result._interactions.to_tuples()
 
         expected_learners     = [(0, "Modulo", "Modulo(p=0)", '0'), (1, "Modulo", "Modulo(p=1)", '1')]
-        expected_simulations  = [(0, '"LambdaSimulation"', "None", "LambdaSimulation", "None")]
+        expected_simulations  = [(0, 'LambdaSimulation')]
         expected_interactions = [(0,0,1,0),(0,0,2,1),(0,1,1,0),(0,1,2,1)]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -256,7 +236,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_interactions = actual_result._interactions.to_tuples()
 
         expected_learners       = [(0, "Modulo", "Modulo(p=0)", '0')]
-        expected_simulations    = [(0, '"LambdaSimulation"', "None", "LambdaSimulation", "None")]
+        expected_simulations    = [(0, 'LambdaSimulation')]
         expected_interactions_1 = [(0,0,1,0,'0'),(0,0,2,1,'0')]
         expected_interactions_2 = [(0,0,1,'0',0),(0,0,2,'0',1)]
 
@@ -279,7 +259,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_interactions = actual_result._interactions.to_tuples()
 
         expected_learners       = [(0, "Modulo", "Modulo(p=0)", '0')]
-        expected_simulations    = [(0, '"LambdaSimulation"', "None", "LambdaSimulation", "None")]
+        expected_simulations    = [(0, 'LambdaSimulation')]
         expected_interactions_1 = [(0,0,1,0),(0,0,2,1)]
         expected_interactions_2 = [(0,0,1,0),(0,0,2,1)]
 
@@ -308,7 +288,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
             actual_interactions = second_result.interactions.to_tuples()
             
             expected_learners     = [(0,"Modulo","Modulo(p=0)",'0')]
-            expected_simulations  = [(0,'"LambdaSimulation"', "None", "LambdaSimulation", "None")]
+            expected_simulations  = [(0,'LambdaSimulation')]
             expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 1)]
         except Exception as e:
             raise
@@ -335,7 +315,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_tuples()
 
         expected_learners     = [(0,"Modulo","Modulo(p=0)",'0'),(1,"Broken","Broken",float('nan'))]
-        expected_simulations  = [(0,'"LambdaSimulation"',"None","LambdaSimulation","None"), (1,'"LambdaSimulation"',"None","LambdaSimulation","None")]
+        expected_simulations  = [(0,'LambdaSimulation'), (1,'LambdaSimulation')]
         expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 1), (1, 0, 1, 3), (1, 0, 2, 4), (1, 0, 3, 5)]
 
         self.assertEqual(2, sum([int("Unexpected exception:" in item) for item in log_sink.items]))
