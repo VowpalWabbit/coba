@@ -127,8 +127,11 @@ class Table:
             col_filter_results = [ ]
 
             for col,col_filter in kwargs.items():
+                
                 if isinstance(col_filter,Container) and not isinstance(col_filter,str):
-                    col_filter_results.append(any([satisifies_filter(cf,row[col]) for cf in col_filter]))
+                    
+                    col_filter_results.append(row[col] in col_filter or any([satisifies_filter(cf,row[col]) for cf in col_filter]))
+                
                 else:
                     col_filter_results.append(satisifies_filter(col_filter,row[col]))
 
