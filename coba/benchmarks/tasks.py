@@ -125,7 +125,9 @@ class SimulationTask(Task):
                         X = FeatureHasher(n_features=2**14, input_type="pair").fit_transform(X)
 
                     if len(Y) > 5:
-                        extra_statistics["bayes_rate"] = round(cross_val_score(clf, X, Y, cv=5).mean(),4)
+                        scores = cross_val_score(clf, X, Y, cv=5)
+                        extra_statistics["bayes_rate_avg"] = round(scores.mean(),4)
+                        extra_statistics["bayes_rate_var"] = round(scores.var(),4)
 
                     for x,y in zip(X,Y):
                         C[y].append(x)
@@ -164,17 +166,13 @@ class SimulationTask(Task):
 
                 extra_statistics["action_cardinality"] = len(labels)
                 extra_statistics["context_dimensions"] = len(features)
-                extra_statistics["context_median_nz"]  = median(feat_cnts)
-                extra_statistics["imbalance_ratio"]    = round(max(label_cnts.values())/min(label_cnts.values()),4)
+                extra_statistics["context_median_nz" ] = median(feat_cnts)
+                extra_statistics["imbalance_ratio"   ] = round(max(label_cnts.values())/min(label_cnts.values()),4)
 
             source = self._source_repr()
             params = self._pipe_params()
 
-            yield Transaction.simulation(self.sim_id, 
-                source=source,
-                **params,
-                **extra_statistics
-            )
+            yield Transaction.simulation(self.sim_id, source=source, **params, **extra_statistics)
 
     def _source_repr(self) -> str:
         if isinstance(self.sim_pipe, SimSourceFilters):
