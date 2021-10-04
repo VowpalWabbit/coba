@@ -109,6 +109,7 @@ class SimulationTask(Task):
 
                     import numpy as np
                     import scipy.sparse as sp
+                    import scipy.stats as st
                     from sklearn.feature_extraction import FeatureHasher
                     from sklearn.tree import DecisionTreeClassifier
                     from sklearn.model_selection import cross_val_score
@@ -127,7 +128,7 @@ class SimulationTask(Task):
                     if len(Y) > 5:
                         scores = cross_val_score(clf, X, Y, cv=5)
                         extra_statistics["bayes_rate_avg"] = round(scores.mean(),4)
-                        extra_statistics["bayes_rate_var"] = round(scores.var(),4)
+                        extra_statistics["bayes_rate_iqr"] = round(st.iqr(scores),4)
 
                     for x,y in zip(X,Y):
                         C[y].append(x)
