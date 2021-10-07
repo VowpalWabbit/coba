@@ -1,3 +1,5 @@
+import gzip
+
 from typing import Iterable, TypeVar, List, Any
 
 import requests
@@ -19,11 +21,13 @@ class DiskSink(Sink[Iterable[str]]):
     def __init__(self, filename:str, mode:str='a+'):
         self.filename = filename
         self._mode    = mode
+        self._open    = open if not filename.endswith(".gz") else gzip.open
+        self._encode  = (lambda s: s) if not filename.endswith(".gz") else (lambda s: s.encode("utf-8"))
 
     def write(self, items: Iterable[str]) -> None:
-        with open(self.filename, self._mode) as f:
+        with self._open(self.filename, self._mode) as f:
             for item in items: 
-                f.write(item + '\n')
+                f.write(self._encode(item + '\n'))
                 f.flush()
 
 class MemorySink(Sink[_T_in]):
@@ -50,11 +54,13 @@ class QueueSink(Sink[Iterable[Any]]):
 class DiskSource(Source[Iterable[str]]):
     def __init__(self, filename:str):
         self.filename = filename
+        self._open    = open if not filename.endswith(".gz") else gzip.open
+        self._decode  = (lambda s: s) if not filename.endswith(".gz") else (lambda s: s.decode("utf-8"))
 
     def read(self) -> Iterable[str]:
-        with open(self.filename, "r+") as f:
+        with self._open(self.filename, "r+") as f:
             for line in f:
-                yield line
+                yield self._decode(line).rstrip('\n')
 
 class MemorySource(Source[_T_out]):
     def __init__(self, item: _T_out, __repr__: str = None): #type:ignore
