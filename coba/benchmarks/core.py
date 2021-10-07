@@ -1,10 +1,9 @@
-from coba.simulations.core import Interaction
 from pathlib import Path
 from itertools import product
-from typing import Iterable, Sequence, cast, Optional, overload, List, Union
+from typing import Iterable, Sequence, Optional, overload, List, Union
 
 from coba.learners import Learner, SafeLearner
-from coba.simulations import Simulation, Take, Shuffle, SimSourceFilters
+from coba.simulations import Simulation, Take, Shuffle, SimSourceFilters, Interaction
 from coba.registry import CobaRegistry
 from coba.config import CobaConfig, CobaFatal
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpSource, MemorySource, DiskSource

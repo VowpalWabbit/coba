@@ -31,8 +31,8 @@ class DiskSink(Sink[Iterable[str]]):
         self._encode  = (lambda s: s) if not filename.endswith(".gz") else (lambda s: s.encode("utf-8"))
 
     def write(self, items: Iterable[str]) -> None:
-        with self._open(self.filename, self._mode) as f:
-            for item in items: 
+        for item in items: 
+            with self._open(self.filename, self._mode) as f:
                 f.write(self._encode(item + '\n'))
                 f.flush()
 
