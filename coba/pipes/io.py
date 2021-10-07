@@ -19,6 +19,12 @@ class ConsoleSink(Sink[Iterable[_T_in]]):
 
 class DiskSink(Sink[Iterable[str]]):
     def __init__(self, filename:str, mode:str='a+'):
+        
+        #If you are using the gzip functionality of disk sink
+        #then you should note that this implementation isn't optimal
+        #in terms of compression since it compresses one line at a time.
+        #see https://stackoverflow.com/a/18109797/1066291 for more info.
+        
         self.filename = filename
         self._mode    = mode
         self._open    = open if not filename.endswith(".gz") else gzip.open
