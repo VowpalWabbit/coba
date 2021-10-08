@@ -506,3 +506,6 @@ class ValidationSimulation(LambdaSimulation):
                 yield Interaction(i.context, i.actions, [ int(r == max(i.reveals)) for r in i.reveals ] )
             else:
                 yield i
+
+    def __repr__(self) -> str:
+        return "ValidationSimulation"

@@ -1,18 +1,43 @@
-"""The vowpal module contains classes to make it easier to interact with pyvw.
+"""The vowpal module contains classes to make it easier to interact with pyvw."""
 
-TODO Add unittests
-"""
-
+import enum
 import re
 import collections
+import warnings
 
+from itertools import repeat
+from numbers import Number
 from os import devnull
 from typing import Any, Dict, Union, Sequence, overload, cast, Optional, Tuple
+
+from vowpalwabbit.pyvw import vw
 
 from coba.config import CobaException
 from coba.utilities import PackageChecker, redirect_stderr
 from coba.simulations import Context, Action
+
 from coba.learners.core import Learner, Probs, Info
+
+Feature  = Union[str,Number]
+Features = Union[Dict[str,Feature], Sequence[Feature], Feature]
+
+def vowpal_feature_prepper(features: Features) -> Sequence[Tuple[str,float]]:
+
+    if features is None:
+        return []
+    elif isinstance(features, dict):
+        return [ t[1] if isinstance(t[1],str) else t for t in features.items() if t[1] != 0 ]
+    elif isinstance(features, str):
+        return [features]
+    elif isinstance(features, Number):
+        return [(0,features)]
+    elif isinstance(features, collections.Sequence):
+        if isinstance(features[0], collections.Sequence):
+            return features
+        else:
+            return [ t[1] if isinstance(t[1],str) else t for t in enumerate(features) if t[1] != 0 ]
+    else:
+        raise Exception("Unrecognized features passed to VowpalLearner.")
 
 class VowpalLearner(Learner):
     """A learner using Vowpal Wabbit's contextual bandit command line interface.
@@ -93,7 +118,7 @@ class VowpalLearner(Learner):
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
-        PackageChecker.vowpalwabbit('VowpalLearner')
+        PackageChecker.vowpalwabbit('VowpalLearner.__init__')
 
         interactions = "--interactions ssa --interactions sa --ignore_linear s"
 
@@ -166,18 +191,17 @@ class VowpalLearner(Learner):
             if not self._adf:
                 self._actions = actions
 
-        assert self._vw is not None, "Something went wrong and vw was not initialized"
+        if not self._adf and (len(actions) != len(self._actions) or any(a not in self._actions for a in actions)):
+            raise CobaException("Actions are only allowed to change between predictions with `--cb_explore_adf`.")
 
-        probs = self._vw.predict(self._predict_format(context, actions))
+        info = (actions if self._adf else self._actions)
 
         if self._adf:
-            return probs, actions
+            probs = self._vw.predict(self._examples(context,actions))
         else:
-            if any(action not in self._actions for action in actions) or len(actions) != len(self._actions):
-                raise CobaException("It appears that actions are changing between predictions. When this happens you need to use VW's `--cb_explore_adf`.")
+            probs = self._vw.predict(self._examples(context))
 
-            #in this case probs will be in order of self._actions but we want to return in order of actions
-            return [ probs[self._actions.index(action)] for action in actions ], self._actions
+        return probs, info
 
     def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
         """Learn from the given interaction.
@@ -191,82 +215,50 @@ class VowpalLearner(Learner):
         """
 
         assert self._vw is not None, "You must call predict before learn in order to initialize the VW learner"
-        
-        self._vw.learn(self._learn_format(probability, info, context, action, reward))
+
+        actions = info
+        labeler = lambda a: None if a != action else f"{actions.index(a)+1}:{round(-reward,5)}:{round(probability,5)}"
+
+        if self._adf:
+            self._vw.learn(self._examples(context, actions, list(map(labeler,actions))))
+        else:
+            self._vw.learn(self._examples(context, None, labeler(action)))
 
     def _round(self, value: float) -> float:
         return round(value, self._precision)
 
-    def _feature_format(self, name: Any, value: Any) -> str:
-        """Convert a feature into the proper format for pyvw.
-
-        Args:
-            name: The name of the feature.
-            value: The value of the feature.
-
-        Remarks:
-            In feature formatting we prepend a "name" to each feature. This makes it possible
-            to compare features across actions/contexts. See the definition of `Features` at 
-            the top of https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format for more info.
-        """
-
-        return f"{name}:{self._round(value)}" if isinstance(value,(int,float)) else f"{value}"
-
-    def _features_format(self, features: Union[Context,Action]) -> str:
-        """convert features into the proper format for pyvw.
-
-        Args:
-            features: The feature set we wish to convert to pyvw representation.
-
-        Returns:
-            The context in pyvw representation.
-
-        Remarks:
-            Note, using the enumeration index for action features below only works if all actions
-            have the same number of features. If some actions simply leave out features in their
-            feature array a more advanced method may need to be implemented in the future...
-        """
-
-        if isinstance(features, str):
-            return features + ":1" #type: ignore
-
-        if isinstance(features, dict):
-            return " ". join([self._feature_format(k,v) for k,v in features.items() if v is not None and v != 0 ])
-
-        if isinstance(features, tuple) and len(features) == 2 and isinstance(features[0], tuple) and isinstance(features[1], tuple):
-            return " ". join([self._feature_format(k,v) for k,v in zip(features[0], features[1]) if v is not None and v != 0 ])
-
-        if not isinstance(features, collections.Sequence):
-            features = (features,)
-
-        if isinstance(features, collections.Sequence):
-            return " ". join([self._feature_format(i,f) for i,f in enumerate(features) if f is not None and f != 0 ])
-
-        raise Exception("We were unable to determine an appropriate vw context format.")
-
     def _create_format(self, actions) -> str:
-        
+
         cb_explore = "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}" if actions else "--cb_explore"
-        
         return cb_explore + " " + self._args
 
-    def _predict_format(self, context, actions) -> str:
-        if self._adf:
-            vw_context = None if context is None else f"shared |s {self._features_format(context)}"
-            vw_actions = [ f"|a {self._features_format(a)}" for a in actions]
-            return "\n".join(filter(None,[vw_context, *vw_actions]))
-        else:
-            return f"|s {self._features_format(context)}"
+    def _examples(self, context, actions=None, labels=None):
+        from vowpalwabbit.pyvw import example
 
-    def _learn_format(self, prob, actions, context, action, reward) -> str:
-        
-        vw_reward = lambda a: "" if a != action else f"{actions.index(action)+1}:{self._round(-reward)}:{self._round(prob)} "
+        namespaces = { 's': vowpal_feature_prepper(context) }
 
-        if self._adf:
-            vw_context  = None if context is None else f"shared |s {self._features_format(context)}"
-            vw_rewards  = [ vw_reward(a) for a in actions ]
-            vw_actions  = [ f"|a {self._features_format(a)}" for a in actions]
-            vw_observed = [ f"{r}{a}" for r,a in zip(vw_rewards,vw_actions) ]
-            return "\n".join(filter(None,[vw_context, *vw_observed]))
+        if actions:
+
+            examples = []
+
+            for action,label in zip(actions, labels or repeat(None)):
+
+                namespaces['a'] = vowpal_feature_prepper(action)
+                ex = example(self._vw, namespaces, 4)
+
+                if label:
+                    ex.set_label_string(label)
+
+                ex.setup_example()
+                examples.append(ex)
+            
+            return examples
         else:
-            return f"{vw_reward(action)}|s {self._features_format(context)}"
+            ex = example(self._vw, namespaces, 4)
+
+            if labels:
+                ex.set_label_string(labels)
+
+            ex.setup_example()
+
+            return ex
