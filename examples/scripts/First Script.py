@@ -13,7 +13,7 @@ if __name__ == '__main__':
     #First, we define the learners that we want to test
     learners = [
         RandomLearner(),
-        EpsilonBanditLearner(epsilon=0.025),
+        EpsilonBanditLearner(epsilon=0.1),
         VowpalLearner(epsilon=.1), #This learner requires that VowpalWabbit be installed
     ]
 
