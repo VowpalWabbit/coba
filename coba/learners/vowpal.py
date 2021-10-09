@@ -23,7 +23,7 @@ Features = Union[Dict[str,Feature], Sequence[Feature], Feature]
 
 def vowpal_feature_prepper(features: Features) -> Sequence[Tuple[str,float]]:
 
-    if features is None:
+    if not features:
         return []
     elif isinstance(features, dict):
         return [ t[1] if isinstance(t[1],str) else t for t in features.items() if t[1] != 0 ]
@@ -165,7 +165,7 @@ class VowpalLearner(Learner):
         See the base class for more information
         """
 
-        return {"family": "vw", 'args': self._create_format(None)}
+        return {"family": "vw", 'args': self._cli_args(None)}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
         """Determine a PMF with which to select the given actions.
@@ -186,7 +186,7 @@ class VowpalLearner(Learner):
             # so if you are here because of strange problems with threads we may just need to suck
             # it up and accept that there will be an obnoxious warning message.
             with open(devnull, 'w') as f, redirect_stderr(f):
-                self._vw = pyvw.vw(self._create_format(actions) + " --quiet")
+                self._vw = pyvw.vw(self._cli_args(actions) + " --quiet")
 
             if not self._adf:
                 self._actions = actions
@@ -196,10 +196,13 @@ class VowpalLearner(Learner):
 
         info = (actions if self._adf else self._actions)
 
+        shared  = self._shared(context)
+        adfs    = self._adfs(actions)
+
         if self._adf:
-            probs = self._vw.predict(self._examples(context,actions))
+            probs = self._vw.predict(self._examples(shared,adfs))
         else:
-            probs = self._vw.predict(self._examples(context))
+            probs = self._vw.predict(self._example(shared))
 
         return probs, info
 
@@ -217,48 +220,46 @@ class VowpalLearner(Learner):
         assert self._vw is not None, "You must call predict before learn in order to initialize the VW learner"
 
         actions = info
-        labeler = lambda a: None if a != action else f"{actions.index(a)+1}:{round(-reward,5)}:{round(probability,5)}"
+        shared  = self._shared(context)
+        adfs    = self._adfs(actions)
+        labels  = self._labels(actions, action, reward, probability)
+        label   = labels[actions.index(action)]
 
         if self._adf:
-            self._vw.learn(self._examples(context, actions, list(map(labeler,actions))))
+            self._vw.learn(self._examples(shared, adfs, labels))
         else:
-            self._vw.learn(self._examples(context, None, labeler(action)))
+            self._vw.learn(self._example(shared, label))
 
-    def _round(self, value: float) -> float:
-        return round(value, self._precision)
+    def _cli_args(self, actions: Sequence[Action]) -> str:
+        if self._adf:
+            return "--cb_explore_adf" + " " + self._args
+        else:
+            return f"--cb_explore {len(actions)}" + " " + self._args
 
-    def _create_format(self, actions) -> str:
-
-        cb_explore = "--cb_explore_adf" if self._adf else f"--cb_explore {len(actions)}" if actions else "--cb_explore"
-        return cb_explore + " " + self._args
-
-    def _examples(self, context, actions=None, labels=None):
+    def _examples(self, shared: Dict[str,Any], adfs: Sequence[Dict[str,Any]] = None, labels: Sequence[str] = None):
         from vowpalwabbit.pyvw import example
 
-        namespaces = { 's': vowpal_feature_prepper(context) }
+        shared = { ns:vowpal_feature_prepper(v) for ns,v in shared.items() }
+        examples = []
+        for adf,label in zip(adfs, labels or repeat(None)):
+            adf = { ns:vowpal_feature_prepper(v) for ns,v in adf.items() }
+            examples.append(self._example({**shared,**adf}, label))
+        return examples
 
-        if actions:
+    def _example(self, ns, label=None):
+        from vowpalwabbit.pyvw import example
 
-            examples = []
+        ex = example(self._vw, ns, 4)
+        if label: ex.set_label_string(label)
+        ex.setup_example()
 
-            for action,label in zip(actions, labels or repeat(None)):
+        return ex
 
-                namespaces['a'] = vowpal_feature_prepper(action)
-                ex = example(self._vw, namespaces, 4)
+    def _labels(self,actions,action,reward:float,prob:float) -> Sequence[Optional[str]]:
+        return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
 
-                if label:
-                    ex.set_label_string(label)
+    def _shared(self,context) -> Dict[str,Any]:
+        return { 's': vowpal_feature_prepper(context) }
 
-                ex.setup_example()
-                examples.append(ex)
-            
-            return examples
-        else:
-            ex = example(self._vw, namespaces, 4)
-
-            if labels:
-                ex.set_label_string(labels)
-
-            ex.setup_example()
-
-            return ex
+    def _adfs(self,actions) -> Sequence[Dict[str,Any]]:
+        return [ {'a': vowpal_feature_prepper(a)} for a in actions]
