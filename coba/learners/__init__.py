@@ -9,7 +9,7 @@ of learners are provided out of the box for testing and baseline comparisons.
 from coba.learners.core import Learner, FixedLearner, RandomLearner, SafeLearner
 from coba.learners.bandit import EpsilonBanditLearner, UcbBanditLearner
 from coba.learners.corral import CorralLearner
-from coba.learners.vowpal import VowpalLearner, vowpal_feature_prepper
+from coba.learners.vowpal import VowpalLearner, VowpalMediator
 from coba.learners.linUCB import LinUCBLearner
 from coba.learners.regCB import RegCBLearner
 
@@ -24,5 +24,5 @@ __all__ = [
     'VowpalLearner',
     'LinUCBLearner',
     'RegCBLearner',
-    'vowpal_feature_prepper'
+    'VowpalMediator'
 ]

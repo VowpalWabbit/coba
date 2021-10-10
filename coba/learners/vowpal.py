@@ -1,16 +1,12 @@
 """The vowpal module contains classes to make it easier to interact with pyvw."""
 
-import enum
 import re
 import collections
-import warnings
 
 from itertools import repeat
 from numbers import Number
 from os import devnull
 from typing import Any, Dict, Union, Sequence, overload, cast, Optional, Tuple
-
-from vowpalwabbit.pyvw import vw
 
 from coba.config import CobaException
 from coba.utilities import PackageChecker, redirect_stderr
@@ -21,23 +17,43 @@ from coba.learners.core import Learner, Probs, Info
 Feature  = Union[str,Number]
 Features = Union[Dict[str,Feature], Sequence[Feature], Feature]
 
-def vowpal_feature_prepper(features: Features) -> Sequence[Tuple[str,float]]:
-
-    if not features:
-        return []
-    elif isinstance(features, dict):
-        return [ t[1] if isinstance(t[1],str) else t for t in features.items() if t[1] != 0 ]
-    elif isinstance(features, str):
-        return [features]
-    elif isinstance(features, Number):
-        return [(0,features)]
-    elif isinstance(features, collections.Sequence):
-        if isinstance(features[0], collections.Sequence):
-            return features
+class VowpalMediator:
+    
+    @staticmethod
+    def prep_features(features: Features) -> Sequence[Tuple[str,float]]:
+        if not features:
+            return []
+        elif isinstance(features, dict):
+            return [ t[1] if isinstance(t[1],str) else t for t in features.items() if t[1] != 0 ]
+        elif isinstance(features, str):
+            return [features]
+        elif isinstance(features, Number):
+            return [(0,features)]
+        elif isinstance(features, collections.Sequence):
+            if isinstance(features[0], collections.Sequence) and len(features[0]) == 2:
+                return features
+            else:
+                return [ t[1] if isinstance(t[1],str) else t for t in enumerate(features) if t[1] != 0 ]
         else:
-            return [ t[1] if isinstance(t[1],str) else t for t in enumerate(features) if t[1] != 0 ]
-    else:
-        raise Exception("Unrecognized features passed to VowpalLearner.")
+            raise Exception("Unrecognized features passed to VowpalLearner.")
+
+    @staticmethod
+    def make_learner(args:str):
+        PackageChecker.vowpalwabbit('VVW.make_learner')
+        from vowpalwabbit import pyvw
+
+        return pyvw.vw(args)
+    
+    @staticmethod
+    def make_example(vw, ns:Dict[str,Any], label:Optional[str], label_type:int):
+        PackageChecker.vowpalwabbit('VW.make_example')
+        from vowpalwabbit.pyvw import example
+
+        ex = example(vw, ns, label_type)
+        if label: ex.set_label_string(label)
+        ex.setup_example()
+        
+        return ex
 
 class VowpalLearner(Learner):
     """A learner using Vowpal Wabbit's contextual bandit command line interface.
@@ -50,18 +66,17 @@ class VowpalLearner(Learner):
     """
 
     @overload
-    def __init__(self, *, epsilon: float = 0.1, adf: bool = True, seed: Optional[int] = 1, precision: int=5) -> None:
+    def __init__(self, *, epsilon: float = 0.1, adf: bool = True, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             epsilon: A value between 0 and 1. If provided, exploration will follow epsilon-greedy.
             adf: Indicate whether cb_explore or cb_explore_adf should be used.
             seed: The seed used by VW to generate any necessary random numbers.
-            precision: Indicate how many decimal places to round to when passing example strings to VW.
         """
         ...
 
     @overload
-    def __init__(self, *, bag: int, adf: bool = True, seed: Optional[int] = 1, precision: int=5) -> None:
+    def __init__(self, *, bag: int, adf: bool = True, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             bag: An integer value greater than 0. This value determines how many separate policies will be
@@ -69,12 +84,11 @@ class VowpalLearner(Learner):
                 When predicting one policy will be selected according to a uniform distribution and followed.
             adf: Indicate whether cb_explore or cb_explore_adf should be used.
             seed: The seed used by VW to generate any necessary random numbers.
-            precision: Indicate how many decimal places to round to when passing example strings to VW.
         """
         ...
 
     @overload
-    def __init__(self, *, cover: int, seed: Optional[int] = 1, precision: int=5) -> None:
+    def __init__(self, *, cover: int, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             cover: An integer value greater than 0. This value value determines how many separate policies will be
@@ -82,7 +96,7 @@ class VowpalLearner(Learner):
                 to control exploration. When predicting one policy will be selected according to a uniform distribution
                 and followed. For more information on this algorithm see Agarwal et al. (2014).
             seed: The seed used by VW to generate any necessary random numbers.
-            precision: Indicate how many decimal places to round to when passing example strings to VW.
+        
         References:
             Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming 
             the monster: A fast and simple algorithm for contextual bandits." In International Conference on 
@@ -91,34 +105,30 @@ class VowpalLearner(Learner):
         ...
 
     @overload
-    def __init__(self, *, softmax: float, seed: Optional[int] = 1, precision: int=5) -> None:
+    def __init__(self, *, softmax: float, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             softmax: An exploration parameter with 0 indicating uniform exploration is desired and infinity
                 indicating that no exploration is desired (aka, greedy action selection only). For more info
                 see `lambda` at https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms.
             seed: The seed used by VW to generate any necessary random numbers.
-            precision: Indicate how many decimal places to round to when passing example strings to VW.
         """
         ...
 
     @overload
-    def __init__(self, args:str, precision: int=5) -> None:
+    def __init__(self, args:str) -> None:
         ...
         """Instantiate a VowpalLearner.
         Args:
             args: Command line argument to instantiates a Vowpal Wabbit contextual bandit learner. 
                 For examples and documentation on how to instantiate VW learners from command line arguments see 
                 https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms. It is assumed that
-                either the --cb_explore or --cb_explore_adf flag is used. When formatting examples for VW context
-                features are namespaced with `s` and action features, when relevant, are namespaced with with `a`.
-            precision: Indicate how many decimal places to round to when passing example strings to VW.
+                either the --cb_explore or --cb_explore_adf flag is used. When formatting examples for VW, context
+                features are namespaced with `s` and action features, when relevant, are namespaced with `a`.
         """
 
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
-
-        PackageChecker.vowpalwabbit('VowpalLearner.__init__')
 
         interactions = "--interactions ssa --interactions sa --ignore_linear s"
 
@@ -129,6 +139,9 @@ class VowpalLearner(Learner):
             kwargs['epsilon'] = 0.1
 
         if len(args) > 0:
+
+            assert "--cb" in args[0], "VowpalLearner was instantiated without a cb learner being defined."
+
             self._adf  = "--cb_explore_adf" in args[0]
             self._args = cast(str,args[0])
 
@@ -161,11 +174,11 @@ class VowpalLearner(Learner):
     @property
     def params(self) -> Dict[str, Any]:
         """The parameters of the learner.
-        
+
         See the base class for more information
         """
 
-        return {"family": "vw", 'args': self._cli_args(None)}
+        return {"family": "vw", 'args': self._cli_args([None])}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
         """Determine a PMF with which to select the given actions.
@@ -179,14 +192,14 @@ class VowpalLearner(Learner):
         """
 
         if self._vw is None:
-            from vowpalwabbit import pyvw #type: ignore
+             #type: ignore
             # vowpal has an annoying warning that is written to stderr whether or not we provide
             # the --quiet flag. Therefore, we temporarily redirect all stderr output to null so that
             # this warning isn't shown during creation. It should be noted this isn't thread-safe
             # so if you are here because of strange problems with threads we may just need to suck
             # it up and accept that there will be an obnoxious warning message.
             with open(devnull, 'w') as f, redirect_stderr(f):
-                self._vw = pyvw.vw(self._cli_args(actions) + " --quiet")
+                self._vw = VowpalMediator.make_learner(self._cli_args(actions) + " --quiet")
 
             if not self._adf:
                 self._actions = actions
@@ -230,36 +243,31 @@ class VowpalLearner(Learner):
         else:
             self._vw.learn(self._example(shared, label))
 
-    def _cli_args(self, actions: Sequence[Action]) -> str:
+    def _cli_args(self, actions: Optional[Sequence[Action]]) -> str:
+
         if self._adf:
             return "--cb_explore_adf" + " " + self._args
         else:
-            return f"--cb_explore {len(actions)}" + " " + self._args
+            return f"--cb_explore {len(actions) if actions else ''}" + " " + self._args
 
     def _examples(self, shared: Dict[str,Any], adfs: Sequence[Dict[str,Any]] = None, labels: Sequence[str] = None):
-        from vowpalwabbit.pyvw import example
 
-        shared = { ns:vowpal_feature_prepper(v) for ns,v in shared.items() }
+        shared = { ns:VowpalMediator.prep_features(v) for ns,v in shared.items() }
         examples = []
         for adf,label in zip(adfs, labels or repeat(None)):
-            adf = { ns:vowpal_feature_prepper(v) for ns,v in adf.items() }
+            adf = { ns:VowpalMediator.prep_features(v) for ns,v in adf.items() }
             examples.append(self._example({**shared,**adf}, label))
+        
         return examples
 
     def _example(self, ns, label=None):
-        from vowpalwabbit.pyvw import example
-
-        ex = example(self._vw, ns, 4)
-        if label: ex.set_label_string(label)
-        ex.setup_example()
-
-        return ex
+        return VowpalMediator.make_example(self._vw, ns, label, 4)
 
     def _labels(self,actions,action,reward:float,prob:float) -> Sequence[Optional[str]]:
-        return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
+        return [ f"{i+1}:{round(1-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
 
     def _shared(self,context) -> Dict[str,Any]:
-        return { 's': vowpal_feature_prepper(context) }
+        return {} if not context else { 's': VowpalMediator.prep_features(context) }
 
     def _adfs(self,actions) -> Sequence[Dict[str,Any]]:
-        return [ {'a': vowpal_feature_prepper(a)} for a in actions]
+        return [ {'a': VowpalMediator.prep_features(a)} for a in actions]

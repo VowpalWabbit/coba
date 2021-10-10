@@ -18,10 +18,10 @@ if __name__ == '__main__':
     ]
 
     #Then we define the simulations that we want to test our learners on
-    simulations = [ ValidationSimulation(300, context_features=True, action_features=False, seed=1000) ]
+    simulations = [ ValidationSimulation(2000, context_features=True, action_features=False, make_binary=True, seed=1000) ]
 
     #And also define a collection of seeds used to shuffle our simulations
-    seeds = [0,1,2,3]
+    seeds = [0,1,2]
 
     #We then create our benchmark using our simulations and seeds
     benchmark = Benchmark(simulations, shuffle=seeds)
