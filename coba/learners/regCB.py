@@ -118,10 +118,10 @@ class RegCBLearner(Learner):
 
         self._iter += 1
 
-        if (self._iter-200) % 200 == 0 and self._iter > 200:
-            print(f'avg phi time: {round(self._times[0]/(self._iter-200),2)}')
-            print(f'avg bin time: {round(self._times[1]/(self._iter-200),2)}')
-            print(f'avg lrn time: {round(self._times[2]/(self._iter-200),2)}')
+        # if (self._iter-200) % 200 == 0 and self._iter > 200:
+        #     print(f'avg phi time: {round(self._times[0]/(self._iter-200),2)}')
+        #     print(f'avg bin time: {round(self._times[1]/(self._iter-200),2)}')
+        #     print(f'avg lrn time: {round(self._times[2]/(self._iter-200),2)}')
 
     def _bin_search(self, features, K_t) -> float:
 
