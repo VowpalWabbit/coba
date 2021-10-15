@@ -82,9 +82,9 @@ class LinUCBLearner(Learner):
 
         action_values = term_one + term_two
 
-        if (self._i-1) % 100 == 0 and self._timeit:
-            print(self._times[0]/(self._i+1))
-            print(self._times[1]/(self._i+1))
+        # if (self._i-1) % 100 == 0 and self._timeit:
+        #     print(self._times[0]/(self._i+1))
+        #     print(self._times[1]/(self._i+1))
 
         max_indexes = np.where(action_values == np.amax(action_values))[0]
         

@@ -7,8 +7,6 @@ from itertools import groupby, product, count
 from collections import defaultdict
 from typing import Iterable, Sequence, Any, Optional, Dict, Hashable, Tuple
 
-from numpy.lib.arraysetops import isin
-
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
