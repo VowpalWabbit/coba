@@ -73,7 +73,8 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             if target == "" or not isinstance(target_encoder, problem_encoder):
                 target = self._get_target_for_problem_type(data_id)
-                ignored[headers.index(target)] = False
+            
+            ignored[headers.index(target)] = False
 
             if self._problem_type == "classification":
                 target_encoder = StringEncoder() if self._nominal_as_str else OneHotEncoder(singular_if_binary=False)
