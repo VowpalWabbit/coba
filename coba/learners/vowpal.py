@@ -290,7 +290,7 @@ class VowpalLearner(Learner):
         return [ f"{i+1}:{round(1-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
 
     def _shared(self,context) -> Dict[str,Any]:
-        return { 's': VowpalMediator.prep_features(context) }
+        return {} if not context else { 's': VowpalMediator.prep_features(context) }
 
     def _adfs(self,actions) -> Sequence[Dict[str,Any]]:
         return [ {'a': VowpalMediator.prep_features(a)} for a in actions]
