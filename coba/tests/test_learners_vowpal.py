@@ -361,7 +361,7 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertTrue("--cb_explore_adf" in str(e.exception))
 
-class prep_features_Tests(unittest.TestCase):
+class VowpalMediator_Tests(unittest.TestCase):
     def test_string(self):
         actual   = VowpalMediator.prep_features('a')
         expected = [ 'a' ]
@@ -406,6 +406,26 @@ class prep_features_Tests(unittest.TestCase):
         actual   = VowpalMediator.prep_features([('a',1),('b',2)])
         expected = [ ('a',1), ('b',2) ]
         self.assertEqual(actual, expected)
+
+    def test_sparse_tuple_with_str_val(self):
+        actual   = VowpalMediator.prep_features([('a','c'),('b','d')])
+        expected = [ 'c', 'd' ]
+        self.assertEqual(actual, expected)
+
+    def test_sparse_tuple_with_float_val(self):
+        actual   = VowpalMediator.prep_features([(1.,1.23),(2.,2.23)])
+        expected = [ (1,1.23), (2,2.23) ]
+
+        self.assertEqual(actual, expected)
+
+        self.assertIsInstance(actual[0][0],int)
+        self.assertIsInstance(actual[1][0],int)
+
+    def test_malformed_sparse_tuple_key(self):
+        with self.assertRaises(AssertionError) as e:
+            VowpalMediator.prep_features([(1.23,1.23),(2.23,2.23)])
+
+        self.assertIn("(1.23, 1.23)", str(e.exception))
 
 if __name__ == '__main__':
     unittest.main()
