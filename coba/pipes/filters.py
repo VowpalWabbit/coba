@@ -248,7 +248,7 @@ class CsvReader(Filter[Iterable[str], _T_Data]):
             value_list: List[str] = []
 
             for item in data_line:
-                split = item.strip("}{").split(' ', 1)
+                split = item.strip("}{").strip().split(' ', 1)
                 
                 index_list.append(int(split[0]))
                 value_list.append(split[1])
