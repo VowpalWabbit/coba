@@ -196,6 +196,25 @@ class VowpalLearner_Tests(unittest.TestCase):
         
         self.assertEqual(None         , mock_learner.learn_example)
 
+    def test_adf_predict_sans_context_mixed_actions(self):
+        VowpalLearner(epsilon=0.05, adf=True, seed=20).predict(None, [(1,'a'),(2,'b')])
+
+        mock_learner = self.mock_learner    
+
+        self.assertEqual(2, len(mock_learner.predict_example))
+        
+        self.assertEqual(mock_learner      , mock_learner.predict_example[0].vw)
+        self.assertEqual({'a':[(0,1),'a']} , mock_learner.predict_example[0].ns)
+        self.assertEqual(None              , mock_learner.predict_example[0].label)
+        self.assertEqual(4                 , mock_learner.predict_example[0].label_type)
+
+        self.assertEqual(mock_learner      , mock_learner.predict_example[1].vw)
+        self.assertEqual({'a':[(0,2),'b']} , mock_learner.predict_example[1].ns)
+        self.assertEqual(None              , mock_learner.predict_example[1].label)
+        self.assertEqual(4                 , mock_learner.predict_example[1].label_type)
+        
+        self.assertEqual(None, mock_learner.learn_example)
+
     def test_adf_predict_with_str_context_str_actions(self):
         VowpalLearner(epsilon=0.05, adf=True, seed=20).predict('b', ['yes','no'])
 
@@ -307,15 +326,72 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(mock_learner.learn_example))
         
-        self.assertEqual(mock_learner           , mock_learner.learn_example[0].vw)
+        self.assertEqual(mock_learner               , mock_learner.learn_example[0].vw)
         self.assertEqual({'s':[('c',2)],'a':['yes']}, mock_learner.learn_example[0].ns)
-        self.assertEqual(None                   , mock_learner.learn_example[0].label)
-        self.assertEqual(4                      , mock_learner.learn_example[0].label_type)
+        self.assertEqual(None                       , mock_learner.learn_example[0].label)
+        self.assertEqual(4                          , mock_learner.learn_example[0].label_type)
 
-        self.assertEqual(mock_learner , mock_learner.learn_example[1].vw)
-        self.assertEqual({'s':[('c',2)],'a':['no']} , mock_learner.learn_example[1].ns)
-        self.assertEqual("2:0.5:0.2"            , mock_learner.learn_example[1].label)
-        self.assertEqual(4                      , mock_learner.learn_example[1].label_type)
+        self.assertEqual(mock_learner              , mock_learner.learn_example[1].vw)
+        self.assertEqual({'s':[('c',2)],'a':['no']}, mock_learner.learn_example[1].ns)
+        self.assertEqual("2:0.5:0.2"               , mock_learner.learn_example[1].label)
+        self.assertEqual(4                         , mock_learner.learn_example[1].label_type)
+
+    def test_adf_learn_with_dict_context_str_actions(self):
+        learner = VowpalLearner(epsilon=0.05, adf=True, seed=20)
+        learner.predict({'c':2}, ['yes','no'])
+        learner.learn({'c':2}, 'no', .5, 0.2, ['yes','no'])
+
+        mock_learner = self.mock_learner    
+
+        self.assertEqual(2, len(mock_learner.learn_example))
+        
+        self.assertEqual(mock_learner               , mock_learner.learn_example[0].vw)
+        self.assertEqual({'s':[('c',2)],'a':['yes']}, mock_learner.learn_example[0].ns)
+        self.assertEqual(None                       , mock_learner.learn_example[0].label)
+        self.assertEqual(4                          , mock_learner.learn_example[0].label_type)
+
+        self.assertEqual(mock_learner              , mock_learner.learn_example[1].vw)
+        self.assertEqual({'s':[('c',2)],'a':['no']}, mock_learner.learn_example[1].ns)
+        self.assertEqual("2:0.5:0.2"               , mock_learner.learn_example[1].label)
+        self.assertEqual(4                         , mock_learner.learn_example[1].label_type)
+
+    def test_adf_learn_with_mixed_dense_context_str_actions(self):
+        learner = VowpalLearner(epsilon=0.05, adf=True, seed=20)
+        learner.predict([1,'a'], ['yes','no'])
+        learner.learn([1,'a'], 'no', .5, 0.2, ['yes','no'])
+
+        mock_learner = self.mock_learner    
+
+        self.assertEqual(2, len(mock_learner.learn_example))
+        
+        self.assertEqual(mock_learner                 , mock_learner.learn_example[0].vw)
+        self.assertEqual({'s':[(0,1),'a'],'a':['yes']}, mock_learner.learn_example[0].ns)
+        self.assertEqual(None                         , mock_learner.learn_example[0].label)
+        self.assertEqual(4                            , mock_learner.learn_example[0].label_type)
+
+        self.assertEqual(mock_learner                , mock_learner.learn_example[1].vw)
+        self.assertEqual({'s':[(0,1),'a'],'a':['no']}, mock_learner.learn_example[1].ns)
+        self.assertEqual("2:0.5:0.2"                 , mock_learner.learn_example[1].label)
+        self.assertEqual(4                           , mock_learner.learn_example[1].label_type)
+
+    def test_adf_learn_with_no_context_mixed_dense_actions(self):
+        learner = VowpalLearner(epsilon=0.05, adf=True, seed=20)
+        learner.predict(None, [(1,'a'),(2,'b')])
+        learner.learn(None, (2,'b'), .5, 0.2, [(1,'a'),(2,'b')])
+
+        mock_learner = self.mock_learner    
+
+        self.assertEqual(2, len(mock_learner.learn_example))
+        
+        self.assertEqual(mock_learner     , mock_learner.learn_example[0].vw)
+        self.assertEqual({'a':[(0,1),'a']}, mock_learner.learn_example[0].ns)
+        self.assertEqual(None             , mock_learner.learn_example[0].label)
+        self.assertEqual(4                , mock_learner.learn_example[0].label_type)
+
+        self.assertEqual(mock_learner     , mock_learner.learn_example[1].vw)
+        self.assertEqual({'a':[(0,2),'b']}, mock_learner.learn_example[1].ns)
+        self.assertEqual("2:0.5:0.2"      , mock_learner.learn_example[1].label)
+        self.assertEqual(4                , mock_learner.learn_example[1].label_type)
 
     def test_no_adf_learn_sans_context_str_actions(self):
         learner = VowpalLearner(epsilon=0.05, adf=False, seed=20)

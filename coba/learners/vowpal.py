@@ -232,11 +232,11 @@ class VowpalLearner(Learner):
 
         info = (actions if self._adf else self._actions)
 
-        shared  = self._shared(context)
-        adfs    = self._adfs(actions)
+        shared = self._shared(context)
+        adfs   = self._adfs(actions)
 
         if self._adf:
-            probs = self._vw.predict(self._examples(shared,adfs))
+            probs = self._vw.predict(self._examples(shared, adfs))
         else:
             probs = self._vw.predict(self._example(shared))
 
@@ -273,15 +273,8 @@ class VowpalLearner(Learner):
         else:
             return f"--cb_explore {len(actions) if actions else ''}" + " " + self._args
 
-    def _examples(self, shared: Dict[str,Any], adfs: Sequence[Dict[str,Any]] = None, labels: Sequence[str] = None):
-
-        shared = { ns:VowpalMediator.prep_features(v) for ns,v in shared.items() }
-        examples = []
-        for adf,label in zip(adfs, labels or repeat(None)):
-            adf = { ns:VowpalMediator.prep_features(v) for ns,v in adf.items() }
-            examples.append(self._example({**shared,**adf}, label))
-        
-        return examples
+    def _examples(self, shared: Dict[str,Any], adfs: Sequence[Dict[str,Any]] = None, labels: Sequence[str] = repeat(None)):
+        return [ self._example({**shared,**adf}, label) for adf,label in zip(adfs,labels) ]
 
     def _example(self, ns, label=None):
         return VowpalMediator.make_example(self._vw, ns, label, 4)
