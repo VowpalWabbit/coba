@@ -43,7 +43,7 @@ class VowpalMediator:
         def sequence_prep(tuple_sequence: Sequence[Tuple[Any,Any]]):
             return [ v if isinstance(v,str) else tuple_prep(k,v) for k,v in tuple_sequence if v != 0 ]
 
-        if not features:
+        if features is None or features == [] or features == ():
             return []
         elif isinstance(features, dict):
             return sequence_prep(features.items())
@@ -51,12 +51,12 @@ class VowpalMediator:
             return [features]
         elif isinstance(features, Number):
             return [(0,features)]
-        elif isinstance(features, collections.Sequence) and isinstance(features[0], tuple) and len(features[0]) == 2:
+        elif isinstance(features, collections.Sequence) and features and isinstance(features[0], tuple):
             return sequence_prep(features)
-        elif isinstance(features, collections.Sequence) and not isinstance(features[0], tuple):
+        elif isinstance(features, collections.Sequence) and features and not isinstance(features[0], tuple):
             return sequence_prep(enumerate(features))
-                    
-        raise Exception("Unrecognized features passed to VowpalLearner.")
+
+        raise Exception(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")
 
     @staticmethod
     def make_learner(args:str):

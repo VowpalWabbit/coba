@@ -63,7 +63,7 @@ class Interaction:
                 del results[plural]
 
         self._context =  context if not isinstance(context,dict) else HashableDict(context)
-        self._actions = [ action if not isinstance(action, dict) else HashableDict(action) for action in actions ]
+        self._actions = [ action if not isinstance(action ,dict) else HashableDict(action) for action in actions ]
         self._reveals = reveals
         self._results = results
 
@@ -136,21 +136,24 @@ class Interaction:
     @property
     def reveals(self) -> Sequence[Any]:
         """The interaction's information revealed to learner's based on the selected action."""
+        
         return self._reveals
 
     @property
     def results(self) -> Sequence[Dict[str,Any]]:
         """The interaction's information recorded in results based on the selected action."""
+        
         return self._results
     
     def reveal(self, action: Action) -> Any:
         """Return the information revealed by taking the given action."""
-        return self._reveals[self._actions.index(action)]
+        
+        return self._reveals[self.actions.index(action)]
 
     def result(self, action: Action) -> Dict[str,Any]:
         """Return the recorded result for taking the given action."""
         result = {}
-        aindex = self._actions.index(action) 
+        aindex = self.actions.index(action) 
 
         for key in self._results:
             result[key] = self._results[key][aindex]
