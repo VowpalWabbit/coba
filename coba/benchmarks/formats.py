@@ -29,11 +29,12 @@ class BenchmarkFileFmtV2(Filter[Dict[str,Any], Benchmark]):
                 result = CobaRegistry.construct(item)
 
             if isinstance(item, list):
-                if any([ isinstance(i,list) for i in item ]):
-                    raise Exception("Recursive structures are not supported in benchmark simulation configs.")
-
                 pieces = list(map(_construct, item))
-                result = [ SimSourceFilters(s, f) for s in pieces[0] for f in product(*pieces[1:])]
+                
+                if hasattr(pieces[0][0],'read'):
+                    result = [ SimSourceFilters(s, f) for s in pieces[0] for f in product(*pieces[1:])]
+                else:
+                    result = sum(pieces,[])
 
             if result is None:
                 raise Exception(f"We were unable to construct {item} in the given benchmark file.")

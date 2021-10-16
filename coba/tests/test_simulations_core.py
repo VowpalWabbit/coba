@@ -83,6 +83,24 @@ class Interaction_Tests(unittest.TestCase):
         self.assertEqual({"reveal":(3,4), "reward":5}, interaction.result(2))
         self.assertEqual({"reveal":(5,6), "reward":6}, interaction.result(3))
 
+    def test_constructor_no_context(self) -> None:
+        Interaction(None, [1,2], rewards=[1,2])
+
+    def test_constructor_context(self) -> None:
+        Interaction((1,2,3,4), [1,2], rewards=[1,2])
+
+    def test_context_correct_1(self) -> None:
+        self.assertEqual(None, Interaction(None, [1,2], rewards=[1,2]).context)
+
+    def test_actions_correct_1(self) -> None:
+        self.assertSequenceEqual([1,2], Interaction(None, [1,2], rewards=[1,2]).actions)
+
+    def test_actions_correct_2(self) -> None:
+        self.assertSequenceEqual(["A","B"], Interaction(None, ["A","B"], rewards=[1,2]).actions)
+
+    def test_actions_correct_3(self) -> None:
+        self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)], rewards=[1,2]).actions)
+
     def test_performance(self):
 
         interaction = Interaction([1,2,3]*100, (1,2,3), rewards=(4,5,6))

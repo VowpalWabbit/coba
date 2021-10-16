@@ -24,6 +24,15 @@ class SimulationFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC)
         """Apply a filter to a Simulation's interactions."""
         ...
 
+class Identity(SimulationFilter):
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { }
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        return interactions
+
 class Shuffle(SimulationFilter):
     
     def __init__(self, seed:Optional[int]) -> None:
@@ -37,7 +46,7 @@ class Shuffle(SimulationFilter):
     def params(self) -> Dict[str, Any]:
         return { "shuffle": self._seed }
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:  
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]: 
         return CobaRandom(self._seed).shuffle(list(interactions))
 
     def __repr__(self) -> str:
@@ -118,6 +127,9 @@ class Scale(SimulationFilter):
 
         for feature_key,feature_values in features.items():
 
+            if isinstance(feature_values[0],str):
+                continue 
+
             if isinstance(self._shift, Number):
                 shifts[feature_key] = self._shift
 
@@ -153,7 +165,10 @@ class Scale(SimulationFilter):
             kv_scaled_context = {}
 
             for key,value in self._context_to_key_values(interaction.context):
-                kv_scaled_context[key] = (value-shifts[key])*scales[key]
+                if isinstance(value,Number):
+                    kv_scaled_context[key] = (value-shifts[key])*scales[key]
+                else:
+                    kv_scaled_context[key] = value
 
             if interaction.context is None:
                 final_context = None

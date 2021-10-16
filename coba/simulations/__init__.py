@@ -15,7 +15,7 @@ from coba.simulations.core import (
     LibsvmSimulation, ManikSimulation, ValidationSimulation, RegressionSimulation
 )
 from coba.simulations.openml  import OpenmlSource, OpenmlSimulation
-from coba.simulations.filters import SimulationFilter, Shuffle, Take, Sort, Scale, CycleNoise
+from coba.simulations.filters import SimulationFilter, Identity, Shuffle, Take, Sort, Scale, CycleNoise
 from coba.simulations.pipes   import SimSourceFilters
 
 __all__ = [
@@ -34,7 +34,8 @@ __all__ = [
     'ManikSimulation',
     'OpenmlSimulation',
     'ValidationSimulation',
-    "SimulationFilter",
+    'SimulationFilter',
+    'Identity',
     'Shuffle',
     'Take',
     'Sort',

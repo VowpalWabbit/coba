@@ -144,5 +144,20 @@ class BenchmarkFileFmtV2_Tests(unittest.TestCase):
         self.assertEqual({"openml":150           }, benchmark._simulations[4].params)
         self.assertEqual({"openml":151           }, benchmark._simulations[5].params)
 
+    def test_pipe_list(self):
+        json_txt = """{
+            "simulations" : [
+                [ {"OpenmlSimulation":150}, [ {"Take":10}, {"Take":20} ] ]
+            ]
+        }"""
+
+        benchmark = BenchmarkFileFmtV2().filter(json.loads(json_txt))
+
+        self.assertEqual(2, len(benchmark._simulations))
+        self.assertIsInstance(benchmark._simulations[0], Simulation)
+        self.assertIsInstance(benchmark._simulations[1], Simulation)
+        self.assertEqual({"openml":150, "take":10}, benchmark._simulations[0].params)
+        self.assertEqual({"openml":150, "take":20}, benchmark._simulations[1].params)
+
 if __name__ == '__main__':
     unittest.main()
