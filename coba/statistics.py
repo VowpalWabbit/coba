@@ -1,5 +1,39 @@
 """The coba.statistics module contains algorithms and methods to calculate various statistics."""
 
+from typing import Sequence
+
+def iqr(values: Sequence[float], method: str = 'exclusive') -> float:
+
+    assert method in ['exclusive', 'inclusive']
+
+    if len(values) <= 1: return 0.
+    if len(values) == 2 and method == "exclusive": return 0.
+
+    values = sorted(values)
+
+    p25 = percentile(values, 0.25, sort=False, method=method)
+    p75 = percentile(values, 0.75, sort=False, method=method)
+
+    return p75-p25
+
+def percentile(values: Sequence[float], percentile:float, sort:bool=True, method:str='exclusive') -> float:
+    
+    assert method in ['exclusive', 'inclusive']
+
+    if sort:
+        values = sorted(values)
+    
+    if method == "exclusive":
+        i = percentile*(len(values)+1) - 1
+    
+    if method == "inclusive":
+        i = percentile*(len(values)-1)
+    
+    if i == int(i):
+        return values[int(i)]
+    else:
+        return values[int(i)] * (1-(i-int(i))) + values[int(i)+1] * (i-int(i))
+
 class OnlineVariance():
     """Calculate sample variance in an online fashion.
     

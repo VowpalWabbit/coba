@@ -50,18 +50,18 @@ class CountReadSimulation:
         self._reads = 0
 
     def read(self) -> Iterable[Interaction]:
-        yield Interaction(self._reads, [0,1], [0,1])
+        yield Interaction(self._reads, [0,1], rewards=[0,1])
         self._reads += 1
 
-class CountFilters:
+class CountFilter:
     def __init__(self) -> None:
-        self._filters = 0
+        self._count = 0
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         for interaction in interactions:
-            yield Interaction((interaction.context, self._filters), interaction.actions, interaction.reveals)
+            yield Interaction((interaction.context, self._count), interaction.actions, reveals=interaction.reveals, **interaction.results)
 
-        self._filters += 1
+        self._count += 1
 #for testing purposes
 
 class CreateTasks_Tests(unittest.TestCase):
@@ -264,10 +264,10 @@ class EvaluationTask_Tests(unittest.TestCase):
         task = EvaluationTask(0,0,0,None,RandomLearner(),0)
 
         transactions = list(task.filter([
-            Interaction(1,[1,2,3],[4,5,6]),
-            Interaction(1,[1,2,3],[4,5,6]),
-            Interaction(1,[1,2,3],[4,5,6]),
-            Interaction(1,[1,2,3],[4,5,6]),
+            Interaction(1,[1,2,3],rewards=[4,5,6]),
+            Interaction(1,[1,2,3],rewards=[4,5,6]),
+            Interaction(1,[1,2,3],rewards=[4,5,6]),
+            Interaction(1,[1,2,3],rewards=[4,5,6]),
         ]))
 
         self.assertEqual("I", transactions[0][0])
@@ -337,7 +337,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
     def test_two_tasks_one_source_two_simulations(self):
 
-        filter = CountFilters()
+        filter = CountFilter()
         src1 = CountReadSimulation()
         sim1 = Pipe.join(src1, [filter])
         sim2 = Pipe.join(src1, [filter])

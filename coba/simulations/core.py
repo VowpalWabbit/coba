@@ -22,7 +22,7 @@ class Interaction:
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
     @overload
-    def __init__(self, context: Context, actions: Sequence[Action], rewards: Sequence[float], **kwargs: Sequence[Any]) -> None:
+    def __init__(self, context: Context, actions: Sequence[Action], *, rewards: Sequence[float], **kwargs: Sequence[Any]) -> None:
         ...
         """Instantiate Interaction.
 
@@ -42,25 +42,25 @@ class Interaction:
             context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
             actions : Features describing available actions in the interaction.
             reveals : What will be revealed to learners based on the action that is taken.
-            **kwargs: Additional information beyond revealed that will be recorded in the results of a benchmark.
+            **kwargs: Additional information beyond whit is revealed that will be recorded in the results of a benchmark.
         """
-
     
     def __init__(self, *args, **kwargs) -> None:
 
-        assert 2 <= len(args) and len(args) <= 3, "An unexpected number of positional arguments was supplied to Interaction."
-        assert (len(args) == 3 or "reveals" in kwargs), "Interaction requires either a reward positional arg or reveals kwarg."
+        assert len(args) == 2, "An unexpected number of positional arguments was supplied to Interaction."
+        assert kwargs.keys() & {"rewards", "reveals"}, "Interaction requires either a rewards or reveals kwarg."
 
         context = args[0]
         actions = args[1]
-        reveals = args[2] if len(args) == 3 else kwargs["reveals"]
-        results = {**kwargs, **(dict(reward=args[2]) if len(args)==3 else dict()) }
+        reveals = kwargs.get("rewards", None) or kwargs["reveals"]
+        results = kwargs
         
         assert len(actions) == len(reveals), "Interaction requires information to reveal for each action."
 
-        if len(args) == 2 and "reveal" not in results:
-            results["reveal"] = results["reveals"]
-            del results["reveals"]
+        for singular,plural in [("reward","rewards"), ("reveal","reveals")]:
+            if plural in results:
+                results[singular] = results[plural]
+                del results[plural]
 
         self._context =  context if not isinstance(context,dict) else HashableDict(context)
         self._actions = [ action if not isinstance(action, dict) else HashableDict(action) for action in actions ]
@@ -236,9 +236,9 @@ class ClassificationSimulation(Simulation):
         # sorting so that the shuffled values are always shuffled in the same order
         actions  = CobaRandom(1).shuffle(sorted(set(labels_flat))) 
         contexts = features
-        reveals  = [ [ reveal(action,label) for action in actions ] for label in labels ]
+        rewards  = [ [ reveal(action,label) for action in actions ] for label in labels ]
 
-        self._interactions = list(map(Interaction, contexts, repeat(actions), reveals))
+        self._interactions = [ Interaction(c,a,rewards=r) for c,a,r in zip(contexts, repeat(actions), rewards) ]
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -276,12 +276,12 @@ class RegressionSimulation(Simulation):
 
         assert len(features) == len(labels), "Mismatched lengths of features and labels"
 
-        reveal = lambda action,label: -abs(float(action)-float(label))
+        reward   = lambda action,label: 1-abs(float(action)-float(label))
         contexts = features
         actions  = CobaRandom(1).shuffle(sorted(set(labels)))
-        reveals  = [ [ reveal(action,label) for action in actions ] for label in labels ]
+        rewards  = [ [ reward(action,label) for action in actions ] for label in labels ]
 
-        self._interactions = list(map(Interaction, contexts, repeat(actions), reveals))
+        self._interactions = [ Interaction(c,a,rewards=r) for c,a,r in zip(contexts, repeat(actions), rewards) ]
 
     def read(self) -> Iterable[Interaction]:
         """Read the interactions in this simulation."""
@@ -315,7 +315,7 @@ class LambdaSimulation(Simulation):
             _actions  = actions(i, _context)
             _rewards  = [ reward(i, _context, _action) for _action in _actions]
 
-            self._interactions.append(Interaction(_context, _actions, _rewards))
+            self._interactions.append(Interaction(_context, _actions, rewards=_rewards))
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -503,7 +503,7 @@ class ValidationSimulation(LambdaSimulation):
     def read(self) -> Iterable[Interaction]:
         for i in super().read():
             if self._make_binary:
-                yield Interaction(i.context, i.actions, [ int(r == max(i.reveals)) for r in i.reveals ] )
+                yield Interaction(i.context, i.actions, rewards = [ int(r == max(i.reveals)) for r in i.reveals ] )
             else:
                 yield i
 

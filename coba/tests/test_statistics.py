@@ -3,7 +3,14 @@ import unittest
 from statistics import mean, variance
 from math import isnan
 
-from coba.statistics import OnlineVariance, OnlineMean
+from coba.statistics import OnlineVariance, OnlineMean, iqr
+
+class iqr_Tests(unittest.TestCase):
+    def test_simple_exclusive(self):
+        self.assertEqual(2, iqr([1,2,3]))
+
+    def test_simple_inclusive(self):
+        self.assertEqual(1, iqr([1,2,3], method='inclusive'))
 
 class OnlineVariance_Tests(unittest.TestCase):
 

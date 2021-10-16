@@ -8,54 +8,55 @@ from coba.pipes import MemorySource
 from coba.config import CobaConfig, NoneLogger
 from coba.simulations import (
     Interaction, MemorySimulation, ClassificationSimulation,
-    LambdaSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation
+    LambdaSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation,
+    ValidationSimulation
 )
 
 CobaConfig.Logger = NoneLogger()
 
 class Interaction_Tests(unittest.TestCase):
     def test_context_none(self):
-        interaction = Interaction(None, (1,2,3), (4,5,6))
+        interaction = Interaction(None, (1,2,3), rewards=(4,5,6))
 
         self.assertEqual(None, interaction.context)
 
     def test_context_str(self):
-        interaction = Interaction("A", (1,2,3), (4,5,6))
+        interaction = Interaction("A", (1,2,3), rewards=(4,5,6))
 
         self.assertEqual("A", interaction.context)
 
     def test_context_sparse_pairs_1(self):
-        interaction = Interaction(((1,2,3),(4,5,6)), (1,2,3), (4,5,6))
+        interaction = Interaction(((1,2,3),(4,5,6)), (1,2,3), rewards=(4,5,6))
 
         self.assertEqual({1:4, 2:5, 3:6}, interaction.context)
 
     def test_context_sparse_pairs_2(self):
-        interaction = Interaction(((1,2,3),((0,0,1),5,6)), (1,2,3), (4,5,6))
+        interaction = Interaction(((1,2,3),((0,0,1),5,6)), (1,2,3), rewards=(4,5,6))
 
         self.assertEqual({"1_0":0, "1_1":0, "1_2":1, 2:5, 3:6}, interaction.context)
 
     def test_context_bytes(self):
-        interaction = Interaction(bytes([0,0,1,1,0]), (1,2,3), (4,5,6))
+        interaction = Interaction(bytes([0,0,1,1,0]), (1,2,3), rewards=(4,5,6))
 
         self.assertEqual((0,0,1,1,0), interaction.context)
 
     def test_context_dense(self):
-        interaction = Interaction((1,2,3), (1,2,3), (4,5,6))
+        interaction = Interaction((1,2,3), (1,2,3), rewards=(4,5,6))
 
         self.assertEqual((1,2,3), interaction.context)
 
     def test_context_dense_2(self):
-        interaction = Interaction((1,2,3,(0,0,1)), (1,2,3), (4,5,6))
+        interaction = Interaction((1,2,3,(0,0,1)), (1,2,3), rewards=(4,5,6))
 
         self.assertEqual((1,2,3,0,0,1), interaction.context)
 
     def test_context_sparse_dict(self):
-        interaction = Interaction({1:0}, (1,2,3), (4,5,6))
+        interaction = Interaction({1:0}, (1,2,3), rewards=(4,5,6))
 
         self.assertEqual({1:0}, interaction.context)
 
     def test_custom_rewards(self):
-        interaction = Interaction((1,2), (1,2,3), [4,5,6])
+        interaction = Interaction((1,2), (1,2,3), rewards=[4,5,6])
 
         self.assertEqual((1,2), interaction.context)
         self.assertCountEqual((1,2,3), interaction.actions)
@@ -64,9 +65,9 @@ class Interaction_Tests(unittest.TestCase):
         self.assertEqual(4, interaction.reveal(1))
         self.assertEqual(5, interaction.reveal(2))
         self.assertEqual(6, interaction.reveal(3))
-        self.assertEqual({"reward":4}, interaction.result(1) )
-        self.assertEqual({"reward":5}, interaction.result(2) )
-        self.assertEqual({"reward":6}, interaction.result(3) )
+        self.assertEqual({"reward":4}, interaction.result(1))
+        self.assertEqual({"reward":5}, interaction.result(2))
+        self.assertEqual({"reward":6}, interaction.result(3))
 
     def test_reveals_results(self):
         interaction = Interaction((1,2), (1,2,3), reveals=[(1,2),(3,4),(5,6)],reward=[4,5,6])
@@ -82,10 +83,9 @@ class Interaction_Tests(unittest.TestCase):
         self.assertEqual({"reveal":(3,4), "reward":5}, interaction.result(2))
         self.assertEqual({"reveal":(5,6), "reward":6}, interaction.result(3))
 
-
     def test_performance(self):
 
-        interaction = Interaction([1,2,3]*100, (1,2,3), (4,5,6))
+        interaction = Interaction([1,2,3]*100, (1,2,3), rewards=(4,5,6))
 
         time = timeit.timeit(lambda: interaction.context, number=10000)
 
@@ -182,7 +182,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 class MemorySimulation_Tests(unittest.TestCase):
 
     def test_interactions(self):
-        simulation   = MemorySimulation([Interaction(1, [1,2,3], [0,1,2]), Interaction(2, [4,5,6], [2,3,4])])
+        simulation   = MemorySimulation([Interaction(1, [1,2,3], rewards=[0,1,2]), Interaction(2, [4,5,6], rewards=[2,3,4])])
         interactions = list(simulation.read())
 
         self.assertEqual(interactions[0], interactions[0])
@@ -225,6 +225,14 @@ class LambdaSimulation_Tests(unittest.TestCase):
         simulation = LambdaSimulation(2,C,A,R)
         interactions = list(simulation.read())
         self.assertEqual(len(interactions), 2)
+
+class ValidationSimulation_Tests(unittest.TestCase):
+    def test_simple(self):
+        self.assertEqual(500, len(list(ValidationSimulation().read())))
+
+    def test_make_binary(self):
+        self.assertEqual(500, len(list(ValidationSimulation(make_binary=True).read())))
+
 
 class CsvSimulation_Tests(unittest.TestCase):
 
