@@ -61,27 +61,15 @@ class Interaction_Tests(unittest.TestCase):
         self.assertEqual((1,2), interaction.context)
         self.assertCountEqual((1,2,3), interaction.actions)
         self.assertCountEqual([4,5,6], interaction.reveals)
-        self.assertEqual({"reward":[4,5,6] }, interaction.results)
-        self.assertEqual(4, interaction.reveal(1))
-        self.assertEqual(5, interaction.reveal(2))
-        self.assertEqual(6, interaction.reveal(3))
-        self.assertEqual({"reward":4}, interaction.result(1))
-        self.assertEqual({"reward":5}, interaction.result(2))
-        self.assertEqual({"reward":6}, interaction.result(3))
+        self.assertEqual({"rewards":[4,5,6] }, interaction.results)
 
     def test_reveals_results(self):
-        interaction = Interaction((1,2), (1,2,3), reveals=[(1,2),(3,4),(5,6)],reward=[4,5,6])
+        interaction = Interaction((1,2), (1,2,3), reveals=[(1,2),(3,4),(5,6)],rewards=[4,5,6])
 
         self.assertEqual((1,2), interaction.context)
         self.assertCountEqual((1,2,3), interaction.actions)
         self.assertCountEqual([(1,2),(3,4),(5,6)], interaction.reveals)
-        self.assertEqual({"reveal":[(1,2),(3,4),(5,6)], "reward":[4,5,6]}, interaction.results)
-        self.assertEqual((1,2), interaction.reveal(1))
-        self.assertEqual((3,4), interaction.reveal(2))
-        self.assertEqual((5,6), interaction.reveal(3))
-        self.assertEqual({"reveal":(1,2), "reward":4}, interaction.result(1))
-        self.assertEqual({"reveal":(3,4), "reward":5}, interaction.result(2))
-        self.assertEqual({"reveal":(5,6), "reward":6}, interaction.result(3))
+        self.assertEqual({"reveals":[(1,2),(3,4),(5,6)], "rewards":[4,5,6]}, interaction.results)
 
     def test_constructor_no_context(self) -> None:
         Interaction(None, [1,2], rewards=[1,2])
@@ -100,17 +88,6 @@ class Interaction_Tests(unittest.TestCase):
 
     def test_actions_correct_3(self) -> None:
         self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)], rewards=[1,2]).actions)
-
-    def test_sparse_actions_result(self) -> None:
-        interaction = Interaction(None, [ [('a',),(2,)], [('b',),(4,)] ], rewards=[1,2], extra=[3,4])
-        
-        self.assertSequenceEqual([{'a':2}, {'b':4}], interaction.actions)
-        
-        self.assertEqual(1, interaction.reveal(interaction.actions[0]) )
-        self.assertEqual(2, interaction.reveal(interaction.actions[1]) )
-        
-        self.assertEqual({'reward':1, 'extra':3}, interaction.result(interaction.actions[0]) )
-        self.assertEqual({'reward':2, 'extra':4}, interaction.result(interaction.actions[1]) )
 
     def test_performance(self):
 

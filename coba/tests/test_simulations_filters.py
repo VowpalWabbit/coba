@@ -3,7 +3,7 @@ import unittest
 from itertools import repeat
 
 from coba.config import CobaConfig, NoneLogger
-from coba.simulations import Interaction, Shuffle, Take, Sort, Scale, CycleNoise
+from coba.simulations import Interaction, Shuffle, Take, Sort, Scale, Cycle
 from coba.simulations.filters import Identity
 
 CobaConfig.Logger = NoneLogger()
@@ -317,7 +317,7 @@ class Scale_tests(unittest.TestCase):
         self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":None}, Scale(shift=2,scale=1/2).params)
         self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":10}, Scale(shift=2,scale=1/2,using=10).params)
 
-class CycleNoise_tests(unittest.TestCase):
+class Cycle_tests(unittest.TestCase):
 
     def test_after_0(self) -> None:
 
@@ -328,7 +328,7 @@ class CycleNoise_tests(unittest.TestCase):
         ]
 
         mem_interactions = interactions
-        cyc_interactions = list(CycleNoise().filter(mem_interactions))
+        cyc_interactions = list(Cycle().filter(mem_interactions))
 
         self.assertEqual([1,3], mem_interactions[0].reveals)
         self.assertEqual([1,4], mem_interactions[1].reveals)
@@ -349,7 +349,7 @@ class CycleNoise_tests(unittest.TestCase):
         ]
 
         mem_interactions = interactions
-        cyc_interactions = list(CycleNoise(after=1).filter(mem_interactions))
+        cyc_interactions = list(Cycle(after=1).filter(mem_interactions))
 
         self.assertEqual([1,3], mem_interactions[0].reveals)
         self.assertEqual([1,4], mem_interactions[1].reveals)
@@ -370,7 +370,7 @@ class CycleNoise_tests(unittest.TestCase):
         ]
 
         mem_interactions = interactions
-        cyc_interactions = list(CycleNoise(after=2).filter(mem_interactions))
+        cyc_interactions = list(Cycle(after=2).filter(mem_interactions))
 
         self.assertEqual([1,3], mem_interactions[0].reveals)
         self.assertEqual([1,4], mem_interactions[1].reveals)
@@ -391,7 +391,7 @@ class CycleNoise_tests(unittest.TestCase):
         ]
 
         mem_interactions = interactions
-        cyc_interactions = list(CycleNoise(after=10).filter(mem_interactions))
+        cyc_interactions = list(Cycle(after=10).filter(mem_interactions))
 
         self.assertEqual([1,3], mem_interactions[0].reveals)
         self.assertEqual([1,4], mem_interactions[1].reveals)
@@ -404,8 +404,8 @@ class CycleNoise_tests(unittest.TestCase):
         self.assertEqual([1,5], cyc_interactions[2].reveals)
 
     def test_params(self):
-        self.assertEqual({"cycle_after":0 }, CycleNoise().params)
-        self.assertEqual({"cycle_after":2 }, CycleNoise(2).params)
+        self.assertEqual({"cycle_after":0 }, Cycle().params)
+        self.assertEqual({"cycle_after":2 }, Cycle(2).params)
 
 if __name__ == '__main__':
     unittest.main()

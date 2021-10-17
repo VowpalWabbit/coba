@@ -31,35 +31,28 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(table))
 
-        expected = [('A', 'B', float('nan')), ('a', float('nan'), 'C')]
+        expected = [('A', 'B', None), ('a', None, 'C')]
         actual   = table.to_tuples()
 
-        for tuple1, tuple2 in zip(expected,actual):
-            for val1, val2 in zip(tuple1,tuple2):
-                if isinstance(val1,float) and math.isnan(val1): 
-                    self.assertTrue(math.isnan(val2))
-                else:
-                    self.assertEqual(val1,val2)
+        self.assertEqual(expected, actual)
 
     def test_tuples_with_array_column(self):
 
         table = Table("test", ['a'], [dict(a='A', b='B', c=[1,2], d='d'), dict(a='B', e='E') ])
 
-        expected_tuples = [ ('A', 'B', [1,2], 'd', float('nan')), ('B', float('nan'), float('nan'), float('nan'), 'E') ]
+        expected_tuples = [ ('A', 'B', [1,2], 'd', None), ('B', None, None, None, 'E') ]
         actual_tuples = table.to_tuples()
 
-        for expected_tuple, actual_tuple in zip(expected_tuples,actual_tuples):
-            self.assertTrue(all([ v1==v2 or (math.isnan(v1) and math.isnan(v2)) for v1,v2 in zip(expected_tuple,actual_tuple) ]))
+        self.assertEqual(expected_tuples, actual_tuples)
 
     def test_tuples_with_dict_column(self):
 
         table = Table("test", ['a'], [dict(a='A',b='B',c={'z':5},d='d'), dict(a='B',e='E')])
 
-        expected_tuples = [ ('A', 'B', {'z':5}, 'd', float('nan')), ('B', float('nan'), float('nan'), float('nan'), 'E') ]
+        expected_tuples = [ ('A', 'B', {'z':5}, 'd', None), ('B', None, None, None, 'E') ]
         actual_tuples = table.to_tuples()
 
-        for expected_tuple, actual_tuple in zip(expected_tuples,actual_tuples):
-            self.assertTrue(all([ v1==v2 or (math.isnan(v1) and math.isnan(v2)) for v1,v2 in zip(expected_tuple,actual_tuple) ]))
+        self.assertEqual(expected_tuples, actual_tuples)
 
     def test_pandas(self):
         
@@ -265,6 +258,29 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual([('A', 'B'),('a', 'b')], list(table.to_tuples()))
 
         self.assertNotIn("a", filtered_table)
+
+    def test_filter_missing_columns(self):
+        table = Table("test", ['a'], [{'a':'a', 'b':'B'}, {'a':'A'}])
+
+        filtered_table = table.filter(b="B")
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([('A',None),('a', 'B')], list(table.to_tuples()))
+
+        self.assertNotIn("A", filtered_table)
+        self.assertIn("a", filtered_table)
+
+    def test_filter_nan_value(self):
+        table = Table("test", ['a'], [{'a':'a', 'b':'B'}, {'a':'A'}])
+
+        filtered_table = table.filter(b=None)
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([('A',None),('a', 'B')], list(table.to_tuples()))
+
+        self.assertNotIn("a", filtered_table)
+        self.assertIn("A", filtered_table)
+
 
 class InteractionTable_Tests(unittest.TestCase):
     def test_simple_each_span_none(self):

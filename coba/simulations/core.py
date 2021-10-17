@@ -22,7 +22,11 @@ class Interaction:
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
     @overload
-    def __init__(self, context: Context, actions: Sequence[Action], *, rewards: Sequence[float], **kwargs: Sequence[Any]) -> None:
+    def __init__(self, 
+        context: Context, 
+        actions: Sequence[Action], *, 
+        rewards: Sequence[float], 
+        **kwargs: Sequence[Any]) -> None:
         ...
         """Instantiate Interaction.
 
@@ -34,14 +38,20 @@ class Interaction:
         """
 
     @overload
-    def __init__(self, context: Context, actions: Sequence[Action], *, reveals: Sequence[Any], **kwargs: Sequence[Any]) -> None:
+    def __init__(self, 
+        context: Context, 
+        actions: Sequence[Action], *, 
+        reveals: Sequence[Any], 
+        rewards: Optional[Sequence[float]] = None, 
+        **kwargs: Sequence[Any]) -> None:
         ...
         """Instantiate Interaction.
 
         Args
             context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
             actions : Features describing available actions in the interaction.
-            reveals : What will be revealed to learners based on the action that is taken.
+            reveals : This will be revealed to learners based on the action that is taken. This can be any kind of information.
+            rewards : An optional scalar value. This won't be revealed to learners. This will only be used for plotting.
             **kwargs: Additional information beyond whit is revealed that will be recorded in the results of a benchmark.
         """
     
@@ -50,22 +60,24 @@ class Interaction:
         assert len(args) == 2, "An unexpected number of positional arguments was supplied to Interaction."
         assert kwargs.keys() & {"rewards", "reveals"}, "Interaction requires either a rewards or reveals kwarg."
 
+        self._only_rewards = "rewards" in kwargs and "reveals" not in kwargs
+
         context = args[0]
         actions = args[1]
-        reveals = kwargs.get("rewards", None) or kwargs["reveals"]
-        results = kwargs
-        
-        assert len(actions) == len(reveals), "Interaction requires information to reveal for each action."
+ 
+        rewards = kwargs.pop("rewards", None)
+        reveals = kwargs.pop("reveals", None)
+        extras  = kwargs
 
-        for singular,plural in [("reward","rewards"), ("reveal","reveals")]:
-            if plural in results:
-                results[singular] = results[plural]
-                del results[plural]
+        assert not rewards or len(actions) == len(rewards), "Interaction rewards must match action length."
+        assert not reveals or len(actions) == len(reveals), "Interaction reveals must match action length."
 
         self._context =  context if not isinstance(context,dict) else HashableDict(context)
         self._actions = [ action if not isinstance(action ,dict) else HashableDict(action) for action in actions ]
+
+        self._rewards = rewards
         self._reveals = reveals
-        self._results = results
+        self._extras  = extras
 
     def _is_sparse(self, feats):
 
@@ -134,31 +146,29 @@ class Interaction:
         return [ self._flatten(action) for action in self._actions ]
 
     @property
-    def reveals(self) -> Sequence[Any]:
-        """The interaction's information revealed to learner's based on the selected action."""
-        
-        return self._reveals
+    def rewards(self) -> Optional[Sequence[float]]:
+        """The reward associated with each action."""
+        return self._rewards
 
     @property
-    def results(self) -> Sequence[Dict[str,Any]]:
-        """The interaction's information recorded in results based on the selected action."""
+    def reveals(self) -> Sequence[Any]:
+        """The information revealed to learners based on the selected action."""
+        return self._reveals if self._reveals else self._rewards
+
+    @property
+    def extras(self) -> Dict[str,Any]:
+        """Additional information regarding this interaction."""
+        return self._extras    
+
+    @property
+    def results(self) -> Dict[str,Any]:
         
-        return self._results
-    
-    def reveal(self, action: Action) -> Any:
-        """Return the information revealed by taking the given action."""
-        
-        return self._reveals[self.actions.index(action)]
+        results_dict = dict(self._extras)
 
-    def result(self, action: Action) -> Dict[str,Any]:
-        """Return the recorded result for taking the given action."""
-        result = {}
-        aindex = self.actions.index(action) 
+        if self._rewards: results_dict["rewards"] = self._rewards
+        if self._reveals: results_dict["reveals"] = self._reveals
 
-        for key in self._results:
-            result[key] = self._results[key][aindex]
-
-        return result
+        return results_dict
 
 class Simulation(Source[Iterable[Interaction]], ABC):
     """The simulation interface."""

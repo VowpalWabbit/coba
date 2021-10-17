@@ -192,9 +192,9 @@ class Scale(SimulationFilter):
     def __repr__(self) -> str:
         return str(self.params)
 
-class CycleNoise(SimulationFilter):
+class Cycle(SimulationFilter):
 
-    def __init__(self, after:int=0):
+    def __init__(self, after:int = 0):
         self._after = after
 
     @property
@@ -204,22 +204,15 @@ class CycleNoise(SimulationFilter):
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         underlying_iterable     = iter(interactions)
-        sans_noise_interactions = islice(underlying_iterable, self._after)
-        with_noise_interactions = underlying_iterable
+        sans_cycle_interactions = islice(underlying_iterable, self._after)
+        with_cycle_interactions = underlying_iterable
 
-        for interaction in sans_noise_interactions:
+        for interaction in sans_cycle_interactions:
             yield interaction
 
-        for interaction in with_noise_interactions:
-            
-            direct_reveals = list(interaction.reveals)
-            cycled_reveals  = direct_reveals[1:]+direct_reveals[:1]
-
-            context = interaction.context
-            actions = interaction.actions
-            results = {**interaction.results, "direct_reveals":direct_reveals}
-
-            yield Interaction(context, actions, reveals=cycled_reveals, **results)
+        for interaction in with_cycle_interactions:
+            kwargs = {k:v[1:]+v[:1] for k,v in interaction.results.items()}
+            yield Interaction(interaction.context, interaction.actions, **kwargs)
 
     def __repr__(self) -> str:
         return str(self.params)

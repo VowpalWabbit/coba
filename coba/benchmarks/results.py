@@ -133,7 +133,7 @@ class Table:
                     col_filter_results.append(row[col] in col_filter or any([satisifies_filter(cf,row[col]) for cf in col_filter]))
                 
                 else:
-                    col_filter_results.append(satisifies_filter(col_filter,row[col]))
+                    col_filter_results.append(satisifies_filter(col_filter,row.get(col,self._default(col)) ))
 
             return all(row_filter_results+col_filter_results)
 
@@ -189,12 +189,12 @@ class Table:
             if not pack:
                 tooples.append(tuple(flat.get(col,self._default(col)) for col in self.columns))
             else:
-                tooples.extend(zip(*[pack.get(col,repeat(flat.get(col,self._default(col)))) for col in self.columns]))
+                tooples.extend(list(zip(*[pack.get(col,repeat(flat.get(col,self._default(col)))) for col in self.columns])))
 
         return tooples
 
     def _default(self, column:str) -> Any:
-        return [1] if column == "index" else float('nan')
+        return [1] if column == "index" else None
 
     def _infer_type(self, is_packed: bool, values: Sequence[Any]) -> Type[Union[int,float,bool,object]]:
 

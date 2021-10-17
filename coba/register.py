@@ -3,7 +3,7 @@ from coba.registry    import CobaRegistry
 from coba.pipes       import NoneSink, ConsoleSink, DiskSink
 from coba.config      import DiskCacher, NoneCacher, MemoryCacher, IndentLogger, NoneLogger, BasicLogger
 from coba.simulations import OpenmlSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation
-from coba.simulations import Identity, Shuffle, Take, Sort, Scale, CycleNoise
+from coba.simulations import Identity, Shuffle, Take, Sort, Scale, Cycle
 from coba.benchmarks  import BenchmarkFileFmtV2
 
 CobaRegistry.register("NoneSink"   , NoneSink   )
@@ -23,11 +23,11 @@ CobaRegistry.register("LibsvmSimulation", LibsvmSimulation)
 CobaRegistry.register("CsvSimulation"   , CsvSimulation   )
 CobaRegistry.register("ArffSimulation"  , ArffSimulation  )
 
-CobaRegistry.register("Identity"        , Identity   )
-CobaRegistry.register("Take"            , Take       )
-CobaRegistry.register("Shuffle"         , Shuffle    )
-CobaRegistry.register("Sort"            , Sort       )
-CobaRegistry.register("Scale"           , Scale      )
-CobaRegistry.register("CycleNoise"      , CycleNoise )
+CobaRegistry.register("Identity", Identity)
+CobaRegistry.register("Take"    , Take    )
+CobaRegistry.register("Shuffle" , Shuffle )
+CobaRegistry.register("Sort"    , Sort    )
+CobaRegistry.register("Scale"   , Scale   )
+CobaRegistry.register("Cycle"   , Cycle   )
 
 CobaRegistry.register("BenchmarkFileV2", BenchmarkFileFmtV2)

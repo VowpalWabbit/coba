@@ -72,7 +72,9 @@ class EvaluationTask(Task):
 
             row_data = defaultdict(list)
 
-            for interaction in interactions:
+            seen_keys = []
+
+            for i,interaction in enumerate(interactions):
 
                 context = interaction.context
                 actions = interaction.actions
@@ -80,14 +82,25 @@ class EvaluationTask(Task):
                 probs,info = learner.predict(context, actions)
 
                 action = random.choice(actions, probs)
-                reveal = interaction.reveal(action)
-                result = interaction.result(action)
+                reveal = interaction.reveals[actions.index(action)]
                 prob   = probs[actions.index(action)]
 
                 info = learner.learn(context, action, reveal, prob, info) or {}
-                                                        
-                for key,value in info.items() | result.items(): 
-                    row_data[key].append(value)
+
+                row_key_values = {}
+                row_key_values.update(info)
+                row_key_values.update({k:v[actions.index(action)] for k,v in interaction.results.items()})
+
+                for key,value in row_key_values.items():
+                    if key == "rewards": key = "reward"
+                    if key == "reveals": key = "reveal"
+
+                    if key in seen_keys:
+                        row_data[key].append(value)
+                    else:
+                        seen_keys.append(key)
+                        row_data[key].extend([None]*i)
+                        row_data[key].append(value)
 
             yield Transaction.interactions(self.sim_id, self.lrn_id, _packed=row_data)
 

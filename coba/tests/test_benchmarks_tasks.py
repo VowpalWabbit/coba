@@ -279,10 +279,40 @@ class EvaluationTask_Tests(unittest.TestCase):
         task = EvaluationTask(0,0,0,None,RandomLearner(),0)
 
         transactions = list(task.filter([
-            Interaction(1,[1,2,3],reveals=[4,5,6],reward=[1,2,3]),
-            Interaction(1,[1,2,3],reveals=[4,5,6],reward=[4,5,6]),
-            Interaction(1,[1,2,3],reveals=[4,5,6],reward=[7,8,9]),
-            Interaction(1,[1,2,3],reveals=[4,5,6],reward=[0,1,2]),
+            Interaction(1,[1,2,3],reveals=[4,5,6],rewards=[1,2,3]),
+            Interaction(1,[1,2,3],reveals=[4,5,6],rewards=[4,5,6]),
+            Interaction(1,[1,2,3],reveals=[4,5,6],rewards=[7,8,9]),
+            Interaction(1,[1,2,3],reveals=[4,5,6],rewards=[0,1,2]),
+        ]))
+
+        self.assertEqual("I", transactions[0][0])
+        self.assertEqual((0,0), transactions[0][1])
+        self.assertEqual({"_packed": { 'reveal':[4,6,5,4], 'reward':[1,6,8,0]}}, transactions[0][2])
+
+    def test_partial_extras(self):
+
+        task = EvaluationTask(0,0,0,None,RandomLearner(),0)
+
+        transactions = list(task.filter([
+            Interaction(1,[1,2,3],rewards=[1,2,3]),
+            Interaction(1,[1,2,3],rewards=[4,5,6], extra=[2,3,4]),
+            Interaction(1,[1,2,3],rewards=[7,8,9], extra=[2,3,4]),
+            Interaction(1,[1,2,3],rewards=[0,1,2], extra=[2,3,4]),
+        ]))
+
+        self.assertEqual("I", transactions[0][0])
+        self.assertEqual((0,0), transactions[0][1])
+        self.assertEqual({"_packed": {'reward':[1,6,8,0], 'extra':[None,4,3,2] }}, transactions[0][2])
+
+    def test_sparse_actions(self):
+
+        task = EvaluationTask(0,0,0,None,RandomLearner(),0)
+
+        transactions = list(task.filter([
+            Interaction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[1,2,3]),
+            Interaction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[4,5,6]),
+            Interaction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[7,8,9]),
+            Interaction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[0,1,2]),
         ]))
 
         self.assertEqual("I", transactions[0][0])
