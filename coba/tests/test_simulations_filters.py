@@ -333,12 +333,18 @@ class Cycle_tests(unittest.TestCase):
         self.assertEqual([1,3], mem_interactions[0].reveals)
         self.assertEqual([1,4], mem_interactions[1].reveals)
         self.assertEqual([1,5], mem_interactions[2].reveals)
+        self.assertEqual([1,3], mem_interactions[0].rewards)
+        self.assertEqual([1,4], mem_interactions[1].rewards)
+        self.assertEqual([1,5], mem_interactions[2].rewards)
 
         self.assertEqual(3, len(cyc_interactions))
 
         self.assertEqual([3,1], cyc_interactions[0].reveals)
         self.assertEqual([4,1], cyc_interactions[1].reveals)
         self.assertEqual([5,1], cyc_interactions[2].reveals)
+        self.assertEqual([3,1], cyc_interactions[0].rewards)
+        self.assertEqual([4,1], cyc_interactions[1].rewards)
+        self.assertEqual([5,1], cyc_interactions[2].rewards)
 
     def test_after_1(self) -> None:
 
