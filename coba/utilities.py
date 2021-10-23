@@ -93,7 +93,7 @@ class PackageChecker:
         Remarks:
             This pattern was inspired by sklearn (see `PackageChecker.matplotlib` for more information).
         """
-        _handle_import_error(ImportError(), caller_name, "vowpalwabbit", silent)
+
         try:            
             import vowpalwabbit # type: ignore
         except ImportError as e:
