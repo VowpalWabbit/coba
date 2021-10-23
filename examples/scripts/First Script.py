@@ -15,7 +15,7 @@ if __name__ == '__main__':
         RandomLearner(),
         EpsilonBanditLearner(epsilon=0.1),
         VowpalLearner(epsilon=.1), #This learner requires that VowpalWabbit be installed
-        VowpalLearner(cover=3)
+        VowpalLearner(squarecb="all")
     ]
 
     #Then we define the simulations that we want to test our learners on
