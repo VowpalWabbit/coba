@@ -74,26 +74,6 @@ class NumericEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
 
         self.assertTrue(encoder.is_fit)
 
-    def test_performance_small_list(self):
-
-        encoder   = NumericEncoder()
-        many_ones = ["1"]*100
-        
-        time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=1000, number=4))
-        
-        #was approximately .000122
-        self.assertLess(time, .0002)
-
-    def test_performance_large_list(self):
-
-        encoder   = NumericEncoder()
-        many_ones = ["1"]*100000
-        
-        time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=100, number=1))
-        
-        #was approximately .0301
-        self.assertLess(time, .05)
-
     def test_not_numeric_string(self):
 
         actual = NumericEncoder().encode(["5 1"])[0]
@@ -136,25 +116,6 @@ class OneHotEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
         actual = encoder.encode(["0","1","2","1"])
 
         self.assertEqual(actual, expected)
-
-    def test_performance_fit_values(self):
-
-        fit_values = list(range(1000))
-
-        time = min(timeit.repeat(lambda:OneHotEncoder(fit_values), repeat=100, number = 1))
-
-        #was approximately 0.017
-        self.assertLess(time, .03)
-
-    def test_performance_encode(self):
-
-        encoder = OneHotEncoder(list(range(1000)), error_if_unknown=False )
-        to_encode = [100,200,300,400,-1]*100000
-
-        time = min(timeit.repeat(lambda:encoder.encode(to_encode), repeat=50, number = 1))
-
-        #was approximately 0.040
-        self.assertLess(time, 1)
 
 class FactorEncoder_Tests(Encoder_Interface_Tests, unittest.TestCase):
     def _make_unfit_encoder(self) -> Tuple[Encoder, Sequence[str], Sequence[str], Sequence[Any]]:
@@ -279,21 +240,6 @@ class InteractionTermsEncoder_Tests(unittest.TestCase):
 
         self.assertCountEqual([('x0da0', 2), ('x1a0',4) ], interactions1)
         self.assertEqual(interactions1,interactions2)
-
-
-    def test_performance(self):
-        encoder = InteractionTermsEncoder(["xxa"])
-
-        x = dict(zip(map(str,range(100)), range(100)))
-        a = [1,2,3]
-        
-        time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
-        
-        print(time)
-        #best observed was 0.62 without interning
-        #best observed was 0.87 with interning
-        #performance time could be reduced to around .47 by using numpy and prime factorization of feature names 
-        self.assertLess(time, 1.0)
 
 if __name__ == '__main__':
     unittest.main()

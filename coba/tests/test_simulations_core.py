@@ -1,5 +1,4 @@
 import unittest
-import timeit
 
 from typing import List
 from unittest.signals import removeHandler
@@ -88,15 +87,6 @@ class Interaction_Tests(unittest.TestCase):
 
     def test_actions_correct_3(self) -> None:
         self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)], rewards=[1,2]).actions)
-
-    def test_performance(self):
-
-        interaction = Interaction([1,2,3]*100, (1,2,3), rewards=(4,5,6))
-
-        time = timeit.timeit(lambda: interaction.context, number=10000)
-
-        #old best was 0.6 on my machine
-        self.assertLess(time, 1.5)
 
 class ClassificationSimulation_Tests(unittest.TestCase):
 
@@ -238,7 +228,6 @@ class ValidationSimulation_Tests(unittest.TestCase):
 
     def test_make_binary(self):
         self.assertEqual(500, len(list(ValidationSimulation(make_binary=True).read())))
-
 
 class CsvSimulation_Tests(unittest.TestCase):
 

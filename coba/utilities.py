@@ -5,7 +5,8 @@ import os
 
 from io import UnsupportedOperation
 from contextlib import contextmanager
-from typing import Hashable, IO, Mapping, Dict
+from typing import IO
+from coba.config import CobaException
 
 @contextmanager
 def redirect_stderr(to: IO[str]):
@@ -63,7 +64,7 @@ def redirect_stderr(to: IO[str]):
 class PackageChecker:
 
     @staticmethod
-    def matplotlib(caller_name: str) -> None:
+    def matplotlib(caller_name: str, silent: bool = False) -> None:
         """Raise ImportError with detailed error message if matplotlib is not installed.
 
         Functionality requiring matplotlib should call this helper and then lazily import.
@@ -78,13 +79,10 @@ class PackageChecker:
         try:
             import matplotlib # type: ignore
         except ImportError as e:
-            raise ImportError(
-                caller_name + " requires matplotlib. You can "
-                "install matplotlib with `pip install matplotlib`."
-            ) from e
+            _handle_import_error(e, caller_name, "matplotlib", silent)
 
     @staticmethod
-    def vowpalwabbit(caller_name: str) -> None:
+    def vowpalwabbit(caller_name: str, silent: bool = False) -> None:
         """Raise ImportError with detailed error message if vowpalwabbit is not installed.
 
         Functionality requiring vowpalwabbit should call this helper and then lazily import.
@@ -95,16 +93,14 @@ class PackageChecker:
         Remarks:
             This pattern was inspired by sklearn (see `PackageChecker.matplotlib` for more information).
         """
-        try:
+        _handle_import_error(ImportError(), caller_name, "vowpalwabbit", silent)
+        try:            
             import vowpalwabbit # type: ignore
         except ImportError as e:
-            raise ImportError(
-                caller_name + " requires vowpalwabbit. You can "
-                "install vowpalwabbit with `pip install vowpalwabbit`."
-            ) from e
+            pass
 
     @staticmethod
-    def pandas(caller_name: str) -> None:
+    def pandas(caller_name: str, silent: bool = False) -> None:
         """Raise ImportError with detailed error message if pandas is not installed.
 
         Functionality requiring pandas should call this helper and then lazily import.
@@ -118,13 +114,10 @@ class PackageChecker:
         try:
             import pandas # type: ignore
         except ImportError as e:
-            raise ImportError(
-                caller_name + " requires pandas. You can "
-                "install pandas with `pip install pandas`."
-            ) from e
+            _handle_import_error(e, caller_name, "pandas", silent)
 
     @staticmethod
-    def numpy(caller_name: str) -> None:
+    def numpy(caller_name: str, silent: bool = False) -> None:
         """Raise ImportError with detailed error message if numpy is not installed.
 
         Functionality requiring numpy should call this helper and then lazily import.
@@ -138,13 +131,10 @@ class PackageChecker:
         try:
             import numpy # type: ignore
         except ImportError as e:
-            raise ImportError(
-                caller_name + " requires numpy. You can "
-                "install numpy with `pip install numpy`."
-            ) from e
+            _handle_import_error(e, caller_name, "numpy", silent)
 
     @staticmethod
-    def sklearn(caller_name: str) -> None:
+    def sklearn(caller_name: str, silent: bool = False) -> None:
         """Raise ImportError with detailed error message if numpy is not installed.
 
         Functionality requiring numpy should call this helper and then lazily import.
@@ -158,10 +148,19 @@ class PackageChecker:
         try:
             import sklearn # type: ignore
         except ImportError as e:
-            raise ImportError(
-                caller_name + " requires sklearn. You can "
-                "install sklearn with `pip install sklearn`."
-            ) from e
+            _handle_import_error(e, caller_name, "scikit-learn", silent)
+
+def _handle_import_error(e: Exception, caller_name:str, pkg_name:str, silent:bool):
+    if not silent:
+        print(
+            f"ERROR: {caller_name} requires the {pkg_name} package. You can "
+            f"install this package via `pip install {pkg_name}`."
+        )
+
+    try:
+        exit() #this is my attempt at handling CPython (where this works) vs IPython (e.g., Jupyter Notebooks)
+    except NameError:
+        raise CobaException() #CobaException has been specially made so that it outputs now TB in Jupyter Notebook 
 
 class HashableDict(dict):
     def __init__(self, *args, **kwargs) -> None:

@@ -410,7 +410,6 @@ class InteractionTermsEncoder:
             self._terms.append((x_num, a_num))
 
     def encode(self,*, x: Union[list,dict], a: Union[list,dict]):
-        import numpy as np #type: ignore        
 
         is_sparse_type = lambda f: isinstance(f,dict) or isinstance(f,str)
         is_sparse_sequ = lambda f: isinstance(f, collections.Sequence) and any(map(is_sparse_type,f))
@@ -496,9 +495,6 @@ class InteractionTermsEncoder:
 
     def _interaction_terms(self, x_f_n_by_degree, a_f_n_by_degree):
 
-        import numpy as np
-        #from operator import mul,add
-
         f_interactions = []
         n_interactions = []
         
@@ -511,9 +507,7 @@ class InteractionTermsEncoder:
             n_x = x_f_n_by_degree[1].get(term[0], [''])
             n_a = a_f_n_by_degree[1].get(term[1], [''])
 
-            #f_interactions.extend(map(mul,*zip(*product(f_x,f_a))))
             f_interactions.extend([p[0]*p[1] for p in product(f_x,f_a)])
-            #f_interactions.extend(np.outer(f_x, f_a).reshape((1,-1)).tolist()[0])
             n_interactions.extend([p[0]+p[1] for p in product(n_x,n_a)])
 
         return f_interactions, n_interactions

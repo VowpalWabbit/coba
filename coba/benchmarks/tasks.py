@@ -116,8 +116,6 @@ class SimulationTask(Task):
             if isinstance(self.sim_source, (ClassificationSimulation,OpenmlSimulation)):
 
                 try:
-                    PackageChecker.sklearn("")
-
                     import numpy as np
                     import scipy.sparse as sp
                     import scipy.stats as st
@@ -197,7 +195,6 @@ class SimulationTask(Task):
             return self.sim_pipe.params
         else:
             return {}
-
 
 class CreateTasks(Source[Iterable[Task]]):
 

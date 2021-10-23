@@ -6,28 +6,74 @@ from coba.utilities import PackageChecker, HashableDict
 class PackageChecker_Tests(unittest.TestCase):
     
     def test_check_matplotlib_support(self):
+
         try:
-            PackageChecker.matplotlib("test_check_matplotlib_support")
-        except Exception:
-            self.fail("check_matplotlib_support raised an exception")
+            import matplotlib
+        except:
+            installed=False
+        else:
+            installed=True
+
+        try:
+            PackageChecker.matplotlib("",silent=True)
+        except:
+            if installed:
+                self.fail("PackageChecker raised an exception even though matplotlib is installed")
+        else:
+            if not installed:
+                self.fail("PackageChecker did not raise an exception even though matplotib is not installed")
 
     def test_check_pandas_support(self):
+        
         try:
-            PackageChecker.pandas("test_check_pandas_support")
-        except Exception:
-            self.fail("check_pandas_support raised an exception")
+            import pandas
+        except:
+            installed=False
+        else:
+            installed=True
+
+        try:
+            PackageChecker.pandas("",silent=True)
+        except:
+            if installed:
+                self.fail("PackageChecker raised an exception even though pandas is installed")
+        else:
+            if not installed:
+                self.fail("PackageChecker did not raise an exception even though pandas is not installed")
 
     def test_check_numpy_support(self):
         try:
-            PackageChecker.numpy("test_check_numpy_support")
-        except Exception:
-            self.fail("check_numpy_support raised an exception")
+            import numpy
+        except:
+            installed=False
+        else:
+            installed=True
+
+        try:
+            PackageChecker.numpy("",silent=True)
+        except:
+            if installed:
+                self.fail("PackageChecker raised an exception even though numpy is installed")
+        else:
+            if not installed:
+                self.fail("PackageChecker did not raise an exception even though numpy is not installed")
 
     def test_check_vowpal_support(self):
         try:
-            PackageChecker.vowpalwabbit("test_check_vowpal_support")
-        except Exception:
-            self.fail("check_vowpal_support raised an exception")
+            import vowpalwabbit
+        except:
+            installed=False
+        else:
+            installed=True
+
+        try:
+            PackageChecker.vowpalwabbit("",silent=True)
+        except:
+            if installed:
+                self.fail("PackageChecker raised an exception even though vowpalwabbit is installed")
+        else:
+            if not installed:
+                self.fail("PackageChecker did not raise an exception even though vowpalwabbit is not installed")
 
 class HashableDict_Tests(unittest.TestCase):
 
@@ -37,15 +83,6 @@ class HashableDict_Tests(unittest.TestCase):
 
         self.assertEqual(hash(hash_dict), hash(hash_dict))
         self.assertEqual(hash_dict,hash_dict)
-
-    def test_performance(self):
-
-        base_dict = dict(enumerate(range(1000)))
-
-        time1 = timeit.timeit(lambda: dict(enumerate(range(1000))), number=1000)
-        time2 = timeit.timeit(lambda: HashableDict(base_dict)     , number=1000)
-
-        self.assertLess(abs(time1-time2), 1)
 
     def test_mutable_fail(self):
 

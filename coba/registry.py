@@ -77,8 +77,8 @@ class CobaRegistry:
     def _get_registry(cls) -> Dict[str,Any]:
         if not cls._endpoints_loaded:
             cls._endpoints_loaded = True
-            for eps in entry_points()['coba.register']:
-                reload(eps.load()) #we use reload incase the registry has been cleared at some point
+            for ep in entry_points().select(group='coba.register'):
+                reload(ep.load()) #we use reload incase the registry has been cleared at some point
 
         return cls._registry
 

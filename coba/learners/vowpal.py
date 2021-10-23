@@ -3,9 +3,10 @@
 import re
 import collections
 
+from os import devnull
 from itertools import repeat
 from numbers import Number
-from os import devnull
+from typing_extensions import Literal
 from typing import Any, Dict, Union, Sequence, overload, cast, Optional, Tuple
 
 from coba.config import CobaException
@@ -19,30 +20,30 @@ Coba_Features   = Union[Dict[str,Coba_Feature], Sequence[Coba_Feature], Coba_Fea
 Vowpal_Features = Sequence[Union[Tuple[Union[str,int],float],str,int]]
 
 class VowpalMediator:
-    
+
+    @staticmethod
+    def package_check(caller):
+        PackageChecker.vowpalwabbit(caller)
+
     @staticmethod
     def prep_features(features: Coba_Features) -> Vowpal_Features:
 
-        def tuple_prep(key,val):
-            prepped_key = None
-            prepped_val = None
-
-            if isinstance(key,str):
-                prepped_key = key
-            elif isinstance(key,int):
-                prepped_key = key
-            elif isinstance(key,float) and key.is_integer():
-                prepped_key = int(key)
-            
-            if isinstance(val,Number):
-                prepped_val = val
-
-            assert prepped_key is not None and prepped_val is not None, f"{(key,val)} is an invalid VW feature."
-            return (prepped_key,prepped_val)                
-
         def sequence_prep(tuple_sequence: Sequence[Tuple[Any,Any]]):
-            return [ v if isinstance(v,str) else tuple_prep(k,v) for k,v in tuple_sequence if v != 0 ]
+            features = []
+            
+            for t in tuple_sequence:
 
+                if isinstance(t[0],float):
+                    assert t[0].is_integer(), f"{t} has an invalid VW feature key (must be str or int)." 
+                    t = (int(t[0]), t[1])
+
+                if isinstance(t[1],str):
+                    t = f"{t[0]}_{t[1]}"
+
+                features.append(t)
+            
+            return features
+                
         if features is None or features == [] or features == ():
             return []
         elif isinstance(features, dict):
@@ -54,20 +55,20 @@ class VowpalMediator:
         elif isinstance(features, collections.Sequence) and features and isinstance(features[0], tuple):
             return sequence_prep(features)
         elif isinstance(features, collections.Sequence) and features and not isinstance(features[0], tuple):
-            return sequence_prep(enumerate(features))
+            return [f"{i}_{f}" if isinstance(f,str) else (i,f) for i,f in enumerate(features) if f != 0]
 
         raise Exception(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")
 
     @staticmethod
     def make_learner(args:str):
-        PackageChecker.vowpalwabbit('VVW.make_learner')
+        VowpalMediator.package_check('VowpalMediator.make_learner')
         from vowpalwabbit import pyvw
 
         return pyvw.vw(args)
 
     @staticmethod
     def make_example(vw, ns:Dict[str,Vowpal_Features], label:Optional[str], label_type:int):
-        PackageChecker.vowpalwabbit('VW.make_example')
+        VowpalMediator.package_check('VowpalMediator.make_example')
         from vowpalwabbit.pyvw import example
 
         ns = { k:v for k,v in ns.items() if v != [] }
@@ -75,8 +76,14 @@ class VowpalMediator:
         ex = example(vw, ns, label_type)
         if label: ex.set_label_string(label)
         ex.setup_example()
-        
+
         return ex
+
+    @staticmethod
+    def get_version() -> str:
+        VowpalMediator.package_check('VowpalMediator.get_version')
+        from vowpalwabbit.version import __version__
+        return __version__
 
 class VowpalLearner(Learner):
     """A learner using Vowpal Wabbit's contextual bandit command line interface.
@@ -102,9 +109,9 @@ class VowpalLearner(Learner):
     def __init__(self, *, bag: int, adf: bool = True, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
-            bag: An integer value greater than 0. This value determines how many separate policies will be
-                learned. Each policy will be learned from bootstrap aggregation, making each policy unique. 
-                When predicting one policy will be selected according to a uniform distribution and followed.
+            bag: This value determines the number of policies which will be learned and must be greater
+                than 0. Each policy is trained using bootstrap aggregation, making each policy unique. During
+                prediction a random policy will be selected according to a uniform distribution and followed.
             adf: Indicate whether cb_explore or cb_explore_adf should be used.
             seed: The seed used by VW to generate any necessary random numbers.
         """
@@ -114,10 +121,8 @@ class VowpalLearner(Learner):
     def __init__(self, *, cover: int, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
-            cover: An integer value greater than 0. This value value determines how many separate policies will be
-                learned. These policies are learned in such a way to explicitly optimize policy diversity in order
-                to control exploration. When predicting one policy will be selected according to a uniform distribution
-                and followed. For more information on this algorithm see Agarwal et al. (2014).
+            cover: This value determines the number of policies which will be learned and must be
+                greater than 0. For more information on this algorithm see Agarwal et al. (2014).
             seed: The seed used by VW to generate any necessary random numbers.
         
         References:
@@ -131,10 +136,44 @@ class VowpalLearner(Learner):
     def __init__(self, *, softmax: float, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
-            softmax: An exploration parameter with 0 indicating uniform exploration is desired and infinity
-                indicating that no exploration is desired (aka, greedy action selection only). For more info
-                see `lambda` at https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms.
+            softmax: An exploration parameter with 0 indicating predictions should be completely random
+                and infinity indicating that predictions should be greedy. For more information see `lambda`
+                at https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms.
             seed: The seed used by VW to generate any necessary random numbers.
+        """
+        ...
+
+    @overload
+    def __init__(self, *, regcb: Literal["opt","elim"], seed: Optional[int] = 1) -> None:
+        """Instantiate a VowpalLearner.
+        Args:
+            regcb: Indicates whether exploration should only predict the optimal upper bound action
+                or should use an elimination technique to remove actions that no longer seem plausible
+                and pick randomly from the remaining actions.
+            seed: The seed used by VW to generate any necessary random numbers.
+
+        References:
+            Foster, D., Agarwal, A., Dudik, M., Luo, H. & Schapire, R.. (2018). Practical Contextual 
+            Bandits with Regression Oracles. Proceedings of the 35th International Conference on Machine 
+            Learning, in Proceedings of Machine Learning Research 80:1539-1548.
+        """
+        ...
+
+    @overload
+    def __init__(self, *, squarecb: Literal["all","elim"], gamma_scale: float = 10, seed: Optional[int] = 1) -> None:
+        """Instantiate a VowpalLearner.
+        Args:
+            squarecb: Indicates if all actions should be considered for exploration on each step or if actions
+                which no longer seem plausible should be eliminated.
+            gamma_scale: Controls how quickly squarecb exploration converges to a greedy policy. The larger the
+                gamma_scale the faster the algorithm will converge to a greedy policy. This value is the same as
+                gamma in the original paper.
+            seed: The seed used by VW to generate any necessary random numbers.
+
+        References:
+            Foster, D.& Rakhlin, A.. (2020). Beyond UCB: Optimal and Efficient Contextual Bandits with Regression 
+            Oracles. Proceedings of the 37th International Conference on Machine Learning, in Proceedings of Machine 
+            Learning Research 119:3199-3210.
         """
         ...
 
@@ -153,16 +192,16 @@ class VowpalLearner(Learner):
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
+        VowpalMediator.package_check("VowpalLearner")
         interactions = "--interactions ssa --interactions sa --ignore_linear s"
 
         if not args and 'seed' not in kwargs:
             kwargs['seed'] = 1
 
-        if not args and all(e not in kwargs for e in ['epsilon', 'softmax', 'bag', 'cover']): 
+        if not args and all(e not in kwargs for e in ['epsilon', 'softmax', 'bag', 'cover', 'regcb', 'squarecb']): 
             kwargs['epsilon'] = 0.1
 
         if len(args) > 0:
-
             assert "--cb" in args[0], "VowpalLearner was instantiated without a cb learner being defined."
 
             self._adf  = "--cb_explore_adf" in args[0]
@@ -172,25 +211,46 @@ class VowpalLearner(Learner):
             self._args = re.sub("--cb_explore(\s+\d+)?\s+", '', self._args, count=1)
 
         elif 'epsilon' in kwargs:
-            self._adf  = kwargs.get('adf', True)
-            self._args = interactions + f" --epsilon {kwargs['epsilon']}"
+            self._adf  = kwargs.pop('adf', True)
+            self._args = f"--epsilon {kwargs.pop('epsilon')} " + interactions
 
         elif 'softmax' in kwargs:
             self._adf  = True
-            self._args = interactions + f" --softmax --lambda {kwargs['softmax']}"
+            self._args = f"--softmax --lambda {kwargs.pop('softmax')} " + interactions
 
         elif 'bag' in kwargs:
-            self._adf  = kwargs.get('adf',True)
-            self._args = interactions + f" --bag {kwargs['bag']}"
+            self._adf  = kwargs.pop('adf',True)
+            self._args = f"--bag {kwargs.pop('bag')} " + interactions
 
         elif 'cover' in kwargs:
-            self._adf  = False
-            self._args = interactions + f" --cover {kwargs['cover']}"
+            major      = int(VowpalMediator.get_version().split('.')[0])
+            minor      = int(VowpalMediator.get_version().split('.')[1])
+            self._adf  = True if major >= 8 and minor >= 11 else False
+            self._args = f"--cover {kwargs.pop('cover')} " + interactions
+        
+        elif 'regcb' in kwargs:
+            self._adf = True
+            base_args = f"--regcb " + interactions
+
+            if kwargs.pop('regcb') == "opt":
+                self._args = base_args + " --regcbopt"
+            else:
+                self._args = base_args
+        
+        elif 'squarecb' in kwargs:
+            self._adf = True
+            base_args = f"--squarecb --gamma_scale {kwargs.pop('gamma_scale',10)} " + interactions
+
+            if kwargs.pop('squarecb') == "elim":
+                self._args = base_args + " --elim"
+            else:
+                self._args = base_args
 
         if 'seed' in kwargs and kwargs['seed'] is not None:
-            self._args += f" --random_seed {kwargs['seed']}"
+            self._args += f" --random_seed {kwargs.pop('seed')}"
 
-        self._precision                 = kwargs.get('precision',5) 
+
+        self._args += " ".join(f"--{k} {v}" for k,v in kwargs.items())
         self._actions: Sequence[Action] = []
         self._vw                        = None
 

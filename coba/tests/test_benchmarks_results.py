@@ -1,4 +1,3 @@
-import math
 import unittest
 import timeit
 
@@ -54,68 +53,6 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(expected_tuples, actual_tuples)
 
-    def test_pandas(self):
-        
-        import pandas as pd #type: ignore
-        import pandas.testing #type: ignore
-
-        table = Table("test", ['a'], [dict(a='A',b='B',c=1,d='d'),dict(a='B',e='E')])
-
-        expected_df = pd.DataFrame([
-            dict(a='A',b='B',c=1,d='d'),
-            dict(a='B',e='E')
-        ])
-
-        actual_df = table.to_pandas()
-
-        pandas.testing.assert_frame_equal(expected_df,actual_df)
-
-    def test_pandas_with_array_column(self):
-        import pandas as pd   #type: ignore
-        import pandas.testing #type: ignore
-
-        table = Table("test", ['a'], [dict(a='A',b='B',c=[1,2],d='d'),dict(a='B',e='E')])
-
-        expected_df = pd.DataFrame([
-            dict(a='A',b='B',c=[1,2],d='d'),
-            dict(a='B',e='E')
-        ])
-
-        actual_df = table.to_pandas()
-
-        pandas.testing.assert_frame_equal(expected_df,actual_df)
-
-    def test_pandas_with_packed_array_column(self):
-        import pandas as pd   #type: ignore
-        import pandas.testing #type: ignore
-
-        table = Table("test", ['a'], [dict(a='A',b=1.,c=[1,2],d='d',_packed={'z':[[1,2],[3,4]]}),dict(a='B',b=2.,e='E')])
-
-        expected_df = pd.DataFrame([
-            dict(a='A',index=1,b=1.,c=[1,2],d='d',z=[1,2]),
-            dict(a='A',index=2,b=1.,c=[1,2],d='d',z=[3,4]),
-            dict(a='B',index=1,b=2.,e='E')
-        ])
-
-        actual_df = table.to_pandas()
-
-        pandas.testing.assert_frame_equal(expected_df,actual_df, check_dtype=False)
-    
-    def test_pandas_with_dict_column(self):
-        import pandas as pd   #type: ignore
-        import pandas.testing #type: ignore
-
-        table = Table("test", ['a'],[dict(a='A',b='B',c={'z':10},d='d'),dict(a='B',e='E')])        
-
-        expected_df = pd.DataFrame([
-            dict(a='A',b='B',c={'z':10},d='d'),
-            dict(a='B',e='E')
-        ])
-
-        actual_df = table.to_pandas()
-
-        pandas.testing.assert_frame_equal(expected_df,actual_df)
-
     def test_two_packed_items(self):
         table = Table("test", ['a'], [dict(a='A', c=1, _packed=dict(b=['B','b'],d=['D','d']))])
 
@@ -126,32 +63,6 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(2, len(table))
 
         self.assertEqual([('A', 1, 'B', 1, 'D'), ('A', 2, 'b', 1, 'd')], list(table.to_tuples()))
-
-    def test_pandas_two_pack_item(self):
-
-        import pandas as pd
-        import pandas.testing
-
-        table = Table("test", ['a'], [dict(a='A', c=1, _packed=dict(b=['B','b'],d=['D','d'])), dict(a='B', e='E')])
-
-        expected_df = pd.DataFrame([
-            dict(a='A',index=1,b='B',c=1,d='D'),
-            dict(a='A',index=2,b='b',c=1,d='d'),
-            dict(a='B',index=1,e='E')
-        ])
-
-        actual_df = table.to_pandas()
-
-        pandas.testing.assert_frame_equal(expected_df,actual_df, check_dtype=False)
-
-    def test_pandas_huge_pack_item(self):
-
-        rows  = [dict(simulation_id=i,learner_id=2,C=5,A=5,N=1,_packed=dict(reward=[2]*9000)) for i in range(2) ]
-        table = Table("test", ['simulation_id', 'learner_id'], rows)
-        time = min(timeit.repeat(lambda:table.to_pandas(), repeat=6, number=1))
-        
-        #best time on my laptop was 0.15
-        self.assertLess(time,1)
 
     def test_unequal_pack_exception(self):
         with self.assertRaises(Exception):
@@ -281,6 +192,104 @@ class Table_Tests(unittest.TestCase):
         self.assertNotIn("a", filtered_table)
         self.assertIn("A", filtered_table)
 
+class Table_Pandas_Tests(unittest.TestCase):
+
+    def setUp(self) -> None:
+            try:
+                import pandas
+            except ImportError:
+                #if somebody is using the package with no intention of
+                #using the VowpalLearner we don't want them to see failed
+                #tests and think something is wrong so we skip these tests
+                raise unittest.SkipTest("Pandas is not installed so no need to test Table Pandas functionality")
+
+    def test_pandas(self):
+        
+        import pandas as pd #type: ignore
+        import pandas.testing #type: ignore
+
+        table = Table("test", ['a'], [dict(a='A',b='B',c=1,d='d'),dict(a='B',e='E')])
+
+        expected_df = pd.DataFrame([
+            dict(a='A',b='B',c=1,d='d'),
+            dict(a='B',e='E')
+        ])
+
+        actual_df = table.to_pandas()
+
+        pandas.testing.assert_frame_equal(expected_df,actual_df)
+
+    def test_pandas_with_array_column(self):
+        import pandas as pd   #type: ignore
+        import pandas.testing #type: ignore
+
+        table = Table("test", ['a'], [dict(a='A',b='B',c=[1,2],d='d'),dict(a='B',e='E')])
+
+        expected_df = pd.DataFrame([
+            dict(a='A',b='B',c=[1,2],d='d'),
+            dict(a='B',e='E')
+        ])
+
+        actual_df = table.to_pandas()
+
+        pandas.testing.assert_frame_equal(expected_df,actual_df)
+
+    def test_pandas_with_packed_array_column(self):
+        import pandas as pd   #type: ignore
+        import pandas.testing #type: ignore
+
+        table = Table("test", ['a'], [dict(a='A',b=1.,c=[1,2],d='d',_packed={'z':[[1,2],[3,4]]}),dict(a='B',b=2.,e='E')])
+
+        expected_df = pd.DataFrame([
+            dict(a='A',index=1,b=1.,c=[1,2],d='d',z=[1,2]),
+            dict(a='A',index=2,b=1.,c=[1,2],d='d',z=[3,4]),
+            dict(a='B',index=1,b=2.,e='E')
+        ])
+
+        actual_df = table.to_pandas()
+
+        pandas.testing.assert_frame_equal(expected_df,actual_df, check_dtype=False)
+    
+    def test_pandas_with_dict_column(self):
+        import pandas as pd   #type: ignore
+        import pandas.testing #type: ignore
+
+        table = Table("test", ['a'],[dict(a='A',b='B',c={'z':10},d='d'),dict(a='B',e='E')])        
+
+        expected_df = pd.DataFrame([
+            dict(a='A',b='B',c={'z':10},d='d'),
+            dict(a='B',e='E')
+        ])
+
+        actual_df = table.to_pandas()
+
+        pandas.testing.assert_frame_equal(expected_df,actual_df)
+
+    def test_pandas_two_pack_item(self):
+
+        import pandas as pd
+        import pandas.testing
+
+        table = Table("test", ['a'], [dict(a='A', c=1, _packed=dict(b=['B','b'],d=['D','d'])), dict(a='B', e='E')])
+
+        expected_df = pd.DataFrame([
+            dict(a='A',index=1,b='B',c=1,d='D'),
+            dict(a='A',index=2,b='b',c=1,d='d'),
+            dict(a='B',index=1,e='E')
+        ])
+
+        actual_df = table.to_pandas()
+
+        pandas.testing.assert_frame_equal(expected_df,actual_df, check_dtype=False)
+
+    def test_pandas_huge_pack_item(self):
+
+        rows  = [dict(simulation_id=i,learner_id=2,C=5,A=5,N=1,_packed=dict(reward=[2]*9000)) for i in range(2) ]
+        table = Table("test", ['simulation_id', 'learner_id'], rows)
+        time = min(timeit.repeat(lambda:table.to_pandas(), repeat=6, number=1))
+        
+        #best time on my laptop was 0.15
+        self.assertLess(time,1)
 
 class InteractionTable_Tests(unittest.TestCase):
     def test_simple_each_span_none(self):
@@ -294,22 +303,6 @@ class InteractionTable_Tests(unittest.TestCase):
         actual   = table.to_progressive_lists(each=True)
 
         self.assertCountEqual(expected,actual)
-
-    def test_simple_each_span_none_pandas(self):
-        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
-            {"learner_id":0, "simulation_id":0, "_packed": {"reward":[1,2,3]}},
-            {"learner_id":0, "simulation_id":1, "_packed": {"reward":[3,6,9]}},
-            {"learner_id":1, "simulation_id":0, "_packed": {"reward":[2,4,6]}}
-        ])
-
-        expected = [[0,0,1,1.5,2], [0,1,3,4.5,6], [1,0,2,3,4]]
-        actual   = table.to_progressive_pandas(each=True)
-
-        self.assertEqual(actual["learner_id"].tolist()   , [0,1,0])
-        self.assertEqual(actual["simulation_id"].tolist(), [0,0,1])
-        self.assertEqual(actual[1].tolist(), [1,2,3])
-        self.assertEqual(actual[2].tolist(), [1.5,3,4.5])
-        self.assertEqual(actual[3].tolist(), [2,4,6])
 
     def test_simple_not_each_span_none(self):
         table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
@@ -360,6 +353,33 @@ class InteractionTable_Tests(unittest.TestCase):
         for E,A in zip(expected, actual):
             for e,a in zip(E,A):
                 self.assertAlmostEqual(e,a,places=3)
+
+class InteractionTable_Pandas_Tests(unittest.TestCase):
+
+    def setUp(self) -> None:
+            try:
+                import pandas
+            except ImportError:
+                #if somebody is using the package with no intention of
+                #using the VowpalLearner we don't want them to see failed
+                #tests and think something is wrong so we skip these tests
+                raise unittest.SkipTest("Pandas is not installed so no need to test Table Pandas functionality")
+
+    def test_simple_each_span_none_pandas(self):
+        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
+            {"learner_id":0, "simulation_id":0, "_packed": {"reward":[1,2,3]}},
+            {"learner_id":0, "simulation_id":1, "_packed": {"reward":[3,6,9]}},
+            {"learner_id":1, "simulation_id":0, "_packed": {"reward":[2,4,6]}}
+        ])
+
+        expected = [[0,0,1,1.5,2], [0,1,3,4.5,6], [1,0,2,3,4]]
+        actual   = table.to_progressive_pandas(each=True)
+
+        self.assertEqual(actual["learner_id"].tolist()   , [0,1,0])
+        self.assertEqual(actual["simulation_id"].tolist(), [0,0,1])
+        self.assertEqual(actual[1].tolist(), [1,2,3])
+        self.assertEqual(actual[2].tolist(), [1.5,3,4.5])
+        self.assertEqual(actual[3].tolist(), [2,4,6])
 
 class Result_Tests(unittest.TestCase):
 
