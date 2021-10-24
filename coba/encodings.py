@@ -380,18 +380,8 @@ class FactorEncoder(Encoder[int]):
 class CobaJsonEncoder(json.JSONEncoder):
     """A json encoder that allows for potential COBA extensions in the future."""
 
-    def default(self, obj):
-        return super().default(self._intify(obj))
-
 class CobaJsonDecoder(json.JSONDecoder):
     """A json decoder that allows for potential COBA extensions in the future."""
-
-    def __init__(self, *args, **kwargs):
-        """Instantiate a CobaJsonDecoder."""
-        super().__init__(object_hook=self._object_hook, *args, **kwargs)
-
-    def _object_hook(self, json_obj: Dict[str,Any]) -> Any:
-        return json_obj
 
 class InteractionTermsEncoder:
 
