@@ -55,8 +55,13 @@ class Pipe:
 
     class SourceFilters(Source):
         def __init__(self, source: Source, filters: Sequence[Filter]) -> None:
-            self._source = source
-            self._filter = Pipe.FiltersFilter(filters)
+            
+            if isinstance(source, Pipe.SourceFilters):
+                self._source = source._source
+                self._filter = Pipe.FiltersFilter(source._filter._filters + filters)
+            else:
+                self._source = source
+                self._filter = Pipe.FiltersFilter(filters)
 
         def read(self) -> Any:
             return self._filter.filter(self._source.read())

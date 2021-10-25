@@ -38,7 +38,7 @@ class VowpalMediator:
                     t = (int(t[0]), t[1])
 
                 if isinstance(t[1],str):
-                    t = f"{t[0]}_{t[1]}"
+                    t = f"{t[0]}={t[1]}"
 
                 features.append(t)
             
@@ -55,7 +55,7 @@ class VowpalMediator:
         elif isinstance(features, collections.Sequence) and features and isinstance(features[0], tuple):
             return sequence_prep(features)
         elif isinstance(features, collections.Sequence) and features and not isinstance(features[0], tuple):
-            return [f"{i}_{f}" if isinstance(f,str) else (i,f) for i,f in enumerate(features) if f != 0]
+            return [f"{i}={f}" if isinstance(f,str) else (i,f) for i,f in enumerate(features) if f != 0]
 
         raise Exception(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")
 
@@ -249,8 +249,9 @@ class VowpalLearner(Learner):
         if 'seed' in kwargs and kwargs['seed'] is not None:
             self._args += f" --random_seed {kwargs.pop('seed')}"
 
+        if kwargs:
+            self._args += " " + " ".join(f"{'-' if len(k) == 1 else '--'}{k} {v}" for k,v in kwargs.items())
 
-        self._args += " ".join(f"--{k} {v}" for k,v in kwargs.items())
         self._actions: Sequence[Action] = []
         self._vw                        = None
 

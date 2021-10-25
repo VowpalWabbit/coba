@@ -1,9 +1,11 @@
 import collections
 
-from statistics import mean, median, stdev
+from math import isnan
+from statistics import mean, median, stdev, mode
 from numbers import Number
 from abc import abstractmethod, ABC
 from itertools import islice, chain
+from typing_extensions import Literal
 from typing import Hashable, Optional, Sequence, cast, Union, Iterable, Dict, Any, List, Tuple
 
 from coba.random import CobaRandom
@@ -100,7 +102,11 @@ class Sort(SimulationFilter):
 
 class Scale(SimulationFilter):
 
-    def __init__(self, shift:Union[Number,str] ="min", scale:Union[Number,str]="minmax", using:Optional[int]=None):
+    def __init__(self, 
+        shift: Union[Number,Literal["min","mean","med"]] ="min", 
+        scale: Union[Number,Literal["minmax","std","iqr"]]="minmax", 
+        using: Optional[int] = None):
+
         assert isinstance(shift,Number) or shift in ["min","mean","med"]
         assert isinstance(scale,Number) or scale in ["minmax","std","iqr"]
 
@@ -114,33 +120,35 @@ class Scale(SimulationFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        underlying_iterable = iter(interactions)
-        using_interactions  = list(islice(underlying_iterable,self._using))
-
+        iter_interactions  = iter(interactions)
+        train_interactions = list(islice(iter_interactions,self._using))
+        test_interactions  = chain.from_iterable([train_interactions, iter_interactions])
+        
         shifts  : Dict[Hashable,float]     = collections.defaultdict(lambda:0)
         scales  : Dict[Hashable,float]     = collections.defaultdict(lambda:1)
         features: Dict[Hashable,List[Any]] = collections.defaultdict(list)
 
-        for interaction in using_interactions:            
-            for key,value in self._context_to_key_values(interaction.context):
-                features[key].append(value)
+        for interaction in train_interactions:
+            for name,value in self._context_as_name_values(interaction.context):
+                if isinstance(value,Number) and not isnan(value):
+                    features[name].append(value)
 
-        for feature_key,feature_values in features.items():
+        for feat_name, feat_numeric_values in features.items():
 
-            if isinstance(feature_values[0],str):
+            if isinstance(feat_numeric_values[0],str):
                 continue 
 
             if isinstance(self._shift, Number):
-                shifts[feature_key] = self._shift
+                shifts[feat_name] = self._shift
 
             if self._shift == "min":
-                shifts[feature_key] = min(feature_values)
+                shifts[feat_name] = min(feat_numeric_values)
 
             if self._shift == "mean":
-                shifts[feature_key] = mean(feature_values)
+                shifts[feat_name] = mean(feat_numeric_values)
 
             if self._shift == "med":
-                shifts[feature_key] = median(feature_values)
+                shifts[feat_name] = median(feat_numeric_values)
 
             if isinstance(self._scale, Number):
                 num = self._scale
@@ -148,40 +156,40 @@ class Scale(SimulationFilter):
    
             if self._scale == "std":
                 num = 1
-                den = stdev(feature_values)
+                den = stdev(feat_numeric_values)
 
             if self._scale == "minmax":
                 num = 1
-                den = max(feature_values)-min(feature_values)
+                den = max(feat_numeric_values)-min(feat_numeric_values)
 
             if self._scale == "iqr":
                 num = 1
-                den = iqr(feature_values)
+                den = iqr(feat_numeric_values)
 
-            scales[feature_key] = num/den if den != 0 else 1
+            scales[feat_name] = num/den if round(den,50) != 0 else 1
 
-        for interaction in chain.from_iterable([using_interactions, underlying_iterable]):
+        for interaction in test_interactions:
 
             kv_scaled_context = {}
 
-            for key,value in self._context_to_key_values(interaction.context):
+            for name,value in self._context_as_name_values(interaction.context):
                 if isinstance(value,Number):
-                    kv_scaled_context[key] = (value-shifts[key])*scales[key]
+                    kv_scaled_context[name] = (value-shifts[name])*scales[name]
                 else:
-                    kv_scaled_context[key] = value
+                    kv_scaled_context[name] = value
 
             if interaction.context is None:
                 final_context = None
             elif isinstance(interaction.context,dict):
                 final_context = kv_scaled_context
             elif isinstance(interaction.context,tuple):
-                final_context = tuple( kv_scaled_context[k] for k,_ in self._context_to_key_values(interaction.context))
+                final_context = tuple( kv_scaled_context[k] for k,_ in self._context_as_name_values(interaction.context))
             else:
                 final_context = kv_scaled_context[1]
 
-            yield Interaction(final_context, interaction.actions, reveals=interaction.reveals, **interaction.results)
+            yield Interaction(final_context, interaction.actions, **interaction.results)
 
-    def _context_to_key_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
+    def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
         
         if isinstance(context,dict ): return context.items()
         if isinstance(context,tuple): return enumerate(context)
@@ -213,6 +221,78 @@ class Cycle(SimulationFilter):
         for interaction in with_cycle_interactions:
             kwargs = {k:v[1:]+v[:1] for k,v in interaction.results.items()}
             yield Interaction(interaction.context, interaction.actions, **kwargs)
+
+    def __repr__(self) -> str:
+        return str(self.params)
+
+class Impute(SimulationFilter):
+
+    def __init__(self, 
+        stat : Literal["mean","median","mode"] = "mean",
+        using: Optional[int] = None):
+
+        assert stat in ["mean","median","mode"]
+
+        self._stat  = stat
+        self._using = using
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "impute_stat": self._stat, "impute_using": self._using }
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        iter_interactions  = iter(interactions)
+        train_interactions = list(islice(iter_interactions,self._using))
+        test_interactions  = chain.from_iterable([train_interactions, iter_interactions])
+        
+        stats   : Dict[Hashable,float]     = collections.defaultdict(lambda:0)
+        features: Dict[Hashable,List[Any]] = collections.defaultdict(list)
+
+        for interaction in train_interactions:
+            for name,value in self._context_as_name_values(interaction.context):
+                if isinstance(value,Number) and not isnan(value):
+                    features[name].append(value)
+
+        for feat_name, feat_numeric_values in features.items():
+
+            if isinstance(feat_numeric_values[0],str):
+                continue 
+
+            if self._stat == "mean":
+                stats[feat_name] = mean(feat_numeric_values)
+
+            if self._stat == "median":
+                stats[feat_name] = median(feat_numeric_values)
+
+            if self._stat == "mode":
+                stats[feat_name] = mode(feat_numeric_values)
+
+        for interaction in test_interactions:
+
+            kv_imputed_context = {}
+
+            for name,value in self._context_as_name_values(interaction.context):
+                kv_imputed_context[name] = stats[name] if isinstance(value,Number) and isnan(value) else value
+
+            if interaction.context is None:
+                final_context = None
+            elif isinstance(interaction.context,dict):
+                final_context = kv_imputed_context
+            elif isinstance(interaction.context,tuple):
+                final_context = tuple( kv_imputed_context[k] for k,_ in self._context_as_name_values(interaction.context))
+            else:
+                final_context = kv_imputed_context[1]
+
+            yield Interaction(final_context, interaction.actions, **interaction.results)
+
+    def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
+        
+        if isinstance(context,dict ): return context.items()
+        if isinstance(context,tuple): return enumerate(context)
+        if context is not None      : return [(1,context)]
+
+        return []
 
     def __repr__(self) -> str:
         return str(self.params)

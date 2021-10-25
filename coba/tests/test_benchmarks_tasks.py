@@ -1,16 +1,14 @@
-from coba.learners.core import RandomLearner
-from coba.simulations.core import ClassificationSimulation
 import unittest
 
 from typing import cast, Iterable, Any
 
-from coba.simulations import LambdaSimulation, Interaction
+from coba.simulations import LambdaSimulation, Interaction, ClassificationSimulation, SimSourceFilters, ValidationSimulation
 from coba.pipes import Source, Pipe, IdentityFilter
-from coba.learners import Learner
+from coba.learners import Learner, RandomLearner
 
 from coba.benchmarks.results import Result
 from coba.benchmarks.tasks import (
-    Task, SimulationTask, EvaluationTask, CreateTasks, FilterFinished, ChunkBySource, ProcessTasks
+    Task, SimulationTask, EvaluationTask, CreateTasks, FilterFinished, ChunkBySource, ProcessTasks, Identifier
 )
 
 #for testing purposes
@@ -412,6 +410,56 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         self.assertEqual(task1.observed[0].context, (0,0))
         self.assertEqual(task2.observed[0].context, (0,1))
+
+class Identify_Tests(unittest.TestCase):
+
+    def test_simple(self):
+
+        source  = ValidationSimulation()
+        pipe1   = SimSourceFilters(source,[])
+        pipe2   = Pipe.SourceFilters(source,[])
+        pipe3   = SimSourceFilters(pipe1,[])
+        pipe4   = Pipe.SourceFilters(pipe2,[])
+        learner = RandomLearner()
+
+        identifier = Identifier()
+
+        src_id,sim_id,lrn_id = identifier.id(source,learner)
+
+        self.assertEqual(0, src_id)
+        self.assertEqual(0, sim_id)
+        self.assertEqual(0, lrn_id)
+
+        src_id,sim_id,lrn_id = identifier.id(source,learner)
+
+        self.assertEqual(0, src_id)
+        self.assertEqual(0, sim_id)
+        self.assertEqual(0, lrn_id)
+
+        src_id,sim_id,lrn_id = identifier.id(pipe1,learner)
+
+        self.assertEqual(0, src_id)
+        self.assertEqual(1, sim_id)
+        self.assertEqual(0, lrn_id)
+
+        src_id,sim_id,lrn_id = identifier.id(pipe2,learner)
+
+        self.assertEqual(0, src_id)
+        self.assertEqual(2, sim_id)
+        self.assertEqual(0, lrn_id)
+
+        src_id,sim_id,lrn_id = identifier.id(pipe3,learner)
+
+        self.assertEqual(0, src_id)
+        self.assertEqual(3, sim_id)
+        self.assertEqual(0, lrn_id)
+
+        src_id,sim_id,lrn_id = identifier.id(pipe4,learner)
+
+        self.assertEqual(0, src_id)
+        self.assertEqual(4, sim_id)
+        self.assertEqual(0, lrn_id)
+
 
 if __name__ == '__main__':
     unittest.main()

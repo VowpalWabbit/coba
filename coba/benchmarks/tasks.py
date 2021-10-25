@@ -10,7 +10,6 @@ from typing import Iterable, Sequence, Any, Optional, Dict, Hashable, Tuple
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
-from coba.utilities import PackageChecker
 from coba.pipes import Source, Pipe, Filter, IdentityFilter
 from coba.simulations import Simulation, Interaction, OpenmlSimulation, ClassificationSimulation, SimSourceFilters
 from coba.encodings import InteractionTermsEncoder
@@ -26,7 +25,7 @@ class Identifier():
         self._simulaion_ids: Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
 
     def id(self, simulation: Simulation, learner: Learner) -> Tuple[int,int,int]:
-        source = simulation._source if isinstance(simulation, Pipe.SourceFilters) else simulation
+        source = simulation._source if isinstance(simulation, (SimSourceFilters, Pipe.SourceFilters)) else simulation
         
         src_id = self._source_ids[source]
         sim_id = self._simulaion_ids[simulation]

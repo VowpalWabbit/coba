@@ -1,6 +1,7 @@
 import unittest
 import timeit
 
+import coba.random
 from coba.utilities import HashableDict
 from coba.simulations import Interaction
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionTermsEncoder
@@ -77,6 +78,23 @@ class Performance_Tests(unittest.TestCase):
         time2 = timeit.timeit(lambda: HashableDict(base_dict)     , number=1000)
 
         self.assertLess(abs(time1-time2), 1)
+
+    def test_shuffle_performance(self):
+
+        to_shuffle = list(range(50000))
+
+        time = min(timeit.repeat(lambda:coba.random.shuffle(to_shuffle), repeat=20, number=1))
+        
+        #was approximately 0.057
+        self.assertLess(time,1)
+
+    def test_randoms_performance(self):
+        
+        time = min(timeit.repeat(lambda:coba.random.randoms(5000), repeat=200, number=1))
+
+        #was approximately 0.0025
+        self.assertLess(time,.005)
+
 
 if __name__ == '__main__':
     unittest.main()

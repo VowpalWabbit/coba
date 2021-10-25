@@ -63,31 +63,18 @@ class Random_Tests(unittest.TestCase):
 
         return p
 
-    def test_speed_of_randoms(self):
-        
-        time = min(timeit.repeat(lambda:coba.random.randoms(5000), repeat=200, number=1))
-
-        #was approximately 0.0025
-        self.assertLess(time,.005)
+    def test_zero_randoms(self):
+        self.assertEqual([],coba.random.randoms(0))
 
     def test_value_of_randoms(self):
 
         numbers = coba.random.randoms(500000)
-
+        
         self.assertEqual(len(numbers), 500000)
 
         for n in numbers:
             self.assertLessEqual(n, 1)
             self.assertGreaterEqual(n, 0)
-
-    def test_speed_of_shuffle(self):
-
-        to_shuffle = list(range(50000))
-
-        time = min(timeit.repeat(lambda:coba.random.shuffle(to_shuffle), repeat=20, number=1))
-        
-        #was approximately 0.057
-        self.assertLess(time,1)
 
     def test_value_of_shuffle(self):
 
@@ -95,6 +82,10 @@ class Random_Tests(unittest.TestCase):
 
         self.assertEqual(len(numbers), 500000)
         self.assertNotEqual(numbers, list(range(500000)))
+
+    def test_empty_shuffle(self):
+        self.assertEqual([], coba.random.shuffle([]))
+
 
     def test_coba_randoms_is_unchanged(self):
         coba.random.seed(10)

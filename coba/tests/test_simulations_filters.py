@@ -1,10 +1,10 @@
 import unittest
 
+from math import isnan
 from itertools import repeat
 
 from coba.config import CobaConfig, NoneLogger
-from coba.simulations import Interaction, Shuffle, Take, Sort, Scale, Cycle
-from coba.simulations.filters import Identity
+from coba.simulations import Interaction, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
 
 CobaConfig.Logger = NoneLogger()
 
@@ -312,6 +312,46 @@ class Scale_tests(unittest.TestCase):
         self.assertEqual((0  ,1  ,"B"), scl_interactions[1].context)
         self.assertEqual((1  ,1/7,"C"), scl_interactions[2].context)
 
+    def test_scale_min_and_minmax_with_nan(self) -> None:
+
+        interactions = [
+            Interaction((float('nan'), 2           ), [1], rewards=[1]),
+            Interaction((1           , 9           ), [1], rewards=[1]),
+            Interaction((8           , float('nan')), [1], rewards=[1])
+        ]
+ 
+        scl_interactions = list(Scale().filter(interactions))
+
+        self.assertEqual(3, len(scl_interactions))
+
+        self.assertTrue(isnan(scl_interactions[0].context[0]))
+        self.assertEqual(0,   scl_interactions[0].context[1])
+
+        self.assertEqual((0, 1), scl_interactions[1].context)
+
+        self.assertEqual(1  , scl_interactions[2].context[0])
+        self.assertTrue(isnan(scl_interactions[2].context[1]))
+
+    def test_scale_min_and_minmax_with_nan(self) -> None:
+
+        interactions = [
+            Interaction(("A", 2  ), [1], rewards=[1]),
+            Interaction((1  , 9  ), [1], rewards=[1]),
+            Interaction((8  , "B"), [1], rewards=[1])
+        ]
+ 
+        scl_interactions = list(Scale().filter(interactions))
+
+        self.assertEqual(3, len(scl_interactions))
+
+        self.assertEqual("A", scl_interactions[0].context[0])
+        self.assertEqual(0  , scl_interactions[0].context[1])
+        
+        self.assertEqual((0, 1), scl_interactions[1].context)
+        
+        self.assertEqual(1  , scl_interactions[2].context[0])
+        self.assertTrue("B" , scl_interactions[2].context[1])
+
     def test_params(self):
         self.assertEqual({"scale_shift":"mean","scale_scale":"std","scale_using":None}, Scale(shift="mean",scale="std").params)
         self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":None}, Scale(shift=2,scale=1/2).params)
@@ -412,6 +452,92 @@ class Cycle_tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual({"cycle_after":0 }, Cycle().params)
         self.assertEqual({"cycle_after":2 }, Cycle(2).params)
+
+class Impute_tests(unittest.TestCase):
+
+    def test_impute_nothing(self) -> None:
+
+        interactions = [
+            Interaction((7,2), [1], rewards=[1]),
+            Interaction((1,9), [1], rewards=[1]),
+            Interaction((8,3), [1], rewards=[1])
+        ]
+
+        mem_interactions = interactions
+        imp_interactions = list(Impute().filter(interactions))
+
+        self.assertEqual((7,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((8,3), mem_interactions[2].context)
+
+        self.assertEqual(3, len(imp_interactions))
+
+        self.assertEqual((7,2), imp_interactions[0].context)
+        self.assertEqual((1,9), imp_interactions[1].context)
+        self.assertEqual((8,3), imp_interactions[2].context)
+
+    def test_impute_mean(self) -> None:
+
+        interactions = [
+            Interaction((7           , 2           ), [1], rewards=[1]),
+            Interaction((float('nan'), float('nan')), [1], rewards=[1]),
+            Interaction((8           , 3           ), [1], rewards=[1])
+        ]
+
+        mem_interactions = interactions
+        imp_interactions = list(Impute().filter(interactions))
+
+        self.assertEqual((7,2), mem_interactions[0].context)
+        #self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((8,3), mem_interactions[2].context)
+
+        self.assertEqual(3, len(imp_interactions))
+
+        self.assertEqual((7  ,  2), imp_interactions[0].context)
+        self.assertEqual((7.5,2.5), imp_interactions[1].context)
+        self.assertEqual((8  ,3  ), imp_interactions[2].context)
+
+    def test_impute_med(self) -> None:
+
+        interactions = [
+            Interaction((7           , 2           ), [1], rewards=[1]),
+            Interaction((7           , 2           ), [1], rewards=[1]),
+            Interaction((float('nan'), float('nan')), [1], rewards=[1]),
+            Interaction((8           , 3           ), [1], rewards=[1])
+        ]
+
+        imp_interactions = list(Impute("median").filter(interactions))
+
+        self.assertEqual(4, len(imp_interactions))
+
+        self.assertEqual((7, 2), imp_interactions[0].context)
+        self.assertEqual((7, 2), imp_interactions[1].context)
+        self.assertEqual((7, 2), imp_interactions[2].context)
+        self.assertEqual((8, 3), imp_interactions[3].context)
+
+    def test_impute_med_with_str(self) -> None:
+
+        interactions = [
+            Interaction((7           , 2           , "A"), [1], rewards=[1]),
+            Interaction((7           , 2           , "A"), [1], rewards=[1]),
+            Interaction((float('nan'), float('nan'), "A"), [1], rewards=[1]),
+            Interaction((8           , 3           , "A"), [1], rewards=[1])
+        ]
+
+        imp_interactions = list(Impute("median").filter(interactions))
+
+        self.assertEqual(4, len(imp_interactions))
+
+        self.assertEqual((7, 2, "A"), imp_interactions[0].context)
+        self.assertEqual((7, 2, "A"), imp_interactions[1].context)
+        self.assertEqual((7, 2, "A"), imp_interactions[2].context)
+        self.assertEqual((8, 3, "A"), imp_interactions[3].context)
+
+    def test_params(self):
+        self.assertEqual({"scale_shift":"mean","scale_scale":"std","scale_using":None}, Scale(shift="mean",scale="std").params)
+        self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":None}, Scale(shift=2,scale=1/2).params)
+        self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":10}, Scale(shift=2,scale=1/2,using=10).params)
+
 
 if __name__ == '__main__':
     unittest.main()
