@@ -141,7 +141,7 @@ class SimulationTask(Task):
 
                     svd = TruncatedSVD(n_components=8) if sp.issparse(X) else PCA()                    
                     svd.fit(X)
-                    extra_statistics["PcaVarExplained"] = svd.explained_variance_ratio_[:8]
+                    extra_statistics["PcaVarExplained"] = list(svd.explained_variance_ratio_[:8])
 
                     for x,y in zip(X,Y):
                         C[y].append(x)

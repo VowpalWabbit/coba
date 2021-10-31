@@ -74,10 +74,6 @@ class SimulatedInteraction:
         self._context =  context if not isinstance(context,dict) else HashableDict(context)
         self._actions = [ action if not isinstance(action ,dict) else HashableDict(action) for action in actions ]
 
-        self._context = self._flatten(context)
-        self._actions = [ self._flatten(action) for action in self._actions ]
-
-
         self._rewards = rewards
         self._reveals = reveals
         self._extras  = extras
@@ -140,13 +136,13 @@ class SimulatedInteraction:
     def context(self) -> Context:
         """The interaction's context description."""
 
-        return self._context
+        return self._flatten(self._context)
 
     @property
     def actions(self) -> Sequence[Action]:
         """The interaction's available actions."""
 
-        return self._actions
+        return [ self._flatten(action) for action in self._actions ]
 
     @property
     def rewards(self) -> Optional[Sequence[float]]:

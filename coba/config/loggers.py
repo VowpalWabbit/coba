@@ -186,14 +186,13 @@ class IndentLogger(Logger):
             try:
                 start = time.time()
                 yield self
+                outcome = "(completed)"
             except KeyboardInterrupt:
                 outcome = "(interrupt)"
                 raise
             except Exception:
                 outcome = "(exception)"
                 raise
-            else:
-                outcome = "(completed)"
             finally:
                 
                 self._messages[place_in_line] = message + f" ({round(time.time()-start,2)} seconds) {outcome}"
