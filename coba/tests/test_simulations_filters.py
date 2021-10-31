@@ -4,7 +4,7 @@ from math import isnan
 from itertools import repeat
 
 from coba.config import CobaConfig, NoneLogger
-from coba.simulations import Interaction, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
+from coba.simulations import SimulatedInteraction, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
 
 CobaConfig.Logger = NoneLogger()
 
@@ -12,9 +12,9 @@ class Identity_Tests(unittest.TestCase):
     
     def test_ident(self):
         interactions = [
-            Interaction((8,2), [1], rewards=[1]),
-            Interaction((4,4), [1], rewards=[1]),
-            Interaction((0,6), [1], rewards=[1])
+            SimulatedInteraction((8,2), [1], rewards=[1]),
+            SimulatedInteraction((4,4), [1], rewards=[1]),
+            SimulatedInteraction((0,6), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -29,7 +29,7 @@ class Identity_Tests(unittest.TestCase):
 class Shuffle_Tests(unittest.TestCase):
     
     def test_shuffle(self):
-        interactions = [ Interaction(c,a,rewards=r) for c,a,r in zip(repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]) ]
+        interactions = [ SimulatedInteraction(c,a,rewards=r) for c,a,r in zip(repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]) ]
         shuffled_interactions = list(Shuffle(40).filter(interactions))
 
         self.assertEqual(3, len(interactions))
@@ -50,7 +50,7 @@ class Take_Tests(unittest.TestCase):
     
     def test_take1(self):
 
-        interactions = [ Interaction(c,a,rewards=r) for c,a,r in zip(repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]) ]
+        interactions = [ SimulatedInteraction(c,a,rewards=r) for c,a,r in zip(repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]) ]
         take_interactions = list(Take(1).filter(interactions))
 
         self.assertEqual(1, len(take_interactions))
@@ -62,7 +62,7 @@ class Take_Tests(unittest.TestCase):
         self.assertEqual(interactions[2], interactions[2])
 
     def test_take2(self):
-        interactions = [ Interaction(c,a,rewards=r) for c,a,r in zip(repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]) ]
+        interactions = [ SimulatedInteraction(c,a,rewards=r) for c,a,r in zip(repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]) ]
         take_interactions = list(Take(2).filter(interactions))
 
         self.assertEqual(2, len(take_interactions))
@@ -75,7 +75,7 @@ class Take_Tests(unittest.TestCase):
         self.assertEqual(interactions[2], interactions[2])
 
     def test_take3(self):
-        interactions = [ Interaction(c,a,rewards=r) for c,a,r in zip(repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]) ]
+        interactions = [ SimulatedInteraction(c,a,rewards=r) for c,a,r in zip(repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]) ]
         take_interactions = list(Take(3).filter(interactions))
 
         self.assertEqual(3, len(take_interactions))
@@ -89,7 +89,7 @@ class Take_Tests(unittest.TestCase):
         self.assertEqual(interactions[2], interactions[2])
 
     def test_take4(self):
-        interactions = [ Interaction(c,a,rewards=r) for c,a,r in zip(repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]) ]
+        interactions = [ SimulatedInteraction(c,a,rewards=r) for c,a,r in zip(repeat(1), repeat([1,2]), [[3,3],[4,4],[5,5]]) ]
         take_interactions = list(Take(4).filter(interactions))
 
         self.assertEqual(3, len(interactions))
@@ -104,9 +104,9 @@ class Sort_tests(unittest.TestCase):
     def test_sort1(self) -> None:
 
         interactions = [
-            Interaction((7,2), [1], rewards=[1]),
-            Interaction((1,9), [1], rewards=[1]),
-            Interaction((8,3), [1], rewards=[1])
+            SimulatedInteraction((7,2), [1], rewards=[1]),
+            SimulatedInteraction((1,9), [1], rewards=[1]),
+            SimulatedInteraction((8,3), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -123,9 +123,9 @@ class Sort_tests(unittest.TestCase):
     def test_sort2(self) -> None:
 
         interactions = [
-            Interaction((1,2), [1], rewards=[1]),
-            Interaction((1,9), [1], rewards=[1]),
-            Interaction((1,3), [1], rewards=[1])
+            SimulatedInteraction((1,2), [1], rewards=[1]),
+            SimulatedInteraction((1,9), [1], rewards=[1]),
+            SimulatedInteraction((1,3), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -141,9 +141,9 @@ class Sort_tests(unittest.TestCase):
 
     def test_sort3(self) -> None:
         interactions = [
-            Interaction((1,2), [1], rewards=[1]),
-            Interaction((1,9), [1], rewards=[1]),
-            Interaction((1,3), [1], rewards=[1])
+            SimulatedInteraction((1,2), [1], rewards=[1]),
+            SimulatedInteraction((1,9), [1], rewards=[1]),
+            SimulatedInteraction((1,3), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -166,9 +166,9 @@ class Scale_tests(unittest.TestCase):
     def test_scale_min_and_minmax_using_all(self) -> None:
 
         interactions = [
-            Interaction((7,2), [1], rewards=[1]),
-            Interaction((1,9), [1], rewards=[1]),
-            Interaction((8,3), [1], rewards=[1])
+            SimulatedInteraction((7,2), [1], rewards=[1]),
+            SimulatedInteraction((1,9), [1], rewards=[1]),
+            SimulatedInteraction((8,3), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -187,9 +187,9 @@ class Scale_tests(unittest.TestCase):
     def test_scale_min_and_minmax_using_2(self) -> None:
 
         interactions = [
-            Interaction((7,2), [1], rewards=[1]),
-            Interaction((1,9), [1], rewards=[1]),
-            Interaction((8,3), [1], rewards=[1])
+            SimulatedInteraction((7,2), [1], rewards=[1]),
+            SimulatedInteraction((1,9), [1], rewards=[1]),
+            SimulatedInteraction((8,3), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -210,9 +210,9 @@ class Scale_tests(unittest.TestCase):
     def test_scale_0_and_2(self) -> None:
 
         interactions = [
-            Interaction((8,2), [1], rewards=[1]),
-            Interaction((4,4), [1], rewards=[1]),
-            Interaction((2,6), [1], rewards=[1])
+            SimulatedInteraction((8,2), [1], rewards=[1]),
+            SimulatedInteraction((4,4), [1], rewards=[1]),
+            SimulatedInteraction((2,6), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -231,9 +231,9 @@ class Scale_tests(unittest.TestCase):
     def test_scale_mean_and_std(self) -> None:
 
         interactions = [
-            Interaction((8,2), [1], rewards=[1]),
-            Interaction((4,4), [1], rewards=[1]),
-            Interaction((0,6), [1], rewards=[1])
+            SimulatedInteraction((8,2), [1], rewards=[1]),
+            SimulatedInteraction((4,4), [1], rewards=[1]),
+            SimulatedInteraction((0,6), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -252,9 +252,9 @@ class Scale_tests(unittest.TestCase):
     def test_scale_med_and_iqr(self) -> None:
 
         interactions = [
-            Interaction((8,2), [1], rewards=[1]),
-            Interaction((4,4), [1], rewards=[1]),
-            Interaction((0,6), [1], rewards=[1])
+            SimulatedInteraction((8,2), [1], rewards=[1]),
+            SimulatedInteraction((4,4), [1], rewards=[1]),
+            SimulatedInteraction((0,6), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -273,9 +273,9 @@ class Scale_tests(unittest.TestCase):
     def test_scale_med_and_iqr_0(self) -> None:
 
         interactions = [
-            Interaction((8,2), [1], rewards=[1]),
-            Interaction((4,2), [1], rewards=[1]),
-            Interaction((0,2), [1], rewards=[1])
+            SimulatedInteraction((8,2), [1], rewards=[1]),
+            SimulatedInteraction((4,2), [1], rewards=[1]),
+            SimulatedInteraction((0,2), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -294,9 +294,9 @@ class Scale_tests(unittest.TestCase):
     def test_scale_min_and_minmax_with_str(self) -> None:
 
         interactions = [
-            Interaction((7,2,"A"), [1], rewards=[1]),
-            Interaction((1,9,"B"), [1], rewards=[1]),
-            Interaction((8,3,"C"), [1], rewards=[1])
+            SimulatedInteraction((7,2,"A"), [1], rewards=[1]),
+            SimulatedInteraction((1,9,"B"), [1], rewards=[1]),
+            SimulatedInteraction((8,3,"C"), [1], rewards=[1])
         ]
  
         mem_interactions = interactions
@@ -315,9 +315,9 @@ class Scale_tests(unittest.TestCase):
     def test_scale_min_and_minmax_with_nan(self) -> None:
 
         interactions = [
-            Interaction((float('nan'), 2           ), [1], rewards=[1]),
-            Interaction((1           , 9           ), [1], rewards=[1]),
-            Interaction((8           , float('nan')), [1], rewards=[1])
+            SimulatedInteraction((float('nan'), 2           ), [1], rewards=[1]),
+            SimulatedInteraction((1           , 9           ), [1], rewards=[1]),
+            SimulatedInteraction((8           , float('nan')), [1], rewards=[1])
         ]
  
         scl_interactions = list(Scale().filter(interactions))
@@ -335,9 +335,9 @@ class Scale_tests(unittest.TestCase):
     def test_scale_min_and_minmax_with_nan(self) -> None:
 
         interactions = [
-            Interaction(("A", 2  ), [1], rewards=[1]),
-            Interaction((1  , 9  ), [1], rewards=[1]),
-            Interaction((8  , "B"), [1], rewards=[1])
+            SimulatedInteraction(("A", 2  ), [1], rewards=[1]),
+            SimulatedInteraction((1  , 9  ), [1], rewards=[1]),
+            SimulatedInteraction((8  , "B"), [1], rewards=[1])
         ]
  
         scl_interactions = list(Scale().filter(interactions))
@@ -362,9 +362,9 @@ class Cycle_tests(unittest.TestCase):
     def test_after_0(self) -> None:
 
         interactions = [
-            Interaction((7,2), [1,2], rewards=[1,3]),
-            Interaction((1,9), [1,2], rewards=[1,4]),
-            Interaction((8,3), [1,2], rewards=[1,5])
+            SimulatedInteraction((7,2), [1,2], rewards=[1,3]),
+            SimulatedInteraction((1,9), [1,2], rewards=[1,4]),
+            SimulatedInteraction((8,3), [1,2], rewards=[1,5])
         ]
 
         mem_interactions = interactions
@@ -389,9 +389,9 @@ class Cycle_tests(unittest.TestCase):
     def test_after_1(self) -> None:
 
         interactions = [
-            Interaction((7,2), [1,2], rewards=[1,3]),
-            Interaction((1,9), [1,2], rewards=[1,4]),
-            Interaction((8,3), [1,2], rewards=[1,5])
+            SimulatedInteraction((7,2), [1,2], rewards=[1,3]),
+            SimulatedInteraction((1,9), [1,2], rewards=[1,4]),
+            SimulatedInteraction((8,3), [1,2], rewards=[1,5])
         ]
 
         mem_interactions = interactions
@@ -410,9 +410,9 @@ class Cycle_tests(unittest.TestCase):
     def test_after_2(self) -> None:
 
         interactions = [
-            Interaction((7,2), [1,2], rewards=[1,3]),
-            Interaction((1,9), [1,2], rewards=[1,4]),
-            Interaction((8,3), [1,2], rewards=[1,5])
+            SimulatedInteraction((7,2), [1,2], rewards=[1,3]),
+            SimulatedInteraction((1,9), [1,2], rewards=[1,4]),
+            SimulatedInteraction((8,3), [1,2], rewards=[1,5])
         ]
 
         mem_interactions = interactions
@@ -431,9 +431,9 @@ class Cycle_tests(unittest.TestCase):
     def test_after_10(self) -> None:
 
         interactions = [
-            Interaction((7,2), [1,2], rewards=[1,3]),
-            Interaction((1,9), [1,2], rewards=[1,4]),
-            Interaction((8,3), [1,2], rewards=[1,5])
+            SimulatedInteraction((7,2), [1,2], rewards=[1,3]),
+            SimulatedInteraction((1,9), [1,2], rewards=[1,4]),
+            SimulatedInteraction((8,3), [1,2], rewards=[1,5])
         ]
 
         mem_interactions = interactions
@@ -458,9 +458,9 @@ class Impute_tests(unittest.TestCase):
     def test_impute_nothing(self) -> None:
 
         interactions = [
-            Interaction((7,2), [1], rewards=[1]),
-            Interaction((1,9), [1], rewards=[1]),
-            Interaction((8,3), [1], rewards=[1])
+            SimulatedInteraction((7,2), [1], rewards=[1]),
+            SimulatedInteraction((1,9), [1], rewards=[1]),
+            SimulatedInteraction((8,3), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -479,9 +479,9 @@ class Impute_tests(unittest.TestCase):
     def test_impute_mean(self) -> None:
 
         interactions = [
-            Interaction((7           , 2           ), [1], rewards=[1]),
-            Interaction((float('nan'), float('nan')), [1], rewards=[1]),
-            Interaction((8           , 3           ), [1], rewards=[1])
+            SimulatedInteraction((7           , 2           ), [1], rewards=[1]),
+            SimulatedInteraction((float('nan'), float('nan')), [1], rewards=[1]),
+            SimulatedInteraction((8           , 3           ), [1], rewards=[1])
         ]
 
         mem_interactions = interactions
@@ -500,10 +500,10 @@ class Impute_tests(unittest.TestCase):
     def test_impute_med(self) -> None:
 
         interactions = [
-            Interaction((7           , 2           ), [1], rewards=[1]),
-            Interaction((7           , 2           ), [1], rewards=[1]),
-            Interaction((float('nan'), float('nan')), [1], rewards=[1]),
-            Interaction((8           , 3           ), [1], rewards=[1])
+            SimulatedInteraction((7           , 2           ), [1], rewards=[1]),
+            SimulatedInteraction((7           , 2           ), [1], rewards=[1]),
+            SimulatedInteraction((float('nan'), float('nan')), [1], rewards=[1]),
+            SimulatedInteraction((8           , 3           ), [1], rewards=[1])
         ]
 
         imp_interactions = list(Impute("median").filter(interactions))
@@ -518,10 +518,10 @@ class Impute_tests(unittest.TestCase):
     def test_impute_med_with_str(self) -> None:
 
         interactions = [
-            Interaction((7           , 2           , "A"), [1], rewards=[1]),
-            Interaction((7           , 2           , "A"), [1], rewards=[1]),
-            Interaction((float('nan'), float('nan'), "A"), [1], rewards=[1]),
-            Interaction((8           , 3           , "A"), [1], rewards=[1])
+            SimulatedInteraction((7           , 2           , "A"), [1], rewards=[1]),
+            SimulatedInteraction((7           , 2           , "A"), [1], rewards=[1]),
+            SimulatedInteraction((float('nan'), float('nan'), "A"), [1], rewards=[1]),
+            SimulatedInteraction((8           , 3           , "A"), [1], rewards=[1])
         ]
 
         imp_interactions = list(Impute("median").filter(interactions))

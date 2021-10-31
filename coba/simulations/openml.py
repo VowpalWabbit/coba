@@ -9,7 +9,7 @@ from typing import Optional, Tuple, Sequence, Any, List, Iterable, Dict
 from coba.pipes import Source, HttpSource
 from coba.config import CobaConfig, CobaException
 
-from coba.simulations.core import Context, Action, Interaction, Simulation, ClassificationSimulation, RegressionSimulation
+from coba.simulations.core import Context, Action, SimulatedInteraction, Simulation, ClassificationSimulation, RegressionSimulation
 
 class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
@@ -260,14 +260,14 @@ class OpenmlSimulation(Simulation):
 
     def __init__(self, id: int, simulation_type:str = "classification", nominal_as_str:bool = False, md5_checksum: str = None) -> None:
         self._source = OpenmlSource(id, simulation_type, nominal_as_str, md5_checksum)
-        self._interactions: Optional[Sequence[Interaction]] = None
+        self._interactions: Optional[Sequence[SimulatedInteraction]] = None
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
         return { "openml": self._source._data_id}
 
-    def read(self) -> Iterable[Interaction]:
+    def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
 
         features,labels = self._source.read()

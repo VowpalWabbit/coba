@@ -12,9 +12,9 @@ from coba.random import CobaRandom
 from coba.pipes import Filter
 from coba.statistics import iqr
 
-from coba.simulations.core import Interaction
+from coba.simulations.core import SimulatedInteraction
 
-class SimulationFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
+class SimulationFilter(Filter[Iterable[SimulatedInteraction],Iterable[SimulatedInteraction]], ABC):
 
     @property
     @abstractmethod
@@ -22,7 +22,7 @@ class SimulationFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC)
         ...
 
     @abstractmethod
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
         """Apply a filter to a Simulation's interactions."""
         ...
 
@@ -32,7 +32,7 @@ class Identity(SimulationFilter):
     def params(self) -> Dict[str, Any]:
         return { }
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
         return interactions
 
 class Shuffle(SimulationFilter):
@@ -48,7 +48,7 @@ class Shuffle(SimulationFilter):
     def params(self) -> Dict[str, Any]:
         return { "shuffle": self._seed }
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]: 
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]: 
         return CobaRandom(self._seed).shuffle(list(interactions))
 
     def __repr__(self) -> str:
@@ -67,7 +67,7 @@ class Take(SimulationFilter):
     def params(self) -> Dict[str, Any]:
         return { "take": self._count }    
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
 
         if self._count is None: return interactions
 
@@ -93,7 +93,7 @@ class Sort(SimulationFilter):
     def params(self) -> Dict[str, Any]:
         return { "sort": self._indexes }
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
         
         return sorted(interactions, key=lambda interaction: tuple(interaction.context[i] for i in self._indexes))
 
@@ -118,7 +118,7 @@ class Scale(SimulationFilter):
     def params(self) -> Dict[str, Any]:
         return { "scale_shift": self._shift, "scale_scale":self._scale, "scale_using":self._using }
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
 
         iter_interactions  = iter(interactions)
         train_interactions = list(islice(iter_interactions,self._using))
@@ -187,7 +187,7 @@ class Scale(SimulationFilter):
             else:
                 final_context = kv_scaled_context[1]
 
-            yield Interaction(final_context, interaction.actions, **interaction.results)
+            yield SimulatedInteraction(final_context, interaction.actions, **interaction.results)
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
         
@@ -209,7 +209,7 @@ class Cycle(SimulationFilter):
     def params(self) -> Dict[str, Any]:
         return { "cycle_after": self._after }
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
 
         underlying_iterable     = iter(interactions)
         sans_cycle_interactions = islice(underlying_iterable, self._after)
@@ -220,7 +220,7 @@ class Cycle(SimulationFilter):
 
         for interaction in with_cycle_interactions:
             kwargs = {k:v[1:]+v[:1] for k,v in interaction.results.items()}
-            yield Interaction(interaction.context, interaction.actions, **kwargs)
+            yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
 
     def __repr__(self) -> str:
         return str(self.params)
@@ -240,7 +240,7 @@ class Impute(SimulationFilter):
     def params(self) -> Dict[str, Any]:
         return { "impute_stat": self._stat, "impute_using": self._using }
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
 
         iter_interactions  = iter(interactions)
         train_interactions = list(islice(iter_interactions,self._using))
@@ -284,7 +284,7 @@ class Impute(SimulationFilter):
             else:
                 final_context = kv_imputed_context[1]
 
-            yield Interaction(final_context, interaction.actions, **interaction.results)
+            yield SimulatedInteraction(final_context, interaction.actions, **interaction.results)
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
         

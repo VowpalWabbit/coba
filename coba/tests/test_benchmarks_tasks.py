@@ -2,13 +2,13 @@ import unittest
 
 from typing import cast, Iterable, Any
 
-from coba.simulations import LambdaSimulation, Interaction, ClassificationSimulation, SimSourceFilters, ValidationSimulation
+from coba.simulations import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, SimSourceFilters, ValidationSimulation
 from coba.pipes import Source, Pipe, IdentityFilter
 from coba.learners import Learner, RandomLearner
 
 from coba.benchmarks.results import Result
 from coba.benchmarks.tasks import (
-    Task, SimulationTask, EvaluationTask, CreateTasks, FilterFinished, ChunkBySource, ProcessTasks, Identifier
+    Task, SimulationTask, SimulationEvaluationTask, CreateTasks, FilterFinished, ChunkBySource, ProcessTasks, Identifier
 )
 
 #for testing purposes
@@ -40,24 +40,24 @@ class OneTimeSource(Source):
         return self._source.read()
 
 class ObserveTask(Task):
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Any]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Any]:
         self.observed = list(interactions)
 
 class CountReadSimulation:
     def __init__(self) -> None:
         self._reads = 0
 
-    def read(self) -> Iterable[Interaction]:
-        yield Interaction(self._reads, [0,1], rewards=[0,1])
+    def read(self) -> Iterable[SimulatedInteraction]:
+        yield SimulatedInteraction(self._reads, [0,1], rewards=[0,1])
         self._reads += 1
 
 class CountFilter:
     def __init__(self) -> None:
         self._count = 0
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
         for interaction in interactions:
-            yield Interaction((interaction.context, self._count), interaction.actions, reveals=interaction.reveals, **interaction.results)
+            yield SimulatedInteraction((interaction.context, self._count), interaction.actions, reveals=interaction.reveals, **interaction.results)
 
         self._count += 1
 #for testing purposes
@@ -134,10 +134,10 @@ class Unifinshed_Tests(unittest.TestCase):
         lrn1 = ModuloLearner("1")
 
         tasks = [
-            EvaluationTask(0,0,0,sim1,lrn1,10),
-            EvaluationTask(0,0,1,sim1,lrn1,10),
-            EvaluationTask(0,1,0,sim1,lrn1,10),
-            EvaluationTask(0,1,1,sim1,lrn1,10),
+            SimulationEvaluationTask(0,0,0,sim1,lrn1,10),
+            SimulationEvaluationTask(0,0,1,sim1,lrn1,10),
+            SimulationEvaluationTask(0,1,0,sim1,lrn1,10),
+            SimulationEvaluationTask(0,1,1,sim1,lrn1,10),
         ]
 
         unfinished_tasks = list(FilterFinished(restored).filter(tasks))
@@ -159,10 +159,10 @@ class GroupBySource_Tests(unittest.TestCase):
         lrn1 = ModuloLearner("1")
 
         tasks = [
-            EvaluationTask(0,0,0,sim1,lrn1,10),
-            EvaluationTask(0,0,1,sim1,lrn1,10),
-            EvaluationTask(0,1,0,sim1,lrn1,10),
-            EvaluationTask(0,1,1,sim1,lrn1,10),
+            SimulationEvaluationTask(0,0,0,sim1,lrn1,10),
+            SimulationEvaluationTask(0,0,1,sim1,lrn1,10),
+            SimulationEvaluationTask(0,1,0,sim1,lrn1,10),
+            SimulationEvaluationTask(0,1,1,sim1,lrn1,10),
         ]
 
         groups = list(ChunkBySource().filter(tasks))
@@ -177,10 +177,10 @@ class GroupBySource_Tests(unittest.TestCase):
         lrn1 = ModuloLearner("1")
 
         tasks = [
-            EvaluationTask(0,0,0,sim1,lrn1,10),
-            EvaluationTask(0,0,1,sim1,lrn1,10),
-            EvaluationTask(1,1,0,sim2,lrn1,10),
-            EvaluationTask(1,1,1,sim2,lrn1,10),
+            SimulationEvaluationTask(0,0,0,sim1,lrn1,10),
+            SimulationEvaluationTask(0,0,1,sim1,lrn1,10),
+            SimulationEvaluationTask(1,1,0,sim2,lrn1,10),
+            SimulationEvaluationTask(1,1,1,sim2,lrn1,10),
         ]
 
         groups = list(ChunkBySource().filter(tasks))
@@ -287,13 +287,13 @@ class EvaluationTask_Tests(unittest.TestCase):
 
     def test_simple(self):
 
-        task = EvaluationTask(0,0,0,None,RandomLearner(),0)
+        task = SimulationEvaluationTask(0,0,0,None,RandomLearner(),0)
 
         transactions = list(task.filter([
-            Interaction(1,[1,2,3],rewards=[4,5,6]),
-            Interaction(1,[1,2,3],rewards=[4,5,6]),
-            Interaction(1,[1,2,3],rewards=[4,5,6]),
-            Interaction(1,[1,2,3],rewards=[4,5,6]),
+            SimulatedInteraction(1,[1,2,3],rewards=[4,5,6]),
+            SimulatedInteraction(1,[1,2,3],rewards=[4,5,6]),
+            SimulatedInteraction(1,[1,2,3],rewards=[4,5,6]),
+            SimulatedInteraction(1,[1,2,3],rewards=[4,5,6]),
         ]))
 
         self.assertEqual("I", transactions[0][0])
@@ -302,13 +302,13 @@ class EvaluationTask_Tests(unittest.TestCase):
 
     def test_reveals_results(self):
 
-        task = EvaluationTask(0,0,0,None,RandomLearner(),0)
+        task = SimulationEvaluationTask(0,0,0,None,RandomLearner(),0)
 
         transactions = list(task.filter([
-            Interaction(1,[1,2,3],reveals=[4,5,6],rewards=[1,2,3]),
-            Interaction(1,[1,2,3],reveals=[4,5,6],rewards=[4,5,6]),
-            Interaction(1,[1,2,3],reveals=[4,5,6],rewards=[7,8,9]),
-            Interaction(1,[1,2,3],reveals=[4,5,6],rewards=[0,1,2]),
+            SimulatedInteraction(1,[1,2,3],reveals=[4,5,6],rewards=[1,2,3]),
+            SimulatedInteraction(1,[1,2,3],reveals=[4,5,6],rewards=[4,5,6]),
+            SimulatedInteraction(1,[1,2,3],reveals=[4,5,6],rewards=[7,8,9]),
+            SimulatedInteraction(1,[1,2,3],reveals=[4,5,6],rewards=[0,1,2]),
         ]))
 
         self.assertEqual("I", transactions[0][0])
@@ -317,13 +317,13 @@ class EvaluationTask_Tests(unittest.TestCase):
 
     def test_partial_extras(self):
 
-        task = EvaluationTask(0,0,0,None,RandomLearner(),0)
+        task = SimulationEvaluationTask(0,0,0,None,RandomLearner(),0)
 
         transactions = list(task.filter([
-            Interaction(1,[1,2,3],rewards=[1,2,3]),
-            Interaction(1,[1,2,3],rewards=[4,5,6], extra=[2,3,4]),
-            Interaction(1,[1,2,3],rewards=[7,8,9], extra=[2,3,4]),
-            Interaction(1,[1,2,3],rewards=[0,1,2], extra=[2,3,4]),
+            SimulatedInteraction(1,[1,2,3],rewards=[1,2,3]),
+            SimulatedInteraction(1,[1,2,3],rewards=[4,5,6], extra=[2,3,4]),
+            SimulatedInteraction(1,[1,2,3],rewards=[7,8,9], extra=[2,3,4]),
+            SimulatedInteraction(1,[1,2,3],rewards=[0,1,2], extra=[2,3,4]),
         ]))
 
         self.assertEqual("I", transactions[0][0])
@@ -332,13 +332,13 @@ class EvaluationTask_Tests(unittest.TestCase):
 
     def test_sparse_actions(self):
 
-        task = EvaluationTask(0,0,0,None,RandomLearner(),0)
+        task = SimulationEvaluationTask(0,0,0,None,RandomLearner(),0)
 
         transactions = list(task.filter([
-            Interaction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[1,2,3]),
-            Interaction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[4,5,6]),
-            Interaction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[7,8,9]),
-            Interaction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[0,1,2]),
+            SimulatedInteraction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[1,2,3]),
+            SimulatedInteraction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[4,5,6]),
+            SimulatedInteraction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[7,8,9]),
+            SimulatedInteraction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[0,1,2]),
         ]))
 
         self.assertEqual("I", transactions[0][0])

@@ -6,7 +6,7 @@ from unittest.signals import removeHandler
 from coba.pipes import MemorySource
 from coba.config import CobaConfig, NoneLogger
 from coba.simulations import (
-    Interaction, MemorySimulation, ClassificationSimulation,
+    SimulatedInteraction, MemorySimulation, ClassificationSimulation,
     LambdaSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation,
     ValidationSimulation
 )
@@ -15,47 +15,47 @@ CobaConfig.Logger = NoneLogger()
 
 class Interaction_Tests(unittest.TestCase):
     def test_context_none(self):
-        interaction = Interaction(None, (1,2,3), rewards=(4,5,6))
+        interaction = SimulatedInteraction(None, (1,2,3), rewards=(4,5,6))
 
         self.assertEqual(None, interaction.context)
 
     def test_context_str(self):
-        interaction = Interaction("A", (1,2,3), rewards=(4,5,6))
+        interaction = SimulatedInteraction("A", (1,2,3), rewards=(4,5,6))
 
         self.assertEqual("A", interaction.context)
 
     def test_context_sparse_pairs_1(self):
-        interaction = Interaction(((1,2,3),(4,5,6)), (1,2,3), rewards=(4,5,6))
+        interaction = SimulatedInteraction(((1,2,3),(4,5,6)), (1,2,3), rewards=(4,5,6))
 
         self.assertEqual({1:4, 2:5, 3:6}, interaction.context)
 
     def test_context_sparse_pairs_2(self):
-        interaction = Interaction(((1,2,3),((0,0,1),5,6)), (1,2,3), rewards=(4,5,6))
+        interaction = SimulatedInteraction(((1,2,3),((0,0,1),5,6)), (1,2,3), rewards=(4,5,6))
 
         self.assertEqual({"1_0":0, "1_1":0, "1_2":1, 2:5, 3:6}, interaction.context)
 
     def test_context_bytes(self):
-        interaction = Interaction(bytes([0,0,1,1,0]), (1,2,3), rewards=(4,5,6))
+        interaction = SimulatedInteraction(bytes([0,0,1,1,0]), (1,2,3), rewards=(4,5,6))
 
         self.assertEqual((0,0,1,1,0), interaction.context)
 
     def test_context_dense(self):
-        interaction = Interaction((1,2,3), (1,2,3), rewards=(4,5,6))
+        interaction = SimulatedInteraction((1,2,3), (1,2,3), rewards=(4,5,6))
 
         self.assertEqual((1,2,3), interaction.context)
 
     def test_context_dense_2(self):
-        interaction = Interaction((1,2,3,(0,0,1)), (1,2,3), rewards=(4,5,6))
+        interaction = SimulatedInteraction((1,2,3,(0,0,1)), (1,2,3), rewards=(4,5,6))
 
         self.assertEqual((1,2,3,0,0,1), interaction.context)
 
     def test_context_sparse_dict(self):
-        interaction = Interaction({1:0}, (1,2,3), rewards=(4,5,6))
+        interaction = SimulatedInteraction({1:0}, (1,2,3), rewards=(4,5,6))
 
         self.assertEqual({1:0}, interaction.context)
 
     def test_custom_rewards(self):
-        interaction = Interaction((1,2), (1,2,3), rewards=[4,5,6])
+        interaction = SimulatedInteraction((1,2), (1,2,3), rewards=[4,5,6])
 
         self.assertEqual((1,2), interaction.context)
         self.assertCountEqual((1,2,3), interaction.actions)
@@ -63,7 +63,7 @@ class Interaction_Tests(unittest.TestCase):
         self.assertEqual({"rewards":[4,5,6] }, interaction.results)
 
     def test_reveals_results(self):
-        interaction = Interaction((1,2), (1,2,3), reveals=[(1,2),(3,4),(5,6)],rewards=[4,5,6])
+        interaction = SimulatedInteraction((1,2), (1,2,3), reveals=[(1,2),(3,4),(5,6)],rewards=[4,5,6])
 
         self.assertEqual((1,2), interaction.context)
         self.assertCountEqual((1,2,3), interaction.actions)
@@ -71,22 +71,22 @@ class Interaction_Tests(unittest.TestCase):
         self.assertEqual({"reveals":[(1,2),(3,4),(5,6)], "rewards":[4,5,6]}, interaction.results)
 
     def test_constructor_no_context(self) -> None:
-        Interaction(None, [1,2], rewards=[1,2])
+        SimulatedInteraction(None, [1,2], rewards=[1,2])
 
     def test_constructor_context(self) -> None:
-        Interaction((1,2,3,4), [1,2], rewards=[1,2])
+        SimulatedInteraction((1,2,3,4), [1,2], rewards=[1,2])
 
     def test_context_correct_1(self) -> None:
-        self.assertEqual(None, Interaction(None, [1,2], rewards=[1,2]).context)
+        self.assertEqual(None, SimulatedInteraction(None, [1,2], rewards=[1,2]).context)
 
     def test_actions_correct_1(self) -> None:
-        self.assertSequenceEqual([1,2], Interaction(None, [1,2], rewards=[1,2]).actions)
+        self.assertSequenceEqual([1,2], SimulatedInteraction(None, [1,2], rewards=[1,2]).actions)
 
     def test_actions_correct_2(self) -> None:
-        self.assertSequenceEqual(["A","B"], Interaction(None, ["A","B"], rewards=[1,2]).actions)
+        self.assertSequenceEqual(["A","B"], SimulatedInteraction(None, ["A","B"], rewards=[1,2]).actions)
 
     def test_actions_correct_3(self) -> None:
-        self.assertSequenceEqual([(1,2), (3,4)], Interaction(None, [(1,2), (3,4)], rewards=[1,2]).actions)
+        self.assertSequenceEqual([(1,2), (3,4)], SimulatedInteraction(None, [(1,2), (3,4)], rewards=[1,2]).actions)
 
 class ClassificationSimulation_Tests(unittest.TestCase):
 
@@ -178,7 +178,7 @@ class ClassificationSimulation_Tests(unittest.TestCase):
 class MemorySimulation_Tests(unittest.TestCase):
 
     def test_interactions(self):
-        simulation   = MemorySimulation([Interaction(1, [1,2,3], rewards=[0,1,2]), Interaction(2, [4,5,6], rewards=[2,3,4])])
+        simulation   = MemorySimulation([SimulatedInteraction(1, [1,2,3], rewards=[0,1,2]), SimulatedInteraction(2, [4,5,6], rewards=[2,3,4])])
         interactions = list(simulation.read())
 
         self.assertEqual(interactions[0], interactions[0])

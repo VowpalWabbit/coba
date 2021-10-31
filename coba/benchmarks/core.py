@@ -3,7 +3,7 @@ from itertools import product
 from typing import Iterable, Sequence, Optional, overload, List, Union
 
 from coba.learners import Learner, SafeLearner
-from coba.simulations import Simulation, Take, Shuffle, SimSourceFilters, Interaction
+from coba.simulations import Simulation, Take, Shuffle, SimSourceFilters, SimulatedInteraction
 from coba.registry import CobaRegistry
 from coba.config import CobaConfig, CobaFatal
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpSource, MemorySource, DiskSource
@@ -52,7 +52,7 @@ class Benchmark:
         """
 
         sources: List[Simulation] = simulations
-        filters: List[Sequence[Filter[Iterable[Interaction],Iterable[Interaction]]]] = []
+        filters: List[Sequence[Filter[Iterable[SimulatedInteraction],Iterable[SimulatedInteraction]]]] = []
 
         if shuffle != [None]:
             filters.append([ Shuffle(seed) for seed in shuffle ])

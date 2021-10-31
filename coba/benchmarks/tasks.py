@@ -11,7 +11,7 @@ from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
 from coba.pipes import Source, Pipe, Filter, IdentityFilter
-from coba.simulations import Simulation, Interaction, OpenmlSimulation, ClassificationSimulation, SimSourceFilters
+from coba.simulations import Simulation, SimulatedInteraction, OpenmlSimulation, ClassificationSimulation, SimSourceFilters
 from coba.encodings import InteractionTermsEncoder
 
 from coba.benchmarks.transactions import Transaction
@@ -33,7 +33,7 @@ class Identifier():
         
         return (src_id, sim_id, lrn_id)
 
-class Task(Filter[Iterable[Interaction], Iterable[Any]]):
+class Task(Filter[Iterable[SimulatedInteraction], Iterable[Any]]):
 
     def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Optional[Learner]) -> None:
 
@@ -54,13 +54,13 @@ class Task(Filter[Iterable[Interaction], Iterable[Any]]):
         self.sim_id = sim_id
         self.lrn_id = lrn_id
 
-class EvaluationTask(Task):
+class SimulationEvaluationTask(Task):
 
     def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Learner, seed: int) -> None:
         self._seed = seed
         super().__init__(src_id, sim_id, lrn_id, simulation, learner)
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Any]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Any]:
 
         if not interactions: return
 
@@ -105,7 +105,7 @@ class EvaluationTask(Task):
 
 class SimulationTask(Task):
 
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Any]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Any]:
 
         with CobaConfig.Logger.time(f"Calculating Simulation {self.sim_id} statistics..."):
             extra_statistics = {}
@@ -122,6 +122,7 @@ class SimulationTask(Task):
                     from sklearn.tree import DecisionTreeClassifier
                     from sklearn.model_selection import cross_val_score
                     from sklearn.metrics import pairwise_distances
+                    from sklearn.decomposition import TruncatedSVD, PCA
 
                     encoder = InteractionTermsEncoder('x')
 
@@ -137,6 +138,10 @@ class SimulationTask(Task):
                         scores = cross_val_score(clf, X, Y, cv=5)
                         extra_statistics["bayes_rate_avg"] = round(scores.mean(),4)
                         extra_statistics["bayes_rate_iqr"] = round(st.iqr(scores),4)
+
+                    svd = TruncatedSVD(n_components=8) if sp.issparse(X) else PCA()                    
+                    svd.fit(X)
+                    extra_statistics["PcaVarExplained"] = svd.explained_variance_ratio_[:8]
 
                     for x,y in zip(X,Y):
                         C[y].append(x)
@@ -214,7 +219,7 @@ class CreateTasks(Source[Iterable[Task]]):
             yield SimulationTask(*identifier.id(simulation, None), simulation, None)
 
         for simulation, learner in product(self._simulations, self._learners):
-            yield EvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed)
+            yield SimulationEvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed)
 
 class FilterFinished(Filter[Iterable[Task], Iterable[Task]]):
     def __init__(self, restored: Result) -> None:
@@ -227,7 +232,7 @@ class FilterFinished(Filter[Iterable[Task], Iterable[Task]]):
             if isinstance(task,SimulationTask):
                 return task.sim_id not in self._restored.simulations
 
-            if isinstance(task,EvaluationTask):
+            if isinstance(task,SimulationEvaluationTask):
                 return (task.sim_id,task.lrn_id) not in self._restored._interactions
 
             raise Exception("Unrecognized Task")

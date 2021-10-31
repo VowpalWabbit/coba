@@ -7,6 +7,7 @@ Remarks:
 import sys
 import json
 import collections
+import time
 
 from numbers import Number
 from itertools import product
@@ -389,6 +390,9 @@ class InteractionTermsEncoder:
 
         self._terms = []
 
+        self.times = [0,0]
+        self.n = 0
+
         for term in interactions:
             term  = term.lower()
             x_num = term.count('x')
@@ -406,6 +410,8 @@ class InteractionTermsEncoder:
 
         is_sparse = is_sparse_type(x) or is_sparse_sequ(x) or is_sparse_type(a) or is_sparse_sequ(a)
         
+        self.n+= 1
+
         def get_name_values(namespace,features):
             if isinstance(features, dict):
                 values = list(features.values())
@@ -422,13 +428,14 @@ class InteractionTermsEncoder:
             else:
                 raise Exception("The features provided to InteractionTermsEncoder are not supported.")
             
-            return names,values
+            return (names,values) if is_sparse else ([],values)
 
         def handle_string_values(names, values):
             for i in range(len(values)):
                 if isinstance(values[i],str):
-                    names[i] = f"{names[i]}{values[i]}"
+                    names[i]  = f"{names[i]}{values[i]}"
                     values[i] = 1
+            
             return names,values
 
         context_names,context_values = get_name_values("x",x)
@@ -441,14 +448,18 @@ class InteractionTermsEncoder:
         max_a_term = max([t[1] for t in self._terms])
 
         #.16
+        start = time.time()
         x_f_n_by_degree = self._degree_terms(context_values, context_names, max_x_term, is_sparse)
         a_f_n_by_degree = self._degree_terms(action_values , action_names , max_a_term, is_sparse)
-
-        #.22
-        features,names = self._interaction_terms(x_f_n_by_degree,a_f_n_by_degree)
+        self.times[0] += time.time()-start
         
-        if is_sparse:
-            names = list(map(sys.intern,names))
+        #.22
+        start = time.time()
+        features,names = self._interaction_terms(x_f_n_by_degree,a_f_n_by_degree)
+        self.times[1] += time.time()-start
+
+#        if is_sparse:
+#            names = list(map(sys.intern,names))
 
         #.24
         return features if not is_sparse else list(zip(names,features))
@@ -472,14 +483,12 @@ class InteractionTermsEncoder:
 
                 j  = 0
                 for i in range(len(values)):
-                    for k in range(j, len(f_by_degree[degree-1])):
-                        f_by_degree[degree].append(f_by_degree[degree-1][k]*values[i])
-    
-                        if sparse:
-                            n_by_degree[degree].append(n_by_degree[degree-1][k]+names[i])
+                    
+                    f_by_degree[degree].extend([f*values[i] for f in f_by_degree[degree-1][j:]])
+                    n_by_degree[degree].extend([n+ names[i] for n in n_by_degree[degree-1][j:]])
                         
-                    s_by_degree[degree].append(sum(s_by_degree[degree-1][i:]))
-                    j = sum(s_by_degree[degree-1][:(i+1)])
+                    s_by_degree[degree].append(len(f_by_degree[degree-1])-j)
+                    j = j + s_by_degree[degree-1][i]
 
         return f_by_degree, n_by_degree
 
@@ -487,7 +496,6 @@ class InteractionTermsEncoder:
 
         f_interactions = []
         n_interactions = []
-        
 
         for term in self._terms:
 

@@ -1,6 +1,6 @@
 from typing import Sequence, Iterable, Dict, Any
 
-from coba.simulations.core import Simulation, Interaction
+from coba.simulations.core import Simulation, SimulatedInteraction
 from coba.simulations.filters import SimulationFilter
 
 class SimSourceFilters(Simulation):
@@ -30,7 +30,7 @@ class SimSourceFilters(Simulation):
 
         return str(source_params) if source_params else self._source.__class__.__name__
 
-    def read(self) -> Iterable[Interaction]:
+    def read(self) -> Iterable[SimulatedInteraction]:
         interactions = self._source.read()
 
         for filter in self._filters:

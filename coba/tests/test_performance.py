@@ -3,7 +3,7 @@ import timeit
 
 import coba.random
 from coba.utilities import HashableDict
-from coba.simulations import Interaction
+from coba.simulations import SimulatedInteraction
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionTermsEncoder
 
 class Performance_Tests(unittest.TestCase):
@@ -55,7 +55,7 @@ class Performance_Tests(unittest.TestCase):
         
         time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
         
-        #print(time)
+        print(time)
         #best observed was 0.62 without interning
         #best observed was 0.87 with interning
         #performance time could be reduced to around .47 by using numpy and prime factorization of feature names 
@@ -63,11 +63,11 @@ class Performance_Tests(unittest.TestCase):
 
     def test_interaction_context_performance(self):
 
-        interaction = Interaction([1,2,3]*100, (1,2,3), rewards=(4,5,6))
+        interaction = SimulatedInteraction([1,2,3]*100, (1,2,3), rewards=(4,5,6))
 
         time = timeit.timeit(lambda: interaction.context, number=10000)
 
-        #old best was 0.6 on my machine
+        print(time)
         self.assertLess(time, 1.5)
 
     def test_hashable_dict_performance(self):
@@ -94,7 +94,6 @@ class Performance_Tests(unittest.TestCase):
 
         #was approximately 0.0025
         self.assertLess(time,.005)
-
 
 if __name__ == '__main__':
     unittest.main()

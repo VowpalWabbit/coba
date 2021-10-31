@@ -137,6 +137,11 @@ class InteractionTermsEncoder_Tests(unittest.TestCase):
 
         self.assertEqual([1,2,3], interactions)
 
+    def test_dense_xxx(self):
+        encoder = InteractionTermsEncoder(["xxx"])
+        interactions = encoder.encode(x=[1,2,3], a=[1,2])
+        self.assertEqual([1,2,3,4,6,9,8,12,18,27], interactions)
+
     def test_dense_x_a(self):
         encoder = InteractionTermsEncoder(["x", "a"])
 
@@ -166,6 +171,14 @@ class InteractionTermsEncoder_Tests(unittest.TestCase):
         interactions = encoder.encode(x={"1":1,"2":2}, a={"1":3,"2":4})
 
         self.assertEqual([("x1a1",3), ("x1a2",4), ("x2a1",6), ("x2a2",8)], interactions)
+
+    def test_sparse_xa_is_string(self):
+        encoder = InteractionTermsEncoder(["xa"])
+
+        interactions = encoder.encode(x={"1":1,"2":2}, a="a")
+
+        self.assertEqual([("x1aa",1), ("x2aa",2)], interactions)
+
 
     def test_sparse_xa_with_strings(self):
         encoder = InteractionTermsEncoder(["xa"])

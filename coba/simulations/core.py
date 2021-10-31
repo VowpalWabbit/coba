@@ -1,4 +1,3 @@
-from coba.utilities import HashableDict
 import collections
 
 from abc import abstractmethod, ABC
@@ -7,7 +6,7 @@ from itertools import repeat, chain
 from typing import Optional, Sequence, List, Callable, Hashable, Any, Union, Iterable, cast, overload, Dict
 
 from coba.random import CobaRandom
-
+from coba.utilities import HashableDict
 from coba.pipes import (
     Pipe, Source, Filter,
     CsvReader, ArffReader, LibSvmReader, ManikReader, 
@@ -15,10 +14,10 @@ from coba.pipes import (
     ResponseToLines, Transpose
 )
 
-Action      = Union[Hashable, HashableDict]
-Context     = Union[None, Hashable, HashableDict]
+Action  = Union[Hashable, HashableDict]
+Context = Union[None, Hashable, HashableDict]
 
-class Interaction:
+class SimulatedInteraction:
     """A class to contain all data needed to represent an interaction in a bandit simulation."""
 
     @overload
@@ -74,6 +73,10 @@ class Interaction:
 
         self._context =  context if not isinstance(context,dict) else HashableDict(context)
         self._actions = [ action if not isinstance(action ,dict) else HashableDict(action) for action in actions ]
+
+        self._context = self._flatten(context)
+        self._actions = [ self._flatten(action) for action in self._actions ]
+
 
         self._rewards = rewards
         self._reveals = reveals
@@ -137,13 +140,13 @@ class Interaction:
     def context(self) -> Context:
         """The interaction's context description."""
 
-        return self._flatten(self._context)
+        return self._context
 
     @property
     def actions(self) -> Sequence[Action]:
         """The interaction's available actions."""
 
-        return [ self._flatten(action) for action in self._actions ]
+        return self._actions
 
     @property
     def rewards(self) -> Optional[Sequence[float]]:
@@ -170,7 +173,7 @@ class Interaction:
 
         return results_dict
 
-class Simulation(Source[Iterable[Interaction]], ABC):
+class Simulation(Source[Iterable[SimulatedInteraction]], ABC):
     """The simulation interface."""
 
     @property
@@ -184,7 +187,7 @@ class Simulation(Source[Iterable[Interaction]], ABC):
         ...
     
     @abstractmethod
-    def read(self) -> Iterable[Interaction]:
+    def read(self) -> Iterable[SimulatedInteraction]:
         """The sequence of interactions in a simulation.
 
         Remarks:
@@ -195,7 +198,7 @@ class Simulation(Source[Iterable[Interaction]], ABC):
 class MemorySimulation(Simulation):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
 
-    def __init__(self, interactions: Sequence[Interaction]) -> None:
+    def __init__(self, interactions: Sequence[SimulatedInteraction]) -> None:
         """Instantiate a MemorySimulation.
 
         Args:
@@ -209,7 +212,7 @@ class MemorySimulation(Simulation):
         """Paramaters describing the simulation."""
         return {}
 
-    def read(self) -> Iterable[Interaction]:
+    def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
         return self._interactions
 
@@ -251,14 +254,14 @@ class ClassificationSimulation(Simulation):
         contexts = features
         rewards  = [ [ reveal(action,label) for action in actions ] for label in labels ]
 
-        self._interactions = [ Interaction(c,a,rewards=r) for c,a,r in zip(contexts, repeat(actions), rewards) ]
+        self._interactions = [ SimulatedInteraction(c,a,rewards=r) for c,a,r in zip(contexts, repeat(actions), rewards) ]
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
         return { }
 
-    def read(self) -> Iterable[Interaction]:
+    def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
 
         return self._interactions
@@ -294,9 +297,9 @@ class RegressionSimulation(Simulation):
         actions  = CobaRandom(1).shuffle(sorted(set(labels)))
         rewards  = [ [ reward(action,label) for action in actions ] for label in labels ]
 
-        self._interactions = [ Interaction(c,a,rewards=r) for c,a,r in zip(contexts, repeat(actions), rewards) ]
+        self._interactions = [ SimulatedInteraction(c,a,rewards=r) for c,a,r in zip(contexts, repeat(actions), rewards) ]
 
-    def read(self) -> Iterable[Interaction]:
+    def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
         return self._interactions
 
@@ -321,21 +324,21 @@ class LambdaSimulation(Simulation):
             reward: A function that should return the reward for the index, context and action.
         """
 
-        self._interactions: List[Interaction] = []
+        self._interactions: List[SimulatedInteraction] = []
 
         for i in range(n_interactions):
             _context  = context(i)
             _actions  = actions(i, _context)
             _rewards  = [ reward(i, _context, _action) for _action in _actions]
 
-            self._interactions.append(Interaction(_context, _actions, rewards=_rewards))
+            self._interactions.append(SimulatedInteraction(_context, _actions, rewards=_rewards))
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
         return {}
 
-    def read(self) -> Iterable[Interaction]:
+    def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
         
         return self._interactions
@@ -359,18 +362,18 @@ class ReaderSimulation(Simulation):
         
         self._label_column = label_column
         self._with_header  = with_header
-        self._interactions = cast(Optional[Sequence[Interaction]], None)
+        self._interactions = cast(Optional[Sequence[SimulatedInteraction]], None)
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
         return {"source": str(self._source) }
 
-    def read(self) -> Iterable[Interaction]:
+    def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
         return self._load_interactions()
 
-    def _load_interactions(self) -> Sequence[Interaction]:
+    def _load_interactions(self) -> Sequence[SimulatedInteraction]:
         parsed_rows_iter = iter(self._reader.filter(self._source.read()))
 
         if self._with_header:
@@ -513,10 +516,10 @@ class ValidationSimulation(LambdaSimulation):
         """Paramaters describing the simulation."""
         return { }
 
-    def read(self) -> Iterable[Interaction]:
+    def read(self) -> Iterable[SimulatedInteraction]:
         for i in super().read():
             if self._make_binary:
-                yield Interaction(i.context, i.actions, rewards = [ int(r == max(i.reveals)) for r in i.reveals ] )
+                yield SimulatedInteraction(i.context, i.actions, rewards = [ int(r == max(i.reveals)) for r in i.reveals ] )
             else:
                 yield i
 
