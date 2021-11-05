@@ -12,7 +12,7 @@ TODO Add RegressionSimulation
 from coba.simulations.core import (
     Context, Action, SimulatedInteraction, Simulation, MemorySimulation, 
     LambdaSimulation, ClassificationSimulation, CsvSimulation, ArffSimulation, 
-    LibsvmSimulation, ManikSimulation, ValidationSimulation, RegressionSimulation
+    LibsvmSimulation, ManikSimulation, ValidationSimulation, RegressionSimulation, LoggedInteraction
 )
 from coba.simulations.openml  import OpenmlSource, OpenmlSimulation
 from coba.simulations.filters import SimulationFilter, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
@@ -42,5 +42,6 @@ __all__ = [
     'Scale',
     'Cycle',
     'Impute',
-    'SimSourceFilters'
+    'SimSourceFilters',
+    'LoggedInteraction'
 ]

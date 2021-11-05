@@ -522,4 +522,22 @@ class ValidationSimulation(LambdaSimulation):
                 yield i
 
     def __repr__(self) -> str:
-        return "ValidationSimulation"
+        return f"ValidationSimulation(cf={self._context_features},af={self._action_features},seed={self._seed})"
+
+class LoggedInteraction():
+    """
+    TODO: docs
+    """
+    def __init__(self, context, action, reward, optionalProbability) -> None:
+
+        self._context       = context
+        self._action       = action
+        self._reward = reward
+        self._optionalProbability  = optionalProbability
+
+class WarmStart(Source[Iterable[Union[LoggedInteraction,SimulatedInteraction]]]):
+    """
+    TODO: docs
+    """
+    def __init__(self):
+        pass

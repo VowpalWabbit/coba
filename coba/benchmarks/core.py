@@ -42,13 +42,15 @@ class Benchmark:
     def __init__(self, 
         simulations: Sequence[Simulation],
         shuffle    : Sequence[Optional[int]] = [None],
-        take       : int = None) -> None:
+        take       : int = None,
+        isWarmStart: bool = False) -> None:
         """Instantiate a Benchmark.
 
         Args:
             simulations: The collection of simulations to benchmark against.
             shuffle: A collection of seeds to use for simulation shuffling. A seed of `None` means no shuffle will be applied.
             take: The number of interactions to take from each simulation for evaluation.
+            isWarmStart: Indicates if the benchmark will engage Warm Start.
         """
 
         sources: List[Simulation] = simulations
@@ -67,6 +69,7 @@ class Benchmark:
         self._maxtasksperchild    : Optional[int]        = None
         self._maxtasksperchild_set: bool                 = False
         self._chunk_by            : Optional[str]        = None
+        self._isWarmStart         : bool                 = False
 
     def chunk_by(self, value: str = 'source') -> 'Benchmark':
         """Determines how tasks are chunked for processing.
@@ -133,8 +136,8 @@ class Benchmark:
         cb = self._chunk_by         if self._chunk_by             else CobaConfig.Benchmark['chunk_by']
         mp = self._processes        if self._processes            else CobaConfig.Benchmark['processes']
         mt = self._maxtasksperchild if self._maxtasksperchild_set else CobaConfig.Benchmark['maxtasksperchild']
-            
-        tasks            = CreateTasks(self._simulations, safe_learners, seed)
+        
+        tasks            = CreateTasks(self._simulations, safe_learners, seed, self._isWarmStart)
         unfinished       = FilterFinished(restored)
         chunked          = ChunkByTask() if cb == 'task' else ChunkByNone() if cb == 'none' else ChunkBySource()
         process          = ProcessTasks()

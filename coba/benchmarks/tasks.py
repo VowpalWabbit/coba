@@ -5,13 +5,13 @@ from copy import deepcopy
 from statistics import median
 from itertools import groupby, product, count
 from collections import defaultdict
-from typing import Iterable, Sequence, Any, Optional, Dict, Hashable, Tuple
+from typing import Iterable, Sequence, Any, Optional, Dict, Hashable, Tuple, Union
 
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
 from coba.pipes import Source, Pipe, Filter, IdentityFilter
-from coba.simulations import Simulation, SimulatedInteraction, OpenmlSimulation, ClassificationSimulation, SimSourceFilters
+from coba.simulations import Simulation, Interaction, OpenmlSimulation, ClassificationSimulation, SimSourceFilters, LoggedInteraction
 from coba.encodings import InteractionTermsEncoder
 
 from coba.benchmarks.transactions import Transaction
@@ -102,6 +102,63 @@ class SimulationEvaluationTask(Task):
                         row_data[key].append(value)
 
             yield Transaction.interactions(self.sim_id, self.lrn_id, _packed=row_data)
+
+class WarmStartEvaluationTask(Task):
+
+    def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Learner, seed: int) -> None:
+        self._seed = seed
+        super().__init__(src_id, sim_id, lrn_id, simulation, learner)
+
+    def filter(self, interactions: Iterable[Union[LoggedInteraction,SimulatedInteraction]]) -> Iterable[Any]:
+
+        if not interactions: return
+
+        learner = deepcopy(self.learner)
+        random  = CobaRandom(self._seed)
+
+        with CobaConfig.Logger.time(f"Evaluating learner {self.lrn_id} on Simulation {self.sim_id}..."):
+
+            row_data = defaultdict(list)
+
+            seen_keys = []
+
+            for i,interaction in enumerate(interactions):
+
+                context, actions, probs, info, action, reveal, prob, info = None
+
+                if isinstance(interaction, LoggedInteraction):
+                    context = interaction._context
+                    action = interaction._action
+                    reveal = interaction._reward
+                    prob = interaction._optionalProbability
+                    info = learner.learn(context, action, reveal, prob, info) or {}
+                else:
+                    context = interaction.context
+                    actions = interaction.actions
+                    probs,info = learner.predict(context, actions)
+
+                    action = random.choice(actions, probs)
+                    reveal = interaction.reveals[actions.index(action)]
+                    prob   = probs[actions.index(action)]
+                    info = learner.learn(context, action, reveal, prob, info) or {}
+                
+                row_key_values = {}
+                row_key_values.update(info)
+                row_key_values.update({k:v[actions.index(action)] for k,v in interaction.results.items()})
+
+                for key,value in row_key_values.items():
+                    if key == "rewards": key = "reward"
+                    if key == "reveals": key = "reveal"
+
+                    if key in seen_keys:
+                        row_data[key].append(value)
+                    else:
+                        seen_keys.append(key)
+                        row_data[key].extend([None]*i)
+                        row_data[key].append(value)
+
+            yield Transaction.interactions(self.sim_id, self.lrn_id, _packed=row_data)
+
 
 class SimulationTask(Task):
 
@@ -202,10 +259,11 @@ class SimulationTask(Task):
 
 class CreateTasks(Source[Iterable[Task]]):
 
-    def __init__(self, simulations: Sequence[Simulation], learners: Sequence[Learner], seed: int = None) -> None:
+    def __init__(self, simulations: Sequence[Simulation], learners: Sequence[Learner], seed: int = None, isWarmStart: bool = False) -> None:
         self._simulations = simulations
         self._learners    = learners
         self._seed        = seed
+        self._isWarmStart = isWarmStart
 
     def read(self) -> Iterable[Task]:
 
@@ -219,7 +277,7 @@ class CreateTasks(Source[Iterable[Task]]):
             yield SimulationTask(*identifier.id(simulation, None), simulation, None)
 
         for simulation, learner in product(self._simulations, self._learners):
-            yield SimulationEvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed)
+            yield EvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed) if self._isWarmStart else WarmStartEvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed)
 
 class FilterFinished(Filter[Iterable[Task], Iterable[Task]]):
     def __init__(self, restored: Result) -> None:
