@@ -4,7 +4,7 @@ from typing import List
 
 from coba.pipes import MemoryIO
 from coba.config import CobaConfig, NoneLogger
-from coba.simulations import (
+from coba.environments import (
     SimulatedInteraction, MemorySimulation, ClassificationSimulation,
     LambdaSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation,
     ValidationSimulation

@@ -1,7 +1,7 @@
 from typing import Sequence, Iterable, Dict, Any
 
-from coba.simulations.core import Simulation, SimulatedInteraction
-from coba.simulations.filters import SimulationFilter
+from coba.environments.core import Simulation, SimulatedInteraction
+from coba.environments.filters import SimulationFilter
 
 class SimSourceFilters(Simulation):
 

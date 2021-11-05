@@ -11,7 +11,7 @@ from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
 from coba.pipes import Source, Pipe, Filter, IdentityFilter
-from coba.simulations import Simulation, SimulatedInteraction, OpenmlSimulation, ClassificationSimulation, SimSourceFilters, LoggedInteraction
+from coba.environments import Simulation, OpenmlSimulation, ClassificationSimulation, SimSourceFilters, LoggedInteraction, SimulatedInteraction
 from coba.encodings import InteractionTermsEncoder
 
 from coba.experiments.transactions import Transaction

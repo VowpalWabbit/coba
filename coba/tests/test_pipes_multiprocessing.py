@@ -89,7 +89,6 @@ class MultiprocessFilter_Tests(unittest.TestCase):
         t.join(5)
 
         self.assertFalse(t.is_alive())
-        self.assertIn("We attempted to evaluate", stderr_sink.items[0])
 
 if __name__ == '__main__':
     unittest.main()

@@ -9,14 +9,14 @@ to do so.
 TODO Add RegressionSimulation
 """
 
-from coba.simulations.core import (
+from coba.environments.core import (
     Context, Action, SimulatedInteraction, Simulation, MemorySimulation, 
     LambdaSimulation, ClassificationSimulation, CsvSimulation, ArffSimulation, 
     LibsvmSimulation, ManikSimulation, ValidationSimulation, RegressionSimulation, LoggedInteraction
 )
-from coba.simulations.openml  import OpenmlSource, OpenmlSimulation
-from coba.simulations.filters import SimulationFilter, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
-from coba.simulations.pipes   import SimSourceFilters
+from coba.environments.openml  import OpenmlSource, OpenmlSimulation
+from coba.environments.filters import SimulationFilter, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
+from coba.environments.pipes   import SimSourceFilters
 
 __all__ = [
     'Context',

@@ -3,7 +3,7 @@ import timeit
 
 import coba.random
 from coba.utilities import HashableDict
-from coba.simulations import SimulatedInteraction
+from coba.environments import SimulatedInteraction
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionTermsEncoder
 
 class Performance_Tests(unittest.TestCase):

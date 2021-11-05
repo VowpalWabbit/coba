@@ -35,7 +35,7 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  
  ## Simulations
  
- Simulations are the core unit of evaluation in Coba. They are nothing more than a collection of interactions with an environment and potential rewards. A number of tools have been built into Coba to make simulation creation easier. All these tools are defined in the `coba.simulations` module. We describe these tools in more detail below.
+ Simulations are the core unit of evaluation in Coba. They are nothing more than a collection of interactions with an environment and potential rewards. A number of tools have been built into Coba to make simulation creation easier. All these tools are defined in the `coba.environments` module. We describe these tools in more detail below.
  
  ### Importing Simulations From Classification Data Sets
  

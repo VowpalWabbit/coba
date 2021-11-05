@@ -70,18 +70,5 @@ class CobaMultiprocessFilter_Tests(unittest.TestCase):
         self.assertEqual(1, len(CobaConfig.Logger.sink.items))
         self.assertIn("pickle", CobaConfig.Logger.sink.items[0])
 
-    def test_attribute_error_logging(self): 
-        CobaConfig.Logger = BasicLogger(MemoryIO())
-
-        def test_function():
-            list(CobaMultiprocessFilter([ProcessNameFilter()], 2, 1).filter([Test()]*2))
-
-        t = Thread(target=test_function)
-        t.start()
-        t.join(4)
-
-        self.assertFalse(t.is_alive())
-        self.assertIn("We attempted to evaluate", CobaConfig.Logger.sink.items[0])
-
 if __name__ == '__main__':
     unittest.main()

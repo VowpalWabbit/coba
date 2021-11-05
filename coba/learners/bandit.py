@@ -5,7 +5,7 @@ import math
 from collections import defaultdict
 from typing import Any, Dict, Sequence, Optional, cast, Hashable
 
-from coba.simulations import Context, Action
+from coba.environments import Context, Action
 from coba.statistics import OnlineVariance
 from coba.learners.core import Learner, Probs, Info
 

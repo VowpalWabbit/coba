@@ -6,7 +6,7 @@ from typing import Sequence, Dict, Any
 
 from coba.registry import CobaRegistry
 from coba.pipes import Filter
-from coba.simulations import SimSourceFilters
+from coba.environments import SimSourceFilters
 
 from coba.experiments.core import Benchmark
 
