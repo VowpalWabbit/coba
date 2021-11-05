@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import ContextManager, List, cast, Iterator, Iterable, Optional
 
-from coba.pipes import Sink, NoneSink
+from coba.pipes import Sink, NullIO
 from coba.config.exceptions import CobaException
 
 
@@ -42,7 +42,7 @@ class NoneLogger(Logger):
 
     @property
     def sink(self) -> Sink[Iterable[str]]:
-        return NoneSink()
+        return NullIO()
 
     def log(self, message: str) -> 'ContextManager[Logger]':
         return self._context()
@@ -63,9 +63,6 @@ class BasicLogger(Logger):
         self._with_name   = with_name
 
         self._starts = cast(List[float], [])
-
-        self._indent_lvl  = 0
-        self._bullets     = collections.defaultdict(lambda: '~', enumerate(['','*','>','-','+']))
 
     @contextmanager
     def _log_context(self, message:str) -> 'Iterator[Logger]':
@@ -109,12 +106,10 @@ class BasicLogger(Logger):
             A ContextManager that while write a finish message on exit
         """
 
-        indent = '  ' * self._indent_lvl
-        bullet = self._bullets[self._indent_lvl] + (' ' if self._indent_lvl else '')
         stamp  = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' if self._with_stamp else ''
         name   = "-- " + current_process().name + " -- " if self._with_name else ''
 
-        self._sink.write([stamp + name + indent + bullet + message])
+        self._sink.write(stamp + name + message)
         
         return self._log_context(message)
 
@@ -162,7 +157,7 @@ class IndentLogger(Logger):
         self._messages: List[str] = []
 
         self._level   = 0
-        self._bullets = collections.defaultdict(lambda: '~', enumerate(['','* ','> ','- ','+ ']))
+        self._bullets = dict(enumerate(['','* ','> ','- ','+ ']))
 
     @contextmanager
     def _indent_context(self) -> 'Iterator[Logger]':
@@ -199,11 +194,11 @@ class IndentLogger(Logger):
 
                 if place_in_line == 0:
                     while self._messages:
-                        self._sink.write([self._stamp_message(self._messages.pop(0))])
+                        self._sink.write(self._stamp_message(self._messages.pop(0)))
 
     def _level_message(self, message: str) -> str:
         indent = '  ' * self._level
-        bullet = self._bullets[self._level]
+        bullet = self._bullets.get(self._level,'~')
 
         return indent + bullet + message
 
@@ -227,7 +222,7 @@ class IndentLogger(Logger):
         if self._messages:
             self._messages.append(self._level_message(message))
         else:
-            self._sink.write([self._stamp_message(self._level_message(message))])
+            self._sink.write(self._stamp_message(self._level_message(message)))
 
         return self._indent_context()
 

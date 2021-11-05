@@ -6,8 +6,8 @@ from coba.learners import Learner, SafeLearner
 from coba.simulations import Simulation, Take, Shuffle, SimSourceFilters, SimulatedInteraction
 from coba.registry import CobaRegistry
 from coba.config import CobaConfig, CobaFatal
-from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpSource, MemorySource, DiskSource
-from coba.multiprocessing import MultiprocessFilter
+from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpIO, MemoryIO, DiskIO
+from coba.multiprocessing import CobaMultiprocessFilter
 
 from coba.benchmarks.tasks import ChunkByNone, CreateTasks, FilterFinished, ChunkByTask, ChunkBySource, ProcessTasks
 from coba.benchmarks.transactions import Transaction, TransactionSink
@@ -29,10 +29,10 @@ class Benchmark:
         """Instantiate a Benchmark from a config file."""
 
         if isinstance(arg,str) and arg.startswith('http'):
-            content = '\n'.join(ResponseToLines().filter(HttpSource(arg).read()))
+            content = '\n'.join(ResponseToLines().filter(HttpIO(arg).read()))
         
         elif isinstance(arg,str) and not arg.startswith('http'):
-            content = '\n'.join(DiskSource(arg).read())
+            content = '\n'.join(DiskIO(arg).read())
 
         else:
             content = arg.read() #type: ignore
@@ -140,11 +140,11 @@ class Benchmark:
         process          = ProcessTasks()
         transaction_sink = TransactionSink(result_file, restored)
 
-        if mp > 1 or mt is not None  : process = MultiprocessFilter([process], mp, mt) #type: ignore
+        if mp > 1 or mt is not None  : process = CobaMultiprocessFilter([process], mp, mt) #type: ignore
 
         try:
-            Pipe.join(MemorySource(preamble), []                            , transaction_sink).run()
-            Pipe.join(tasks                 , [unfinished, chunked, process], transaction_sink).run()
+            Pipe.join(MemoryIO(preamble), []                            , transaction_sink).run()
+            Pipe.join(tasks             , [unfinished, chunked, process], transaction_sink).run()
         except KeyboardInterrupt:
             CobaConfig.Logger.log("Benchmark evaluation was manually aborted via Ctrl-C")
         except CobaFatal:

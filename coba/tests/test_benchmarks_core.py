@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import cast
 
 from coba.simulations import LambdaSimulation
-from coba.pipes import Source, MemorySink
+from coba.pipes import Source, MemoryIO
 from coba.learners import Learner, RandomLearner
 from coba.config import CobaConfig, NoneLogger, IndentLogger, BasicLogger
 from coba.benchmarks import Benchmark
@@ -301,7 +301,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
 
     def test_ignore_raise(self):
 
-        log_sink = MemorySink()
+        log_sink = MemoryIO()
         CobaConfig.Logger = IndentLogger(log_sink)
 
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -340,7 +340,7 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
         learner   = NotPicklableLearner()
         benchmark = Benchmark([sim1])
 
-        CobaConfig.Logger = BasicLogger(MemorySink())
+        CobaConfig.Logger = BasicLogger(MemoryIO())
 
         benchmark.evaluate([learner])
 
@@ -352,7 +352,7 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
         learner   = WrappedLearner(NotPicklableLearner())
         benchmark = Benchmark([sim1])
 
-        CobaConfig.Logger = BasicLogger(MemorySink())
+        CobaConfig.Logger = BasicLogger(MemoryIO())
         
         benchmark.evaluate([learner])
 

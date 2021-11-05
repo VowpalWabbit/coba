@@ -8,9 +8,8 @@ from typing import Optional, Sequence, List, Callable, Hashable, Any, Union, Ite
 from coba.random import CobaRandom
 from coba.utilities import HashableDict
 from coba.pipes import (
-    Pipe, Source, Filter,
+    Pipe, Source, Filter, DiskIO, HttpIO,
     CsvReader, ArffReader, LibSvmReader, ManikReader, 
-    DiskSource, HttpSource, 
     ResponseToLines, Transpose
 )
 
@@ -70,6 +69,9 @@ class SimulatedInteraction:
 
         assert not rewards or len(actions) == len(rewards), "Interaction rewards must match action length."
         assert not reveals or len(actions) == len(reveals), "Interaction reveals must match action length."
+
+        context = self._flatten(context)
+        actions = [ self._flatten(action) for action in actions ]
 
         self._context =  context if not isinstance(context,dict) else HashableDict(context)
         self._actions = [ action if not isinstance(action ,dict) else HashableDict(action) for action in actions ]
@@ -136,13 +138,13 @@ class SimulatedInteraction:
     def context(self) -> Context:
         """The interaction's context description."""
 
-        return self._flatten(self._context)
+        return self._context
 
     @property
     def actions(self) -> Sequence[Action]:
         """The interaction's available actions."""
 
-        return [ self._flatten(action) for action in self._actions ]
+        return self._actions
 
     @property
     def rewards(self) -> Optional[Sequence[float]]:
@@ -350,9 +352,9 @@ class ReaderSimulation(Simulation):
         self._reader = reader
 
         if isinstance(source, str) and source.startswith('http'):
-            self._source = Pipe.join(HttpSource(source), [ResponseToLines()])
+            self._source = Pipe.join(HttpIO(source), [ResponseToLines()])
         elif isinstance(source, str):
-            self._source = DiskSource(source)
+            self._source = DiskIO(source)
         else:
             self._source = source
         

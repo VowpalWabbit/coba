@@ -1,14 +1,14 @@
 
 from coba.registry    import CobaRegistry
-from coba.pipes       import NoneSink, ConsoleSink, DiskSink
+from coba.pipes       import NullIO, ConsoleIO, DiskIO
 from coba.config      import DiskCacher, NoneCacher, MemoryCacher, IndentLogger, NoneLogger, BasicLogger
 from coba.simulations import OpenmlSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation
 from coba.simulations import Identity, Shuffle, Take, Sort, Scale, Cycle
 from coba.benchmarks  import BenchmarkFileFmtV2
 
-CobaRegistry.register("NoneSink"   , NoneSink   )
-CobaRegistry.register("DiskSink"   , DiskSink   )
-CobaRegistry.register("ConsoleSink", ConsoleSink)
+CobaRegistry.register("NoneSink"   , NullIO   )
+CobaRegistry.register("DiskSink"   , DiskIO   )
+CobaRegistry.register("ConsoleSink", ConsoleIO)
 
 CobaRegistry.register("BasicLogger" , BasicLogger )
 CobaRegistry.register("IndentLogger", IndentLogger)

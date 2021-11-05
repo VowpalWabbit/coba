@@ -10,7 +10,7 @@ from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashabl
 
 from coba.config import CobaConfig
 from coba.utilities import PackageChecker
-from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe, DiskSink, DiskSource
+from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe, DiskIO
 
 class Table:
     """A container class for storing tabular data."""
@@ -319,9 +319,9 @@ class Result:
         json_encode = Cartesian(JsonEncode())
         json_decode = Cartesian(JsonDecode())
 
-        Pipe.join(DiskSource(filename), [json_decode, ResultPromote(), json_encode], DiskSink(filename, 'w')).run()
+        Pipe.join(DiskIO(filename), [json_decode, ResultPromote(), json_encode], DiskIO(filename, append=False)).run()
         
-        return Result.from_transactions(Pipe.join(DiskSource(filename), [json_decode]).read())
+        return Result.from_transactions(Pipe.join(DiskIO(filename), [json_decode]).read())
 
     @staticmethod
     def from_transactions(transactions: Iterable[Any]) -> 'Result':

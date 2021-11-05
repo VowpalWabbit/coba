@@ -5,14 +5,14 @@ import traceback
 
 from pathlib import Path
 
-from coba.pipes import MemorySink
+from coba.pipes import MemoryIO
 from coba.config import DiskCacher, IndentLogger, BasicLogger
 
 class BasicLogger_Tests(unittest.TestCase):
 
     def test_log(self):
 
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = BasicLogger(sink, with_stamp=False, with_name=False)
         logs   = sink.items
 
@@ -30,7 +30,7 @@ class BasicLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = BasicLogger(sink,with_stamp=False, with_name=False)
         logs   = sink.items
 
@@ -53,7 +53,7 @@ class BasicLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = BasicLogger(sink,with_stamp=False, with_name=False)
         logs   = sink.items
 
@@ -76,7 +76,7 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_time_with_3(self):
 
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = BasicLogger(sink, with_stamp=False)
         logs   = sink.items
 
@@ -113,7 +113,7 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_time_two_separate(self):
 
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = BasicLogger(sink, with_stamp=False)
         logs   = sink.items
 
@@ -152,7 +152,7 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_log_exception_1(self):
         
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = BasicLogger(sink, with_stamp=False)
         logs   = sink.items
 
@@ -172,7 +172,7 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_log_exception_2(self):
         
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = BasicLogger(sink, with_stamp=False)
         logs   = sink.items
         exception = Exception("Test Exception")
@@ -193,7 +193,7 @@ class IndentLogger_Tests(unittest.TestCase):
 
     def test_log(self):
 
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = IndentLogger(sink, with_stamp=False, with_name=False)
         logs   = sink.items
 
@@ -211,7 +211,7 @@ class IndentLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = IndentLogger(sink,with_stamp=False, with_name=False)
         logs   = sink.items
 
@@ -232,7 +232,7 @@ class IndentLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = IndentLogger(sink,with_stamp=False, with_name=False)
         logs   = sink.items
 
@@ -252,7 +252,7 @@ class IndentLogger_Tests(unittest.TestCase):
 
     def test_time_with_3(self):
 
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = IndentLogger(sink, with_stamp=False)
         logs   = sink.items
 
@@ -284,7 +284,7 @@ class IndentLogger_Tests(unittest.TestCase):
     
     def test_time_two_separate(self):
 
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = IndentLogger(sink, with_stamp=False)
         logs   = sink.items
 
@@ -318,7 +318,7 @@ class IndentLogger_Tests(unittest.TestCase):
 
     def test_log_exception_1(self):
         
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = IndentLogger(sink, with_stamp=False)
         logs   = sink.items
 
@@ -338,7 +338,7 @@ class IndentLogger_Tests(unittest.TestCase):
 
     def test_log_exception_2(self):
         
-        sink   = MemorySink()
+        sink   = MemoryIO()
         logger = IndentLogger(sink, with_stamp=False)
         logs   = sink.items
         exception = Exception("Test Exception")
@@ -354,6 +354,18 @@ class IndentLogger_Tests(unittest.TestCase):
         self.assertTrue(exception.__logged__) #type:ignore
         self.assertEqual(logs[0], "a")
         self.assertEqual(logs[1], expected_msg)
+
+    @unittest.skip("Known bug, should fix with refactor of logging.")
+    def test_log_without_stamp_with_name(self):
+        
+        sink   = MemoryIO()
+        logger = IndentLogger(sink, with_stamp=False, with_name=True)
+        logs   = sink.items
+
+        logger.log('a')
+
+        self.assertEqual(logs[0], "a")
+
 
 class DiskCache_Tests(unittest.TestCase):
     Cache_Test_Dir = Path("coba/tests/.temp/cache_tests/")

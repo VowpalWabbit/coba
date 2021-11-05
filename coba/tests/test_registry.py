@@ -19,7 +19,7 @@ class CobaRegistry_Tests(unittest.TestCase):
     def test_endpoint_loaded(self):
         klass = CobaRegistry.retrieve("NoneSink")
 
-        self.assertEqual("NoneSink", klass.__name__)
+        self.assertEqual("NullIO", klass.__name__)
 
     def test_endpoint_loaded_after_decorator_register(self):
         
@@ -28,7 +28,7 @@ class CobaRegistry_Tests(unittest.TestCase):
 
         klass = CobaRegistry.retrieve("NoneSink")
 
-        self.assertEqual("NoneSink", klass.__name__)
+        self.assertEqual("NullIO", klass.__name__)
 
     def test_register_decorator(self):
 

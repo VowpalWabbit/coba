@@ -5,21 +5,18 @@ from multiprocessing import current_process
 from typing import Iterable, Any
 
 from coba.config import CobaConfig
-from coba.pipes import Pipe, Filter, IdentityFilter, MemorySink, MemorySource
+from coba.pipes import Pipe, Filter, IdentityFilter, MemoryIO
 
 class Pipe_Tests(unittest.TestCase):
 
-    class ReprSource(MemorySource):
+
+    class ReprIO(MemoryIO):
         def __repr__(self):
-            return "ReprSource"
+            return "ReprIO"
 
     class ReprFilter(IdentityFilter):
         def __repr__(self):
             return "ReprFilter"
-
-    class ReprSink(MemorySink):
-        def __repr__(self) -> str:
-            return "ReprSink"
 
     class ProcessNameFilter(Filter):
         def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -35,43 +32,41 @@ class Pipe_Tests(unittest.TestCase):
             raise Exception("Exception Filter")
 
     def test_run(self):
-        source = MemorySource(list(range(10)))
-        sink   = MemorySink()
+        memoryIO = MemoryIO(list(range(10)))
 
-        Pipe.join(source, [Pipe_Tests.ProcessNameFilter()], sink).run()
+        Pipe.join(memoryIO, [Pipe_Tests.ProcessNameFilter()], memoryIO).run()
 
-        self.assertEqual(sink.items, ['MainProcess']*10)
+        self.assertEqual(memoryIO.items, ['MainProcess']*10)
 
     def test_exception(self):
-        source = MemorySource(list(range(4)))
-        sink   = MemorySink()
+        memoryIO = MemoryIO(list(range(4)))
 
         with self.assertRaises(Exception):
-            Pipe.join(source, [Pipe_Tests.ExceptionFilter()], sink).run()
+            Pipe.join(memoryIO, [Pipe_Tests.ExceptionFilter()], memoryIO).run()
 
     def test_repr1(self):
 
-        source  = Pipe_Tests.ReprSource([0,1,2])
+        source  = Pipe_Tests.ReprIO([0,1,2])
         filters = [Pipe_Tests.ReprFilter(), Pipe_Tests.ReprFilter()]
-        sink    = Pipe_Tests.ReprSink()
+        sink    = Pipe_Tests.ReprIO()
 
-        expected_repr = "ReprSource,ReprFilter,ReprFilter,ReprSink"
+        expected_repr = "ReprIO,ReprFilter,ReprFilter,ReprIO"
         self.assertEqual(expected_repr, str(Pipe.join(source, filters, sink)))
     
     def test_repr2(self):
 
-        source  = Pipe_Tests.ReprSource([0,1,2])
+        source  = Pipe_Tests.ReprIO([0,1,2])
         filters = [Pipe_Tests.ReprFilter(), Pipe_Tests.ReprFilter()]
 
-        expected_repr = "ReprSource,ReprFilter,ReprFilter"
+        expected_repr = "ReprIO,ReprFilter,ReprFilter"
         self.assertEqual(expected_repr, str(Pipe.join(source, filters)))
 
     def test_repr3(self):
 
         filters = [Pipe_Tests.ReprFilter(), Pipe_Tests.ReprFilter()]
-        sink    = Pipe_Tests.ReprSink()
+        sink    = Pipe_Tests.ReprIO()
 
-        expected_repr = "ReprFilter,ReprFilter,ReprSink"
+        expected_repr = "ReprFilter,ReprFilter,ReprIO"
         self.assertEqual(expected_repr, str(Pipe.join(filters, sink)))
 
     def test_repr4(self):

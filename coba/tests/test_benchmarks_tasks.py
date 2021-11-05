@@ -1,5 +1,6 @@
 import unittest
 
+import json
 from typing import cast, Iterable, Any
 
 from coba.simulations import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, SimSourceFilters, ValidationSimulation
@@ -282,6 +283,32 @@ class SimulationTask_Tests(unittest.TestCase):
         if sklearn_installed:
             self.assertEqual(.5 , transactions[0][2]["bayes_rate_avg"])
             self.assertEqual(0  , transactions[0][2]["bayes_rate_iqr"])
+
+    def test_classification_statistics_encodable(self):
+
+        try:
+            import sklearn
+        except:
+            sklearn_installed = False
+        else:
+            sklearn_installed = True
+
+        simulation   = ClassificationSimulation([(1,'A')]*20, ["A","B"]*10)
+        task         = SimulationTask(0, 1, None, simulation, None)
+        transactions = list(task.filter(simulation.read()))
+
+        self.assertEqual(1  , len(transactions))
+        self.assertEqual('S', transactions[0][0])
+        self.assertEqual(1  , transactions[0][1])
+        self.assertEqual(2  , transactions[0][2]["action_cardinality"])
+        self.assertEqual(2  , transactions[0][2]["context_dimensions"])
+        self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
+
+        if sklearn_installed:
+            self.assertEqual(.5 , transactions[0][2]["bayes_rate_avg"])
+            self.assertEqual(0  , transactions[0][2]["bayes_rate_iqr"])
+
+        json.dumps(transactions)
 
 class EvaluationTask_Tests(unittest.TestCase):
 

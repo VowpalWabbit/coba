@@ -1,15 +1,12 @@
-"""The data.pipes module contains core classes for creating data pipelines.
-
-TODO: Add docstrings for Pipe
-"""
+"""The data.pipes module contains core classes for creating data pipelines."""
 
 import collections
 
 from abc    import ABC, abstractmethod
 from typing import Sequence, Iterable, Any, overload, Union, TypeVar, Generic
 
-_T_out = TypeVar("_T_out", bound=Any, covariant=True)
-_T_in  = TypeVar("_T_in", bound=Any, contravariant=True)
+_T_out = TypeVar("_T_out", bound=Any, covariant=True    )
+_T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
 
 class StopPipe(Exception):
     pass
@@ -21,13 +18,13 @@ class Source(ABC, Generic[_T_out]):
 
 class Filter(ABC, Generic[_T_in, _T_out]):
     @abstractmethod
-    def filter(self, item:_T_in) -> _T_out:
+    def filter(self, item: _T_in) -> _T_out:
         ...
 
 class Sink(ABC, Generic[_T_in]):
 
     @abstractmethod
-    def write(self, items: _T_in) -> None:
+    def write(self, item: _T_in) -> None:
         ...
 
 class Pipe:

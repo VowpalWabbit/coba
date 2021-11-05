@@ -6,7 +6,7 @@ from hashlib import md5
 from numbers import Number
 from typing import Optional, Tuple, Sequence, Any, List, Iterable, Dict
 
-from coba.pipes import Source, HttpSource
+from coba.pipes import Source, HttpIO
 from coba.config import CobaConfig, CobaException
 
 from coba.simulations.core import Context, Action, SimulatedInteraction, Simulation, ClassificationSimulation, RegressionSimulation
@@ -147,7 +147,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
         else:
 
             api_key  = CobaConfig.Api_Keys['openml']
-            response = HttpSource(url + (f'?api_key={api_key}' if api_key else '')).read()
+            response = HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read()
 
             if response.status_code == 412:
                 if 'please provide api key' in response.text:

@@ -2,7 +2,7 @@ from typing import Any, Iterable, Optional, Sequence
 
 from coba.learners import Learner
 from coba.learners.core import SafeLearner
-from coba.pipes import Pipe, Filter, Sink, Cartesian, JsonEncode, DiskSink, MemorySink
+from coba.pipes import Pipe, Filter, Sink, Cartesian, JsonEncode, DiskIO, MemoryIO
 
 from coba.benchmarks.results import Result, ResultPromote
 
@@ -93,7 +93,7 @@ class TransactionSink(Sink):
 
         json_encode = Cartesian(JsonEncode())
 
-        final_sink = Pipe.join([json_encode], DiskSink(transaction_log)) if transaction_log else MemorySink()
+        final_sink = Pipe.join([json_encode], DiskIO(transaction_log)) if transaction_log else MemoryIO()
         self._sink = Pipe.join([TransactionIsNew(restored)], final_sink)
 
     def write(self, items: Sequence[Any]) -> None:
@@ -106,10 +106,10 @@ class TransactionSink(Sink):
         else:
             final_sink = self._sink
 
-        if isinstance(final_sink, MemorySink):
+        if isinstance(final_sink, MemoryIO):
             return Result.from_transactions(final_sink.items)
 
-        if isinstance(final_sink, DiskSink):
+        if isinstance(final_sink, DiskIO):
             return Result.from_file(final_sink.filename)
 
         raise Exception("Transactions were written to an unrecognized sink.")

@@ -2,8 +2,7 @@ import unittest
 
 from pathlib import Path
 
-from coba.pipes import DiskSource, DiskSink
-from coba.encodings import NumericEncoder, OneHotEncoder
+from coba.pipes import DiskIO, MemoryIO, QueueIO
 from coba.config import NoneLogger, CobaConfig
 
 CobaConfig.Logger = NoneLogger()
@@ -14,11 +13,10 @@ class DiskIO_Tests(unittest.TestCase):
         filepath = "coba/tests/.temp/test.log"
 
         try:
-            sink   = DiskSink(filepath)
-            source = DiskSource(filepath)
+            io = DiskIO(filepath)
 
-            sink.write(["a","b","c"])
-            out = list(source.read())
+            io.write(["a","b","c"])
+            out = list(io.read())
 
             self.assertEqual(["a","b","c"], out)
 
@@ -30,16 +28,60 @@ class DiskIO_Tests(unittest.TestCase):
         filepath = "coba/tests/.temp/test.log.gz"
 
         try:
-            sink   = DiskSink(filepath)
-            source = DiskSource(filepath)
+            io = DiskIO(filepath)
 
-            sink.write(["a","b","c"])
-            out = list(source.read())
+            io.write(["a","b","c"])
+            out = list(io.read())
 
             self.assertEqual(["a","b","c"], out)
 
         finally:
             if Path(filepath).exists(): Path(filepath).unlink()
+
+class MemoryIO_Tests(unittest.TestCase):
+    def test_simple(self):
+
+        io = MemoryIO()
+
+        io.write(["a","b","c"])
+        out = list(io.read())
+
+        self.assertEqual(["a","b","c"], out)
+
+    def test_string(self):
+
+        io = MemoryIO()
+
+        io.write("abc")
+        out = list(io.read())
+
+        self.assertEqual(["abc"], out)
+
+class QueueIO_Tests(unittest.TestCase):
+    def test_simple_no_blocking(self):
+
+        io = QueueIO(blocking_get=False)
+
+        io.write(["a","b","c"])
+        out = list(io.read())
+
+        self.assertEqual(["a","b","c"], out)
+
+    def test_simple_blocking(self):
+
+        io = QueueIO()
+
+        io.write(["a","b","c", None])
+        out = list(io.read())
+
+        self.assertEqual(["a","b","c"], out)
+
+    def test_string(self):
+
+        io = QueueIO(blocking_get=False)
+        io.write("abc")
+        out = list(io.read())
+        self.assertEqual(["abc"], out)
 
 if __name__ == '__main__':
     unittest.main()
