@@ -1,8 +1,8 @@
 import unittest
 import timeit
 
-from coba.benchmarks.transactions import Transaction
-from coba.benchmarks.results import Result, Table, InteractionsTable
+from coba.experiments.transactions import Transaction
+from coba.experiments.results import Result, Table, InteractionsTable
 
 class Table_Tests(unittest.TestCase):
 

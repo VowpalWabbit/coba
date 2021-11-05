@@ -8,7 +8,7 @@ from coba.registry import CobaRegistry
 from coba.pipes import Filter
 from coba.simulations import SimSourceFilters
 
-from coba.benchmarks.core import Benchmark
+from coba.experiments.core import Benchmark
 
 class BenchmarkFileFmtV2(Filter[Dict[str,Any], Benchmark]):
 

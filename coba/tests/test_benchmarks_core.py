@@ -8,7 +8,7 @@ from coba.simulations import LambdaSimulation
 from coba.pipes import Source, MemoryIO
 from coba.learners import Learner, RandomLearner
 from coba.config import CobaConfig, NoneLogger, IndentLogger, BasicLogger
-from coba.benchmarks import Benchmark
+from coba.experiments import Benchmark
 
 #for testing purposes
 class ModuloLearner(Learner):

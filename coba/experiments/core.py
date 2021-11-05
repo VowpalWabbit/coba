@@ -9,9 +9,9 @@ from coba.config import CobaConfig, CobaFatal
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpIO, MemoryIO, DiskIO
 from coba.multiprocessing import CobaMultiprocessFilter
 
-from coba.benchmarks.tasks import ChunkByNone, CreateTasks, FilterFinished, ChunkByTask, ChunkBySource, ProcessTasks
-from coba.benchmarks.transactions import Transaction, TransactionSink
-from coba.benchmarks.results import Result
+from coba.experiments.tasks import ChunkByNone, CreateTasks, FilterFinished, ChunkByTask, ChunkBySource, ProcessTasks
+from coba.experiments.transactions import Transaction, TransactionSink
+from coba.experiments.results import Result
 
 class Benchmark:
     """A Benchmark which uses simulations to calculate performance statistics for learners."""

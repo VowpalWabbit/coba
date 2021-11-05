@@ -7,8 +7,8 @@ from coba.simulations import LambdaSimulation, SimulatedInteraction, Classificat
 from coba.pipes import Source, Pipe, IdentityFilter
 from coba.learners import Learner, RandomLearner
 
-from coba.benchmarks.results import Result
-from coba.benchmarks.tasks import (
+from coba.experiments.results import Result
+from coba.experiments.tasks import (
     Task, SimulationTask, SimulationEvaluationTask, CreateTasks, FilterFinished, ChunkBySource, ProcessTasks, Identifier
 )
 

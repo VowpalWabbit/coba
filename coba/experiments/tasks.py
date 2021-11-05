@@ -11,11 +11,11 @@ from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
 from coba.pipes import Source, Pipe, Filter, IdentityFilter
-from coba.simulations import Simulation, Interaction, OpenmlSimulation, ClassificationSimulation, SimSourceFilters, LoggedInteraction
+from coba.simulations import Simulation, SimulatedInteraction, OpenmlSimulation, ClassificationSimulation, SimSourceFilters, LoggedInteraction
 from coba.encodings import InteractionTermsEncoder
 
-from coba.benchmarks.transactions import Transaction
-from coba.benchmarks.results import Result
+from coba.experiments.transactions import Transaction
+from coba.experiments.results import Result
 
 class Identifier():
     
@@ -277,7 +277,7 @@ class CreateTasks(Source[Iterable[Task]]):
             yield SimulationTask(*identifier.id(simulation, None), simulation, None)
 
         for simulation, learner in product(self._simulations, self._learners):
-            yield EvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed) if self._isWarmStart else WarmStartEvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed)
+            yield SimulationEvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed) if not self._isWarmStart else WarmStartEvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed)
 
 class FilterFinished(Filter[Iterable[Task], Iterable[Task]]):
     def __init__(self, restored: Result) -> None:
