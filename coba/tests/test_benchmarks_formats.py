@@ -2,7 +2,7 @@ import json
 import unittest
 
 from coba.benchmarks.formats import BenchmarkFileFmtV2
-from coba.simulations.core import Simulation
+from coba.environments.core import Simulation
 
 class BenchmarkFileFmtV2_Tests(unittest.TestCase):
 

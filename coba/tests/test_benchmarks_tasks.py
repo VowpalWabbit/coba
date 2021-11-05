@@ -3,7 +3,7 @@ import unittest
 import json
 from typing import cast, Iterable, Any
 
-from coba.simulations import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, SimSourceFilters, ValidationSimulation
+from coba.environments import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, SimSourceFilters, ValidationSimulation
 from coba.pipes import Source, Pipe, IdentityFilter
 from coba.learners import Learner, RandomLearner
 

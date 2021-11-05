@@ -9,7 +9,7 @@ from typing import Optional, Tuple, Sequence, Any, List, Iterable, Dict
 from coba.pipes import Source, HttpIO
 from coba.config import CobaConfig, CobaException
 
-from coba.simulations.core import Context, Action, SimulatedInteraction, Simulation, ClassificationSimulation, RegressionSimulation
+from coba.environments.core import Context, Action, SimulatedInteraction, Simulation, ClassificationSimulation, RegressionSimulation
 
 class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 

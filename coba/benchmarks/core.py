@@ -3,7 +3,7 @@ from itertools import product
 from typing import Iterable, Sequence, Optional, overload, List, Union
 
 from coba.learners import Learner, SafeLearner
-from coba.simulations import Simulation, Take, Shuffle, SimSourceFilters, SimulatedInteraction
+from coba.environments import Simulation, Take, Shuffle, SimSourceFilters, SimulatedInteraction
 from coba.registry import CobaRegistry
 from coba.config import CobaConfig, CobaFatal
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpIO, MemoryIO, DiskIO

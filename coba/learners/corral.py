@@ -5,7 +5,7 @@ import math
 from typing import Any, Sequence, Optional, Dict, Tuple
 
 from coba.random import CobaRandom
-from coba.simulations import Context, Action
+from coba.environments import Context, Action
 from coba.learners.core import Learner, SafeLearner, Probs, Info
 
 class CorralLearner(Learner):

@@ -4,7 +4,7 @@ from math import isnan
 from itertools import repeat
 
 from coba.config import CobaConfig, NoneLogger
-from coba.simulations import SimulatedInteraction, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
+from coba.environments import SimulatedInteraction, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
 
 CobaConfig.Logger = NoneLogger()
 

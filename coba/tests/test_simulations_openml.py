@@ -3,7 +3,7 @@ import unittest
 from typing import cast, Tuple
 
 from coba.config import CobaConfig, NoneLogger, MemoryCacher, NoneCacher
-from coba.simulations import OpenmlSimulation, OpenmlSource
+from coba.environments import OpenmlSimulation, OpenmlSource
 
 CobaConfig.Logger = NoneLogger()
 

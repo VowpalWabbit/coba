@@ -11,7 +11,7 @@ from typing import Any, Dict, Union, Sequence, overload, cast, Optional, Tuple
 
 from coba.config import CobaException
 from coba.utilities import PackageChecker, redirect_stderr
-from coba.simulations import Context, Action
+from coba.environments import Context, Action
 
 from coba.learners.core import Learner, Probs, Info
 
