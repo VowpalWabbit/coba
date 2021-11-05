@@ -124,27 +124,30 @@ class WarmStartEvaluationTask(Task):
 
             for i,interaction in enumerate(interactions):
 
-                context, actions, probs, info, action, reveal, prob, info = None
+                probs, info, action, reveal, prob, info = None
+                context = interaction.context
+                actions = interaction.actions
 
                 if isinstance(interaction, LoggedInteraction):
-                    context = interaction._context
-                    action = interaction._action
-                    reveal = interaction._reward
-                    prob = interaction._optionalProbability
-                    info = learner.learn(context, action, reveal, prob, info) or {}
+                    reveal = interaction.rewards
+                    prob = interaction.optional_probability
+                    probs,info = learner.predict(context, actions)
+                    ratio = reveal * probs / prob
+
+                    info = learner.learn(context, actions, reveal, prob, info) or {}
+                    interaction_data = {"reward": ratio*interaction.rewards}
                 else:
-                    context = interaction.context
-                    actions = interaction.actions
                     probs,info = learner.predict(context, actions)
 
                     action = random.choice(actions, probs)
                     reveal = interaction.reveals[actions.index(action)]
                     prob   = probs[actions.index(action)]
                     info = learner.learn(context, action, reveal, prob, info) or {}
+                    interaction_data = {k:v[actions.index(action)] for k,v in interaction.results.items()}
                 
                 row_key_values = {}
                 row_key_values.update(info)
-                row_key_values.update({k:v[actions.index(action)] for k,v in interaction.results.items()})
+                row_key_values.update(interaction_data)
 
                 for key,value in row_key_values.items():
                     if key == "rewards": key = "reward"

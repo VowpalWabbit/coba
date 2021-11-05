@@ -528,12 +528,33 @@ class LoggedInteraction():
     """
     TODO: docs
     """
-    def __init__(self, context, action, reward, optionalProbability) -> None:
+    def __init__(self, context, actions, reward, optional_probability) -> None:
 
-        self._context       = context
-        self._action       = action
-        self._reward = reward
-        self._optionalProbability  = optionalProbability
+        self._context                = context
+        self._actions                = actions
+        self._rewards                = reward
+        self._optional_probability   = optional_probability
+    @property
+    def context(self) -> Context:
+        """The interaction's context description."""
+
+        return self._context
+
+    @property
+    def actions(self) -> Sequence[Action]:
+        """The interaction's available actions."""
+
+        return self._actions
+
+    @property
+    def rewards(self) -> Optional[Sequence[float]]:
+        """The reward associated with each action."""
+        return self._rewards
+
+    @property
+    def optional_probability(self) -> Optional[Sequence[float]]:
+        """The optional_probability associated with each action."""
+        return self._optional_probability
 
 class WarmStart(Source[Iterable[Union[LoggedInteraction,SimulatedInteraction]]]):
     """

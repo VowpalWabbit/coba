@@ -12,7 +12,7 @@ from coba.random import CobaRandom
 from coba.pipes import Filter
 from coba.statistics import iqr
 
-from coba.environments.core import SimulatedInteraction
+from coba.environments.core import SimulatedInteraction, LoggedInteraction
 
 class SimulationFilter(Filter[Iterable[SimulatedInteraction],Iterable[SimulatedInteraction]], ABC):
 
@@ -296,3 +296,38 @@ class Impute(SimulationFilter):
 
     def __repr__(self) -> str:
         return str(self.params)
+
+class SimulationToWarmStart(SimulationFilter):
+    """
+    TODO: Docs
+    """
+    def __init__(self, n_warmstart):
+        self._n_warmstart = n_warmstart
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "n_warmstart": self._n_warmstart }
+
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Union[SimulatedInteraction, LoggedInteraction]]:
+
+        underlying_iterable     = iter(interactions)
+        warm_start_interactions = islice(underlying_iterable, self._n_warmstart)
+        other_interactions = underlying_iterable
+
+        for interaction in warm_start_interactions:
+            num_actions = len(interaction.actions)
+            randomIndex = CobaRandom.randint(0, num_actions)
+            optional_probability = 1.0 / num_actions
+
+            action = interaction.actions[randomIndex]
+            reward = interaction.rewards[randomIndex]
+
+            yield LoggedInteraction(interaction.context, action, reward, optional_probability)
+
+        for interaction in other_interactions:
+            yield interaction
+
+    def __repr__(self) -> str:
+        return str(self.params)
+
+    
