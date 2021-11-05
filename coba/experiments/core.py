@@ -13,19 +13,19 @@ from coba.experiments.tasks import ChunkByNone, CreateTasks, FilterFinished, Chu
 from coba.experiments.transactions import Transaction, TransactionSink
 from coba.experiments.results import Result
 
-class Benchmark:
+class Experiment:
     """A Benchmark which uses simulations to calculate performance statistics for learners."""
     
     @overload
     @staticmethod
-    def from_file(filesource:Union[Source[str], Source[Iterable[str]]]) -> 'Benchmark': ...
+    def from_file(filesource:Union[Source[str], Source[Iterable[str]]]) -> 'Experiment': ...
 
     @overload
     @staticmethod
-    def from_file(filename:str) -> 'Benchmark': ...
+    def from_file(filename:str) -> 'Experiment': ...
     
     @staticmethod #type: ignore #(this apppears to be a mypy bug https://github.com/python/mypy/issues/7781)
-    def from_file(arg) -> 'Benchmark': #type: ignore
+    def from_file(arg) -> 'Experiment': #type: ignore
         """Instantiate a Benchmark from a config file."""
 
         if isinstance(arg,str) and arg.startswith('http'):
@@ -71,7 +71,7 @@ class Benchmark:
         self._chunk_by            : Optional[str]        = None
         self._isWarmStart         : bool                 = False
 
-    def chunk_by(self, value: str = 'source') -> 'Benchmark':
+    def chunk_by(self, value: str = 'source') -> 'Experiment':
         """Determines how tasks are chunked for processing.
         
         Args:
@@ -84,7 +84,7 @@ class Benchmark:
 
         return self
 
-    def processes(self, value:int = 1) -> 'Benchmark':
+    def processes(self, value:int = 1) -> 'Experiment':
         """Determines how many processes will be utilized for processing Benchmark chunks.
         
         Args:
@@ -94,7 +94,7 @@ class Benchmark:
         self._processes = value
         return self
 
-    def maxtasksperchild(self, value: Optional[int] = None) -> 'Benchmark':
+    def maxtasksperchild(self, value: Optional[int] = None) -> 'Experiment':
         """Determines how many chunks a process can handle before it will be torn down and recreated.
         
         Args:

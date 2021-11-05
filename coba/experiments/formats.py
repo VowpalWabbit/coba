@@ -8,11 +8,11 @@ from coba.registry import CobaRegistry
 from coba.pipes import Filter
 from coba.environments import SimSourceFilters
 
-from coba.experiments.core import Benchmark
+from coba.experiments.core import Experiment
 
-class BenchmarkFileFmtV2(Filter[Dict[str,Any], Benchmark]):
+class BenchmarkFileFmtV2(Filter[Dict[str,Any], Experiment]):
 
-    def filter(self, config: Dict[str,Any]) -> 'Benchmark':
+    def filter(self, config: Dict[str,Any]) -> 'Experiment':
 
         variables = { k: CobaRegistry.construct(v) for k,v in config.get("variables",{}).items() }
 
@@ -45,4 +45,4 @@ class BenchmarkFileFmtV2(Filter[Dict[str,Any], Benchmark]):
 
         simulations = [ simulation for recipe in config['simulations'] for simulation in _construct(recipe)]
 
-        return Benchmark(simulations)
+        return Experiment(simulations)

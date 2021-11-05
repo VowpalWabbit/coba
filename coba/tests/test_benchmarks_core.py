@@ -8,7 +8,7 @@ from coba.environments import LambdaSimulation
 from coba.pipes import Source, MemoryIO
 from coba.learners import Learner, RandomLearner
 from coba.config import CobaConfig, NoneLogger, IndentLogger, BasicLogger
-from coba.experiments import Benchmark
+from coba.experiments import Experiment
 
 #for testing purposes
 class ModuloLearner(Learner):
@@ -117,7 +117,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
     def test_sources(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
-        benchmark  = Benchmark([sim1])
+        benchmark  = Experiment([sim1])
 
         result              = benchmark.evaluate([learner])
         actual_learners     = result.learners.to_tuples()
@@ -136,7 +136,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
-        benchmark  = Benchmark([sim1,sim2])
+        benchmark  = Experiment([sim1,sim2])
 
         result              = benchmark.evaluate([learner])
         actual_learners     = result.learners.to_tuples()
@@ -154,7 +154,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
     def test_shuffle_seeds(self):
         sim1      = LambdaSimulation(3, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner   = ModuloLearner()
-        benchmark = Benchmark([sim1], shuffle=[1,4])
+        benchmark = Experiment([sim1], shuffle=[1,4])
 
         result              = benchmark.evaluate([learner])
         actual_learners     = result.learners.to_tuples()
@@ -172,7 +172,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
     def test_eval_seeds(self):
         sim1      = LambdaSimulation(3, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner   = RandomLearner()
-        benchmark = Benchmark([sim1], shuffle=[1,4])
+        benchmark = Experiment([sim1], shuffle=[1,4])
 
         result              = benchmark.evaluate([learner], seed=1)
         actual_learners     = result.learners.to_tuples()
@@ -191,7 +191,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2      = LambdaSimulation(2, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         learner   = ModuloLearner()
-        benchmark = Benchmark([sim1,sim2], take=3)
+        benchmark = Experiment([sim1,sim2], take=3)
 
         result              = benchmark.evaluate([learner])
         actual_learners     = result.learners.to_tuples()
@@ -210,7 +210,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         sim       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1  = ModuloLearner("0") #type: ignore
         learner2  = ModuloLearner("1") #type: ignore
-        benchmark = Benchmark([sim])
+        benchmark = Experiment([sim])
 
         actual_result       = benchmark.evaluate([learner1, learner2])
         actual_learners     = actual_result._learners.to_tuples()
@@ -228,7 +228,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
     def test_learn_info_learners(self):
         sim       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1  = LearnInfoLearner("0") #type: ignore
-        benchmark = Benchmark([sim])
+        benchmark = Experiment([sim])
 
         actual_result       = benchmark.evaluate([learner1])
         actual_learners     = actual_result._learners.to_tuples()
@@ -251,7 +251,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
     def test_predict_info_learners(self):
         sim       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1  = PredictInfoLearner("0") #type: ignore
-        benchmark = Benchmark([sim])
+        benchmark = Experiment([sim])
 
         actual_result       = benchmark.evaluate([learner1])
         actual_learners     = actual_result._learners.to_tuples()
@@ -275,7 +275,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         sim             = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         working_learner = ModuloLearner()
         broken_learner  = BrokenLearner()
-        benchmark       = Benchmark([sim])
+        benchmark       = Experiment([sim])
 
         #the second time the broken_factory() shouldn't ever be used for learning or choosing
         #because it already worked the first time and we are "resuming" benchmark from transaction.log
@@ -307,7 +307,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         learners   = [ModuloLearner(), BrokenLearner()]
-        benchmark  = Benchmark([sim1,sim2])
+        benchmark  = Experiment([sim1,sim2])
 
         result              = benchmark.evaluate(learners)
         actual_learners     = result.learners.to_tuples()
@@ -338,7 +338,7 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
     def test_not_picklable_learner_sans_reduce(self):
         sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner   = NotPicklableLearner()
-        benchmark = Benchmark([sim1])
+        benchmark = Experiment([sim1])
 
         CobaConfig.Logger = BasicLogger(MemoryIO())
 
@@ -350,7 +350,7 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
     def test_wrapped_not_picklable_learner_sans_reduce(self):
         sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner   = WrappedLearner(NotPicklableLearner())
-        benchmark = Benchmark([sim1])
+        benchmark = Experiment([sim1])
 
         CobaConfig.Logger = BasicLogger(MemoryIO())
         
@@ -362,14 +362,14 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
     def test_not_picklable_learner_with_reduce(self):
         sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner   = NotPicklableLearnerWithReduce()
-        benchmark = Benchmark([sim1])
+        benchmark = Experiment([sim1])
 
         benchmark.evaluate([learner])
 
     def test_wrapped_not_picklable_learner_with_reduce(self):
         sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner   = WrappedLearner(NotPicklableLearnerWithReduce())
-        benchmark = Benchmark([sim1], shuffle=[1,4])
+        benchmark = Experiment([sim1], shuffle=[1,4])
 
         benchmark.evaluate([learner])
 

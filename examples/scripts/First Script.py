@@ -4,7 +4,7 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
 from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner
-from coba.experiments import Benchmark
+from coba.experiments import Experiment
 from coba.environments import ValidationSimulation
 
 #this line is required by Python in order to use multi-processing
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     seeds = [0,1,2]
 
     #We then create our benchmark using our simulations and seeds
-    benchmark = Benchmark(simulations, shuffle=seeds)
+    benchmark = Experiment(simulations, shuffle=seeds)
 
     #Finally we evaluate our learners on our benchmark (the results will be saved in `result_file`).
     result = benchmark.evaluate(learners)
