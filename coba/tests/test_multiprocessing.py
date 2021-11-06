@@ -27,7 +27,7 @@ class SleepingFilter(Filter):
 class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         process_name = f"pid-{current_process().pid}"
-        CobaConfig.Logger.log(process_name)
+        CobaConfig.logger.log(process_name)
         yield process_name
 
 class ExceptionFilter(Filter):
@@ -46,7 +46,7 @@ class CobaMultiprocessFilter_Tests(unittest.TestCase):
         logger_sink = MemoryIO()
         logger      = IndentLogger(logger_sink, with_stamp=True, with_name=True)
 
-        CobaConfig.Logger = logger
+        CobaConfig.logger = logger
 
         items = list(CobaMultiprocessFilter([ProcessNameFilter()], 2, 1).filter(range(4)))
 
@@ -55,20 +55,20 @@ class CobaMultiprocessFilter_Tests(unittest.TestCase):
         self.assertCountEqual(items, [ l.split(' ')[-1] for l in logger_sink.items ] )
 
     def test_exception_logging(self):
-        CobaConfig.Logger = BasicLogger(MemoryIO())
+        CobaConfig.logger = BasicLogger(MemoryIO())
         
         list(CobaMultiprocessFilter([ExceptionFilter()], 2, 1).filter(range(4)))
 
-        for item in CobaConfig.Logger.sink.items:
+        for item in CobaConfig.logger.sink.items:
             self.assertIn("Unexpected exception:", item)
 
     def test_not_picklable_logging(self):
-        CobaConfig.Logger = BasicLogger(MemoryIO())
+        CobaConfig.logger = BasicLogger(MemoryIO())
 
         list(CobaMultiprocessFilter([ProcessNameFilter()], 2, 1).filter([NotPicklableFilter()]))
 
-        self.assertEqual(1, len(CobaConfig.Logger.sink.items))
-        self.assertIn("pickle", CobaConfig.Logger.sink.items[0])
+        self.assertEqual(1, len(CobaConfig.logger.sink.items))
+        self.assertIn("pickle", CobaConfig.logger.sink.items[0])
 
 if __name__ == '__main__':
     unittest.main()

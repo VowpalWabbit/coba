@@ -17,7 +17,7 @@ class CobaRegistry_Tests(unittest.TestCase):
         CobaRegistry.clear() #make sure the registry is fresh each test
 
     def test_endpoint_loaded(self):
-        klass = CobaRegistry.retrieve("NoneSink")
+        klass = CobaRegistry.retrieve("Null")
 
         self.assertEqual("NullIO", klass.__name__)
 
@@ -26,7 +26,7 @@ class CobaRegistry_Tests(unittest.TestCase):
         @coba_registry_class("MyTestObject")
         class MyTestObject(TestObject): pass
 
-        klass = CobaRegistry.retrieve("NoneSink")
+        klass = CobaRegistry.retrieve("Null")
 
         self.assertEqual("NullIO", klass.__name__)
 

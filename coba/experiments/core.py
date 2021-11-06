@@ -39,7 +39,7 @@ class Experiment:
         else:
             content = arg.read() #type: ignore
 
-        return CobaRegistry.construct(CobaConfig.Benchmark['file_fmt']).filter(JsonDecode().filter(content))
+        return CobaRegistry.construct('BenchmarkFileV2').filter(JsonDecode().filter(content))
 
     def __init__(self, 
         simulations: Sequence[Simulation],
@@ -121,9 +121,9 @@ class Experiment:
         preamble.append(Transaction.benchmark(n_given_learners, n_given_simulations))
         preamble.extend(Transaction.learners(safe_learners))
 
-        cb = self._chunk_by         if self._chunk_by         else CobaConfig.Benchmark['chunk_by']
-        mp = self._processes        if self._processes        else CobaConfig.Benchmark['processes']
-        mt = self._maxtasksperchild if self._maxtasksperchild else CobaConfig.Benchmark['maxtasksperchild']
+        cb = self._chunk_by         if self._chunk_by         else CobaConfig.experiment.chunk_by
+        mp = self._processes        if self._processes        else CobaConfig.experiment.processes
+        mt = self._maxtasksperchild if self._maxtasksperchild else CobaConfig.experiment.maxtasksperchild
         
         tasks            = CreateTasks(self._simulations, safe_learners, seed, self._isWarmStart)
         unfinished       = FilterFinished(restored)
@@ -137,10 +137,10 @@ class Experiment:
             Pipe.join(MemoryIO(preamble), []                            , transaction_sink).run()
             Pipe.join(tasks             , [unfinished, chunked, process], transaction_sink).run()
         except KeyboardInterrupt:
-            CobaConfig.Logger.log("Benchmark evaluation was manually aborted via Ctrl-C")
+            CobaConfig.logger.log("Benchmark evaluation was manually aborted via Ctrl-C")
         except CobaFatal:
             raise
         except Exception as ex:
-            CobaConfig.Logger.log_exception(ex)
+            CobaConfig.logger.log_exception(ex)
 
         return transaction_sink.result

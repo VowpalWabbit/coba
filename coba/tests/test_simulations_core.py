@@ -3,14 +3,14 @@ import unittest
 from typing import List
 
 from coba.pipes import MemoryIO
-from coba.config import CobaConfig, NoneLogger
+from coba.config import CobaConfig, NullLogger
 from coba.environments import (
     SimulatedInteraction, MemorySimulation, ClassificationSimulation,
     LambdaSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation,
     ValidationSimulation
 )
 
-CobaConfig.Logger = NoneLogger()
+CobaConfig.logger = NullLogger()
 
 class Interaction_Tests(unittest.TestCase):
     def test_context_none(self):

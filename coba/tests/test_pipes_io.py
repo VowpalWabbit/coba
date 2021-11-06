@@ -3,9 +3,9 @@ import unittest
 from pathlib import Path
 
 from coba.pipes import DiskIO, MemoryIO, QueueIO
-from coba.config import NoneLogger, CobaConfig
+from coba.config import NullLogger, CobaConfig
 
-CobaConfig.Logger = NoneLogger()
+CobaConfig.logger = NullLogger()
 
 class DiskIO_Tests(unittest.TestCase):
     def test_simple_sans_gz(self):

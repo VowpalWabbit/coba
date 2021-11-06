@@ -12,7 +12,6 @@ from typing import ContextManager, List, cast, Iterator, Iterable
 from coba.pipes import Sink, NullIO
 from coba.exceptions import CobaException
 
-
 class Logger(ABC):
     """A more advanced logging interface allowing different types of logs to be written."""
 
@@ -33,7 +32,7 @@ class Logger(ABC):
     def log_exception(self, exception:Exception, message: str = "Unexpected exception:") -> None:
         ...
 
-class NoneLogger(Logger):
+class NullLogger(Logger):
 
     @contextmanager
     def _context(self) -> 'Iterator[Logger]':

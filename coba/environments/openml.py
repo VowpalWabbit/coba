@@ -137,17 +137,17 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             #cache just in case it was corrupted somehow
             
             for key in self._cached_urls:
-                CobaConfig.Cacher.rmv(key)
+                CobaConfig.cacher.rmv(key)
             
             raise
 
     def _get_url(self, url:str, checksum:str=None) -> bytes:
         
-        if url in CobaConfig.Cacher:
-            bites = CobaConfig.Cacher.get(url)
+        if url in CobaConfig.cacher:
+            bites = CobaConfig.cacher.get(url)
         else:
 
-            api_key  = CobaConfig.Api_Keys['openml']
+            api_key  = CobaConfig.api_keys['openml']
             response = HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read()
 
             if response.status_code == 412:
@@ -184,14 +184,14 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 
             bites = response.content
 
-            if url not in CobaConfig.Cacher:
+            if url not in CobaConfig.cacher:
                 self._cached_urls.append(url)
-                CobaConfig.Cacher.put(url,bites)
+                CobaConfig.cacher.put(url,bites)
 
         if checksum is not None and md5(bites).hexdigest() != checksum:
             
             #if the cache has become corrupted we need to clear it
-            CobaConfig.Cacher.rmv(url)
+            CobaConfig.cacher.rmv(url)
 
             message = (
                 f"The response from {url} did not match the given checksum {checksum}. This could be the result "
@@ -221,7 +221,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             csv_url  = f"http://www.openml.org/data/v1/get_csv/{file_id}"
             arff_url = f"http://www.openml.org/data/v1/download/{file_id}"
 
-            if arff_url in CobaConfig.Cacher:
+            if arff_url in CobaConfig.cacher:
                 text = self._get_url(arff_url, md5_checksum)
                 return list(ArffReader(skip_encoding=[target]).filter(text.splitlines()))
 

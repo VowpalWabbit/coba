@@ -24,7 +24,7 @@ class Pipe_Tests(unittest.TestCase):
             process_name = current_process().name
 
             for _ in items:
-                CobaConfig.Logger.log(process_name)
+                CobaConfig.logger.log(process_name)
                 yield process_name
 
     class ExceptionFilter(Filter):

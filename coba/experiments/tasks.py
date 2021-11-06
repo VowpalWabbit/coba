@@ -67,7 +67,7 @@ class SimulationEvaluationTask(Task):
         learner = deepcopy(self.learner)
         random  = CobaRandom(self._seed)
 
-        with CobaConfig.Logger.time(f"Evaluating learner {self.lrn_id} on Simulation {self.sim_id}..."):
+        with CobaConfig.logger.time(f"Evaluating learner {self.lrn_id} on Simulation {self.sim_id}..."):
 
             row_data = defaultdict(list)
 
@@ -116,7 +116,7 @@ class WarmStartEvaluationTask(Task):
         learner = deepcopy(self.learner)
         random  = CobaRandom(self._seed)
 
-        with CobaConfig.Logger.time(f"Evaluating learner {self.lrn_id} on Simulation {self.sim_id}..."):
+        with CobaConfig.logger.time(f"Evaluating learner {self.lrn_id} on Simulation {self.sim_id}..."):
 
             row_data = defaultdict(list)
 
@@ -162,12 +162,11 @@ class WarmStartEvaluationTask(Task):
 
             yield Transaction.interactions(self.sim_id, self.lrn_id, _packed=row_data)
 
-
 class SimulationTask(Task):
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Any]:
 
-        with CobaConfig.Logger.time(f"Calculating Simulation {self.sim_id} statistics..."):
+        with CobaConfig.logger.time(f"Calculating Simulation {self.sim_id} statistics..."):
             extra_statistics = {}
 
             contexts,actions,reveals = zip(*[ (i.context, i.actions, i.reveals) for i in interactions])
@@ -342,7 +341,7 @@ class ProcessTasks(Filter[Iterable[Iterable[Task]], Iterable[Any]]):
         srt_sim = lambda t: t.sim_id
         grp_sim = lambda t: t.sim_id
 
-        with CobaConfig.Logger.log(f"Processing chunk..."):
+        with CobaConfig.logger.log(f"Processing chunk..."):
 
             for src_id, tasks_for_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
 
@@ -351,14 +350,14 @@ class ProcessTasks(Filter[Iterable[Iterable[Task]], Iterable[Any]]):
                     tasks_for_src = list(tasks_for_src)
                     sim_cnt_for_src = len(set([task.sim_id for task in tasks_for_src]))
 
-                    with CobaConfig.Logger.time(f"Creating source {src_id} from {source_by_id[src_id]}..."):
+                    with CobaConfig.logger.time(f"Creating source {src_id} from {source_by_id[src_id]}..."):
                         #This is not ideal. I'm not sure how it should be improved so it is being left for now.
                         #Maybe add a flag to the Benchmark to say whether the source should be stashed in mem?
                         loaded_source = list(source_by_id[src_id].read())
 
                     for sim_id, tasks_for_sim in groupby(sorted(tasks_for_src, key=srt_sim), key=grp_sim):
 
-                        with CobaConfig.Logger.time(f"Creating simulation {sim_id} from source {src_id}..."):
+                        with CobaConfig.logger.time(f"Creating simulation {sim_id} from source {src_id}..."):
                             interactions = list(filter_by_id[sim_id].filter(loaded_source))
 
                         if sim_cnt_for_src == 1:
@@ -367,7 +366,7 @@ class ProcessTasks(Filter[Iterable[Iterable[Task]], Iterable[Any]]):
                             gc.collect()
 
                         if not interactions:
-                            CobaConfig.Logger.log(f"Simulation {sim_id} has nothing to evaluate (likely due to `take` being larger than the simulation).")
+                            CobaConfig.logger.log(f"Simulation {sim_id} has nothing to evaluate (likely due to `take` being larger than the simulation).")
                             return
 
                         for task in tasks_for_sim:
@@ -375,7 +374,7 @@ class ProcessTasks(Filter[Iterable[Iterable[Task]], Iterable[Any]]):
                                 for transaction in task.filter(interactions): 
                                     yield transaction
                             except Exception as e:
-                                CobaConfig.Logger.log_exception(e)
+                                CobaConfig.logger.log_exception(e)
 
                 except Exception as e:
-                    CobaConfig.Logger.log_exception(e)
+                    CobaConfig.logger.log_exception(e)

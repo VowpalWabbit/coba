@@ -397,7 +397,7 @@ class Result:
         new_result._interactions = self.interactions.filter(simulation_id=is_complete_sim)
 
         if len(new_result.simulations) == 0:
-            CobaConfig.Logger.log(f"No simulation was found with interaction data for every learner.")
+            CobaConfig.logger.log(f"No simulation was found with interaction data for every learner.")
 
         return new_result
 
@@ -408,7 +408,7 @@ class Result:
         new_result._interactions = new_result.interactions.filter(simulation_id=new_result.simulations)
 
         if len(new_result.simulations) == 0:
-            CobaConfig.Logger.log(f"No simulations matched the given filter: {kwargs}.")
+            CobaConfig.logger.log(f"No simulations matched the given filter: {kwargs}.")
 
         return new_result
 
@@ -418,7 +418,7 @@ class Result:
         new_result._interactions = new_result.interactions.filter(learner_id=new_result.learners)
 
         if len(new_result.learners) == 0:
-            CobaConfig.Logger.log(f"No learners matched the given filter: {kwargs}.")
+            CobaConfig.logger.log(f"No learners matched the given filter: {kwargs}.")
 
         return new_result
 
@@ -480,7 +480,7 @@ class Result:
             end   = xlim[1] if xlim else len(X)
 
             if start >= end:
-                CobaConfig.Logger.log("The plot's end is less than the start making plotting impossible.")
+                CobaConfig.logger.log("The plot's end is less than the start making plotting impossible.")
                 return
 
             X = X[start:end]

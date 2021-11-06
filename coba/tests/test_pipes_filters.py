@@ -2,9 +2,9 @@ import unittest
 
 from coba.pipes import LibSvmReader, ArffReader, CsvReader, Flatten, Transpose, Encode, JsonEncode
 from coba.encodings import NumericEncoder, OneHotEncoder
-from coba.config import NoneLogger, CobaConfig
+from coba.config import NullLogger, CobaConfig
 
-CobaConfig.Logger = NoneLogger()
+CobaConfig.logger = NullLogger()
 
 class CsvReader_Tests(unittest.TestCase):
     def test_dense_sans_empty(self):

@@ -4,7 +4,7 @@ from hashlib import md5
 from gzip import compress, decompress
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union, Generic, Dict, TypeVar
+from typing import Union, Generic, Dict, TypeVar, Optional
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
@@ -28,7 +28,7 @@ class Cacher(Generic[_K, _V], ABC):
     def rmv(self, key: _K) -> None:
         ...
 
-class NoneCacher(Cacher[_K, _V]):
+class NullCacher(Cacher[_K, _V]):
     def __init__(self) -> None:
         self._cache: Dict[_K,_V] = {}
 
@@ -66,17 +66,26 @@ class DiskCacher(Cacher[str, bytes]):
     The DiskCache compresses all values before storing in order to conserve space.
     """
 
-    def __init__(self, path: Union[str, Path]) -> None:
+    def __init__(self, cache_dir: Union[str, Path] = None) -> None:
         """Instantiate a DiskCache.
         
         Args:
             path: The path to the directory where all files will be cached
         """
-        self._cache_dir = path if isinstance(path, Path) else Path(path).expanduser()
-        self._cache_dir.mkdir(parents=True, exist_ok=True)
+
+        self._cache_dir = cache_dir if isinstance(cache_dir, Path) else Path(cache_dir).expanduser() if cache_dir else None
+        if self._cache_dir is not None: self._cache_dir.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def cache_directory(self) -> str:
+        return str(self._cache_dir)
+
+    @cache_directory.setter
+    def cache_directory(self,value:Optional[str]) -> None:
+        self._cache_dir = Path(value) if value else None
 
     def __contains__(self, key: str) -> bool:
-        return self._cache_path(key).exists()
+        return self._cache_dir is not None and self._cache_path(key).exists()
 
     def get(self, key: str) -> bytes:
         """Get a key from the cache.
@@ -84,7 +93,6 @@ class DiskCacher(Cacher[str, bytes]):
         Args:
             filename: Requested filename to retreive from the cache.
         """
-
         return decompress(self._cache_path(key).read_bytes())
 
     def put(self, key: str, value: bytes):

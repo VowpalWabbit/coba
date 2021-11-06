@@ -3,28 +3,38 @@
 import sys
 import json
 import collections
+import traceback
 
 from pathlib import Path
+from typing_extensions import Literal
 from typing import Dict, Any
 
+from coba.exceptions import CobaException
 from coba.registry import CobaRegistry
 from coba.utilities import coba_exit
 
 from coba.config.loggers import Logger
 from coba.config.cachers import Cacher
 
+class ExperimentConfig:
+    
+    def __init__(self, processes:int, maxtasksperchild:int, chunk_by: Literal["source","task","none"] = "source"):
+        self.processes        = processes
+        self.maxtasksperchild = maxtasksperchild
+        self.chunk_by         = chunk_by
+
 class CobaConfig_meta(type):
     """To support class properties before python 3.9 we must implement our properties directly 
        on a meta class. Using class properties rather than class variables is done to allow 
        lazy loading. Lazy loading moves errors to execution time instead of import time where
-       they are easier to debug.
+       they are easier to debug as well as removing import time circular references.
     """
 
     def __init__(cls, *args, **kwargs):
-        cls._api_keys  = None
-        cls._cache     = None
-        cls._log       = None
-        cls._benchmark = None
+        cls._api_keys   = None
+        cls._cacher     = None
+        cls._logger     = None
+        cls._experiment = None
 
     @staticmethod
     def _load_file_configs() -> Dict[str,Any]:
@@ -46,15 +56,11 @@ class CobaConfig_meta(type):
                     CobaConfig_meta._resolve_and_expand_paths(file_config, str(search_path))
 
                     config.update(file_config)
+                
                 except Exception as e:
-                    
-                    print(
-                        f"The coba configuration file at {potential_coba_config} has the following formatting error, "
-                        f"'{str(e)}'. To protect against unexpected behavior execution is being stopped until this is fixed."
+                    raise CobaException(
+                        f"The coba configuration file at {potential_coba_config} has the following formatting error, {str(e)}."
                     )
-
-                    coba_exit()
-
         return config
 
     @staticmethod
@@ -69,77 +75,98 @@ class CobaConfig_meta(type):
             if isinstance(item,str) and (item.strip().startswith("../") or item.strip().startswith("./")):
                 config_dict[key] = str(Path(current_dir,item).resolve())
 
-    @staticmethod
-    def _load_config() -> Dict[str,Any]:
-
-        config: Dict[str,Any] = {
-            "api_keys" : collections.defaultdict(lambda:None),
-            "cacher"   : "NoneCacher",
-            "logger"   : { "IndentLogger": "ConsoleSink" },
-            "benchmark": {"processes": 1, "maxtasksperchild": None, "chunk_by": "source", "file_fmt": "BenchmarkFileV2"}
-        }
-
-        for key,value in CobaConfig_meta._load_file_configs().items():
-            if key in config and isinstance(config[key], dict):
-                config[key].update(value)
-            else:
-                config[key] = value
-
-        return config
+    _config_backing = None
 
     @property
-    def Api_Keys(cls):
-        if cls._api_keys is None:
-            cls._api_keys = cls._load_config()['api_keys']
+    def _config(cls) -> Dict[str,Any]:
+
+        if cls._config_backing is None:
+            try:
+                _raw_config: Dict[str,Any] = {
+                    "api_keys"  : collections.defaultdict(lambda:None),
+                    "cacher"    : { "DiskCacher": None},
+                    "logger"    : { "IndentLogger": "Console" },
+                    "experiment": { "processes": 1, "maxtasksperchild": -1, "chunk_by": "source" }
+                }
+
+                for key,value in CobaConfig_meta._load_file_configs().items():
+                    if key in _raw_config and isinstance(_raw_config[key], dict):
+                        _raw_config[key].update(value)
+                    else:
+                        _raw_config[key] = value
+
+                cls._config_backing = {
+                    'api_keys'  : _raw_config['api_keys'],
+                    'cacher'    : CobaRegistry.construct(_raw_config['cacher']),
+                    'logger'    : CobaRegistry.construct(_raw_config['logger']),
+                    'experiment': ExperimentConfig(**_raw_config['experiment'])
+                }
+            except CobaException as e:
+                print("An unexpected error occured when initializing CobaConfig. Execution is unable to continue.")
+                print(str(e))
+                coba_exit()
+            except Exception as e:
+                print("An unexpected error occured when initializing CobaConfig. Execution is unable to continue.")
+                tb = ''.join(traceback.format_tb(e.__traceback__))
+                msg = ''.join(traceback.TracebackException.from_exception(e).format_exception_only())
+                print(str(tb))
+                print(msg)
+                coba_exit()
+                
+
+        return cls._config_backing
+
+    @property
+    def api_keys(cls):
+        cls._api_keys = cls._api_keys if cls._api_keys else cls._config['api_keys']
         return cls._api_keys
 
-    @Api_Keys.setter
-    def Api_Keys(cls, value):
+    @api_keys.setter
+    def api_keys(cls, value):
         cls._api_keys = value
 
     @property
-    def Cacher(cls) -> Cacher[str,bytes]:
-        if cls._cache is None:
-            cls._cache = CobaRegistry.construct(cls._load_config()['cacher'])
-        return cls._cache
-    
-    @Cacher.setter
-    def Cacher(cls, value) -> None:
-        cls._cache = value
+    def cacher(cls) -> Cacher[str,bytes]:
+        cls._cacher = cls._cacher if cls._cacher else cls._config['cacher']
+        return cls._cacher
+
+    @cacher.setter
+    def cacher(cls, value: Cacher) -> None:
+        cls._cacher = value
 
     @property
-    def Logger(cls) -> Logger:
-        if cls._log is None:
-            cls._log = CobaRegistry.construct(cls._load_config()['logger'])
-        return cls._log
-    
-    @Logger.setter
-    def Logger(cls, value) -> None:
-        cls._log = value
+    def logger(cls) -> Logger:
+        cls._logger = cls._logger if cls._logger else cls._config['logger']
+        return cls._logger
+
+    @logger.setter
+    def logger(cls, value: Logger) -> None:
+        cls._logger = value
 
     @property
-    def Benchmark(cls) -> Dict[str, Any]:
-        if cls._benchmark is None:
-            cls._benchmark = cls._load_config()['benchmark']
-        return cls._benchmark
+    def experiment(cls) -> ExperimentConfig:
+        cls._experiment = cls._experiment if cls._experiment else cls._config['experiment']
+        return cls._experiment
 
-    @Benchmark.setter
-    def Benchmark(cls, value) -> None:
-        cls._benchmark = value
+    @experiment.setter
+    def experiment(cls, value:ExperimentConfig) -> None:
+        cls._experiment = value
 
 class CobaConfig(metaclass=CobaConfig_meta):
+
     """Create a global configuration context to allow easy mocking and customization.
 
     In short, So long as the same modulename is always used to import and the import
     always occurs on the same thread I'm fairly confident this pattern will always work.
 
     In long, I'm somewhat unsure about this pattern for the following reasons:
-        > While there seems concensus that multi-import doesn't repeat [1] it may if different modulenames are used [2]
+        > While there seems concensus that multi-import doesn't repeat (see [1]) it may if different modulenames are used (see [2])
             [1] https://stackoverflow.com/a/19077396/1066291
             [2] https://stackoverflow.com/q/13392038/1066291
 
-        > Python 3.7 added in explicit context management in [3,4] but this implementation is thread local only
+        > Python 3.7 added in explicit context management (see [3,4]) but this functionality is thread local only
             [3] https://www.python.org/dev/peps/pep-0567/
             [4] https://docs.python.org/3/library/contextvars.html
     """
+
     pass

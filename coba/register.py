@@ -1,21 +1,21 @@
 
 from coba.registry     import CobaRegistry
 from coba.pipes        import NullIO, ConsoleIO, DiskIO
-from coba.config       import DiskCacher, NoneCacher, MemoryCacher, IndentLogger, NoneLogger, BasicLogger
 from coba.environments import OpenmlSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation
 from coba.environments import Identity, Shuffle, Take, Sort, Scale, Cycle
 from coba.experiments  import BenchmarkFileFmtV2
+from coba.config       import DiskCacher, NullCacher, MemoryCacher, IndentLogger, NullLogger, BasicLogger
 
-CobaRegistry.register("NoneSink"   , NullIO   )
-CobaRegistry.register("DiskSink"   , DiskIO   )
-CobaRegistry.register("ConsoleSink", ConsoleIO)
+CobaRegistry.register("Null"   , NullIO   )
+CobaRegistry.register("Disk"   , DiskIO   )
+CobaRegistry.register("Console", ConsoleIO)
 
 CobaRegistry.register("BasicLogger" , BasicLogger )
 CobaRegistry.register("IndentLogger", IndentLogger)
-CobaRegistry.register("NoneLogger"  , NoneLogger  )
+CobaRegistry.register("NullLogger"  , NullLogger  )
 
 CobaRegistry.register("DiskCacher"   , DiskCacher  )
-CobaRegistry.register("NoneCacher"   , NoneCacher  )
+CobaRegistry.register("NullCacher"   , NullCacher  )
 CobaRegistry.register("MemoryCacher" , MemoryCacher)
 
 CobaRegistry.register("OpenmlSimulation", OpenmlSimulation)

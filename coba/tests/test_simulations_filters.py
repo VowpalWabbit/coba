@@ -3,10 +3,10 @@ import unittest
 from math import isnan
 from itertools import repeat
 
-from coba.config import CobaConfig, NoneLogger
+from coba.config import CobaConfig, NullLogger
 from coba.environments import SimulatedInteraction, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
 
-CobaConfig.Logger = NoneLogger()
+CobaConfig.logger = NullLogger()
 
 class Identity_Tests(unittest.TestCase):
     
