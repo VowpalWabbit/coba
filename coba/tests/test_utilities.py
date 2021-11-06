@@ -1,5 +1,4 @@
 import unittest
-import timeit
 
 from coba.utilities import PackageChecker, HashableDict
 

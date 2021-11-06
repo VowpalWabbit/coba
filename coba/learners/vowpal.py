@@ -9,7 +9,7 @@ from numbers import Number
 from typing_extensions import Literal
 from typing import Any, Dict, Union, Sequence, overload, cast, Optional, Tuple
 
-from coba.config import CobaException
+from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, redirect_stderr
 from coba.environments import Context, Action
 

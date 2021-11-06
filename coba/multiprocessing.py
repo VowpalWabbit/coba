@@ -4,8 +4,9 @@ from multiprocessing import Manager
 from threading import Thread
 from typing import Sequence, Iterable, Any
 
-from coba.config import CobaConfig, CobaFatal, Cacher, Logger, BasicLogger, IndentLogger
-from coba.pipes  import Filter, Sink, Pipe, StopPipe, QueueIO, MultiprocessFilter, MemoryIO
+from coba.exceptions import CobaFatal
+from coba.config import CobaConfig, BasicLogger, IndentLogger
+from coba.pipes  import Filter, Sink, Pipe, QueueIO, MultiprocessFilter
 
 class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 

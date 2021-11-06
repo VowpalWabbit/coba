@@ -5,7 +5,8 @@ from typing import Iterable, Sequence, Optional, overload, List, Union
 from coba.learners import Learner, SafeLearner
 from coba.environments import Simulation, Take, Shuffle, SimSourceFilters, SimulatedInteraction
 from coba.registry import CobaRegistry
-from coba.config import CobaConfig, CobaFatal
+from coba.config import CobaConfig
+from coba.exceptions import CobaFatal
 from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpIO, MemoryIO, DiskIO
 from coba.multiprocessing import CobaMultiprocessFilter
 

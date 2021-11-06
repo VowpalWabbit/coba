@@ -1,7 +1,4 @@
-"""Coba global configuration functionality.
-
-TODO Add unittests for CobaConfig.
-"""
+"""Coba global configuration functionality."""
 
 import sys
 import json
@@ -11,9 +8,10 @@ from pathlib import Path
 from typing import Dict, Any
 
 from coba.registry import CobaRegistry
+from coba.utilities import coba_exit
+
 from coba.config.loggers import Logger
 from coba.config.cachers import Cacher
-from coba.config.exceptions import CobaFatal
 
 class CobaConfig_meta(type):
     """To support class properties before python 3.9 we must implement our properties directly 
@@ -49,19 +47,13 @@ class CobaConfig_meta(type):
 
                     config.update(file_config)
                 except Exception as e:
-                    try:
-                        ipython = get_ipython() #type: ignore
-
-                        def exception_handler(exception_type, exception, traceback):
-                            print("%s: %s" % (exception_type.__name__, exception), file=sys.stderr)
-
-                        ipython._showtraceback = exception_handler
-                    except:
-                        sys.tracebacklimit = 0
-
-                    raise CobaFatal(f"The coba configuration file at {potential_coba_config} has the following formatting error, "
+                    
+                    print(
+                        f"The coba configuration file at {potential_coba_config} has the following formatting error, "
                         f"'{str(e)}'. To protect against unexpected behavior execution is being stopped until this is fixed."
-                    ) from None
+                    )
+
+                    coba_exit()
 
         return config
 

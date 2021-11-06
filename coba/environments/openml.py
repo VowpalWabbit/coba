@@ -7,7 +7,8 @@ from numbers import Number
 from typing import Optional, Tuple, Sequence, Any, List, Iterable, Dict
 
 from coba.pipes import Source, HttpIO
-from coba.config import CobaConfig, CobaException
+from coba.config import CobaConfig
+from coba.exceptions import CobaException
 
 from coba.environments.core import Context, Action, SimulatedInteraction, Simulation, ClassificationSimulation, RegressionSimulation
 
