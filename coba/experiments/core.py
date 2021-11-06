@@ -1,5 +1,6 @@
 from pathlib import Path
 from itertools import product
+from typing_extensions import Literal
 from typing import Iterable, Sequence, Optional, overload, List, Union
 
 from coba.learners import Learner, SafeLearner
@@ -43,8 +44,7 @@ class Experiment:
     def __init__(self, 
         simulations: Sequence[Simulation],
         shuffle    : Sequence[Optional[int]] = [None],
-        take       : int = None,
-        isWarmStart: bool = False) -> None:
+        take       : int = None) -> None:
         """Instantiate a Benchmark.
 
         Args:
@@ -72,39 +72,26 @@ class Experiment:
         self._chunk_by            : Optional[str]        = None
         self._isWarmStart         : bool                 = False
 
-    def chunk_by(self, value: str = 'source') -> 'Experiment':
-        """Determines how tasks are chunked for processing.
+    def config(self, 
+        chunk_by: Literal['source','task','none'] = None,
+        processes: int = None,
+        maxtasksperchild: Optional[int] = None) -> 'Experiment':
+        """Configure how the experiment will be executed. A value of `None` means the global config will be used.
         
         Args:
-            value: Allowable values are 'task', 'source' and 'none'.
+            chunk_by: Determines how tasks are chunked for processing.
+            processes: Determines how many processes to use when processing task chunks.
+            maxtasksperchild: Determines how many tasks each process will complete before being restarted. A value of -1 means infinite.
         """
 
-        assert value in ['task', 'source', 'none'], "The given chunk_by value wasn't recognized. Allowed values are 'task', 'source' and 'none'"
+        assert chunk_by is None or chunk_by in ['task', 'source', 'none'], "The given chunk_by value wasn't recognized. Allowed values are 'task', 'source' and 'none'"
+        assert processes is None or processes > 0, "The given number of processes is invalid. Must be greater than 0."
+        assert maxtasksperchild is None or maxtasksperchild >= 0, "The given number of taks per child is invalid. Must be greater than or equal to 0 (0 for infinite)."
 
-        self._chunk_by = value
+        self._chunk_by         = chunk_by
+        self._processes        = processes
+        self._maxtasksperchild = maxtasksperchild
 
-        return self
-
-    def processes(self, value:int = 1) -> 'Experiment':
-        """Determines how many processes will be utilized for processing Benchmark chunks.
-        
-        Args:
-            value: This is the number of processes Benchmark will use.
-        """
-
-        self._processes = value
-        return self
-
-    def maxtasksperchild(self, value: Optional[int] = None) -> 'Experiment':
-        """Determines how many chunks a process can handle before it will be torn down and recreated.
-        
-        Args:
-            value: This is the number of chunks a process will handle before being recreated. If this
-                value is None then processes will remain alive for the life of the Benchmark evaluation.
-        """
-
-        self._maxtasksperchild_set = True
-        self._maxtasksperchild = value
         return self
 
     def evaluate(self, learners: Sequence[Learner], result_file:str = None, seed:int = 1) -> Result:
@@ -134,9 +121,9 @@ class Experiment:
         preamble.append(Transaction.benchmark(n_given_learners, n_given_simulations))
         preamble.extend(Transaction.learners(safe_learners))
 
-        cb = self._chunk_by         if self._chunk_by             else CobaConfig.Benchmark['chunk_by']
-        mp = self._processes        if self._processes            else CobaConfig.Benchmark['processes']
-        mt = self._maxtasksperchild if self._maxtasksperchild_set else CobaConfig.Benchmark['maxtasksperchild']
+        cb = self._chunk_by         if self._chunk_by         else CobaConfig.Benchmark['chunk_by']
+        mp = self._processes        if self._processes        else CobaConfig.Benchmark['processes']
+        mt = self._maxtasksperchild if self._maxtasksperchild else CobaConfig.Benchmark['maxtasksperchild']
         
         tasks            = CreateTasks(self._simulations, safe_learners, seed, self._isWarmStart)
         unfinished       = FilterFinished(restored)
@@ -144,7 +131,7 @@ class Experiment:
         process          = ProcessTasks()
         transaction_sink = TransactionSink(result_file, restored)
 
-        if mp > 1 or mt is not None  : process = CobaMultiprocessFilter([process], mp, mt) #type: ignore
+        if mp > 1 or mt is not -1  : process = CobaMultiprocessFilter([process], mp, mt) #type: ignore
 
         try:
             Pipe.join(MemoryIO(preamble), []                            , transaction_sink).run()

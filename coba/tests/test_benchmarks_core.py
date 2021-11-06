@@ -10,7 +10,6 @@ from coba.learners import Learner, RandomLearner
 from coba.config import CobaConfig, NoneLogger, IndentLogger, BasicLogger
 from coba.experiments import Experiment
 
-#for testing purposes
 class ModuloLearner(Learner):
     def __init__(self, param:str="0"):
         self._param = param
