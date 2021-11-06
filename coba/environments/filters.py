@@ -317,17 +317,15 @@ class SimulationToWarmStart(SimulationFilter):
         for interaction in warm_start_interactions:
             num_actions = len(interaction.actions)
             randomIndex = CobaRandom.randint(0, num_actions)
-            optional_probability = 1.0 / num_actions
+            probability = 1.0 / num_actions
 
             action = interaction.actions[randomIndex]
             reward = interaction.rewards[randomIndex]
 
-            yield LoggedInteraction(interaction.context, action, reward, optional_probability)
+            yield LoggedInteraction(interaction.context, action, reward, probability)
 
         for interaction in other_interactions:
             yield interaction
 
     def __repr__(self) -> str:
         return str(self.params)
-
-    

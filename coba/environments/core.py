@@ -171,6 +171,43 @@ class SimulatedInteraction:
 
         return results_dict
 
+class LoggedInteraction:
+    """
+    TODO: docs
+    """
+    def __init__(self, context: Context, action: Action, reward: float, actions: Sequence[Action] = None, probability: float = None) -> None:
+
+        self._context     = context
+        self._action      = action
+        self._reward      = reward
+        self._actions     = actions
+        self._probability = probability
+
+    @property
+    def context(self) -> Context:
+        """The context in which an action was taken."""
+        return self._context
+
+    @property
+    def action(self) -> Action:
+        """The action that was taken."""
+        return self._context
+
+    @property
+    def reward(self) -> float:
+        """The reward that was observed when the action was taken."""
+        return self._reward
+
+    @property
+    def actions(self) -> Sequence[Action]:
+        """The actions that were available to take."""
+        return self._actions
+
+    @property
+    def probability(self) -> Optional[Sequence[float]]:
+        """The probability that the given action was taken."""
+        return self._probability
+
 class Simulation(Source[Iterable[SimulatedInteraction]], ABC):
     """The simulation interface."""
 
@@ -192,6 +229,13 @@ class Simulation(Source[Iterable[SimulatedInteraction]], ABC):
             This function should always be "re-iterable".
         """
         ...
+
+class WarmStart(Source[Iterable[Union[LoggedInteraction,SimulatedInteraction]]]):
+    """
+    TODO: docs
+    """
+    def __init__(self):
+        pass
 
 class MemorySimulation(Simulation):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
@@ -523,42 +567,3 @@ class ValidationSimulation(LambdaSimulation):
 
     def __repr__(self) -> str:
         return f"ValidationSimulation(cf={self._context_features},af={self._action_features},seed={self._seed})"
-
-class LoggedInteraction():
-    """
-    TODO: docs
-    """
-    def __init__(self, context, actions, reward, optional_probability) -> None:
-
-        self._context                = context
-        self._actions                = actions
-        self._rewards                = reward
-        self._optional_probability   = optional_probability
-    @property
-    def context(self) -> Context:
-        """The interaction's context description."""
-
-        return self._context
-
-    @property
-    def actions(self) -> Sequence[Action]:
-        """The interaction's available actions."""
-
-        return self._actions
-
-    @property
-    def rewards(self) -> Optional[Sequence[float]]:
-        """The reward associated with each action."""
-        return self._rewards
-
-    @property
-    def optional_probability(self) -> Optional[Sequence[float]]:
-        """The optional_probability associated with each action."""
-        return self._optional_probability
-
-class WarmStart(Source[Iterable[Union[LoggedInteraction,SimulatedInteraction]]]):
-    """
-    TODO: docs
-    """
-    def __init__(self):
-        pass

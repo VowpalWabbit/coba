@@ -129,13 +129,13 @@ class WarmStartEvaluationTask(Task):
                 actions = interaction.actions
 
                 if isinstance(interaction, LoggedInteraction):
-                    reveal = interaction.rewards
-                    prob = interaction.optional_probability
+                    reveal = interaction.reward
+                    prob = interaction.probability
                     probs,info = learner.predict(context, actions)
-                    ratio = reveal * probs / prob
+                    ratio = reveal * probs[actions.index(interaction.action)] / prob
 
                     info = learner.learn(context, actions, reveal, prob, info) or {}
-                    interaction_data = {"reward": ratio*interaction.rewards}
+                    interaction_data = {"reward": ratio*interaction.reward}
                 else:
                     probs,info = learner.predict(context, actions)
 
