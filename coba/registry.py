@@ -42,7 +42,7 @@ class CobaRegistry:
         name   = ""
         args   = None
         kwargs = None
-        method   = "singular"
+        method = "singular"
 
         if not cls._is_valid_recipe(recipe):
             raise Exception(f"Invalid recipe {str(recipe)}")

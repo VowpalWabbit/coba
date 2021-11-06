@@ -1,14 +1,13 @@
 from pathlib import Path
 from itertools import product
 from typing_extensions import Literal
-from typing import Iterable, Sequence, Optional, overload, List, Union
+from typing import Iterable, Sequence, Optional, List
 
 from coba.learners import Learner, SafeLearner
-from coba.environments import Simulation, Take, Shuffle, SimSourceFilters, SimulatedInteraction
-from coba.registry import CobaRegistry
+from coba.environments import Simulation, Take, Shuffle, EnvironmentPipe, SimulatedInteraction
 from coba.config import CobaConfig
 from coba.exceptions import CobaFatal
-from coba.pipes import Pipe, Filter, Source, JsonDecode, ResponseToLines, HttpIO, MemoryIO, DiskIO
+from coba.pipes import Pipe, Filter, MemoryIO
 from coba.multiprocessing import CobaMultiprocessFilter
 
 from coba.experiments.tasks import ChunkByNone, CreateTasks, FilterFinished, ChunkByTask, ChunkBySource, ProcessTasks
@@ -17,29 +16,6 @@ from coba.experiments.results import Result
 
 class Experiment:
     """A Benchmark which uses simulations to calculate performance statistics for learners."""
-    
-    @overload
-    @staticmethod
-    def from_file(filesource:Union[Source[str], Source[Iterable[str]]]) -> 'Experiment': ...
-
-    @overload
-    @staticmethod
-    def from_file(filename:str) -> 'Experiment': ...
-    
-    @staticmethod #type: ignore #(this apppears to be a mypy bug https://github.com/python/mypy/issues/7781)
-    def from_file(arg) -> 'Experiment': #type: ignore
-        """Instantiate a Benchmark from a config file."""
-
-        if isinstance(arg,str) and arg.startswith('http'):
-            content = '\n'.join(ResponseToLines().filter(HttpIO(arg).read()))
-        
-        elif isinstance(arg,str) and not arg.startswith('http'):
-            content = '\n'.join(DiskIO(arg).read())
-
-        else:
-            content = arg.read() #type: ignore
-
-        return CobaRegistry.construct('BenchmarkFileV2').filter(JsonDecode().filter(content))
 
     def __init__(self, 
         simulations: Sequence[Simulation],
@@ -63,7 +39,7 @@ class Experiment:
         if take is not None:
             filters.append([ Take(take) ])
 
-        simulation_sources = [SimSourceFilters(s,f) for s,f in product(sources, product(*filters))]
+        simulation_sources = [EnvironmentPipe(s,*f) for s,f in product(sources, product(*filters))]
 
         self._simulations         : Sequence[Simulation] = simulation_sources
         self._processes           : Optional[int]        = None

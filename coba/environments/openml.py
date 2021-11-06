@@ -10,7 +10,8 @@ from coba.pipes import Source, HttpIO
 from coba.config import CobaConfig
 from coba.exceptions import CobaException
 
-from coba.environments.core import Context, Action, SimulatedInteraction, Simulation, ClassificationSimulation, RegressionSimulation
+from coba.environments.core import Context, Action
+from coba.environments.simulations import Simulation, SimulatedInteraction, ClassificationSimulation, RegressionSimulation
 
 class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
 

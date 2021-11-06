@@ -6,10 +6,8 @@ module also contains several Benchmark implementations and Result data transfer 
 
 from coba.experiments.core    import Experiment
 from coba.experiments.results import Result
-from coba.experiments.formats import BenchmarkFileFmtV2 
 
 __all__ = [
     'Result',
     'Experiment',
-    'BenchmarkFileFmtV2'
 ]

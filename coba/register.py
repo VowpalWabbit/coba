@@ -3,7 +3,6 @@ from coba.registry     import CobaRegistry
 from coba.pipes        import NullIO, ConsoleIO, DiskIO
 from coba.environments import OpenmlSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation
 from coba.environments import Identity, Shuffle, Take, Sort, Scale, Cycle
-from coba.experiments  import BenchmarkFileFmtV2
 from coba.config       import DiskCacher, NullCacher, MemoryCacher, IndentLogger, NullLogger, BasicLogger
 
 CobaRegistry.register("Null"   , NullIO   )
@@ -29,5 +28,3 @@ CobaRegistry.register("Shuffle" , Shuffle )
 CobaRegistry.register("Sort"    , Sort    )
 CobaRegistry.register("Scale"   , Scale   )
 CobaRegistry.register("Cycle"   , Cycle   )
-
-CobaRegistry.register("BenchmarkFileV2", BenchmarkFileFmtV2)

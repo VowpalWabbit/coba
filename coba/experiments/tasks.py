@@ -11,7 +11,7 @@ from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
 from coba.pipes import Source, Pipe, Filter, IdentityFilter
-from coba.environments import Simulation, OpenmlSimulation, ClassificationSimulation, SimSourceFilters, LoggedInteraction, SimulatedInteraction
+from coba.environments import Simulation, OpenmlSimulation, ClassificationSimulation, EnvironmentPipe, LoggedInteraction, SimulatedInteraction
 from coba.encodings import InteractionTermsEncoder
 
 from coba.experiments.transactions import Transaction
@@ -25,7 +25,7 @@ class Identifier():
         self._simulaion_ids: Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
 
     def id(self, simulation: Simulation, learner: Learner) -> Tuple[int,int,int]:
-        source = simulation._source if isinstance(simulation, (SimSourceFilters, Pipe.SourceFilters)) else simulation
+        source = simulation._source if isinstance(simulation, (EnvironmentPipe, Pipe.SourceFilters)) else simulation
         
         src_id = self._source_ids[source]
         sim_id = self._simulaion_ids[simulation]
@@ -40,7 +40,7 @@ class Task(Filter[Iterable[SimulatedInteraction], Iterable[Any]]):
         self.sim_pipe = simulation
         self.learner  = SafeLearner(learner) if learner else None
 
-        if isinstance(simulation, SimSourceFilters):
+        if isinstance(simulation, EnvironmentPipe):
             self.sim_source = simulation._source
             self.sim_filter = Pipe.join(simulation._filters)
         elif isinstance(simulation, Pipe.SourceFilters):
@@ -248,13 +248,13 @@ class SimulationTask(Task):
             yield Transaction.simulation(self.sim_id, source=source, **params, **extra_statistics)
 
     def _source_repr(self) -> str:
-        if isinstance(self.sim_pipe, SimSourceFilters):
+        if isinstance(self.sim_pipe, EnvironmentPipe):
             return self.sim_pipe.source_repr
         else:
             return str(self.sim_pipe)
     
     def _pipe_params(self) -> Dict[str,Any]:
-        if isinstance(self.sim_pipe, SimSourceFilters):
+        if isinstance(self.sim_pipe, EnvironmentPipe):
             return self.sim_pipe.params
         else:
             return {}

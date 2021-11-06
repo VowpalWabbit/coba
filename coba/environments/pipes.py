@@ -1,13 +1,13 @@
-from typing import Sequence, Iterable, Dict, Any
+from typing import Iterable, Dict, Any
 
 from coba.environments.core import Simulation, SimulatedInteraction
 from coba.environments.filters import SimulationFilter
 
-class SimSourceFilters(Simulation):
+class EnvironmentPipe(Simulation):
 
-    def __init__(self, source: Simulation, filters: Sequence[SimulationFilter]):
+    def __init__(self, source: Simulation, *filters: SimulationFilter):
         
-        if isinstance(source, SimSourceFilters):
+        if isinstance(source, EnvironmentPipe):
             self._source  = source._source
             self._filters = list(source._filters) + list(filters)
         else:

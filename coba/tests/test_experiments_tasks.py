@@ -3,7 +3,7 @@ import unittest
 import json
 from typing import cast, Iterable, Any
 
-from coba.environments import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, SimSourceFilters, ValidationSimulation
+from coba.environments import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, EnvironmentPipe, ValidationSimulation
 from coba.pipes import Source, Pipe, IdentityFilter
 from coba.learners import Learner, RandomLearner
 
@@ -443,9 +443,9 @@ class Identify_Tests(unittest.TestCase):
     def test_simple(self):
 
         source  = ValidationSimulation()
-        pipe1   = SimSourceFilters(source,[])
+        pipe1   = EnvironmentPipe(source,[])
         pipe2   = Pipe.SourceFilters(source,[])
-        pipe3   = SimSourceFilters(pipe1,[])
+        pipe3   = EnvironmentPipe(pipe1,[])
         pipe4   = Pipe.SourceFilters(pipe2,[])
         learner = RandomLearner()
 
