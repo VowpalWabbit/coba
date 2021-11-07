@@ -1,13 +1,12 @@
 from pathlib import Path
-from itertools import product
 from typing_extensions import Literal
-from typing import Iterable, Sequence, Optional, List
+from typing import Sequence, Optional
 
 from coba.learners import Learner, SafeLearner
-from coba.environments import Simulation, Take, Shuffle, EnvironmentPipe, SimulatedInteraction
+from coba.environments import Simulation
 from coba.config import CobaConfig
 from coba.exceptions import CobaFatal
-from coba.pipes import Pipe, Filter, MemoryIO
+from coba.pipes import Pipe, MemoryIO
 from coba.multiprocessing import CobaMultiprocessFilter
 
 from coba.experiments.tasks import ChunkByNone, CreateTasks, FilterFinished, ChunkByTask, ChunkBySource, ProcessTasks
@@ -17,36 +16,18 @@ from coba.experiments.results import Result
 class Experiment:
     """A Benchmark which uses simulations to calculate performance statistics for learners."""
 
-    def __init__(self, 
-        simulations: Sequence[Simulation],
-        shuffle    : Sequence[Optional[int]] = [None],
-        take       : int = None) -> None:
+    def __init__(self, simulations: Sequence[Simulation]) -> None:
         """Instantiate a Benchmark.
 
         Args:
             simulations: The collection of simulations to benchmark against.
-            shuffle: A collection of seeds to use for simulation shuffling. A seed of `None` means no shuffle will be applied.
-            take: The number of interactions to take from each simulation for evaluation.
-            isWarmStart: Indicates if the benchmark will engage Warm Start.
         """
 
-        sources: List[Simulation] = simulations
-        filters: List[Sequence[Filter[Iterable[SimulatedInteraction],Iterable[SimulatedInteraction]]]] = []
-
-        if shuffle != [None]:
-            filters.append([ Shuffle(seed) for seed in shuffle ])
-
-        if take is not None:
-            filters.append([ Take(take) ])
-
-        simulation_sources = [EnvironmentPipe(s,*f) for s,f in product(sources, product(*filters))]
-
-        self._simulations         : Sequence[Simulation] = simulation_sources
-        self._processes           : Optional[int]        = None
-        self._maxtasksperchild    : Optional[int]        = None
-        self._maxtasksperchild_set: bool                 = False
-        self._chunk_by            : Optional[str]        = None
-        self._isWarmStart         : bool                 = False
+        self._simulations     : Sequence[Simulation] = simulations
+        self._processes       : Optional[int]        = None
+        self._maxtasksperchild: Optional[int]        = None
+        self._chunk_by        : Optional[str]        = None
+        self._isWarmStart     : bool                 = False
 
     def config(self, 
         chunk_by: Literal['source','task','none'] = None,

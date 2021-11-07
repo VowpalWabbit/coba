@@ -3,9 +3,9 @@ This is an example script that creates a Benchmark.
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
-from coba.learners import RandomLearner, EpsilonBanditLearner, VowpalLearner
-from coba.experiments import Experiment
-from coba.environments import ValidationSimulation
+from coba.learners     import RandomLearner, EpsilonBanditLearner, VowpalLearner
+from coba.experiments  import Experiment
+from coba.environments import Environments
 
 #this line is required by Python in order to use multi-processing
 if __name__ == '__main__':
@@ -18,17 +18,10 @@ if __name__ == '__main__':
         VowpalLearner(squarecb="all")
     ]
 
-    #Then we define the simulations that we want to test our learners on
-    simulations = [ ValidationSimulation(2000, context_features=True, action_features=False, make_binary=True, seed=1000) ]
-
-    #And also define a collection of seeds used to shuffle our simulations
-    seeds = [0,1,2]
+    environments = Environments.from_validation(2000,10,0).shuffle([0,1,2])
 
     #We then create our benchmark using our simulations and seeds
-    benchmark = Experiment(simulations, shuffle=seeds)
-
-    #Finally we evaluate our learners on our benchmark (the results will be saved in `result_file`).
-    result = benchmark.evaluate(learners)
+    result = Experiment(environments).evaluate(learners)
 
     #After evaluating can create a quick summary plot to get a sense of how the learners performed
     result.plot_learners(err='sd')

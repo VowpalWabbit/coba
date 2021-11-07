@@ -1,5 +1,5 @@
 
-from typing import Sequence, overload, Union, Iterable
+from typing import Sequence, overload, Union, Iterable, Iterator
 
 from coba.pipes import Source, ResponseToLines, HttpIO, DiskIO, JsonDecode
 
@@ -7,6 +7,7 @@ from coba.environments.pipes import EnvironmentPipe
 from coba.environments.core import Environment
 from coba.environments.filters import Shuffle, Take, SimulationFilter
 from coba.environments.formats import EnvironmentFileFmtV1
+from coba.environments.simulations import ValidationSimulation
 
 class Environments:
 
@@ -33,9 +34,14 @@ class Environments:
 
         return Environments(EnvironmentFileFmtV1().filter(JsonDecode().filter(content)))
 
+    @staticmethod
+    def from_validation(n_interactions:int, n_context_features:int, n_action_features:int, seed:int=1000) -> 'Environments':
+        return Environments(
+            ValidationSimulation(n_interactions, n_features=n_context_features, action_features=n_action_features>0, make_binary=True, seed=seed)
+        )
 
-    def __init__(self, environments: Sequence[Environment]):
-        self._environments = environments
+    def __init__(self, *environments: Environment):
+        self._environments = list(environments)
 
     def shuffle(self, seeds: Sequence[int]) -> 'Environments':
         shuffle_filters = [ Shuffle(seed) for seed in seeds ]
@@ -50,3 +56,12 @@ class Environments:
     def filter(self, *filters: SimulationFilter) -> 'Environments':
         self._environments = [ EnvironmentPipe(e,f) for e in self._environments for f in filters ]
         return self
+
+    def __getitem__(self, index:int) -> Environment:
+        return self._environments[index]
+
+    def __iter__(self) -> Iterator[Environment]:
+        return self._environments.__iter__()
+
+    def __len__(self) -> int:
+        return len(self._environments)

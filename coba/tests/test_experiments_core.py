@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 from typing import cast
 
-from coba.environments import LambdaSimulation
+from coba.environments import LambdaSimulation, Environments
 from coba.pipes import Source, MemoryIO
 from coba.learners import Learner, RandomLearner
 from coba.config import CobaConfig, NullLogger, IndentLogger, BasicLogger
@@ -113,7 +113,7 @@ class Benchmark_Single_Tests(unittest.TestCase):
         CobaConfig.experiment.processes = 1
         CobaConfig.experiment.maxtasksperchild = -1
 
-    def test_sources(self):
+    def test_sim(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
         benchmark  = Experiment([sim1])
@@ -150,28 +150,10 @@ class Benchmark_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_simulations, expected_simulations)
         self.assertCountEqual(actual_interactions, expected_interactions)
 
-    def test_shuffle_seeds(self):
-        sim1      = LambdaSimulation(3, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        learner   = ModuloLearner()
-        benchmark = Experiment([sim1], shuffle=[1,4])
-
-        result              = benchmark.evaluate([learner])
-        actual_learners     = result.learners.to_tuples()
-        actual_simulations  = result.simulations.to_tuples()
-        actual_interactions = result.interactions.to_tuples()
-
-        expected_learners     = [(0, "Modulo", "Modulo(p=0)", '0')]
-        expected_simulations  = [(0, 'LambdaSimulation', 1), (1, 'LambdaSimulation', 4)]
-        expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 2), (0, 0, 3, 1), (1, 0, 1, 1), (1, 0, 2, 0), (1, 0, 3, 2)]
-
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_simulations, expected_simulations)
-        self.assertCountEqual(actual_interactions, expected_interactions)
-    
     def test_eval_seeds(self):
         sim1      = LambdaSimulation(3, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner   = RandomLearner()
-        benchmark = Experiment([sim1], shuffle=[1,4])
+        benchmark = Experiment(Environments(sim1).shuffle([1,4]))
 
         result              = benchmark.evaluate([learner], seed=1)
         actual_learners     = result.learners.to_tuples()
@@ -181,25 +163,6 @@ class Benchmark_Single_Tests(unittest.TestCase):
         expected_learners     = [(0, "random", "random")]
         expected_simulations  = [(0, 'LambdaSimulation', 1), (1, 'LambdaSimulation', 4)]
         expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 2), (0, 0, 3, 1), (1, 0, 1, 0), (1, 0, 2, 2), (1, 0, 3, 1)]
-
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_simulations, expected_simulations)
-        self.assertCountEqual(actual_interactions, expected_interactions)
-
-    def test_take(self):
-        sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        sim2      = LambdaSimulation(2, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
-        learner   = ModuloLearner()
-        benchmark = Experiment([sim1,sim2], take=3)
-
-        result              = benchmark.evaluate([learner])
-        actual_learners     = result.learners.to_tuples()
-        actual_simulations  = result.simulations.to_tuples()
-        actual_interactions = result.interactions.to_tuples()
-        
-        expected_learners     = [(0, "Modulo", "Modulo(p=0)", '0')]
-        expected_simulations  = [(0, 'LambdaSimulation', 3)]
-        expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 1), (0, 0, 3, 2)]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_simulations, expected_simulations)
@@ -368,7 +331,7 @@ class Benchmark_Multi_Tests(Benchmark_Single_Tests):
     def test_wrapped_not_picklable_learner_with_reduce(self):
         sim1      = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner   = WrappedLearner(NotPicklableLearnerWithReduce())
-        benchmark = Experiment([sim1], shuffle=[1,4])
+        benchmark = Experiment([sim1])
 
         benchmark.evaluate([learner])
 

@@ -251,7 +251,7 @@ class SimulationTask(Task):
         if isinstance(self.sim_pipe, EnvironmentPipe):
             return self.sim_pipe.source_repr
         else:
-            return str(self.sim_pipe)
+            return self.sim_pipe.__class__.__name__
     
     def _pipe_params(self) -> Dict[str,Any]:
         if isinstance(self.sim_pipe, EnvironmentPipe):
