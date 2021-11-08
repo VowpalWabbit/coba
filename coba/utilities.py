@@ -3,6 +3,7 @@
 import sys
 import os
 
+from collections import defaultdict
 from io import UnsupportedOperation
 from contextlib import contextmanager
 from typing import IO
@@ -173,3 +174,12 @@ class HashableDict(dict):
         assert self._hash == hash(tuple(self.items()))
 
         return self._hash
+
+class KeyDefaultDict(defaultdict):
+    def __missing__(self, key):
+        if self.default_factory is None:
+            raise KeyError( key )
+        else:
+            value = self.default_factory(key)
+            self[key] = value
+            return value

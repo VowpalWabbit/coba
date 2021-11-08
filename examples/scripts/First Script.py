@@ -13,12 +13,12 @@ if __name__ == '__main__':
     #First, we define the learners that we want to test
     learners = [
         RandomLearner(),
-        EpsilonBanditLearner(epsilon=0.1),
+        EpsilonBanditLearner(epsilon=.1),
         VowpalLearner(epsilon=.1), #This learner requires that VowpalWabbit be installed
         VowpalLearner(squarecb="all")
     ]
 
-    environments = Environments.from_validation(2000,10,0).shuffle([0,1,2])
+    environments = Environments.from_validation(5000,3,2,2).shuffle([0,1,2])
 
     #We then create our benchmark using our simulations and seeds
     result = Experiment(environments).evaluate(learners)

@@ -249,12 +249,12 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(2, len(mock_learner.predict_example))
         
         self.assertEqual(mock_learner       , mock_learner.predict_example[0].vw)
-        self.assertEqual({'a':[(0,1),'1=a']}, mock_learner.predict_example[0].ns)
+        self.assertEqual({'a':[('0',1),'1=a']}, mock_learner.predict_example[0].ns)
         self.assertEqual(None               , mock_learner.predict_example[0].label)
         self.assertEqual(4                  , mock_learner.predict_example[0].label_type)
 
         self.assertEqual(mock_learner       , mock_learner.predict_example[1].vw)
-        self.assertEqual({'a':[(0,2),'1=b']}, mock_learner.predict_example[1].ns)
+        self.assertEqual({'a':[('0',2),'1=b']}, mock_learner.predict_example[1].ns)
         self.assertEqual(None               , mock_learner.predict_example[1].label)
         self.assertEqual(4                  , mock_learner.predict_example[1].label_type)
         
@@ -409,15 +409,15 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(mock_learner.learn_example))
         
-        self.assertEqual(mock_learner                   , mock_learner.learn_example[0].vw)
-        self.assertEqual({'x':[(0,1),'1=a'],'a':['yes']}, mock_learner.learn_example[0].ns)
-        self.assertEqual(None                           , mock_learner.learn_example[0].label)
-        self.assertEqual(4                              , mock_learner.learn_example[0].label_type)
+        self.assertEqual(mock_learner                     , mock_learner.learn_example[0].vw)
+        self.assertEqual({'x':[('0',1),'1=a'],'a':['yes']}, mock_learner.learn_example[0].ns)
+        self.assertEqual(None                             , mock_learner.learn_example[0].label)
+        self.assertEqual(4                                , mock_learner.learn_example[0].label_type)
 
-        self.assertEqual(mock_learner                  , mock_learner.learn_example[1].vw)
-        self.assertEqual({'x':[(0,1),'1=a'],'a':['no']}, mock_learner.learn_example[1].ns)
-        self.assertEqual("2:0.5:0.2"                   , mock_learner.learn_example[1].label)
-        self.assertEqual(4                             , mock_learner.learn_example[1].label_type)
+        self.assertEqual(mock_learner                    , mock_learner.learn_example[1].vw)
+        self.assertEqual({'x':[('0',1),'1=a'],'a':['no']}, mock_learner.learn_example[1].ns)
+        self.assertEqual("2:0.5:0.2"                     , mock_learner.learn_example[1].label)
+        self.assertEqual(4                               , mock_learner.learn_example[1].label_type)
 
     def test_adf_learn_with_no_context_mixed_dense_actions(self):
         learner = VowpalLearner(epsilon=0.05, adf=True, seed=20)
@@ -428,15 +428,15 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(mock_learner.learn_example))
         
-        self.assertEqual(mock_learner       , mock_learner.learn_example[0].vw)
-        self.assertEqual({'a':[(0,1),'1=a']}, mock_learner.learn_example[0].ns)
-        self.assertEqual(None               , mock_learner.learn_example[0].label)
-        self.assertEqual(4                  , mock_learner.learn_example[0].label_type)
+        self.assertEqual(mock_learner         , mock_learner.learn_example[0].vw)
+        self.assertEqual({'a':[('0',1),'1=a']}, mock_learner.learn_example[0].ns)
+        self.assertEqual(None                 , mock_learner.learn_example[0].label)
+        self.assertEqual(4                    , mock_learner.learn_example[0].label_type)
 
-        self.assertEqual(mock_learner       , mock_learner.learn_example[1].vw)
-        self.assertEqual({'a':[(0,2),'1=b']}, mock_learner.learn_example[1].ns)
-        self.assertEqual("2:0.5:0.2"        , mock_learner.learn_example[1].label)
-        self.assertEqual(4                  , mock_learner.learn_example[1].label_type)
+        self.assertEqual(mock_learner         , mock_learner.learn_example[1].vw)
+        self.assertEqual({'a':[('0',2),'1=b']}, mock_learner.learn_example[1].ns)
+        self.assertEqual("2:0.5:0.2"          , mock_learner.learn_example[1].label)
+        self.assertEqual(4                    , mock_learner.learn_example[1].label_type)
 
     def test_no_adf_learn_sans_context_str_actions(self):
         learner = VowpalLearner(epsilon=0.05, adf=False, seed=20)
@@ -490,17 +490,17 @@ class VowpalMediator_Tests(unittest.TestCase):
 
     def test_numeric(self):
         actual   = VowpalMediator.prep_features(2)
-        expected = [ (0,2) ]
+        expected = [ ('0',2) ]
         self.assertEqual(actual, expected)
 
     def test_dense_numeric_sequence(self):
         actual   = VowpalMediator.prep_features((1,2,3))
-        expected = [ (0,1), (1,2), (2,3) ]
+        expected = [ ('0',1), ('1',2), ('2',3) ]
         self.assertEqual(actual, expected)
 
     def test_dense_string_sequence(self):
         actual   = VowpalMediator.prep_features((1,'a',3))
-        expected = [ (0,1), '1=a', (2,3) ]
+        expected = [ ('0',1), '1=a', ('2',3) ]
         self.assertEqual(actual, expected)
 
     def test_sparse_dict_numeric_key_numeric_value(self):
@@ -535,18 +535,14 @@ class VowpalMediator_Tests(unittest.TestCase):
 
     def test_sparse_tuple_with_float_val(self):
         actual   = VowpalMediator.prep_features([(1.,1.23),(2.,2.23)])
-        expected = [ (1,1.23), (2,2.23) ]
+        expected = [ (1.,1.23), (2.,2.23) ]
 
+        #this return is incorrect for VW because prep_features now assumes
+        #the first value in the tuple is an str without any type checks
+        #this makes the code considerably faster though also open to errors
         self.assertEqual(actual, expected)
-
-        self.assertIsInstance(actual[0][0],int)
-        self.assertIsInstance(actual[1][0],int)
-
-    def test_malformed_sparse_tuple_key(self):
-        with self.assertRaises(AssertionError) as e:
-            VowpalMediator.prep_features([(1.23,1.23),(2.23,2.23)])
-
-        self.assertIn("(1.23, 1.23)", str(e.exception))
+        self.assertIsInstance(actual[0][0],float)
+        self.assertIsInstance(actual[1][0],float)
 
 if __name__ == '__main__':
     unittest.main()
