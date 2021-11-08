@@ -9,6 +9,9 @@ class VowpalMockLearner:
         self.predict_example = None
         self.learn_example   = None
 
+    def hash_space(self, ns):
+        return 0
+
     def predict(self, example):
         self.predict_example = example
 
@@ -51,9 +54,9 @@ class VowpalLearner_Tests(unittest.TestCase):
         expected_args = [
             "--cb_explore_adf",
             "--epsilon 0.05",
-            "--interactions ssa", 
-            "--interactions sa",
-            "--ignore_linear s",
+            "--interactions xxa", 
+            "--interactions xa",
+            "--ignore_linear x",
             "--random_seed 20",
             "--quiet"
         ]
@@ -67,9 +70,9 @@ class VowpalLearner_Tests(unittest.TestCase):
         expected_args = [
             "--cb_explore_adf",
             "--epsilon 0.05",
-            "--interactions ssa", 
-            "--interactions sa",
-            "--ignore_linear s",
+            "--interactions xxa", 
+            "--interactions xa",
+            "--ignore_linear x",
             "--random_seed 20",
             "-b 10",
             "--quiet"
@@ -84,9 +87,9 @@ class VowpalLearner_Tests(unittest.TestCase):
         expected_args = [
             "--cb_explore_adf",
             "--epsilon 0.05",
-            "--interactions ssa", 
-            "--interactions sa",
-            "--ignore_linear s",
+            "--interactions xxa", 
+            "--interactions xa",
+            "--ignore_linear x",
             "--random_seed 20",
             "--bit_precision 10",
             "--quiet"
@@ -101,9 +104,9 @@ class VowpalLearner_Tests(unittest.TestCase):
         expected_args = [
             "--cb_explore 2",
             "--epsilon 0.05",
-            "--interactions ssa", 
-            "--interactions sa",
-            "--ignore_linear s",
+            "--interactions xxa", 
+            "--interactions xa",
+            "--ignore_linear x",
             "--random_seed 20",
             "--quiet"
         ]
@@ -116,9 +119,9 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         expected_args = [
             "--cb_explore_adf",
-            "--interactions ssa", 
-            "--interactions sa",
-            "--ignore_linear s",
+            "--interactions xxa", 
+            "--interactions xa",
+            "--ignore_linear x",
             "--bag 2",
             "--random_seed 20",
             "--quiet"
@@ -133,9 +136,9 @@ class VowpalLearner_Tests(unittest.TestCase):
         expected_args = [
             "--cb_explore 2",
             "--bag 2",
-            "--interactions ssa", 
-            "--interactions sa",
-            "--ignore_linear s",
+            "--interactions xxa", 
+            "--interactions xa",
+            "--ignore_linear x",
             "--random_seed 20",
             "--quiet"
         ]
@@ -149,9 +152,9 @@ class VowpalLearner_Tests(unittest.TestCase):
         expected_args = [
             "--cb_explore_adf",
             "--bag 2",
-            "--interactions ssa", 
-            "--interactions sa",
-            "--ignore_linear s",
+            "--interactions xxa", 
+            "--interactions xa",
+            "--ignore_linear x",
             "--random_seed 20",
             "--quiet"
         ]
@@ -165,9 +168,9 @@ class VowpalLearner_Tests(unittest.TestCase):
         expected_args = [
             "--cb_explore_adf",
             "--cover 3",
-            "--interactions ssa", 
-            "--interactions sa",
-            "--ignore_linear s",
+            "--interactions xxa", 
+            "--interactions xa",
+            "--ignore_linear x",
             "--random_seed 20",
             "--quiet"
         ]
@@ -182,9 +185,9 @@ class VowpalLearner_Tests(unittest.TestCase):
             "--cb_explore_adf",
             "--softmax",
             "--lambda 0.2",
-            "--interactions ssa", 
-            "--interactions sa",
-            "--ignore_linear s",
+            "--interactions xxa", 
+            "--interactions xa",
+            "--ignore_linear x",
             "--random_seed 20",
             "--quiet"
         ]
@@ -265,12 +268,12 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(2, len(mock_learner.predict_example))
         
         self.assertEqual(mock_learner           , mock_learner.predict_example[0].vw)
-        self.assertEqual({'s':['b'],'a':['yes']}, mock_learner.predict_example[0].ns)
+        self.assertEqual({'x':['b'],'a':['yes']}, mock_learner.predict_example[0].ns)
         self.assertEqual(None                   , mock_learner.predict_example[0].label)
         self.assertEqual(4                      , mock_learner.predict_example[0].label_type)
 
         self.assertEqual(mock_learner , mock_learner.predict_example[1].vw)
-        self.assertEqual({'s':['b'],'a':['no']} , mock_learner.predict_example[1].ns)
+        self.assertEqual({'x':['b'],'a':['no']} , mock_learner.predict_example[1].ns)
         self.assertEqual(None                   , mock_learner.predict_example[1].label)
         self.assertEqual(4                      , mock_learner.predict_example[1].label_type)
         
@@ -284,12 +287,12 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(2, len(mock_learner.predict_example))
         
         self.assertEqual(mock_learner           , mock_learner.predict_example[0].vw)
-        self.assertEqual({'s':[('c',2)],'a':['yes']}, mock_learner.predict_example[0].ns)
+        self.assertEqual({'x':[('c',2)],'a':['yes']}, mock_learner.predict_example[0].ns)
         self.assertEqual(None                   , mock_learner.predict_example[0].label)
         self.assertEqual(4                      , mock_learner.predict_example[0].label_type)
 
         self.assertEqual(mock_learner , mock_learner.predict_example[1].vw)
-        self.assertEqual({'s':[('c',2)],'a':['no']} , mock_learner.predict_example[1].ns)
+        self.assertEqual({'x':[('c',2)],'a':['no']} , mock_learner.predict_example[1].ns)
         self.assertEqual(None                   , mock_learner.predict_example[1].label)
         self.assertEqual(4                      , mock_learner.predict_example[1].label_type)
         
@@ -315,7 +318,7 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertIsInstance(mock_learner.predict_example, VowpalMockExample)
         self.assertEqual(mock_learner , mock_learner.predict_example.vw)
-        self.assertEqual({'s':['b']}  , mock_learner.predict_example.ns)
+        self.assertEqual({'x':['b']}  , mock_learner.predict_example.ns)
         self.assertEqual(None         , mock_learner.predict_example.label)
         self.assertEqual(4            , mock_learner.predict_example.label_type)
         
@@ -350,12 +353,12 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(2, len(mock_learner.learn_example))
         
         self.assertEqual(mock_learner           , mock_learner.learn_example[0].vw)
-        self.assertEqual({'s':['b'],'a':['yes']}, mock_learner.learn_example[0].ns)
+        self.assertEqual({'x':['b'],'a':['yes']}, mock_learner.learn_example[0].ns)
         self.assertEqual(None                   , mock_learner.learn_example[0].label)
         self.assertEqual(4                      , mock_learner.learn_example[0].label_type)
 
         self.assertEqual(mock_learner , mock_learner.predict_example[1].vw)
-        self.assertEqual({'s':['b'],'a':['no']} , mock_learner.learn_example[1].ns)
+        self.assertEqual({'x':['b'],'a':['no']} , mock_learner.learn_example[1].ns)
         self.assertEqual("2:0.5:0.2"            , mock_learner.learn_example[1].label)
         self.assertEqual(4                      , mock_learner.learn_example[1].label_type)
         
@@ -369,12 +372,12 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(2, len(mock_learner.learn_example))
         
         self.assertEqual(mock_learner               , mock_learner.learn_example[0].vw)
-        self.assertEqual({'s':[('c',2)],'a':['yes']}, mock_learner.learn_example[0].ns)
+        self.assertEqual({'x':[('c',2)],'a':['yes']}, mock_learner.learn_example[0].ns)
         self.assertEqual(None                       , mock_learner.learn_example[0].label)
         self.assertEqual(4                          , mock_learner.learn_example[0].label_type)
 
         self.assertEqual(mock_learner              , mock_learner.learn_example[1].vw)
-        self.assertEqual({'s':[('c',2)],'a':['no']}, mock_learner.learn_example[1].ns)
+        self.assertEqual({'x':[('c',2)],'a':['no']}, mock_learner.learn_example[1].ns)
         self.assertEqual("2:0.5:0.2"               , mock_learner.learn_example[1].label)
         self.assertEqual(4                         , mock_learner.learn_example[1].label_type)
 
@@ -388,12 +391,12 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(2, len(mock_learner.learn_example))
         
         self.assertEqual(mock_learner               , mock_learner.learn_example[0].vw)
-        self.assertEqual({'s':[('c',2)],'a':['yes']}, mock_learner.learn_example[0].ns)
+        self.assertEqual({'x':[('c',2)],'a':['yes']}, mock_learner.learn_example[0].ns)
         self.assertEqual(None                       , mock_learner.learn_example[0].label)
         self.assertEqual(4                          , mock_learner.learn_example[0].label_type)
 
         self.assertEqual(mock_learner              , mock_learner.learn_example[1].vw)
-        self.assertEqual({'s':[('c',2)],'a':['no']}, mock_learner.learn_example[1].ns)
+        self.assertEqual({'x':[('c',2)],'a':['no']}, mock_learner.learn_example[1].ns)
         self.assertEqual("2:0.5:0.2"               , mock_learner.learn_example[1].label)
         self.assertEqual(4                         , mock_learner.learn_example[1].label_type)
 
@@ -407,12 +410,12 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(2, len(mock_learner.learn_example))
         
         self.assertEqual(mock_learner                   , mock_learner.learn_example[0].vw)
-        self.assertEqual({'s':[(0,1),'1=a'],'a':['yes']}, mock_learner.learn_example[0].ns)
+        self.assertEqual({'x':[(0,1),'1=a'],'a':['yes']}, mock_learner.learn_example[0].ns)
         self.assertEqual(None                           , mock_learner.learn_example[0].label)
         self.assertEqual(4                              , mock_learner.learn_example[0].label_type)
 
         self.assertEqual(mock_learner                  , mock_learner.learn_example[1].vw)
-        self.assertEqual({'s':[(0,1),'1=a'],'a':['no']}, mock_learner.learn_example[1].ns)
+        self.assertEqual({'x':[(0,1),'1=a'],'a':['no']}, mock_learner.learn_example[1].ns)
         self.assertEqual("2:0.5:0.2"                   , mock_learner.learn_example[1].label)
         self.assertEqual(4                             , mock_learner.learn_example[1].label_type)
 
@@ -457,7 +460,7 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertIsInstance(mock_learner.learn_example, VowpalMockExample)
         self.assertEqual(mock_learner , mock_learner.learn_example.vw)
-        self.assertEqual({'s':['b']}  , mock_learner.learn_example.ns)
+        self.assertEqual({'x':['b']}  , mock_learner.learn_example.ns)
         self.assertEqual("1:0.75:0.2" , mock_learner.learn_example.label)
         self.assertEqual(4            , mock_learner.learn_example.label_type)
 

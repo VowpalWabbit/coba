@@ -6,6 +6,7 @@ from typing import Sequence, Dict, Any, Iterable, Union, List, Callable, cast, O
 
 from coba.pipes import Source, Pipe, Filter, HttpIO, DiskIO, ResponseToLines, Transpose, CsvReader, ArffReader, LibSvmReader, ManikReader
 from coba.random import CobaRandom
+from coba.encodings import InteractionTermsEncoder
 
 from coba.environments.core import Context, Action, Simulation, SimulatedInteraction
 
@@ -259,83 +260,47 @@ class ManikSimulation(ReaderSimulation):
 
 class ValidationSimulation(LambdaSimulation):
     
-    def __init__(self, n_interactions: int=500, n_actions: int=10, n_features: int=10, context_features:bool = True, action_features:bool = True, sparse: bool=False, seed:int=1, make_binary=False) -> None:
+    def __init__(self, n_interactions: int=500, n_actions: int=10, n_context_feats:int = 10, n_action_feats:int = 10, seed:int=1) -> None:
 
-        self._n_bandits        = n_actions
-        self._n_features       = n_features
-        self._context_features = context_features
-        self._action_features  = action_features
-        self._seed             = seed
-        self._make_binary      = make_binary
+        self._n_actions          = n_actions
+        self._n_context_features = n_action_feats
+        self._n_action_features  = n_context_feats
+        self._seed               = seed
 
-        r = CobaRandom(seed)
+        rng = CobaRandom(seed)
 
-        context: Callable[[int               ], Context         ]
-        actions: Callable[[int,Context       ], Sequence[Action]]
-        rewards: Callable[[int,Context,Action], float           ]
+        feature_count = max(1,n_context_feats) * max(1,n_action_feats)
+        normalize     = lambda X: [ x/sum(X) for x in X]
 
-        sparsify  = lambda x: (tuple(range(len(x))), tuple(x)) if sparse else tuple(x)
-        unsparse  = lambda x: x[1] if sparse else x
-        normalize = lambda X: [x/sum(X) for x in X]
+        if n_action_feats == 0:
+            weights = [ normalize(rng.randoms(feature_count)) for _ in range(n_actions) ]
+        else:
+            weights = normalize(rng.randoms(feature_count))
 
-        if not context_features and not action_features:
+        def actions(index:int, context: Context) -> Sequence[Action]:
+            return [ rng.randoms(n_action_feats) for _ in range(n_actions)] if n_action_feats else [ str(a) for a in range(n_actions) ]
 
-            means = [ m/n_actions + 1/(2*n_actions) for m in r.randoms(n_actions) ]
+        def context(index:int) -> Context:
+            return None if n_context_feats == 0 else rng.randoms(n_context_feats)
 
-            actions_features = []
-            for i in range(n_actions):
-                action = [0] * n_actions
-                action[i] = 1
-                actions_features.append(tuple(action))
+        def reward(index:int, context:Context, action:Action) -> float:
+            
+            W = weights[int(action)] if isinstance(action,str) else weights
+            X = [1]                  if context is None        else context
+            A = [1]                  if isinstance(action,str) else action
+            F = InteractionTermsEncoder(["xa"]).encode(x=X,a=A)
 
-            context = lambda i     : None
-            actions = lambda i,c   : sparsify(actions_features)
-            rewards = lambda i,c,a : means[unsparse(a).index(1)] + (r.random()-.5)/n_actions
+            r = sum([w*f for w,f in zip(W,F)])
+            e = (rng.random()-1/2)*1/8
 
-        if context_features and not action_features:
-            #normalizing allows us to make sure our reward is in [0,1]
-            bandit_thetas = [ r.randoms(n_features) for _ in range(n_actions) ]
-            theta_totals  = [ sum(theta) for theta in bandit_thetas]
-            bandit_thetas = [ [t/norm for t in theta ] for theta,norm in zip(bandit_thetas,theta_totals)]
-            scales        = [ 1 for _ in range(n_features) ]
+            return min(1,max(0,r+e))
 
-            actions_features = []
-            for i in range(n_actions):
-                action = [0] * n_actions
-                action[i] = 1
-                actions_features.append(tuple(action))
-
-            context = lambda i     : sparsify([ f*s for f,s in zip(r.randoms(n_features),scales) ])
-            actions = lambda i,c   : [sparsify(af) for af in actions_features]
-            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(unsparse(c),bandit_thetas[unsparse(a).index(1)])])
-
-        if not context_features and action_features:
-
-            theta = r.randoms(n_features)
-
-            context = lambda i     :   None
-            actions = lambda i,c   : [ sparsify(normalize(r.randoms(n_features))) for _ in range(n_actions) ]
-            rewards = lambda i,c,a : float(sum([cc*t for cc,t in zip(theta,unsparse(a))]))
-
-        if context_features and action_features:
-
-            context = lambda i     :   sparsify(r.randoms(n_features))
-            actions = lambda i,c   : [ sparsify(normalize(r.randoms(n_features))) for _ in range(n_actions) ]
-            rewards = lambda i,c,a : sum([cc*t for cc,t in zip(unsparse(c),unsparse(a))])
-
-        super().__init__(n_interactions, context, actions, rewards)
+        super().__init__(n_interactions, context, actions, reward)
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
         return { }
 
-    def read(self) -> Iterable[SimulatedInteraction]:
-        for i in super().read():
-            if self._make_binary:
-                yield SimulatedInteraction(i.context, i.actions, rewards = [ int(r == max(i.reveals)) for r in i.reveals ] )
-            else:
-                yield i
-
     def __repr__(self) -> str:
-        return f"ValidationSimulation(cf={self._context_features},af={self._action_features},seed={self._seed})"
+        return f"ValidationSimulation(na={self._n_actions},cf={self._n_context_features},af={self._n_action_features},seed={self._seed})"

@@ -1,7 +1,10 @@
 import unittest
 import timeit
+import statistics
 
 import coba.random
+
+from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionTermsEncoder
@@ -94,6 +97,78 @@ class Performance_Tests(unittest.TestCase):
 
         #was approximately 0.0025
         self.assertLess(time,.005)
+
+    def test_vowpal_mediator_make_example_performance(self):
+
+        try:
+            from vowpalwabbit import pyvw
+
+            vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xxa --interactions xa --ignore_linear x --quiet")
+
+            ns = { 'x': [ (str(i),v) for i,v in enumerate(range(1000)) ], 'a': [ (str(i),v) for i,v in enumerate(range(20)) ] }
+            time = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, ns, None, 4), repeat=10, number=1000))            
+
+            print(time)
+
+        except ImportError:
+            unittest.skip("VW not installed. Skip this Test")
+    
+    def test_vowpal_mediator_prep_features_performance_1(self):
+
+        try:
+            from vowpalwabbit import pyvw
+
+            vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xxa --interactions xa --ignore_linear x --quiet")
+
+            x = [ (i,v) for i,v in enumerate(range(1000)) ]
+
+            time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(vw.hash_space('x'),x), repeat=10, number=1000))
+
+            vw.parse("|x " + " ".join(f"{i}:{v}" for i,v in enumerate(range(1000))))
+
+            #0.17 was my final average time.
+            #This isn't the absolute fastest, but it is the best I could come up with while maintaining optimal VW integration.
+            print(time)
+
+        except ImportError:
+            unittest.skip("VW not installed. Skip this Test")
+
+    def test_vowpal_mediator_prep_features_performance_2(self):
+
+        try:
+            from vowpalwabbit import pyvw
+
+            vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xxa --interactions xa --ignore_linear x --quiet")
+
+            x = list(range(1000))
+            
+            time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(vw.hash_space('x'),x), repeat=10, number=1000))            
+
+            #0.17 was my final average time.
+            #This isn't the absolute fastest, but it is the best I could come up with while maintaining optimal VW integration.
+            print(time)
+
+        except ImportError:
+            unittest.skip("VW not installed. Skip this Test")
+
+    def test_vowpal_mediator_prep_features_performance_3(self):
+
+        try:
+            from vowpalwabbit import pyvw
+
+            vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xx --ignore_linear x --quiet")
+
+            z = [ (i,round(coba.random.random(),5)) for i,v in enumerate(range(200)) ]
+
+            zz = vw.hash_space('x')
+
+            time1 = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, {'x': VowpalMediator.prep_features(zz,z) }, None, 4), repeat=10, number=1000))
+            time2 = statistics.mean(timeit.repeat(lambda:vw.parse("|x " + " ".join(f"{i}:{v}" for i,v in z)), repeat=10, number=1000))
+
+            self.assertLess(time1,time2)
+
+        except ImportError:
+            unittest.skip("VW not installed. Skip this Test")
 
 if __name__ == '__main__':
     unittest.main()

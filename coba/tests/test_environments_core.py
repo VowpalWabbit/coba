@@ -225,9 +225,6 @@ class ValidationSimulation_Tests(unittest.TestCase):
     def test_simple(self):
         self.assertEqual(500, len(list(ValidationSimulation().read())))
 
-    def test_make_binary(self):
-        self.assertEqual(500, len(list(ValidationSimulation(make_binary=True).read())))
-
 class CsvSimulation_Tests(unittest.TestCase):
 
     def test_simple(self):

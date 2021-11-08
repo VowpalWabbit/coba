@@ -297,6 +297,24 @@ class Impute(SimulationFilter):
     def __repr__(self) -> str:
         return str(self.params)
 
+class Binary(SimulationFilter):
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "binary": True }
+
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+
+        for interaction in interactions:
+            kwargs = {k:v[1:]+v[:1] for k,v in interaction.results.items()}
+            
+            max_reward = max(kwargs["rewards"])
+            kwargs["rewards"] = [int(r==max_reward) for r in kwargs["rewards"]]
+
+            #print(kwargs["rewards"].index(1))
+
+            yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
+
+
 class SimulationToWarmStart(SimulationFilter):
     """
     TODO: Docs

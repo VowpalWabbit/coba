@@ -15,9 +15,10 @@ from coba.environments import Context, Action
 
 from coba.learners.core import Learner, Probs, Info
 
+Vowpal_Key      = Union[str,int]
+Vowpal_Features = Sequence[Union[str,Tuple[Vowpal_Key,Number]]]
 Coba_Feature    = Union[str,Number]
-Coba_Features   = Union[Dict[str,Coba_Feature], Sequence[Coba_Feature], Coba_Feature]
-Vowpal_Features = Sequence[Union[Tuple[Union[str,int],float],str,int]]
+Coba_Features   = Union[Coba_Feature, Sequence[Coba_Feature], Sequence[Tuple[Vowpal_Key,Coba_Feature]], Dict[Vowpal_Key,Coba_Feature]]
 
 class VowpalMediator:
 
@@ -26,36 +27,22 @@ class VowpalMediator:
         PackageChecker.vowpalwabbit(caller)
 
     @staticmethod
-    def prep_features(features: Coba_Features) -> Vowpal_Features:
+    def prep_features(offset: int, features: Coba_Features) -> Vowpal_Features:
 
-        def sequence_prep(tuple_sequence: Sequence[Tuple[Any,Any]]):
-            features = []
-            
-            for t in tuple_sequence:
+        max_unsigned_32_int = 2**32
 
-                if isinstance(t[0],float):
-                    assert t[0].is_integer(), f"{t} has an invalid VW feature key (must be str or int)." 
-                    t = (int(t[0]), t[1])
-
-                if isinstance(t[1],str):
-                    t = f"{t[0]}={t[1]}"
-
-                features.append(t)
-            
-            return features
-                
         if features is None or features == [] or features == ():
             return []
         elif isinstance(features, dict):
-            return sequence_prep(features.items())
+            return [f"{offset}_{k}={v}" if isinstance(v,str) else ((offset+k)%max_unsigned_32_int,v) if isinstance(k,int) else (k,v) for k,v in features.items() if v != 0]
         elif isinstance(features, str):
             return [features]
         elif isinstance(features, Number):
-            return [(0,features)]
+            return [(offset,features)]
         elif isinstance(features, collections.Sequence) and features and isinstance(features[0], tuple):
-            return sequence_prep(features)
+            return [f"{offset}_{k}={v}" if isinstance(v,str) else ((offset+k)%max_unsigned_32_int,v) if isinstance(k,int) else (k,v) for k,v in features if v != 0]
         elif isinstance(features, collections.Sequence) and features and not isinstance(features[0], tuple):
-            return [f"{i}={f}" if isinstance(f,str) else (i,f) for i,f in enumerate(features) if f != 0]
+            return [f"{offset+k}={v}" if isinstance(v,str) else ((offset+k)%max_unsigned_32_int,v) for k,v in enumerate(features) if v != 0]
 
         raise Exception(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")
 
@@ -74,6 +61,7 @@ class VowpalMediator:
         ns = { k:v for k,v in ns.items() if v != [] }
 
         ex = example(vw, ns, label_type)
+
         if label: ex.set_label_string(label)
         ex.setup_example()
 
@@ -193,7 +181,7 @@ class VowpalLearner(Learner):
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
         VowpalMediator.package_check("VowpalLearner")
-        interactions = "--interactions ssa --interactions sa --ignore_linear s"
+        interactions = "--interactions xxa --interactions xa --ignore_linear x"
 
         if not args and 'seed' not in kwargs:
             kwargs['seed'] = 1
@@ -343,8 +331,8 @@ class VowpalLearner(Learner):
     def _labels(self,actions,action,reward:float,prob:float) -> Sequence[Optional[str]]:
         return [ f"{i+1}:{round(1-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
 
-    def _shared(self,context) -> Dict[str,Any]:
-        return {} if not context else { 's': VowpalMediator.prep_features(context) }
+    def _shared(self, context) -> Dict[str,Any]:
+        return {} if not context else { 'x': VowpalMediator.prep_features(self._vw.hash_space('x'), context) }
 
     def _adfs(self,actions) -> Sequence[Dict[str,Any]]:
-        return [ {'a': VowpalMediator.prep_features(a)} for a in actions]
+        return [ {'a': VowpalMediator.prep_features(self._vw.hash_space('a'), a)} for a in actions]

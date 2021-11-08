@@ -4,8 +4,8 @@ import json
 from typing import cast, Iterable, Any
 
 from coba.environments import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, EnvironmentPipe, ValidationSimulation
-from coba.pipes import Source, Pipe, IdentityFilter
-from coba.learners import Learner, RandomLearner
+from coba.pipes        import Source, Pipe, IdentityFilter
+from coba.learners     import Learner, RandomLearner
 
 from coba.experiments.results import Result
 from coba.experiments.tasks import (
@@ -19,7 +19,7 @@ class ModuloLearner(Learner):
 
     @property
     def params(self):
-        return {"family": "Modulo", "p":self._param}
+        return {"family": "Modulo", "p": self._param}
 
     def predict(self, key, context, actions):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]

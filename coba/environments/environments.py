@@ -5,7 +5,7 @@ from coba.pipes import Source, ResponseToLines, HttpIO, DiskIO, JsonDecode
 
 from coba.environments.pipes import EnvironmentPipe
 from coba.environments.core import Environment
-from coba.environments.filters import Shuffle, Take, SimulationFilter
+from coba.environments.filters import SimulationFilter, Shuffle, Take, Binary
 from coba.environments.formats import EnvironmentFileFmtV1
 from coba.environments.simulations import ValidationSimulation
 
@@ -35,13 +35,17 @@ class Environments:
         return Environments(EnvironmentFileFmtV1().filter(JsonDecode().filter(content)))
 
     @staticmethod
-    def from_validation(n_interactions:int, n_context_features:int, n_action_features:int, seed:int=1000) -> 'Environments':
+    def from_validation(n_interactions:int, n_actions:int, n_context_features:int, n_action_features:int, seed:int=1) -> 'Environments':
         return Environments(
-            ValidationSimulation(n_interactions, n_features=n_context_features, action_features=n_action_features>0, make_binary=True, seed=seed)
+            ValidationSimulation(n_interactions, n_actions=n_actions, n_context_feats=n_context_features, n_action_feats=n_action_features, seed=seed)
         )
 
     def __init__(self, *environments: Environment):
         self._environments = list(environments)
+
+    def binary(self) -> 'Environments':
+        self._environments = [ EnvironmentPipe(e,Binary()) for e in self._environments ]
+        return self
 
     def shuffle(self, seeds: Sequence[int]) -> 'Environments':
         shuffle_filters = [ Shuffle(seed) for seed in seeds ]
