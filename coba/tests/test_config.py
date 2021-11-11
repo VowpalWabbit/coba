@@ -366,7 +366,6 @@ class IndentLogger_Tests(unittest.TestCase):
 
         self.assertEqual(logs[0], "a")
 
-
 class DiskCache_Tests(unittest.TestCase):
     Cache_Test_Dir = Path("coba/tests/.temp/cache_tests/")
     

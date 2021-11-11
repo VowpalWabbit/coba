@@ -23,11 +23,6 @@ class SimulatedInteraction_Tests(unittest.TestCase):
 
         self.assertEqual("A", interaction.context)
 
-    def test_context_bytes(self):
-        interaction = SimulatedInteraction(bytes([0,0,1,1,0]), (1,2,3), rewards=(4,5,6))
-
-        self.assertEqual((0,0,1,1,0), interaction.context)
-
     def test_context_dense(self):
         interaction = SimulatedInteraction((1,2,3), (1,2,3), rewards=(4,5,6))
 
@@ -36,7 +31,7 @@ class SimulatedInteraction_Tests(unittest.TestCase):
     def test_context_dense_2(self):
         interaction = SimulatedInteraction((1,2,3,(0,0,1)), (1,2,3), rewards=(4,5,6))
 
-        self.assertEqual((1,2,3,0,0,1), interaction.context)
+        self.assertEqual((1,2,3,(0,0,1)), interaction.context)
 
     def test_context_sparse_dict(self):
         interaction = SimulatedInteraction({1:0}, (1,2,3), rewards=(4,5,6))
@@ -263,9 +258,9 @@ class ArffSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(3, len(interactions))
         
-        self.assertEqual((1,0,0,1,0), interactions[0].context)
-        self.assertEqual((2,0,0,0,1), interactions[1].context)
-        self.assertEqual((3,0,1,0,0), interactions[2].context)
+        self.assertEqual((1,(0,0,1,0)), interactions[0].context)
+        self.assertEqual((2,(0,0,0,1)), interactions[1].context)
+        self.assertEqual((3,(0,1,0,0)), interactions[2].context)
 
         self.assertEqual(['0','class_B'], interactions[0].actions)
         self.assertEqual(['0','class_B'], interactions[1].actions)

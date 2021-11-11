@@ -18,7 +18,6 @@ class Performance_Tests(unittest.TestCase):
         
         time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=1000, number=4))
         
-        print(time)
         #was approximately .000122
         self.assertLess(time, .0002)
 
@@ -59,7 +58,6 @@ class Performance_Tests(unittest.TestCase):
         
         time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
         
-        print(time)
         #best observed was 0.62 without interning
         #best observed was 0.87 with interning
         #performance time could be reduced to around .47 by using numpy and prime factorization of feature names 
@@ -71,7 +69,6 @@ class Performance_Tests(unittest.TestCase):
 
         time = timeit.timeit(lambda: interaction.context, number=10000)
 
-        print(time)
         self.assertLess(time, 1.5)
 
     def test_hashable_dict_performance(self):
@@ -107,9 +104,10 @@ class Performance_Tests(unittest.TestCase):
             vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xxa --interactions xa --ignore_linear x --quiet")
 
             ns = { 'x': [ (str(i),v) for i,v in enumerate(range(1000)) ], 'a': [ (str(i),v) for i,v in enumerate(range(20)) ] }
-            time = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, ns, None, 4), repeat=10, number=1000))            
+            time = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, ns, None, 4), repeat=10, number=100))            
 
-            print(time)
+            #.014 was my final average time
+            self.assertLess(time, .025)
 
         except ImportError:
             unittest.skip("VW not installed. Skip this Test")
@@ -117,26 +115,26 @@ class Performance_Tests(unittest.TestCase):
     def test_vowpal_mediator_prep_features_tuple_sequence_performance(self):
 
         x    = [ (str(i),v) for i,v in enumerate(range(1000)) ]
-        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=1000))
+        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))
 
-        #0.13 was my final average time
-        self.assertLess(time,.2)
+        #0.013 was my final average time
+        self.assertLess(time,.02)
 
     def test_vowpal_mediator_prep_features_dict_performance(self):
 
         x    = dict(zip(map(str,range(1000)), range(1000)))
-        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=1000))
+        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))
 
-        #0.16 was my final average time
-        self.assertLess(time,.25)
+        #0.016 was my final average time
+        self.assertLess(time,.025)
 
     def test_vowpal_mediator_prep_features_values_sequence(self):
 
         x    = list(range(1000))
-        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=1000))            
+        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))            
 
-        #0.19 was my final average time.
-        self.assertLess(time,.3)
+        #0.019 was my final average time.
+        self.assertLess(time,.03)
 
     def test_vowpal_mediator_prep_and_make_performance(self):
 

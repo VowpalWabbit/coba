@@ -424,7 +424,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         CobaConfig.cacher = NullCacher()
 
         interactions = list(OpenmlSimulation(1116).read())
-        
+
         self.assertEqual(len(interactions), 6598)
 
         for rnd in interactions:
@@ -433,7 +433,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             hash(rnd.actions[0]) #make sure these are hashable
             hash(rnd.actions[1]) #make sure these are hashable
 
-            self.assertEqual(len(cast(Tuple,rnd.context)), 268)
+            self.assertEqual(len(cast(Tuple,rnd.context)), 167)
             self.assertIn((0,1), rnd.actions)
             self.assertIn((1,0), rnd.actions)
             self.assertEqual(len(rnd.actions),2)
