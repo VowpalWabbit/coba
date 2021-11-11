@@ -1,19 +1,18 @@
 import json
 
 from math import isnan
-from itertools import compress
 from hashlib import md5
 from numbers import Number
-from typing import Optional, Tuple, Sequence, Any, List, Iterable, Dict
+from collections import defaultdict
+from typing import Tuple, Sequence, Any, Iterable, Dict, Union
 
-from coba.pipes import Source, HttpIO
+from coba.pipes import Pipe, Source, HttpIO, Defaults, Drops, Encodes, _T_Data, Structures, ArffReader, CsvReader
 from coba.config import CobaConfig
 from coba.exceptions import CobaException
 
-from coba.environments.core import Context, Action
 from coba.environments.simulations import Simulation, SimulatedInteraction, ClassificationSimulation, RegressionSimulation
 
-class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
+class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]]):
 
     def __init__(self, id:int, problem_type:str = "classification", nominal_as_str:bool=False, md5_checksum:str = None):
         
@@ -25,14 +24,10 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
         self._nominal_as_str = nominal_as_str
         self._cached_urls    = []
 
-        #add flag to allow regression simulations
-        #if a known exception happens still cache the query results
-
-    def read(self) -> Tuple[Sequence[Sequence[Any]], Sequence[Any]]:
+    def read(self) -> Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]:
         
-        #placing some of these at the top would cause circular references
-        from coba.encodings import Encoder, NumericEncoder, OneHotEncoder, StringEncoder
-        from coba.pipes     import Encode, Transpose
+        #placing some of these at the top would cause circular references (is this still true???)
+        from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 
         try:
             data_id        = self._data_id
@@ -45,86 +40,58 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             
             feature_descriptions = self._get_feature_descriptions(data_id)
 
-            headers : List[str]     = []
-            encoders: List[Encoder] = []
-            ignored : List[bool]    = []
-            target  : str           = ""
+            encoders = defaultdict(lambda:StringEncoder())
+            ignored = []
+            target  = ""
 
-            for tipe in feature_descriptions:
+            for description in feature_descriptions:
 
-                headers.append(tipe['name'].lower())
-                ignored.append(tipe['is_ignore'] == 'true' or tipe['is_row_identifier'] == 'true')
+                header = description['name'].lower()
+                
+                is_ignored = (
+                    description['is_ignore'        ] == 'true' or 
+                    description['is_row_identifier'] == 'true' or
+                    description['data_type'        ] not in ['numeric', 'nominal']
+                )
 
-                if tipe['is_target'] == 'true':
-                    target = tipe['name'].lower()
+                if is_ignored:
+                    ignored.append(header)
+
+                if description['is_target'] == 'true':
+                    target = header
                     
-                if tipe['data_type'] == 'numeric':
-                    encoders.append(NumericEncoder())  
-                elif tipe['data_type'] == 'nominal':
-                    if self._nominal_as_str:
-                        encoders.append(StringEncoder())
-                    else:
-                        encoders.append(OneHotEncoder(singular_if_binary=True))
-                else:
-                    ignored[-1] = True
-                    encoders.append(StringEncoder())
+                if description['data_type'] == 'numeric':
+                    encoders[header] = NumericEncoder()
+                elif description['data_type'] == 'nominal' and self._nominal_as_str:
+                    encoders[header] = StringEncoder()
+                elif description['data_type'] == 'nominal' and not self._nominal_as_str:
+                    encoders[header] = OneHotEncoder(description["nominal_value"])
 
             if target != "":
-                target_encoder = encoders[headers.index(target)]
-                problem_encoder = NumericEncoder if self._problem_type == "regression" else (OneHotEncoder,StringEncoder)
+                target_encoder = encoders[target]
+                required_encoder = NumericEncoder if self._problem_type == "regression" else (OneHotEncoder,StringEncoder)
 
-            if target == "" or not isinstance(target_encoder, problem_encoder):
+            if target == "" or not isinstance(target_encoder, required_encoder):
                 target = self._get_target_for_problem_type(data_id)
             
-            ignored[headers.index(target)] = False
+            if target in ignored:
+                ignored.pop(ignored.index(target))
 
             if self._problem_type == "classification":
-                target_encoder = StringEncoder() if self._nominal_as_str else OneHotEncoder(singular_if_binary=False)
-                encoders[headers.index(target)] = target_encoder
+                encoders[target] = StringEncoder() if self._nominal_as_str else OneHotEncoder()
 
-            file_rows = self._get_dataset_rows(dataset_description["file_id"], target, md5_checksum)
-            is_sparse = isinstance(file_rows[0], tuple) and len(file_rows[0]) == 2
+            file_rows = list(self._get_dataset_rows(dataset_description["file_id"], target, md5_checksum))
 
-            if is_sparse:
-                file_headers  = [ header.lower() for header in file_rows.pop(0)[1]]
-            else:
-                file_headers  = [ header.lower() for header in file_rows.pop(0)]
-
-            file_cols = list(Transpose().filter(file_rows))
-
-            for ignored_header in compress(headers, ignored):
-                if ignored_header in file_headers:
-                    file_cols.pop(file_headers.index(ignored_header))
-                    file_headers.remove(ignored_header)
-
-            file_encoders = [ encoders[headers.index(file_header)] for file_header in file_headers]
-
-            if is_sparse:
-                label_col = file_cols[file_headers.index(target)]
-                
-                dense_label_col = ['0']*len(file_rows)
-                
-                for index, value in zip(label_col[0], label_col[1]):
-                    dense_label_col[index] = value
-
-                file_cols[file_headers.index(target)] = (tuple(range(len(file_rows))), tuple(dense_label_col))
-
-            file_cols    = list(Encode(file_encoders).filter(file_cols))
-            label_col    = file_cols.pop(file_headers.index(target))
-            feature_rows = list(Transpose().filter(file_cols))
-
-            if is_sparse:
-                label_col = label_col[1]
-
-            no_missing_values = [ not any(isinstance(val,Number) and isnan(val) for val in row) for row in feature_rows ]
-
-            if not any(no_missing_values):
-                raise CobaException(f"Every example in openml {data_id} has a missing value. The simulation is being ignored.")
-
-            feature_rows = list(compress(feature_rows, no_missing_values))
-            label_col    = list(compress(label_col, no_missing_values)) 
+            def any_nans(row):
+                row_values = row.values() if isinstance(row,dict) else row
+                return any(isinstance(val,Number) and isnan(val) for val in row_values)
             
-            return feature_rows, label_col
+            defaults  = Defaults({target:"0"})
+            encodes   = Encodes(encoders)
+            drops     = Drops(drop_cols=ignored, drop_row=any_nans)
+            structure = Structures([None, target])
+
+            return Pipe.join([drops, defaults, encodes, structure]).filter(file_rows)
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
@@ -139,7 +106,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
             
             for key in self._cached_urls:
                 CobaConfig.cacher.rmv(key)
-            
+
             raise
 
     def _get_url(self, url:str, checksum:str=None) -> bytes:
@@ -190,7 +157,7 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
                 CobaConfig.cacher.put(url,bites)
 
         if checksum is not None and md5(bites).hexdigest() != checksum:
-            
+
             #if the cache has become corrupted we need to clear it
             CobaConfig.cacher.rmv(url)
 
@@ -210,29 +177,28 @@ class OpenmlSource(Source[Tuple[Sequence[Context], Sequence[Action]]]):
         return description_obj
 
     def _get_feature_descriptions(self, data_id:int) -> Sequence[Dict[str,Any]]:
-        
+
         types_txt = self._get_url(f'https://www.openml.org/api/v1/json/data/features/{data_id}')
         types_obj = json.loads(types_txt)["data_features"]["feature"]
 
         return types_obj
 
     def _get_dataset_rows(self, file_id:str, target:str, md5_checksum:str) -> Any:
-            from coba.pipes import ArffReader, CsvReader, Encode, Transpose
-            
+
             csv_url  = f"http://www.openml.org/data/v1/get_csv/{file_id}"
             arff_url = f"http://www.openml.org/data/v1/download/{file_id}"
 
             if arff_url in CobaConfig.cacher:
                 text = self._get_url(arff_url, md5_checksum)
-                return list(ArffReader(skip_encoding=[target]).filter(text.splitlines()))
+                return ArffReader(skip_encoding=True).filter(text.splitlines())
 
             try:
                 text = self._get_url(csv_url, md5_checksum)
-                return list(CsvReader().filter(text.splitlines()))
+                return CsvReader(True).filter(text.splitlines())
             
             except:
                 text = self._get_url(arff_url, md5_checksum)
-                return list(ArffReader(skip_encoding=[target]).filter(text.splitlines()))
+                return ArffReader(skip_encoding=True).filter(text.splitlines())
 
     def _get_target_for_problem_type(self, data_id:int):
 
@@ -261,23 +227,23 @@ class OpenmlSimulation(Simulation):
     """
 
     def __init__(self, id: int, simulation_type:str = "classification", nominal_as_str:bool = False, md5_checksum: str = None) -> None:
+        
+        self._simulation_type = simulation_type
         self._source = OpenmlSource(id, simulation_type, nominal_as_str, md5_checksum)
-        self._interactions: Optional[Sequence[SimulatedInteraction]] = None
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
+        
         return { "openml": self._source._data_id}
 
     def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
 
-        features,labels = self._source.read()
-
-        if isinstance(labels[0],Number):
-            return RegressionSimulation(features,labels).read()
+        if self._simulation_type == "classification":
+            return ClassificationSimulation(self._source.read()).read()
         else:
-            return ClassificationSimulation(features,labels).read()
+            return RegressionSimulation(self._source.read()).read()
 
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._source._data_id}}}'

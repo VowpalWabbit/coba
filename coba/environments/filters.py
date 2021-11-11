@@ -187,7 +187,7 @@ class Scale(SimulationFilter):
             else:
                 final_context = kv_scaled_context[1]
 
-            yield SimulatedInteraction(final_context, interaction.actions, **interaction.results)
+            yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
         
@@ -219,7 +219,7 @@ class Cycle(SimulationFilter):
             yield interaction
 
         for interaction in with_cycle_interactions:
-            kwargs = {k:v[1:]+v[:1] for k,v in interaction.results.items()}
+            kwargs = {k:v[1:]+v[:1] for k,v in interaction.kwargs.items()}
             yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
 
     def __repr__(self) -> str:
@@ -284,7 +284,7 @@ class Impute(SimulationFilter):
             else:
                 final_context = kv_imputed_context[1]
 
-            yield SimulatedInteraction(final_context, interaction.actions, **interaction.results)
+            yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
         
@@ -305,15 +305,11 @@ class Binary(SimulationFilter):
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
 
         for interaction in interactions:
-            kwargs = {k:v[1:]+v[:1] for k,v in interaction.results.items()}
-            
-            max_reward = max(kwargs["rewards"])
-            kwargs["rewards"] = [int(r==max_reward) for r in kwargs["rewards"]]
-
-            #print(kwargs["rewards"].index(1))
+            kwargs = interaction.kwargs
+            max_rwd = max(kwargs["rewards"])
+            kwargs["rewards"] = [int(r==max_rwd) for r in kwargs["rewards"]]
 
             yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
-
 
 class SimulationToWarmStart(SimulationFilter):
     """

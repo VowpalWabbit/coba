@@ -10,13 +10,31 @@ Action  = Union[Hashable, HashableDict]
 Context = Union[None, Hashable, HashableDict]
 
 class SimulatedInteraction:
-    """A class to contain all data needed to represent an interaction in a bandit simulation."""
+    """A class to contain all data needed to represent an interaction in a simulated bandit interaction."""
+
+    @overload
+    def __init__(self, 
+        context: Context, 
+        actions: Sequence[Action],
+        *
+        rewards: Sequence[float],
+        **kwargs: Sequence[Any]) -> None:
+        ...
+        """Instantiate Interaction.
+
+        Args
+            context : Features describing the interaction's context. This should be `None` for multi-armed bandit simulations.
+            actions : Features describing available actions in the interaction.
+            rewards : The reward that will be revealed to learners based on the taken action. We require len(rewards) == len(actions).
+            **kwargs: Additional information that should be recorded in the interactions table of an experiment result. If any
+                data is a sequence with length equal to actions only the data at the selected action index will be recorded.
+        """
 
     @overload
     def __init__(self, 
         context: Context, 
         actions: Sequence[Action], *, 
-        rewards: Sequence[float], 
+        reveals: Sequence[Any],
         **kwargs: Sequence[Any]) -> None:
         ...
         """Instantiate Interaction.
@@ -24,16 +42,19 @@ class SimulatedInteraction:
         Args
             context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
             actions : Features describing available actions in the interaction.
-            rewards : The rewards that will be revealed to learners based on the action that is taken.
-            **kwargs: Additional information beyond reward that will be recorded in the results of a benchmark.
+            reveals : The data that will be revealed to learners based on the selected action. We require len(reveals) == len(actions).
+                When working with non-scalar data use "reveals" instead of "rewards" to make it clear to Coba the data is non-scalar.
+            **kwargs: Additional information that should be recorded in the interactions table of an experiment result. If any
+                data is a sequence with length equal to actions only the data at the selected action index will be recorded.
         """
 
     @overload
     def __init__(self, 
         context: Context, 
-        actions: Sequence[Action], *, 
-        reveals: Sequence[Any], 
-        rewards: Optional[Sequence[float]] = None, 
+        actions: Sequence[Action], 
+        *,
+        rewards : Sequence[float],
+        reveals : Sequence[Any],
         **kwargs: Sequence[Any]) -> None:
         ...
         """Instantiate Interaction.
@@ -41,37 +62,28 @@ class SimulatedInteraction:
         Args
             context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
             actions : Features describing available actions in the interaction.
-            reveals : This will be revealed to learners based on the action that is taken. This can be any kind of information.
-            rewards : An optional scalar value. This won't be revealed to learners. This will only be used for plotting.
-            **kwargs: Additional information beyond whit is revealed that will be recorded in the results of a benchmark.
-        """
-    
+            rewards : A sequence of scalar values representing reward. When both rewards and reveals are provided only 
+                reveals will be shown to the learner when an action is selected. The reward values will only be used 
+                by Coba when plotting experimental results. We require that len(rewards) == len(actions).
+            reveals : The data that will be revealed to learners based on the selected action. We require len(reveals) == len(actions).
+                When working with non-scalar data use "reveals" instead of "rewards" to make it clear to Coba the data is non-scalar.
+            **kwargs: Additional information that should be recorded in the interactions table of an experiment result. If any
+                data is a sequence with length equal to actions only the data at the selected action index will be recorded.
+        """    
     def __init__(self, *args, **kwargs) -> None:
 
         assert len(args) == 2, "An unexpected number of positional arguments was supplied to Interaction."
-        assert kwargs.keys() & {"rewards", "reveals"}, "Interaction requires either a rewards or reveals kwarg."
+        assert kwargs.keys() & {"rewards", "reveals"}, "Interaction requires either a rewards or reveals keyword warg."
+  
+        assert "rewards" not in kwargs or len(args[1]) == len(kwargs["rewards"]), "Interaction rewards must match action length."
+        assert "reveals" not in kwargs or len(args[1]) == len(kwargs["reveals"]), "Interaction reveals must match action length."
 
-        self._only_rewards = "rewards" in kwargs and "reveals" not in kwargs
-
-        context = args[0]
-        actions = args[1]
- 
-        rewards = kwargs.pop("rewards", None)
-        reveals = kwargs.pop("reveals", None)
-        extras  = kwargs
-
-        assert not rewards or len(actions) == len(rewards), "Interaction rewards must match action length."
-        assert not reveals or len(actions) == len(reveals), "Interaction reveals must match action length."
-
-        context = self._flatten(context)
-        actions = [ self._flatten(action) for action in actions ]
+        context = self._flatten(args[0])
+        actions = [ self._flatten(action) for action in args[1] ]
 
         self._context =  context if not isinstance(context,dict) else HashableDict(context)
         self._actions = [ action if not isinstance(action ,dict) else HashableDict(action) for action in actions ]
-
-        self._rewards = rewards
-        self._reveals = reveals
-        self._extras  = extras
+        self._kwargs  = kwargs
 
     def _is_sparse(self, feats):
 
@@ -140,29 +152,9 @@ class SimulatedInteraction:
         return self._actions
 
     @property
-    def rewards(self) -> Optional[Sequence[float]]:
-        """The reward associated with each action."""
-        return self._rewards
+    def kwargs(self) -> Dict[str,Any]:
+        return self._kwargs
 
-    @property
-    def reveals(self) -> Sequence[Any]:
-        """The information revealed to learners based on the selected action."""
-        return self._reveals if self._reveals else self._rewards
-
-    @property
-    def extras(self) -> Dict[str,Any]:
-        """Additional information regarding this interaction."""
-        return self._extras    
-
-    @property
-    def results(self) -> Dict[str,Any]:
-        
-        results_dict = dict(self._extras)
-
-        if self._rewards: results_dict["rewards"] = self._rewards
-        if self._reveals: results_dict["reveals"] = self._reveals
-
-        return results_dict
 
 class LoggedInteraction:
     """

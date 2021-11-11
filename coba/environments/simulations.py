@@ -1,10 +1,9 @@
 import collections
 
 from itertools import chain, repeat
-from numbers import Number
 from typing import Sequence, Dict, Any, Iterable, Union, List, Callable, cast, Optional
 
-from coba.pipes import Source, Pipe, Filter, HttpIO, DiskIO, ResponseToLines, Transpose, CsvReader, ArffReader, LibSvmReader, ManikReader
+from coba.pipes import Source, Pipe, Filter, HttpIO, DiskIO, ResponseToLines, CsvReader, ArffReader, LibSvmReader, ManikReader, Structures
 from coba.random import CobaRandom
 from coba.encodings import InteractionTermsEncoder
 
@@ -42,15 +41,15 @@ class ClassificationSimulation(Simulation):
     incorrect lables).
     """
 
-    def __init__(self, features: Sequence[Any], labels: Union[Sequence[Action], Sequence[List[Action]]] ) -> None:
+    def __init__(self, examples: Union[Iterable[Sequence[Any]], Iterable[Dict[Any,Any]]]) -> None:
         """Instantiate a ClassificationSimulation.
 
         Args:
-            features: The collection of features used for the original classifier problem.
-            labels: The collection of labels assigned to each observation of features.
+            examples: The labeled regression examples which will be used to create the contextual bandit simulation.
+            label_key: The key that identifies the label in each example.
         """
 
-        assert len(features) == len(labels), "Mismatched lengths of features and labels"
+        features,labels = zip(*examples)
 
         #how can we tell the difference between featurized labels and multilabels????
         #for now we will assume multilables will be passed in as arrays not tuples...
@@ -97,18 +96,21 @@ class RegressionSimulation(Simulation):
         """Paramaters describing the simulation."""
         return {}
 
-    def __init__(self, features: Sequence[Any], labels: Sequence[Number] ) -> None:
+    def __init__(self,
+        examples: Union[Iterable[Sequence[Any]], Iterable[Dict[Any,Any]]], 
+        label_key: Union[int,str]) -> None:
         """Instantiate a RegressionSimulation.
     
         Args:
-            features: The collection of features used for the original regression problem.
-            labels: The collection of labels assigned to each observation of features.
+            examples: The labeled regression examples which will be used to create the contextual bandit simulation.
+            label_key: The key that identifies the label in each example.
         """
 
-        assert len(features) == len(labels), "Mismatched lengths of features and labels"
+        examples = list(examples)
+        labels = [ example.pop(label_key) for example in examples ]
 
         reward   = lambda action,label: 1-abs(float(action)-float(label))
-        contexts = features
+        contexts = examples
         actions  = CobaRandom(1).shuffle(sorted(set(labels)))
         rewards  = [ [ reward(action,label) for action in actions ] for label in labels ]
 
@@ -161,10 +163,9 @@ class LambdaSimulation(Simulation):
 class ReaderSimulation(Simulation):
 
     def __init__(self, 
-        reader      : Filter[Iterable[str], Any], 
-        source      : Union[str,Source[Iterable[str]]], 
-        label_column: Union[str,int], 
-        with_header : bool=True) -> None:
+        reader   : Filter[Iterable[str], Any], 
+        source   : Union[str,Source[Iterable[str]]], 
+        label_col: Union[str,int]) -> None:
         
         self._reader = reader
 
@@ -174,9 +175,8 @@ class ReaderSimulation(Simulation):
             self._source = DiskIO(source)
         else:
             self._source = source
-        
-        self._label_column = label_column
-        self._with_header  = with_header
+
+        self._label_column = label_col
         self._interactions = cast(Optional[Sequence[SimulatedInteraction]], None)
 
     @property
@@ -190,41 +190,16 @@ class ReaderSimulation(Simulation):
 
     def _load_interactions(self) -> Sequence[SimulatedInteraction]:
         parsed_rows_iter = iter(self._reader.filter(self._source.read()))
+        structured_rows = Structures([None, self._label_column]).filter(parsed_rows_iter)
 
-        if self._with_header:
-            header = next(parsed_rows_iter)
-        else:
-            header = []
-
-        if isinstance(self._label_column, str):
-            label_col_index = header.index(self._label_column)
-        else:
-            label_col_index = self._label_column
-
-        parsed_cols = list(Transpose().filter(parsed_rows_iter))
-        
-        label_col    = parsed_cols.pop(label_col_index)
-        feature_rows = list(Transpose().filter(parsed_cols))
-
-        is_sparse_labels = len(label_col) == 2 and isinstance(label_col[0],tuple) and isinstance(label_col[1],tuple)
-        
-        if is_sparse_labels:
-            dense_labels: List[Any] = ['0']*len(feature_rows)
-            
-            for label_row, label_val in zip(*label_col): #type:ignore
-                dense_labels[label_row] = label_val
-
-        else:
-            dense_labels = list(label_col)
-
-        return ClassificationSimulation(feature_rows, dense_labels).read()
+        return ClassificationSimulation(structured_rows).read()
 
     def __repr__(self) -> str:
         return str(self._source)
 
 class CsvSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
-        super().__init__(CsvReader(), source, label_column, with_header)
+        super().__init__(CsvReader(with_header), source, label_column)
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -242,7 +217,7 @@ class ArffSimulation(ReaderSimulation):
 
 class LibsvmSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]]) -> None:
-        super().__init__(LibSvmReader(), source, 0, False)
+        super().__init__(LibSvmReader(), source, 0)
 
     @property
     def params(self) -> Dict[str, Any]:

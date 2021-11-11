@@ -5,7 +5,8 @@ from coba.pipes.multiprocessing import MultiprocessFilter
 
 from coba.pipes.filters import (
     Cartesian, JsonEncode, JsonDecode, ResponseToLines, ArffReader, CsvReader, 
-    LibSvmReader, Encode, Flatten, Transpose, IdentityFilter, ManikReader
+    LibSvmReader, Encodes, Flattens, Defaults, Drops, IdentityFilter, ManikReader,
+    _T_Data, Structures
 )
 
 from coba.pipes.io import NullIO, ConsoleIO, DiskIO, MemoryIO, QueueIO, HttpIO
@@ -24,9 +25,11 @@ __all__ = [
     "CsvReader",
     "LibSvmReader",
     "ManikReader",
-    "Encode",
-    "Flatten",
-    "Transpose",
+    "Encodes",
+    "Flattens",
+    "Defaults",
+    "Drops",
+    "Structures",
     "IdentityFilter",
     "MultiprocessFilter",
     "NullIO",
@@ -34,5 +37,6 @@ __all__ = [
     "DiskIO",
     "MemoryIO",
     "QueueIO",
-    "HttpIO"
+    "HttpIO",
+    _T_Data
 ]

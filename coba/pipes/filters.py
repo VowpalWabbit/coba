@@ -8,31 +8,23 @@ import collections
 import itertools
 import json
 
-from itertools import islice, count
-from collections import defaultdict
-from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict
+from itertools import islice
+from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, Callable, Optional
+from typing_extensions import OrderedDict
 
 from requests import Response
 
 from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder, CobaJsonEncoder, CobaJsonDecoder
+from coba.exceptions import CobaException
 from coba.pipes.core import Filter
 
 _T_DenseRow   = Sequence[Any]
-_T_SparseRow  = Tuple[Tuple[int,...], Tuple[Any,...]]
+_T_SparseRow  = Dict[Any,Any]
 _T_DenseData  = Iterable[_T_DenseRow]
 _T_SparseData = Iterable[_T_SparseRow]
+
+_T_Row        = Union[_T_DenseRow,  _T_SparseRow ]
 _T_Data       = Union[_T_DenseData, _T_SparseData]
-
-def _is_dense(items: _T_Data)-> Tuple[bool, _T_Data]:
-
-    items = iter(items)
-    item0 = next(items)
-
-    #a sparse item has the following structure ([ids], [values])
-    #this check isn't full proof but I think should be good enough
-    is_dense = (len(item0) != 2) or not all([isinstance(i, collections.Sequence) and not isinstance(i, str) for i in item0])
-
-    return is_dense, itertools.chain([item0], items)
 
 class Cartesian(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
 
@@ -62,13 +54,13 @@ class StringJoin(Filter[Iterable[str], str]):
 
 class ResponseToLines(Filter[Response, Iterable[str]]):
     def filter(self, item: Response) -> Iterable[str]:
-        
+
         if item.status_code != 200:
-            
+
             message = (
                 f"The response from {item.url} reported an error. "
                 "The status and reason were {item.status_code}-{item.reason}.")
-            
+
             raise Exception(message) from None
 
         return item.content.decode('utf-8').split('\n')
@@ -152,17 +144,17 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
             return StringEncoder()
 
         if is_numeric: return NumericEncoder()
-        if is_one_hot: return OneHotEncoder(fit_values=[ v.strip() for v in tipe.strip("}{").split(',')], singular_if_binary=True)
+        if is_one_hot: return OneHotEncoder([v.strip() for v in tipe.strip("}{").split(',')])
 
         return StringEncoder()
 
-    def _parse_file(self, lines: Iterable[str]) -> Tuple[_T_Data,Sequence[Encoder]]:
+    def _parse_file(self, lines: Iterable[str]) -> Tuple[_T_Data, Dict[str,Encoder]]:
         in_meta_section=True
         in_data_section=False
 
-        headers   : List[str]     = []
-        encoders  : List[Encoder] = []
-        data_lines: List[str]     = []
+        headers   : List[str        ] = []
+        encoders  : Dict[str,Encoder] = {}
+        data_lines: List[str        ] = []
 
         for line in lines:
 
@@ -176,11 +168,11 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
                 if attribute_match:
                     attribute_text  = attribute_match.group(1).strip()
                     attribute_type  = re.split('[ ]', attribute_text, 1)[1]
-                    attribute_name  = re.split('[ ]', attribute_text)[0]
+                    attribute_name  = re.split('[ ]', attribute_text)[0].lower()
                     attribute_index = len(headers)
 
                     headers.append(attribute_name)
-                    encoders.append(self._determine_encoder(attribute_index,attribute_name,attribute_type))
+                    encoders[attribute_name] = self._determine_encoder(attribute_index,attribute_name,attribute_type)
 
                 if self._r_data.match(line):
                     in_data_section = True
@@ -190,7 +182,7 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
             if in_data_section and line != '':
                 data_lines.append(line)
 
-        parsed_data = CsvReader().filter(itertools.chain([",".join(headers)], data_lines))
+        parsed_data = CsvReader(True).filter(itertools.chain([",".join(headers)], data_lines))
 
         return parsed_data, encoders
 
@@ -198,169 +190,254 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
 
         data, encoders = self._parse_file(source)
 
-        data_iter = iter(data)
-        header    = tuple(next(data_iter))
-        encoded   = Transpose().filter(Encode(encoders).filter(Transpose().filter(data_iter)))
-
-        return itertools.chain([header], encoded)
+        return data if self._skip_encoding == True else Encodes(encoders).filter(data)
 
 class CsvReader(Filter[Iterable[str], _T_Data]):
+
+    def __init__(self, has_header: bool):
+        self._has_header = has_header
+
     def filter(self, items: Iterable[str]) -> _T_Data:
-        
-        lines = iter(filter(None, csv.reader( i.strip() for i in items)))
+
+        lines = iter(filter(None, csv.reader(i.strip() for i in items)))
 
         try:
-            row1 = next(lines)
+            header     = [ h.lower() for h in next(lines)] if self._has_header else None
+            first_data = next(lines)
         except StopIteration:
-            return []
-        try:
-            row2 = next(lines)
-        except StopIteration:
-            row2 = []
+            return [header] #[None] because every other filter method assumes there is some kind of a header row.
 
-        data_row = row2 if row2 else row1
+        is_sparse = first_data[0].startswith("{") and first_data[-1].endswith("}")
+        parser    = self._sparse_parser if is_sparse else self._dense_parser
 
-        is_sparse  = data_row[0].startswith("{") and data_row[-1].endswith("}")
+        return parser(header, itertools.chain([first_data], lines))
 
-        lines = itertools.chain(filter(None, [row1,row2]), lines)
+    def _dense_parser(self, header: Optional[Sequence[str]],  lines: Iterable[Sequence[str]]) -> Iterable[Sequence[str]]:
+        return itertools.chain([header], lines)
 
-        return self._sparse_parser(lines) if is_sparse else self._dense_parser(lines)
+    def _sparse_parser(self, header: Optional[Sequence[str]],  lines: Iterable[Sequence[str]]) -> Iterable[Dict[int,str]]:
+        yield header if header is None else OrderedDict(zip(header, itertools.count()))
 
-    def _dense_parser(self, lines: Iterable[Sequence[str]]) -> _T_DenseData:        
-        return lines
-    
-    def _sparse_parser(self, lines: Iterable[Sequence[str]]) -> _T_SparseData:
+        for line in lines:
+            yield OrderedDict((int(k),v) for l in line for k,v in [l.strip("}{").strip().split(' ', 1)])
 
-        lines_iter = iter(lines)
+class LibSvmReader(Filter[Iterable[str], _T_SparseData]):
 
-        # we know there is at least one row otherwise we wouldn't have gotten here
-        line1 = next(lines_iter)
-        line1_is_header = not line1[0].startswith("{")
-
-        if line1_is_header:
-            yield (tuple(range(len(line1))), tuple(line1))
-        else:
-            lines_iter = itertools.chain([line1], lines_iter)
-
-        for data_line in lines_iter:
-
-            index_list: List[int] = []
-            value_list: List[str] = []
-
-            for item in data_line:
-                split = item.strip("}{").strip().split(' ', 1)
-                
-                index_list.append(int(split[0]))
-                value_list.append(split[1])
-
-            yield ( tuple(index_list), tuple(value_list) )        
-
-class LibSvmReader(Filter[Iterable[str], _T_Data]):
-    
     """https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/"""
     """https://github.com/cjlin1/libsvm"""
 
-    def filter(self, input_lines: Iterable[str]) -> _T_Data:
+    def filter(self, lines: Iterable[str]) -> _T_SparseData:
 
-        indexer = count(1)
-        output_lines: List[Tuple[Tuple[int,...], Tuple[Any,...]]] = []
-        feature_index: Dict[str, int] = defaultdict(lambda: next(indexer))
+        yield None # we yield None because there is no header row
 
-        for input_line in filter(None,input_lines):
+        for line in filter(None,lines):
 
-            items  = input_line.strip().split(' ')
+            items  = line.strip().split(' ')
             labels = items[0].split(',')
-            label  = labels[0] if len(labels) == 1 else tuple(labels)
+            row    = { int(k):float(v) for i in items[1:] for k,v in [i.split(":")] }
+            row[0] = labels
 
-            output_line: List[Tuple[int,Any]] = [ (0,label) ]
-            
-            for item in items[1:]:
-                split = item.split(":")
-                index = feature_index[split[0]]
-                value = float(split[1])
-                output_line.append((index,value))
+            yield row
 
-            output_lines.append(tuple(zip(*output_line))) #type: ignore
-            
-        return output_lines
+class ManikReader(Filter[Iterable[str], _T_SparseData]):
 
-class ManikReader(Filter[Iterable[str], _T_Data]):
-    
     """http://manikvarma.org/downloads/XC/XMLRepository.html"""
     """https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view"""
 
 
-    def filter(self, input_lines: Iterable[str]) -> _T_Data:
+    def filter(self, lines: Iterable[str]) -> _T_SparseData:
 
         # we skip first line because it just has metadata
-        return LibSvmReader().filter(islice(input_lines,1,None))
+        return LibSvmReader().filter(islice(lines,1,None))
 
-class Transpose(Filter[_T_Data, _T_Data]):
+class Encodes(Filter[_T_Data, _T_Data]):
+
+    def __init__(self, encoders: Dict[str,Encoder], fit_using=None, has_header:bool = True):
+        self._encoders   = encoders
+        self._fit_using  = fit_using
+        self._has_header = has_header
+
     def filter(self, items: _T_Data) -> _T_Data:
 
-        is_dense,items =_is_dense(items)
+        items  = iter(items) # this makes sure items are pulled out for fitting
+        
+        if not self._has_header:
+            header_synced_encoders = self._encoders
 
-        if is_dense:
-            return zip(*items)
         else:
-            sparse_transposed_items: Dict[int, Tuple[List[int],List[Any]]] = defaultdict( lambda: ([],[]))
+            header = next(items)
 
-            for outer_id, item in enumerate(items):
-                for inner_id, value in zip(item[0], item[1]):
-                    sparse_transposed_items[inner_id][0].append(outer_id)
-                    sparse_transposed_items[inner_id][1].append(value)
+            if header is None:
+                yield header
+                header_synced_encoders = dict(self._encoders)
 
-            max_key = max(sparse_transposed_items.keys())
+            elif isinstance(header, dict):
+                yield header
+                header_synced_encoders = { header[k]:encoder for k,encoder in self._encoders.items() if k in header } 
 
-            #this loop ensures the column order is maintained, empty columns aren't lost and arrays are tuples
-            return [ tuple(map(tuple,sparse_transposed_items[key]))  for key in range(max_key+1) ] #type: ignore
+            elif isinstance(header, list):
+                yield header
+                header_synced_encoders = { header.index(k):encoder for k,encoder in self._encoders.items() if k in header }
 
-class Flatten(Filter[_T_Data, _T_Data]):
-    #Assumes column major order
+            else:
+                raise CobaException(f"Unrecognized type ({type(header).__name__}) passed to Encodes.")
+
+        fit_using  = 0 if all([e.is_fit for e in header_synced_encoders.values()]) else self._fit_using
+        fit_items  = list(islice(items, fit_using))
+        fit_values = collections.defaultdict(list)
+
+        for item in fit_items:
+            for k,v in (item.items() if isinstance(item,dict) else enumerate(item)):
+                fit_values[k].append(v)
+
+        for k,v in fit_values.items():
+            if not header_synced_encoders[k].is_fit:
+                header_synced_encoders[k] = header_synced_encoders[k].fit(v)
+
+        for item in itertools.chain(fit_items, items):
+
+            for k,v in (item.items() if isinstance(item,dict) else enumerate(item)):
+                item[k] = header_synced_encoders[k].encode([v])[0]
+
+            yield item
+
+class Drops(Filter[_T_Data, _T_Data]):
+
+    def __init__(self, drop_cols: Sequence[Any] = [], drop_row: Callable[[_T_Row], bool] = None) -> None:
+        self._drop_cols = drop_cols
+        self._drop_row  = drop_row
 
     def filter(self, data: _T_Data) -> _T_Data:
         
-        for col in data:
-            
-            #this will fail on a two row dense representation with a one hot encoded column
-            is_sparse = (len(col) == 2) and isinstance(col[0], collections.Sequence) and isinstance(col[0], collections.Sequence)
+        if not self._drop_cols and not self._drop_row: return data
+        else:
 
-            if not is_sparse: 
-                if isinstance(col[0],collections.Sequence) and not isinstance(col[0],str):
-                    for flat_col in zip(*col):
-                        yield flat_col
-                else:
-                    yield tuple(col)
+            data   = iter(data)
+            header = next(data)
+
+            if header is None:
+                drop_keys = self._drop_cols
+                yield header
+            
+            elif isinstance(header,dict):
+                drop_keys = [ header.pop(k) for k in self._drop_cols ]
+                yield header
+            
+            elif isinstance(header,list):
+                drop_keys = [ header.index(k) for k in self._drop_cols ]
+                for i in sorted(drop_keys,reverse=True): header.pop(i)
+                yield header 
             
             else:
-                if isinstance(col[1][0],collections.Sequence):
-                    for flat_col in zip(*col[1]):
-                        yield (tuple(col[0]), flat_col)
-                else:
-                    yield (tuple(col[0]), tuple(col[1]))
+                raise CobaException(f"Unrecognized type ({type(header).__name__}) passed to Drops.")
 
-        #return map(tuple,map(self._flat, data)) if is_dense else data
+            for row in data:
 
-    def _flat(self, item: Union[_T_DenseRow, _T_SparseRow] ) -> Union[_T_DenseRow, _T_SparseRow]:
-        return sum(map(self._flat, item),[]) if isinstance(item, collections.Sequence) else [item]
+                if self._drop_row and self._drop_row(row):
+                    continue
 
-class Encode(Filter[_T_Data, _T_Data]):
+                for k in sorted(drop_keys,reverse=True):
+                    row.pop(k)                
 
-    #Assumes column major order
+                yield row
 
-    def __init__(self, encoders: Sequence[Encoder]):
-        self._encoders = encoders
+class Structures(Filter[_T_Data, Iterable[Any]]):
 
-    def filter(self, items: _T_Data) -> _T_Data:
+    def __init__(self, split_cols: Sequence[Any]) -> None:
+        self._col_structure = split_cols
+
+    def filter(self, data: _T_Data) -> _T_Data:
         
-        is_dense,items =_is_dense(items)
+        data   = iter(data)
+        header = next(data)
 
-        for encoder, column in zip(self._encoders, items):
+        key_structure = self._recursive_structure_keys(header, self._col_structure)
 
-            raw_values = column if is_dense else column[1]
+        for row in data:
+           yield self._recursive_structure_rows(row, key_structure) 
 
-            encoder = encoder if encoder.is_fit else encoder.fit(raw_values)
+    def _recursive_structure_keys(self, header, cols):
 
-            encoded_values = encoder.encode(raw_values)
+        if header is None:
+            return cols
 
-            yield encoded_values if is_dense else (tuple(column[0]), tuple(encoded_values))
+        elif isinstance(cols,(list,tuple)):
+            return [ self._recursive_structure_keys(header,s) for s in cols ]
+
+        elif cols is None:
+            return cols
+
+        elif isinstance(header,list):
+            return header.index(cols)
+
+        elif isinstance(header,dict):
+            return header[cols]
+
+        else:
+            raise CobaException(f"Unrecognized type ({type(header).__name__}) passed to Structure.")
+
+    def _recursive_structure_rows(self, row, keys):
+        if keys is None:
+            return row
+        elif isinstance(keys,(list,tuple)):
+            return [ self._recursive_structure_rows(row,k) for k in keys ]
+        else:
+            return row.pop(keys)
+
+class Flattens(Filter[_T_Data, _T_Data]):
+
+    def filter(self, data: _T_Data) -> _T_Data:
+
+        for row in data:
+
+            if isinstance(row,dict):
+                for k in list(row.keys()):
+                    if isinstance(row[k],(list,tuple)):
+                        row.update([((k,i), v) for i,v in enumerate(row.pop(k))])
+
+            elif isinstance(row,list):
+                for k in range(len(row)):
+                    if isinstance(row[k],(list,tuple)):
+                        row.extend(row.pop(k))
+
+            else:
+                raise CobaException(f"Unrecognized type ({type(row).__name__}) passed to Flattens.")
+
+            yield row
+
+class Defaults(Filter[_T_Data, _T_Data]):
+
+    def __init__(self, defaults: Dict[str, Any]) -> None:
+        self._defaults = defaults
+
+    def filter(self, data: _T_Data) -> _T_Data:
+
+        if not self._defaults: return data
+        else:
+
+            data   = iter(data)
+            header = next(data)
+
+            if header is None:
+                yield header
+                header_synced_defaults = dict(self._defaults)
+
+            elif isinstance(header, dict):
+                yield header
+                header_synced_defaults = { header[k]:encoder for k,encoder in self._defaults.items() } 
+
+            elif isinstance(header, list):
+                yield header
+                header_synced_defaults = { header.index(k):encoder for k,encoder in self._defaults.items() }
+
+            else:
+                raise CobaException(f"Unrecognized type ({type(header).__name__}) passed to Defaults.")
+
+            for row in data:
+
+                if isinstance(row,dict):
+                    for k,v in header_synced_defaults.items():
+                        if k not in row:
+                            row[k] = v
+
+                yield row

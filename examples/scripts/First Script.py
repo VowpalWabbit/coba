@@ -18,7 +18,7 @@ if __name__ == '__main__':
         VowpalLearner(squarecb="all")
     ]
 
-    environments = Environments.from_validation(5000,3,2,2).shuffle([0,1,2])
+    environments = Environments.from_test_sim(5000,3,2,2).shuffle([0,1,2])
 
     #We then create our benchmark using our simulations and seeds
     result = Experiment(environments).evaluate(learners)

@@ -81,14 +81,14 @@ class SimulationEvaluationTask(Task):
                 probs,info = learner.predict(context, actions)
 
                 action = random.choice(actions, probs)
-                reveal = interaction.reveals[actions.index(action)]
+                reveal = interaction.kwargs.get("reveals", interaction.kwargs["rewards"])[actions.index(action)]
                 prob   = probs[actions.index(action)]
 
                 info = learner.learn(context, action, reveal, prob, info) or {}
 
                 row_key_values = {}
                 row_key_values.update(info)
-                row_key_values.update({k:v[actions.index(action)] for k,v in interaction.results.items()})
+                row_key_values.update({k:v[actions.index(action)] for k,v in interaction.kwargs.items()})
 
                 for key,value in row_key_values.items():
                     if key == "rewards": key = "reward"
@@ -169,7 +169,7 @@ class SimulationTask(Task):
         with CobaConfig.logger.time(f"Calculating Simulation {self.sim_id} statistics..."):
             extra_statistics = {}
 
-            contexts,actions,reveals = zip(*[ (i.context, i.actions, i.reveals) for i in interactions])
+            contexts,actions,rewards = zip(*[ (i.context, i.actions, i.kwargs["rewards"]) for i in interactions])
 
             if isinstance(self.sim_source, (ClassificationSimulation,OpenmlSimulation)):
 
@@ -186,7 +186,7 @@ class SimulationTask(Task):
                     encoder = InteractionTermsEncoder('x')
 
                     X   = [ encoder.encode(x=c, a=[]) for c in contexts ]
-                    Y   = [ a[r.index(1)] for a,r in zip(actions,reveals)]
+                    Y   = [ a[r.index(1)] for a,r in zip(actions,rewards)]
                     C   = collections.defaultdict(list)
                     clf = DecisionTreeClassifier(random_state=1)
 
@@ -227,7 +227,7 @@ class SimulationTask(Task):
                 feat_cnts  = []
                 label_cnts = defaultdict(int)
 
-                for c,a,f in zip(contexts,actions,reveals):
+                for c,a,f in zip(contexts,actions,rewards):
 
                     inter_label = a[f.index(1)]
                     inter_feats = c.keys() if isinstance(c,dict) else range(len(c))

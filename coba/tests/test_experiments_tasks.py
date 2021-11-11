@@ -41,6 +41,11 @@ class OneTimeSource(Source):
         return self._source.read()
 
 class ObserveTask(Task):
+
+    def __init__(self, src_id, sim_id, lrn_id, simulation, learner) -> None:
+        super().__init__(src_id, sim_id, lrn_id, simulation, learner)
+        self.observed = []
+
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Any]:
         self.observed = list(interactions)
 
@@ -58,7 +63,7 @@ class CountFilter:
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
         for interaction in interactions:
-            yield SimulatedInteraction((interaction.context, self._count), interaction.actions, reveals=interaction.reveals, **interaction.results)
+            yield SimulatedInteraction((interaction.context, self._count), interaction.actions, **interaction.kwargs)
 
         self._count += 1
 #for testing purposes
@@ -206,7 +211,7 @@ class GroupBySource_Tests(unittest.TestCase):
 class SimulationTask_Tests(unittest.TestCase):
 
     def test_classification_statistics_dense(self):
-        
+
         try:
             import sklearn
         except:
@@ -214,7 +219,7 @@ class SimulationTask_Tests(unittest.TestCase):
         else:
             sklearn_installed = True
 
-        simulation   = ClassificationSimulation([(1,2),(3,4)]*10, ["A","B"]*10)
+        simulation   = ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10)
         task         = SimulationTask(0, 1, None, simulation, None)
         transactions = list(task.filter(simulation.read()))
 
@@ -240,10 +245,10 @@ class SimulationTask_Tests(unittest.TestCase):
         else:
             sklearn_installed = True
 
-        c1 = {"1":1, "2":2}
-        c2 = {"1":3, "2":4}
+        c1 = [{"1":1, "2":2}, "A"]
+        c2 = [{"1":3, "2":4}, "B"]
 
-        simulation   = ClassificationSimulation([c1,c2]*10, ["A","B"]*10)
+        simulation   = ClassificationSimulation([c1,c2]*10)
         task         = SimulationTask(0, 1, None, simulation, None)
         transactions = list(task.filter(simulation.read()))
 
@@ -260,53 +265,14 @@ class SimulationTask_Tests(unittest.TestCase):
             self.assertEqual(1  , transactions[0][2]["centroid_purity"])
             self.assertEqual(0  , transactions[0][2]["centroid_distance"])
 
-    def test_classification_statistics_sparse2(self):
-
-        try:
-            import sklearn
-        except:
-            sklearn_installed = False
-        else:
-            sklearn_installed = True
-
-        simulation   = ClassificationSimulation([(1,'A')]*20, ["A","B"]*10)
-        task         = SimulationTask(0, 1, None, simulation, None)
-        transactions = list(task.filter(simulation.read()))
-
-        self.assertEqual(1  , len(transactions))
-        self.assertEqual('S', transactions[0][0])
-        self.assertEqual(1  , transactions[0][1])
-        self.assertEqual(2  , transactions[0][2]["action_cardinality"])
-        self.assertEqual(2  , transactions[0][2]["context_dimensions"])
-        self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
-
-        if sklearn_installed:
-            self.assertEqual(.5 , transactions[0][2]["bayes_rate_avg"])
-            self.assertEqual(0  , transactions[0][2]["bayes_rate_iqr"])
-
     def test_classification_statistics_encodable(self):
 
-        try:
-            import sklearn
-        except:
-            sklearn_installed = False
-        else:
-            sklearn_installed = True
+        c1 = [{"1":1, "2":2 }, "A" ]
+        c2 = [{"1":3, "2":4 }, "B" ]
 
-        simulation   = ClassificationSimulation([(1,'A')]*20, ["A","B"]*10)
+        simulation   = ClassificationSimulation([c1,c2]*10)
         task         = SimulationTask(0, 1, None, simulation, None)
         transactions = list(task.filter(simulation.read()))
-
-        self.assertEqual(1  , len(transactions))
-        self.assertEqual('S', transactions[0][0])
-        self.assertEqual(1  , transactions[0][1])
-        self.assertEqual(2  , transactions[0][2]["action_cardinality"])
-        self.assertEqual(2  , transactions[0][2]["context_dimensions"])
-        self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
-
-        if sklearn_installed:
-            self.assertEqual(.5 , transactions[0][2]["bayes_rate_avg"])
-            self.assertEqual(0  , transactions[0][2]["bayes_rate_iqr"])
 
         json.dumps(transactions)
 

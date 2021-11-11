@@ -370,21 +370,21 @@ class Cycle_tests(unittest.TestCase):
         mem_interactions = interactions
         cyc_interactions = list(Cycle().filter(mem_interactions))
 
-        self.assertEqual([1,3], mem_interactions[0].reveals)
-        self.assertEqual([1,4], mem_interactions[1].reveals)
-        self.assertEqual([1,5], mem_interactions[2].reveals)
-        self.assertEqual([1,3], mem_interactions[0].rewards)
-        self.assertEqual([1,4], mem_interactions[1].rewards)
-        self.assertEqual([1,5], mem_interactions[2].rewards)
+        self.assertEqual([1,3], mem_interactions[0].kwargs["rewards"])
+        self.assertEqual([1,4], mem_interactions[1].kwargs["rewards"])
+        self.assertEqual([1,5], mem_interactions[2].kwargs["rewards"])
+        self.assertEqual([1,3], mem_interactions[0].kwargs["rewards"])
+        self.assertEqual([1,4], mem_interactions[1].kwargs["rewards"])
+        self.assertEqual([1,5], mem_interactions[2].kwargs["rewards"])
 
         self.assertEqual(3, len(cyc_interactions))
 
-        self.assertEqual([3,1], cyc_interactions[0].reveals)
-        self.assertEqual([4,1], cyc_interactions[1].reveals)
-        self.assertEqual([5,1], cyc_interactions[2].reveals)
-        self.assertEqual([3,1], cyc_interactions[0].rewards)
-        self.assertEqual([4,1], cyc_interactions[1].rewards)
-        self.assertEqual([5,1], cyc_interactions[2].rewards)
+        self.assertEqual([3,1], cyc_interactions[0].kwargs["rewards"])
+        self.assertEqual([4,1], cyc_interactions[1].kwargs["rewards"])
+        self.assertEqual([5,1], cyc_interactions[2].kwargs["rewards"])
+        self.assertEqual([3,1], cyc_interactions[0].kwargs["rewards"])
+        self.assertEqual([4,1], cyc_interactions[1].kwargs["rewards"])
+        self.assertEqual([5,1], cyc_interactions[2].kwargs["rewards"])
 
     def test_after_1(self) -> None:
 
@@ -397,15 +397,15 @@ class Cycle_tests(unittest.TestCase):
         mem_interactions = interactions
         cyc_interactions = list(Cycle(after=1).filter(mem_interactions))
 
-        self.assertEqual([1,3], mem_interactions[0].reveals)
-        self.assertEqual([1,4], mem_interactions[1].reveals)
-        self.assertEqual([1,5], mem_interactions[2].reveals)
+        self.assertEqual([1,3], mem_interactions[0].kwargs["rewards"])
+        self.assertEqual([1,4], mem_interactions[1].kwargs["rewards"])
+        self.assertEqual([1,5], mem_interactions[2].kwargs["rewards"])
 
         self.assertEqual(3, len(cyc_interactions))
 
-        self.assertEqual([1,3], cyc_interactions[0].reveals)
-        self.assertEqual([4,1], cyc_interactions[1].reveals)
-        self.assertEqual([5,1], cyc_interactions[2].reveals)
+        self.assertEqual([1,3], cyc_interactions[0].kwargs["rewards"])
+        self.assertEqual([4,1], cyc_interactions[1].kwargs["rewards"])
+        self.assertEqual([5,1], cyc_interactions[2].kwargs["rewards"])
 
     def test_after_2(self) -> None:
 
@@ -418,15 +418,15 @@ class Cycle_tests(unittest.TestCase):
         mem_interactions = interactions
         cyc_interactions = list(Cycle(after=2).filter(mem_interactions))
 
-        self.assertEqual([1,3], mem_interactions[0].reveals)
-        self.assertEqual([1,4], mem_interactions[1].reveals)
-        self.assertEqual([1,5], mem_interactions[2].reveals)
+        self.assertEqual([1,3], mem_interactions[0].kwargs["rewards"])
+        self.assertEqual([1,4], mem_interactions[1].kwargs["rewards"])
+        self.assertEqual([1,5], mem_interactions[2].kwargs["rewards"])
 
         self.assertEqual(3, len(cyc_interactions))
 
-        self.assertEqual([1,3], cyc_interactions[0].reveals)
-        self.assertEqual([1,4], cyc_interactions[1].reveals)
-        self.assertEqual([5,1], cyc_interactions[2].reveals)
+        self.assertEqual([1,3], cyc_interactions[0].kwargs["rewards"])
+        self.assertEqual([1,4], cyc_interactions[1].kwargs["rewards"])
+        self.assertEqual([5,1], cyc_interactions[2].kwargs["rewards"])
 
     def test_after_10(self) -> None:
 
@@ -439,15 +439,15 @@ class Cycle_tests(unittest.TestCase):
         mem_interactions = interactions
         cyc_interactions = list(Cycle(after=10).filter(mem_interactions))
 
-        self.assertEqual([1,3], mem_interactions[0].reveals)
-        self.assertEqual([1,4], mem_interactions[1].reveals)
-        self.assertEqual([1,5], mem_interactions[2].reveals)
+        self.assertEqual([1,3], mem_interactions[0].kwargs["rewards"])
+        self.assertEqual([1,4], mem_interactions[1].kwargs["rewards"])
+        self.assertEqual([1,5], mem_interactions[2].kwargs["rewards"])
 
         self.assertEqual(3, len(cyc_interactions))
 
-        self.assertEqual([1,3], cyc_interactions[0].reveals)
-        self.assertEqual([1,4], cyc_interactions[1].reveals)
-        self.assertEqual([1,5], cyc_interactions[2].reveals)
+        self.assertEqual([1,3], cyc_interactions[0].kwargs["rewards"])
+        self.assertEqual([1,4], cyc_interactions[1].kwargs["rewards"])
+        self.assertEqual([1,5], cyc_interactions[2].kwargs["rewards"])
 
     def test_params(self):
         self.assertEqual({"cycle_after":0 }, Cycle().params)

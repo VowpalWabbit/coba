@@ -18,6 +18,7 @@ class Performance_Tests(unittest.TestCase):
         
         time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=1000, number=4))
         
+        print(time)
         #was approximately .000122
         self.assertLess(time, .0002)
 
@@ -42,7 +43,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_onehot_encode_performance(self):
 
-        encoder = OneHotEncoder(list(range(1000)), error_if_unknown=False )
+        encoder = OneHotEncoder(list(range(1000)), err_if_unknown=False )
         to_encode = [100,200,300,400,-1]*100000
 
         time = min(timeit.repeat(lambda:encoder.encode(to_encode), repeat=50, number = 1))

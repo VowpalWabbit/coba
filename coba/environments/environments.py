@@ -35,10 +35,13 @@ class Environments:
         return Environments(EnvironmentFileFmtV1().filter(JsonDecode().filter(content)))
 
     @staticmethod
-    def from_validation(n_interactions:int, n_actions:int, n_context_features:int, n_action_features:int, seed:int=1) -> 'Environments':
+    def from_test_sim(n_interactions:int, n_actions:int, n_context_features:int, n_action_features:int, seed:int=1) -> 'Environments':
         return Environments(
             ValidationSimulation(n_interactions, n_actions=n_actions, n_context_feats=n_context_features, n_action_feats=n_action_features, seed=seed)
         )
+
+    #@staticmethod
+    #def from_csv_sim(file:str, actions:Sequence[Any], label_column:Union[str,int], label_type:Literal[] reward_type: Literal["binary","continuous"])
 
     def __init__(self, *environments: Environment):
         self._environments = list(environments)
