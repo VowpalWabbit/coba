@@ -1,5 +1,6 @@
 from typing import Iterable, Dict, Any
 
+from coba.pipes import Pipe
 from coba.environments.core import Simulation, SimulatedInteraction
 from coba.environments.filters import SimulationFilter
 
@@ -8,17 +9,17 @@ class EnvironmentPipe(Simulation):
     def __init__(self, source: Simulation, *filters: SimulationFilter):
         
         if isinstance(source, EnvironmentPipe):
-            self._source  = source._source
-            self._filters = list(source._filters) + list(filters)
+            self._source = source._source
+            self._filter = Pipe.join(list(source._filter) + list(filters))
         else:
             self._source  = source
-            self._filters = list(filters)
+            self._filter = Pipe.join(list(filters))
 
     @property
     def params(self) -> Dict[str, Any]:
         params = self._safe_params(self._source)
 
-        for filter in self._filters:
+        for filter in self._filter._filters:
             params.update(self._safe_params(filter))
 
         return params
@@ -33,7 +34,7 @@ class EnvironmentPipe(Simulation):
     def read(self) -> Iterable[SimulatedInteraction]:
         interactions = self._source.read()
 
-        for filter in self._filters:
+        for filter in self._filter:
             interactions = filter.filter(interactions)
 
         return interactions

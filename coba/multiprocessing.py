@@ -39,7 +39,7 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
     def __init__(self, filters: Sequence[Filter], processes=1, maxtasksperchild=None) -> None:
         self._filters          = filters
         self._processes        = processes
-        self._maxtasksperchild = maxtasksperchild
+        self._maxtasksperchild = None if maxtasksperchild == -1 else maxtasksperchild
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 

@@ -1,109 +1,106 @@
 import collections
 import gc
 
+from abc import ABC, abstractmethod
 from copy import deepcopy
 from statistics import median
-from itertools import groupby, product, count
+from itertools import groupby, product
 from collections import defaultdict
-from typing import Iterable, Sequence, Any, Optional, Dict, Hashable, Tuple, Union
+from typing import Iterable, Sequence, Any, Optional, Dict, Tuple, Union
 
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
-from coba.pipes import Source, Pipe, Filter, IdentityFilter
-from coba.environments import Simulation, OpenmlSimulation, ClassificationSimulation, EnvironmentPipe, LoggedInteraction, SimulatedInteraction
+from coba.pipes import Source, Pipe, Filter, Identity
+from coba.environments import Simulation, EnvironmentPipe, LoggedInteraction, SimulatedInteraction
 from coba.encodings import InteractionTermsEncoder
 
 from coba.experiments.transactions import Transaction
 from coba.experiments.results import Result
 
-class Identifier():
-    
-    def __init__(self) -> None:
-        self._source_ids   : Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
-        self._learner_ids  : Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
-        self._simulaion_ids: Dict[Hashable, int]  = defaultdict(lambda x=count(): next(x)) # type: ignore
+class LearnerTask(Filter[Learner,Dict[Any,Any]], ABC):
 
-    def id(self, simulation: Simulation, learner: Learner) -> Tuple[int,int,int]:
-        source = simulation._source if isinstance(simulation, (EnvironmentPipe, Pipe.SourceFilters)) else simulation
-        
-        src_id = self._source_ids[source]
-        sim_id = self._simulaion_ids[simulation]
-        lrn_id = self._learner_ids[learner] if learner else None
-        
-        return (src_id, sim_id, lrn_id)
+    @abstractmethod
+    def filter(self, item: Learner) -> Dict[Any,Any]:
+        ...
 
-class Task(Filter[Iterable[SimulatedInteraction], Iterable[Any]]):
+class EnvironmentTask(Filter[Tuple[Simulation,Iterable[Union[SimulatedInteraction, LoggedInteraction]]], Dict[Any,Any]]):
 
-    def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Optional[Learner]) -> None:
+    @abstractmethod
+    def filter(self, interactions: Iterable[Union[SimulatedInteraction, LoggedInteraction]]) -> Dict[Any,Any]:
+        ...
 
-        self.sim_pipe = simulation
-        self.learner  = SafeLearner(learner) if learner else None
+class EvaluationTask(Filter[Tuple[Learner,Iterable[Union[SimulatedInteraction, LoggedInteraction]]], Iterable[Dict[Any,Any]]]):
 
-        if isinstance(simulation, EnvironmentPipe):
-            self.sim_source = simulation._source
-            self.sim_filter = Pipe.join(simulation._filters)
-        elif isinstance(simulation, Pipe.SourceFilters):
-            self.sim_source = simulation._source
-            self.sim_filter = simulation._filter
-        else:
-            self.sim_source = simulation
-            self.sim_filter = IdentityFilter()
+    @abstractmethod
+    def filter(self, item: Tuple[Learner,Iterable[Union[SimulatedInteraction, LoggedInteraction]]]) -> Iterable[Dict[Any,Any]]:
+        return super().filter(item)
 
-        self.src_id = src_id
-        self.sim_id = sim_id
-        self.lrn_id = lrn_id
+class WorkItem(Filter[Iterable[SimulatedInteraction], Iterable[Any]]):
 
-class SimulationEvaluationTask(Task):
+    def __init__(self, 
+        learner: Optional[Tuple[int, Learner]], 
+        environ: Optional[Tuple[int, Simulation]],
+        task   : Union[LearnerTask, EnvironmentTask, EvaluationTask],
+        seed   : int = None) -> None:
 
-    def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Learner, seed: int) -> None:
-        self._seed = seed
-        super().__init__(src_id, sim_id, lrn_id, simulation, learner)
+        self.environ = environ
+        self.learner = learner
+        self.task    = task
+        self.seed    = seed
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Any]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Tuple[str, Union[int,Tuple[int,...]], Dict[Any,Any] ]:
+        if self.environ is None:
+            with CobaConfig.logger.time(f"Recording Learner {self.learner[0]} parameters..."):
+                return ["L", self.learner[0], self.task.filter(self.learner[1]) ]
 
+        if self.learner is None:
+            with CobaConfig.logger.time(f"Calculating Simulation {self.environ[0]} statistics..."):
+                return ["S", self.environ[0], self.task.filter((self.environ[1],interactions)) ]
+
+        if self.environ and self.learner:
+            with CobaConfig.logger.time(f"Evaluating learner {self.learner[0]} on Simulation {self.environ[0]}..."):
+                evals  = self.task.filter((self.learner[1], interactions, CobaRandom(self.seed)))
+                rows_T = defaultdict(list)
+
+                for row in evals:
+                    for col,val in row.items():
+                        if col == "rewards" : col="reward"
+                        if col == "reveals" : col="reveal"
+                        rows_T[col].append(val)
+
+                return ["I", (self.environ[0], self.learner[0]), {"_packed": rows_T}]
+
+class OnPolicyEvaluationTask(EvaluationTask):
+
+    def filter(self, item: Tuple[Learner,Iterable[SimulatedInteraction], CobaRandom]) -> Iterable[Dict[Any,Any]]:
+
+        learner      = deepcopy(item[0])
+        interactions = item[1]
+        random       = item[2]
+
+        if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
 
-        learner = deepcopy(self.learner)
-        random  = CobaRandom(self._seed)
+        for interaction in interactions:
 
-        with CobaConfig.logger.time(f"Evaluating learner {self.lrn_id} on Simulation {self.sim_id}..."):
+            context = interaction.context
+            actions = interaction.actions
 
-            row_data = defaultdict(list)
+            probs,info = learner.predict(context, actions)
 
-            seen_keys = []
+            action = random.choice(actions, probs)
+            reveal = interaction.kwargs.get("reveals", interaction.kwargs["rewards"])[actions.index(action)]
+            prob   = probs[actions.index(action)]
 
-            for i,interaction in enumerate(interactions):
+            info = learner.learn(context, action, reveal, prob, info) or {}
 
-                context = interaction.context
-                actions = interaction.actions
+            learn_info = info
+            choice_info = {k:v[actions.index(action)] for k,v in interaction.kwargs.items()}
 
-                probs,info = learner.predict(context, actions)
+            yield {**choice_info, **learn_info}
 
-                action = random.choice(actions, probs)
-                reveal = interaction.kwargs.get("reveals", interaction.kwargs["rewards"])[actions.index(action)]
-                prob   = probs[actions.index(action)]
-
-                info = learner.learn(context, action, reveal, prob, info) or {}
-
-                row_key_values = {}
-                row_key_values.update(info)
-                row_key_values.update({k:v[actions.index(action)] for k,v in interaction.kwargs.items()})
-
-                for key,value in row_key_values.items():
-                    if key == "rewards": key = "reward"
-                    if key == "reveals": key = "reveal"
-
-                    if key in seen_keys:
-                        row_data[key].append(value)
-                    else:
-                        seen_keys.append(key)
-                        row_data[key].extend([None]*i)
-                        row_data[key].append(value)
-
-            yield Transaction.interactions(self.sim_id, self.lrn_id, _packed=row_data)
-
-class WarmStartEvaluationTask(Task):
+class WarmStartEvaluationTask(EvaluationTask):
 
     def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Learner, seed: int) -> None:
         self._seed = seed
@@ -162,219 +159,257 @@ class WarmStartEvaluationTask(Task):
 
             yield Transaction.interactions(self.sim_id, self.lrn_id, _packed=row_data)
 
-class SimulationTask(Task):
+class SimpleLearnerTask(LearnerTask):
+    def filter(self, item: Learner) -> Dict[Any,Any]:
+        item = SafeLearner(item)
+        return {"full_name": item.full_name, **item.params}
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Any]:
+class SimpleEnvironmentTask(EnvironmentTask):
 
-        with CobaConfig.logger.time(f"Calculating Simulation {self.sim_id} statistics..."):
-            extra_statistics = {}
+    def filter(self, item: Tuple[Simulation,Iterable[Union[SimulatedInteraction, LoggedInteraction]]]) -> Dict[Any,Any]:
 
-            contexts,actions,rewards = zip(*[ (i.context, i.actions, i.kwargs["rewards"]) for i in interactions])
+            environment  = item[0]
 
-            if isinstance(self.sim_source, (ClassificationSimulation,OpenmlSimulation)):
+            source = self._source_repr(environment)
+            params = self._pipe_params(environment)
 
-                try:
-                    import numpy as np
-                    import scipy.sparse as sp
-                    import scipy.stats as st
-                    from sklearn.feature_extraction import FeatureHasher
-                    from sklearn.tree import DecisionTreeClassifier
-                    from sklearn.model_selection import cross_val_score
-                    from sklearn.metrics import pairwise_distances
-                    from sklearn.decomposition import TruncatedSVD, PCA
-
-                    encoder = InteractionTermsEncoder('x')
-
-                    X   = [ encoder.encode(x=c, a=[]) for c in contexts ]
-                    Y   = [ a[r.index(1)] for a,r in zip(actions,rewards)]
-                    C   = collections.defaultdict(list)
-                    clf = DecisionTreeClassifier(random_state=1)
-
-                    if isinstance(X[0][0],tuple):
-                        X = FeatureHasher(n_features=2**14, input_type="pair").fit_transform(X)
-
-                    if len(Y) > 5:
-                        scores = cross_val_score(clf, X, Y, cv=5)
-                        extra_statistics["bayes_rate_avg"] = round(scores.mean(),4)
-                        extra_statistics["bayes_rate_iqr"] = round(st.iqr(scores),4)
-
-                    svd = TruncatedSVD(n_components=8) if sp.issparse(X) else PCA()                    
-                    svd.fit(X)
-                    extra_statistics["PcaVarExplained"] = svd.explained_variance_ratio_[:8].tolist()
-
-                    for x,y in zip(X,Y):
-                        C[y].append(x)
-
-                    if sp.issparse(X):
-                        centroids = sp.vstack([sp.csr_matrix(sp.vstack(c).mean(0)) for c in C.values()])
-                    else:
-                        centroids = np.vstack([np.vstack(c).mean(0) for c in C.values()])
-
-                    centroid_order = list(C.keys())
-                    centroid_index = [ centroid_order.index(y) for y in Y ]
-                    centroid_dists = pairwise_distances(X,centroids)
-                    closest_index  = centroid_dists.argmin(1)
-                    cluster_purity = (closest_index == centroid_index).mean()
-
-                    extra_statistics["centroid_purity"]   = round(cluster_purity,4)
-                    extra_statistics["centroid_distance"] = round(median(centroid_dists[range(centroid_dists.shape[0]),centroid_index]),4)
-
-                except ImportError:
-                    pass
-
-                labels     = set()
-                features   = set()
-                feat_cnts  = []
-                label_cnts = defaultdict(int)
-
-                for c,a,f in zip(contexts,actions,rewards):
-
-                    inter_label = a[f.index(1)]
-                    inter_feats = c.keys() if isinstance(c,dict) else range(len(c))
-
-                    labels.add(inter_label)
-                    features.update(inter_feats)
-                    feat_cnts.append(len(inter_feats))
-                    label_cnts[inter_label] += 1
-
-                extra_statistics["action_cardinality"] = len(labels)
-                extra_statistics["context_dimensions"] = len(features)
-                extra_statistics["context_median_nz" ] = median(feat_cnts)
-                extra_statistics["imbalance_ratio"   ] = round(max(label_cnts.values())/min(label_cnts.values()),4)
-
-            source = self._source_repr()
-            params = self._pipe_params()
-
-            yield Transaction.simulation(self.sim_id, source=source, **params, **extra_statistics)
-
-    def _source_repr(self) -> str:
-        if isinstance(self.sim_pipe, EnvironmentPipe):
-            return self.sim_pipe.source_repr
+            return {"source": source, **params}
+            
+    def _source_repr(self, env) -> str:
+        if isinstance(env, EnvironmentPipe):
+            return env.source_repr
         else:
-            return self.sim_pipe.__class__.__name__
+            return env.__class__.__name__
     
-    def _pipe_params(self) -> Dict[str,Any]:
-        if isinstance(self.sim_pipe, EnvironmentPipe):
-            return self.sim_pipe.params
+    def _pipe_params(self, env) -> Dict[str,Any]:
+        if isinstance(env, EnvironmentPipe):
+            return env.params
         else:
             return {}
 
-class CreateTasks(Source[Iterable[Task]]):
+class ClassEnvironmentTask(EnvironmentTask):
 
-    def __init__(self, simulations: Sequence[Simulation], learners: Sequence[Learner], seed: int = None, isWarmStart: bool = False) -> None:
-        self._simulations = simulations
-        self._learners    = learners
-        self._seed        = seed
-        self._isWarmStart = isWarmStart
+    def filter(self, item: Tuple[Simulation,Iterable[Union[SimulatedInteraction, LoggedInteraction]]]) -> Dict[Any,Any]:
 
-    def read(self) -> Iterable[Task]:
+        contexts,actions,rewards = zip(*[ (i.context, i.actions, i.kwargs["rewards"]) for i in item[1]])
+
+        try:
+            import numpy as np
+            import scipy.sparse as sp
+            import scipy.stats as st
+            from sklearn.feature_extraction import FeatureHasher
+            from sklearn.tree import DecisionTreeClassifier
+            from sklearn.model_selection import cross_val_score
+            from sklearn.metrics import pairwise_distances
+            from sklearn.decomposition import TruncatedSVD, PCA
+
+            env_statistics = {}
+
+            X   = [ InteractionTermsEncoder('x').encode(x=c, a=[]) for c in contexts ]
+            Y   = [ a[r.index(1)] for a,r in zip(actions,rewards)]
+            C   = collections.defaultdict(list)
+            clf = DecisionTreeClassifier(random_state=1)
+
+            if isinstance(X[0][0],tuple):
+                X = FeatureHasher(n_features=2**14, input_type="pair").fit_transform(X)
+
+            if len(Y) > 5:
+                scores = cross_val_score(clf, X, Y, cv=5)
+                env_statistics["bayes_rate_avg"] = round(scores.mean(),4)
+                env_statistics["bayes_rate_iqr"] = round(st.iqr(scores),4)
+
+            svd = TruncatedSVD(n_components=8) if sp.issparse(X) else PCA()                    
+            svd.fit(X)
+            env_statistics["PcaVarExplained"] = svd.explained_variance_ratio_[:8].tolist()
+
+            for x,y in zip(X,Y):
+                C[y].append(x)
+
+            if sp.issparse(X):
+                centroids = sp.vstack([sp.csr_matrix(sp.vstack(c).mean(0)) for c in C.values()])
+            else:
+                centroids = np.vstack([np.vstack(c).mean(0) for c in C.values()])
+
+            centroid_order = list(C.keys())
+            centroid_index = [ centroid_order.index(y) for y in Y ]
+            centroid_dists = pairwise_distances(X,centroids)
+            closest_index  = centroid_dists.argmin(1)
+            cluster_purity = (closest_index == centroid_index).mean()
+
+            env_statistics["centroid_purity"]   = round(cluster_purity,4)
+            env_statistics["centroid_distance"] = round(median(centroid_dists[range(centroid_dists.shape[0]),centroid_index]),4)
+
+        except ImportError:
+            pass
+
+        labels     = set()
+        features   = set()
+        feat_cnts  = []
+        label_cnts = defaultdict(int)
+
+        for c,a,f in zip(contexts,actions,rewards):
+
+            inter_label = a[f.index(1)]
+            inter_feats = c.keys() if isinstance(c,dict) else range(len(c))
+
+            labels.add(inter_label)
+            features.update(inter_feats)
+            feat_cnts.append(len(inter_feats))
+            label_cnts[inter_label] += 1
+
+        env_statistics["action_cardinality"] = len(labels)
+        env_statistics["context_dimensions"] = len(features)
+        env_statistics["context_median_nz" ] = median(feat_cnts)
+        env_statistics["imbalance_ratio"   ] = round(max(label_cnts.values())/min(label_cnts.values()),4)
+
+        return { **SimpleEnvironmentTask().filter(item), **env_statistics }
+
+class CreateWorkItems(Source[Iterable[WorkItem]]):
+
+    def __init__(self, 
+        environs        : Sequence[Simulation], 
+        learners        : Sequence[Learner],
+        learner_task    : LearnerTask,
+        environment_task: EnvironmentTask,
+        evaluation_task : EvaluationTask,        
+        seed            : int = None) -> None:
+                
+        self._environs = environs
+        self._learners = learners
+        
+        self._learner_task     = learner_task
+        self._environment_task = environment_task
+        self._evaluation_task  = evaluation_task
+        
+        self._seed = seed
+
+    def read(self) -> Iterable[WorkItem]:
 
         #we rely on sim_id to make sure we don't do duplicate work. So long as self._simulations
         #is always in the exact same order we should be fine. In the future we may want to consider.
         #adding a better check for simulations other than assigning an index based on their order.
 
-        identifier = Identifier()
+        keyed_learners = dict(enumerate(self._learners))
+        keyed_environs = dict(enumerate(self._environs))
 
-        for simulation in self._simulations:
-            yield SimulationTask(*identifier.id(simulation, None), simulation, None)
+        for lrn in keyed_learners.items():
+            yield WorkItem(lrn, None, self._learner_task, self._seed)
 
-        for simulation, learner in product(self._simulations, self._learners):
-            yield SimulationEvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed) if not self._isWarmStart else WarmStartEvaluationTask(*identifier.id(simulation, learner), simulation, learner, self._seed)
-
-class FilterFinished(Filter[Iterable[Task], Iterable[Task]]):
+        for env in keyed_environs.items():
+            yield WorkItem(None, env, self._environment_task, self._seed)
+            
+        for lrn, env in product(keyed_learners.items(), keyed_environs.items()):
+            yield WorkItem(lrn, env, self._evaluation_task, self._seed)
+            
+class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
     def __init__(self, restored: Result) -> None:
         self._restored = restored
 
-    def filter(self, tasks: Iterable[Task]) -> Iterable[Task]:
+    def filter(self, tasks: Iterable[WorkItem]) -> Iterable[WorkItem]:
 
-        def is_not_complete(task: Task):
+        def is_not_complete(task: WorkItem):
 
-            if isinstance(task,SimulationTask):
-                return task.sim_id not in self._restored.simulations
+            if not task.environ:
+                return task.learner[0] not in self._restored.learners
 
-            if isinstance(task,SimulationEvaluationTask):
-                return (task.sim_id,task.lrn_id) not in self._restored._interactions
+            if not task.learner:
+                return task.environ[0] not in self._restored.simulations
 
-            raise Exception("Unrecognized Task")
+            return (task.environ[0],task.learner[0]) not in self._restored._interactions
 
         return filter(is_not_complete, tasks)
 
-class ChunkBySource(Filter[Iterable[Task], Iterable[Iterable[Task]]]):
+class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
 
-    def filter(self, tasks: Iterable[Task]) -> Iterable[Iterable[Task]]:
+    def filter(self, tasks: Iterable[WorkItem]) -> Iterable[Iterable[WorkItem]]:
 
-        srt_key = lambda t: t.src_id
-        grp_key = lambda t: t.src_id
+        tasks  = list(tasks)
+        chunks = defaultdict(list)
 
-        tasks = list(tasks)
+        for env_task in [t for t in tasks if t.environ]:
+            chunks[self._get_source(env_task.environ[1])].append(env_task)
 
-        for _, group in groupby(sorted(tasks, key=srt_key), key=grp_key):
-            yield list(group)
+        for lrn_task in [t for t in tasks if not t.environ]:
+            yield [lrn_task]
 
-class ChunkByTask(Filter[Iterable[Task], Iterable[Iterable[Task]]]):
+        for chunk in chunks.values():
+            yield chunk
+    
+    def _get_source(self, env):
+        return env._source  if isinstance(env, (EnvironmentPipe, Pipe.SourceFilters)) else env
 
-    def filter(self, tasks: Iterable[Task]) -> Iterable[Iterable[Task]]:
+class ChunkByTask(Filter[Iterable[WorkItem], Iterable[Iterable[WorkItem]]]):
+
+    def filter(self, tasks: Iterable[WorkItem]) -> Iterable[Iterable[WorkItem]]:
 
         for task in tasks:
             yield [ task ]
 
-class ChunkByNone(Filter[Iterable[Task], Iterable[Iterable[Task]]]):
+class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
-    def filter(self, tasks: Iterable[Task]) -> Iterable[Iterable[Task]]:
-        yield list(tasks)
-
-class ProcessTasks(Filter[Iterable[Iterable[Task]], Iterable[Any]]):
-
-    def filter(self, chunks: Iterable[Iterable[Task]]) -> Iterable[Any]:
-
-        for chunk in chunks:
-            for transaction in self._process_chunk(chunk):
-                yield transaction
-
-    def _process_chunk(self, task_group: Iterable[Task]) -> Iterable[Any]:
-
-        source_by_id = { t.src_id: t.sim_source for t in task_group }
-        filter_by_id = { t.sim_id: t.sim_filter for t in task_group }
-
-        srt_src = lambda t: t.src_id
-        grp_src = lambda t: t.src_id
-        srt_sim = lambda t: t.sim_id
-        grp_sim = lambda t: t.sim_id
+    def filter(self, chunk: Iterable[WorkItem]) -> Iterable[Any]:
 
         with CobaConfig.logger.log(f"Processing chunk..."):
 
-            for src_id, tasks_for_src in groupby(sorted(task_group, key=srt_src), key=grp_src):
+            for env_source, tasks_for_env_source in groupby(sorted(chunk, key=self._get_source_sort), key=self._get_source):
 
                 try:
 
-                    tasks_for_src = list(tasks_for_src)
-                    sim_cnt_for_src = len(set([task.sim_id for task in tasks_for_src]))
+                    if env_source is None:
+                        loaded_source = None
+                    else:
+                        with CobaConfig.logger.time(f"Loading source {env_source}..."):
+                            
+                            #This is not ideal. I'm not sure how it should be improved so it is being left for now.
+                            #Maybe add a flag to the Benchmark to say whether the source should be stashed in mem?
+                            loaded_source = list(env_source.read())
 
-                    with CobaConfig.logger.time(f"Creating source {src_id} from {source_by_id[src_id]}..."):
-                        #This is not ideal. I'm not sure how it should be improved so it is being left for now.
-                        #Maybe add a flag to the Benchmark to say whether the source should be stashed in mem?
-                        loaded_source = list(source_by_id[src_id].read())
+                    filter_groups = [ (k,list(g)) for k,g in groupby(sorted(tasks_for_env_source, key=self._get_id_filter_sort), key=self._get_id_filter) ]
 
-                    for sim_id, tasks_for_sim in groupby(sorted(tasks_for_src, key=srt_sim), key=grp_sim):
+                    for (env_id,env_filter), tasks_for_env_filter in filter_groups:
 
-                        with CobaConfig.logger.time(f"Creating simulation {sim_id} from source {src_id}..."):
-                            interactions = list(filter_by_id[sim_id].filter(loaded_source))
+                        if loaded_source is None:
+                            interactions = []
+                        else:
+                            with CobaConfig.logger.time(f"Creating simulation {env_id} from {env_source}..."):
+                                interactions = list(env_filter.filter(loaded_source)) if env_filter else loaded_source
 
-                        if sim_cnt_for_src == 1:
-                            #this will hopefully help with memory...
-                            loaded_source = None
-                            gc.collect()
+                            if len(filter_groups) == 1:
+                                #this will hopefully help with memory...
+                                loaded_source = None
+                                gc.collect()
 
-                        if not interactions:
-                            CobaConfig.logger.log(f"Simulation {sim_id} has nothing to evaluate (likely due to `take` being larger than the simulation).")
-                            return
+                            if not interactions:
+                                CobaConfig.logger.log(f"Simulation {env_id} has nothing to evaluate (this is often due to `take` being larger than source).")
+                                return
 
-                        for task in tasks_for_sim:
+                        for task in tasks_for_env_filter:
                             try:
-                                for transaction in task.filter(interactions): 
-                                    yield transaction
+                                yield task.filter(interactions)
                             except Exception as e:
                                 CobaConfig.logger.log_exception(e)
 
                 except Exception as e:
                     CobaConfig.logger.log_exception(e)
+
+    def _get_source(self, task:WorkItem) -> Simulation:
+        if task.environ is None: 
+            return None
+        try:
+            return task.environ[1]._source 
+        except:
+            return task.environ[1]
+    
+    def _get_source_sort(self, task:WorkItem) -> int:
+        return id(self._get_source(task))
+
+    def _get_id_filter(self, task:WorkItem) -> Tuple[int, Filter[Simulation,Simulation]]:
+        if task.environ is None:
+            return (-1,None)
+        try:
+            return (task.environ[0], task.environ[1]._filter) 
+        except:
+            return (task.environ[0], None)
+
+    def _get_id_filter_sort(self, task:WorkItem) -> int:
+        return self._get_id_filter(task)[0]

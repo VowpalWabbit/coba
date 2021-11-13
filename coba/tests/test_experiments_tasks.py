@@ -1,15 +1,19 @@
 import unittest
 
 import json
-from typing import cast, Iterable, Any
+from typing import cast, Iterable
 
-from coba.environments import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, EnvironmentPipe, ValidationSimulation
-from coba.pipes        import Source, Pipe, IdentityFilter
+from coba.environments import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, Environments, ValidationSimulation
+from coba.pipes        import Pipe
 from coba.learners     import Learner, RandomLearner
+from coba.random       import CobaRandom
 
 from coba.experiments.results import Result
 from coba.experiments.tasks import (
-    Task, SimulationTask, SimulationEvaluationTask, CreateTasks, FilterFinished, ChunkBySource, ProcessTasks, Identifier
+    WorkItem, CreateWorkItems, RemoveFinished, 
+    ChunkByTask, ChunkBySource, ProcessWorkItems,
+    OnPolicyEvaluationTask, EvaluationTask,
+    ClassEnvironmentTask, SimpleEnvironmentTask
 )
 
 #for testing purposes
@@ -27,27 +31,13 @@ class ModuloLearner(Learner):
     def learn(self, key, context, action, reward, probability):
         pass
 
-class OneTimeSource(Source):
-
-    def __init__(self, source: Source) -> None:
-        self._source = source
-        self._read_count = 0
-
-    def read(self):
-        if self._read_count > 0: raise Exception("Read more than once")
-
-        self._read_count += 1
-
-        return self._source.read()
-
-class ObserveTask(Task):
-
-    def __init__(self, src_id, sim_id, lrn_id, simulation, learner) -> None:
-        super().__init__(src_id, sim_id, lrn_id, simulation, learner)
+class ObserveTask(EvaluationTask):
+    def __init__(self):
         self.observed = []
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Any]:
-        self.observed = list(interactions)
+    def filter(self, item):
+        self.observed = item
+        return {}
 
 class CountReadSimulation:
     def __init__(self) -> None:
@@ -70,145 +60,116 @@ class CountFilter:
 
 class CreateTasks_Tests(unittest.TestCase):
 
-    def test_one_sim_two_learns(self):
+    def test_two_sim_two_learns(self):
         sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
-
-        tasks = list(CreateTasks([sim1,sim2], [lrn1,lrn2], seed=10).read())
-
-        self.assertEqual(6, len(tasks))
-
-        self.assertEqual(0, tasks[0].sim_id)
-        self.assertEqual(1, tasks[1].sim_id)
-
-        self.assertEqual(0, tasks[2].sim_id)
-        self.assertEqual(0, tasks[3].sim_id)
-        self.assertEqual(1, tasks[4].sim_id)
-        self.assertEqual(1, tasks[5].sim_id)
-
-        self.assertEqual(None, tasks[0].lrn_id)
-        self.assertEqual(None, tasks[1].lrn_id)
-
-        self.assertEqual(0, tasks[2].lrn_id)
-        self.assertEqual(1, tasks[3].lrn_id)
-        self.assertEqual(0, tasks[4].lrn_id)
-        self.assertEqual(1, tasks[5].lrn_id)
-
-        self.assertEqual(5, len(set([id(t.learner) for t in tasks ])))
-        self.assertEqual(2, len(set([id(t.sim_source) for t in tasks ])))
-
-    def test_one_src_two_sims_two_learns(self):
-        src1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         
-        sim1 = Pipe.join(src1, [IdentityFilter()])
-        sim2 = Pipe.join(src1, [IdentityFilter()])
-        lrn1 = ModuloLearner("1")
-        lrn2 = ModuloLearner("2")
+        tasks = list(CreateWorkItems([sim1,sim2], [lrn1,lrn2], None, None, None, seed=10).read())
 
-        tasks = list(CreateTasks([sim1,sim2], [lrn1,lrn2], seed=10).read())
+        self.assertEqual(8, len(tasks))
 
-        self.assertEqual(6, len(tasks))
+        self.assertEqual(2, len([t for t in tasks if not t.environ and t.learner]) )
+        self.assertEqual(2, len([t for t in tasks if t.environ and not t.learner]) )
+        self.assertEqual(4, len([t for t in tasks if t.environ and t.learner]) )
 
-        self.assertEqual(0, tasks[0].sim_id)
-        self.assertEqual(1, tasks[1].sim_id)
-        
-        self.assertEqual(0, tasks[2].sim_id)
-        self.assertEqual(0, tasks[3].sim_id)
-        self.assertEqual(1, tasks[4].sim_id)
-        self.assertEqual(1, tasks[5].sim_id)
+class RemoveFinished_Tests(unittest.TestCase):
 
-        self.assertEqual(None, tasks[0].lrn_id)
-        self.assertEqual(None, tasks[1].lrn_id)
+    def test_three_finished(self):
 
-        self.assertEqual(0, tasks[2].lrn_id)
-        self.assertEqual(1, tasks[3].lrn_id)
-        self.assertEqual(0, tasks[4].lrn_id)
-        self.assertEqual(1, tasks[5].lrn_id)
-
-        self.assertEqual(5, len(set([id(t.learner) for t in tasks ])))
-        self.assertEqual(1, len(set([id(t.sim_source) for t in tasks ])))
-
-class Unifinshed_Tests(unittest.TestCase):
-
-    def test_one_finished(self):
-
-        restored = Result(sim_rows=[dict(simulation_id=0)],int_rows=[dict(simulation_id=0,learner_id=1)])
-
-        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        lrn1 = ModuloLearner("1")
+        restored = Result(lrn_rows=[dict(learner_id=1)], sim_rows= [dict(simulation_id=0)], int_rows=[dict(simulation_id=0,learner_id=1)])
 
         tasks = [
-            SimulationEvaluationTask(0,0,0,sim1,lrn1,10),
-            SimulationEvaluationTask(0,0,1,sim1,lrn1,10),
-            SimulationEvaluationTask(0,1,0,sim1,lrn1,10),
-            SimulationEvaluationTask(0,1,1,sim1,lrn1,10),
+            WorkItem( (0,), None, None),
+            WorkItem( (1,), None, None),
+            WorkItem( None, (0,), None),
+            WorkItem( None, (1,), None),
+            WorkItem( (0,), (0,), None),
+            WorkItem( (0,), (1,), None),
+            WorkItem( (1,), (0,), None),
+            WorkItem( (1,), (1,), None),
         ]
 
-        unfinished_tasks = list(FilterFinished(restored).filter(tasks))
+        unfinished_tasks = list(RemoveFinished(restored).filter(tasks))
 
-        self.assertEqual(3, len(unfinished_tasks))
+        self.assertEqual(5, len(unfinished_tasks))
 
-        self.assertEqual(0, unfinished_tasks[0].sim_id)
-        self.assertEqual(1, unfinished_tasks[1].sim_id)
-        self.assertEqual(1, unfinished_tasks[2].sim_id)
+class ChunkBySource_Tests(unittest.TestCase):
 
-        self.assertEqual(0, unfinished_tasks[0].lrn_id)
-        self.assertEqual(0, unfinished_tasks[1].lrn_id)
-        self.assertEqual(1, unfinished_tasks[2].lrn_id)
-
-class GroupBySource_Tests(unittest.TestCase):
-
-    def test_one_group(self):
-        sim1 = OneTimeSource(LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a)))
-        lrn1 = ModuloLearner("1")
+    def test_four_groups(self):
+        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
 
         tasks = [
-            SimulationEvaluationTask(0,0,0,sim1,lrn1,10),
-            SimulationEvaluationTask(0,0,1,sim1,lrn1,10),
-            SimulationEvaluationTask(0,1,0,sim1,lrn1,10),
-            SimulationEvaluationTask(0,1,1,sim1,lrn1,10),
+            WorkItem( (0,), None, None),
+            WorkItem( (1,), None, None),
+            WorkItem( None, (0,sim1), None),
+            WorkItem( None, (1,sim2), None),
+            WorkItem( (0,), (0,sim1), None),
+            WorkItem( (0,), (2,sim1), None),
+            WorkItem( (1,), (0,sim1), None),
+            WorkItem( (1,), (1,sim2), None),
         ]
 
         groups = list(ChunkBySource().filter(tasks))
         tasks  = list(groups[0])
         
-        self.assertEqual(1, len(groups))
-        self.assertEqual(4, len(tasks))
+        self.assertEqual(4, len(groups))
 
-    def test_two_groups(self):
-        sim1 = OneTimeSource(LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a)))
-        sim2 = OneTimeSource(LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a)))
-        lrn1 = ModuloLearner("1")
+    def test_pipe_four_groups(self):
+        sim1 = Environments(ValidationSimulation()).shuffle([1,2])._environments
+        sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
 
         tasks = [
-            SimulationEvaluationTask(0,0,0,sim1,lrn1,10),
-            SimulationEvaluationTask(0,0,1,sim1,lrn1,10),
-            SimulationEvaluationTask(1,1,0,sim2,lrn1,10),
-            SimulationEvaluationTask(1,1,1,sim2,lrn1,10),
+            WorkItem( (0,), None, None),
+            WorkItem( (1,), None, None),
+            WorkItem( None, (0,sim1[0]), None),
+            WorkItem( None, (1,sim2), None),
+            WorkItem( (0,), (0,sim1[0]), None),
+            WorkItem( (0,), (2,sim1[1]), None),
+            WorkItem( (1,), (0,sim1[0]), None),
+            WorkItem( (1,), (1,sim2), None),
         ]
 
         groups = list(ChunkBySource().filter(tasks))
+        tasks  = list(groups[0])
         
-        group_1_tasks = list(groups[0])
-        group_2_tasks = list(groups[1])
+        self.assertEqual(4, len(groups))
 
-        self.assertEqual(2, len(groups))
-        self.assertEqual(2, len(group_1_tasks))
-        self.assertEqual(2, len(group_2_tasks))
+class ChunkByTask_Tests(unittest.TestCase):
 
-        self.assertEqual(0, group_1_tasks[0].sim_id)
-        self.assertEqual(0, group_1_tasks[1].sim_id)
-        self.assertEqual(1, group_2_tasks[0].sim_id)
-        self.assertEqual(1, group_2_tasks[1].sim_id)
+    def test_eight_groups(self):
+        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
 
-        self.assertEqual(0, group_1_tasks[0].lrn_id)
-        self.assertEqual(1, group_1_tasks[1].lrn_id)
-        self.assertEqual(0, group_2_tasks[0].lrn_id)
-        self.assertEqual(1, group_2_tasks[1].lrn_id)
+        tasks = [
+            WorkItem( (0,), None, None),
+            WorkItem( (1,), None, None),
+            WorkItem( None, (0,(sim1,)), None),
+            WorkItem( None, (1,(sim2,)), None),
+            WorkItem( (0,), (0,(sim1,)), None),
+            WorkItem( (0,), (2,(sim1,)), None),
+            WorkItem( (1,), (0,(sim1,)), None),
+            WorkItem( (1,), (1,(sim2,)), None),
+        ]
 
-class SimulationTask_Tests(unittest.TestCase):
+        groups = list(ChunkByTask().filter(tasks))
+        tasks  = list(groups[0])
+        
+        self.assertEqual(8, len(groups))
+
+class SimpleEnvironmentTask_Tests(unittest.TestCase):
+
+    def test_classification_statistics_dense(self):
+
+        simulation = ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10)
+        task       = SimpleEnvironmentTask()
+        row        = task.filter((simulation,simulation.read()))
+
+        self.assertEqual({'source':'ClassificationSimulation'}, task.filter((simulation,simulation.read())))
+
+class ClassEnvironmentTask_Tests(unittest.TestCase):
 
     def test_classification_statistics_dense(self):
 
@@ -219,22 +180,19 @@ class SimulationTask_Tests(unittest.TestCase):
         else:
             sklearn_installed = True
 
-        simulation   = ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10)
-        task         = SimulationTask(0, 1, None, simulation, None)
-        transactions = list(task.filter(simulation.read()))
+        simulation = ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10)
+        task       = ClassEnvironmentTask()
+        row        = task.filter((simulation,simulation.read()))
 
-        self.assertEqual(1  , len(transactions))
-        self.assertEqual('S', transactions[0][0])
-        self.assertEqual(1  , transactions[0][1])
-        self.assertEqual(2  , transactions[0][2]["action_cardinality"])
-        self.assertEqual(2  , transactions[0][2]["context_dimensions"])
-        self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
+        self.assertEqual(2, row["action_cardinality"])
+        self.assertEqual(2, row["context_dimensions"])
+        self.assertEqual(1, row["imbalance_ratio"])
 
         if sklearn_installed:
-            self.assertEqual(1  , transactions[0][2]["bayes_rate_avg"])
-            self.assertEqual(0  , transactions[0][2]["bayes_rate_iqr"])
-            self.assertEqual(1  , transactions[0][2]["centroid_purity"])
-            self.assertEqual(0  , transactions[0][2]["centroid_distance"])
+            self.assertEqual(1, row["bayes_rate_avg"])
+            self.assertEqual(0, row["bayes_rate_iqr"])
+            self.assertEqual(1, row["centroid_purity"])
+            self.assertEqual(0, row["centroid_distance"])
 
     def test_classification_statistics_sparse1(self):
         
@@ -248,95 +206,83 @@ class SimulationTask_Tests(unittest.TestCase):
         c1 = [{"1":1, "2":2}, "A"]
         c2 = [{"1":3, "2":4}, "B"]
 
-        simulation   = ClassificationSimulation([c1,c2]*10)
-        task         = SimulationTask(0, 1, None, simulation, None)
-        transactions = list(task.filter(simulation.read()))
+        simulation = ClassificationSimulation([c1,c2]*10)
+        task       = ClassEnvironmentTask()
+        row        = task.filter((simulation,simulation.read()))
 
-        self.assertEqual(1  , len(transactions))
-        self.assertEqual('S', transactions[0][0])
-        self.assertEqual(1  , transactions[0][1])
-        self.assertEqual(2  , transactions[0][2]["action_cardinality"])
-        self.assertEqual(2  , transactions[0][2]["context_dimensions"])
-        self.assertEqual(1  , transactions[0][2]["imbalance_ratio"])
+        self.assertEqual(2, row["action_cardinality"])
+        self.assertEqual(2, row["context_dimensions"])
+        self.assertEqual(1, row["imbalance_ratio"])
 
         if sklearn_installed:
-            self.assertEqual(1  , transactions[0][2]["bayes_rate_avg"])
-            self.assertEqual(0  , transactions[0][2]["bayes_rate_iqr"])
-            self.assertEqual(1  , transactions[0][2]["centroid_purity"])
-            self.assertEqual(0  , transactions[0][2]["centroid_distance"])
+            self.assertEqual(1, row["bayes_rate_avg"])
+            self.assertEqual(0, row["bayes_rate_iqr"])
+            self.assertEqual(1, row["centroid_purity"])
+            self.assertEqual(0, row["centroid_distance"])
 
     def test_classification_statistics_encodable(self):
 
         c1 = [{"1":1, "2":2 }, "A" ]
         c2 = [{"1":3, "2":4 }, "B" ]
 
-        simulation   = ClassificationSimulation([c1,c2]*10)
-        task         = SimulationTask(0, 1, None, simulation, None)
-        transactions = list(task.filter(simulation.read()))
+        simulation = ClassificationSimulation([c1,c2]*10)
+        task       = ClassEnvironmentTask()
+        row        = task.filter((simulation,simulation.read()))
 
-        json.dumps(transactions)
+        json.dumps(row)
 
-class EvaluationTask_Tests(unittest.TestCase):
+class OnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_simple(self):
 
-        task = SimulationEvaluationTask(0,0,0,None,RandomLearner(),0)
+        task = OnPolicyEvaluationTask()
 
-        transactions = list(task.filter([
+        rows = list(task.filter((RandomLearner(),[
             SimulatedInteraction(1,[1,2,3],rewards=[4,5,6]),
             SimulatedInteraction(1,[1,2,3],rewards=[4,5,6]),
             SimulatedInteraction(1,[1,2,3],rewards=[4,5,6]),
             SimulatedInteraction(1,[1,2,3],rewards=[4,5,6]),
-        ]))
+        ],CobaRandom(0))))
 
-        self.assertEqual("I", transactions[0][0])
-        self.assertEqual((0,0), transactions[0][1])
-        self.assertEqual({"_packed": { 'reward':[4,6,5,4]}}, transactions[0][2])
+        self.assertEqual([{'rewards':reward} for reward in [4,6,5,4]], rows)
 
     def test_reveals_results(self):
+        task = OnPolicyEvaluationTask()
 
-        task = SimulationEvaluationTask(0,0,0,None,RandomLearner(),0)
-
-        transactions = list(task.filter([
+        rows = list(task.filter((RandomLearner(),[
             SimulatedInteraction(1,[1,2,3],reveals=[4,5,6],rewards=[1,2,3]),
             SimulatedInteraction(1,[1,2,3],reveals=[4,5,6],rewards=[4,5,6]),
             SimulatedInteraction(1,[1,2,3],reveals=[4,5,6],rewards=[7,8,9]),
             SimulatedInteraction(1,[1,2,3],reveals=[4,5,6],rewards=[0,1,2]),
-        ]))
+        ],CobaRandom(0))))
 
-        self.assertEqual("I", transactions[0][0])
-        self.assertEqual((0,0), transactions[0][1])
-        self.assertEqual({"_packed": { 'reveal':[4,6,5,4], 'reward':[1,6,8,0]}}, transactions[0][2])
+        self.assertEqual([{'reveals':rev, 'rewards':rwd} for rev,rwd in zip([4,6,5,4],[1,6,8,0])], rows)
 
     def test_partial_extras(self):
+        task = OnPolicyEvaluationTask()
 
-        task = SimulationEvaluationTask(0,0,0,None,RandomLearner(),0)
-
-        transactions = list(task.filter([
+        actual = list(task.filter((RandomLearner(),[
             SimulatedInteraction(1,[1,2,3],rewards=[1,2,3]),
             SimulatedInteraction(1,[1,2,3],rewards=[4,5,6], extra=[2,3,4]),
             SimulatedInteraction(1,[1,2,3],rewards=[7,8,9], extra=[2,3,4]),
             SimulatedInteraction(1,[1,2,3],rewards=[0,1,2], extra=[2,3,4]),
-        ]))
+        ],CobaRandom(0))))
 
-        self.assertEqual("I", transactions[0][0])
-        self.assertEqual((0,0), transactions[0][1])
-        self.assertEqual({"_packed": {'reward':[1,6,8,0], 'extra':[None,4,3,2] }}, transactions[0][2])
+        expected = [ {'rewards':1}, {'rewards':6, 'extra':4}, {'rewards':8, 'extra':3}, {'rewards':0, 'extra':2} ]
+
+        self.assertEqual(expected, actual)
 
     def test_sparse_actions(self):
+        task = OnPolicyEvaluationTask()
 
-        task = SimulationEvaluationTask(0,0,0,None,RandomLearner(),0)
-
-        transactions = list(task.filter([
+        rows = list(task.filter((RandomLearner(),[
             SimulatedInteraction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[1,2,3]),
             SimulatedInteraction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[4,5,6]),
             SimulatedInteraction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[7,8,9]),
             SimulatedInteraction(1,[{'a':1},{'b':2},{'c':3}],reveals=[4,5,6],rewards=[0,1,2]),
-        ]))
+        ],CobaRandom(0))))
 
-        self.assertEqual("I", transactions[0][0])
-        self.assertEqual((0,0), transactions[0][1])
-        self.assertEqual({"_packed": { 'reveal':[4,6,5,4], 'reward':[1,6,8,0]}}, transactions[0][2])
+        self.assertEqual([{'reveals':rev, 'rewards':rwd} for rev,rwd in zip([4,6,5,4],[1,6,8,0])], rows)
 
 class ProcessTasks_Tests(unittest.TestCase):
 
@@ -344,47 +290,63 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
-        task = ObserveTask(0, 0, 0, sim1, lrn1)
+        task = ObserveTask()
 
-        list(ProcessTasks().filter([[task]]))
+        item = WorkItem( (1,lrn1), (1,sim1), task)
 
-        self.assertEqual(len(task.observed), 5)
+        transactions = list(ProcessWorkItems().filter([item]))
 
-    def test_two_tasks_one_source_one_simulation(self):
+        self.assertEqual(len(task.observed[1]), 5)
+        self.assertEqual(['I', (1,1), {"_packed":{}}], transactions[0])
+
+    def test_two_eval_tasks_one_source_one_simulation(self):
 
         sim1 = CountReadSimulation()
+
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
 
-        task1 = ObserveTask(0, 0, 0, sim1, lrn1)
-        task2 = ObserveTask(0, 0, 1, sim1, lrn2)
+        task1 = ObserveTask()
+        task2 = ObserveTask()
 
-        list(ProcessTasks().filter([[task1, task2]]))
+        items = [ WorkItem((0,lrn1),(0,sim1), task1), WorkItem((1,lrn2),(0,sim1), task2) ]
 
-        self.assertEqual(len(task1.observed), 1)
-        self.assertEqual(len(task2.observed), 1)
+        transactions = list(ProcessWorkItems().filter(items))
 
-        self.assertEqual(task1.observed[0].context, 0)
-        self.assertEqual(task2.observed[0].context, 0)
+        self.assertEqual(len(task1.observed[1]), 1)
+        self.assertEqual(len(task2.observed[1]), 1)
 
-    def test_two_tasks_two_sources_two_simulations(self):
+        self.assertEqual(task1.observed[1][0].context, 0)
+        self.assertEqual(task2.observed[1][0].context, 0)
+
+        self.assertEqual(['I', (0,0), {"_packed":{}}], transactions[0])
+        self.assertEqual(['I', (0,1), {"_packed":{}}], transactions[1])
+
+    def test_two_eval_tasks_two_sources_two_simulations(self):
 
         sim1 = CountReadSimulation()
+        sim2 = CountReadSimulation()
+
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
 
-        task1 = ObserveTask(0, 0, 0, sim1, lrn1)
-        task2 = ObserveTask(1, 1, 1, sim1, lrn2)
+        task1 = ObserveTask()
+        task2 = ObserveTask()
 
-        list(ProcessTasks().filter([[task1, task2]]))
+        items = [ WorkItem((0,lrn1),(0,sim1), task1), WorkItem((1,lrn2),(1,sim2), task2) ]
 
-        self.assertEqual(len(task1.observed), 1)
-        self.assertEqual(len(task2.observed), 1)
+        transactions = list(ProcessWorkItems().filter(items))
 
-        self.assertEqual(task1.observed[0].context, 0)
-        self.assertEqual(task2.observed[0].context, 1)
+        self.assertEqual(len(task1.observed[1]), 1)
+        self.assertEqual(len(task2.observed[1]), 1)
 
-    def test_two_tasks_one_source_two_simulations(self):
+        self.assertEqual(task1.observed[1][0].context, 0)
+        self.assertEqual(task2.observed[1][0].context, 0)
+
+        self.assertIn(['I', (0,0), {"_packed":{}}], transactions)
+        self.assertIn(['I', (1,1), {"_packed":{}}], transactions)
+
+    def test_two_eval_tasks_one_source_two_simulations(self):
 
         filter = CountFilter()
         src1 = CountReadSimulation()
@@ -393,66 +355,39 @@ class ProcessTasks_Tests(unittest.TestCase):
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
 
-        task1 = ObserveTask(0, 0, 0, sim1, lrn1)
-        task2 = ObserveTask(0, 1, 1, sim2, lrn2)
+        task1 = ObserveTask()
+        task2 = ObserveTask()
 
-        list(ProcessTasks().filter([[task1, task2]]))
+        items = [ WorkItem((0,lrn1),(0,sim1), task1), WorkItem((1,lrn2),(1,sim2), task2) ]
 
-        self.assertEqual(len(task1.observed), 1)
-        self.assertEqual(len(task2.observed), 1)
+        transactions = list(ProcessWorkItems().filter(items))
 
-        self.assertEqual(task1.observed[0].context, (0,0))
-        self.assertEqual(task2.observed[0].context, (0,1))
+        self.assertEqual(len(task1.observed[1]), 1)
+        self.assertEqual(len(task2.observed[1]), 1)
 
-class Identify_Tests(unittest.TestCase):
+        self.assertEqual(task1.observed[1][0].context, (0,0))
+        self.assertEqual(task2.observed[1][0].context, (0,1))
 
-    def test_simple(self):
+        self.assertEqual(['I', (0,0), []], transactions[0])
+        self.assertEqual(['I', (1,1), []], transactions[1])
 
-        source  = ValidationSimulation()
-        pipe1   = EnvironmentPipe(source,[])
-        pipe2   = Pipe.SourceFilters(source,[])
-        pipe3   = EnvironmentPipe(pipe1,[])
-        pipe4   = Pipe.SourceFilters(pipe2,[])
-        learner = RandomLearner()
+    def test_two_eval_tasks_one_source_two_simulations(self):
 
-        identifier = Identifier()
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
 
-        src_id,sim_id,lrn_id = identifier.id(source,learner)
+        task1 = ObserveTask()
+        task2 = ObserveTask()
 
-        self.assertEqual(0, src_id)
-        self.assertEqual(0, sim_id)
-        self.assertEqual(0, lrn_id)
+        items = [ WorkItem((0,lrn1), None, task1), WorkItem((1,lrn2), None, task2) ]
 
-        src_id,sim_id,lrn_id = identifier.id(source,learner)
+        transactions = list(ProcessWorkItems().filter(items))
 
-        self.assertEqual(0, src_id)
-        self.assertEqual(0, sim_id)
-        self.assertEqual(0, lrn_id)
+        self.assertEqual(task1.observed, lrn1)
+        self.assertEqual(task2.observed, lrn2)
 
-        src_id,sim_id,lrn_id = identifier.id(pipe1,learner)
-
-        self.assertEqual(0, src_id)
-        self.assertEqual(1, sim_id)
-        self.assertEqual(0, lrn_id)
-
-        src_id,sim_id,lrn_id = identifier.id(pipe2,learner)
-
-        self.assertEqual(0, src_id)
-        self.assertEqual(2, sim_id)
-        self.assertEqual(0, lrn_id)
-
-        src_id,sim_id,lrn_id = identifier.id(pipe3,learner)
-
-        self.assertEqual(0, src_id)
-        self.assertEqual(3, sim_id)
-        self.assertEqual(0, lrn_id)
-
-        src_id,sim_id,lrn_id = identifier.id(pipe4,learner)
-
-        self.assertEqual(0, src_id)
-        self.assertEqual(4, sim_id)
-        self.assertEqual(0, lrn_id)
-
+        self.assertEqual(['L', 0, {}], transactions[0])
+        self.assertEqual(['L', 1, {}], transactions[1])
 
 if __name__ == '__main__':
     unittest.main()

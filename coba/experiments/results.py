@@ -50,7 +50,6 @@ class Table:
 
         self._columns = sorted(set(all_columns), key=col_order)
 
-
         self._rows_keys: List[Hashable               ] = []               
         self._rows_flat: Dict[Hashable, Dict[str,Any]] = {}
         self._rows_pack: Dict[Hashable, Dict[str,Any]] = {}

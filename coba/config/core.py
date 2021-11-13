@@ -18,7 +18,7 @@ from coba.config.cachers import Cacher
 
 class ExperimentConfig:
     
-    def __init__(self, processes:int, maxtasksperchild:int, chunk_by: Literal["source","task","none"] = "source"):
+    def __init__(self, processes:int, maxtasksperchild:int, chunk_by: Literal["source","task"] = "source"):
         self.processes        = processes
         self.maxtasksperchild = maxtasksperchild
         self.chunk_by         = chunk_by

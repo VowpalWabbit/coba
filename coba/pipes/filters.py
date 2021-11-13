@@ -40,7 +40,7 @@ class Cartesian(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
             for filter in self._filters:
                 yield filter.filter(item)
 
-class IdentityFilter(Filter[Any, Any]):
+class Identity(Filter[Any, Any]):
     def filter(self, item:Any) -> Any:
         return item
 

@@ -39,7 +39,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
         def process(self, item) -> None:
 
             try:
-                self._stdout.write(self._filter.filter([item]))
+                self._stdout.write(self._filter.filter(item))
 
             except StopPipe:
                 pass

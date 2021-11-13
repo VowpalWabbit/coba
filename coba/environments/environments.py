@@ -51,7 +51,7 @@ class Environments:
         return self
 
     def shuffle(self, seeds: Sequence[int]) -> 'Environments':
-        shuffle_filters = [ Shuffle(seed) for seed in seeds ]
+        shuffle_filters    = [ Shuffle(seed) for seed in seeds ]
         self._environments = [ EnvironmentPipe(e,s) for e in self._environments for s in shuffle_filters ]
         return self
 
