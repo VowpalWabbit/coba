@@ -3,7 +3,7 @@ from typing_extensions import Literal
 from typing import Sequence, Optional
 
 from coba.learners import Learner
-from coba.environments import Simulation
+from coba.environments import SimulatedEnvironment
 from coba.config import CobaConfig
 from coba.exceptions import CobaFatal
 from coba.pipes import Pipe, MemoryIO
@@ -19,7 +19,7 @@ class Experiment:
     """A Benchmark which uses simulations to calculate performance statistics for learners."""
 
     def __init__(self,
-        simulations     : Sequence[Simulation],
+        simulations     : Sequence[SimulatedEnvironment],
         learners        : Sequence[Learner],
         learner_task    : LearnerTask     = SimpleLearnerTask(), 
         environment_task: EnvironmentTask = SimpleEnvironmentTask(),

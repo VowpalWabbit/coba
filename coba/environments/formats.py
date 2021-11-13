@@ -7,12 +7,12 @@ from typing import Sequence, Dict, Any
 from coba.registry import CobaRegistry
 from coba.pipes import Filter
 
-from coba.environments.core import Simulation
+from coba.environments.core import SimulatedEnvironment
 from coba.environments.pipes import EnvironmentPipe
 
-class EnvironmentFileFmtV1(Filter[Dict[str,Any], Sequence[Simulation]]):
+class EnvironmentFileFmtV1(Filter[Dict[str,Any], Sequence[SimulatedEnvironment]]):
 
-    def filter(self, config: Dict[str,Any]) -> Sequence[Simulation]:
+    def filter(self, config: Dict[str,Any]) -> Sequence[SimulatedEnvironment]:
 
         variables = { k: CobaRegistry.construct(v) for k,v in config.get("variables",{}).items() }
 

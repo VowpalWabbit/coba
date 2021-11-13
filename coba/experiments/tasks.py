@@ -12,7 +12,7 @@ from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
 from coba.pipes import Source, Pipe, Filter, Identity
-from coba.environments import Simulation, EnvironmentPipe, LoggedInteraction, SimulatedInteraction
+from coba.environments import SimulatedEnvironment, EnvironmentPipe, LoggedInteraction, SimulatedInteraction
 from coba.encodings import InteractionTermsEncoder
 
 from coba.experiments.transactions import Transaction
@@ -24,7 +24,7 @@ class LearnerTask(Filter[Learner,Dict[Any,Any]], ABC):
     def filter(self, item: Learner) -> Dict[Any,Any]:
         ...
 
-class EnvironmentTask(Filter[Tuple[Simulation,Iterable[Union[SimulatedInteraction, LoggedInteraction]]], Dict[Any,Any]]):
+class EnvironmentTask(Filter[Tuple[SimulatedEnvironment,Iterable[Union[SimulatedInteraction, LoggedInteraction]]], Dict[Any,Any]]):
 
     @abstractmethod
     def filter(self, interactions: Iterable[Union[SimulatedInteraction, LoggedInteraction]]) -> Dict[Any,Any]:
@@ -38,9 +38,9 @@ class EvaluationTask(Filter[Tuple[Learner,Iterable[Union[SimulatedInteraction, L
 
 class WorkItem(Filter[Iterable[SimulatedInteraction], Iterable[Any]]):
 
-    def __init__(self, 
+    def __init__(self,
         learner: Optional[Tuple[int, Learner]], 
-        environ: Optional[Tuple[int, Simulation]],
+        environ: Optional[Tuple[int, SimulatedEnvironment]],
         task   : Union[LearnerTask, EnvironmentTask, EvaluationTask],
         seed   : int = None) -> None:
 
@@ -102,7 +102,7 @@ class OnPolicyEvaluationTask(EvaluationTask):
 
 class WarmStartEvaluationTask(EvaluationTask):
 
-    def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: Simulation, learner: Learner, seed: int) -> None:
+    def __init__(self, src_id:int, sim_id: int, lrn_id: int, simulation: SimulatedEnvironment, learner: Learner, seed: int) -> None:
         self._seed = seed
         super().__init__(src_id, sim_id, lrn_id, simulation, learner)
 
@@ -166,7 +166,7 @@ class SimpleLearnerTask(LearnerTask):
 
 class SimpleEnvironmentTask(EnvironmentTask):
 
-    def filter(self, item: Tuple[Simulation,Iterable[Union[SimulatedInteraction, LoggedInteraction]]]) -> Dict[Any,Any]:
+    def filter(self, item: Tuple[SimulatedEnvironment,Iterable[Union[SimulatedInteraction, LoggedInteraction]]]) -> Dict[Any,Any]:
 
             environment  = item[0]
 
@@ -189,7 +189,7 @@ class SimpleEnvironmentTask(EnvironmentTask):
 
 class ClassEnvironmentTask(EnvironmentTask):
 
-    def filter(self, item: Tuple[Simulation,Iterable[Union[SimulatedInteraction, LoggedInteraction]]]) -> Dict[Any,Any]:
+    def filter(self, item: Tuple[SimulatedEnvironment,Iterable[Union[SimulatedInteraction, LoggedInteraction]]]) -> Dict[Any,Any]:
 
         contexts,actions,rewards = zip(*[ (i.context, i.actions, i.kwargs["rewards"]) for i in item[1]])
 
@@ -267,7 +267,7 @@ class ClassEnvironmentTask(EnvironmentTask):
 class CreateWorkItems(Source[Iterable[WorkItem]]):
 
     def __init__(self, 
-        environs        : Sequence[Simulation], 
+        environs        : Sequence[SimulatedEnvironment], 
         learners        : Sequence[Learner],
         learner_task    : LearnerTask,
         environment_task: EnvironmentTask,
@@ -392,7 +392,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                 except Exception as e:
                     CobaConfig.logger.log_exception(e)
 
-    def _get_source(self, task:WorkItem) -> Simulation:
+    def _get_source(self, task:WorkItem) -> SimulatedEnvironment:
         if task.environ is None: 
             return None
         try:
@@ -403,7 +403,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
     def _get_source_sort(self, task:WorkItem) -> int:
         return id(self._get_source(task))
 
-    def _get_id_filter(self, task:WorkItem) -> Tuple[int, Filter[Simulation,Simulation]]:
+    def _get_id_filter(self, task:WorkItem) -> Tuple[int, Filter[SimulatedEnvironment,SimulatedEnvironment]]:
         if task.environ is None:
             return (-1,None)
         try:

@@ -259,35 +259,37 @@ class Binary(SimulationFilter):
 
             yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
 
-class SimulationToWarmStart(SimulationFilter):
-    """
-    TODO: Docs
-    """
-    def __init__(self, n_warmstart):
+class ToWarmStart(SimulationFilter):
+    def __init__(self, n_warmstart:int, seed:int = 1):
+        
         self._n_warmstart = n_warmstart
+        self._seed = seed
+        
 
     @property
     def params(self) -> Dict[str, Any]:
         return { "n_warmstart": self._n_warmstart }
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Union[SimulatedInteraction, LoggedInteraction]]:
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Union[LoggedInteraction, SimulatedInteraction]]:
 
-        underlying_iterable     = iter(interactions)
-        warm_start_interactions = islice(underlying_iterable, self._n_warmstart)
-        other_interactions = underlying_iterable
+        self._rng = CobaRandom(self._seed)
 
-        for interaction in warm_start_interactions:
-            num_actions = len(interaction.actions)
-            randomIndex = CobaRandom.randint(0, num_actions)
-            probability = 1.0 / num_actions
+        underlying_iterable    = iter(interactions)
+        logged_interactions    = map(self._to_logged_interaction, islice(underlying_iterable, self._n_warmstart))
+        simulated_interactions = underlying_iterable
 
-            action = interaction.actions[randomIndex]
-            reward = interaction.rewards[randomIndex]
+        return chain(logged_interactions, simulated_interactions)
 
-            yield LoggedInteraction(interaction.context, action, reward, probability)
+    def _to_logged_interaction(self, interaction: SimulatedInteraction) -> LoggedInteraction:        
+        num_actions   = len(interaction.actions)
+        probabilities = [1/num_actions] * num_actions 
+        
+        selected_index       = self._rng.choice(list(range(num_actions)), probabilities)
+        selected_action      = interaction.actions[selected_index]
+        selected_probability = probabilities[selected_index]
+        selected_reward      = interaction.kwargs.get("reveals", interaction.kwargs.get("rewards", None))[selected_index]
 
-        for interaction in other_interactions:
-            yield interaction
+        return LoggedInteraction(interaction.context, selected_action, selected_reward, selected_probability)
 
     def __repr__(self) -> str:
         return str(self.params)

@@ -10,8 +10,8 @@ import json
 import math
 
 from itertools import islice
-from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, Callable, Optional
 from typing_extensions import OrderedDict
+from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, Callable, Optional
 
 from requests import Response
 
@@ -99,31 +99,27 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
 
     def filter(self, interactions: Iterable[Any]) -> Iterable[Any]:
 
-        if self._count is None: return interactions
+        if self._count is None: 
+            return interactions
+        else:
+            interactions = iter(interactions)
+            resevoir     = list(islice(interactions,self._count))
 
-        interactions = iter(interactions)
+            if self._seed is not None:            
+                rng = CobaRandom(self._seed)
+                W = 1
+
+                try:
+                    while True:
+                        [r1,r2,r3] = rng.randoms(3)
+                        W = W * math.exp(math.log(r1)/self._count)
+                        S = math.floor(math.log(r2)/math.log(1-W))
+                        resevoir[int(r3*self._count-.001)] = next(itertools.islice(interactions,S,S+1))
+                except StopIteration:
+                    pass
+
+            return resevoir if len(resevoir) == self._count else []
         
-        resevoir = list(islice(interactions,self._count))
-
-        if self._seed is not None:            
-            rng = CobaRandom(self._seed)
-
-            W = math.exp(math.log(rng.random())/self._count)
-            i = 0
-            S = 0
-
-            while i == S:
-                S = math.floor(math.log(rng.random())/math.log(1-W))
-
-                for i, interaction in enumerate(interactions):
-                    if i == S:
-                        resevoir[rng.randint(0,self._count-1)] = interaction
-                        W = W * math.exp(math.log(rng.random())/self._count)
-                        break
-
-        return resevoir if len(resevoir) == self._count else []
-        
-
     def __repr__(self) -> str:
         return str(self.params)
 
@@ -273,7 +269,7 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
 
         data, encoders = self._parse_file(source)
 
-        return data if self._skip_encoding == True else Encodes(encoders).filter(data)
+        return data if self._skip_encoding == True else Encode(encoders).filter(data)
 
 class CsvReader(Filter[Iterable[str], _T_Data]):
 
@@ -333,7 +329,7 @@ class ManikReader(Filter[Iterable[str], _T_SparseData]):
         # we skip first line because it just has metadata
         return LibSvmReader().filter(islice(lines,1,None))
 
-class Encodes(Filter[_T_Data, _T_Data]):
+class Encode(Filter[_T_Data, _T_Data]):
 
     def __init__(self, encoders: Dict[str,Encoder], fit_using=None, has_header:bool = True):
         self._encoders   = encoders
@@ -384,7 +380,7 @@ class Encodes(Filter[_T_Data, _T_Data]):
 
             yield item
 
-class Drops(Filter[_T_Data, _T_Data]):
+class Drop(Filter[_T_Data, _T_Data]):
 
     def __init__(self, drop_cols: Sequence[Any] = [], drop_row: Callable[[_T_Row], bool] = None) -> None:
         self._drop_cols = drop_cols
@@ -424,7 +420,7 @@ class Drops(Filter[_T_Data, _T_Data]):
 
                 yield row
 
-class Structures(Filter[_T_Data, Iterable[Any]]):
+class Structure(Filter[_T_Data, Iterable[Any]]):
 
     def __init__(self, split_cols: Sequence[Any]) -> None:
         self._col_structure = split_cols
@@ -467,7 +463,7 @@ class Structures(Filter[_T_Data, Iterable[Any]]):
         else:
             return row.pop(keys)
 
-class Flattens(Filter[_T_Data, _T_Data]):
+class Flatten(Filter[_T_Data, _T_Data]):
 
     def filter(self, data: _T_Data) -> _T_Data:
 
@@ -488,7 +484,7 @@ class Flattens(Filter[_T_Data, _T_Data]):
 
             yield row
 
-class Defaults(Filter[_T_Data, _T_Data]):
+class Default(Filter[_T_Data, _T_Data]):
 
     def __init__(self, defaults: Dict[str, Any]) -> None:
         self._defaults = defaults

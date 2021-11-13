@@ -7,7 +7,7 @@ from coba.config import CobaConfig, NullLogger
 from coba.environments import (
     SimulatedInteraction, MemorySimulation, ClassificationSimulation,
     LambdaSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation,
-    ValidationSimulation
+    DebugSimulation
 )
 
 CobaConfig.logger = NullLogger()
@@ -189,7 +189,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
 class ValidationSimulation_Tests(unittest.TestCase):
     def test_simple(self):
-        self.assertEqual(500, len(list(ValidationSimulation().read())))
+        self.assertEqual(500, len(list(DebugSimulation().read())))
 
 class CsvSimulation_Tests(unittest.TestCase):
 

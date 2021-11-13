@@ -1,10 +1,11 @@
 """Various caching implementations."""
 
+import gzip
+
 from hashlib import md5
-from gzip import compress, decompress
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union, Generic, Dict, TypeVar, Optional
+from typing import Union, Generic, Dict, TypeVar, Optional, Iterable
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
@@ -60,7 +61,7 @@ class MemoryCacher(Cacher[_K, _V]):
     def rmv(self, key: _K) -> None:
         del self._cache[key]
 
-class DiskCacher(Cacher[str, bytes]):
+class DiskCacher(Cacher[str, Iterable[bytes]]):
     """A cache that writes bytes to disk.
     
     The DiskCache compresses all values before storing in order to conserve space.
@@ -93,9 +94,11 @@ class DiskCacher(Cacher[str, bytes]):
         Args:
             filename: Requested filename to retreive from the cache.
         """
-        return decompress(self._cache_path(key).read_bytes())
+        with gzip.open(self._cache_path(key), 'rb') as f:
+            for line in f:
+                yield line
 
-    def put(self, key: str, value: bytes):
+    def put(self, key: str, value: Iterable[bytes]):
         """Put a key and its bytes into the cache.
         
         In the case of a key collision this will overwrite the existing key
@@ -106,7 +109,11 @@ class DiskCacher(Cacher[str, bytes]):
         """
 
         self._cache_path(key).touch()
-        self._cache_path(key).write_bytes(compress(value))
+        
+        if isinstance(value,bytes): value = [value]
+
+        with gzip.open(self._cache_path(key), 'wb') as f:
+            f.writelines(value)
 
     def rmv(self, key: str) -> None:
         """Remove a key from the cache.

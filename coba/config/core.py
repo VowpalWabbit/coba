@@ -7,7 +7,7 @@ import traceback
 
 from pathlib import Path
 from typing_extensions import Literal
-from typing import Dict, Any
+from typing import Dict, Any, Iterable
 
 from coba.exceptions import CobaException
 from coba.registry import CobaRegistry
@@ -126,7 +126,7 @@ class CobaConfig_meta(type):
         cls._api_keys = value
 
     @property
-    def cacher(cls) -> Cacher[str,bytes]:
+    def cacher(cls) -> Cacher[str,Iterable[bytes]]:
         cls._cacher = cls._cacher if cls._cacher else cls._config['cacher']
         return cls._cacher
 

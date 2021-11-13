@@ -3,13 +3,13 @@ import collections
 from itertools import chain, repeat
 from typing import Sequence, Dict, Any, Iterable, Union, List, Callable, cast, Optional
 
-from coba.pipes import Source, Pipe, Filter, HttpIO, DiskIO, ResponseToLines, CsvReader, ArffReader, LibSvmReader, ManikReader, Structures
+from coba.pipes import Source, Pipe, Filter, HttpIO, DiskIO, ResponseToLines, CsvReader, ArffReader, LibSvmReader, ManikReader, Structure
 from coba.random import CobaRandom
 from coba.encodings import InteractionTermsEncoder
 
-from coba.environments.core import Context, Action, Simulation, SimulatedInteraction
+from coba.environments.core import Context, Action, SimulatedEnvironment, SimulatedInteraction
 
-class MemorySimulation(Simulation):
+class MemorySimulation(SimulatedEnvironment):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
 
     def __init__(self, interactions: Sequence[SimulatedInteraction]) -> None:
@@ -30,7 +30,7 @@ class MemorySimulation(Simulation):
         """Read the interactions in this simulation."""
         return self._interactions
 
-class ClassificationSimulation(Simulation):
+class ClassificationSimulation(SimulatedEnvironment):
     """A simulation created from classification dataset with features and labels.
 
     ClassificationSimulation turns labeled observations from a classification data set
@@ -80,7 +80,7 @@ class ClassificationSimulation(Simulation):
 
         return self._interactions
 
-class RegressionSimulation(Simulation):
+class RegressionSimulation(SimulatedEnvironment):
     """A simulation created from regression dataset with features and labels.
     
     RegressionSimulation turns labeled observations from a regression data set
@@ -120,7 +120,7 @@ class RegressionSimulation(Simulation):
         """Read the interactions in this simulation."""
         return self._interactions
 
-class LambdaSimulation(Simulation):
+class LambdaSimulation(SimulatedEnvironment):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
 
     Remarks:
@@ -160,7 +160,7 @@ class LambdaSimulation(Simulation):
         
         return self._interactions
 
-class ReaderSimulation(Simulation):
+class ReaderSimulation(SimulatedEnvironment):
 
     def __init__(self, 
         reader   : Filter[Iterable[str], Any], 
@@ -190,7 +190,7 @@ class ReaderSimulation(Simulation):
 
     def _load_interactions(self) -> Sequence[SimulatedInteraction]:
         parsed_rows_iter = iter(self._reader.filter(self._source.read()))
-        structured_rows = Structures([None, self._label_column]).filter(parsed_rows_iter)
+        structured_rows = Structure([None, self._label_column]).filter(parsed_rows_iter)
 
         return ClassificationSimulation(structured_rows).read()
 
@@ -233,18 +233,27 @@ class ManikSimulation(ReaderSimulation):
         """Paramaters describing the simulation."""
         return { "manik": super().params["source"] }
 
-class ValidationSimulation(LambdaSimulation):
+class DebugSimulation(LambdaSimulation):
     
-    def __init__(self, n_interactions: int=500, n_actions: int=10, n_context_feats:int = 10, n_action_feats:int = 10, seed:int=1) -> None:
+    def __init__(self, 
+        n_interactions: int=500, 
+        n_actions: int=10, 
+        n_context_feats:int = 10, 
+        n_action_feats:int = 10, 
+        interactions: Sequence[str] = ["a","xa"],
+        seed:int=1) -> None:
 
         self._n_actions          = n_actions
         self._n_context_features = n_action_feats
         self._n_action_features  = n_context_feats
         self._seed               = seed
+        self._interactions       = interactions
 
         rng = CobaRandom(seed)
 
-        feature_count = max(1,n_context_feats) * max(1,n_action_feats)
+        interactions_encoder = InteractionTermsEncoder(self._interactions)
+
+        feature_count = len(interactions_encoder.encode(x=range(max(1,n_context_feats)),a=range(max(1,n_action_feats))))
         normalize     = lambda X: [ x/sum(X) for x in X]
 
         if n_action_feats == 0:
@@ -263,12 +272,11 @@ class ValidationSimulation(LambdaSimulation):
             W = weights[int(action)] if isinstance(action,str) else weights
             X = [1]                  if context is None        else context
             A = [1]                  if isinstance(action,str) else action
-            F = InteractionTermsEncoder(["xa"]).encode(x=X,a=A)
+            F = interactions_encoder.encode(x=X,a=A)
 
             r = sum([w*f for w,f in zip(W,F)])
-            e = (rng.random()-1/2)*1/8
 
-            return min(1,max(0,r+e))
+            return min(1,max(0,r))
 
         super().__init__(n_interactions, context, actions, reward)
 

@@ -18,10 +18,10 @@ if __name__ == '__main__':
         VowpalLearner(squarecb="all")
     ]
 
-    environments = Environments.from_test_sim(5000,3,2,2).shuffle([0,1,2])
+    environments = Environments.from_debug(5000,3,2,2).shuffle([0,1,2]).binary()
 
     #We then create our benchmark using our simulations and seeds
-    result = Experiment(environments,learners).config(processes=2,chunk_by='task').evaluate()
+    result = Experiment(environments,learners).evaluate()
 
     #After evaluating can create a quick summary plot to get a sense of how the learners performed
     result.plot_learners(err='sd')

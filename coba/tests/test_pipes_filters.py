@@ -1,6 +1,6 @@
 import unittest
 
-from coba.pipes import LibSvmReader, ArffReader, CsvReader, Flattens, Encodes, JsonEncode, Structures, Drops, Take, Identity, Shuffle
+from coba.pipes import LibSvmReader, ArffReader, CsvReader, Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.config import NullLogger, CobaConfig
 
@@ -234,7 +234,7 @@ class Flatten_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Flattens().filter(given)) )
+        self.assertEqual( expected, list(Flatten().filter(given)) )
 
     def test_dense_onehot_row_flatten(self):
 
@@ -247,7 +247,7 @@ class Flatten_Tests(unittest.TestCase):
         given    = [given_row0   , given_row1   ]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual(expected, list(Flattens().filter(given)) )
+        self.assertEqual(expected, list(Flatten().filter(given)) )
 
     def test_sparse_numeric_row_flatten(self):
 
@@ -260,7 +260,7 @@ class Flatten_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual(expected, list(Flattens().filter(given)) )
+        self.assertEqual(expected, list(Flatten().filter(given)) )
 
     def test_sparse_onehot_row_flatten(self):
 
@@ -273,7 +273,7 @@ class Flatten_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual(expected, list(Flattens().filter(given)) )
+        self.assertEqual(expected, list(Flatten().filter(given)) )
 
     def test_string_row_flatten(self):
         given_row0 = [ "abc", "def", "ghi" ]
@@ -282,56 +282,56 @@ class Flatten_Tests(unittest.TestCase):
         given    = [ given_row0    ]
         expected = [ expected_row0 ]
 
-        self.assertEqual(expected, list(Flattens().filter(given)) )
+        self.assertEqual(expected, list(Flatten().filter(given)) )
 
 class Encode_Tests(unittest.TestCase):
 
     def test_dense_encode_numeric_sans_header(self):
-        encode = Encodes({0:NumericEncoder(), 1:NumericEncoder()}, has_header=False)
+        encode = Encode({0:NumericEncoder(), 1:NumericEncoder()}, has_header=False)
         self.assertEqual( [[1,2],[4,5]], list(encode.filter([["1","2"],["4","5"]])))
 
     def test_dense_encode_onehot_sans_header(self):
-        encode = Encodes({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()}, has_header=False)
+        encode = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()}, has_header=False)
         self.assertEqual([[(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter([[1,4], [2,5], [2,6]])))
 
     def test_dense_encode_mixed_sans_header(self):
-        encode = Encodes({0:NumericEncoder(), 1:OneHotEncoder()}, has_header=False)
+        encode = Encode({0:NumericEncoder(), 1:OneHotEncoder()}, has_header=False)
         self.assertEqual( [[1,(1,0)],[2,(0,1)],[3,(0,1)]], list(encode.filter([[1,4],[2,5],[3,5]])))
 
     def test_sparse_encode_numeric_sans_header(self):
-        encode = Encodes({0:NumericEncoder(), 1:NumericEncoder()}, has_header=False)
+        encode = Encode({0:NumericEncoder(), 1:NumericEncoder()}, has_header=False)
         given    = [ {0:"1",1:"4"}, {0:"2",1:"5"}, {0:"3",1:"6"}]
         expected = [ {0:1,1:4}, {0:2,1:5}, {0:3,1:6}]
 
         self.assertEqual(expected, list(encode.filter(given)))
 
     def test_sparse_encode_onehot_sans_header(self):
-        encode   = Encodes({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()},has_header=False)
+        encode   = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()},has_header=False)
         given    = [{0:1,1:4}, {0:2,1:5}, {0:2,1:6}]
         expected = [ {0:(1,0,0), 1:(1,0,0)}, {0:(0,1,0), 1:(0,1,0)}, {0:(0,1,0), 1:(0,0,1)}]
 
         self.assertEqual(expected, list(encode.filter(given)))
 
     def test_sparse_encode_mixed_sans_header(self):
-        encode = Encodes({0:NumericEncoder(), 1:OneHotEncoder()}, has_header=False)
+        encode = Encode({0:NumericEncoder(), 1:OneHotEncoder()}, has_header=False)
         given    = [{0:"1",1:4},{0:"2",1:5},{0:"3",1:5}]
         expected = [{0:1,1:(1,0)},{0:2,1:(0,1)},{0:3,1:(0,1)}]
 
         self.assertEqual(expected, list(encode.filter(given)))
     
     def test_dense_encode_onehot_with_header(self):
-        encode = Encodes({'a':OneHotEncoder([1,2,3]), 'b':OneHotEncoder()}, has_header=True)
+        encode = Encode({'a':OneHotEncoder([1,2,3]), 'b':OneHotEncoder()}, has_header=True)
         self.assertEqual([['a','b'], [(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter([['a','b'], [1,4], [2,5], [2,6]])))
 
     def test_sparse_encode_onehot_sans_header(self):
-        encode   = Encodes({'a':OneHotEncoder([1,2,3]), 'b':OneHotEncoder()},has_header=True)
+        encode   = Encode({'a':OneHotEncoder([1,2,3]), 'b':OneHotEncoder()},has_header=True)
         given    = [{'a':0, 'b':1}, {0:1,1:4}, {0:2,1:5}, {0:2,1:6}]
         expected = [{'a':0, 'b':1}, {0:(1,0,0), 1:(1,0,0)}, {0:(0,1,0), 1:(0,1,0)}, {0:(0,1,0), 1:(0,0,1)}]
 
         self.assertEqual(expected, list(encode.filter(given)))
 
     def test_dense_encode_onehot_with_header_and_extra_encoder(self):
-        encode = Encodes({'a':OneHotEncoder([1,2,3]), 'b':OneHotEncoder(), 'c':StringEncoder()}, has_header=True)
+        encode = Encode({'a':OneHotEncoder([1,2,3]), 'b':OneHotEncoder(), 'c':StringEncoder()}, has_header=True)
         self.assertEqual([['a','b'], [(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter([['a','b'], [1,4], [2,5], [2,6]])))
 
 class JsonEncode_Tests(unittest.TestCase):
@@ -360,7 +360,7 @@ class Structures_Tests(unittest.TestCase):
         given    = [None, given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Structures([None, 2]).filter(given)) )
+        self.assertEqual( expected, list(Structure([None, 2]).filter(given)) )
 
     def test_sparse_numeric_row_structure(self):
 
@@ -373,7 +373,7 @@ class Structures_Tests(unittest.TestCase):
         given    = [None, given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Structures([None, 2]).filter(given)) )
+        self.assertEqual( expected, list(Structure([None, 2]).filter(given)) )
 
 class Drops_Tests(unittest.TestCase):
 
@@ -388,7 +388,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [None, given_row0, given_row1]
         expected = [None, expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drops(drop_cols=[1]).filter(given)) )
+        self.assertEqual( expected, list(Drop(drop_cols=[1]).filter(given)) )
 
     def test_dense_sans_header_drop_double_col(self):
 
@@ -401,7 +401,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [None, given_row0, given_row1]
         expected = [None, expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drops(drop_cols=[1,2]).filter(given)) )
+        self.assertEqual( expected, list(Drop(drop_cols=[1,2]).filter(given)) )
 
     def test_dense_with_header_drop_single_col(self):
 
@@ -414,7 +414,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [['a','b','c'], given_row0, given_row1]
         expected = [['a','c'], expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drops(drop_cols=['b']).filter(given)) )
+        self.assertEqual( expected, list(Drop(drop_cols=['b']).filter(given)) )
 
     def test_dense_with_header_drop_double_col(self):
 
@@ -427,7 +427,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [['a','b','c'], given_row0, given_row1]
         expected = [['a'], expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drops(drop_cols=['b','c']).filter(given)) )
+        self.assertEqual( expected, list(Drop(drop_cols=['b','c']).filter(given)) )
 
     def test_sparse_sans_header_drop_single_col(self):
 
@@ -440,7 +440,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [None, given_row0, given_row1]
         expected = [None, expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drops(drop_cols=[1]).filter(given)) )
+        self.assertEqual( expected, list(Drop(drop_cols=[1]).filter(given)) )
 
     def test_sparse_sans_header_drop_double_col(self):
 
@@ -453,7 +453,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [None, given_row0, given_row1]
         expected = [None, expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drops(drop_cols=[1,2]).filter(given)) )
+        self.assertEqual( expected, list(Drop(drop_cols=[1,2]).filter(given)) )
 
     def test_sparse_with_header_drop_single_col(self):
 
@@ -466,7 +466,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [{'a':0,'b':1,'c':2}, given_row0, given_row1]
         expected = [{'a':0      ,'c':2}, expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drops(drop_cols=['b']).filter(given)) )
+        self.assertEqual( expected, list(Drop(drop_cols=['b']).filter(given)) )
 
     def test_sparse_with_header_drop_double_col(self):
 
@@ -479,7 +479,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [{'a':0,'b':1,'c':2}, given_row0, given_row1]
         expected = [{'a':0}, expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drops(drop_cols=['b','c']).filter(given)) )
+        self.assertEqual( expected, list(Drop(drop_cols=['b','c']).filter(given)) )
 
 if __name__ == '__main__':
     unittest.main()

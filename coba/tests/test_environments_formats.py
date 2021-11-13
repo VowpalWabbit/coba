@@ -2,7 +2,7 @@ import json
 import unittest
 
 from coba.environments.formats import EnvironmentFileFmtV1
-from coba.environments.core import Simulation
+from coba.environments.core import SimulatedEnvironment
 
 class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
@@ -15,7 +15,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
-        self.assertIsInstance(simulations[0], Simulation)
+        self.assertIsInstance(simulations[0], SimulatedEnvironment)
         self.assertEqual({'openml':150}, simulations[0].params)
 
     def test_raw_simulation(self):
@@ -25,7 +25,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
-        self.assertIsInstance(simulations[0], Simulation)
+        self.assertIsInstance(simulations[0], SimulatedEnvironment)
         self.assertEqual({'openml':150}, simulations[0].params)
 
     def test_one_simulation_one_filter(self):
@@ -37,7 +37,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
-        self.assertIsInstance(simulations[0], Simulation)
+        self.assertIsInstance(simulations[0], SimulatedEnvironment)
         self.assertEqual({"openml":150, "take":10}, simulations[0].params)
 
     def test_one_simulation_two_filters(self):
@@ -50,8 +50,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
         self.assertEqual(2, len(simulations))
-        self.assertIsInstance(simulations[0], Simulation)
-        self.assertIsInstance(simulations[1], Simulation)
+        self.assertIsInstance(simulations[0], SimulatedEnvironment)
+        self.assertIsInstance(simulations[1], SimulatedEnvironment)
         self.assertEqual({"openml":150, "take":10}, simulations[0].params)
         self.assertEqual({"openml":150, "take":20}, simulations[1].params)
 
@@ -65,10 +65,10 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
         self.assertEqual(4, len(simulations))        
-        self.assertIsInstance(simulations[0], Simulation)
-        self.assertIsInstance(simulations[1], Simulation)
-        self.assertIsInstance(simulations[2], Simulation)
-        self.assertIsInstance(simulations[3], Simulation)
+        self.assertIsInstance(simulations[0], SimulatedEnvironment)
+        self.assertIsInstance(simulations[1], SimulatedEnvironment)
+        self.assertIsInstance(simulations[2], SimulatedEnvironment)
+        self.assertIsInstance(simulations[3], SimulatedEnvironment)
         self.assertEqual({"openml":150, "take":10}, simulations[0].params)
         self.assertEqual({"openml":150, "take":20}, simulations[1].params)
         self.assertEqual({"openml":151, "take":10}, simulations[2].params)
@@ -84,8 +84,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
-        self.assertIsInstance(simulations[0], Simulation)
-        self.assertIsInstance(simulations[1], Simulation)
+        self.assertIsInstance(simulations[0], SimulatedEnvironment)
+        self.assertIsInstance(simulations[1], SimulatedEnvironment)
         self.assertEqual({"openml":150}, simulations[0].params)
         self.assertEqual({"openml":151}, simulations[1].params)
 
@@ -98,8 +98,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
-        self.assertIsInstance(simulations[0], Simulation)
-        self.assertIsInstance(simulations[1], Simulation)
+        self.assertIsInstance(simulations[0], SimulatedEnvironment)
+        self.assertIsInstance(simulations[1], SimulatedEnvironment)
         self.assertEqual({"openml":150}, simulations[0].params)
         self.assertEqual({"openml":151}, simulations[1].params)
 
@@ -111,8 +111,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
-        self.assertIsInstance(simulations[0], Simulation)
-        self.assertIsInstance(simulations[1], Simulation)
+        self.assertIsInstance(simulations[0], SimulatedEnvironment)
+        self.assertIsInstance(simulations[1], SimulatedEnvironment)
         self.assertEqual({"openml":150}, simulations[0].params)
         self.assertEqual({"openml":151}, simulations[1].params)
 
@@ -131,12 +131,12 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
         self.assertEqual(6, len(simulations))
-        self.assertIsInstance(simulations[0], Simulation)
-        self.assertIsInstance(simulations[1], Simulation)
-        self.assertIsInstance(simulations[2], Simulation)
-        self.assertIsInstance(simulations[3], Simulation)
-        self.assertIsInstance(simulations[4], Simulation)
-        self.assertIsInstance(simulations[5], Simulation)
+        self.assertIsInstance(simulations[0], SimulatedEnvironment)
+        self.assertIsInstance(simulations[1], SimulatedEnvironment)
+        self.assertIsInstance(simulations[2], SimulatedEnvironment)
+        self.assertIsInstance(simulations[3], SimulatedEnvironment)
+        self.assertIsInstance(simulations[4], SimulatedEnvironment)
+        self.assertIsInstance(simulations[5], SimulatedEnvironment)
         self.assertEqual({"openml":150, "take":10}, simulations[0].params)
         self.assertEqual({"openml":150, "take":20}, simulations[1].params)
         self.assertEqual({"openml":151, "take":10}, simulations[2].params)
@@ -154,8 +154,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
         self.assertEqual(2, len(simulations))
-        self.assertIsInstance(simulations[0], Simulation)
-        self.assertIsInstance(simulations[1], Simulation)
+        self.assertIsInstance(simulations[0], SimulatedEnvironment)
+        self.assertIsInstance(simulations[1], SimulatedEnvironment)
         self.assertEqual({"openml":150, "take":10}, simulations[0].params)
         self.assertEqual({"openml":150, "take":20}, simulations[1].params)
 

@@ -3,7 +3,7 @@ import unittest
 import json
 from typing import cast, Iterable
 
-from coba.environments import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, Environments, ValidationSimulation
+from coba.environments import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, Environments, DebugSimulation
 from coba.pipes        import Pipe
 from coba.learners     import Learner, RandomLearner
 from coba.random       import CobaRandom
@@ -118,7 +118,7 @@ class ChunkBySource_Tests(unittest.TestCase):
         self.assertEqual(4, len(groups))
 
     def test_pipe_four_groups(self):
-        sim1 = Environments(ValidationSimulation()).shuffle([1,2])._environments
+        sim1 = Environments(DebugSimulation()).shuffle([1,2])._environments
         sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
 
         tasks = [

@@ -8,6 +8,7 @@ from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionTermsEncoder
+from coba.pipes import Take
 
 class Performance_Tests(unittest.TestCase):
     
@@ -151,6 +152,15 @@ class Performance_Tests(unittest.TestCase):
 
         except ImportError:
             unittest.skip("VW not installed. Skip this Test")
+
+    def test_take_performance(self):
+        
+        x = list(range(10000))
+        
+        time = statistics.mean(timeit.repeat(lambda:list(Take(2,seed=1).filter(x)), repeat=10, number=100))
+        print(time)
+        #0.015 was my final average time.
+        self.assertLess(time, .03)
 
 if __name__ == '__main__':
     unittest.main()

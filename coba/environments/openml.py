@@ -6,15 +6,15 @@ from numbers import Number
 from collections import defaultdict
 from typing import Tuple, Sequence, Any, Iterable, Dict, Union
 
-from coba.pipes import Pipe, Source, HttpIO, Defaults, Drops, Encodes, _T_Data, Structures, ArffReader, CsvReader
+from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Take
 from coba.config import CobaConfig
 from coba.exceptions import CobaException
 
-from coba.environments.simulations import Simulation, SimulatedInteraction, ClassificationSimulation, RegressionSimulation
+from coba.environments.simulations import SimulatedEnvironment, SimulatedInteraction, ClassificationSimulation, RegressionSimulation
 
 class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]]):
 
-    def __init__(self, id:int, problem_type:str = "classification", nominal_as_str:bool=False, md5_checksum:str = None):
+    def __init__(self, id:int, problem_type:str = "classification", nominal_as_str:bool=False, take:int = None, md5_checksum:str = None):
         
         assert problem_type in ["classification", "regression"]
 
@@ -22,6 +22,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         self._md5_checksum   = md5_checksum
         self._problem_type   = problem_type 
         self._nominal_as_str = nominal_as_str
+        self._take           = take
         self._cached_urls    = []
 
     def read(self) -> Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]:
@@ -65,7 +66,8 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                 elif description['data_type'] == 'nominal' and self._nominal_as_str:
                     encoders[header] = StringEncoder()
                 elif description['data_type'] == 'nominal' and not self._nominal_as_str:
-                    encoders[header] = OneHotEncoder(description["nominal_value"])
+                    # it happens moderately often that these values are wrong, #description["nominal_value"]
+                    encoders[header] = OneHotEncoder() 
 
             if target != "":
                 target_encoder = encoders[target]
@@ -86,12 +88,13 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                 row_values = row.values() if isinstance(row,dict) else row
                 return any(isinstance(val,Number) and isnan(val) for val in row_values)
             
-            defaults  = Defaults({target:"0"})
-            encodes   = Encodes(encoders)
-            drops     = Drops(drop_cols=ignored, drop_row=any_nans)
-            structure = Structures([None, target])
+            takes     = Take(self._take, seed=1)
+            drops     = Drop(drop_cols=ignored, drop_row=any_nans)
+            defaults  = Default({target:"0"})
+            encodes   = Encode(encoders)
+            structure = Structure([None, target])
 
-            return Pipe.join([drops, defaults, encodes, structure]).filter(file_rows)
+            return Pipe.join([takes, drops, defaults, encodes, structure]).filter(file_rows)
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
@@ -109,10 +112,11 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
             raise
 
-    def _get_url(self, url:str, checksum:str=None) -> bytes:
+    def _get_url(self, url:str, checksum:str=None) -> Iterable[str]:
         
         if url in CobaConfig.cacher:
             bites = CobaConfig.cacher.get(url)
+        
         else:
 
             api_key  = CobaConfig.api_keys['openml']
@@ -150,11 +154,14 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             if '' == response.text:
                 raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
 
-            bites = response.content
+            bites = response.iter_lines(decode_unicode=False)
 
             if url not in CobaConfig.cacher:
-                self._cached_urls.append(url)
                 CobaConfig.cacher.put(url,bites)
+                
+                if url in CobaConfig.cacher:
+                    self._cached_urls.append(url)
+                    bites = CobaConfig.cacher.get(url)
 
         if checksum is not None and md5(bites).hexdigest() != checksum:
 
@@ -167,18 +174,18 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                 "If the error persists you may want to manually download and reference the file.")
             raise CobaException(message) from None
 
-        return bites.decode('utf-8')
+        return ( b.decode('utf-8') for b in bites )
 
     def _get_dataset_description(self, data_id:int) -> Dict[str,Any]:
 
-        description_txt = self._get_url(f'https://www.openml.org/api/v1/json/data/{data_id}')
+        description_txt = " ".join(self._get_url(f'https://www.openml.org/api/v1/json/data/{data_id}'))
         description_obj = json.loads(description_txt)["data_set_description"]
 
         return description_obj
 
     def _get_feature_descriptions(self, data_id:int) -> Sequence[Dict[str,Any]]:
 
-        types_txt = self._get_url(f'https://www.openml.org/api/v1/json/data/features/{data_id}')
+        types_txt = " ".join(self._get_url(f'https://www.openml.org/api/v1/json/data/features/{data_id}'))
         types_obj = json.loads(types_txt)["data_features"]["feature"]
 
         return types_obj
@@ -189,20 +196,15 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             arff_url = f"http://www.openml.org/data/v1/download/{file_id}"
 
             if arff_url in CobaConfig.cacher:
-                text = self._get_url(arff_url, md5_checksum)
-                return ArffReader(skip_encoding=True).filter(text.splitlines())
-
+                return ArffReader(skip_encoding=True).filter(self._get_url(arff_url, md5_checksum))
             try:
-                text = self._get_url(csv_url, md5_checksum)
-                return CsvReader(True).filter(text.splitlines())
-            
+                return CsvReader(True).filter(self._get_url(csv_url, md5_checksum))            
             except:
-                text = self._get_url(arff_url, md5_checksum)
-                return ArffReader(skip_encoding=True).filter(text.splitlines())
+                return ArffReader(skip_encoding=True).filter(self._get_url(arff_url, md5_checksum))
 
     def _get_target_for_problem_type(self, data_id:int):
 
-        text  = self._get_url(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}')
+        text  = " ".join(self._get_url(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'))
         tasks = json.loads(text).get("tasks",{}).get("task",[])
 
         task_type = 1 if self._problem_type == "classification" else 2
@@ -215,7 +217,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
         raise CobaException(f"Openml {data_id} does not appear to be a {self._problem_type} dataset")
 
-class OpenmlSimulation(Simulation):
+class OpenmlSimulation(SimulatedEnvironment):
     """A simulation created from openml data with features and labels.
 
     OpenmlSimulation turns labeled observations from a classification data set,
@@ -226,16 +228,18 @@ class OpenmlSimulation(Simulation):
     incorrect lables).
     """
 
-    def __init__(self, id: int, simulation_type:str = "classification", nominal_as_str:bool = False, md5_checksum: str = None) -> None:
+    def __init__(self, id: int, take:int = None, simulation_type:str = "classification", nominal_as_str:bool = False, md5_checksum: str = None) -> None:
         
         self._simulation_type = simulation_type
-        self._source = OpenmlSource(id, simulation_type, nominal_as_str, md5_checksum)
+        self._source = OpenmlSource(id, simulation_type, nominal_as_str, take, md5_checksum)
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
-        
-        return { "openml": self._source._data_id}
+        if self._source._take is not None:
+            return { "openml": self._source._data_id, "openml_take": self._source._take }
+        else:
+            return { "openml": self._source._data_id }
 
     def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""

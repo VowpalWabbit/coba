@@ -144,10 +144,29 @@ class LoggedInteraction:
         """The probability that the given action was taken."""
         return self._probability
 
-class Environment:
-    pass
+class SimulatedEnvironment(Source[Iterable[SimulatedInteraction]], ABC):
+    """The interface for a simulated environment."""
 
-class Simulation(Source[Iterable[SimulatedInteraction]], ABC):
+    @property
+    @abstractmethod
+    def params(self) -> Dict[str,Any]:
+        """Paramaters describing the simulation.
+
+        Remarks:
+            These will be simulation columns in coba.benchmark.Result.
+        """
+        ...
+    
+    @abstractmethod
+    def read(self) -> Iterable[SimulatedInteraction]:
+        """The sequence of interactions in a simulation.
+
+        Remarks:
+            This function should always be "re-iterable".
+        """
+        ...
+
+class LoggedEnvironment(Source[Iterable[LoggedInteraction]], ABC):
     """The simulation interface."""
 
     @property
@@ -169,7 +188,7 @@ class Simulation(Source[Iterable[SimulatedInteraction]], ABC):
         """
         ...
 
-class WarmStart(Source[Iterable[Union[LoggedInteraction,SimulatedInteraction]]], ABC):
+class WarmStartEnvironment(Source[Iterable[Union[LoggedInteraction, SimulatedInteraction]]], ABC):
     """
     TODO: docs
     """

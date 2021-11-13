@@ -9,7 +9,7 @@ to do so.
 TODO Add RegressionSimulation
 """
 
-from coba.environments.core         import Context, Action, SimulatedInteraction, LoggedInteraction, Simulation
+from coba.environments.core         import Context, Action, SimulatedInteraction, LoggedInteraction, SimulatedEnvironment
 from coba.environments.openml       import OpenmlSource, OpenmlSimulation
 from coba.environments.filters      import SimulationFilter, Sort, Scale, Cycle, Impute
 from coba.environments.pipes        import EnvironmentPipe
@@ -17,7 +17,7 @@ from coba.environments.environments import Environments
 
 from coba.environments.simulations import (
     MemorySimulation, LambdaSimulation, ClassificationSimulation, CsvSimulation, 
-    ArffSimulation, LibsvmSimulation, ManikSimulation, ValidationSimulation, RegressionSimulation
+    ArffSimulation, LibsvmSimulation, ManikSimulation, DebugSimulation, RegressionSimulation
 )
 
 __all__ = [
@@ -25,7 +25,7 @@ __all__ = [
     'Action',
     'SimulatedInteraction',
     'LoggedInteraction',
-    'Simulation',
+    'SimulatedEnvironment',
     'Environments',
     'OpenmlSource',
     'MemorySimulation',
@@ -37,7 +37,7 @@ __all__ = [
     'LibsvmSimulation',
     'ManikSimulation',
     'OpenmlSimulation',
-    'ValidationSimulation',
+    'DebugSimulation',
     'SimulationFilter',
     'Sort',
     'Scale',

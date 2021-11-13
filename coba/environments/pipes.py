@@ -1,16 +1,16 @@
 from typing import Iterable, Dict, Any
 
 from coba.pipes import Pipe
-from coba.environments.core import Simulation, SimulatedInteraction
+from coba.environments.core import SimulatedEnvironment, SimulatedInteraction
 from coba.environments.filters import SimulationFilter
 
-class EnvironmentPipe(Simulation):
+class EnvironmentPipe(SimulatedEnvironment):
 
-    def __init__(self, source: Simulation, *filters: SimulationFilter):
+    def __init__(self, source: SimulatedEnvironment, *filters: SimulationFilter):
         
         if isinstance(source, EnvironmentPipe):
             self._source = source._source
-            self._filter = Pipe.join(list(source._filter) + list(filters))
+            self._filter = Pipe.join([source._filter] + list(filters))
         else:
             self._source  = source
             self._filter = Pipe.join(list(filters))
