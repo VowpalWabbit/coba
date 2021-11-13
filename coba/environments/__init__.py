@@ -11,7 +11,7 @@ TODO Add RegressionSimulation
 
 from coba.environments.core         import Context, Action, SimulatedInteraction, LoggedInteraction, Simulation
 from coba.environments.openml       import OpenmlSource, OpenmlSimulation
-from coba.environments.filters      import SimulationFilter, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
+from coba.environments.filters      import SimulationFilter, Sort, Scale, Cycle, Impute
 from coba.environments.pipes        import EnvironmentPipe
 from coba.environments.environments import Environments
 
@@ -39,9 +39,6 @@ __all__ = [
     'OpenmlSimulation',
     'ValidationSimulation',
     'SimulationFilter',
-    'Identity',
-    'Shuffle',
-    'Take',
     'Sort',
     'Scale',
     'Cycle',

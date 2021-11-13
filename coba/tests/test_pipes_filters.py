@@ -1,10 +1,92 @@
 import unittest
 
-from coba.pipes import LibSvmReader, ArffReader, CsvReader, Flattens, Encodes, JsonEncode, Structures, Drops
+from coba.pipes import LibSvmReader, ArffReader, CsvReader, Flattens, Encodes, JsonEncode, Structures, Drops, Take, Identity, Shuffle
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.config import NullLogger, CobaConfig
 
 CobaConfig.logger = NullLogger()
+
+class Identity_Tests(unittest.TestCase):
+    
+    def test_ident(self):
+        items = [1,2,3]
+
+        mem_interactions = items
+        idn_interactions = list(Identity().filter(items))
+
+        self.assertEqual(idn_interactions, mem_interactions)
+
+class Shuffle_Tests(unittest.TestCase):
+    
+    def test_shuffle(self):
+        interactions = [ 1,2,3 ]
+        shuffled_interactions = list(Shuffle(40).filter(interactions))
+
+        self.assertEqual(3, len(interactions))
+        self.assertEqual(interactions[0], interactions[0])
+        self.assertEqual(interactions[1], interactions[1])
+        self.assertEqual(interactions[2], interactions[2])
+
+        self.assertEqual(3, len(shuffled_interactions))
+        self.assertEqual(interactions[1], shuffled_interactions[0])
+        self.assertEqual(interactions[2], shuffled_interactions[1])
+        self.assertEqual(interactions[0], shuffled_interactions[2])
+
+class Take_Tests(unittest.TestCase):
+    
+    def test_take1_no_seed(self):
+
+        items = [ 1,2,3 ]
+        take_items = list(Take(1).filter(items))
+
+        self.assertEqual(1, len(take_items))
+        self.assertEqual(items[0], take_items[0])
+
+        self.assertEqual(3, len(items))
+        self.assertEqual(items[0], items[0])
+        self.assertEqual(items[1], items[1])
+        self.assertEqual(items[2], items[2])
+
+    def test_take2_no_seed(self):
+        items = [ 1,2,3 ]
+        take_items = list(Take(2).filter(items))
+
+        self.assertEqual(2, len(take_items))
+        self.assertEqual(items[0], take_items[0])
+        self.assertEqual(items[1], take_items[1])
+
+        self.assertEqual(3, len(items))
+        self.assertEqual(items[0], items[0])
+        self.assertEqual(items[1], items[1])
+        self.assertEqual(items[2], items[2])
+
+    def test_take3_no_seed(self):
+        items = [ 1,2,3 ]
+        take_items = list(Take(3).filter(items))
+
+        self.assertEqual(3, len(take_items))
+        self.assertEqual(items[0], take_items[0])
+        self.assertEqual(items[1], take_items[1])
+        self.assertEqual(items[2], take_items[2])
+
+        self.assertEqual(3, len(items))
+        self.assertEqual(items[0], items[0])
+        self.assertEqual(items[1], items[1])
+        self.assertEqual(items[2], items[2])
+
+    def test_take4_no_seed(self):
+        items = [ 1,2,3 ]
+        take_items = list(Take(4).filter(items))
+
+        self.assertEqual(3, len(items))
+        self.assertEqual(0, len(take_items))
+
+    def test_take2_seed(self):
+        take_items = list(Take(2,seed=1).filter(range(10000)))
+
+        self.assertEqual(2, len(take_items))
+        self.assertLess(1, take_items[0])
+        self.assertLess(1, take_items[1])
 
 class CsvReader_Tests(unittest.TestCase):
     def test_dense_sans_empty(self):

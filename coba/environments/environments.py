@@ -1,11 +1,11 @@
 
 from typing import Sequence, overload, Union, Iterable, Iterator
 
-from coba.pipes import Source, ResponseToLines, HttpIO, DiskIO, JsonDecode
+from coba.pipes import Source, ResponseToLines, HttpIO, DiskIO, JsonDecode, Shuffle, Take
 
 from coba.environments.pipes import EnvironmentPipe
 from coba.environments.core import Environment
-from coba.environments.filters import SimulationFilter, Shuffle, Take, Binary
+from coba.environments.filters import SimulationFilter, Binary
 from coba.environments.formats import EnvironmentFileFmtV1
 from coba.environments.simulations import ValidationSimulation
 
@@ -55,8 +55,8 @@ class Environments:
         self._environments = [ EnvironmentPipe(e,s) for e in self._environments for s in shuffle_filters ]
         return self
 
-    def take(self, n_interactions: int) -> 'Environments':
-        take_filter = Take(n_interactions)
+    def take(self, n_interactions: int, seed: int = None) -> 'Environments':
+        take_filter = Take(n_interactions, seed)
         self._environments = [ EnvironmentPipe(e,take_filter) for e in self._environments ]
         return self
 

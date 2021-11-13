@@ -26,58 +26,6 @@ class SimulationFilter(Filter[Iterable[SimulatedInteraction],Iterable[SimulatedI
         """Apply a filter to a Simulation's interactions."""
         ...
 
-class Identity(SimulationFilter):
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { }
-
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-        return interactions
-
-class Shuffle(SimulationFilter):
-    
-    def __init__(self, seed:Optional[int]) -> None:
-        
-        if seed is not None and (not isinstance(seed,int) or seed < 0):
-            raise ValueError(f"Invalid parameter for Shuffle: {seed}. An optional integer value >= 0 was expected.")
-
-        self._seed = seed
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { "shuffle": self._seed }
-
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]: 
-        return CobaRandom(self._seed).shuffle(list(interactions))
-
-    def __repr__(self) -> str:
-        return str(self.params)
-
-class Take(SimulationFilter):
-    
-    def __init__(self, count:Optional[int]) -> None:
-        
-        if count is not None and (not isinstance(count,int) or count < 0):
-            raise ValueError(f"Invalid parameter for Take: {count}. An optional integer value >= 0 was expected.")
-
-        self._count = count
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { "take": self._count }    
-
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-
-        if self._count is None: return interactions
-
-        materialized = list(islice(interactions,self._count))
-
-        return materialized if len(materialized) == self._count else []
-
-    def __repr__(self) -> str:
-        return str(self.params)
-
 class Sort(SimulationFilter):
 
     def __init__(self, *indexes: Union[int,Sequence[int]]) -> None:

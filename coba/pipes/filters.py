@@ -7,6 +7,7 @@ import csv
 import collections
 import itertools
 import json
+import math
 
 from itertools import islice
 from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, Callable, Optional
@@ -14,6 +15,7 @@ from typing_extensions import OrderedDict
 
 from requests import Response
 
+from coba.random import CobaRandom
 from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder, CobaJsonEncoder, CobaJsonDecoder
 from coba.exceptions import CobaException
 from coba.pipes.core import Filter
@@ -43,6 +45,87 @@ class Cartesian(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
 class Identity(Filter[Any, Any]):
     def filter(self, item:Any) -> Any:
         return item
+
+class Shuffle(Filter[Iterable[Any], Iterable[Any]]):
+
+    def __init__(self, seed:Optional[int]) -> None:
+
+        if seed is not None and (not isinstance(seed,int) or seed < 0):
+            raise ValueError(f"Invalid parameter for Shuffle: {seed}. An optional integer value >= 0 was expected.")
+
+        self._seed = seed
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "shuffle": self._seed }
+
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]: 
+        return CobaRandom(self._seed).shuffle(list(items))
+
+    def __repr__(self) -> str:
+        return str(self.params)
+
+class Take(Filter[Iterable[Any], Iterable[Any]]):
+    """Take a given number of items from an iterable."""
+
+    def __init__(self, count:Optional[int], seed: int = None) -> None:
+        """Instantiate a Take filter.
+
+        Args:
+            count: The number of items we wish to take from the given iterable.
+            seed: An optional random seed to determine which random count items to take.
+
+        Remarks:
+            We use Algorithm L as described by Kim-Hung Li. (1994) to ranomdly take count items.
+
+        References:
+            Kim-Hung Li. 1994. Reservoir-sampling algorithms of time complexity O(n(1 + log(N/n))). 
+            ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
+        """
+
+        if count is not None and (not isinstance(count,int) or count < 0):
+            raise ValueError(f"Invalid parameter for Take: {count}. An optional integer value >= 0 was expected.")
+
+        self._count    = count
+        self._seed     = seed
+
+    @property
+    def params(self) -> Dict[str, Any]:
+
+        if self._seed is not None:
+            return { "take": self._count, "take_seed": self._seed }
+        else: 
+            return { "take": self._count }
+
+    def filter(self, interactions: Iterable[Any]) -> Iterable[Any]:
+
+        if self._count is None: return interactions
+
+        interactions = iter(interactions)
+        
+        resevoir = list(islice(interactions,self._count))
+
+        if self._seed is not None:            
+            rng = CobaRandom(self._seed)
+
+            W = math.exp(math.log(rng.random())/self._count)
+            i = 0
+            S = 0
+
+            while i == S:
+                S = math.floor(math.log(rng.random())/math.log(1-W))
+
+                for i, interaction in enumerate(interactions):
+                    if i == S:
+                        resevoir[rng.randint(0,self._count-1)] = interaction
+                        W = W * math.exp(math.log(rng.random())/self._count)
+                        break
+
+        return resevoir if len(resevoir) == self._count else []
+        
+
+    def __repr__(self) -> str:
+        return str(self.params)
 
 class StringJoin(Filter[Iterable[str], str]):
 
