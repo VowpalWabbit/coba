@@ -1,5 +1,4 @@
 from copy import deepcopy
-from multiprocessing.synchronize import Lock
 from multiprocessing import Manager
 from threading import Thread
 from typing import Sequence, Iterable, Any
@@ -12,16 +11,15 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
     class ConfiguredFilter:
 
-        def __init__(self, filters: Sequence[Filter], logger_sink: Sink, with_name:bool, source_lock: Lock) -> None:
+        def __init__(self, filters: Sequence[Filter], logger_sink: Sink, with_name:bool) -> None:
 
-            self._source_lock = source_lock
-            self._logger      = deepcopy(CobaConfig.logger)
-            self._cacher      = deepcopy(CobaConfig.cacher)
+            self._logger = deepcopy(CobaConfig.logger)
+            self._cacher = deepcopy(CobaConfig.cacher)
 
             if isinstance(self._logger, IndentLogger):
                 self._logger._with_name = with_name
                 self._logger._sink      = logger_sink
-            
+
             if isinstance(self._logger, BasicLogger):
                 self._logger._with_name = with_name
                 self._logger._sink      = logger_sink
@@ -46,10 +44,9 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
         try:
 
             with Manager() as manager:
-                
+
                 stderr = QueueIO(manager.Queue())
-                source_lock = manager.Lock()
-                
+
                 def log_stderr():
                     for err in stderr.read():
                         if isinstance(err,str):
@@ -64,7 +61,7 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 log_thread.daemon = True
                 log_thread.start()
 
-                filter = CobaMultiprocessFilter.ConfiguredFilter(self._filters, stderr, self._processes>1, source_lock)
+                filter = CobaMultiprocessFilter.ConfiguredFilter(self._filters, stderr, self._processes>1)
 
                 for item in MultiprocessFilter([filter], self._processes, self._maxtasksperchild, stderr).filter(items):
                     yield item

@@ -17,7 +17,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
     def __init__(self, id:int, problem_type:str = "classification", nominal_as_str:bool=False, md5_checksum:str = None):
         
         assert problem_type in ["classification", "regression"]
-        
+
         self._data_id        = id
         self._md5_checksum   = md5_checksum
         self._problem_type   = problem_type 
@@ -25,7 +25,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         self._cached_urls    = []
 
     def read(self) -> Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]:
-        
+
         #placing some of these at the top would cause circular references (is this still true???)
         from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 

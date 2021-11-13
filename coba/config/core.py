@@ -168,5 +168,4 @@ class CobaConfig(metaclass=CobaConfig_meta):
             [3] https://www.python.org/dev/peps/pep-0567/
             [4] https://docs.python.org/3/library/contextvars.html
     """
-
     pass
