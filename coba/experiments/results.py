@@ -428,6 +428,7 @@ class Result:
         span : int = None,
         err  : Optional[Literal['se','sd']] = None,
         each : bool = False,
+        filename: str = None,
         ax = None) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
             performance for different learners across independent simulations. This plot is valuable in gaining insight 
@@ -442,6 +443,7 @@ class Result:
             err: Determine what kind of error bars to plot (if any). Valid types are `None`, 'se', and 'sd'. If `None`
                 then no bars are plotted, if 'se' the standard error is shown, and if 'sd' the standard deviation is shown.
             each: Determine whether each constituent observation used to estimate mean performance is also plotted.
+            filename: Provide a filename to write plot image to disk.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
@@ -531,6 +533,9 @@ class Result:
 
         if show:
             plt.show()
+
+        if filename:
+            plt.savefig(filename, dpi=300)
 
     def __str__(self) -> str:
         return str({ "Learners": len(self._learners), "Simulations": len(self._simulations), "Interactions": len(self._interactions) })
