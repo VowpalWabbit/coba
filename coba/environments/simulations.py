@@ -1,3 +1,4 @@
+import math
 import collections
 
 from itertools import chain, repeat
@@ -195,7 +196,7 @@ class ReaderSimulation(SimulatedEnvironment):
         return ClassificationSimulation(structured_rows).read()
 
     def __repr__(self) -> str:
-        return str(self._source)
+        return str(self.params)
 
 class CsvSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
@@ -240,6 +241,7 @@ class DebugSimulation(LambdaSimulation):
         n_actions: int=10, 
         n_context_feats:int = 10, 
         n_action_feats:int = 10, 
+        r_noise_var:float = 1/1000,
         interactions: Sequence[str] = ["a","xa"],
         seed:int=1) -> None:
 
@@ -247,6 +249,7 @@ class DebugSimulation(LambdaSimulation):
         self._n_context_features = n_action_feats
         self._n_action_features  = n_context_feats
         self._seed               = seed
+        self._r_noise_var        = r_noise_var
         self._interactions       = interactions
 
         rng = CobaRandom(seed)
@@ -254,10 +257,11 @@ class DebugSimulation(LambdaSimulation):
         interactions_encoder = InteractionTermsEncoder(self._interactions)
 
         feature_count = len(interactions_encoder.encode(x=range(max(1,n_context_feats)),a=range(max(1,n_action_feats))))
-        normalize     = lambda X: [ x/sum(X) for x in X]
+        normalize     = lambda   X: [ rng.random()*x/sum(X) for x in X]
+        scale         = lambda s,X: [            s*x/sum(X) for x in X]
 
         if n_action_feats == 0:
-            weights = [ normalize(rng.randoms(feature_count)) for _ in range(n_actions) ]
+            weights = [ scale(rng.random(),normalize(rng.randoms(feature_count))) for _ in range(n_actions) ]
         else:
             weights = normalize(rng.randoms(feature_count))
 
@@ -275,8 +279,8 @@ class DebugSimulation(LambdaSimulation):
             F = interactions_encoder.encode(x=X,a=A)
 
             r = sum([w*f for w,f in zip(W,F)])
-
-            return min(1,max(0,r))
+            e = (rng.random()-1/2)*math.sqrt(12)*math.sqrt(self._r_noise_var)
+            return min(1,max(0,r+e))
 
         super().__init__(n_interactions, context, actions, reward)
 
@@ -286,4 +290,7 @@ class DebugSimulation(LambdaSimulation):
         return { }
 
     def __repr__(self) -> str:
-        return f"ValidationSimulation(na={self._n_actions},cf={self._n_context_features},af={self._n_action_features},seed={self._seed})"
+        return f"DebugSimulation(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},seed={self._seed})"
+
+    def __str__(self) -> str:
+        return self.__repr__()

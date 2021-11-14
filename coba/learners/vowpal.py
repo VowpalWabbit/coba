@@ -43,8 +43,8 @@ class VowpalMediator:
             features = features.items()
         elif isinstance(features, collections.Sequence) and features and isinstance(features[0], tuple):
             features = features
-        elif isinstance(features, collections.Sequence) and features and not isinstance(features[0], tuple):
-            features = zip(map(VowpalMediator._string_cache.__getitem__, range(len(features))),features)
+        elif isinstance(features, collections.Sequence) and features and not isinstance(features[0],tuple):
+            features = zip(map(VowpalMediator._string_cache.__getitem__, range(len(features))) ,features)
         else:
             raise Exception(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")
         
@@ -336,7 +336,20 @@ class VowpalLearner(Learner):
         return [ f"{i+1}:{round(1-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
 
     def _shared(self, context) -> Dict[str,Any]:
-        return {} if not context else { 'x': VowpalMediator.prep_features(context) }
+        return {} if not context else { 'x': VowpalMediator.prep_features(self._flat(context)) }
 
     def _adfs(self,actions) -> Sequence[Dict[str,Any]]:
-        return [ {'a': VowpalMediator.prep_features(a)} for a in actions]
+        return [ {'a': VowpalMediator.prep_features(self._flat(a))} for a in actions]
+
+    def _flat(self,features:Any) -> Any:
+        if features is None or isinstance(features,(int,float,str)):
+            return features
+        elif isinstance(features,dict):
+            new_items = dict(features)
+            for k,v in features.items():
+                if isinstance(v,collections.Sequence) and not isinstance(v,str):
+                    del new_items[k]
+                    new_items.update( (f"{k}_{i}",f)  for i,f in enumerate(v))
+            return new_items
+        else:
+            return [ff for f in features for ff in (f if isinstance(f,tuple) else [f]) ]

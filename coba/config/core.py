@@ -19,9 +19,9 @@ from coba.config.cachers import Cacher
 class ExperimentConfig:
     
     def __init__(self, processes:int, maxtasksperchild:int, chunk_by: Literal["source","task"] = "source"):
-        self.processes        = processes
-        self.maxtasksperchild = maxtasksperchild
-        self.chunk_by         = chunk_by
+        self.processes       : int                      = processes
+        self.maxtasksperchild: int                      = maxtasksperchild
+        self.chunk_by        : Literal["source","task"] = chunk_by
 
 class CobaConfig_meta(type):
     """To support class properties before python 3.9 we must implement our properties directly 
@@ -112,7 +112,6 @@ class CobaConfig_meta(type):
                 print(str(tb))
                 print(msg)
                 coba_exit()
-                
 
         return cls._config_backing
 

@@ -35,11 +35,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
 
-        self.assertEqual([8.1, 27, 1410, (0,1)], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, (0,1)], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, (1,0)], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, (1,0)], feature_rows[4])
+        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28, 1410, (1,0)], feature_rows[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
 
         self.assertEqual((1,0), label_col[0])
         self.assertEqual((1,0), label_col[1])
@@ -66,11 +66,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
 
-        self.assertEqual([8.1, 27, 1410, (0,1)], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, (0,1)], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, (1,0)], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, (1,0)], feature_rows[4])
+        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28, 1410, (1,0)], feature_rows[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
 
         self.assertEqual((1,0), label_col[0])
         self.assertEqual((1,0), label_col[1])
@@ -166,11 +166,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
 
-        self.assertEqual([8.1, 27.0, 1410.0, (0,1)], feature_rows[0])
-        self.assertEqual([8.2, 29.0, 1180.0, (0,1)], feature_rows[1])
-        self.assertEqual([8.2, 28.0, 1410.0, (0,1)], feature_rows[2])
-        self.assertEqual([8.3, 27.0, 1020.0, (1,0)], feature_rows[3])
-        self.assertEqual([7.6, 23.0, 4700.0, (1,0)], feature_rows[4])
+        self.assertEqual([8.1, 27.0, 1410.0, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29.0, 1180.0, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28.0, 1410.0, (1,0)], feature_rows[2])
+        self.assertEqual([8.3, 27.0, 1020.0, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23.0, 4700.0, (0,1)], feature_rows[4])
 
         self.assertEqual((1,0), label_col[0])
         self.assertEqual((1,0), label_col[1])
@@ -311,17 +311,41 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
 
-        self.assertEqual([27, 1410, (0,1), (1,0)], feature_rows[0])
-        self.assertEqual([29, 1180, (0,1), (1,0)], feature_rows[1])
-        self.assertEqual([28, 1410, (0,1), (0,1)], feature_rows[2])
-        self.assertEqual([27, 1020, (1,0), (0,1)], feature_rows[3])
-        self.assertEqual([23, 4700, (1,0), (0,1)], feature_rows[4])
+        self.assertEqual([27, 1410, (1,0), (1,0)], feature_rows[0])
+        self.assertEqual([29, 1180, (1,0), (1,0)], feature_rows[1])
+        self.assertEqual([28, 1410, (1,0), (0,1)], feature_rows[2])
+        self.assertEqual([27, 1020, (0,1), (0,1)], feature_rows[3])
+        self.assertEqual([23, 4700, (0,1), (0,1)], feature_rows[4])
 
         self.assertEqual(8.1, label_col[0])
         self.assertEqual(8.2, label_col[1])
         self.assertEqual(8.2, label_col[2])
         self.assertEqual(8.3, label_col[3])
         self.assertEqual(7.6, label_col[4])
+
+    def test_regression_dataset_take(self):
+        CobaConfig.api_keys['openml'] = None
+        CobaConfig.cacher = PutOnceCacher()
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,1,yes\r\n 7.6,23,4700,1,yes\r\n\r\n'.splitlines())
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
+
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, take=2, problem_type="regression").read()))
+
+        self.assertEqual(len(feature_rows), 2)
+        self.assertEqual(len(label_col), 2)
+
+        self.assertEqual([28, 1410, (1,), (1,0)], feature_rows[0])
+        self.assertEqual([29, 1180, (1,), (0,1)], feature_rows[1])
+
+        self.assertEqual(8.2, label_col[0])
+        self.assertEqual(8.2, label_col[1])
 
     def test_csv_nominal_as_str(self):
 

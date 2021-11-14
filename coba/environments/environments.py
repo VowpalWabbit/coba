@@ -37,10 +37,11 @@ class Environments:
 
     @staticmethod
     def from_debug(
-        n_interactions:int, 
-        n_actions:int, 
-        n_context_features:int, 
-        n_action_features:int, 
+        n_interactions:int = 5000, 
+        n_actions:int = 3, 
+        n_context_features:int = 2, 
+        n_action_features:int = 2, 
+        r_noise_var:float = 1/1000,
         interactions:Sequence[str] = ["a","xa"], 
         seed:int=1) -> 'Environments':
         """A simple simulation useful for debugging learning algorithms. It's rewards are linear with respect to the given 
@@ -48,7 +49,7 @@ class Environments:
            interaction terms are calculted by assuming all actions or contexts have a constant  feature of 1."""
 
         return Environments(
-            DebugSimulation(n_interactions, n_actions, n_context_features, n_action_features, interactions, seed)
+            DebugSimulation(n_interactions, n_actions, n_context_features, n_action_features, r_noise_var, interactions,  seed)
         )
 
     @staticmethod
@@ -89,3 +90,6 @@ class Environments:
 
     def __len__(self) -> int:
         return len(self._environments)
+
+    def __repr__(self) -> str:
+        return "\n".join([f"{i+1}. {e}" for i,e in enumerate(self._environments)])

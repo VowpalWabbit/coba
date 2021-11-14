@@ -68,12 +68,13 @@ class Shuffle(Filter[Iterable[Any], Iterable[Any]]):
 class Take(Filter[Iterable[Any], Iterable[Any]]):
     """Take a given number of items from an iterable."""
 
-    def __init__(self, count:Optional[int], seed: int = None) -> None:
+    def __init__(self, count:Optional[int], keep_first:bool = False, seed: int = None,) -> None:
         """Instantiate a Take filter.
 
         Args:
-            count: The number of items we wish to take from the given iterable.
-            seed: An optional random seed to determine which random count items to take.
+            count     : The number of items we wish to take from the given iterable.
+            keep_first: Indicates if the first row should be kept and take on the rest. Useful for files with headers.
+            seed      : An optional random seed to determine which random count items to take.
 
         Remarks:
             We use Algorithm L as described by Kim-Hung Li. (1994) to ranomdly take count items.
@@ -86,8 +87,9 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
         if count is not None and (not isinstance(count,int) or count < 0):
             raise ValueError(f"Invalid parameter for Take: {count}. An optional integer value >= 0 was expected.")
 
-        self._count    = count
-        self._seed     = seed
+        self._count = count
+        self._seed  = seed
+        self._keep_first = keep_first
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -97,13 +99,15 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
         else: 
             return { "take": self._count }
 
-    def filter(self, interactions: Iterable[Any]) -> Iterable[Any]:
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 
         if self._count is None: 
-            return interactions
+            return items
         else:
-            interactions = iter(interactions)
-            resevoir     = list(islice(interactions,self._count))
+
+            items    = iter(items)
+            first    = [next(items)] if self._keep_first else []
+            resevoir = list(islice(items,self._count))
 
             if self._seed is not None:            
                 rng = CobaRandom(self._seed)
@@ -114,11 +118,11 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
                         [r1,r2,r3] = rng.randoms(3)
                         W = W * math.exp(math.log(r1)/self._count)
                         S = math.floor(math.log(r2)/math.log(1-W))
-                        resevoir[int(r3*self._count-.001)] = next(itertools.islice(interactions,S,S+1))
+                        resevoir[int(r3*self._count-.001)] = next(itertools.islice(items,S,S+1))
                 except StopIteration:
                     pass
 
-            return resevoir if len(resevoir) == self._count else []
+            return itertools.chain( first, resevoir if len(resevoir) == self._count else [])
         
     def __repr__(self) -> str:
         return str(self.params)

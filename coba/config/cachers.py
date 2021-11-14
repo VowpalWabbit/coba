@@ -73,22 +73,21 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         Args:
             path: The path to the directory where all files will be cached
         """
-
-        self._cache_dir = cache_dir if isinstance(cache_dir, Path) else Path(cache_dir).expanduser() if cache_dir else None
-        if self._cache_dir is not None: self._cache_dir.mkdir(parents=True, exist_ok=True)
+        self.cache_directory = cache_dir
 
     @property
     def cache_directory(self) -> str:
         return str(self._cache_dir)
 
     @cache_directory.setter
-    def cache_directory(self,value:Optional[str]) -> None:
-        self._cache_dir = Path(value) if value else None
+    def cache_directory(self,value:Union[Path,str,None]) -> None:
+        self._cache_dir = value if isinstance(value, Path) else Path(value).expanduser() if value else None
+        if self._cache_dir is not None: self._cache_dir.mkdir(parents=True, exist_ok=True)
 
     def __contains__(self, key: str) -> bool:
         return self._cache_dir is not None and self._cache_path(key).exists()
 
-    def get(self, key: str) -> bytes:
+    def get(self, key: str) -> Iterable[bytes]:
         """Get a key from the cache.
 
         Args:
@@ -96,7 +95,7 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         """
         with gzip.open(self._cache_path(key), 'rb') as f:
             for line in f:
-                yield line
+                yield line.rstrip(b'\r\n')
 
     def put(self, key: str, value: Iterable[bytes]):
         """Put a key and its bytes into the cache.
@@ -113,7 +112,8 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         if isinstance(value,bytes): value = [value]
 
         with gzip.open(self._cache_path(key), 'wb') as f:
-            f.writelines(value)
+            for line in value:
+                f.write(line.rstrip(b'\r\n') + b'\r\n')
 
     def rmv(self, key: str) -> None:
         """Remove a key from the cache.

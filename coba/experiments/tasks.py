@@ -8,10 +8,12 @@ from itertools import groupby, product
 from collections import defaultdict
 from typing import Iterable, Sequence, Any, Optional, Dict, Tuple, Union
 
+from numpy.lib.arraysetops import isin
+
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.config import CobaConfig
-from coba.pipes import Source, Pipe, Filter, Identity
+from coba.pipes import Source, Pipe, Filter
 from coba.environments import SimulatedEnvironment, EnvironmentPipe, LoggedInteraction, SimulatedInteraction
 from coba.encodings import InteractionTermsEncoder
 
@@ -395,9 +397,9 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
     def _get_source(self, task:WorkItem) -> SimulatedEnvironment:
         if task.environ is None: 
             return None
-        try:
+        elif isinstance(task.environ[1], (Pipe.SourceFilters, EnvironmentPipe)):
             return task.environ[1]._source 
-        except:
+        else:
             return task.environ[1]
     
     def _get_source_sort(self, task:WorkItem) -> int:
@@ -406,9 +408,9 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
     def _get_id_filter(self, task:WorkItem) -> Tuple[int, Filter[SimulatedEnvironment,SimulatedEnvironment]]:
         if task.environ is None:
             return (-1,None)
-        try:
+        elif isinstance(task.environ[1], (Pipe.SourceFilters, EnvironmentPipe)):
             return (task.environ[0], task.environ[1]._filter) 
-        except:
+        else:
             return (task.environ[0], None)
 
     def _get_id_filter_sort(self, task:WorkItem) -> int:

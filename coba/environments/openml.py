@@ -82,13 +82,13 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             if self._problem_type == "classification":
                 encoders[target] = StringEncoder() if self._nominal_as_str else OneHotEncoder()
 
-            file_rows = list(self._get_dataset_rows(dataset_description["file_id"], target, md5_checksum))
+            file_rows = self._get_dataset_rows(dataset_description["file_id"], target, md5_checksum)
 
             def any_nans(row):
                 row_values = row.values() if isinstance(row,dict) else row
                 return any(isinstance(val,Number) and isnan(val) for val in row_values)
             
-            takes     = Take(self._take, seed=1)
+            takes     = Take(self._take, keep_first=True, seed=1)
             drops     = Drop(drop_cols=ignored, drop_row=any_nans)
             defaults  = Default({target:"0"})
             encodes   = Encode(encoders)
@@ -216,6 +216,12 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                         return input['value'] #just take the first one
 
         raise CobaException(f"Openml {data_id} does not appear to be a {self._problem_type} dataset")
+    
+    def __repr__(self) -> str:
+        return f'{{"OpenmlSimulation":{self._data_id}}}'
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
 class OpenmlSimulation(SimulatedEnvironment):
     """A simulation created from openml data with features and labels.
@@ -251,3 +257,6 @@ class OpenmlSimulation(SimulatedEnvironment):
 
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._source._data_id}}}'
+
+    def __str__(self) -> str:
+        return self.__repr__()

@@ -44,3 +44,6 @@ class EnvironmentPipe(SimulatedEnvironment):
             return obj.params
         except AttributeError:
             return {}
+
+    def __repr__(self) -> str:
+        return str([self._source, self._filter])

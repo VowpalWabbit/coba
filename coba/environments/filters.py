@@ -26,6 +26,9 @@ class SimulationFilter(Filter[Iterable[SimulatedInteraction],Iterable[SimulatedI
         """Apply a filter to a Simulation's interactions."""
         ...
 
+    def __repr__(self) -> str:
+        return str(self.params)
+
 class Sort(SimulationFilter):
 
     def __init__(self, *indexes: Union[int,Sequence[int]]) -> None:
@@ -264,7 +267,6 @@ class ToWarmStart(SimulationFilter):
         
         self._n_warmstart = n_warmstart
         self._seed = seed
-        
 
     @property
     def params(self) -> Dict[str, Any]:
