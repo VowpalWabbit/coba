@@ -4,7 +4,6 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.config import CobaConfig
 from coba.pipes import Pipe, Filter, Identity, MemoryIO
 
 class Pipe_Tests(unittest.TestCase):
@@ -24,7 +23,6 @@ class Pipe_Tests(unittest.TestCase):
             process_name = current_process().name
 
             for _ in items:
-                CobaConfig.logger.log(process_name)
                 yield process_name
 
     class ExceptionFilter(Filter):

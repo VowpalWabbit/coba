@@ -7,6 +7,7 @@ from multiprocessing import current_process
 from typing          import Iterable, Any
 
 from coba.config          import CobaConfig, IndentLogger, BasicLogger
+from coba.config.cachers import NullCacher
 from coba.pipes           import Filter, MemoryIO
 from coba.multiprocessing import CobaMultiprocessFilter
 
@@ -47,6 +48,7 @@ class CobaMultiprocessFilter_Tests(unittest.TestCase):
         logger      = IndentLogger(logger_sink, with_stamp=True, with_name=True)
 
         CobaConfig.logger = logger
+        CobaConfig.cacher = NullCacher()
 
         items = list(CobaMultiprocessFilter([ProcessNameFilter()], 2, 1).filter(range(4)))
 
@@ -56,6 +58,7 @@ class CobaMultiprocessFilter_Tests(unittest.TestCase):
 
     def test_exception_logging(self):
         CobaConfig.logger = BasicLogger(MemoryIO())
+        CobaConfig.cacher = NullCacher()
         
         list(CobaMultiprocessFilter([ExceptionFilter()], 2, 1).filter(range(4)))
 
@@ -64,6 +67,7 @@ class CobaMultiprocessFilter_Tests(unittest.TestCase):
 
     def test_not_picklable_logging(self):
         CobaConfig.logger = BasicLogger(MemoryIO())
+        CobaConfig.cacher = NullCacher()
 
         list(CobaMultiprocessFilter([ProcessNameFilter()], 2, 1).filter([NotPicklableFilter()]))
 

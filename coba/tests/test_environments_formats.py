@@ -1,17 +1,26 @@
 import json
 import unittest
 
+from coba.pipes import Take
+from coba.registry import CobaRegistry
+
 from coba.environments.formats import EnvironmentFileFmtV1
 from coba.environments.core import SimulatedEnvironment
+from coba.environments.openml import OpenmlSimulation
 
 class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
+    def setUp(self) -> None:
+        CobaRegistry.register("OpenmlSimulation", OpenmlSimulation)
+        CobaRegistry.register("Take", Take)
+
     def test_one_simulation(self):
+        
         json_txt = """{
             "simulations" : [
                 { "OpenmlSimulation": 150 }
             ]
-        }"""
+        }"""        
 
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 

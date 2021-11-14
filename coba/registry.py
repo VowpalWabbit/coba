@@ -35,7 +35,11 @@ class CobaRegistry:
 
     @classmethod
     def retrieve(cls, name:str) -> type:
-        return cls._get_registry()[name]
+        if name in cls._registry:
+            return cls._registry[name]
+        else:
+            cls._try_load_registry_endpoints()
+            return cls._registry[name]
 
     @classmethod
     def construct(cls, recipe:Any) -> Any:
@@ -74,7 +78,8 @@ class CobaRegistry:
             return [ cls._construct_single(recipe, name, a, k) for a,k in zip(args, kwargs) ]
 
     @classmethod
-    def _get_registry(cls) -> Dict[str,Any]:
+    def _try_load_registry_endpoints(cls) -> Dict[str,Any]:
+        
         if not cls._endpoints_loaded:
             cls._endpoints_loaded = True
             for ep in entry_points().select(group='coba.register'):
@@ -121,7 +126,11 @@ class CobaRegistry:
         if isinstance(recipe, dict):
             name = recipe.get('name', None) or [key for key in recipe if key not in ["name", "args", "kwargs", "method"]][0]
 
-        return name in cls._get_registry()
+        if name in cls._registry:
+            return True
+        else:
+            cls._try_load_registry_endpoints()
+            return name in cls._registry
 
     @classmethod
     def _construct_or_return(cls, item:Any):        

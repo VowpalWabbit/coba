@@ -16,9 +16,13 @@ class PutOnceCacher(MemoryCacher):
 
 class OpenmlSource_Tests(unittest.TestCase):
     
+    def setUp(self) -> None:
+        CobaConfig.api_keys = {'openml': None}
+        CobaConfig.cacher   = MemoryCacher()
+        CobaConfig.logger   = NullLogger()
+
     def test_put_once_cache(self):
 
-        CobaConfig.api_keys['openml'] = None
         CobaConfig.cacher = PutOnceCacher()
 
         #data description query
@@ -49,9 +53,6 @@ class OpenmlSource_Tests(unittest.TestCase):
 
     def test_csv_default_classification(self):
 
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
-
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
         #data types query
@@ -80,9 +81,6 @@ class OpenmlSource_Tests(unittest.TestCase):
 
     def test_csv_not_classification(self):
 
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
-
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
         #data types query
@@ -99,9 +97,6 @@ class OpenmlSource_Tests(unittest.TestCase):
     
     def test_csv_not_classification_no_tasks(self):
 
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
-
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
         #data types query
@@ -117,9 +112,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertTrue("does not appear" in str(e.exception))
 
     def test_csv_not_default_classification(self):
-
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
         
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
@@ -149,9 +141,6 @@ class OpenmlSource_Tests(unittest.TestCase):
 
     def test_arff_default_arff_classification(self):
 
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
-
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
         #data types query
@@ -179,9 +168,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((0,1), label_col[4])
 
     def test_arff_sparse_arff_classification(self):
-
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
 
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/1594', b'{"data_set_description":{"id":"1594","name":"news20_test","version":"2","description":"this is test data","format":"Sparse_ARFF","upload_date":"2015-06-18T12:22:35","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/1595696\\/news20.sparse_arff","file_id":"1595696","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"79f56a6d9b73f90b6209199589fb2018"}}'.splitlines())
@@ -212,9 +198,6 @@ class OpenmlSource_Tests(unittest.TestCase):
 
     def test_arff_sparse_arff_missing_labels(self):
 
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
-
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/1594', b'{"data_set_description":{"id":"1594","name":"news20_test","version":"2","description":"this is test data","format":"Sparse_ARFF","upload_date":"2015-06-18T12:22:35","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/1595696\\/news20.sparse_arff","file_id":"1595696","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"79f56a6d9b73f90b6209199589fb2018"}}'.splitlines())
 
@@ -244,9 +227,6 @@ class OpenmlSource_Tests(unittest.TestCase):
 
     def test_arff_not_classification(self):
 
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
-
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
         #data types query
@@ -263,9 +243,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertTrue("does not appear" in str(e.exception))
 
     def test_arff_not_default_classification(self):
-
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
 
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
@@ -294,7 +271,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((0,1), label_col[4])
 
     def test_regression_dataset(self):
-        CobaConfig.api_keys['openml'] = None
+
         CobaConfig.cacher = PutOnceCacher()
 
         #data description query
@@ -324,7 +301,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(7.6, label_col[4])
 
     def test_regression_dataset_take(self):
-        CobaConfig.api_keys['openml'] = None
+        
         CobaConfig.cacher = PutOnceCacher()
 
         #data description query
@@ -348,9 +325,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(8.2, label_col[1])
 
     def test_csv_nominal_as_str(self):
-
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
 
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
@@ -380,9 +354,6 @@ class OpenmlSource_Tests(unittest.TestCase):
 
     def test_csv_numeric_nominal(self):
 
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
-
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
         #data types query
@@ -410,9 +381,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual('1', label_col[4])
 
     def test_csv_blank_default_target(self):
-
-        CobaConfig.api_keys['openml'] = None
-        CobaConfig.cacher = MemoryCacher()
 
         #data description query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
@@ -445,7 +413,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
     def test_simple_openml_source(self) -> None:
         #this test requires interet acess to download the data
 
-        CobaConfig.cacher = NullCacher()
+        CobaConfig.api_keys = {'openml':None}
+        CobaConfig.cacher   = NullCacher()
+        CobaConfig.logger   = NullLogger()
 
         interactions = list(OpenmlSimulation(1116).read())
 

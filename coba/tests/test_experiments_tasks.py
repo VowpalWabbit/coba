@@ -2,6 +2,8 @@ import unittest
 
 import json
 from typing import cast, Iterable
+from coba.config.core import CobaConfig
+from coba.config.loggers import NullLogger
 
 from coba.environments import LambdaSimulation, SimulatedInteraction, ClassificationSimulation, Environments, DebugSimulation
 from coba.pipes        import Pipe
@@ -285,6 +287,9 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertEqual([{'reveals':rev, 'rewards':rwd} for rev,rwd in zip([4,6,5,4],[1,6,8,0])], rows)
 
 class ProcessTasks_Tests(unittest.TestCase):
+
+    def setUp(self) -> None:
+        CobaConfig.logger = NullLogger()
 
     def test_simple(self):
 
