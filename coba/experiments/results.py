@@ -6,6 +6,7 @@ from numbers import Number
 from operator import truediv
 from itertools import chain, repeat, accumulate
 from collections.abc import Container
+from typing_extensions import Literal
 from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Callable
 
 from coba.config import CobaConfig
@@ -424,9 +425,8 @@ class Result:
     def plot_learners(self, 
         xlim : Optional[Tuple[Number,Number]] = None,
         ylim : Optional[Tuple[Number,Number]] = None,
-        yaxis: str = "reward",
         span : int = None,
-        err  : Optional[str] = None,
+        err  : Optional[Literal['se','sd']] = None,
         each : bool = False,
         ax = None) -> None:
         """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 

@@ -27,7 +27,7 @@ if __name__ == '__main__':
     environments = Environments.from_debug().shuffle([0,1,2]).binary()
 
     #We then create and evaluate our experiment from our environments and learners 
-    result = Experiment(environments,learners).evaluate()
+    result = Experiment(environments,learners).evaluate('example.log')
 
     #After evaluating can create a quick summary plot to get a sense of how the learners performed
     result.plot_learners(err='sd')

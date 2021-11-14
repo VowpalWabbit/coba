@@ -5,7 +5,7 @@ import gzip
 from hashlib import md5
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union, Generic, Dict, TypeVar, Optional, Iterable
+from typing import Union, Generic, Dict, TypeVar, Iterable
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")

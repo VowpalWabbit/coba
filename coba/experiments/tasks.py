@@ -351,6 +351,10 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
     def filter(self, chunk: Iterable[WorkItem]) -> Iterable[Any]:
 
+        chunk = list(chunk)
+
+        if not chunk: return
+
         with CobaConfig.logger.log(f"Processing chunk..."):
 
             for env_source, tasks_for_env_source in groupby(sorted(chunk, key=self._get_source_sort), key=self._get_source):

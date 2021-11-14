@@ -41,8 +41,8 @@ class Experiment:
         self._chunk_by        : Optional[str] = None
 
     def config(self, 
-        chunk_by: Literal['source','task'] = None,
         processes: int = None,
+        chunk_by: Literal['source','task'] = None,
         maxtasksperchild: Optional[int] = None) -> 'Experiment':
         """Configure how the experiment will be executed. A value of `None` means the global config will be used.
         
