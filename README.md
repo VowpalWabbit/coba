@@ -2,7 +2,7 @@
 
 ### What is it?
 
- Coba is a powerful benchmarking framework built specifically for research with contextual bandit algorithms.
+ Coba is a powerful benchmarking framework built specifically for research with contextual bandit (CB) algorithms.
 
 ### How do you benchmark?
 
@@ -29,36 +29,32 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  
  ## Workflow
  
- Coba is architected around a simple workflow: Simulations -> Benchmark -> Learners -> Results.
+ Coba is architected around a simple workflow: Environments -> Learners -> Experiment -> Results.
  
- Simulations contain all the necessary logic to define an environment. With a collection of simulations we then define a Benchmark. Benchmarks possess all the rules performance evaluation. Finally, once we have a benchmark we can then apply that benchmark to learners to see how a learner they perform on the benchmark.
+ Environments represent unique CB problems that need to be solved. Learners are the CB algorithms that we can use to learn policies. Experiments are combinations of Environments and Learners that we want to evaluate. And Results are the outcome of an Experiment, containing all the data from the Experiment.
  
- ## Simulations
+ ## Environments
  
- Simulations are the core unit of evaluation in Coba. They are nothing more than a collection of interactions with an environment and potential rewards. A number of tools have been built into Coba to make simulation creation easier. All these tools are defined in the `coba.environments` module. We describe these tools in more detail below.
+ Environments are the core unit of evaluation in Coba. They are nothing more than a sequence of interactions with contexts, actions and rewards. A number of tools have been built into Coba to make simulation creation easier. All these tools are defined in the `coba.environments` module. We describe a few of these tools here.
  
- ### Importing Simulations From Classification Data Sets
+ ### Creating Environments From Classification Data Sets
  
- Classification data sets are the easiest way to quickly evaluate CB algorithms with Coba. Coba natively supports: 
+ Classification data sets are the easiest way to create Environments in Coba. Coba natively supports: 
  
  * Binay, multiclass and multi-label problems
  * Dense and sparse representations
  * Openml, Csv, Arff, Libsvm, and the extreme classification (Manik) format
  * Local files and files over http (with local caching)
  
- The classification simulations built into Coba are `OpenmlSimulation`, `CsvSimulation`, `ArffSimulation`, `LibsvmSimulation`, and `ManikSimulation`.
+ The classification environments built into Coba are `OpenmlSimulation`, `CsvSimulation`, `ArffSimulation`, `LibsvmSimulation`, and `ManikSimulation`.
 
- ### Generating Simulations From Generative Functions
+ ### Creating Environments From Generative Functions
  
- Sometimes we have well defined models that an agent has to make decisions within. To support evaluation in these domains one can use `LambdaSimulation` to define generative functions for . 
+ Sometimes we have well defined models that an agent has to make decisions within but no data. To support evaluation in these domains one can use `LambdaSimulation` to define generative functions for that will create an Environment. 
  
- ### Creating Simulations From Scratch
+ ### Creating Environments From Scratch
  
- If more customization is needed beyond what is offered above then you can easily create your own simulation by implementing Coba's simple `Simulation` interface.
- 
- ## Benchmarks
- 
- The `Benchmark` class contains all the logic for learner performance evaluation. This includes both evaluation logic (e.g., which simulations and how many interactions) and execution logic (e.g., how many processors to use and where to write results). There is only one `Benchmark` implementation in Coba and it can be found in the `coba.benchmarks` module.
+ If more customization is needed beyond what is offered above then you can easily create your own simulation by implementing Coba's simple `SimulatedEnvironment` interface.
  
  ## Learners
  
@@ -68,8 +64,15 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  
  * All contextual bandit learners in VowpalWabbit
  * UCB1-Tuned Bandit Learner by Auer et al. 2002
+ * LinUCB by Chu et al. 2011
  * Corral by Agarwal et al. 2017
+
+ 
+## Experiments
+ 
+ The `Experiment` class contains all the logic for learner performance evaluation. This includes execution logic such as how many processors to use and where to write results. There is only one `Experiment` implementation in Coba and it can be found in the `coba.experiments` module.
   
+ 
  ## Examples
  
- An examples directory is included in the repository with a number of code demonstrations and benchmark demonstrations. These examples show how to create benchmarks, evaluate learners against them and plot the results.
+ An examples directory is included in the repository with a number of code and experiment demonstrations. These examples show how to create experiments, evaluate learners against them and plot the results.
