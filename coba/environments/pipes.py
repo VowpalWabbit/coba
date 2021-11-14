@@ -1,24 +1,25 @@
-from typing import Sequence, Iterable, Dict, Any
+from typing import Iterable, Dict, Any
 
-from coba.simulations.core import Simulation, SimulatedInteraction
-from coba.simulations.filters import SimulationFilter
+from coba.pipes import Pipe
+from coba.environments.core import SimulatedEnvironment, SimulatedInteraction
+from coba.environments.filters import SimulationFilter
 
-class SimSourceFilters(Simulation):
+class EnvironmentPipe(SimulatedEnvironment):
 
-    def __init__(self, source: Simulation, filters: Sequence[SimulationFilter]):
+    def __init__(self, source: SimulatedEnvironment, *filters: SimulationFilter):
         
-        if isinstance(source, SimSourceFilters):
-            self._source  = source._source
-            self._filters = list(source._filters) + list(filters)
+        if isinstance(source, EnvironmentPipe):
+            self._source = source._source
+            self._filter = Pipe.join([source._filter] + list(filters))
         else:
             self._source  = source
-            self._filters = list(filters)
+            self._filter = Pipe.join(list(filters))
 
     @property
     def params(self) -> Dict[str, Any]:
         params = self._safe_params(self._source)
 
-        for filter in self._filters:
+        for filter in self._filter._filters:
             params.update(self._safe_params(filter))
 
         return params
@@ -33,7 +34,7 @@ class SimSourceFilters(Simulation):
     def read(self) -> Iterable[SimulatedInteraction]:
         interactions = self._source.read()
 
-        for filter in self._filters:
+        for filter in self._filter:
             interactions = filter.filter(interactions)
 
         return interactions
@@ -43,3 +44,6 @@ class SimSourceFilters(Simulation):
             return obj.params
         except AttributeError:
             return {}
+
+    def __repr__(self) -> str:
+        return str([self._source, self._filter])

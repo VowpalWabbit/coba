@@ -9,20 +9,24 @@ to do so.
 TODO Add RegressionSimulation
 """
 
-from coba.simulations.core import (
-    Context, Action, SimulatedInteraction, Simulation, MemorySimulation, 
-    LambdaSimulation, ClassificationSimulation, CsvSimulation, ArffSimulation, 
-    LibsvmSimulation, ManikSimulation, ValidationSimulation, RegressionSimulation
+from coba.environments.core         import Context, Action, SimulatedInteraction, LoggedInteraction, SimulatedEnvironment
+from coba.environments.openml       import OpenmlSource, OpenmlSimulation
+from coba.environments.filters      import SimulationFilter, Sort, Scale, Cycle, Impute
+from coba.environments.pipes        import EnvironmentPipe
+from coba.environments.environments import Environments
+
+from coba.environments.simulations import (
+    MemorySimulation, LambdaSimulation, ClassificationSimulation, CsvSimulation, 
+    ArffSimulation, LibsvmSimulation, ManikSimulation, DebugSimulation, RegressionSimulation
 )
-from coba.simulations.openml  import OpenmlSource, OpenmlSimulation
-from coba.simulations.filters import SimulationFilter, Identity, Shuffle, Take, Sort, Scale, Cycle, Impute
-from coba.simulations.pipes   import SimSourceFilters
 
 __all__ = [
     'Context',
     'Action',
     'SimulatedInteraction',
-    'Simulation',
+    'LoggedInteraction',
+    'SimulatedEnvironment',
+    'Environments',
     'OpenmlSource',
     'MemorySimulation',
     'LambdaSimulation',
@@ -33,14 +37,11 @@ __all__ = [
     'LibsvmSimulation',
     'ManikSimulation',
     'OpenmlSimulation',
-    'ValidationSimulation',
+    'DebugSimulation',
     'SimulationFilter',
-    'Identity',
-    'Shuffle',
-    'Take',
     'Sort',
     'Scale',
     'Cycle',
     'Impute',
-    'SimSourceFilters'
+    'EnvironmentPipe',
 ]

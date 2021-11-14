@@ -4,7 +4,7 @@ import time
 from typing import Any, Dict, Sequence
 
 from coba.utilities import PackageChecker
-from coba.simulations import Context, Action
+from coba.environments import Context, Action
 from coba.encodings import InteractionTermsEncoder
 from coba.learners.core import Info, Learner
 

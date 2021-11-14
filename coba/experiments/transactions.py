@@ -4,7 +4,7 @@ from coba.learners import Learner
 from coba.learners.core import SafeLearner
 from coba.pipes import Pipe, Filter, Sink, Cartesian, JsonEncode, DiskIO, MemoryIO
 
-from coba.benchmarks.results import Result, ResultPromote
+from coba.experiments.results import Result, ResultPromote
 
 class Transaction:
 

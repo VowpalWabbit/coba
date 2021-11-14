@@ -4,7 +4,6 @@ Remarks:
     This module is used primarily for the creation of simulations from data sets.
 """
 
-import sys
 import json
 import collections
 import time
@@ -76,14 +75,6 @@ class Encoder(Generic[_T_out], ABC):
 class StringEncoder(Encoder[str]):
     """An Encoder implementation that turns incoming values into string values."""
 
-    def __init__(self, is_fit = True) -> None:
-        """Instantiate a StringEncoder.
-
-        Args:
-            is_fit: Indicates if the encoder is instantiated as already being fit.
-        """
-        self._is_fit = is_fit
-
     @property
     def is_fit(self) -> bool:
         """Indicates if the encoder has been fit.
@@ -92,7 +83,7 @@ class StringEncoder(Encoder[str]):
             See the base class for more information.
         """
 
-        return self._is_fit
+        return True
 
     def fit(self, values: Sequence[Any]) -> 'StringEncoder':
         """Determine how to encode from given training data.
@@ -107,10 +98,7 @@ class StringEncoder(Encoder[str]):
             See the base class for more information.
         """
 
-        if self.is_fit:
-            raise Exception("This encoder has already been fit.")
-
-        return StringEncoder(is_fit=True)
+        return StringEncoder()
 
     def encode(self, values: Sequence[Any]) -> Sequence[str]:
         """Encode the given values as a sequence of strings.
@@ -122,32 +110,20 @@ class StringEncoder(Encoder[str]):
             See the base class for more information.
         """
 
-        if not self.is_fit:
-            raise Exception("This encoder must be fit before it can be used.")
-
         return [str(value) for value in values]
 
 class NumericEncoder(Encoder[float]):
     """An Encoder implementation that turns incoming values into float values."""
 
-    def __init__(self, is_fit = True) -> None:
-        """Instantiate a NumericEncoder.
-
-        Args:
-            is_fit: Indicates if the encoder is instantiated as already being fit.
-        """
-
-        self._is_fit = is_fit
-
     @property
     def is_fit(self) -> bool:
         """Indicates if the encoder has been fit.
-        
+
         Remarks:
             See the base class for more information.
         """
 
-        return self._is_fit
+        return True
 
     def fit(self, values: Sequence[Any]) -> 'NumericEncoder':
         """Determine how to encode from given training data.
@@ -162,10 +138,7 @@ class NumericEncoder(Encoder[float]):
             See the base class for more information.
         """
 
-        if self.is_fit:
-            raise Exception("This encoder has already been fit.")
-
-        return NumericEncoder(is_fit=True)
+        return NumericEncoder()
 
     def encode(self, values: Sequence[Any]) -> Sequence[float]:
         """Encode the given values as a sequence of floats.
@@ -176,14 +149,6 @@ class NumericEncoder(Encoder[float]):
         Remarks:
             See the base class for more information.
         """
-
-        if not self.is_fit:
-            raise Exception("This encoder must be fit before it can be used.")
-
-        #The fastnumbers package seems like it could potentially provide around a 20% speed increase.        
-        #if isinstance(values[0],str):
-        #    return [float(value) if cast(str,value).isnumeric() else float('nan') for value in values]
-        #else:
 
         def float_generator() -> Iterator[float]:
             for value in values:
@@ -208,42 +173,30 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         def __hash__(self) -> int:
             return hash(tuple(self))
 
-    def __init__(self, fit_values: Sequence[Any] = [], singular_if_binary: bool = False, error_if_unknown = False) -> None:
+    def __init__(self, values: Sequence[Any] = [], err_if_unknown = False) -> None:
         """Instantiate a OneHotEncoder.
 
         Args:
-            fit_values: Provide the universe of values for encoding and set `is_fit==True`.
-            singular_if_binary: Indicate if a universe with two values should be encoded as [1] or [0]
-                rather than the more standard [1 0] and [0 1].
-            error_if_unknown: Indicates if an error is thrown when an unknown value is passed to `encode`
-                or if a sequence of all 0's with a length of the universe is returned.
+            values: Provide the universe of values for encoding and set `is_fit==True`.
+            err_if_unknown: When an unknown value is passed to `encode` throw an exception (otherwise encode as all 0's).
         """
-        self._fit_values         = fit_values
-        self._singular_if_binary = singular_if_binary
-        self._error_if_unknown   = error_if_unknown
-        self._is_fit             = len(fit_values) > 0
+        
+        self._err_if_unknown = err_if_unknown
+        self._onehots        = None
+        self._default        = None
 
-        if fit_values:
+        if values:
 
-            if len(fit_values) == 2 and singular_if_binary:
-                unknown_onehot = float('nan')
-                known_onehots = [OneHotEncoder.MemoryEffecientStorage([1]),OneHotEncoder.MemoryEffecientStorage([0])]
-            else:
-                unknown_onehot = float('nan')
-                known_onehots  = [ [0] * len(fit_values) for _ in range(len(fit_values)) ]
-                
-                for i,k in enumerate(known_onehots):
-                    k[i] = 1
+            values = sorted(set(values), key=lambda v: values.index(v))
+            
+            self._default = tuple([0] * len(values))
+            known_onehots = [ [0] * len(values) for _ in range(len(values)) ]
+            
+            for i,k in enumerate(known_onehots):
+                k[i] = 1
 
-            keys_and_values = zip(fit_values, map(OneHotEncoder.MemoryEffecientStorage, known_onehots))
-            default_factory = lambda:unknown_onehot
-
-            self._onehots: Dict[Any,Tuple[int,...]]
-
-            if self._error_if_unknown:
-                self._onehots = dict(keys_and_values)
-            else:
-                self._onehots = collections.defaultdict(default_factory, keys_and_values)
+            keys_and_values = zip(values, map(tuple,known_onehots))
+            self._onehots   = dict(keys_and_values)
 
     @property
     def is_fit(self) -> bool:
@@ -253,7 +206,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             See the base class for more information.
         """
 
-        return self._is_fit
+        return self._onehots is not None
 
     def fit(self, values: Sequence[Any]) -> 'OneHotEncoder':
         """Determine how to encode from given training data.
@@ -268,15 +221,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             See the base class for more information.
         """
 
-        if self.is_fit:
-            raise Exception("This encoder has already been fit.")
-
-        fit_values = sorted(set(values), key=lambda v: values.index(v))
-
-        return OneHotEncoder(
-            fit_values         = fit_values, 
-            singular_if_binary = self._singular_if_binary, 
-            error_if_unknown   = self._error_if_unknown)
+        return OneHotEncoder(values = values, err_if_unknown = self._err_if_unknown)
 
     def encode(self, values: Sequence[Any]) -> Sequence[Tuple[int,...]]:
         """Encode the given value as a sequence of 0's and 1's.
@@ -291,42 +236,38 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             See the base class for more information.
         """
 
-        if not self.is_fit:
+        if self._onehots is None:
             raise Exception("This encoder must be fit before it can be used.")
 
         try:
-            return [ self._onehots[value] for value in values ]
+            return [ self._onehots[value] if self._err_if_unknown else self._onehots.get(value, self._default) for value in values ]
         except KeyError as e:
             raise Exception(f"We were unable to find {e} in {self._onehots.keys()}")
 
 class FactorEncoder(Encoder[int]):
     """An Encoder implementation that turns incoming values into factor representation."""
 
-    def __init__(self, fit_values: Sequence[Any] = [], error_if_unknown = False) -> None:
+    def __init__(self, values: Sequence[Any] = [], err_if_unknown = False) -> None:
         """Instantiate a FactorEncoder.
 
         Args:
-            fit_values: Provide the universe of values for encoding and set `is_fit==True`.
-            error_if_unknown: Indicates if an error is thrown when an unknown value is passed to `encode`
-                or if a sequence of all 0's with a length of the universe is returned.
+            values: Provide the universe of values for encoding and set `is_fit==True`.
+            err_if_unknown: When an unknown value is passed to `encode` throw an exception (otherwise encode as all 0's).
         """
-        self._fit_values       = fit_values
-        self._error_if_unknown = error_if_unknown
-        self._is_fit           = len(fit_values) > 0
 
-        if fit_values:
-            unknown_level = 0
-            known_levels  = [ i + 1 for i in range(len(fit_values)) ]                
+        self._err_if_unknown = err_if_unknown
+        self._levels         = None
+        self._default        = None
 
-            keys_and_values = zip(fit_values, known_levels)
-            default_factory = lambda: unknown_level
+        if values:
 
-            self._levels: Dict[Any,int]
+            values = sorted(set(values), key=lambda v: values.index(v))
 
-            if self._error_if_unknown:
-                self._levels = dict(keys_and_values)
-            else:
-                self._levels = collections.defaultdict(default_factory, keys_and_values)
+            self._default = float('nan')
+            known_levels  = [ i + 1 for i in range(len(values)) ]                
+
+            keys_and_values = zip(values, known_levels)
+            self._levels    = dict(keys_and_values)
 
     @property
     def is_fit(self) -> bool:
@@ -336,7 +277,7 @@ class FactorEncoder(Encoder[int]):
             See the base class for more information.
         """
 
-        return self._is_fit
+        return self._levels is not None
 
     def fit(self, values: Sequence[Any]) -> 'FactorEncoder':
         """Determine how to encode from given training data.
@@ -351,14 +292,7 @@ class FactorEncoder(Encoder[int]):
             See the base class for more information.
         """
 
-        if self.is_fit:
-            raise Exception("This encoder has already been fit.")
-
-        fit_values = sorted(set(values))
-
-        return FactorEncoder(
-            fit_values         = fit_values, 
-            error_if_unknown   = self._error_if_unknown)
+        return FactorEncoder(values = values, err_if_unknown = self._err_if_unknown)
 
     def encode(self, values: Sequence[Any]) -> Sequence[int]:
         """Encode the given values as a sequence factor levels.
@@ -370,11 +304,11 @@ class FactorEncoder(Encoder[int]):
             See the base class for more information.
         """
 
-        if not self.is_fit:
+        if self._levels is None:
             raise Exception("This encoder must be fit before it can be used.")
 
         try:
-            return [ self._levels[value] for value in values ]
+            return [ self._levels[value] if self._err_if_unknown else self._levels.get(value, self._default) for value in values ]
         except KeyError as e:
             raise Exception(f"We were unable to find {e} in {self._levels.keys()}") from None
 

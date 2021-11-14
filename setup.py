@@ -1,9 +1,9 @@
 # type: ignore
 import setuptools
 
-MAJOR               = 3
-MINOR               = 8
-MICRO               = 1
+MAJOR               = 4
+MINOR               = 0
+MICRO               = 0
 VERSION             = f"{MAJOR}.{MINOR}.{MICRO}"
 
 with open("README.md", "r") as f:
@@ -19,7 +19,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/VowpalWabbit/coba",
     license="BSD 3-Clause License",
-    packages=["coba", "coba.simulations", "coba.benchmarks", "coba.learners", "coba.pipes", "coba.config"],
+    packages=["coba", "coba.environments", "coba.experiments", "coba.learners", "coba.pipes", "coba.config"],
     entry_points={"coba.register": "coba = coba.register"},
     classifiers=[
         "Intended Audience :: Science/Research",

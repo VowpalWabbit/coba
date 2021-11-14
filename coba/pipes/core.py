@@ -46,7 +46,7 @@ class Pipe:
             for filter in self._filters:
                 items = filter.filter(items)
             return items
-
+ 
         def __repr__(self) -> str:
             return ",".join(map(str,self._filters))
 

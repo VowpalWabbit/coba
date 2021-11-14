@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from numbers import Number
 from typing import Any, Sequence, Dict, Union, Tuple, Optional
 
-from coba.simulations import Context, Action
+from coba.environments import Context, Action
 
 Info = Any
 Probs = Sequence[float]

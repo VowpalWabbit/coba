@@ -12,7 +12,7 @@ from coba.random import CobaRandom
 from coba.pipes import Filter
 from coba.statistics import iqr
 
-from coba.simulations.core import SimulatedInteraction
+from coba.environments.core import SimulatedInteraction, LoggedInteraction
 
 class SimulationFilter(Filter[Iterable[SimulatedInteraction],Iterable[SimulatedInteraction]], ABC):
 
@@ -25,55 +25,6 @@ class SimulationFilter(Filter[Iterable[SimulatedInteraction],Iterable[SimulatedI
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
         """Apply a filter to a Simulation's interactions."""
         ...
-
-class Identity(SimulationFilter):
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { }
-
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-        return interactions
-
-class Shuffle(SimulationFilter):
-    
-    def __init__(self, seed:Optional[int]) -> None:
-        
-        if seed is not None and (not isinstance(seed,int) or seed < 0):
-            raise ValueError(f"Invalid parameter for Shuffle: {seed}. An optional integer value >= 0 was expected.")
-
-        self._seed = seed
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { "shuffle": self._seed }
-
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]: 
-        return CobaRandom(self._seed).shuffle(list(interactions))
-
-    def __repr__(self) -> str:
-        return str(self.params)
-
-class Take(SimulationFilter):
-    
-    def __init__(self, count:Optional[int]) -> None:
-        
-        if count is not None and (not isinstance(count,int) or count < 0):
-            raise ValueError(f"Invalid parameter for Take: {count}. An optional integer value >= 0 was expected.")
-
-        self._count = count
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { "take": self._count }    
-
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-
-        if self._count is None: return interactions
-
-        materialized = list(islice(interactions,self._count))
-
-        return materialized if len(materialized) == self._count else []
 
     def __repr__(self) -> str:
         return str(self.params)
@@ -187,7 +138,7 @@ class Scale(SimulationFilter):
             else:
                 final_context = kv_scaled_context[1]
 
-            yield SimulatedInteraction(final_context, interaction.actions, **interaction.results)
+            yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
         
@@ -219,7 +170,7 @@ class Cycle(SimulationFilter):
             yield interaction
 
         for interaction in with_cycle_interactions:
-            kwargs = {k:v[1:]+v[:1] for k,v in interaction.results.items()}
+            kwargs = {k:v[1:]+v[:1] for k,v in interaction.kwargs.items()}
             yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
 
     def __repr__(self) -> str:
@@ -284,7 +235,7 @@ class Impute(SimulationFilter):
             else:
                 final_context = kv_imputed_context[1]
 
-            yield SimulatedInteraction(final_context, interaction.actions, **interaction.results)
+            yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
         
@@ -293,6 +244,54 @@ class Impute(SimulationFilter):
         if context is not None      : return [(1,context)]
 
         return []
+
+    def __repr__(self) -> str:
+        return str(self.params)
+
+class Binary(SimulationFilter):
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "binary": True }
+
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+
+        for interaction in interactions:
+            kwargs = interaction.kwargs
+            max_rwd = max(kwargs["rewards"])
+            kwargs["rewards"] = [int(r==max_rwd) for r in kwargs["rewards"]]
+
+            yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
+
+class ToWarmStart(SimulationFilter):
+    def __init__(self, n_warmstart:int, seed:int = 1):
+        
+        self._n_warmstart = n_warmstart
+        self._seed = seed
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "n_warmstart": self._n_warmstart }
+
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Union[LoggedInteraction, SimulatedInteraction]]:
+
+        self._rng = CobaRandom(self._seed)
+
+        underlying_iterable    = iter(interactions)
+        logged_interactions    = map(self._to_logged_interaction, islice(underlying_iterable, self._n_warmstart))
+        simulated_interactions = underlying_iterable
+
+        return chain(logged_interactions, simulated_interactions)
+
+    def _to_logged_interaction(self, interaction: SimulatedInteraction) -> LoggedInteraction:        
+        num_actions   = len(interaction.actions)
+        probabilities = [1/num_actions] * num_actions 
+        
+        selected_index       = self._rng.choice(list(range(num_actions)), probabilities)
+        selected_action      = interaction.actions[selected_index]
+        selected_probability = probabilities[selected_index]
+        selected_reward      = interaction.kwargs.get("reveals", interaction.kwargs.get("rewards", None))[selected_index]
+
+        return LoggedInteraction(interaction.context, selected_action, selected_reward, selected_probability)
 
     def __repr__(self) -> str:
         return str(self.params)

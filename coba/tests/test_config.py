@@ -366,7 +366,6 @@ class IndentLogger_Tests(unittest.TestCase):
 
         self.assertEqual(logs[0], "a")
 
-
 class DiskCache_Tests(unittest.TestCase):
     Cache_Test_Dir = Path("coba/tests/.temp/cache_tests/")
     
@@ -384,7 +383,13 @@ class DiskCache_Tests(unittest.TestCase):
 
     def test_creates_directory(self):
         cache = DiskCacher(self.Cache_Test_Dir / "folder1/folder2")
-        cache.put("test.csv", b"test")
+        cache.put("test.csv", [b"test"])
+        self.assertTrue("test.csv" in cache)
+
+    def test_creates_directory2(self):
+        cache = DiskCacher(None)
+        cache.cache_directory = self.Cache_Test_Dir / "folder1/folder2"
+        cache.put("test.csv", [b"test"])
         self.assertTrue("test.csv" in cache)
             
     def test_write_csv_to_cache(self):
@@ -392,18 +397,28 @@ class DiskCache_Tests(unittest.TestCase):
         cache = DiskCacher(self.Cache_Test_Dir)
 
         self.assertFalse("test.csv"    in cache)
-        cache.put("test.csv", b"test")
+        cache.put("test.csv", [b"test"])
         self.assertTrue("test.csv" in cache)
 
-        self.assertEqual(cache.get("test.csv"), b"test")
+        self.assertEqual(list(cache.get("test.csv")), [b"test"])
     
+    def test_write_multiline_csv_to_cache(self):
+
+        cache = DiskCacher(self.Cache_Test_Dir)
+
+        self.assertFalse("test.csv"    in cache)
+        cache.put("test.csv", [b"test", b"test2"])
+        self.assertTrue("test.csv" in cache)
+
+        self.assertEqual(list(cache.get("test.csv")), [b"test", b"test2"])
+
     def test_rmv_csv_from_cache(self):
 
         cache = DiskCacher(self.Cache_Test_Dir)
 
         self.assertFalse("test.csv"    in cache)
         
-        cache.put("test.csv", b"test")
+        cache.put("test.csv", [b"test"])
         
         self.assertTrue("test.csv"    in cache)
 

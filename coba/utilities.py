@@ -3,10 +3,18 @@
 import sys
 import os
 
+from collections import defaultdict
 from io import UnsupportedOperation
 from contextlib import contextmanager
 from typing import IO
-from coba.config import CobaException
+
+from coba.exceptions import CobaException
+
+def coba_exit():
+    try:
+        exit() #this is my attempt at handling CPython (where this works) vs IPython (e.g., Jupyter Notebooks)
+    except NameError:
+        raise CobaException() #CobaException has been specially made so that it outputs no TB in Jupyter Notebook
 
 @contextmanager
 def redirect_stderr(to: IO[str]):
@@ -78,8 +86,8 @@ class PackageChecker:
         """
         try:
             import matplotlib # type: ignore
-        except ImportError as e:
-            _handle_import_error(e, caller_name, "matplotlib", silent)
+        except ImportError:
+            PackageChecker._handle_import_error(caller_name, "matplotlib", silent)
 
     @staticmethod
     def vowpalwabbit(caller_name: str, silent: bool = False) -> None:
@@ -88,7 +96,7 @@ class PackageChecker:
         Functionality requiring vowpalwabbit should call this helper and then lazily import.
 
         Args:    
-            caller_name: The name of the caller that requires matplotlib.
+            caller_name: The name of the caller that requires vowpalwabbit.
 
         Remarks:
             This pattern was inspired by sklearn (see `PackageChecker.matplotlib` for more information).
@@ -97,7 +105,7 @@ class PackageChecker:
         try:            
             import vowpalwabbit # type: ignore
         except ImportError as e:
-            pass
+            PackageChecker._handle_import_error(caller_name, "vowpalwabbit", silent)
 
     @staticmethod
     def pandas(caller_name: str, silent: bool = False) -> None:
@@ -113,8 +121,8 @@ class PackageChecker:
         """
         try:
             import pandas # type: ignore
-        except ImportError as e:
-            _handle_import_error(e, caller_name, "pandas", silent)
+        except ImportError:
+            PackageChecker._handle_import_error(caller_name, "pandas", silent)
 
     @staticmethod
     def numpy(caller_name: str, silent: bool = False) -> None:
@@ -130,37 +138,30 @@ class PackageChecker:
         """
         try:
             import numpy # type: ignore
-        except ImportError as e:
-            _handle_import_error(e, caller_name, "numpy", silent)
+        except ImportError:
+            PackageChecker._handle_import_error(caller_name, "numpy", silent)
 
     @staticmethod
     def sklearn(caller_name: str, silent: bool = False) -> None:
-        """Raise ImportError with detailed error message if numpy is not installed.
+        """Raise ImportError with detailed error message if sklearn is not installed.
 
-        Functionality requiring numpy should call this helper and then lazily import.
+        Functionality requiring sklearn should call this helper and then lazily import.
 
         Args:
-            caller_name: The name of the caller that requires numpy.
+            caller_name: The name of the caller that requires sklearn.
 
         Remarks:
             This pattern was inspired by sklearn (see `PackageChecker.matplotlib` for more information).
         """
         try:
             import sklearn # type: ignore
-        except ImportError as e:
-            _handle_import_error(e, caller_name, "scikit-learn", silent)
+        except ImportError:
+            PackageChecker._handle_import_error(caller_name, "scikit-learn", silent)
 
-def _handle_import_error(e: Exception, caller_name:str, pkg_name:str, silent:bool):
-    if not silent:
-        print(
-            f"ERROR: {caller_name} requires the {pkg_name} package. You can "
-            f"install this package via `pip install {pkg_name}`."
-        )
-
-    try:
-        exit() #this is my attempt at handling CPython (where this works) vs IPython (e.g., Jupyter Notebooks)
-    except NameError:
-        raise CobaException() #CobaException has been specially made so that it outputs now TB in Jupyter Notebook 
+    def _handle_import_error(caller_name:str, pkg_name:str, silent:bool):
+        if not silent:
+            print(f"ERROR: {caller_name} requires the {pkg_name} package. You can install this package via `pip install {pkg_name}`.")
+        coba_exit()
 
 class HashableDict(dict):
     def __init__(self, *args, **kwargs) -> None:
@@ -173,3 +174,12 @@ class HashableDict(dict):
         assert self._hash == hash(tuple(self.items()))
 
         return self._hash
+
+class KeyDefaultDict(defaultdict):
+    def __missing__(self, key):
+        if self.default_factory is None:
+            raise KeyError( key )
+        else:
+            value = self.default_factory(key)
+            self[key] = value
+            return value

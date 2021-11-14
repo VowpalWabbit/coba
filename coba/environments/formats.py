@@ -6,13 +6,13 @@ from typing import Sequence, Dict, Any
 
 from coba.registry import CobaRegistry
 from coba.pipes import Filter
-from coba.simulations import SimSourceFilters
 
-from coba.benchmarks.core import Benchmark
+from coba.environments.core import SimulatedEnvironment
+from coba.environments.pipes import EnvironmentPipe
 
-class BenchmarkFileFmtV2(Filter[Dict[str,Any], Benchmark]):
+class EnvironmentFileFmtV1(Filter[Dict[str,Any], Sequence[SimulatedEnvironment]]):
 
-    def filter(self, config: Dict[str,Any]) -> 'Benchmark':
+    def filter(self, config: Dict[str,Any]) -> Sequence[SimulatedEnvironment]:
 
         variables = { k: CobaRegistry.construct(v) for k,v in config.get("variables",{}).items() }
 
@@ -32,7 +32,7 @@ class BenchmarkFileFmtV2(Filter[Dict[str,Any], Benchmark]):
                 pieces = list(map(_construct, item))
                 
                 if hasattr(pieces[0][0],'read'):
-                    result = [ SimSourceFilters(s, f) for s in pieces[0] for f in product(*pieces[1:])]
+                    result = [ EnvironmentPipe(s, *f) for s in pieces[0] for f in product(*pieces[1:])]
                 else:
                     result = sum(pieces,[])
 
@@ -43,6 +43,4 @@ class BenchmarkFileFmtV2(Filter[Dict[str,Any], Benchmark]):
 
         if not isinstance(config['simulations'], list): config['simulations'] = [config['simulations']]
 
-        simulations = [ simulation for recipe in config['simulations'] for simulation in _construct(recipe)]
-
-        return Benchmark(simulations)
+        return [ simulation for recipe in config['simulations'] for simulation in _construct(recipe)]

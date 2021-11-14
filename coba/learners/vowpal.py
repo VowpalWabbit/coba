@@ -9,17 +9,20 @@ from numbers import Number
 from typing_extensions import Literal
 from typing import Any, Dict, Union, Sequence, overload, cast, Optional, Tuple
 
-from coba.config import CobaException
-from coba.utilities import PackageChecker, redirect_stderr
-from coba.simulations import Context, Action
+from coba.exceptions import CobaException
+from coba.utilities import PackageChecker, redirect_stderr, KeyDefaultDict
+from coba.environments import Context, Action
 
 from coba.learners.core import Learner, Probs, Info
 
+Vowpal_Key      = Union[str,int]
+Vowpal_Features = Sequence[Union[str,Tuple[Vowpal_Key,Number]]]
 Coba_Feature    = Union[str,Number]
-Coba_Features   = Union[Dict[str,Coba_Feature], Sequence[Coba_Feature], Coba_Feature]
-Vowpal_Features = Sequence[Union[Tuple[Union[str,int],float],str,int]]
+Coba_Features   = Union[Coba_Feature, Sequence[Coba_Feature], Sequence[Tuple[str,Coba_Feature]], Dict[str,Coba_Feature]]
 
 class VowpalMediator:
+
+    _string_cache = KeyDefaultDict(lambda key: str(key))
 
     @staticmethod
     def package_check(caller):
@@ -27,37 +30,25 @@ class VowpalMediator:
 
     @staticmethod
     def prep_features(features: Coba_Features) -> Vowpal_Features:
+        # one big potential for error here is if our features are have float keys that are actually integers
+        # checking for this case greatly reduces efficiency of the prep operation.
 
-        def sequence_prep(tuple_sequence: Sequence[Tuple[Any,Any]]):
-            features = []
-            
-            for t in tuple_sequence:
-
-                if isinstance(t[0],float):
-                    assert t[0].is_integer(), f"{t} has an invalid VW feature key (must be str or int)." 
-                    t = (int(t[0]), t[1])
-
-                if isinstance(t[1],str):
-                    t = f"{t[0]}={t[1]}"
-
-                features.append(t)
-            
-            return features
-                
         if features is None or features == [] or features == ():
             return []
-        elif isinstance(features, dict):
-            return sequence_prep(features.items())
         elif isinstance(features, str):
             return [features]
         elif isinstance(features, Number):
-            return [(0,features)]
+            return [("0",features)]
+        elif isinstance(features,dict):
+            features = features.items()
         elif isinstance(features, collections.Sequence) and features and isinstance(features[0], tuple):
-            return sequence_prep(features)
-        elif isinstance(features, collections.Sequence) and features and not isinstance(features[0], tuple):
-            return [f"{i}={f}" if isinstance(f,str) else (i,f) for i,f in enumerate(features) if f != 0]
-
-        raise Exception(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")
+            features = features
+        elif isinstance(features, collections.Sequence) and features and not isinstance(features[0],tuple):
+            features = zip(map(VowpalMediator._string_cache.__getitem__, range(len(features))) ,features)
+        else:
+            raise Exception(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")
+        
+        return [f"{F[0]}={F[1]}" if isinstance(F[1],str) else F for F in features if F[1] != 0]        
 
     @staticmethod
     def make_learner(args:str):
@@ -74,6 +65,7 @@ class VowpalMediator:
         ns = { k:v for k,v in ns.items() if v != [] }
 
         ex = example(vw, ns, label_type)
+
         if label: ex.set_label_string(label)
         ex.setup_example()
 
@@ -193,7 +185,7 @@ class VowpalLearner(Learner):
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
         VowpalMediator.package_check("VowpalLearner")
-        interactions = "--interactions ssa --interactions sa --ignore_linear s"
+        interactions = "--interactions xxa --interactions xa --ignore_linear x"
 
         if not args and 'seed' not in kwargs:
             kwargs['seed'] = 1
@@ -343,8 +335,21 @@ class VowpalLearner(Learner):
     def _labels(self,actions,action,reward:float,prob:float) -> Sequence[Optional[str]]:
         return [ f"{i+1}:{round(1-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
 
-    def _shared(self,context) -> Dict[str,Any]:
-        return {} if not context else { 's': VowpalMediator.prep_features(context) }
+    def _shared(self, context) -> Dict[str,Any]:
+        return {} if not context else { 'x': VowpalMediator.prep_features(self._flat(context)) }
 
     def _adfs(self,actions) -> Sequence[Dict[str,Any]]:
-        return [ {'a': VowpalMediator.prep_features(a)} for a in actions]
+        return [ {'a': VowpalMediator.prep_features(self._flat(a))} for a in actions]
+
+    def _flat(self,features:Any) -> Any:
+        if features is None or isinstance(features,(int,float,str)):
+            return features
+        elif isinstance(features,dict):
+            new_items = dict(features)
+            for k,v in features.items():
+                if isinstance(v,collections.Sequence) and not isinstance(v,str):
+                    del new_items[k]
+                    new_items.update( (f"{k}_{i}",f)  for i,f in enumerate(v))
+            return new_items
+        else:
+            return [ff for f in features for ff in (f if isinstance(f,tuple) else [f]) ]

@@ -1,10 +1,14 @@
 import unittest
 import timeit
+import statistics
 
 import coba.random
+
+from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
-from coba.simulations import SimulatedInteraction
+from coba.environments import SimulatedInteraction
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionTermsEncoder
+from coba.pipes import Take
 
 class Performance_Tests(unittest.TestCase):
     
@@ -39,7 +43,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_onehot_encode_performance(self):
 
-        encoder = OneHotEncoder(list(range(1000)), error_if_unknown=False )
+        encoder = OneHotEncoder(list(range(1000)), err_if_unknown=False )
         to_encode = [100,200,300,400,-1]*100000
 
         time = min(timeit.repeat(lambda:encoder.encode(to_encode), repeat=50, number = 1))
@@ -55,7 +59,6 @@ class Performance_Tests(unittest.TestCase):
         
         time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
         
-        print(time)
         #best observed was 0.62 without interning
         #best observed was 0.87 with interning
         #performance time could be reduced to around .47 by using numpy and prime factorization of feature names 
@@ -67,7 +70,6 @@ class Performance_Tests(unittest.TestCase):
 
         time = timeit.timeit(lambda: interaction.context, number=10000)
 
-        print(time)
         self.assertLess(time, 1.5)
 
     def test_hashable_dict_performance(self):
@@ -94,6 +96,71 @@ class Performance_Tests(unittest.TestCase):
 
         #was approximately 0.0025
         self.assertLess(time,.005)
+
+    def test_vowpal_mediator_make_example_performance(self):
+
+        try:
+            from vowpalwabbit import pyvw
+
+            vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xxa --interactions xa --ignore_linear x --quiet")
+
+            ns = { 'x': [ (str(i),v) for i,v in enumerate(range(1000)) ], 'a': [ (str(i),v) for i,v in enumerate(range(20)) ] }
+            time = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, ns, None, 4), repeat=10, number=100))            
+
+            #.014 was my final average time
+            self.assertLess(time, .025)
+
+        except ImportError:
+            unittest.skip("VW not installed. Skip this Test")
+    
+    def test_vowpal_mediator_prep_features_tuple_sequence_performance(self):
+
+        x    = [ (str(i),v) for i,v in enumerate(range(1000)) ]
+        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))
+
+        #0.013 was my final average time
+        self.assertLess(time,.02)
+
+    def test_vowpal_mediator_prep_features_dict_performance(self):
+
+        x    = dict(zip(map(str,range(1000)), range(1000)))
+        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))
+
+        #0.016 was my final average time
+        self.assertLess(time,.025)
+
+    def test_vowpal_mediator_prep_features_values_sequence(self):
+
+        x    = list(range(1000))
+        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))            
+
+        #0.019 was my final average time.
+        self.assertLess(time,.03)
+
+    def test_vowpal_mediator_prep_and_make_performance(self):
+
+        try:
+            from vowpalwabbit import pyvw
+
+            vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xx --ignore_linear x --quiet")
+            x  = [ (str(i),round(coba.random.random(),5)) for i in range(200) ]
+
+            time1 = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, {'x': VowpalMediator.prep_features(x) }, None, 4), repeat=10, number=1000))
+            time2 = statistics.mean(timeit.repeat(lambda:vw.parse("|x " + " ".join(f"{i}:{v}" for i,v in x))                              , repeat=10, number=1000))
+
+            self.assertLess(time1,time2)
+
+        except ImportError:
+            unittest.skip("VW not installed. Skip this Test.")
+
+    def test_take_performance(self):
+        
+        x = list(range(10000))
+        
+        time = statistics.mean(timeit.repeat(lambda:list(Take(2,seed=1).filter(x)), repeat=10, number=100))
+        print(time)
+        #0.015 was my final average time.
+        self.assertLess(time, .03)
 
 if __name__ == '__main__':
     unittest.main()

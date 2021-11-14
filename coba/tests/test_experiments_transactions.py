@@ -2,8 +2,8 @@ import unittest
 
 from statistics import mean
 
-from coba.benchmarks.results import Result
-from coba.benchmarks.transactions import Transaction, TransactionIsNew
+from coba.experiments.results import Result
+from coba.experiments.transactions import Transaction, TransactionIsNew
 
 class TransactionIsNew_Test(unittest.TestCase):
     

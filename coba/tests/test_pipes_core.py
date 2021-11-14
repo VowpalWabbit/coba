@@ -5,7 +5,7 @@ from multiprocessing import current_process
 from typing import Iterable, Any
 
 from coba.config import CobaConfig
-from coba.pipes import Pipe, Filter, IdentityFilter, MemoryIO
+from coba.pipes import Pipe, Filter, Identity, MemoryIO
 
 class Pipe_Tests(unittest.TestCase):
 
@@ -14,7 +14,7 @@ class Pipe_Tests(unittest.TestCase):
         def __repr__(self):
             return "ReprIO"
 
-    class ReprFilter(IdentityFilter):
+    class ReprFilter(Identity):
         def __repr__(self):
             return "ReprFilter"
 
@@ -24,7 +24,7 @@ class Pipe_Tests(unittest.TestCase):
             process_name = current_process().name
 
             for _ in items:
-                CobaConfig.Logger.log(process_name)
+                CobaConfig.logger.log(process_name)
                 yield process_name
 
     class ExceptionFilter(Filter):
@@ -78,8 +78,8 @@ class Pipe_Tests(unittest.TestCase):
 
     def test_join_flattens_filters(self):
 
-        filter1 = Pipe.join([IdentityFilter(), IdentityFilter()])
-        filter2 = Pipe.join([filter1, IdentityFilter()])
+        filter1 = Pipe.join([Identity(), Identity()])
+        filter2 = Pipe.join([filter1, Identity()])
         filter3 = Pipe.join([filter2, filter2])
 
         self.assertEqual(6, len(filter3._filters))

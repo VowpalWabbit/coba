@@ -112,7 +112,7 @@ class HttpIO(IO[requests.Response, Any]):
         self._url = url
 
     def read(self) -> requests.Response:
-        return requests.get(self._url)
+        return requests.get(self._url, stream=True)
 
     def write(self, item: Any) -> None:
         requests.put(self._url, item)
