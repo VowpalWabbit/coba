@@ -33,7 +33,7 @@ class Environments:
         else:
             content = arg.read() #type: ignore
 
-        return Environments(EnvironmentFileFmtV1().filter(JsonDecode().filter(content)))
+        return Environments(*EnvironmentFileFmtV1().filter(JsonDecode().filter(content)))
 
     @staticmethod
     def from_debug(

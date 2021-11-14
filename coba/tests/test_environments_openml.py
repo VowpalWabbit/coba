@@ -335,7 +335,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         #trials query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, nominal_as_str=True).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, cat_as_str=True).read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -363,7 +363,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         #trials query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":1,\r\n "task_type":"Classification",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"target_feature", "value":"play"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, nominal_as_str=True).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, cat_as_str=True).read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -391,7 +391,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         #trials query
         CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":1,\r\n "task_type":"Classification",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"target_feature", "value":"play"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, nominal_as_str=True).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, cat_as_str=True).read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -435,7 +435,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             self.assertIn(0, rnd.kwargs["rewards"])
 
     def test_repr(self):
-        self.assertEqual('{"OpenmlSimulation":150}', str(OpenmlSimulation(150)))
+        self.assertEqual('OpenmlSimulation(id=150, cat_as_str=False, take=None)', str(OpenmlSimulation(150)))
 
 if __name__ == '__main__':
     unittest.main()

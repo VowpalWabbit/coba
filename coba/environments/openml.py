@@ -14,16 +14,25 @@ from coba.environments.simulations import SimulatedEnvironment, SimulatedInterac
 
 class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]]):
 
-    def __init__(self, id:int, problem_type:str = "classification", nominal_as_str:bool=False, take:int = None, md5_checksum:str = None):
-        
+    def __init__(self, id:int, problem_type:str = "classification", cat_as_str:bool=False, take:int = None, md5_checksum:str = None):
+
         assert problem_type in ["classification", "regression"]
 
-        self._data_id        = id
-        self._md5_checksum   = md5_checksum
-        self._problem_type   = problem_type 
-        self._nominal_as_str = nominal_as_str
-        self._take           = take
-        self._cached_urls    = []
+        self._data_id      = id
+        self._md5_checksum = md5_checksum
+        self._problem_type = problem_type 
+        self._cat_as_str   = cat_as_str
+        self._take         = take
+        self._cached_urls  = []
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """Paramaters describing the environment."""
+
+        if self._take is not None:
+            return { "openml": self._data_id, "cat_as_str": self._cat_as_str, "openml_take": self._take }
+        else:
+            return { "openml": self._data_id, "cat_as_str": self._cat_as_str, }
 
     def read(self) -> Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]:
 
@@ -63,9 +72,9 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                     
                 if description['data_type'] == 'numeric':
                     encoders[header] = NumericEncoder()
-                elif description['data_type'] == 'nominal' and self._nominal_as_str:
+                elif description['data_type'] == 'nominal' and self._cat_as_str:
                     encoders[header] = StringEncoder()
-                elif description['data_type'] == 'nominal' and not self._nominal_as_str:
+                elif description['data_type'] == 'nominal' and not self._cat_as_str:
                     # it happens moderately often that these values are wrong, #description["nominal_value"]
                     encoders[header] = OneHotEncoder() 
 
@@ -80,7 +89,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                 ignored.pop(ignored.index(target))
 
             if self._problem_type == "classification":
-                encoders[target] = StringEncoder() if self._nominal_as_str else OneHotEncoder()
+                encoders[target] = StringEncoder() if self._cat_as_str else OneHotEncoder()
 
             file_rows = self._get_dataset_rows(dataset_description["file_id"], target, md5_checksum)
 
@@ -216,7 +225,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                         return input['value'] #just take the first one
 
         raise CobaException(f"Openml {data_id} does not appear to be a {self._problem_type} dataset")
-    
+
     def __repr__(self) -> str:
         return f'{{"OpenmlSimulation":{self._data_id}}}'
 
@@ -234,18 +243,15 @@ class OpenmlSimulation(SimulatedEnvironment):
     incorrect lables).
     """
 
-    def __init__(self, id: int, take:int = None, simulation_type:str = "classification", nominal_as_str:bool = False, md5_checksum: str = None) -> None:
-        
+    def __init__(self, id: int, take:int = None, simulation_type:str = "classification", cat_as_str:bool = False, md5_checksum: str = None) -> None:
+
         self._simulation_type = simulation_type
-        self._source = OpenmlSource(id, simulation_type, nominal_as_str, take, md5_checksum)
+        self._source = OpenmlSource(id, simulation_type, cat_as_str, take, md5_checksum)
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
-        if self._source._take is not None:
-            return { "openml": self._source._data_id, "openml_take": self._source._take }
-        else:
-            return { "openml": self._source._data_id }
+        return self._source.params
 
     def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
@@ -256,7 +262,7 @@ class OpenmlSimulation(SimulatedEnvironment):
             return RegressionSimulation(self._source.read()).read()
 
     def __repr__(self) -> str:
-        return f'{{"OpenmlSimulation":{self._source._data_id}}}'
+        return f"OpenmlSimulation(id={self.params['openml']}, cat_as_str={self.params['cat_as_str']}, take={self.params.get('openml_take')})"
 
     def __str__(self) -> str:
         return self.__repr__()

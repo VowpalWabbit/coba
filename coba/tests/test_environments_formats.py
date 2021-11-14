@@ -25,7 +25,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
         self.assertIsInstance(simulations[0], SimulatedEnvironment)
-        self.assertEqual({'openml':150}, simulations[0].params)
+        self.assertDictContainsSubset({'openml':150}, simulations[0].params)
 
     def test_raw_simulation(self):
         json_txt = """{
@@ -35,7 +35,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
         self.assertIsInstance(simulations[0], SimulatedEnvironment)
-        self.assertEqual({'openml':150}, simulations[0].params)
+        self.assertDictContainsSubset({'openml':150}, simulations[0].params)
 
     def test_one_simulation_one_filter(self):
         json_txt = """{
@@ -47,7 +47,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         simulations = EnvironmentFileFmtV1().filter(json.loads(json_txt))
 
         self.assertIsInstance(simulations[0], SimulatedEnvironment)
-        self.assertEqual({"openml":150, "take":10}, simulations[0].params)
+        self.assertDictContainsSubset({"openml":150, "take":10}, simulations[0].params)
 
     def test_one_simulation_two_filters(self):
         json_txt = """{
@@ -61,8 +61,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         self.assertEqual(2, len(simulations))
         self.assertIsInstance(simulations[0], SimulatedEnvironment)
         self.assertIsInstance(simulations[1], SimulatedEnvironment)
-        self.assertEqual({"openml":150, "take":10}, simulations[0].params)
-        self.assertEqual({"openml":150, "take":20}, simulations[1].params)
+        self.assertDictContainsSubset({"openml":150, "take":10}, simulations[0].params)
+        self.assertDictContainsSubset({"openml":150, "take":20}, simulations[1].params)
 
     def test_two_simulations_two_filters(self):
         json_txt = """{
@@ -78,10 +78,10 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         self.assertIsInstance(simulations[1], SimulatedEnvironment)
         self.assertIsInstance(simulations[2], SimulatedEnvironment)
         self.assertIsInstance(simulations[3], SimulatedEnvironment)
-        self.assertEqual({"openml":150, "take":10}, simulations[0].params)
-        self.assertEqual({"openml":150, "take":20}, simulations[1].params)
-        self.assertEqual({"openml":151, "take":10}, simulations[2].params)
-        self.assertEqual({"openml":151, "take":20}, simulations[3].params)
+        self.assertDictContainsSubset({"openml":150, "take":10}, simulations[0].params)
+        self.assertDictContainsSubset({"openml":150, "take":20}, simulations[1].params)
+        self.assertDictContainsSubset({"openml":151, "take":10}, simulations[2].params)
+        self.assertDictContainsSubset({"openml":151, "take":20}, simulations[3].params)
 
     def test_two_singular_simulations(self):
         json_txt = """{
@@ -95,8 +95,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         self.assertIsInstance(simulations[0], SimulatedEnvironment)
         self.assertIsInstance(simulations[1], SimulatedEnvironment)
-        self.assertEqual({"openml":150}, simulations[0].params)
-        self.assertEqual({"openml":151}, simulations[1].params)
+        self.assertDictContainsSubset({"openml":150}, simulations[0].params)
+        self.assertDictContainsSubset({"openml":151}, simulations[1].params)
 
     def test_one_foreach_simulation(self):
         json_txt = """{
@@ -109,8 +109,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         self.assertIsInstance(simulations[0], SimulatedEnvironment)
         self.assertIsInstance(simulations[1], SimulatedEnvironment)
-        self.assertEqual({"openml":150}, simulations[0].params)
-        self.assertEqual({"openml":151}, simulations[1].params)
+        self.assertDictContainsSubset({"openml":150}, simulations[0].params)
+        self.assertDictContainsSubset({"openml":151}, simulations[1].params)
 
     def test_one_variable(self):
         json_txt = """{
@@ -122,8 +122,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         self.assertIsInstance(simulations[0], SimulatedEnvironment)
         self.assertIsInstance(simulations[1], SimulatedEnvironment)
-        self.assertEqual({"openml":150}, simulations[0].params)
-        self.assertEqual({"openml":151}, simulations[1].params)
+        self.assertDictContainsSubset({"openml":150}, simulations[0].params)
+        self.assertDictContainsSubset({"openml":151}, simulations[1].params)
 
     def test_two_variables(self):
         json_txt = """{
@@ -146,12 +146,12 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         self.assertIsInstance(simulations[3], SimulatedEnvironment)
         self.assertIsInstance(simulations[4], SimulatedEnvironment)
         self.assertIsInstance(simulations[5], SimulatedEnvironment)
-        self.assertEqual({"openml":150, "take":10}, simulations[0].params)
-        self.assertEqual({"openml":150, "take":20}, simulations[1].params)
-        self.assertEqual({"openml":151, "take":10}, simulations[2].params)
-        self.assertEqual({"openml":151, "take":20}, simulations[3].params)
-        self.assertEqual({"openml":150           }, simulations[4].params)
-        self.assertEqual({"openml":151           }, simulations[5].params)
+        self.assertDictContainsSubset({"openml":150, "take":10}, simulations[0].params)
+        self.assertDictContainsSubset({"openml":150, "take":20}, simulations[1].params)
+        self.assertDictContainsSubset({"openml":151, "take":10}, simulations[2].params)
+        self.assertDictContainsSubset({"openml":151, "take":20}, simulations[3].params)
+        self.assertDictContainsSubset({"openml":150           }, simulations[4].params)
+        self.assertDictContainsSubset({"openml":151           }, simulations[5].params)
 
     def test_pipe_list(self):
         json_txt = """{
@@ -165,8 +165,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         self.assertEqual(2, len(simulations))
         self.assertIsInstance(simulations[0], SimulatedEnvironment)
         self.assertIsInstance(simulations[1], SimulatedEnvironment)
-        self.assertEqual({"openml":150, "take":10}, simulations[0].params)
-        self.assertEqual({"openml":150, "take":20}, simulations[1].params)
+        self.assertDictContainsSubset({"openml":150, "take":10}, simulations[0].params)
+        self.assertDictContainsSubset({"openml":150, "take":20}, simulations[1].params)
 
 if __name__ == '__main__':
     unittest.main()

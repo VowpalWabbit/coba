@@ -1,7 +1,5 @@
-"""The data.filters module contains core classes for filters used in data pipelines.
+"""The coba.pipes.filters module contains core classes for filters used in data pipelines."""
 
-TODO add docstrings for all filters
-"""
 import re
 import csv
 import collections
@@ -45,6 +43,9 @@ class Cartesian(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
 class Identity(Filter[Any, Any]):
     def filter(self, item:Any) -> Any:
         return item
+    
+    def __repr__(self) -> str:
+        return "{ Identity }"
 
 class Shuffle(Filter[Iterable[Any], Iterable[Any]]):
 
