@@ -55,11 +55,12 @@ class Environments:
     @staticmethod
     def from_openml(
         openml_ids: Union[int, Sequence[int]], 
-        take: int = None, 
+        take: int = None,
+        cat_as_str:bool = False,
         type: Literal["classification", "regression"] = "classification") -> 'Environments':
         
         if isinstance(openml_ids, int): openml_ids = [openml_ids]
-        return Environments(*[OpenmlSimulation(id, take, type) for id in openml_ids])
+        return Environments(*[OpenmlSimulation(id, take, type, cat_as_str) for id in openml_ids])
 
     def __init__(self, *environments: Union[SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment]):
         self._environments = list(environments)

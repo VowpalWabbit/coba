@@ -197,7 +197,7 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
         https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
 
-    def __init__(self, skip_encoding: Union[bool,Sequence[Union[str,int]]] = False):
+    def __init__(self, skip_encoding: Union[bool,Sequence[Union[str,int]]] = False, **dialect):
 
         self._skip_encoding = skip_encoding
 
@@ -218,6 +218,8 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
 
         #The @data line indicates when the data begins. After @data there should be no more @ lines.
         self._r_data = re.compile(r'^@[Dd][Aa][Tt][Aa]')
+
+        self._dialect = dialect
 
     def _determine_encoder(self, index:int, name: str, tipe: str) -> Encoder:
 
@@ -252,7 +254,7 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
                 if attribute_match:
                     attribute_text  = attribute_match.group(1).strip()
                     attribute_type  = re.split('[ ]', attribute_text, 1)[1]
-                    attribute_name  = re.split('[ ]', attribute_text)[0].lower()
+                    attribute_name  = re.split('[ ]', attribute_text)[0]
                     attribute_index = len(headers)
 
                     headers.append(attribute_name)
@@ -266,7 +268,7 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
             if in_data_section and line != '':
                 data_lines.append(line)
 
-        parsed_data = CsvReader(True).filter(itertools.chain([",".join(headers)], data_lines))
+        parsed_data = CsvReader(True, **self._dialect).filter(itertools.chain([",".join(headers)], data_lines))
 
         return parsed_data, encoders
 
@@ -278,15 +280,16 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
 
 class CsvReader(Filter[Iterable[str], _T_Data]):
 
-    def __init__(self, has_header: bool):
+    def __init__(self, has_header: bool, **dialect):
         self._has_header = has_header
+        self._dialect = dialect
 
     def filter(self, items: Iterable[str]) -> _T_Data:
 
-        lines = iter(filter(None, csv.reader(i.strip() for i in items)))
+        lines = iter(filter(None, csv.reader( (i.strip() for i in items), **self._dialect)))
 
         try:
-            header     = [ h.lower() for h in next(lines)] if self._has_header else None
+            header     = [ h.strip().strip('\'"') for h in next(lines)] if self._has_header else None
             first_data = next(lines)
         except StopIteration:
             return [header] #[None] because every other filter method assumes there is some kind of a header row.
@@ -303,7 +306,8 @@ class CsvReader(Filter[Iterable[str], _T_Data]):
         yield header if header is None else OrderedDict(zip(header, itertools.count()))
 
         for line in lines:
-            yield OrderedDict((int(k),v) for l in line for k,v in [l.strip("}{").strip().split(' ', 1)])
+            if len(line) > 1 or line[0] != '{}':
+                yield OrderedDict((int(k),v) for l in line for k,v in [l.strip("}{").strip().split(' ', 1)])
 
 class LibSvmReader(Filter[Iterable[str], _T_SparseData]):
 
@@ -328,7 +332,6 @@ class ManikReader(Filter[Iterable[str], _T_SparseData]):
     """http://manikvarma.org/downloads/XC/XMLRepository.html"""
     """https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view"""
 
-
     def filter(self, lines: Iterable[str]) -> _T_SparseData:
 
         # we skip first line because it just has metadata
@@ -344,7 +347,7 @@ class Encode(Filter[_T_Data, _T_Data]):
     def filter(self, items: _T_Data) -> _T_Data:
 
         items  = iter(items) # this makes sure items are pulled out for fitting
-        
+
         if not self._has_header:
             header_synced_encoders = self._encoders
 
@@ -400,28 +403,24 @@ class Drop(Filter[_T_Data, _T_Data]):
             header = next(data)
 
             if header is None:
-                drop_keys = self._drop_cols
-                yield header
-            
+                drop_keys = sorted(self._drop_cols,reverse=True)
             elif isinstance(header,dict):
-                drop_keys = [ header.pop(k) for k in self._drop_cols ]
-                yield header
-            
+                drop_keys = sorted([ header.pop(k) for k in self._drop_cols ],reverse=True)
             elif isinstance(header,list):
-                drop_keys = [ header.index(k) for k in self._drop_cols ]
-                for i in sorted(drop_keys,reverse=True): header.pop(i)
-                yield header 
-            
+                drop_keys = sorted([ header.index(k) for k in self._drop_cols ],reverse=True)
+                for i in drop_keys: header.pop(i)
             else:
                 raise CobaException(f"Unrecognized type ({type(header).__name__}) passed to Drops.")
+
+            yield header
 
             for row in data:
 
                 if self._drop_row and self._drop_row(row):
                     continue
 
-                for k in sorted(drop_keys,reverse=True):
-                    row.pop(k)                
+                for k in drop_keys:
+                    row.pop(k)
 
                 yield row
 
@@ -431,7 +430,7 @@ class Structure(Filter[_T_Data, Iterable[Any]]):
         self._col_structure = split_cols
 
     def filter(self, data: _T_Data) -> _T_Data:
-        
+
         data   = iter(data)
         header = next(data)
 

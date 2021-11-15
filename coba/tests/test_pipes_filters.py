@@ -112,7 +112,7 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['a','b','c'],
+            ['a','B','c'],
             [1,2,(0,1,0,0)],
             [2,3,(1,0,0,0)]
         ]
@@ -134,7 +134,7 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['a','b','c'],
+            ['A','B','C'],
             [1,2,(0,1,0,0)],
             [2,3,(1,0,0,0)]
         ]

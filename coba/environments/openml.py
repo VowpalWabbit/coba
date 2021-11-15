@@ -1,6 +1,6 @@
+import itertools
 import json
 
-from math import isnan
 from hashlib import md5
 from numbers import Number
 from collections import defaultdict
@@ -56,7 +56,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
             for description in feature_descriptions:
 
-                header = description['name'].lower()
+                header = description['name'].strip().strip('\'"')
                 
                 is_ignored = (
                     description['is_ignore'        ] == 'true' or 
@@ -203,12 +203,14 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             csv_url  = f"http://www.openml.org/data/v1/get_csv/{file_id}"
             arff_url = f"http://www.openml.org/data/v1/download/{file_id}"
 
+            openml_dialect = dict(quotechar="'", escapechar="\\", doublequote=False)
+
             if arff_url in CobaConfig.cacher:
-                return ArffReader(skip_encoding=True).filter(self._get_url(arff_url, md5_checksum))
+                return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_url(arff_url, md5_checksum))
             try:
-                return CsvReader(True).filter(self._get_url(csv_url, md5_checksum))            
+                return CsvReader(True, **openml_dialect).filter(self._get_url(csv_url, md5_checksum))            
             except:
-                return ArffReader(skip_encoding=True).filter(self._get_url(arff_url, md5_checksum))
+                return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_url(arff_url, md5_checksum))
 
     def _get_target_for_problem_type(self, data_id:int):
 
@@ -221,7 +223,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             if task["task_type_id"] == task_type: #aka, classification task
                 for input in task['input']:
                     if input['name'] == 'target_feature':
-                        return input['value'] #just take the first one
+                        return input['value'].strip().strip('\'"') #just take the first one
 
         raise CobaException(f"Openml {data_id} does not appear to be a {self._problem_type} dataset")
 
