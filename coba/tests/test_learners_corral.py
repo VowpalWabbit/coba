@@ -9,8 +9,9 @@ class CorallLearner_Tests(unittest.TestCase):
 
     class ReceivedLearnFixedLearner(FixedLearner):
 
-        def __init__(self, fixed_pmf) -> None:
+        def __init__(self, fixed_pmf, key='a') -> None:
             self._received_learn = None
+            self._key = key
             super().__init__(fixed_pmf)
 
         def received_learn(self):
@@ -20,7 +21,8 @@ class CorallLearner_Tests(unittest.TestCase):
 
         def learn(self, context, action, reward, probability, info) -> None:
             self._received_learn = (context, action, reward, probability)
-            return super().learn(context, action, reward, probability, info)
+            super().learn(context, action, reward, probability, info)
+            return {self._key:1}
 
     def test_importance_predict(self):
 
@@ -59,8 +61,8 @@ class CorallLearner_Tests(unittest.TestCase):
     def test_off_policy_learn(self):
         
         actions      = [1,2]
-        base1        = CorallLearner_Tests.ReceivedLearnFixedLearner([1/2,1/2])
-        base2        = CorallLearner_Tests.ReceivedLearnFixedLearner([1/4,3/4])
+        base1        = CorallLearner_Tests.ReceivedLearnFixedLearner([1/2,1/2], 'a')
+        base2        = CorallLearner_Tests.ReceivedLearnFixedLearner([1/4,3/4], 'b')
         learner      = CorralLearner([base1, base2], eta=0.5, type="off-policy")
         predict,info = learner.predict(None, actions)
 
@@ -68,8 +70,9 @@ class CorallLearner_Tests(unittest.TestCase):
         probability = predict[0]
         reward      = 1
 
-        learner.learn(None, action, reward, probability, info)
+        info = learner.learn(None, action, reward, probability, info)
 
+        self.assertDictContainsSubset({'a':1,'b':1}, info)
         self.assertEqual((None, action, reward, predict[0]), base1.received_learn())
         self.assertEqual((None, action, reward, predict[0]), base2.received_learn())
 
@@ -85,8 +88,8 @@ class CorallLearner_Tests(unittest.TestCase):
     def test_off_rejection_learn(self):
 
         actions      = [0,1]
-        base1        = CorallLearner_Tests.ReceivedLearnFixedLearner([1/2,1/2])
-        base2        = CorallLearner_Tests.ReceivedLearnFixedLearner([1/4,3/4])
+        base1        = CorallLearner_Tests.ReceivedLearnFixedLearner([1/2,1/2], 'a')
+        base2        = CorallLearner_Tests.ReceivedLearnFixedLearner([1/4,3/4], 'b')
         learner      = CorralLearner([base1, base2], eta=0.5, type="rejection")
         predict,info = learner.predict(None, actions)
 
