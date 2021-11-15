@@ -93,17 +93,17 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
             file_rows = self._get_dataset_rows(dataset_description["file_id"], target, md5_checksum)
 
-            def any_nans(row):
+            def row_has_missing_values(row):
                 row_values = row.values() if isinstance(row,dict) else row
-                return any(isinstance(val,Number) and isnan(val) for val in row_values)
+                return "?" in row_values or "" in row_values
             
+            drops     = Drop(drop_cols=ignored, drop_row=row_has_missing_values)
             takes     = Take(self._take, keep_first=True, seed=1)
-            drops     = Drop(drop_cols=ignored, drop_row=any_nans)
             defaults  = Default({target:"0"})
             encodes   = Encode(encoders)
             structure = Structure([None, target])
 
-            return Pipe.join([takes, drops, defaults, encodes, structure]).filter(file_rows)
+            return Pipe.join([drops, takes, defaults, encodes, structure]).filter(file_rows)
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
@@ -141,22 +141,21 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
                 if 'authentication failed' in response.text:
                     message = (
-                        "The API Key you provided no longer seems to be valid. You may need to create a new one"
-                        "longing into your openml account and regenerating a key. After regenerating the new key "
+                        "The API Key you provided no longer seems to be valid. You may need to create a new one by "
+                        "logging into your openml account and regenerating a key. After regenerating the new key "
                         "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
                     raise CobaException(message) from None
 
             if response.status_code == 404:
                 message = (
-                    "We're sorry but we were unable to find the requested dataset on openml. The most likely cause "
-                    "for this is openml not providing the requested dataset in a format that COBA can process.")
+                    "We're sorry but we were unable to find the requested dataset on openml.")
                 raise CobaException(message) from None
 
             if "Usually due to high server load" in response.text:
                 message = (
                     "Openml has experienced an error that they believe is the result of high server loads."
                     "Openml recommends that you try again in a few seconds. Additionally, if not already "
-                    "done, consider setting up a DiskCache in coba config to reduce the number of openml "
+                    "done, consider setting up a DiskCache in CobaConfig to reduce the number of openml "
                     "calls in the future.")
                 raise CobaException(message) from None
 
@@ -245,7 +244,7 @@ class OpenmlSimulation(SimulatedEnvironment):
 
     def __init__(self, id: int, take:int = None, simulation_type:str = "classification", cat_as_str:bool = False, md5_checksum: str = None) -> None:
 
-        self._simulation_type = simulation_type
+        self._sim_type = simulation_type
         self._source = OpenmlSource(id, simulation_type, cat_as_str, take, md5_checksum)
 
     @property
@@ -256,7 +255,7 @@ class OpenmlSimulation(SimulatedEnvironment):
     def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
 
-        if self._simulation_type == "classification":
+        if self._sim_type == "classification":
             return ClassificationSimulation(self._source.read()).read()
         else:
             return RegressionSimulation(self._source.read()).read()

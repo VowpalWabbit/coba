@@ -345,11 +345,13 @@ class VowpalLearner(Learner):
         if features is None or isinstance(features,(int,float,str)):
             return features
         elif isinstance(features,dict):
-            new_items = dict(features)
+            new_items = {}            
             for k,v in features.items():
-                if isinstance(v,collections.Sequence) and not isinstance(v,str):
-                    del new_items[k]
+                if v is None or isinstance(v, (int,float,str)):
+                    new_items[str(k)] = v
+                else:
                     new_items.update( (f"{k}_{i}",f)  for i,f in enumerate(v))
             return new_items
+
         else:
             return [ff for f in features for ff in (f if isinstance(f,tuple) else [f]) ]

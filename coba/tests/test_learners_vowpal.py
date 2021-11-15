@@ -225,7 +225,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_adf_predict_sans_context_str_actions(self):
         VowpalLearner(epsilon=0.05, adf=True, seed=20).predict(None, ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertEqual(2, len(mock_learner.predict_example))
         
@@ -244,7 +244,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_adf_predict_sans_context_mixed_actions(self):
         VowpalLearner(epsilon=0.05, adf=True, seed=20).predict(None, [(1,'a'),(2,'b')])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertEqual(2, len(mock_learner.predict_example))
         
@@ -263,7 +263,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_adf_predict_with_str_context_str_actions(self):
         VowpalLearner(epsilon=0.05, adf=True, seed=20).predict('b', ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertEqual(2, len(mock_learner.predict_example))
         
@@ -282,7 +282,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_adf_predict_with_dict_context_str_actions(self):
         VowpalLearner(epsilon=0.05, adf=True, seed=20).predict({'c':2}, ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertEqual(2, len(mock_learner.predict_example))
         
@@ -301,7 +301,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_no_adf_predict_sans_context_str_actions(self):
         VowpalLearner(epsilon=0.05, adf=False, seed=20).predict(None, ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertIsInstance(mock_learner.predict_example, VowpalMockExample)
         self.assertEqual(mock_learner , mock_learner.predict_example.vw)
@@ -314,7 +314,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_no_adf_predict_with_str_context_str_actions(self):
         VowpalLearner(epsilon=0.05, adf=False, seed=20).predict('b', ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertIsInstance(mock_learner.predict_example, VowpalMockExample)
         self.assertEqual(mock_learner , mock_learner.predict_example.vw)
@@ -329,7 +329,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner.predict(None, ['yes','no'])
         learner.learn(None, 'yes', 1, 0.2, ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertEqual(2, len(mock_learner.learn_example))
         
@@ -348,7 +348,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner.predict('b', ['yes','no'])
         learner.learn('b', 'no', .5, 0.2, ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertEqual(2, len(mock_learner.learn_example))
         
@@ -367,7 +367,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner.predict({'c':2}, ['yes','no'])
         learner.learn({'c':2}, 'no', .5, 0.2, ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertEqual(2, len(mock_learner.learn_example))
         
@@ -386,7 +386,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner.predict({'c':2}, ['yes','no'])
         learner.learn({'c':2}, 'no', .5, 0.2, ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertEqual(2, len(mock_learner.learn_example))
         
@@ -400,31 +400,50 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual("2:0.5:0.2"               , mock_learner.learn_example[1].label)
         self.assertEqual(4                         , mock_learner.learn_example[1].label_type)
 
-    def test_adf_learn_with_mixed_dense_context_str_actions(self):
+    def test_adf_learn_with_dict_context_str_actions2(self):
         learner = VowpalLearner(epsilon=0.05, adf=True, seed=20)
-        learner.predict([1,'a'], ['yes','no'])
-        learner.learn([1,'a'], 'no', .5, 0.2, ['yes','no'])
+        learner.predict({1:(0,1)}, ['yes','no'])
+        learner.learn({1:(0,1)}, 'no', .5, 0.2, ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertEqual(2, len(mock_learner.learn_example))
         
-        self.assertEqual(mock_learner                     , mock_learner.learn_example[0].vw)
-        self.assertEqual({'x':[('0',1),'1=a'],'a':['yes']}, mock_learner.learn_example[0].ns)
-        self.assertEqual(None                             , mock_learner.learn_example[0].label)
-        self.assertEqual(4                                , mock_learner.learn_example[0].label_type)
+        self.assertEqual(mock_learner                 , mock_learner.learn_example[0].vw)
+        self.assertEqual({'x':[('1_1',1)],'a':['yes']}, mock_learner.learn_example[0].ns)
+        self.assertEqual(None                         , mock_learner.learn_example[0].label)
+        self.assertEqual(4                            , mock_learner.learn_example[0].label_type)
 
-        self.assertEqual(mock_learner                    , mock_learner.learn_example[1].vw)
-        self.assertEqual({'x':[('0',1),'1=a'],'a':['no']}, mock_learner.learn_example[1].ns)
-        self.assertEqual("2:0.5:0.2"                     , mock_learner.learn_example[1].label)
-        self.assertEqual(4                               , mock_learner.learn_example[1].label_type)
+        self.assertEqual(mock_learner                , mock_learner.learn_example[1].vw)
+        self.assertEqual({'x':[('1_1',1)],'a':['no']}, mock_learner.learn_example[1].ns)
+        self.assertEqual("2:0.5:0.2"                 , mock_learner.learn_example[1].label)
+        self.assertEqual(4                           , mock_learner.learn_example[1].label_type)
+
+    def test_adf_learn_with_mixed_dense_context_str_actions(self):
+        learner = VowpalLearner(epsilon=0.05, adf=True, seed=20)
+        learner.predict([1,'a',(0,1)], ['yes','no'])
+        learner.learn([1,'a',(0,1)], 'no', .5, 0.2, ['yes','no'])
+
+        mock_learner = self.mock_learner
+
+        self.assertEqual(2, len(mock_learner.learn_example))
+        
+        self.assertEqual(mock_learner                             , mock_learner.learn_example[0].vw)
+        self.assertEqual({'x':[('0',1),'1=a',("3",1)],'a':['yes']}, mock_learner.learn_example[0].ns)
+        self.assertEqual(None                                     , mock_learner.learn_example[0].label)
+        self.assertEqual(4                                        , mock_learner.learn_example[0].label_type)
+
+        self.assertEqual(mock_learner                            , mock_learner.learn_example[1].vw)
+        self.assertEqual({'x':[('0',1),'1=a',("3",1)],'a':['no']}, mock_learner.learn_example[1].ns)
+        self.assertEqual("2:0.5:0.2"                             , mock_learner.learn_example[1].label)
+        self.assertEqual(4                                       , mock_learner.learn_example[1].label_type)
 
     def test_adf_learn_with_no_context_mixed_dense_actions(self):
         learner = VowpalLearner(epsilon=0.05, adf=True, seed=20)
         learner.predict(None, [(1,'a'),(2,'b')])
         learner.learn(None, (2,'b'), .5, 0.2, [(1,'a'),(2,'b')])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertEqual(2, len(mock_learner.learn_example))
         
@@ -443,7 +462,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner.predict(None, ['yes','no'])
         learner.learn(None, 'no', .5, 0.2, ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertIsInstance(mock_learner.learn_example, VowpalMockExample)
         self.assertEqual(mock_learner , mock_learner.learn_example.vw)
@@ -456,7 +475,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner.predict('b', ['yes','no'])
         learner.learn('b', 'yes', .25, 0.2, ['yes','no'])
 
-        mock_learner = self.mock_learner    
+        mock_learner = self.mock_learner
 
         self.assertIsInstance(mock_learner.learn_example, VowpalMockExample)
         self.assertEqual(mock_learner , mock_learner.learn_example.vw)

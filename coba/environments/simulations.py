@@ -2,13 +2,21 @@ import math
 import collections
 
 from itertools import chain, repeat
-from typing import Sequence, Dict, Any, Iterable, Union, List, Callable, cast, Optional
+from typing import Sequence, Dict, Any, Iterable, Union, List, Callable, cast, Optional, Tuple, overload
 
-from coba.pipes import Source, Pipe, Filter, HttpIO, DiskIO, ResponseToLines, CsvReader, ArffReader, LibSvmReader, ManikReader, Structure
+from coba.pipes import Source, Filter, Pipe  
+from coba.pipes import HttpIO, DiskIO
+from coba.pipes import ResponseToLines, CsvReader, ArffReader, LibSvmReader, ManikReader, Structure
 from coba.random import CobaRandom
 from coba.encodings import InteractionTermsEncoder
+from coba.exceptions import CobaException
 
 from coba.environments.core import Context, Action, SimulatedEnvironment, SimulatedInteraction
+
+T_Dense_Feat  = Sequence[Any]
+T_Sparse_Feat = Dict[Any,Any]
+T_Dense_Rows  = Iterable[Tuple[T_Dense_Feat,Any]]
+T_Sparse_Rows = Iterable[Tuple[T_Sparse_Feat,Any]]
 
 class MemorySimulation(SimulatedEnvironment):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
@@ -42,34 +50,32 @@ class ClassificationSimulation(SimulatedEnvironment):
     incorrect lables).
     """
 
-    def __init__(self, examples: Union[Iterable[Sequence[Any]], Iterable[Dict[Any,Any]]]) -> None:
+    @overload
+    def __init__(self, examples: Union[T_Dense_Rows,T_Sparse_Rows]) -> None:
         """Instantiate a ClassificationSimulation.
 
         Args:
-            examples: The labeled regression examples which will be used to create the contextual bandit simulation.
-            label_key: The key that identifies the label in each example.
+            examples: Labeled examples to use when creating the contextual bandit simulation.
         """
 
-        features,labels = zip(*examples)
+    @overload
+    def __init__(self, features: Union[Iterable[T_Dense_Feat], Iterable[T_Sparse_Feat]], labels: Iterable[Any]) -> None:
+        """Instantiate a ClassificationSimulation.
 
-        #how can we tell the difference between featurized labels and multilabels????
-        #for now we will assume multilables will be passed in as arrays not tuples...
-        if not isinstance(labels[0], collections.Hashable):
-            labels_flat = list(chain.from_iterable(labels))
+        Args:
+            features: A sequence of features to use as context when creating the contextual bandit simulation.
+            labels: A sequence of class labels to use as actions and rewards when creating the contextual bandit simulation
+        """
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Instantiate a ClassificationSimulation."""
+
+        if len(args) == 1:
+            self._examples = args[0]
+        elif len(args) ==2:
+            self._examples = zip(args[0],args[1])
         else:
-            labels_flat = list(labels)
-
-        reveal        = lambda action,label: int(is_label(action,label) or in_multilabel(action,label)) #type: ignore
-        is_label      = lambda action,label: action == label #type: ignore
-        in_multilabel = lambda action,label: isinstance(label,collections.Sequence) and action in label #type: ignore
-
-        # shuffling so that action order contains no statistical information
-        # sorting so that the shuffled values are always shuffled in the same order
-        actions  = CobaRandom(1).shuffle(sorted(set(labels_flat))) 
-        contexts = features
-        rewards  = [ [ reveal(action,label) for action in actions ] for label in labels ]
-
-        self._interactions = [ SimulatedInteraction(c,a,rewards=r) for c,a,r in zip(contexts, repeat(actions), rewards) ]
+            raise CobaException("We were unable to determine which overloaded constructor to use")
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -79,7 +85,31 @@ class ClassificationSimulation(SimulatedEnvironment):
     def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
 
-        return self._interactions
+        examples = list(self._examples)
+
+        if examples:
+
+            features,labels = zip(*examples)
+
+            #how can we tell the difference between featurized labels and multilabels????
+            #for now we will assume multilables will be passed in as arrays not tuples...
+            if not isinstance(labels[0], collections.Hashable):
+                labels_flat = list(chain.from_iterable(labels))
+            else:
+                labels_flat = list(labels)
+
+            reward        = lambda action,label: int(is_label(action,label) or in_multilabel(action,label)) #type: ignore
+            is_label      = lambda action,label: action == label #type: ignore
+            in_multilabel = lambda action,label: isinstance(label,collections.Sequence) and action in label #type: ignore
+
+            # shuffling so that action order contains no statistical information
+            # sorting so that the shuffled values are always shuffled in the same order
+            actions  = CobaRandom(1).shuffle(sorted(set(labels_flat))) 
+            contexts = features
+            rewards  = [ [ reward(action,label) for action in actions ] for label in labels ]
+
+            for c,a,r in zip(contexts, repeat(actions), rewards):
+                yield SimulatedInteraction(c,a,rewards=r)
 
 class RegressionSimulation(SimulatedEnvironment):
     """A simulation created from regression dataset with features and labels.
@@ -97,29 +127,49 @@ class RegressionSimulation(SimulatedEnvironment):
         """Paramaters describing the simulation."""
         return {}
 
-    def __init__(self,
-        examples: Union[Iterable[Sequence[Any]], Iterable[Dict[Any,Any]]], 
-        label_key: Union[int,str]) -> None:
+    @overload
+    def __init__(self, examples: Union[T_Dense_Rows,T_Sparse_Rows]) -> None:
         """Instantiate a RegressionSimulation.
-    
+
         Args:
-            examples: The labeled regression examples which will be used to create the contextual bandit simulation.
-            label_key: The key that identifies the label in each example.
+            examples: Labeled examples to use when creating the contextual bandit simulation.
         """
 
-        examples = list(examples)
-        labels = [ example.pop(label_key) for example in examples ]
+    @overload
+    def __init__(self, features: Union[Iterable[T_Dense_Feat], Iterable[T_Sparse_Feat]], labels: Iterable[float]) -> None:
+        """Instantiate a RegressionSimulation.
 
-        reward   = lambda action,label: 1-abs(float(action)-float(label))
-        contexts = examples
-        actions  = CobaRandom(1).shuffle(sorted(set(labels)))
-        rewards  = [ [ reward(action,label) for action in actions ] for label in labels ]
+        Args:
+            features: A sequence of features to use as context when creating the contextual bandit simulation.
+            labels: A sequence of numeric labels to use as actions and rewards when creating the contextual bandit simulation
+        """
+    
+    def __init__(self, *args, **kwargs) -> None:
+        """Instantiate a RegressionSimulation."""
 
-        self._interactions = [ SimulatedInteraction(c,a,rewards=r) for c,a,r in zip(contexts, repeat(actions), rewards) ]
+        if len(args) == 1:
+            self._examples = args[0]
+        elif len(args) == 2:
+            self._examples = zip(args[0],args[1])
+        else:
+            raise CobaException("We were unable to determine which overloaded constructor to use")
 
     def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
-        return self._interactions
+        
+        examples = list(self._examples)
+
+        if examples:
+
+            features,labels = zip(*self._examples)
+
+            reward   = lambda action,label: 1-abs(float(action)-float(label))
+            contexts = features
+            actions  = CobaRandom(1).shuffle(sorted(set(labels)))
+            rewards  = [ [ reward(action,label) for action in actions ] for label in labels ]
+
+            for c,a,r in zip(contexts, repeat(actions), rewards):
+                yield SimulatedInteraction(c,a,rewards=r)
 
 class LambdaSimulation(SimulatedEnvironment):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
