@@ -8,12 +8,12 @@ import traceback
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing_extensions import Literal
-from typing import Dict, Any, Iterable, Generic, TypeVar
+from typing import Dict, Any, Iterable, Generic, TypeVar, ContextManager
 
 from coba.exceptions import CobaException
 from coba.registry import CobaRegistry
 from coba.utilities import coba_exit
-from coba.pipes import Sink, NullIO
+from coba.pipes import Sink
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
@@ -56,8 +56,6 @@ class Logger(ABC):
     @abstractmethod
     def log_exception(self, exception:Exception, message: str = "Unexpected exception:") -> None:
         ...
-
-
 
 class ExperimentConfig:
     
