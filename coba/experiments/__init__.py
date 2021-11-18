@@ -1,15 +1,26 @@
-"""The benchmarks module contains core benchmark functionality and protocols.
+"""The experiments module contains core experiment functionality and protocols.
 
-This module contains the abstract interface expected for Benchmark implementations. This 
-module also contains several Benchmark implementations and Result data transfer class.
+This module contains the abstract interface expected for Experiment implementations.
 """
 
 from coba.experiments.core    import Experiment
 from coba.experiments.results import Result
-from coba.experiments.tasks   import ClassEnvironmentTask
+from coba.experiments.tasks   import (
+    LearnerTask, EnvironmentTask, EvaluationTask,
+    SimpleLearnerTask, SimpleEnvironmentTask, ClassEnvironmentTask,
+    OnPolicyEvaluationTask, OffPolicyEvaluationTask, WarmStartEvaluationTask
+)
 
 __all__ = [
     'Result',
     'Experiment',
-    'ClassEnvironmentTask'
+    'LearnerTask',
+    'EnvironmentTask',
+    'EvaluationTask',
+    'SimpleLearnerTask',
+    'ClassEnvironmentTask',
+    'SimpleEnvironmentTask',
+    'OnPolicyEvaluationTask',
+    'OffPolicyEvaluationTask',
+    'WarmStartEvaluationTask'    
 ]

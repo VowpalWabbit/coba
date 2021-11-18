@@ -1,4 +1,4 @@
-This directory contains a number of example benchmarks, scripts and jupyter notebooks. 
+This directory contains a number of example experiments, scripts and jupyter notebooks. 
 
 For all these examples it is assumed that the dependencies in environment.yml file have been installed. 
 

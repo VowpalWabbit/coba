@@ -86,7 +86,7 @@ class CobaConfig_meta(type):
                     "api_keys"  : collections.defaultdict(lambda:None),
                     "cacher"    : { "DiskCacher": None},
                     "logger"    : { "IndentLogger": "Console" },
-                    "experiment": { "processes": 1, "maxtasksperchild": -1, "chunk_by": "source" }
+                    "experiment": { "processes": 1, "maxtasksperchild": 0, "chunk_by": "source" }
                 }
 
                 for key,value in CobaConfig_meta._load_file_configs().items():

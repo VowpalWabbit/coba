@@ -22,7 +22,7 @@ class Environments:
     
     @staticmethod #type: ignore #(this apppears to be a mypy bug https://github.com/python/mypy/issues/7781)
     def from_file(arg) -> 'Environments': #type: ignore
-        """Instantiate a Benchmark from a config file."""
+        """Instantiate Environments from an environments definition file."""
 
         if isinstance(arg,str) and arg.startswith('http'):
             content = '\n'.join(ResponseToLines().filter(HttpIO(arg).read()))

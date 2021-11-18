@@ -85,9 +85,9 @@ class Pipe:
 
     @overload
     @staticmethod
-    def join(source: Source, filters: Sequence[Filter]) -> Source:
+    def join(source: Source, *filters: Filter) -> Source:
         ...
-    
+
     @overload
     @staticmethod
     def join(filters: Sequence[Filter], sink: Sink) -> Sink:
@@ -110,6 +110,12 @@ class Pipe:
 
     @staticmethod #type: ignore
     def join(*args) -> Union[Source, Filter, Sink, 'Pipe']:
+
+        #Source, *Filter
+        #Source,  Sink
+        #Source, *Filter, Sink
+        #*Filter, Sink
+        #*Filter
 
         if len(args) == 3:
             return Pipe(*args)

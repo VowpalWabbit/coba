@@ -8,7 +8,7 @@ from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionTermsEncoder
-from coba.pipes import Take
+from coba.pipes import Take, JsonEncode
 
 class Performance_Tests(unittest.TestCase):
     
@@ -158,9 +158,20 @@ class Performance_Tests(unittest.TestCase):
         x = list(range(10000))
         
         time = statistics.mean(timeit.repeat(lambda:list(Take(2,seed=1).filter(x)), repeat=10, number=100))
-        print(time)
+
         #0.015 was my final average time.
         self.assertLess(time, .03)
+
+    def test_jsonencode_performance(self):
+        
+        x = [[1.2,1.2],[1.2,1.2],{'a':1.,'b':1.}]*300
+        encoder = JsonEncode()
+
+        time = statistics.mean(timeit.repeat(lambda:encoder.filter(x), repeat=10, number=100))
+
+        print(time)
+        #0.11 was my final average time.
+        self.assertLess(time, .2)
 
 if __name__ == '__main__':
     unittest.main()

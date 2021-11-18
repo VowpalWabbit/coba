@@ -5,7 +5,7 @@ by instantiation an internal, global Random class and then referencing that in a
 the public methods in order to maintain state.
 
 Remarks:
-    This implementation has been made to guarantee the reproducibility of benchmark tests
+    This implementation has been made to guarantee the reproducibility of experiments
     according to integer seeds across all versions of Python. The standard implementation 
     of random within Python has had a few variations in implementation in the past and 
     could always change in the future, making randomization by seed potentially non-fixed.

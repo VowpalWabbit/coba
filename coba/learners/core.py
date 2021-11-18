@@ -17,7 +17,7 @@ class Learner(ABC):
     def params(self) -> Dict[str,Any]:
         """The parameters used to initialize the learner.
 
-        This value is used for descriptive purposes only when creating benchmark results.
+        This value is used for descriptive purposes when creating experiment results.
         """
         ...
 
@@ -185,4 +185,4 @@ class SafeLearner(Learner):
             return (predict,info)
 
         def learn(self, context: Context, action: Action, reward: float, probability:float, info: Info) -> Optional[Dict[str,Any]]:
-            return self._learner.learn(context, action, reward, probability, info)
+            return self._learner.learn(context, action, reward, probability, info) or {}

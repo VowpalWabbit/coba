@@ -14,7 +14,7 @@ setuptools.setup(
     version=VERSION,
     author="Mark Rucker",
     author_email="rucker.mark@gmail.com",
-    description="A contextual bandit benchmarking package.",
+    description="A contextual bandit research package.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/VowpalWabbit/coba",

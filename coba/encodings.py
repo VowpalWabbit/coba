@@ -1,8 +1,4 @@
-"""The encodings module contains utility classes for transforming data between encodings.
-
-Remarks:
-    This module is used primarily for the creation of simulations from data sets.
-"""
+"""The encodings module contains utility classes for transforming data between encodings."""
 
 import json
 import collections
@@ -11,7 +7,7 @@ import time
 from numbers import Number
 from itertools import product
 from abc import ABC, abstractmethod
-from typing import Iterator, Sequence, Generic, TypeVar, Any, Dict, Tuple, Union
+from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union
 
 _T_out = TypeVar('_T_out', bound=Any, covariant=True) 
 
@@ -71,6 +67,18 @@ class Encoder(Generic[_T_out], ABC):
             return self.encode(values)
         else:
             return self.fit(values).encode(values)
+
+class IdentityEncoder(Encoder[Any]):
+    
+    @property
+    def is_fit(self) -> bool:
+        return True
+
+    def fit(self, values: Sequence[Any]) -> 'Encoder':
+        return self
+
+    def encode(self, values: Sequence[Any]) -> Sequence[Any]:
+        return values
 
 class StringEncoder(Encoder[str]):
     """An Encoder implementation that turns incoming values into string values."""
@@ -315,6 +323,9 @@ class FactorEncoder(Encoder[int]):
 class CobaJsonEncoder(json.JSONEncoder):
     """A json encoder that allows for potential COBA extensions in the future."""
 
+    def default(self, o: Any) -> Any:
+        return super().default(o)
+
 class CobaJsonDecoder(json.JSONDecoder):
     """A json decoder that allows for potential COBA extensions in the future."""
 
@@ -392,10 +403,6 @@ class InteractionTermsEncoder:
         features,names = self._interaction_terms(x_f_n_by_degree,a_f_n_by_degree)
         self.times[1] += time.time()-start
 
-#        if is_sparse:
-#            names = list(map(sys.intern,names))
-
-        #.24
         return features if not is_sparse else list(zip(names,features))
 
     def _degree_terms(self,values,names,maxd,sparse):

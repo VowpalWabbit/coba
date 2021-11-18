@@ -29,13 +29,13 @@ _T_Data       = Union[_T_DenseData, _T_SparseData]
 class Cartesian(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
 
     def __init__(self, filter: Union[Filter,Sequence[Filter]]):
-        
+
         self._filters = filter if isinstance(filter, collections.Sequence) else [filter]
 
     def filter(self, item: Union[Any,Iterable[Any]]) -> Iterable[Any]:
 
         items = item if isinstance(item, collections.Iterable) else [item]
-        
+
         for item in items:
             for filter in self._filters:
                 yield filter.filter(item)
@@ -110,7 +110,7 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
             first    = [next(items)] if self._keep_first else []
             resevoir = list(islice(items,self._count))
 
-            if self._seed is not None:            
+            if self._seed is not None:
                 rng = CobaRandom(self._seed)
                 W = 1
 
@@ -124,7 +124,7 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
                     pass
 
             return itertools.chain( first, resevoir if len(resevoir) == self._count else [])
-        
+
     def __repr__(self) -> str:
         return str(self.params)
 
@@ -150,22 +150,37 @@ class ResponseToLines(Filter[Response, Iterable[str]]):
         return item.content.decode('utf-8').split('\n')
 
 class JsonEncode(Filter[Any, str]):
+ 
+    def _min(self,obj):
+        #WARNING: This method doesn't handle primitive types such int, float, or str. We handle this shortcoming
+        #WARNING: by making sure no primitive type is passed to this method in filter. Accepting the shortcoming
+        #WARNING: improves the performance of this method by a few percentage points. 
 
-    def _intify(self,obj):
-
-        if isinstance(obj,float) and obj.is_integer():
-            return int(obj)
+        #JsonEncoder writes floats with .0 regardless of if they are integers so we convert them to int to save space
+        #JsonEncoder also writes floats out 16 digits so we round down to 5 here to reduce file size
 
         if isinstance(obj,tuple):
             obj = list(obj)
+            kv  = enumerate(obj) 
+        elif isinstance(obj,list):
+            kv = enumerate(obj)
+        elif isinstance(obj,dict):
+            kv = obj.items()
+        else:
+            return obj
 
-        if isinstance(obj,list):
-            for i in range(len(obj)):
-                obj[i] = self._intify(obj[i])
-
-        if isinstance(obj,dict):
-            for key in obj:
-                obj[key] = self._intify(obj[key])
+        for k,v in kv:
+            if isinstance(v, (int,str)):
+                obj[k] = v
+            elif isinstance(v, float):
+                if v.is_integer():
+                    obj[k] = int(v) 
+                elif math.isnan(v) or math.isinf(v):
+                    obj[k] = v                    
+                else: 
+                    obj[k] = f"~{v:0.5g}~" #rounding by any means is considerably slower than this crazy method
+            else:
+                obj[k] = self._min(v)
 
         return obj
 
@@ -177,13 +192,8 @@ class JsonEncode(Filter[Any, str]):
         else:
             self._encoder = CobaJsonEncoder()
 
-    def filter(self, item: Any) -> str:
-        if self._minify:
-            #JsonEncoder writes floats with .0 regardless of if they are integers
-            #Therefore we preprocess and turn all float whole numbers into integers
-            return self._encoder.encode(self._intify(item))
-        else:
-            return self._encoder.encode(item)
+    def filter(self, item: Any) -> str:        
+        return self._encoder.encode(self._min([item])[0] if self._minify else item).replace('"~',"").replace('~"',"")
 
 class JsonDecode(Filter[str, Any]):
     def __init__(self, decoder: json.decoder.JSONDecoder = CobaJsonDecoder()) -> None:

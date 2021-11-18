@@ -3,7 +3,7 @@
         "$openmls" : { "OpenmlSimulation": [3,6,8]                     , "method": "foreach" },
         "$shuffles": { "Shuffle"         : [777,888,999,1010,1111,1212], "method": "foreach" }
     },
-    "simulations": [
+    "environments": [
         ["$openmls", "$shuffles", { "Take": 300 } ]
     ]
 }

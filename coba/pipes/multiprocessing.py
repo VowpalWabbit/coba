@@ -40,7 +40,6 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
             try:
                 self._stdout.write(self._filter.filter(item))
-
             except StopPipe:
                 pass
 
@@ -57,7 +56,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 #handle the keyboard interrupt gracefully.
                 pass
 
-    def __init__(self, filters: Sequence[Filter], processes: int = 1, maxtasksperchild: int = None, stderr: Sink = NullIO()) -> None:
+    def __init__(self, filters: Sequence[Filter], processes: int = 1, maxtasksperchild: int = 0, stderr: Sink = NullIO()) -> None:
         self._filters          = filters
         self._processes        = processes
         self._maxtasksperchild = maxtasksperchild
@@ -108,7 +107,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
                     return super()._join_exited_workers()
 
-            with MyPool(self._processes, maxtasksperchild=self._maxtasksperchild) as pool:
+            with MyPool(self._processes, maxtasksperchild=self._maxtasksperchild or None) as pool:
 
                 # handle not picklable (this is handled by done_or_failed)    (TESTED)
                 # handle empty list (this is done by checking result.ready()) (TESTED)
@@ -119,7 +118,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 # handle AttributeErrors. These occur when... (this is handled by shadowing several pool methods) (TESTED)
                 #   > a class that is defined in a Jupyter Notebook cell is pickled
                 #   > a class that is defined inside the __name__=='__main__' block is pickeled
-                # handle Benchmark.evaluate not being called inside of __name__=='__main__' (this is handled by a big try/catch)
+                # handle Experiment.execute not being called inside of __name__=='__main__' (this is handled by a big try/catch)
 
                 def done_or_failed(results_or_exception=None):
                     #This method is called one time at the completion of map_async
@@ -133,7 +132,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                             message = (
                                 str(results_or_exception) + ". We attempted to process your code on multiple processes and "
                                 "the named class was not able to be pickled. This problem can be fixed in one of two ways: 1) "
-                                "evaluate the benchmark in question on a single process with no limit on the tasks per child or 2) "
+                                "evaluate the experiment in question on a single process with no limit on the tasks per child or 2) "
                                 "modify the named class to be picklable. The easiest way to make the given class picklable is to "
                                 "add `def __reduce__ (self) return (<the class in question>, (<tuple of constructor arguments>))` to "
                                 "the class. For more information see https://docs.python.org/3/library/pickle.html#object.__reduce__."

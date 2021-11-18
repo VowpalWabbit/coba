@@ -37,10 +37,10 @@ class EnvironmentFileFmtV1(Filter[Dict[str,Any], Sequence[SimulatedEnvironment]]
                     result = sum(pieces,[])
 
             if result is None:
-                raise Exception(f"We were unable to construct {item} in the given benchmark file.")
+                raise Exception(f"We were unable to construct {item} in the given environments definition file.")
 
             return result if isinstance(result, collections.Sequence) else [result]
 
-        if not isinstance(config['simulations'], list): config['simulations'] = [config['simulations']]
+        if not isinstance(config['environments'], list): config['environments'] = [config['environments']]
 
-        return [ simulation for recipe in config['simulations'] for simulation in _construct(recipe)]
+        return [ environment for recipe in config['environments'] for environment in _construct(recipe)]

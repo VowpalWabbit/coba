@@ -7,7 +7,10 @@ from coba.pipes import Source
 Action  = Union[Hashable, HashableDict]
 Context = Union[None, Hashable, HashableDict]
 
-class SimulatedInteraction:
+class Interaction:
+    pass
+
+class SimulatedInteraction(Interaction):
     """A class to contain all data needed to represent an interaction in a simulated bandit interaction."""
 
     @overload
@@ -109,9 +112,14 @@ class SimulatedInteraction:
     def kwargs(self) -> Dict[str,Any]:
         return self._kwargs
 
-class LoggedInteraction:
+class LoggedInteraction(Interaction):
 
-    def __init__(self, context: Context, action: Action, reward: float, actions: Sequence[Action] = None, probability: float = None) -> None:
+    def __init__(self, 
+        context: Context, 
+        action: Action, 
+        reward: float, 
+        probability: Optional[float] = None,
+        actions: Optional[Sequence[Action]] = None) -> None:
 
         self._context     = context
         self._action      = action
@@ -135,16 +143,19 @@ class LoggedInteraction:
         return self._reward
 
     @property
-    def actions(self) -> Sequence[Action]:
+    def actions(self) -> Optional[Sequence[Action]]:
         """The actions that were available to take."""
         return self._actions
 
     @property
-    def probability(self) -> Optional[Sequence[float]]:
+    def probability(self) -> Optional[float]:
         """The probability that the given action was taken."""
         return self._probability
 
-class SimulatedEnvironment(Source[Iterable[SimulatedInteraction]], ABC):
+class Environment:
+    pass
+
+class SimulatedEnvironment(Environment, Source[Iterable[SimulatedInteraction]], ABC):
     """The interface for a simulated environment."""
 
     @property
@@ -153,7 +164,7 @@ class SimulatedEnvironment(Source[Iterable[SimulatedInteraction]], ABC):
         """Paramaters describing the simulation.
 
         Remarks:
-            These will be simulation columns in coba.benchmark.Result.
+            These will become columns in the environments data of an experiment result.
         """
         ...
     
@@ -166,8 +177,8 @@ class SimulatedEnvironment(Source[Iterable[SimulatedInteraction]], ABC):
         """
         ...
 
-class LoggedEnvironment(Source[Iterable[LoggedInteraction]], ABC):
-    """The simulation interface."""
+class LoggedEnvironment(Environment, Source[Iterable[LoggedInteraction]], ABC):
+    """The interface for an environment made with logged bandit data."""
 
     @property
     @abstractmethod
@@ -175,7 +186,7 @@ class LoggedEnvironment(Source[Iterable[LoggedInteraction]], ABC):
         """Paramaters describing the simulation.
 
         Remarks:
-            These will be simulation columns in coba.benchmark.Result.
+            These will become columns in the environments data of an experiment result.
         """
         ...
     
@@ -188,17 +199,16 @@ class LoggedEnvironment(Source[Iterable[LoggedInteraction]], ABC):
         """
         ...
 
-class WarmStartEnvironment(Source[Iterable[Union[LoggedInteraction, SimulatedInteraction]]], ABC):
-    """
-    TODO: docs
-    """
+class WarmStartEnvironment(Environment, Source[Iterable[Interaction]], ABC):
+    """The interface for an environment made with logged bandit data and simulated interactions."""
+   
     @property
     @abstractmethod
     def params(self) -> Dict[str,Any]:
         """Paramaters describing the simulation.
 
         Remarks:
-            These will be simulation columns in coba.benchmark.Result.
+            These will become columns in the environments data of an experiment result.
         """
         ...
     

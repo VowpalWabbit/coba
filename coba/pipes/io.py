@@ -1,6 +1,7 @@
 import requests
 import gzip
 
+from itertools import chain
 from queue import Queue
 from typing import Iterable, Sequence, TypeVar, Any, Generic, Union
 
@@ -34,25 +35,43 @@ class DiskIO(IO[Iterable[str],Union[str,Iterable[str]]]):
         #in terms of compression since it compresses one line at a time.
         #see https://stackoverflow.com/a/18109797/1066291 for more info.
         
+        gzip_open = lambda filename, mode: gzip.open(filename,mode, compresslevel=6)
+        text_open = lambda filename, mode: open(filename,mode)
+
         self.filename = filename
-        self._open    = gzip.open if filename.endswith(".gz") else open
+        self._open    = gzip_open if ".gz" in filename else text_open
         self._append  = append
 
     def read(self) -> Iterable[str]:
-        with self._open(self.filename, "r+b") as f:
+        with self._open(self.filename, "rb+") as f:
             for line in f:
                 yield line.decode('utf-8').rstrip('\n')
 
     def write(self, item: Union[str,Iterable[str]]) -> None:
 
-        if isinstance(item,str): item = [item]
+        items = [item] if isinstance(item,str) else item
+        mode  = 'ab+' if self._append else 'wb+'
 
-        mode = 'a+b' if self._append else 'w+b'
+        try:
+            #by peeking at the first item we can prevent the file
+            #from being opened/created when there are no items to write
+            items      = iter(items)
+            first_item = next(items)
+            items      = chain([first_item], items)
 
-        for item in item:
-            with self._open(self.filename, mode) as f:
-                f.write((item + '\n').encode('utf-8'))
-                f.flush()
+            if self._append:
+                for item in items:
+                    with self._open(self.filename, mode) as f:
+                        f.write((item + '\n').encode('utf-8'))
+                        f.flush()
+            else:
+                with self._open(self.filename, mode) as f:
+                    for item in items:
+                        f.write((item + '\n').encode('utf-8'))
+                        f.flush()
+        
+        except StopIteration:
+            pass
 
 class MemoryIO(IO[Sequence[Any], Any]):
     def __init__(self, initial_memory: Sequence[Any] = []):

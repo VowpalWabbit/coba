@@ -1,8 +1,7 @@
 import unittest
 import timeit
 
-from coba.experiments.transactions import Transaction
-from coba.experiments.results import Result, Table, InteractionsTable
+from coba.experiments.results import Result, Table, InteractionsTable, Transaction, TransactionIsNew
 
 class Table_Tests(unittest.TestCase):
 
@@ -284,8 +283,8 @@ class Table_Pandas_Tests(unittest.TestCase):
 
     def test_pandas_huge_pack_item(self):
 
-        rows  = [dict(simulation_id=i,learner_id=2,C=5,A=5,N=1,_packed=dict(reward=[2]*9000)) for i in range(2) ]
-        table = Table("test", ['simulation_id', 'learner_id'], rows)
+        rows  = [dict(environment_id=i,learner_id=2,C=5,A=5,N=1,_packed=dict(reward=[2]*9000)) for i in range(2) ]
+        table = Table("test", ['environment_id', 'learner_id'], rows)
         time = min(timeit.repeat(lambda:table.to_pandas(), repeat=6, number=1))
         
         #best time on my laptop was 0.15
@@ -293,10 +292,10 @@ class Table_Pandas_Tests(unittest.TestCase):
 
 class InteractionTable_Tests(unittest.TestCase):
     def test_simple_each_span_none(self):
-        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
-            {"simulation_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
-            {"simulation_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
-            {"simulation_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
+        table = InteractionsTable("ABC", ["environment_id", "learner_id"], rows=[
+            {"environment_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
+            {"environment_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
+            {"environment_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
         ])
 
         expected = [[0,0,1,1.5,2], [0,1,3,4.5,6], [1,0,2,3,4]]
@@ -305,10 +304,10 @@ class InteractionTable_Tests(unittest.TestCase):
         self.assertCountEqual(expected,actual)
 
     def test_simple_not_each_span_none(self):
-        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
-            {"simulation_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
-            {"simulation_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
-            {"simulation_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
+        table = InteractionsTable("ABC", ["environment_id", "learner_id"], rows=[
+            {"environment_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
+            {"environment_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
+            {"environment_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
         ])
 
         expected = [[0,2,3,4], [1,2,3,4]]
@@ -317,10 +316,10 @@ class InteractionTable_Tests(unittest.TestCase):
         self.assertCountEqual(expected,actual)
 
     def test_simple_each_span_one(self):
-        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
-            {"simulation_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
-            {"simulation_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
-            {"simulation_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
+        table = InteractionsTable("ABC", ["environment_id", "learner_id"], rows=[
+            {"environment_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
+            {"environment_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
+            {"environment_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
         ])
 
         expected = [[0,0,1,2,3], [0,1,3,6,9], [1,0,2,4,6]]
@@ -329,10 +328,10 @@ class InteractionTable_Tests(unittest.TestCase):
         self.assertCountEqual(expected,actual)
 
     def test_simple_not_each_span_one(self):
-        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
-            {"simulation_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
-            {"simulation_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
-            {"simulation_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
+        table = InteractionsTable("ABC", ["environment_id", "learner_id"], rows=[
+            {"environment_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
+            {"environment_id":1, "learner_id":0, "_packed": {"reward":[3,6,9]}},
+            {"environment_id":0, "learner_id":1, "_packed": {"reward":[2,4,6]}}
         ])
 
         expected = [[0,2,4,6], [1,2,4,6]]
@@ -341,9 +340,9 @@ class InteractionTable_Tests(unittest.TestCase):
         self.assertCountEqual(expected,actual)
 
     def test_simple_each_span_two(self):
-        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
-            {"simulation_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
-            {"simulation_id":1, "learner_id":0, "_packed": {"reward":[2,4,6]}},
+        table = InteractionsTable("ABC", ["environment_id", "learner_id"], rows=[
+            {"environment_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
+            {"environment_id":1, "learner_id":0, "_packed": {"reward":[2,4,6]}},
         ])
         expected = [[0,0,1,1.75,2.6152],[0,1,2,3.5,5.2307]]
         actual   = table.to_progressive_lists(each=True,span=2)
@@ -366,17 +365,17 @@ class InteractionTable_Pandas_Tests(unittest.TestCase):
                 raise unittest.SkipTest("Pandas is not installed so no need to test Table Pandas functionality")
 
     def test_simple_each_span_none_pandas(self):
-        table = InteractionsTable("ABC", ["simulation_id", "learner_id"], rows=[
-            {"learner_id":0, "simulation_id":0, "_packed": {"reward":[1,2,3]}},
-            {"learner_id":0, "simulation_id":1, "_packed": {"reward":[3,6,9]}},
-            {"learner_id":1, "simulation_id":0, "_packed": {"reward":[2,4,6]}}
+        table = InteractionsTable("ABC", ["environment_id", "learner_id"], rows=[
+            {"learner_id":0, "environment_id":0, "_packed": {"reward":[1,2,3]}},
+            {"learner_id":0, "environment_id":1, "_packed": {"reward":[3,6,9]}},
+            {"learner_id":1, "environment_id":0, "_packed": {"reward":[2,4,6]}}
         ])
 
         expected = [[0,0,1,1.5,2], [0,1,3,4.5,6], [1,0,2,3,4]]
         actual   = table.to_progressive_pandas(each=True)
 
         self.assertEqual(actual["learner_id"].tolist()   , [0,1,0])
-        self.assertEqual(actual["simulation_id"].tolist(), [0,0,1])
+        self.assertEqual(actual["environment_id"].tolist(), [0,0,1])
         self.assertEqual(actual[1].tolist(), [1,2,3])
         self.assertEqual(actual[2].tolist(), [1.5,3,4.5])
         self.assertEqual(actual[3].tolist(), [2,4,6])
@@ -385,11 +384,11 @@ class Result_Tests(unittest.TestCase):
 
     def test_has_interactions_key(self):
         result = Result.from_transactions([
-            Transaction.interactions(0, 1, a='A', _packed=dict(reward=[1,1])),
-            Transaction.interactions(0, 2, b='B', _packed=dict(reward=[1,1]))
+            Transaction.interactions(0, 1, [{"reward":1}, {"reward":1}]),
+            Transaction.interactions(0, 2, [{"reward":1}, {"reward":1}])
         ])
 
-        self.assertEqual("{'Learners': 0, 'Simulations': 0, 'Interactions': 4}", str(result))
+        self.assertEqual("{'Learners': 0, 'Environments': 0, 'Interactions': 4}", str(result))
 
         self.assertTrue( (0,1) in result._interactions)
         self.assertTrue( (0,2) in result._interactions)
@@ -406,71 +405,109 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_fin(self):
 
-        sims = [{"simulation_id":1},{"simulation_id":2}]
+        sims = [{"environment_id":1},{"environment_id":2}]
         lrns = [{"learner_id":1}, {"learner_id":2}]
-        ints = [{"simulation_id":1, "learner_id":1},{"simulation_id":1,"learner_id":2}, {"simulation_id":2,"learner_id":1}]
+        ints = [{"environment_id":1, "learner_id":1},{"environment_id":1,"learner_id":2}, {"environment_id":2,"learner_id":1}]
 
         original_result = Result(1, {}, sims, lrns, ints)
         filtered_result = original_result.filter_fin()
 
-        self.assertEqual(2, len(original_result.simulations))
+        self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
         self.assertEqual(3, len(original_result.interactions))
 
-        self.assertEqual(1, len(filtered_result.simulations))
+        self.assertEqual(1, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(2, len(filtered_result.interactions))
 
     def test_filter_sim(self):
 
-        sims = [{"simulation_id":1},{"simulation_id":2}]
+        sims = [{"environment_id":1},{"environment_id":2}]
         lrns = [{"learner_id":1}, {"learner_id":2}]
-        ints = [{"simulation_id":1, "learner_id":1},{"simulation_id":1,"learner_id":2}, {"simulation_id":2,"learner_id":1}]
+        ints = [{"environment_id":1, "learner_id":1},{"environment_id":1,"learner_id":2}, {"environment_id":2,"learner_id":1}]
 
         original_result = Result(1, {}, sims, lrns, ints)
-        filtered_result = original_result.filter_sim(simulation_id=2)
+        filtered_result = original_result.filter_env(environment_id=2)
 
-        self.assertEqual(2, len(original_result.simulations))
+        self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
         self.assertEqual(3, len(original_result.interactions))
 
-        self.assertEqual(1, len(filtered_result.simulations))
+        self.assertEqual(1, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(1, len(filtered_result.interactions))
 
     def test_filter_lrn_1(self):
 
-        sims = [{"simulation_id":1},{"simulation_id":2}]
+        sims = [{"environment_id":1},{"environment_id":2}]
         lrns = [{"learner_id":1}, {"learner_id":2}]
-        ints = [{"simulation_id":1, "learner_id":1},{"simulation_id":1,"learner_id":2}, {"simulation_id":2,"learner_id":1}]
+        ints = [{"environment_id":1, "learner_id":1},{"environment_id":1,"learner_id":2}, {"environment_id":2,"learner_id":1}]
 
         original_result = Result(1, {}, sims, lrns, ints)
         filtered_result = original_result.filter_lrn(learner_id=2)
 
-        self.assertEqual(2, len(original_result.simulations))
+        self.assertEqual(2, len(original_result.environments))
         self.assertEqual(2, len(original_result.learners))
         self.assertEqual(3, len(original_result.interactions))
 
-        self.assertEqual(2, len(filtered_result.simulations))
+        self.assertEqual(2, len(filtered_result.environments))
         self.assertEqual(1, len(filtered_result.learners))
         self.assertEqual(1, len(filtered_result.interactions))
 
     def test_filter_lrn_2(self):
 
-        sims = [{"simulation_id":1},{"simulation_id":2}]
+        sims = [{"environment_id":1},{"environment_id":2}]
         lrns = [{"learner_id":1}, {"learner_id":2}, {"learner_id":3}]
-        ints = [{"simulation_id":1, "learner_id":1},{"simulation_id":1,"learner_id":2}, {"simulation_id":2,"learner_id":3}]
+        ints = [{"environment_id":1, "learner_id":1},{"environment_id":1,"learner_id":2}, {"environment_id":2,"learner_id":3}]
 
         original_result = Result(1, {}, sims, lrns, ints)
         filtered_result = original_result.filter_lrn(learner_id=[2,1])
 
-        self.assertEqual(2, len(original_result.simulations))
+        self.assertEqual(2, len(original_result.environments))
         self.assertEqual(3, len(original_result.learners))
         self.assertEqual(3, len(original_result.interactions))
 
-        self.assertEqual(2, len(filtered_result.simulations))
+        self.assertEqual(2, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(2, len(filtered_result.interactions))
+
+class TransactionIsNew_Test(unittest.TestCase):
+    
+    def test_duplicates_are_dropped(self):
+        existing = Result.from_transactions([
+            Transaction.learner(0),
+            Transaction.environment(0),
+            Transaction.interactions(0, 1)
+        ])
+
+        filter = TransactionIsNew(existing)
+
+        transactions = list(filter.filter([
+            Transaction.learner(0), 
+            Transaction.environment(0), 
+            Transaction.interactions(0,1)
+        ]))
+
+        self.assertEqual(len(transactions), 0)
+
+    def test_non_duplicates_are_kept(self):
+        existing = Result.from_transactions([
+            Transaction.learner(0),
+            Transaction.environment(0),
+            Transaction.interactions(0, 1)
+        ])
+
+        filter = TransactionIsNew(existing)
+
+        transactions = list(filter.filter([
+            Transaction.learner(1), 
+            Transaction.environment(1), 
+            Transaction.interactions(1, 1)]
+        ))
+
+        self.assertEqual(len(transactions), 3)
+
+
 
 if __name__ == '__main__':
     unittest.main()

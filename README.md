@@ -2,15 +2,15 @@
 
 ### What is it?
 
- Coba is a powerful benchmarking framework built specifically for contextual bandit (CB) research.
+ Coba is a powerful research framework built specifically for contextual bandit (CB) methods.
 
-### How do you benchmark?
+### How do you research?
 
-Think for a second about the last time you benchmarked an algorithm or dataset and ask yourself
+Think for a second about the last time you considered evaluating CB methods for a research project
 
- 1. Was it easy to add new data sets?
- 2. Was it easy to add new algorithms?
- 3. Was it easy to create, run and share benchmarks?
+ 1. Was it easy to incorporate your own data sets during CB analysis?
+ 2. Was it easy to incorporate the wide array of available CB algorithms?
+ 3. Was it easy to create, run and share the results of CB experiments?
 
 ### The Coba Way
  
@@ -21,7 +21,7 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  * ... *light-weight* (it has no dependencies to get started)
  * ... *distributed* (it was built to work across the web with caching, api-key support, checksums and more)
  * ... *verbose* (it has customizable, hierarchical logging for meaningful, readable feedback on log running jobs)
- * ... *robust* (benchmarks write every action to file so they can always be resumed whenever your system crashes)
+ * ... *robust* (experiments write every action to file so they can always be resumed whenever your system crashes)
  * ... *just-in-time* (no resources are loaded until needed, and they are released immediately to keep memory small)
  * ... *a duck?* (Coba relies only on duck-typing so no inheritance is needed to implement our interfaces)
  
@@ -58,7 +58,7 @@ Think for a second about the last time you benchmarked an algorithm or dataset a
  
  ## Learners
  
- Learners are algorithms which are able to improve their action selection through interactions with simulations.
+ Learners are algorithms which are able to improve their action selection through interactions with environments.
  
  A number of algorithms are provided natively with Coba for quick comparsions. These include:
  

@@ -347,6 +347,13 @@ class JsonEncode_Tests(unittest.TestCase):
     def test_dict_minified(self):
         self.assertEqual('{"a":[1.23,2],"b":{"c":1}}',JsonEncode().filter({'a':[1.23,2],'b':{'c':1.}}))
 
+    def test_inf(self):
+        self.assertEqual('Infinity',JsonEncode().filter(float('inf')))
+        self.assertEqual('-Infinity',JsonEncode().filter(-float('inf')))
+    
+    def test_nan(self):
+        self.assertEqual('NaN',JsonEncode().filter(float('nan')))
+ 
 class Structures_Tests(unittest.TestCase):
 
     def test_dense_numeric_row_structure(self):

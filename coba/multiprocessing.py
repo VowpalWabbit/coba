@@ -34,10 +34,10 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
             return Pipe.join(self._filters).filter(item)
 
-    def __init__(self, filters: Sequence[Filter], processes=1, maxtasksperchild=None) -> None:
+    def __init__(self, filters: Sequence[Filter], processes=1, maxtasksperchild=0) -> None:
         self._filters          = filters
         self._processes        = processes
-        self._maxtasksperchild = None if maxtasksperchild == -1 else maxtasksperchild
+        self._maxtasksperchild = maxtasksperchild
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 

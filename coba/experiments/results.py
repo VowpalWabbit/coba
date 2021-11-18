@@ -1,6 +1,7 @@
 import re
 import collections
 
+from pathlib import Path
 from copy import copy
 from numbers import Number
 from operator import truediv
@@ -9,9 +10,10 @@ from collections.abc import Container
 from typing_extensions import Literal
 from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Callable
 
+from coba.exceptions import CobaException
 from coba.config import CobaConfig
 from coba.utilities import PackageChecker
-from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, StopPipe, Pipe, DiskIO
+from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, Pipe, DiskIO, MemoryIO, Sink, Source
 
 class Table:
     """A container class for storing tabular data."""
@@ -266,7 +268,7 @@ class InteractionsTable(Table):
                 cumwindow  = list(accumulate(rewards          , lambda a,c: c + (1-alpha)*a))
                 cumdivisor = list(accumulate([1.]*len(rewards), lambda a,c: c + (1-alpha)*a)) #type: ignore
 
-            lrn_sim_rows.append([interactions["learner_id"], interactions["simulation_id"], *list(map(truediv, cumwindow, cumdivisor))])
+            lrn_sim_rows.append([interactions["learner_id"], interactions["environment_id"], *list(map(truediv, cumwindow, cumdivisor))])
 
         if each:
             return lrn_sim_rows
@@ -300,80 +302,87 @@ class InteractionsTable(Table):
         
         if each:
             n_index = len(data[0][2:])
-            return pd.DataFrame(data, columns=["learner_id", "simulation_id", *range(1,n_index+1)])
+            return pd.DataFrame(data, columns=["learner_id", "environment_id", *range(1,n_index+1)])
         
         else:
             n_index = len(data[0][1:])
             return pd.DataFrame(data, columns=["learner_id", *range(1,n_index+1)])
 
 class Result:
-    """A class representing the result of a Benchmark evaluation on a given collection of Simulations and Learners."""
+    """A class representing the result of an Experiment."""
 
     @staticmethod
-    def from_file(filename: str) -> 'Result':
+    def from_file(filename: str, _experiment_restore:bool = False) -> 'Result':
         """Create a Result from a transaction file."""
         
         #Why is this here??? This is really confusing in practice
         #if filename is None or not Path(filename).exists(): return Result()
 
-        json_encode = Cartesian(JsonEncode())
-        json_decode = Cartesian(JsonDecode())
+        raw_IO = TransactionIO(filename)
+        swp_IO = TransactionIO(filename+".swp", minify=False, append=False)
 
-        Pipe.join(DiskIO(filename), [json_decode, ResultPromote(), json_encode], DiskIO(filename, append=False)).run()
-        
-        return Result.from_transactions(Pipe.join(DiskIO(filename), [json_decode]).read())
+        #Promote the given transaction file to the latest version, if it is an older version. 
+        #We use a swp file to protect the original data until we know we are able to promote it all.
+        Pipe.join(raw_IO, [TransactionPromote()], swp_IO).run()
+        if Path(filename+".swp").exists(): Path(filename+".swp").replace(filename)
+
+        return Result.from_transactions(raw_IO.read(), _experiment_restore)
 
     @staticmethod
-    def from_transactions(transactions: Iterable[Any]) -> 'Result':
+    def from_transactions(transactions: Iterable[Any], _experiment_restore:bool = False) -> 'Result':
 
-        version   = None
-        benchmark = {}
-        lrn_rows  = []
-        sim_rows  = []
-        int_rows  = []
+        version    = None
+        experiment = {}
+        lrn_rows   = []
+        env_rows   = []
+        int_rows   = []
 
         for trx in transactions:
-            if trx[0] == "version"  : version   = trx[1]
-            if trx[0] == "benchmark": benchmark = trx[1]
-            if trx[0] == "S"        : sim_rows.append({**trx[2], "simulation_id": trx[1]})
-            if trx[0] == "L"        : lrn_rows.append({**trx[2], "learner_id"   : trx[1]})
-            if trx[0] == "I"        : int_rows.append({**trx[2], "simulation_id": trx[1][0], "learner_id": trx[1][1]})
+            
+            #When restoring an experiment we don't care about what the data is, only the ids.
+            if _experiment_restore and len(trx) == 3: trx[2] = {}
 
-        return Result(version, benchmark, sim_rows, lrn_rows, int_rows)
+            if trx[0] == "version"  : version    = trx[1]
+            if trx[0] == "benchmark": experiment = trx[1]
+            if trx[0] == "E"        : env_rows.append({**trx[2], "environment_id": trx[1]})
+            if trx[0] == "L"        : lrn_rows.append({**trx[2], "learner_id"    : trx[1]})
+            if trx[0] == "I"        : int_rows.append({**trx[2], "environment_id": trx[1][0], "learner_id": trx[1][1]})
+
+        return Result(version, experiment, env_rows, lrn_rows, int_rows)
 
     def __init__(self,
-        version  : Optional[int] = None,
-        benchmark: Dict[str,Any] = {},
-        sim_rows : Sequence[Dict[str,Any]] = [],
-        lrn_rows : Sequence[Dict[str,Any]] = [],
-        int_rows : Sequence[Dict[str,Any]] = []) -> None:
+        version   : Optional[int] = None,
+        experiment: Dict[str,Any] = {},
+        env_rows  : Sequence[Dict[str,Any]] = [],
+        lrn_rows  : Sequence[Dict[str,Any]] = [],
+        int_rows  : Sequence[Dict[str,Any]] = []) -> None:
         """Instantiate a Result class."""
 
-        self.version   = version
-        self.benchmark = benchmark
+        self.version    = version
+        self.experiment = experiment
 
-        self._simulations  = Table            ("Simulations" , ['simulation_id'              ], sim_rows, ["source"])
-        self._learners     = Table            ("Learners"    , ['learner_id'                 ], lrn_rows, ["family","shuffle","take"])
-        self._interactions = InteractionsTable("Interactions", ['simulation_id', 'learner_id'], int_rows, ["index","reward"])
+        self._environments = Table            ("Environments", ['environment_id'              ], env_rows, ["source"])
+        self._learners     = Table            ("Learners"    , ['learner_id'                  ], lrn_rows, ["family","shuffle","take"])
+        self._interactions = InteractionsTable("Interactions", ['environment_id', 'learner_id'], int_rows, ["index","reward"])
 
     @property
     def learners(self) -> Table:
-        """The collection of learners evaluated by Benchmark. The easiest way to work with the 
+        """The collection of learners evaluated by Experiment. The easiest way to work with the 
             learners is to convert them to a pandas data frame via Result.learners.to_pandas()
         """
         return self._learners
 
     @property
-    def simulations(self) -> Table:
-        """The collection of simulations used to evaluate each learner in the Benchmark. The easiest
-            way to work with simulations is to convert to a dataframe via Result.simulations.to_pandas()
+    def environments(self) -> Table:
+        """The collection of environments used to evaluate each learner in the Experiment. The easiest
+            way to work with environments is to convert to a dataframe via Result.environments.to_pandas()
         """
-        return self._simulations
+        return self._environments
 
     @property
     def interactions(self) -> InteractionsTable:
-        """The collection of interactions that learners chose actions for in the Benchmark. Each interaction
-            has a simulation_id and learner_id column to link them to the learners and simulations tables. The 
+        """The collection of interactions that learners chose actions for in the Experiment. Each interaction
+            has a environment_id and learner_id column to link them to the learners and environments tables. The 
             easiest way to work with interactions is to convert to a dataframe via Result.interactions.to_pandas()
         """
         return self._interactions
@@ -381,7 +390,7 @@ class Result:
     def _copy(self) -> 'Result':
         result = Result()
 
-        result.simulations  = copy(self._simulations)
+        result.environments  = copy(self._environments)
         result.learners     = copy(self._learners)
         result.interactions = copy(self._interactions)
 
@@ -393,22 +402,22 @@ class Result:
             return all((sim_id, lrn_id) in self.interactions for lrn_id in self.learners.keys)
 
         new_result               = copy(self)
-        new_result._simulations  = self.simulations.filter(simulation_id=is_complete_sim)
-        new_result._interactions = self.interactions.filter(simulation_id=is_complete_sim)
+        new_result._environments = self.environments.filter(environment_id=is_complete_sim)
+        new_result._interactions = self.interactions.filter(environment_id=is_complete_sim)
 
-        if len(new_result.simulations) == 0:
+        if len(new_result.environments) == 0:
             CobaConfig.logger.log(f"No simulation was found with interaction data for every learner.")
 
         return new_result
 
-    def filter_sim(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Result':
+    def filter_env(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Result':
 
         new_result = copy(self)
-        new_result._simulations  = new_result.simulations.filter(pred, **kwargs)
-        new_result._interactions = new_result.interactions.filter(simulation_id=new_result.simulations)
+        new_result._environments = new_result.environments.filter(pred, **kwargs)
+        new_result._interactions = new_result.interactions.filter(environment_id=new_result.environments)
 
-        if len(new_result.simulations) == 0:
-            CobaConfig.logger.log(f"No simulations matched the given filter: {kwargs}.")
+        if len(new_result.environments) == 0:
+            CobaConfig.logger.log(f"No environments matched the given filter: {kwargs}.")
 
         return new_result
 
@@ -430,8 +439,8 @@ class Result:
         each : bool = False,
         filename: str = None,
         ax = None) -> None:
-        """This plots the performance of multiple Learners on multiple simulations. It gives a sense of the expected 
-            performance for different learners across independent simulations. This plot is valuable in gaining insight 
+        """This plots the performance of multiple learners on multiple environments. It gives a sense of the expected 
+            performance for different learners across independent environments. This plot is valuable in gaining insight 
             into how various learners perform in comparison to one another. 
 
         Args:
@@ -538,152 +547,175 @@ class Result:
             plt.savefig(filename, dpi=300)
 
     def __str__(self) -> str:
-        return str({ "Learners": len(self._learners), "Simulations": len(self._simulations), "Interactions": len(self._interactions) })
+        return str({ "Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })
 
     def __repr__(self) -> str:
         return str(self)
 
-class ResultPromote(Filter):
+class Transaction:
 
-    CurrentVersion = 3
+    @staticmethod
+    def version(version = None) -> Any:
+        return ['version', version or TransactionPromote.CurrentVersion]
+
+    @staticmethod
+    def experiment(n_learners, n_environments) -> Any:
+        data = {
+            "n_learners"    : n_learners,
+            "n_environments": n_environments,
+        }
+
+        return ['benchmark',data]
+
+    @staticmethod
+    def learner(learner_id:int, **kwargs) -> Any:
+        """Write learner metadata row to Result.
+        
+        Args:
+            learner_id: The primary key for the given learner.
+            kwargs: The metadata to store about the learner.
+        """
+        return ["L", learner_id, kwargs]
+
+    @staticmethod
+    def environment(environment_id: int, **kwargs) -> Any:
+        """Write environment metadata row to Result.
+        
+        Args:
+            environment_id: The id of the environment in the Experiment.
+            kwargs: The metadata to store about the environment.
+        """
+        return ["E", environment_id, kwargs]
+
+    @staticmethod
+    def interactions(environment_id:int, learner_id:int, eval_rows:Sequence[dict] = []) -> Any:
+        """Write interaction evaluation metadata row to Result.
+
+        Args:
+            environment_id: The primary key for the simulation the interaction came from.
+            learner_id: The primary key for the learner we observed on the interaction.
+            eval_rows: The metadata describing each interaction evaluated by the learner.
+        """
+
+        rows_T = collections.defaultdict(list)
+
+        for row in eval_rows:
+            for col,val in row.items():
+                if col == "rewards" : col="reward"
+                if col == "reveals" : col="reveal"
+                rows_T[col].append(val)
+
+        return ["I", (environment_id, learner_id), { "_packed": rows_T }]
+
+class TransactionIsNew(Filter):
+
+    def __init__(self, existing: Result):
+
+        self._existing = existing
+
+    def filter(self, transactions: Iterable[Any]) -> Iterable[Any]:
+        
+        for transaction in transactions:
+            
+            tipe  = transaction[0]
+
+            if tipe == "version" and self._existing.version is not None:
+                continue
+            
+            if tipe == "benchmark" and len(self._existing.experiment) != 0:
+                continue
+
+            if tipe == "I" and transaction[1] in self._existing._interactions:
+                continue
+
+            if tipe == "E" and transaction[1] in self._existing._environments:
+                continue
+
+            if tipe == "L" and transaction[1] in self._existing._learners:
+                continue
+
+            yield transaction
+
+class TransactionIO(Source[Iterable[Any]],Sink[Iterable[Any]]):
+
+    def __init__(self, transaction_log: Optional[str], minify:bool=True, append:bool = True, restored: Result = None) -> None:
+
+        json_decode = Cartesian(JsonDecode())
+        json_encode = Cartesian(JsonEncode(minify))
+
+        io = DiskIO(transaction_log, append=append) if transaction_log else MemoryIO()
+
+        self._sink   = Pipe.join([json_encode], io)
+        self._source = Pipe.join(io, [json_decode])
+
+        if restored:
+            self._sink = Pipe.join([TransactionIsNew(restored)], self._sink)
+
+    def write(self, items: Iterable[Any]) -> None:
+        self._sink.write(items)
+
+    def read(self) -> Iterable[Any]:
+        for i,item in enumerate(self._source.read()):
+            yield item
+
+    @property
+    def result(self) -> Result:
+        return Result.from_transactions(self.read())
+
+class TransactionPromote(Filter):
+
+    CurrentVersion = 4
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         items_iter = iter(items)
         items_peek = next(items_iter)
-        items_iter = chain([items_peek], items_iter)
 
-        version = 0 if items_peek[0] != 'version' else items_peek[1]
+        if items_peek[0] == 'version':
+            file_version = items_peek[1]
+        else:
+            file_version = 0
+            items_iter = chain([items_peek], items_iter)            
 
-        if version == ResultPromote.CurrentVersion:
-            raise StopPipe()
+        if file_version == TransactionPromote.CurrentVersion:
+            return
 
-        while version != ResultPromote.CurrentVersion:
-            if version == 0:
-                promoted_items = [["version",1]]
+        if file_version <= 1:
+            raise CobaException("We are unable to promote logs from experiment result versions before 2")
 
-                for transaction in items:
+        while file_version != TransactionPromote.CurrentVersion:
 
-                    if transaction[0] == "L":
+            yield ["version", TransactionPromote.CurrentVersion]
 
-                        index  = transaction[1][1]['learner_id']
-                        values = transaction[1][1]
+            for i,transaction in enumerate(items_iter):
 
-                        del values['learner_id']
+                current_transaction_version = file_version
 
-                        promoted_items.append([transaction[0], index, values])
+                if current_transaction_version == 2:
 
-                    if transaction[0] == "S":
-
-                        index  = transaction[1][1]['simulation_id']
-                        values = transaction[1][1]
-
-                        del values['simulation_id']
-
-                        promoted_items.append([transaction[0], index, values])
-
-                    if transaction[0] == "B":
-                        key_columns = ['learner_id', 'simulation_id', 'seed', 'batch_index']
-                        
-                        index  = [ transaction[1][1][k] for k in key_columns ]
-                        values = transaction[1][1]
-                        
-                        for key_column in key_columns: del values[key_column]
-                        
-                        if 'reward' in values:
-                            values['reward'] = values['reward'].estimate
-                        
-                        if 'mean_reward' in values:
-                            values['reward'] = values['mean_reward'].estimate
-                            del values['mean_reward']
-
-                        values['reward'] = round(values['reward', 5])
-
-                        promoted_items.append([transaction[0], index, values])
-
-                items   = promoted_items
-                version = 1
-
-            if version == 1:
-
-                n_seeds       : Optional[int]                  = None
-                S_transactions: Dict[int, Any]                 = {}
-                S_seeds       : Dict[int, List[Optional[int]]] = collections.defaultdict(list)
-
-                B_rows: Dict[Tuple[int,int], Dict[str, List[float]] ] = {}
-                B_cnts: Dict[int, int                               ] = {}
-
-                promoted_items = [["version",2]]
-
-                for transaction in items:
-
-                    if transaction[0] == "benchmark":
-                        n_seeds = transaction[1].get('n_seeds', None)
-
-                        del transaction[1]['n_seeds']
-                        del transaction[1]['batcher']
-                        del transaction[1]['ignore_first']
-
-                        promoted_items.append(transaction)
-
-                    if transaction[0] == "L":
-                        promoted_items.append(transaction)
-
-                    if transaction[0] == "S":
-                        S_transactions[transaction[1]] == transaction
-
-                    if transaction[0] == "B":
-                        S_id = transaction[1][1]
-                        seed = transaction[1][2]
-                        L_id = transaction[1][0]
-                        B_id = transaction[1][3]
-                        
-                        if n_seeds is None:
-                            raise StopPipe("We are unable to promote logs from version 1 to version 2")
-
-                        if seed not in S_seeds[S_id]:
-                            S_seeds[S_id].append(seed)
-                            
-                            new_S_id = n_seeds * S_id + S_seeds[S_id].index(seed)
-                            new_dict = S_transactions[S_id][2].clone()
-                            
-                            new_dict["source"]  = str(S_id)
-                            new_dict["filters"] = f'[{{"Shuffle":{seed}}}]'
-
-                            B_cnts[S_id] = new_dict['batch_count']
-
-                            promoted_items.append(["S", new_S_id, new_dict])
-
-                        if B_id == 0: B_rows[(S_id, L_id)] = {"N":[], "reward":[]}
-
-                        B_rows[(S_id, L_id)]["N"     ].append(transaction[2]["N"])
-                        B_rows[(S_id, L_id)]["reward"].append(transaction[2]["reward"])
-
-                        if len(B_rows[(S_id, L_id)]["N"]) == B_cnts[S_id]:
-                            promoted_items.append(["B", [S_id, L_id], B_rows[(S_id, L_id)]])
-                            del B_rows[(S_id, L_id)]
-
-                items   = promoted_items
-                version = 2
-
-            if version == 2:
-
-                promoted_items = [["version",3]]
-
-                for transaction in items:
-                    
                     #upgrade all reward entries to the packed format which will now allow array types and dict types.
                     if transaction[0] == "B":
                         rewards = transaction[2]["reward"]
                         del transaction[2]["reward"]
                         transaction[2]["_packed"] = {"reward": rewards}
-                    
+
                     #Change from B to I to be consistent with result property name: `interactions`
                     if transaction[0] == "B": 
                         transaction[0] = "I"
-                    
-                    promoted_items.append(transaction)
 
-                items   = promoted_items
-                version = 3
+                    current_transaction_version = 3
+
+                if current_transaction_version == 3:
+ 
+                    if transaction[0] == "benchmark":
+                        transaction[0] = "experiment"
+                        transaction[1]["n_environments"] = transaction[1]["n_simulations"]
+                        del transaction[1]["n_simulations"]
+
+                    if transaction[0] == "S":
+                        transaction[0] = "E"
+
+                    current_transaction_version = 4
+
+                yield transaction
 
         return items

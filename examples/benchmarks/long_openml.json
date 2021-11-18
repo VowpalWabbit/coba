@@ -1,5 +1,5 @@
 {
-    "simulations": [
+    "environments": [
         [ "$openmls", { "Shuffle": [777,888,999], "method": "foreach" }, { "Take": 5000 } ]
     ],
     "variables": {

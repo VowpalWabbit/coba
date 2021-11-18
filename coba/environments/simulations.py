@@ -8,7 +8,7 @@ from coba.pipes import Source, Filter, Pipe
 from coba.pipes import HttpIO, DiskIO
 from coba.pipes import ResponseToLines, CsvReader, ArffReader, LibSvmReader, ManikReader, Structure
 from coba.random import CobaRandom
-from coba.encodings import InteractionTermsEncoder
+from coba.encodings import InteractionTermsEncoder, OneHotEncoder, IdentityEncoder
 from coba.exceptions import CobaException
 
 from coba.environments.core import Context, Action, SimulatedEnvironment, SimulatedInteraction
@@ -175,7 +175,7 @@ class LambdaSimulation(SimulatedEnvironment):
     """A Simulation created from lambda functions that generate contexts, actions and rewards.
 
     Remarks:
-        This implementation is useful for creating simulations from defined distributions.
+        This implementation is useful for creating a simulation from defined distributions.
     """
 
     def __init__(self,
@@ -210,6 +210,9 @@ class LambdaSimulation(SimulatedEnvironment):
         """Read the interactions in this simulation."""
         
         return self._interactions
+
+    def __repr__(self) -> str:
+        return "LambdaSimulation"
 
 class ReaderSimulation(SimulatedEnvironment):
 
@@ -304,16 +307,13 @@ class DebugSimulation(LambdaSimulation):
 
         rng = CobaRandom(seed)
 
+        action_encoder = OneHotEncoder([str(a) for a in range(n_actions)]) if n_action_feats == 0 else IdentityEncoder()
         interactions_encoder = InteractionTermsEncoder(self._interactions)
 
-        feature_count = len(interactions_encoder.encode(x=range(max(1,n_context_feats)),a=range(max(1,n_action_feats))))
+        feature_count = len(interactions_encoder.encode(x=range(max(1,n_context_feats)),a=range(max(n_actions,n_action_feats))))
         normalize     = lambda   X: [ rng.random()*x/sum(X) for x in X]
-        scale         = lambda s,X: [            s*x/sum(X) for x in X]
 
-        if n_action_feats == 0:
-            weights = [ scale(rng.random(),normalize(rng.randoms(feature_count))) for _ in range(n_actions) ]
-        else:
-            weights = normalize(rng.randoms(feature_count))
+        weights = normalize(rng.randoms(feature_count))
 
         def actions(index:int, context: Context) -> Sequence[Action]:
             return [ rng.randoms(n_action_feats) for _ in range(n_actions)] if n_action_feats else [ str(a) for a in range(n_actions) ]
@@ -323,9 +323,9 @@ class DebugSimulation(LambdaSimulation):
 
         def reward(index:int, context:Context, action:Action) -> float:
             
-            W = weights[int(action)] if isinstance(action,str) else weights
-            X = [1]                  if context is None        else context
-            A = [1]                  if isinstance(action,str) else action
+            W = weights
+            X = context or [1]
+            A = action_encoder.encode([action])[0]
             F = interactions_encoder.encode(x=X,a=A)
 
             r = sum([w*f for w,f in zip(W,F)])
