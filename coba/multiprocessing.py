@@ -60,7 +60,11 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                             CobaConfig.logger.log_exception(err)
                         else:
                             CobaConfig.logger.log_exception(err[2])
-                            print("".join(err[3]))
+                            #err[3] contains the stack trace... 
+                            #I'm not sure what to do with it at this point, but here it is if any wants it in the future
+                            #When we pass our exception back to the original thread it loses its stacktrace so if we want
+                            #to report stack trace we'll need to turn it into a string and pass it with the exception???
+                            #print("".join(err[3]))
 
                 log_thread = Thread(target=log_stderr)
                 log_thread.daemon = True

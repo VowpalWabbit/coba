@@ -1,13 +1,10 @@
-import timeit
 import time
 import unittest
 
-from threading       import Thread
 from multiprocessing import current_process
 from typing          import Iterable, Any
 
-from coba.config          import CobaConfig, IndentLogger, BasicLogger
-from coba.config.cachers import NullCacher
+from coba.config          import CobaConfig, IndentLogger, BasicLogger, NullLogger, NullCacher
 from coba.pipes           import Filter, MemoryIO
 from coba.multiprocessing import CobaMultiprocessFilter
 
@@ -21,7 +18,6 @@ class NotPicklableFilter(Filter):
 class SleepingFilter(Filter):
     def filter(self, seconds: Iterable[float]) -> Any:
         second = next(iter(seconds)) #type: ignore
-        #print(current_process().name + f" {seconds}")
         time.sleep(second)
         yield second
 
@@ -41,6 +37,9 @@ if current_process().name == 'MainProcess':
         pass
 
 class CobaMultiprocessFilter_Tests(unittest.TestCase):
+
+    def setUp(self) -> None:
+        CobaConfig.logger = NullLogger()
 
     def test_logging(self):
         

@@ -72,7 +72,7 @@ class CorallLearner_Tests(unittest.TestCase):
 
         info = learner.learn(None, action, reward, probability, info)
 
-        self.assertDictContainsSubset({'a':1,'b':1}, info)
+        self.assertDictEqual({'a':1,'b':1, **info}, info)
         self.assertEqual((None, action, reward, predict[0]), base1.received_learn())
         self.assertEqual((None, action, reward, predict[0]), base2.received_learn())
 
