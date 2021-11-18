@@ -5,16 +5,59 @@ import json
 import collections
 import traceback
 
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing_extensions import Literal
-from typing import Dict, Any, Iterable
+from typing import Dict, Any, Iterable, Generic, TypeVar
 
 from coba.exceptions import CobaException
 from coba.registry import CobaRegistry
 from coba.utilities import coba_exit
+from coba.pipes import Sink, NullIO
 
-from coba.config.loggers import Logger
-from coba.config.cachers import Cacher
+_K = TypeVar("_K")
+_V = TypeVar("_V")
+
+class Cacher(Generic[_K, _V], ABC):
+    """The interface for a cacher."""
+    
+    @abstractmethod
+    def __contains__(self, key: _K) -> bool:
+        ...
+
+    @abstractmethod
+    def get(self, key: _K) -> _V:
+        ...
+
+    @abstractmethod
+    def put(self, key: _K, value: _V) -> None:
+        ...
+
+    @abstractmethod
+    def rmv(self, key: _K) -> None:
+        ...
+
+class Logger(ABC):
+    """A more advanced logging interface allowing different types of logs to be written."""
+
+    @property
+    @abstractmethod
+    def sink(self) -> Sink[Iterable[str]]:
+        ...
+
+    @abstractmethod
+    def log(self, message: str) -> 'ContextManager[Logger]':
+        ...
+
+    @abstractmethod
+    def time(self, message: str) -> 'ContextManager[Logger]':
+        ...
+
+    @abstractmethod
+    def log_exception(self, exception:Exception, message: str = "Unexpected exception:") -> None:
+        ...
+
+
 
 class ExperimentConfig:
     
@@ -35,6 +78,7 @@ class CobaConfig_meta(type):
         cls._cacher     = None
         cls._logger     = None
         cls._experiment = None
+        cls._global     = {}
 
     @staticmethod
     def _load_file_configs() -> Dict[str,Any]:
@@ -150,6 +194,10 @@ class CobaConfig_meta(type):
     @experiment.setter
     def experiment(cls, value:ExperimentConfig) -> None:
         cls._experiment = value
+
+    @property
+    def store(cls) -> Dict[str,Any]:
+        return cls._global 
 
 class CobaConfig(metaclass=CobaConfig_meta):
 

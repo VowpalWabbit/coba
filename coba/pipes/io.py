@@ -131,7 +131,7 @@ class HttpIO(IO[requests.Response, Any]):
         self._url = url
 
     def read(self) -> requests.Response:
-        return requests.get(self._url, stream=True)
+        return requests.get(self._url, stream=True) #by default sends accept-encoding gzip and deflate
 
     def write(self, item: Any) -> None:
         requests.put(self._url, item)

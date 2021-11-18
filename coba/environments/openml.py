@@ -8,6 +8,7 @@ from typing import Tuple, Sequence, Any, Iterable, Dict, Union
 from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Take
 from coba.config import CobaConfig
 from coba.exceptions import CobaException
+from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 
 from coba.environments.simulations import SimulatedEnvironment, SimulatedInteraction, ClassificationSimulation, RegressionSimulation
 
@@ -34,9 +35,6 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             return { "openml": self._data_id, "cat_as_str": self._cat_as_str, }
 
     def read(self) -> Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]:
-
-        #placing some of these at the top would cause circular references (is this still true???)
-        from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 
         try:
             data_id        = self._data_id
@@ -123,8 +121,8 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
     def _get_url(self, url:str, checksum:str=None) -> Iterable[str]:
         
         if url in CobaConfig.cacher:
+            self._cached_urls.append(url)
             bites = CobaConfig.cacher.get(url)
-        
         else:
 
             api_key  = CobaConfig.api_keys['openml']
@@ -206,10 +204,24 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
             if arff_url in CobaConfig.cacher:
                 return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_url(arff_url, md5_checksum))
+            
+            if csv_url in CobaConfig.cacher:
+                return CsvReader(True, **openml_dialect).filter(self._get_url(csv_url, md5_checksum))
+            
+            #we lock on downloading a dataset in case a user is running multithreaded and chunked by task
+            #in this case they could download the same data set repeatedly. This also makes requests a little
+            #nicer in terms of the load we place on openml's file server. srcsema should only be set when a
+            #user is running an experiment in a multithreaded environment.
+            
+            srcsema = CobaConfig.store.get("srcsema")
+            if srcsema: srcsema.acquire()
+
             try:
-                return CsvReader(True, **openml_dialect).filter(self._get_url(csv_url, md5_checksum))            
+                return CsvReader(True, **openml_dialect).filter(self._get_url(csv_url, md5_checksum))
             except:
                 return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_url(arff_url, md5_checksum))
+            finally:
+                if srcsema: srcsema.release()
 
     def _get_target_for_problem_type(self, data_id:int):
 

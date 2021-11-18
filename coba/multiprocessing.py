@@ -1,4 +1,5 @@
 from copy import deepcopy
+from multiprocessing.synchronize import Lock, Semaphore
 from multiprocessing import Manager
 from threading import Thread
 from typing import Sequence, Iterable, Any
@@ -11,10 +12,12 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
     class ConfiguredFilter:
 
-        def __init__(self, filters: Sequence[Filter], logger_sink: Sink, with_name:bool) -> None:
+        def __init__(self, filters: Sequence[Filter], logger_sink: Sink, with_name:bool, manager) -> None:
 
-            self._logger = deepcopy(CobaConfig.logger)
-            self._cacher = deepcopy(CobaConfig.cacher)
+            self._logger    = deepcopy(CobaConfig.logger)
+            self._cacher    = deepcopy(CobaConfig.cacher)
+            self._srcsema   = manager.Semaphore(2)
+            self._cachelock = manager.Lock()
 
             if isinstance(self._logger, IndentLogger):
                 self._logger._with_name = with_name
@@ -29,8 +32,10 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
         def filter(self, item: Iterable[Any]) -> Iterable[Any]:
 
             #placing this here means this is only set inside the process 
-            CobaConfig.logger = self._logger
-            CobaConfig.cacher = self._cacher
+            CobaConfig.logger            = self._logger
+            CobaConfig.cacher            = self._cacher
+            CobaConfig.store["srcsema"]  = self._srcsema
+            CobaConfig.store["cachelck"] = self._cachelock
 
             return Pipe.join(self._filters).filter(item)
 
@@ -61,7 +66,7 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 log_thread.daemon = True
                 log_thread.start()
 
-                filter = CobaMultiprocessFilter.ConfiguredFilter(self._filters, stderr, self._processes>1)
+                filter = CobaMultiprocessFilter.ConfiguredFilter(self._filters, stderr, self._processes>1, manager)
 
                 for item in MultiprocessFilter([filter], self._processes, self._maxtasksperchild, stderr).filter(items):
                     yield item

@@ -3,31 +3,13 @@
 import gzip
 
 from hashlib import md5
-from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union, Generic, Dict, TypeVar, Iterable
+from typing import Union, Dict, TypeVar, Iterable
+
+from coba.config.core import Cacher, CobaConfig
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
-
-class Cacher(Generic[_K, _V], ABC):
-    """The interface for a cacher."""
-    
-    @abstractmethod
-    def __contains__(self, key: _K) -> bool:
-        ...
-
-    @abstractmethod
-    def get(self, key: _K) -> _V:
-        ...
-
-    @abstractmethod
-    def put(self, key: _K, value: _V) -> None:
-        ...
-
-    @abstractmethod
-    def rmv(self, key: _K) -> None:
-        ...
 
 class NullCacher(Cacher[_K, _V]):
     def __init__(self) -> None:
@@ -63,13 +45,13 @@ class MemoryCacher(Cacher[_K, _V]):
 
 class DiskCacher(Cacher[str, Iterable[bytes]]):
     """A cache that writes bytes to disk.
-    
+
     The DiskCache compresses all values before storing in order to conserve space.
     """
 
     def __init__(self, cache_dir: Union[str, Path] = None) -> None:
         """Instantiate a DiskCache.
-        
+
         Args:
             path: The path to the directory where all files will be cached
         """
@@ -93,9 +75,14 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         Args:
             filename: Requested filename to retreive from the cache.
         """
-        with gzip.open(self._cache_path(key), 'rb') as f:
-            for line in f:
-                yield line.rstrip(b'\r\n')
+        try:
+            with gzip.open(self._cache_path(key), 'rb') as f:
+                for line in f:
+                    yield line.rstrip(b'\r\n')
+        except OSError:
+            #do we want to clear the cache here if something goes wrong?
+            #it seems reasonable since this would indicate the cache is corrupted...
+            raise            
 
     def put(self, key: str, value: Iterable[bytes]):
         """Put a key and its bytes into the cache.
@@ -107,13 +94,27 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
             value: The bytes that should be cached for the given filename.
         """
 
-        self._cache_path(key).touch()
-        
-        if isinstance(value,bytes): value = [value]
+        #I'm not crazy about this... This means we can only put one thing at a time...
+        #What we really want is a lock on `key` though I haven't been able to find a good
+        #way to do this. A better method might be to create a manager.List() and then only
+        #lock long enough to add and remove keys from the manager.List() rather than locking
+        #for the entire time it takes to put something (which could be a considerable amount)
+        #of time.
+        if CobaConfig.store.get("cachelck"): CobaConfig.store.get("cachelck").acquire()
 
-        with gzip.open(self._cache_path(key), 'wb') as f:
-            for line in value:
-                f.write(line.rstrip(b'\r\n') + b'\r\n')
+        try:
+            if key in self: return
+
+            if isinstance(value,bytes): value = [value]
+
+            with gzip.open(self._cache_path(key), 'wb+') as f:
+                for line in value:
+                    f.write(line.rstrip(b'\r\n') + b'\r\n')
+        except:
+            if key in self: self.rmv(key)
+            raise
+        finally:
+            if CobaConfig.store.get("cachelck"): CobaConfig.store.get("cachelck").release()
 
     def rmv(self, key: str) -> None:
         """Remove a key from the cache.
