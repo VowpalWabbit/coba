@@ -1,7 +1,8 @@
+from pathlib import Path
 import unittest
 import timeit
 
-from coba.experiments.results import Result, Table, InteractionsTable, Transaction, TransactionIsNew
+from coba.experiments.results import Result, Table, InteractionsTable, TransactionIO, TransactionIO_V3, TransactionIO_V4
 
 class Table_Tests(unittest.TestCase):
 
@@ -291,6 +292,7 @@ class Table_Pandas_Tests(unittest.TestCase):
         self.assertLess(time,1)
 
 class InteractionTable_Tests(unittest.TestCase):
+
     def test_simple_each_span_none(self):
         table = InteractionsTable("ABC", ["environment_id", "learner_id"], rows=[
             {"environment_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
@@ -380,13 +382,162 @@ class InteractionTable_Pandas_Tests(unittest.TestCase):
         self.assertEqual(actual[2].tolist(), [1.5,3,4.5])
         self.assertEqual(actual[3].tolist(), [2,4,6])
 
+class TransactionIO_V3_Tests(unittest.TestCase):
+    
+    def test_simple_to_and_from_file(self):
+        if Path("coba/tests/.temp/transaction_v3.log").exists():
+            Path("coba/tests/.temp/transaction_v3.log").unlink()
+
+        try:
+            io = TransactionIO_V3("coba/tests/.temp/transaction_v3.log")
+
+            t0 = ["T0",1,2]
+            t1 = ["T1",0,{"name":"lrn1"}]
+            t2 = ["T2",1,{"source":"test"}]
+            t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+
+            io.write([t0,t1,t2,t3])
+            result = io.result
+
+            self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+            self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+            self.assertEqual([(1,"test")], result.environments.to_tuples())
+            self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        
+        finally:
+            if Path("coba/tests/.temp/transaction_v3.log").exists():
+                Path("coba/tests/.temp/transaction_v3.log").unlink()
+
+    def test_simple_to_and_from_memory(self):
+        io = TransactionIO_V3()
+
+        t0 = ["T0",1,2]
+        t1 = ["T1",0,{"name":"lrn1"}]
+        t2 = ["T2",1,{"source":"test"}]
+        t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+
+        io.write([t0,t1,t2,t3])
+        result = io.result
+
+        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+        self.assertEqual([(1,"test")], result.environments.to_tuples())
+        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+
+class TransactionIO_V4_Tests(unittest.TestCase):
+
+    def test_simple_to_and_from_file(self):
+        if Path("coba/tests/.temp/transaction_v4.log").exists():
+            Path("coba/tests/.temp/transaction_v4.log").unlink()
+
+        try:
+            io = TransactionIO_V4("coba/tests/.temp/transaction_v4.log")
+
+            t0 = ["T0",1,2]
+            t1 = ["T1",0,{"name":"lrn1"}]
+            t2 = ["T2",1,{"source":"test"}]
+            t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+
+            io.write([t0,t1,t2,t3])
+            result = io.result
+
+            self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+            self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+            self.assertEqual([(1,"test")], result.environments.to_tuples())
+            self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        
+        finally:
+            if Path("coba/tests/.temp/transaction_v4.log").exists():
+                Path("coba/tests/.temp/transaction_v4.log").unlink()
+
+    def test_simple_to_and_from_memory(self):
+        io = TransactionIO_V3()
+
+        t0 = ["T0",1,2]
+        t1 = ["T1",0,{"name":"lrn1"}]
+        t2 = ["T2",1,{"source":"test"}]
+        t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+
+        io.write([t0,t1,t2,t3])
+        result = io.result
+
+        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+        self.assertEqual([(1,"test")], result.environments.to_tuples())
+        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+
+class TransactionIO_Tests(unittest.TestCase):
+
+    def test_simple_to_and_from_file(self):
+        if Path("coba/tests/.temp/transaction.log").exists():
+            Path("coba/tests/.temp/transaction.log").unlink()
+
+        try:
+            io = TransactionIO("coba/tests/.temp/transaction.log")
+
+            t0 = ["T0",1,2]
+            t1 = ["T1",0,{"name":"lrn1"}]
+            t2 = ["T2",1,{"source":"test"}]
+            t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+
+            io.write([t0,t1,t2,t3])
+            result = io.result
+
+            self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+            self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+            self.assertEqual([(1,"test")], result.environments.to_tuples())
+            self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        
+        finally:
+            if Path("coba/tests/.temp/transaction.log").exists():
+                Path("coba/tests/.temp/transaction.log").unlink()
+
+    def test_simple_to_and_from_memory(self):
+        io = TransactionIO()
+
+        t0 = ["T0",1,2]
+        t1 = ["T1",0,{"name":"lrn1"}]
+        t2 = ["T2",1,{"source":"test"}]
+        t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+
+        io.write([t0,t1,t2,t3])
+        result = io.result
+
+        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+        self.assertEqual([(1,"test")], result.environments.to_tuples())
+        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+
+    def test_simple_resume(self):
+        if Path("coba/tests/.temp/transaction.log").exists():
+            Path("coba/tests/.temp/transaction.log").unlink()
+
+        try:
+            io = TransactionIO("coba/tests/.temp/transaction.log")
+
+            t0 = ["T0",1,2]
+            t1 = ["T1",0,{"name":"lrn1"}]
+            t2 = ["T2",1,{"source":"test"}]
+            t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+
+            io.write([t0,t1,t2,t3])
+            
+            result = TransactionIO("coba/tests/.temp/transaction.log").result
+
+            self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+            self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+            self.assertEqual([(1,"test")], result.environments.to_tuples())
+            self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        
+        finally:
+            if Path("coba/tests/.temp/transaction.log").exists():
+                Path("coba/tests/.temp/transaction.log").unlink()
+
 class Result_Tests(unittest.TestCase):
 
     def test_has_interactions_key(self):
-        result = Result.from_transactions([
-            Transaction.interactions(0, 1, [{"reward":1}, {"reward":1}]),
-            Transaction.interactions(0, 2, [{"reward":1}, {"reward":1}])
-        ])
+
+        result = Result(1,2, {}, {}, {(0,1): {"_packed":{"reward":[1,1]}},(0,2):{"_packed":{"reward":[1,1]}}})
 
         self.assertEqual("{'Learners': 0, 'Environments': 0, 'Interactions': 4}", str(result))
 
@@ -395,9 +546,9 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(len(result._interactions), 4)
 
-    def test_has_version(self):
-        result = Result.from_transactions([Transaction.version(1)])
-        self.assertEqual(result.version, 1)
+    def test_has_preamble(self):
+
+        self.assertDictEqual(Result(1,2,{},{},{}).experiment, {"n_learners":1, "n_environments":2})
 
     def test_exception_when_no_file(self):
         with self.assertRaises(Exception):
@@ -405,11 +556,11 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_fin(self):
 
-        sims = [{"environment_id":1},{"environment_id":2}]
-        lrns = [{"learner_id":1}, {"learner_id":2}]
-        ints = [{"environment_id":1, "learner_id":1},{"environment_id":1,"learner_id":2}, {"environment_id":2,"learner_id":1}]
+        sims = {1:{}, 2:{}}
+        lrns = {1:{}, 2:{}}
+        ints = {(1,1):{}, (1,2):{}, (2,1):{}}
 
-        original_result = Result(1, {}, sims, lrns, ints)
+        original_result = Result(1, 1, sims, lrns, ints)
         filtered_result = original_result.filter_fin()
 
         self.assertEqual(2, len(original_result.environments))
@@ -420,13 +571,13 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(2, len(filtered_result.interactions))
 
-    def test_filter_sim(self):
+    def test_filter_env(self):
 
-        sims = [{"environment_id":1},{"environment_id":2}]
-        lrns = [{"learner_id":1}, {"learner_id":2}]
-        ints = [{"environment_id":1, "learner_id":1},{"environment_id":1,"learner_id":2}, {"environment_id":2,"learner_id":1}]
+        sims = {1:{}, 2:{}}
+        lrns = {1:{}, 2:{}}
+        ints = {(1,1):{}, (1,2):{}, (2,1):{}}
 
-        original_result = Result(1, {}, sims, lrns, ints)
+        original_result = Result(1, 1, sims, lrns, ints)
         filtered_result = original_result.filter_env(environment_id=2)
 
         self.assertEqual(2, len(original_result.environments))
@@ -439,11 +590,11 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_lrn_1(self):
 
-        sims = [{"environment_id":1},{"environment_id":2}]
-        lrns = [{"learner_id":1}, {"learner_id":2}]
-        ints = [{"environment_id":1, "learner_id":1},{"environment_id":1,"learner_id":2}, {"environment_id":2,"learner_id":1}]
+        sims = {1:{}, 2:{}}
+        lrns = {1:{}, 2:{}}
+        ints = {(1,1):{}, (1,2):{}, (2,1):{}}
 
-        original_result = Result(1, {}, sims, lrns, ints)
+        original_result = Result(1, 1, sims, lrns, ints)
         filtered_result = original_result.filter_lrn(learner_id=2)
 
         self.assertEqual(2, len(original_result.environments))
@@ -456,11 +607,11 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_lrn_2(self):
 
-        sims = [{"environment_id":1},{"environment_id":2}]
-        lrns = [{"learner_id":1}, {"learner_id":2}, {"learner_id":3}]
-        ints = [{"environment_id":1, "learner_id":1},{"environment_id":1,"learner_id":2}, {"environment_id":2,"learner_id":3}]
+        sims = {1:{}, 2:{}}
+        lrns = {1:{}, 2:{}, 3:{}}
+        ints = {(1,1):{}, (1,2):{}, (2,3):{}}
 
-        original_result = Result(1, {}, sims, lrns, ints)
+        original_result = Result(1, 1, sims, lrns, ints)
         filtered_result = original_result.filter_lrn(learner_id=[2,1])
 
         self.assertEqual(2, len(original_result.environments))
@@ -470,44 +621,6 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(2, len(filtered_result.interactions))
-
-class TransactionIsNew_Test(unittest.TestCase):
-    
-    def test_duplicates_are_dropped(self):
-        existing = Result.from_transactions([
-            Transaction.learner(0),
-            Transaction.environment(0),
-            Transaction.interactions(0, 1)
-        ])
-
-        filter = TransactionIsNew(existing)
-
-        transactions = list(filter.filter([
-            Transaction.learner(0), 
-            Transaction.environment(0), 
-            Transaction.interactions(0,1)
-        ]))
-
-        self.assertEqual(len(transactions), 0)
-
-    def test_non_duplicates_are_kept(self):
-        existing = Result.from_transactions([
-            Transaction.learner(0),
-            Transaction.environment(0),
-            Transaction.interactions(0, 1)
-        ])
-
-        filter = TransactionIsNew(existing)
-
-        transactions = list(filter.filter([
-            Transaction.learner(1), 
-            Transaction.environment(1), 
-            Transaction.interactions(1, 1)]
-        ))
-
-        self.assertEqual(len(transactions), 3)
-
-
 
 if __name__ == '__main__':
     unittest.main()

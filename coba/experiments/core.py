@@ -6,13 +6,13 @@ from coba.learners import Learner
 from coba.environments import Environment
 from coba.config import CobaConfig
 from coba.exceptions import CobaFatal
-from coba.pipes import Pipe, MemoryIO
+from coba.pipes import Pipe
 from coba.multiprocessing import CobaMultiprocessFilter
 
 from coba.experiments.process      import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems
 from coba.experiments.tasks        import EnvironmentTask, EvaluationTask, LearnerTask
 from coba.experiments.tasks        import SimpleLearnerTask, SimpleEnvironmentTask, OnPolicyEvaluationTask
-from coba.experiments.results      import Result, Transaction, TransactionIO
+from coba.experiments.results      import Result, TransactionIO
 
 class Experiment:
     """An Experiment which uses environments and learners to calculate performance statistics."""
@@ -20,7 +20,7 @@ class Experiment:
     def __init__(self,
         environments    : Sequence[Environment],
         learners        : Sequence[Learner],
-        learner_task    : LearnerTask     = SimpleLearnerTask(), 
+        learner_task    : LearnerTask     = SimpleLearnerTask(),
         environment_task: EnvironmentTask = SimpleEnvironmentTask(),
         evaluation_task : EvaluationTask  = OnPolicyEvaluationTask()) -> None:
         """Instantiate an Experiment.
@@ -48,7 +48,7 @@ class Experiment:
         chunk_by: Literal['source','task'] = None,
         maxtasksperchild: Optional[int] = None) -> 'Experiment':
         """Configure how the experiment will be executed. A value of `None` for any item means the global config will be used.
-        
+
         Args:
             chunk_by: Determines how tasks are chunked for processing.
             processes: Determines how many processes to use when processing task chunks.
@@ -72,7 +72,7 @@ class Experiment:
             result_file: The file we'd like to use for writing/restoring results experiments.
         """
 
-        restored = Result.from_file(result_file, True) if result_file and Path(result_file).exists() else Result()
+        restored = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
 
         n_given_learners     = len(self._learners)
         n_given_environments = len(self._environments)
@@ -81,10 +81,6 @@ class Experiment:
             assert n_given_learners     == restored.experiment['n_learners'    ], "The current experiment doesn't match the given transaction log."
             assert n_given_environments == restored.experiment['n_environments'], "The current experiment doesn't match the given transaction log."
 
-        preamble = []
-        preamble.append(Transaction.version())
-        preamble.append(Transaction.experiment(n_given_learners, n_given_environments))
-
         cb = self._chunk_by         if self._chunk_by         is not None else CobaConfig.experiment.chunk_by
         mp = self._processes        if self._processes        is not None else CobaConfig.experiment.processes
         mt = self._maxtasksperchild if self._maxtasksperchild is not None else CobaConfig.experiment.maxtasksperchild
@@ -92,16 +88,16 @@ class Experiment:
         workitems  = CreateWorkItems(self._environments, self._learners, self._learner_task, self._environment_task, self._evaluation_task)
         unfinished = RemoveFinished(restored)
         chunk      = ChunkByTask() if cb == 'task' else ChunkBySource()
-        sink       = TransactionIO(result_file, restored=restored, minify=True)
+        sink       = TransactionIO(result_file)
 
         single_process = ProcessWorkItems()
         multi_process  = Pipe.join([chunk, CobaMultiprocessFilter([ProcessWorkItems()], mp, mt)])
         process        = multi_process if mp > 1 or mt != 0 else single_process
 
         try:
-            Pipe.join(MemoryIO(preamble), [], sink).run()
+            if not restored: sink.write([["T0", n_given_learners, n_given_environments]])
             Pipe.join(workitems, [unfinished, process], sink).run()
-        
+
         except KeyboardInterrupt:
             CobaConfig.logger.log("Experiment execution was manually aborted via Ctrl-C")
         except CobaFatal:

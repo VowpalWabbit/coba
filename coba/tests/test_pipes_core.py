@@ -8,7 +8,6 @@ from coba.pipes import Pipe, Filter, Identity, MemoryIO
 
 class Pipe_Tests(unittest.TestCase):
 
-
     class ReprIO(MemoryIO):
         def __repr__(self):
             return "ReprIO"
@@ -34,7 +33,7 @@ class Pipe_Tests(unittest.TestCase):
 
         Pipe.join(memoryIO, [Pipe_Tests.ProcessNameFilter()], memoryIO).run()
 
-        self.assertEqual(memoryIO.items, ['MainProcess']*10)
+        self.assertEqual(memoryIO.items[10:], ['MainProcess']*10)
 
     def test_exception(self):
         memoryIO = MemoryIO(list(range(4)))

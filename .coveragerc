@@ -1,0 +1,8 @@
+[run]
+omit =
+    # omit anything in a .local directory anywhere
+    */tests/*
+    
+[report]
+exclude_lines =
+    @abstract

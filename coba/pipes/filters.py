@@ -178,7 +178,7 @@ class JsonEncode(Filter[Any, str]):
                 elif math.isnan(v) or math.isinf(v):
                     obj[k] = v                    
                 else: 
-                    obj[k] = f"~{v:0.5g}~" #rounding by any means is considerably slower than this crazy method
+                    obj[k] = f"|{v:0.5g}|" #rounding by any means is considerably slower than this crazy method
             else:
                 obj[k] = self._min(v)
 
@@ -193,7 +193,7 @@ class JsonEncode(Filter[Any, str]):
             self._encoder = CobaJsonEncoder()
 
     def filter(self, item: Any) -> str:        
-        return self._encoder.encode(self._min([item])[0] if self._minify else item).replace('"~',"").replace('~"',"")
+        return self._encoder.encode(self._min([item])[0] if self._minify else item).replace('"|',"").replace('|"',"")
 
 class JsonDecode(Filter[str, Any]):
     def __init__(self, decoder: json.decoder.JSONDecoder = CobaJsonDecoder()) -> None:

@@ -76,7 +76,7 @@ class RemoveFinished_Tests(unittest.TestCase):
 
     def test_three_finished(self):
 
-        restored = Result(lrn_rows=[dict(learner_id=1)], env_rows= [dict(environment_id=0)], int_rows=[dict(environment_id=0,learner_id=1)])
+        restored = Result(0, 0, lrn_rows={1:{}}, env_rows= {0:{}}, int_rows= {(0,1):{}})
 
         tasks = [
             WorkItem( (0,), None, None),
@@ -173,7 +173,7 @@ class ProcessTasks_Tests(unittest.TestCase):
         transactions = list(ProcessWorkItems().filter([item]))
 
         self.assertEqual(len(task.observed[1]), 5)
-        self.assertEqual(['I', (1,1), {"_packed":{}}], transactions[0])
+        self.assertEqual(['T3', (1,1), []], transactions[0])
 
     def test_two_eval_tasks_one_source_one_env(self):
 
@@ -195,8 +195,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(task1.observed[1][0].context, 0)
         self.assertEqual(task2.observed[1][0].context, 0)
 
-        self.assertEqual(['I', (0,0), {"_packed":{}}], transactions[0])
-        self.assertEqual(['I', (0,1), {"_packed":{}}], transactions[1])
+        self.assertEqual(['T3', (0,0), []], transactions[0])
+        self.assertEqual(['T3', (0,1), []], transactions[1])
 
     def test_two_eval_tasks_two_source_two_env(self):
 
@@ -219,8 +219,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(task1.observed[1][0].context, 0)
         self.assertEqual(task2.observed[1][0].context, 0)
 
-        self.assertIn(['I', (0,0), {"_packed":{}}], transactions)
-        self.assertIn(['I', (1,1), {"_packed":{}}], transactions)
+        self.assertIn(['T3', (0,0), []], transactions)
+        self.assertIn(['T3', (1,1), []], transactions)
 
     def test_two_eval_tasks_one_source_two_env(self):
 
@@ -244,10 +244,10 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(task1.observed[1][0].context, (0,0))
         self.assertEqual(task2.observed[1][0].context, (0,1))
 
-        self.assertEqual(['I', (0,0), []], transactions[0])
-        self.assertEqual(['I', (1,1), []], transactions[1])
+        self.assertEqual(['T3', (0,0), []], transactions[0])
+        self.assertEqual(['T3', (1,1), []], transactions[1])
 
-    def test_two_eval_tasks_one_source_two_env(self):
+    def test_two_learn_tasks(self):
 
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
@@ -262,8 +262,35 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(task1.observed, lrn1)
         self.assertEqual(task2.observed, lrn2)
 
-        self.assertEqual(['L', 0, {}], transactions[0])
-        self.assertEqual(['L', 1, {}], transactions[1])
+        self.assertEqual(['T1', 0, {}], transactions[0])
+        self.assertEqual(['T1', 1, {}], transactions[1])
+
+    def test_two_environment_tasks(self):
+
+        filter = CountFilter()
+        src1   = CountReadSimulation()
+        sim1   = Pipe.join(src1, [filter])
+        sim2   = Pipe.join(src1, [filter])
+        lrn1   = ModuloLearner("1")
+        lrn2   = ModuloLearner("2")
+
+        task1 = ObserveTask()
+        task2 = ObserveTask()
+
+        items = [ WorkItem(None,(0,sim1), task1), WorkItem(None,(1,sim2), task2) ]
+
+        transactions = list(ProcessWorkItems().filter(items))
+
+        self.assertEqual(len(task1.observed[1]), 1)
+        self.assertEqual(len(task2.observed[1]), 1)
+
+        self.assertEqual(task1.observed[1][0].context, (0,0))
+        self.assertEqual(task2.observed[1][0].context, (0,1))
+
+        self.assertEqual(['T2', 0, {}], transactions[0])
+        self.assertEqual(['T2', 1, {}], transactions[1])
+
+
 
 if __name__ == '__main__':
     unittest.main()

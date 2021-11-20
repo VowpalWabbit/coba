@@ -4,7 +4,7 @@ import gzip
 
 from hashlib import md5
 from pathlib import Path
-from typing import Union, Dict, TypeVar, Iterable
+from typing import Union, Dict, TypeVar, Iterable, Optional
 
 from coba.config.core import Cacher, CobaConfig
 
@@ -53,13 +53,13 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         """Instantiate a DiskCache.
 
         Args:
-            path: The path to the directory where all files will be cached
+            cache_dir: The directory path where all given keys will be cached as files
         """
         self.cache_directory = cache_dir
 
     @property
-    def cache_directory(self) -> str:
-        return str(self._cache_dir)
+    def cache_directory(self) -> Optional[str]:
+        return str(self._cache_dir) if self._cache_dir is not None else None
 
     @cache_directory.setter
     def cache_directory(self,value:Union[Path,str,None]) -> None:
@@ -73,21 +73,22 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         """Get a key from the cache.
 
         Args:
-            filename: Requested filename to retreive from the cache.
+            key: Requested key to retreive from the cache.
         """
+
+        if key not in self: return []
+
         try:
             with gzip.open(self._cache_path(key), 'rb') as f:
                 for line in f:
                     yield line.rstrip(b'\r\n')
-        except OSError:
+        except:
             #do we want to clear the cache here if something goes wrong?
             #it seems reasonable since this would indicate the cache is corrupted...
-            raise            
+            raise
 
     def put(self, key: str, value: Iterable[bytes]):
-        """Put a key and its bytes into the cache.
-        
-        In the case of a key collision this will overwrite the existing key
+        """Put a key and its bytes into the cache. In the case of a key collision nothing will be put.
 
         Args:
             key: The key to store in the cache.

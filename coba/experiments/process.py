@@ -10,7 +10,7 @@ from coba.pipes import Source, Pipe, Filter
 from coba.environments import SimulatedEnvironment, EnvironmentPipe
 
 from coba.experiments.tasks import LearnerTask, EnvironmentTask, EvaluationTask
-from coba.experiments.results import Result, Transaction
+from coba.experiments.results import Result
 
 class WorkItem:
 
@@ -148,15 +148,15 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
                                 if workitem.environ is None:
                                     with CobaConfig.logger.time(f"Recording Learner {workitem.learner[0]} parameters..."):
-                                        yield Transaction.learner(workitem.learner[0], **workitem.task.filter(workitem.learner[1]))
+                                        yield ["T1", workitem.learner[0], workitem.task.filter(workitem.learner[1])]
 
                                 if workitem.learner is None:
-                                    with CobaConfig.logger.time(f"Calculating Environment {workitem.environ[0]} statistics..."):
-                                        yield Transaction.environment(workitem.environ[0], **workitem.task.filter((workitem.environ[1],interactions)))
+                                    with CobaConfig.logger.time(f"Recording Environment {workitem.environ[0]} statistics..."):
+                                        yield ["T2", workitem.environ[0], workitem.task.filter((workitem.environ[1],interactions))]
 
                                 if workitem.environ and workitem.learner:
                                     with CobaConfig.logger.time(f"Evaluating Learner {workitem.learner[0]} on Environment {workitem.environ[0]}..."):
-                                        yield Transaction.interactions(workitem.environ[0], workitem.learner[0], workitem.task.filter((workitem.learner[1], interactions)))
+                                        yield ["T3", (workitem.environ[0], workitem.learner[0]), list(workitem.task.filter((workitem.learner[1], interactions)))]
 
                             except Exception as e:
                                 CobaConfig.logger.log_exception(e)

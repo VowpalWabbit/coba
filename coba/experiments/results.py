@@ -1,3 +1,4 @@
+from logging import raiseExceptions
 import re
 import collections
 
@@ -10,10 +11,10 @@ from collections.abc import Container
 from typing_extensions import Literal
 from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Callable
 
-from coba.exceptions import CobaException
 from coba.config import CobaConfig
-from coba.utilities import PackageChecker
-from coba.pipes import Filter, Cartesian, JsonEncode, JsonDecode, Pipe, DiskIO, MemoryIO, Sink, Source
+from coba.exceptions import CobaException
+from coba.utilities import PackageChecker, coba_exit
+from coba.pipes import JsonEncode, JsonDecode, DiskIO, MemoryIO, Sink, Source
 
 class Table:
     """A container class for storing tabular data."""
@@ -93,17 +94,6 @@ class Table:
         columns_values = [ [flats[key].get(col, packs[key].get(col, self._default(col))) for key in self.keys] for col in self.columns ]
 
         return [ self._infer_type(column_packed, column_values) for column_packed, column_values in zip(columns_packed,columns_values)]
-
-    def window(self, partition_by:Sequence[str], order_by:Sequence[str], window_lim:Tuple[float,float], functions: Dict[str,Callable]):
-        partitions = collections.defaultdict(list)
-
-        for key in self.keys:
-            flat = self._rows_flat[key]
-            part_key = tuple([flat[part_by] for part_by in partition_by])
-            partitions[part_key].append(flat)
-
-    def aggregate(self, group_by:Sequence[str], functions:Dict[str,Callable]):
-        pass
 
     def filter(self, row_pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Table':
 
@@ -308,62 +298,224 @@ class InteractionsTable(Table):
             n_index = len(data[0][1:])
             return pd.DataFrame(data, columns=["learner_id", *range(1,n_index+1)])
 
+class TransactionIO_V3(Source[Iterable[Any]],Sink[Iterable[Any]]):
+
+    def __init__(self, transaction_log: Optional[str] = None, minify:bool=True) -> None:
+
+        self._io = DiskIO(transaction_log) if transaction_log else MemoryIO()
+        self._minify = minify
+
+    def write(self, items: Iterable[Any]) -> None:
+        if isinstance(self._io, MemoryIO):
+            self._io.write(map(self._encode, items))
+        else:
+            self._io.write(map(JsonEncode(self._minify).filter, map(self._encode,items)))
+
+    def read(self) -> Iterable[Any]:
+        if isinstance(self._io, MemoryIO):
+            return self._io.read()
+        else:
+            return map(JsonDecode().filter,self._io.read())
+
+    @property
+    def result(self) -> 'Result':
+        
+        n_lrns   = None
+        n_sims   = None
+        lrn_rows = {}
+        sim_rows = {}
+        int_rows = {}
+
+        for trx in self.read():
+
+            if trx[0] == "benchmark": 
+                n_lrns = trx[1]["n_learners"]
+                n_sims = trx[1]["n_simulations"]
+            
+            if trx[0] == "S": 
+                sim_rows[trx[1]] = trx[2]
+            
+            if trx[0] == "L": 
+                lrn_rows[trx[1]] = trx[2]
+            
+            if trx[0] == "I": 
+                int_rows[tuple(trx[1])] = trx[2]
+
+        return Result(n_lrns, n_sims, sim_rows, lrn_rows, int_rows)
+
+    def _encode(self,item):
+        if item[0] == "T0":
+            return ['benchmark', {"n_learners":item[1], "n_simulations":item[2]}]
+        
+        if item[0] == "T1":
+            return ["L", item[1], item[2]]
+
+        if item[0] == "T2":
+            return ["S", item[1], item[2]]
+
+        if item[0] == "T3":
+            rows_T = collections.defaultdict(list)
+
+            for row in item[2]:
+                for col,val in row.items():
+                    if col == "rewards" : col="reward"
+                    if col == "reveals" : col="reveal"
+                    rows_T[col].append(val)
+
+            return ["I", item[1], { "_packed": rows_T }]
+
+class TransactionIO_V4(Source[Iterable[Any]],Sink[Iterable[Any]]):
+
+    def __init__(self, transaction_log: Optional[str] = None, minify:bool=True) -> None:
+        self._io = DiskIO(transaction_log) if transaction_log else MemoryIO()
+        self._minify = minify
+
+    def write(self, items: Iterable[Any]) -> None:
+        if isinstance(self._io, MemoryIO):
+            self._io.write(map(self._encode, items))
+        else:
+            self._io.write(map(JsonEncode(self._minify).filter, map(self._encode,items)))
+
+    def read(self) -> Iterable[Any]:
+        if isinstance(self._io, MemoryIO):
+            return self._io.read()
+        else:
+            return map(JsonDecode().filter,self._io.read())
+
+    @property
+    def result(self) -> 'Result':
+        
+        n_lrns   = None
+        n_sims   = None
+        lrn_rows = {}
+        env_rows = {}
+        int_rows = {}
+
+        for trx in self.read():
+
+            if trx[0] == "experiment": 
+                n_lrns = trx[1]["n_learners"]
+                n_sims = trx[1]["n_environments"]
+            
+            if trx[0] == "E": 
+                env_rows[trx[1]] = trx[2]
+            
+            if trx[0] == "L": 
+                lrn_rows[trx[1]] = trx[2]
+            
+            if trx[0] == "I": 
+                int_rows[tuple(trx[1])] = trx[2]
+
+        return Result(n_lrns, n_sims, env_rows, lrn_rows, int_rows)
+
+    def _encode(self,item):
+        if item[0] == "T0":
+            return ['experiment', {"n_learners":item[1], "n_environments":item[2]}]
+        
+        if item[0] == "T1":
+            return ["L", item[1], item[2]]
+
+        if item[0] == "T2":
+            return ["E", item[1], item[2]]
+
+        if item[0] == "T3":
+            rows_T = collections.defaultdict(list)
+
+            for row in item[2]:
+                for col,val in row.items():
+                    if col == "rewards" : col="reward"
+                    if col == "reveals" : col="reveal"
+                    rows_T[col].append(val)
+
+            return ["I", item[1], { "_packed": rows_T }]
+
+        return item
+
+class TransactionIO(Source[Iterable[Any]],Sink[Iterable[Any]]):
+
+    def __init__(self, transaction_log: Optional[str] = None) -> None:
+
+        if not transaction_log or not Path(transaction_log).exists():
+            version = None
+        else:
+            version = JsonDecode().filter(next(DiskIO(transaction_log).read()))[1]
+
+        if version == 3:
+            self._transactionIO = TransactionIO_V3(transaction_log)
+
+        elif version == 4:
+            self._transactionIO = TransactionIO_V4(transaction_log)
+
+        elif version is None:
+            self._transactionIO = TransactionIO_V4(transaction_log)
+            self._transactionIO.write([['version',4]])
+
+        else:
+            raise CobaException("We were unable to determine the appropriate Transaction reader for the file.")
+
+    def write(self, items: Iterable[Any]) -> None:
+        self._transactionIO.write(items)
+
+    def read(self) -> Iterable[Any]:
+        self._transactionIO.read()
+
+    @property
+    def result(self) -> 'Result':
+        return self._transactionIO.result
+
+    def _encode(self,item):
+        if item[0] == "T0":
+            return ['benchmark', {"n_learners":item[1], "n_simulations":item[2]}]
+        
+        if item[0] == "T1":
+            return ["L", item[1], item[2]]
+
+        if item[0] == "T2":
+            return ["S", item[1], item[2]]
+
+        if item[0] == "T3":
+            rows_T = collections.defaultdict(list)
+
+            for row in item[2]:
+                for col,val in row.items():
+                    if col == "rewards" : col="reward"
+                    if col == "reveals" : col="reveal"
+                    rows_T[col].append(val)
+
+            return ["I", item[1], { "_packed": rows_T }]
+
 class Result:
     """A class representing the result of an Experiment."""
 
     @staticmethod
-    def from_file(filename: str, _experiment_restore:bool = False) -> 'Result':
+    def from_file(filename: str) -> 'Result':
         """Create a Result from a transaction file."""
         
-        #Why is this here??? This is really confusing in practice
-        #if filename is None or not Path(filename).exists(): return Result()
+        if not Path(filename).exists(): 
+            raise CobaException("We were unable to find the given Result file.")
 
-        raw_IO = TransactionIO(filename)
-        swp_IO = TransactionIO(filename+".swp", minify=False, append=False)
-
-        #Promote the given transaction file to the latest version, if it is an older version. 
-        #We use a swp file to protect the original data until we know we are able to promote it all.
-        Pipe.join(raw_IO, [TransactionPromote()], swp_IO).run()
-        if Path(filename+".swp").exists(): Path(filename+".swp").replace(filename)
-
-        return Result.from_transactions(raw_IO.read(), _experiment_restore)
-
-    @staticmethod
-    def from_transactions(transactions: Iterable[Any], _experiment_restore:bool = False) -> 'Result':
-
-        version    = None
-        experiment = {}
-        lrn_rows   = []
-        env_rows   = []
-        int_rows   = []
-
-        for trx in transactions:
-            
-            #When restoring an experiment we don't care about what the data is, only the ids.
-            if _experiment_restore and len(trx) == 3: trx[2] = {}
-
-            if trx[0] == "version"  : version    = trx[1]
-            if trx[0] == "benchmark": experiment = trx[1]
-            if trx[0] == "E"        : env_rows.append({**trx[2], "environment_id": trx[1]})
-            if trx[0] == "L"        : lrn_rows.append({**trx[2], "learner_id"    : trx[1]})
-            if trx[0] == "I"        : int_rows.append({**trx[2], "environment_id": trx[1][0], "learner_id": trx[1][1]})
-
-        return Result(version, experiment, env_rows, lrn_rows, int_rows)
+        return TransactionIO(filename).result
 
     def __init__(self,
-        version   : Optional[int] = None,
-        experiment: Dict[str,Any] = {},
-        env_rows  : Sequence[Dict[str,Any]] = [],
-        lrn_rows  : Sequence[Dict[str,Any]] = [],
-        int_rows  : Sequence[Dict[str,Any]] = []) -> None:
+        n_lrns  : int = None,
+        n_envs  : int = None,
+        env_rows: Dict[int           ,Dict[str,Any]] = {},
+        lrn_rows: Dict[int           ,Dict[str,Any]] = {},
+        int_rows: Dict[Tuple[int,int],Dict[str,Any]] = {}) -> None:
         """Instantiate a Result class."""
 
-        self.version    = version
-        self.experiment = experiment
+        self.experiment = {}
 
-        self._environments = Table            ("Environments", ['environment_id'              ], env_rows, ["source"])
-        self._learners     = Table            ("Learners"    , ['learner_id'                  ], lrn_rows, ["family","shuffle","take"])
-        self._interactions = InteractionsTable("Interactions", ['environment_id', 'learner_id'], int_rows, ["index","reward"])
+        if n_lrns is not None: self.experiment["n_learners"] = n_lrns
+        if n_envs is not None: self.experiment["n_environments"] = n_envs
+
+        env_flat = [ { "environment_id":k,                       **v } for k,v in env_rows.items() ]
+        lrn_flat = [ {                        "learner_id" :k,   **v } for k,v in lrn_rows.items() ]
+        int_flat = [ { "environment_id":k[0], "learner_id":k[1], **v } for k,v in int_rows.items() ]
+
+        self._environments = Table            ("Environments", ['environment_id'              ], env_flat, ["source"])
+        self._learners     = Table            ("Learners"    , ['learner_id'                  ], lrn_flat, ["family","shuffle","take"])
+        self._interactions = InteractionsTable("Interactions", ['environment_id', 'learner_id'], int_flat, ["index","reward"])
 
     @property
     def learners(self) -> Table:
@@ -390,7 +542,7 @@ class Result:
     def _copy(self) -> 'Result':
         result = Result()
 
-        result.environments  = copy(self._environments)
+        result.environments = copy(self._environments)
         result.learners     = copy(self._learners)
         result.interactions = copy(self._interactions)
 
@@ -551,171 +703,3 @@ class Result:
 
     def __repr__(self) -> str:
         return str(self)
-
-class Transaction:
-
-    @staticmethod
-    def version(version = None) -> Any:
-        return ['version', version or TransactionPromote.CurrentVersion]
-
-    @staticmethod
-    def experiment(n_learners, n_environments) -> Any:
-        data = {
-            "n_learners"    : n_learners,
-            "n_environments": n_environments,
-        }
-
-        return ['benchmark',data]
-
-    @staticmethod
-    def learner(learner_id:int, **kwargs) -> Any:
-        """Write learner metadata row to Result.
-        
-        Args:
-            learner_id: The primary key for the given learner.
-            kwargs: The metadata to store about the learner.
-        """
-        return ["L", learner_id, kwargs]
-
-    @staticmethod
-    def environment(environment_id: int, **kwargs) -> Any:
-        """Write environment metadata row to Result.
-        
-        Args:
-            environment_id: The id of the environment in the Experiment.
-            kwargs: The metadata to store about the environment.
-        """
-        return ["E", environment_id, kwargs]
-
-    @staticmethod
-    def interactions(environment_id:int, learner_id:int, eval_rows:Sequence[dict] = []) -> Any:
-        """Write interaction evaluation metadata row to Result.
-
-        Args:
-            environment_id: The primary key for the simulation the interaction came from.
-            learner_id: The primary key for the learner we observed on the interaction.
-            eval_rows: The metadata describing each interaction evaluated by the learner.
-        """
-
-        rows_T = collections.defaultdict(list)
-
-        for row in eval_rows:
-            for col,val in row.items():
-                if col == "rewards" : col="reward"
-                if col == "reveals" : col="reveal"
-                rows_T[col].append(val)
-
-        return ["I", (environment_id, learner_id), { "_packed": rows_T }]
-
-class TransactionIsNew(Filter):
-
-    def __init__(self, existing: Result):
-
-        self._existing = existing
-
-    def filter(self, transactions: Iterable[Any]) -> Iterable[Any]:
-        
-        for transaction in transactions:
-            
-            tipe  = transaction[0]
-
-            if tipe == "version" and self._existing.version is not None:
-                continue
-            
-            if tipe == "benchmark" and len(self._existing.experiment) != 0:
-                continue
-
-            if tipe == "I" and transaction[1] in self._existing._interactions:
-                continue
-
-            if tipe == "E" and transaction[1] in self._existing._environments:
-                continue
-
-            if tipe == "L" and transaction[1] in self._existing._learners:
-                continue
-
-            yield transaction
-
-class TransactionIO(Source[Iterable[Any]],Sink[Iterable[Any]]):
-
-    def __init__(self, transaction_log: Optional[str], minify:bool=True, append:bool = True, restored: Result = None) -> None:
-
-        json_decode = Cartesian(JsonDecode())
-        json_encode = Cartesian(JsonEncode(minify))
-
-        io = DiskIO(transaction_log, append=append) if transaction_log else MemoryIO()
-
-        self._sink   = Pipe.join([json_encode], io)
-        self._source = Pipe.join(io, [json_decode])
-
-        if restored:
-            self._sink = Pipe.join([TransactionIsNew(restored)], self._sink)
-
-    def write(self, items: Iterable[Any]) -> None:
-        self._sink.write(items)
-
-    def read(self) -> Iterable[Any]:
-        for i,item in enumerate(self._source.read()):
-            yield item
-
-    @property
-    def result(self) -> Result:
-        return Result.from_transactions(self.read())
-
-class TransactionPromote(Filter):
-
-    CurrentVersion = 4
-
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        items_iter = iter(items)
-        items_peek = next(items_iter)
-
-        if items_peek[0] == 'version':
-            file_version = items_peek[1]
-        else:
-            file_version = 0
-            items_iter = chain([items_peek], items_iter)            
-
-        if file_version == TransactionPromote.CurrentVersion:
-            return
-
-        if file_version <= 1:
-            raise CobaException("We are unable to promote logs from experiment result versions before 2")
-
-        while file_version != TransactionPromote.CurrentVersion:
-
-            yield ["version", TransactionPromote.CurrentVersion]
-
-            for i,transaction in enumerate(items_iter):
-
-                current_transaction_version = file_version
-
-                if current_transaction_version == 2:
-
-                    #upgrade all reward entries to the packed format which will now allow array types and dict types.
-                    if transaction[0] == "B":
-                        rewards = transaction[2]["reward"]
-                        del transaction[2]["reward"]
-                        transaction[2]["_packed"] = {"reward": rewards}
-
-                    #Change from B to I to be consistent with result property name: `interactions`
-                    if transaction[0] == "B": 
-                        transaction[0] = "I"
-
-                    current_transaction_version = 3
-
-                if current_transaction_version == 3:
- 
-                    if transaction[0] == "benchmark":
-                        transaction[0] = "experiment"
-                        transaction[1]["n_environments"] = transaction[1]["n_simulations"]
-                        del transaction[1]["n_simulations"]
-
-                    if transaction[0] == "S":
-                        transaction[0] = "E"
-
-                    current_transaction_version = 4
-
-                yield transaction
-
-        return items

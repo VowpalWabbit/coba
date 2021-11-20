@@ -8,7 +8,7 @@ import traceback
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing_extensions import Literal
-from typing import Dict, Any, Iterable, Generic, TypeVar, ContextManager
+from typing import Dict, Any, Iterable, Generic, Sequence, TypeVar, ContextManager, Union
 
 from coba.exceptions import CobaException
 from coba.registry import CobaRegistry
@@ -72,19 +72,17 @@ class CobaConfig_meta(type):
     """
 
     def __init__(cls, *args, **kwargs):
-        cls._api_keys   = None
-        cls._cacher     = None
-        cls._logger     = None
-        cls._experiment = None
-        cls._global     = {}
+        cls._api_keys     = None
+        cls._cacher       = None
+        cls._logger       = None
+        cls._experiment   = None
+        cls._global       = {}
+        cls._search_paths = [Path.home() , Path.cwd(), Path(sys.path[0]) ]
 
-    @staticmethod
-    def _load_file_configs() -> Dict[str,Any]:
-        search_paths = [Path.home() , Path.cwd(), Path(sys.path[0]) ]
-
+    def _load_file_configs(cls) -> Dict[str,Any]:
         config = {}
 
-        for search_path in search_paths:
+        for search_path in cls.search_paths:
 
             potential_coba_config = search_path / ".coba"
 
@@ -131,8 +129,8 @@ class CobaConfig_meta(type):
                     "experiment": { "processes": 1, "maxtasksperchild": 0, "chunk_by": "source" }
                 }
 
-                for key,value in CobaConfig_meta._load_file_configs().items():
-                    if key in _raw_config and isinstance(_raw_config[key], dict):
+                for key,value in cls._load_file_configs().items():
+                    if key in _raw_config and isinstance(_raw_config[key],dict) and not CobaRegistry.is_known_recipe(value):
                         _raw_config[key].update(value)
                     else:
                         _raw_config[key] = value
@@ -195,7 +193,18 @@ class CobaConfig_meta(type):
 
     @property
     def store(cls) -> Dict[str,Any]:
-        return cls._global 
+        return cls._global
+
+    @property
+    def search_paths(cls) -> Sequence[str]:
+        return cls._search_paths
+
+    @search_paths.setter
+    def search_paths(cls, value:Union[Sequence[str], Sequence[Path]]) -> None:
+        if len(value) > 0 and isinstance(value[0],str):
+            cls._search_paths = [Path(path) for path in value ]
+        else:
+            cls._search_paths = value
 
 class CobaConfig(metaclass=CobaConfig_meta):
 

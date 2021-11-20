@@ -11,6 +11,8 @@ from importlib_metadata import entry_points #type: ignore
 
 from typing import Dict, Any, Callable
 
+from coba.exceptions import CobaException
+
 def coba_registry_class(name:str) -> Callable[[type],type]:
 
     def registration_decorator(cls: type) -> type:
@@ -49,7 +51,7 @@ class CobaRegistry:
         method = "singular"
 
         if not cls._is_valid_recipe(recipe):
-            raise Exception(f"Invalid recipe {str(recipe)}")
+            raise CobaException(f"Invalid recipe {str(recipe)}")
 
         if isinstance(recipe, str):
             name = recipe
@@ -65,7 +67,7 @@ class CobaRegistry:
             if len(mutable_recipe) == 1:
                 name, implicit_args = list(mutable_recipe.items())[0]
 
-                if isinstance(implicit_args, dict) and not cls._is_known_recipe(implicit_args):
+                if isinstance(implicit_args, dict) and not cls.is_known_recipe(implicit_args):
                     kwargs = implicit_args
                 else:
                     args = implicit_args
@@ -113,7 +115,7 @@ class CobaRegistry:
         return False
 
     @classmethod
-    def _is_known_recipe(cls, recipe:Any) -> bool:
+    def is_known_recipe(cls, recipe:Any) -> bool:
 
         if not cls._is_valid_recipe(recipe):
             return False
@@ -134,7 +136,7 @@ class CobaRegistry:
 
     @classmethod
     def _construct_or_return(cls, item:Any):        
-        return cls.construct(item) if cls._is_valid_recipe(item) and cls._is_known_recipe(item) else item
+        return cls.construct(item) if cls._is_valid_recipe(item) and cls.is_known_recipe(item) else item
 
     @classmethod
     def _construct_single(cls, recipe, name, args, kwargs) -> Any:
@@ -164,7 +166,7 @@ class CobaRegistry:
                 return cls.retrieve(name)()
 
         except KeyError:
-            raise Exception(f"Unknown recipe {str(recipe)}")
+            raise CobaException(f"Unknown recipe {str(recipe)}")
 
         except Exception as e:
-            raise Exception(f"Unable to create recipe {str(recipe)}")
+            raise CobaException(f"Unable to create recipe {str(recipe)}")

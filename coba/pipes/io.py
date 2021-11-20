@@ -78,8 +78,7 @@ class MemoryIO(IO[Sequence[Any], Any]):
         self.items =  list(initial_memory)
 
     def read(self) -> Sequence[Any]:
-        while self.items:
-            yield self.items.pop(0)
+        return self.items
 
     def write(self, item: Any) -> None:
         try:
