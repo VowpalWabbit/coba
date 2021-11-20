@@ -29,9 +29,20 @@ Think for a second about the last time you considered evaluating CB methods for 
  
  ## Workflow
  
- Coba is architected around a simple workflow: Environments -> Learners -> Experiment -> Results.
+ Coba is architected around a simple workflow: Learners -> Environments -> Experiments -> Results.
  
  Environments represent unique CB problems that need to be solved. Learners are the CB algorithms that we can use to learn policies. Experiments are combinations of Environments and Learners that we want to evaluate. And Results are the outcome of an Experiment, containing all the data from the Experiment.
+ 
+ ## Learners
+ 
+ Learners are algorithms which are able to improve their action selection through interactions with environments.
+ 
+ A number of algorithms are provided natively with Coba for quick comparsions. These include:
+ 
+ * All contextual bandit learners in VowpalWabbit
+ * UCB1-Tuned Bandit Learner by Auer et al. 2002
+ * LinUCB by Chu et al. 2011
+ * Corral by Agarwal et al. 2017
  
  ## Environments
  
@@ -55,23 +66,14 @@ Think for a second about the last time you considered evaluating CB methods for 
  ### Creating Environments From Scratch
  
  If more customization is needed beyond what is offered above then you can easily create your own simulation by implementing Coba's simple `SimulatedEnvironment` interface.
- 
- ## Learners
- 
- Learners are algorithms which are able to improve their action selection through interactions with environments.
- 
- A number of algorithms are provided natively with Coba for quick comparsions. These include:
- 
- * All contextual bandit learners in VowpalWabbit
- * UCB1-Tuned Bandit Learner by Auer et al. 2002
- * LinUCB by Chu et al. 2011
- * Corral by Agarwal et al. 2017
 
- 
 ## Experiments
  
- The `Experiment` class contains all the logic for learner performance evaluation. This includes execution logic such as how many processors to use and where to write results. There is only one `Experiment` implementation in Coba and it can be found in the `coba.experiments` module.
-  
+ Experiments are combinations of Learners and Environments. The Experiment class orchestrates the complex tasks of evaluating learners on environments in a resource efficient, repeatable, and robust manner. Experiments can be run on any number of processes (we often run on 96 core machines) and writes all results to file as it runs so that it can be restarted if it ever stops.
+ 
+## Results
+
+ The end result of an Experiment is a Result object which has been built for easy analysis. The result class provides a number of plots as well as filtering capabilities out of the box. If the built in functionality isn't advanced enough data from experiments can be accesed directly from a three table structure: a Learner table, Environment table, and Interaction table. These tables can be ported to pandas dataframes where all manner of advanced filtering and plotting can be performed to discover the strengths and weaknesses of Learners on various Environments.
  
  ## Examples
  
