@@ -79,14 +79,14 @@ class RemoveFinished_Tests(unittest.TestCase):
         restored = Result(0, 0, lrn_rows={1:{}}, env_rows= {0:{}}, int_rows= {(0,1):{}})
 
         tasks = [
-            WorkItem( (0,), None, None),
-            WorkItem( (1,), None, None),
-            WorkItem( None, (0,), None),
-            WorkItem( None, (1,), None),
-            WorkItem( (0,), (0,), None),
-            WorkItem( (0,), (1,), None),
-            WorkItem( (1,), (0,), None),
-            WorkItem( (1,), (1,), None),
+            WorkItem(None, 0, None, None, None),
+            WorkItem(None, 1, None, None, None),
+            WorkItem(0, None, None, None, None),
+            WorkItem(1, None, None, None, None),
+            WorkItem(0, 0, None, None, None),
+            WorkItem(1, 0, None, None, None),
+            WorkItem(0, 1, None, None, None),
+            WorkItem(1, 1, None, None, None),
         ]
 
         unfinished_tasks = list(RemoveFinished(restored).filter(tasks))
@@ -100,41 +100,46 @@ class ChunkBySource_Tests(unittest.TestCase):
         sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
 
         tasks = [
-            WorkItem( (0,), None, None),
-            WorkItem( (1,), None, None),
-            WorkItem( None, (0,sim1), None),
-            WorkItem( None, (1,sim2), None),
-            WorkItem( (0,), (0,sim1), None),
-            WorkItem( (0,), (2,sim1), None),
-            WorkItem( (1,), (0,sim1), None),
-            WorkItem( (1,), (1,sim2), None),
+            WorkItem(None, 0, None, None, None),
+            WorkItem(None, 1, None, None, None),
+            WorkItem(1, None, sim2, None, None),
+            WorkItem(0, None, sim1, None, None),
+            WorkItem(0, 0, sim1, None, None),
+            WorkItem(2, 0, sim1, None, None),
+            WorkItem(0, 1, sim1, None, None),
+            WorkItem(1, 1, sim2, None, None)
         ]
 
         groups = list(ChunkBySource().filter(tasks))
-        tasks  = list(groups[0])
-        
-        self.assertEqual(4, len(groups))
+
+        self.assertEqual(len(groups), 4)
+        self.assertEqual(groups[0], tasks[0:1])
+        self.assertEqual(groups[1], tasks[1:2])
+        self.assertEqual(groups[2], [tasks[3],tasks[4],tasks[6],tasks[5]])
+        self.assertEqual(groups[3], [tasks[2],tasks[7]])
 
     def test_pipe_four_groups(self):
         sim1 = Environments(DebugSimulation()).shuffle([1,2])._environments
         sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
 
         tasks = [
-            WorkItem( (0,), None, None),
-            WorkItem( (1,), None, None),
-            WorkItem( None, (0,sim1[0]), None),
-            WorkItem( None, (1,sim2), None),
-            WorkItem( (0,), (0,sim1[0]), None),
-            WorkItem( (0,), (2,sim1[1]), None),
-            WorkItem( (1,), (0,sim1[0]), None),
-            WorkItem( (1,), (1,sim2), None),
+            WorkItem(None, 0, None, None, None),
+            WorkItem(None, 1, None, None, None),
+            WorkItem(1, None, sim2, None, None),
+            WorkItem(0, None, sim1[0], None, None),            
+            WorkItem(0, 0, sim1[0], None, None),
+            WorkItem(2, 0, sim1[1], None, None),
+            WorkItem(0, 1, sim1[0], None, None),
+            WorkItem(1, 1, sim2, None, None)
         ]
 
         groups = list(ChunkBySource().filter(tasks))
-        tasks  = list(groups[0])
-        
-        self.assertEqual(4, len(groups))
 
+        self.assertEqual(len(groups), 4)
+        self.assertEqual(groups[0], tasks[0:1])
+        self.assertEqual(groups[1], tasks[1:2])
+        self.assertEqual(groups[2], [tasks[3],tasks[4],tasks[6],tasks[5]])
+        self.assertEqual(groups[3], [tasks[2],tasks[7]])
 class ChunkByTask_Tests(unittest.TestCase):
 
     def test_eight_groups(self):
@@ -142,20 +147,27 @@ class ChunkByTask_Tests(unittest.TestCase):
         sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
 
         tasks = [
-            WorkItem( (0,), None, None),
-            WorkItem( (1,), None, None),
-            WorkItem( None, (0,(sim1,)), None),
-            WorkItem( None, (1,(sim2,)), None),
-            WorkItem( (0,), (0,(sim1,)), None),
-            WorkItem( (0,), (2,(sim1,)), None),
-            WorkItem( (1,), (0,(sim1,)), None),
-            WorkItem( (1,), (1,(sim2,)), None),
+            WorkItem(None, 0, None, None, None),
+            WorkItem(None, 1, None, None, None),
+            WorkItem(1, None, sim2, None, None),
+            WorkItem(0, None, sim1, None, None),
+            WorkItem(0, 0, sim1, None, None),
+            WorkItem(2, 0, sim1, None, None),
+            WorkItem(0, 1, sim1, None, None),
+            WorkItem(1, 1, sim2, None, None)
         ]
 
         groups = list(ChunkByTask().filter(tasks))
-        tasks  = list(groups[0])
-        
-        self.assertEqual(8, len(groups))
+
+        self.assertEqual(len(groups), 8)
+        self.assertEqual(groups[0], tasks[0:1])
+        self.assertEqual(groups[1], tasks[1:2])
+        self.assertEqual(groups[2], tasks[3:4])
+        self.assertEqual(groups[3], tasks[2:3])
+        self.assertEqual(groups[4], tasks[4:5])
+        self.assertEqual(groups[5], tasks[6:7])
+        self.assertEqual(groups[6], tasks[7:8])
+        self.assertEqual(groups[7], tasks[5:6])
 
 class ProcessTasks_Tests(unittest.TestCase):
 
@@ -168,7 +180,7 @@ class ProcessTasks_Tests(unittest.TestCase):
         lrn1 = ModuloLearner("1")
         task = ObserveTask()
 
-        item = WorkItem( (1,lrn1), (1,sim1), task)
+        item = WorkItem(1, 1, sim1, lrn1, task)
 
         transactions = list(ProcessWorkItems().filter([item]))
 
@@ -185,7 +197,7 @@ class ProcessTasks_Tests(unittest.TestCase):
         task1 = ObserveTask()
         task2 = ObserveTask()
 
-        items = [ WorkItem((0,lrn1),(0,sim1), task1), WorkItem((1,lrn2),(0,sim1), task2) ]
+        items = [ WorkItem(0, 0, sim1, lrn1, task1), WorkItem(0, 1, sim1, lrn2, task2) ]
 
         transactions = list(ProcessWorkItems().filter(items))
 
@@ -209,7 +221,7 @@ class ProcessTasks_Tests(unittest.TestCase):
         task1 = ObserveTask()
         task2 = ObserveTask()
 
-        items = [ WorkItem((0,lrn1),(0,sim1), task1), WorkItem((1,lrn2),(1,sim2), task2) ]
+        items = [ WorkItem(0, 0, sim1, lrn1, task1), WorkItem(1, 1, sim2, lrn2, task2) ]
 
         transactions = list(ProcessWorkItems().filter(items))
 
@@ -234,7 +246,7 @@ class ProcessTasks_Tests(unittest.TestCase):
         task1 = ObserveTask()
         task2 = ObserveTask()
 
-        items = [ WorkItem((0,lrn1),(0,sim1), task1), WorkItem((1,lrn2),(1,sim2), task2) ]
+        items = [ WorkItem(0, 0, sim1, lrn1, task1), WorkItem(1, 1, sim2, lrn2, task2) ]
 
         transactions = list(ProcessWorkItems().filter(items))
 
@@ -255,7 +267,7 @@ class ProcessTasks_Tests(unittest.TestCase):
         task1 = ObserveTask()
         task2 = ObserveTask()
 
-        items = [ WorkItem((0,lrn1), None, task1), WorkItem((1,lrn2), None, task2) ]
+        items = [ WorkItem(None, 0, None, lrn1, task1), WorkItem(None, 1, None, lrn2, task2) ]
 
         transactions = list(ProcessWorkItems().filter(items))
 
@@ -271,13 +283,11 @@ class ProcessTasks_Tests(unittest.TestCase):
         src1   = CountReadSimulation()
         sim1   = Pipe.join(src1, [filter])
         sim2   = Pipe.join(src1, [filter])
-        lrn1   = ModuloLearner("1")
-        lrn2   = ModuloLearner("2")
 
         task1 = ObserveTask()
         task2 = ObserveTask()
 
-        items = [ WorkItem(None,(0,sim1), task1), WorkItem(None,(1,sim2), task2) ]
+        items = [ WorkItem(0, None, sim1, None, task1), WorkItem(1, None, sim2, None, task2) ]
 
         transactions = list(ProcessWorkItems().filter(items))
 
@@ -289,8 +299,6 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         self.assertEqual(['T2', 0, {}], transactions[0])
         self.assertEqual(['T2', 1, {}], transactions[1])
-
-
 
 if __name__ == '__main__':
     unittest.main()
