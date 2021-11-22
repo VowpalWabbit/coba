@@ -3,8 +3,13 @@ import unittest
 import traceback
 import unittest.mock
 
+from coba.exceptions import CobaException
 from coba.pipes import MemoryIO
-from coba.config import IndentLogger, BasicLogger
+from coba.config import IndentLogger, BasicLogger, NullLogger
+
+class NullLogger_Tests(unittest.TestCase):
+    def test_log_exception_does_nothing(self):
+        NullLogger().log_exception(Exception("abc"))
 
 class BasicLogger_Tests(unittest.TestCase):
 
@@ -44,6 +49,106 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[2], 'd')
         self.assertEqual(logs[3], 'a (completed)')
         self.assertEqual(logs[4], 'e')
+
+    def test_log_with_exception(self):
+        #This test is somewhat time dependent.
+        #I don't think it should ever fail, but if it does
+        #try running it again and see if it works that time.
+
+        sink   = MemoryIO()
+        logger = BasicLogger(sink,with_stamp=False, with_name=False)
+        logs   = sink.items
+        
+        try:
+            with self.assertRaises(Exception) as e:
+                with logger.log('a'):
+                    logger.log('c')
+                    logger.log('d')
+                    raise Exception()
+        except:
+            pass
+
+        self.assertEqual(4, len(logs))
+
+        self.assertEqual(logs[0], 'a')
+        self.assertEqual(logs[1], 'c')
+        self.assertEqual(logs[2], 'd')
+        self.assertEqual(logs[3], 'a (exception)')
+
+    def test_log_with_interrupt(self):
+        #This test is somewhat time dependent.
+        #I don't think it should ever fail, but if it does
+        #try running it again and see if it works that time.
+
+        sink   = MemoryIO()
+        logger = BasicLogger(sink,with_stamp=False, with_name=False)
+        logs   = sink.items
+        
+        try:
+            with self.assertRaises(Exception) as e:
+                with logger.log('a'):
+                    logger.log('c')
+                    logger.log('d')
+                    raise KeyboardInterrupt()
+        except:
+            pass
+
+        self.assertEqual(4, len(logs))
+
+        self.assertEqual(logs[0], 'a')
+        self.assertEqual(logs[1], 'c')
+        self.assertEqual(logs[2], 'd')
+        self.assertEqual(logs[3], 'a (interrupt)')
+
+    def test_time_with_exception(self):
+        #This test is somewhat time dependent.
+        #I don't think it should ever fail, but if it does
+        #try running it again and see if it works that time.
+
+        sink   = MemoryIO()
+        logger = BasicLogger(sink,with_stamp=False, with_name=False)
+        logs   = sink.items
+        
+        try:
+            with self.assertRaises(Exception) as e:
+                with logger.time('a'):
+                    logger.log('c')
+                    logger.log('d')
+                    raise Exception()
+        except:
+            pass
+
+        self.assertEqual(4, len(logs))
+
+        self.assertEqual(logs[0], 'a')
+        self.assertEqual(logs[1], 'c')
+        self.assertEqual(logs[2], 'd')
+        self.assertRegex(logs[3], '^a \\(\\d+\\.\\d+ seconds\\) \\(exception\\)$')
+
+    def test_time_with_interrupt(self):
+        #This test is somewhat time dependent.
+        #I don't think it should ever fail, but if it does
+        #try running it again and see if it works that time.
+
+        sink   = MemoryIO()
+        logger = BasicLogger(sink,with_stamp=False, with_name=False)
+        logs   = sink.items
+        
+        try:
+            with self.assertRaises(Exception) as e:
+                with logger.time('a'):
+                    logger.log('c')
+                    logger.log('d')
+                    raise KeyboardInterrupt()
+        except:
+            pass
+
+        self.assertEqual(4, len(logs))
+
+        self.assertEqual(logs[0], 'a')
+        self.assertEqual(logs[1], 'c')
+        self.assertEqual(logs[2], 'd')
+        self.assertRegex(logs[3], '^a \\(\\d+\\.\\d+ seconds\\) \\(interrupt\\)$')
 
     def test_time_with_1(self):
 
@@ -186,6 +291,18 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[0], "a")
         self.assertEqual(logs[1], expected_msg)
 
+    def test_log_coba_exception(self):
+
+        sink      = MemoryIO()
+        logger    = BasicLogger(sink, with_stamp=False)
+        logs      = sink.items
+        exception = CobaException("Test Exception")
+
+        logger.log_exception(exception)
+
+        self.assertTrue(exception.__logged__) #type:ignore
+        self.assertEqual(logs[0], "Test Exception")
+
 class IndentLogger_Tests(unittest.TestCase):
 
     def test_log(self):
@@ -313,6 +430,54 @@ class IndentLogger_Tests(unittest.TestCase):
         self.assertAlmostEqual(float(logs[4][3:7 ]), 0.10, 1)
         self.assertAlmostEqual(float(logs[5][7:11]), 0.05, 1)
 
+    def test_time_with_exception(self):
+
+        #This test is somewhat time dependent.
+        #I don't think it should ever fail, but if it does
+        #try running it again and see if it works that time.
+
+        sink   = MemoryIO()
+        logger = IndentLogger(sink,with_stamp=False, with_name=False)
+        logs   = sink.items
+
+        try:
+            with self.assertRaises(Exception) as e:
+                with logger.time('a'):
+                    logger.log('c')
+                    logger.log('d')
+                    raise Exception()
+        except:
+            pass
+
+        self.assertEqual(3, len(logs))
+        self.assertRegex(logs[0], '^a \\(\\d+\\.\\d+ seconds\\) \\(exception\\)$')
+        self.assertEqual(logs[1], '  * c')
+        self.assertEqual(logs[2], '  * d')
+
+    def test_time_with_interrupt(self):
+
+        #This test is somewhat time dependent.
+        #I don't think it should ever fail, but if it does
+        #try running it again and see if it works that time.
+
+        sink   = MemoryIO()
+        logger = IndentLogger(sink,with_stamp=False, with_name=False)
+        logs   = sink.items
+
+        try:
+            with self.assertRaises(Exception) as e:
+                with logger.time('a'):
+                    logger.log('c')
+                    logger.log('d')
+                    raise KeyboardInterrupt()
+        except:
+            pass
+
+        self.assertEqual(3, len(logs))
+        self.assertRegex(logs[0], '^a \\(\\d+\\.\\d+ seconds\\) \\(interrupt\\)$')
+        self.assertEqual(logs[1], '  * c')
+        self.assertEqual(logs[2], '  * d')
+
     def test_log_exception_1(self):
         
         sink   = MemoryIO()
@@ -351,6 +516,18 @@ class IndentLogger_Tests(unittest.TestCase):
         self.assertTrue(exception.__logged__) #type:ignore
         self.assertEqual(logs[0], "a")
         self.assertEqual(logs[1], expected_msg)
+
+    def test_log_coba_exception(self):
+        
+        sink      = MemoryIO()
+        logger    = IndentLogger(sink, with_stamp=False)
+        logs      = sink.items
+        exception = CobaException("Test Exception")
+
+        logger.log_exception(exception,'')
+
+        self.assertTrue(exception.__logged__) #type:ignore
+        self.assertEqual(logs[0], "Test Exception")
 
     @unittest.skip("Known bug, should fix with refactor of logging.")
     def test_log_without_stamp_with_name(self):
