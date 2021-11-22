@@ -99,7 +99,7 @@ class CobaConfig_meta(type):
                 
                 except Exception as e:
                     raise CobaException(
-                        f"The coba configuration file at {potential_coba_config} has the following formatting error, {str(e)}."
+                        f"The coba configuration file at {potential_coba_config} has the following formatting error, {str(e).strip('.')}."
                     )
         return config
 
@@ -186,10 +186,6 @@ class CobaConfig_meta(type):
     def experiment(cls) -> ExperimentConfig:
         cls._experiment = cls._experiment if cls._experiment else cls._config['experiment']
         return cls._experiment
-
-    @experiment.setter
-    def experiment(cls, value:ExperimentConfig) -> None:
-        cls._experiment = value
 
     @property
     def store(cls) -> Dict[str,Any]:
