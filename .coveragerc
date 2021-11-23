@@ -6,3 +6,4 @@ omit =
 [report]
 exclude_lines =
     @abstract
+    @overload

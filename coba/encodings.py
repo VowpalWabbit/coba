@@ -348,7 +348,7 @@ class InteractionsEncoder:
 
         if is_sparse:
             ns_values = {ns:handle_str_values(make_all_dict_values(v)) for ns,v in ns_raw_values.items()}
-            ns_values = {ns: {f"{ns}{k}":v for k,v in values.items() }  for ns,values in ns_values.items() } 
+            ns_values = {ns:{f"{ns}{k}":v for k,v in values.items()}   for ns,values in ns_values.items() } 
         else:
             ns_values = {ns:make_all_list_values(v) for ns,v in ns_raw_values.items()}
 
@@ -359,8 +359,8 @@ class InteractionsEncoder:
             self.times[0] += time.time()-start
 
             start = time.time()
-            ns_key_crosses = [ self._cross(ns_key_pows, cross_pow, add) for cross_pow in self._cross_pows.values() ]
-            ns_val_crosses = [ self._cross(ns_val_pows, cross_pow, mul) for cross_pow in self._cross_pows.values() ]
+            ns_key_crosses = [ self._cross(ns_key_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
+            ns_val_crosses = [ self._cross(ns_val_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
             self.times[1] += time.time()-start
 
             return list(zip(chain.from_iterable(ns_key_crosses), chain.from_iterable(ns_val_crosses)))
@@ -382,7 +382,7 @@ class InteractionsEncoder:
         starts = [1]*len(values)
 
         if isinstance(values[0],str):
-            terms = [[""]]
+            terms = [['']]
             oper  = add
         else:
             terms = [[1]]
@@ -394,16 +394,24 @@ class InteractionsEncoder:
 
         return terms
 
-    def _cross(self, ns_pows, cross_pows, oper=mul):
-        # this only works when there are only two ns in each cross
-        # if there aren't two names spaces in each cross you should use reduce
-        values = [ ns_pows[ns][p] for ns,p in cross_pows.items() ]
+    def _cross(self, ns_pows, cross_pow):
 
-        if len(values)==1:
-            finalize = lambda x: x[0]
-        elif len(values)==2:
-            finalize = lambda x: oper(*x)
+        values = [ ns_pows[ns][p] for ns,p in cross_pow.items() ]
+
+        #while this seems like major overkill defining each of these specific usecases
+        #is much much more performant than a generic solution such as using reduce
+        #always.
+        if len(values) == 1:
+            return values[0]
+        elif len(values)== 2:
+            if isinstance(values[0][0],str):
+                return [ p[0]+p[1] for p in product(values[0],values[1]) ]
+            else:
+                return [ p[0]*p[1] for p in product(values[0],values[1]) ]
         else:
-            finalize=lambda x: reduce(oper,x)
+            if isinstance(values[0][0],str):
+                return [ ''.join(p) for p in product(*values) ]
+            else:
+                return [ reduce(mul,p) for p in product(*values) ]
 
-        return [ finalize(p) for p in product(*values) ]
+

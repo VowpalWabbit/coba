@@ -59,10 +59,7 @@ class Performance_Tests(unittest.TestCase):
         
         time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
         
-        #best observed was 0.54 without interning
-        #performance time could be reduced to around .47 by using numpy and prime factorization of feature names 
-        print(time)
-        print(encoder.times)
+        #best observed was 0.45
         self.assertLess(time, 1.0)
 
     def test_interaction_context_performance(self):
