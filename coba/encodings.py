@@ -4,10 +4,14 @@ import json
 import collections
 import time
 
-from numbers import Number
-from itertools import product
+from operator import mul, add
+from collections import Counter, OrderedDict
+from itertools import product, count, accumulate, chain
+from functools import reduce
 from abc import ABC, abstractmethod
-from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union
+from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Dict
+
+from coba.exceptions import CobaException
 
 _T_out = TypeVar('_T_out', bound=Any, covariant=True) 
 
@@ -69,7 +73,7 @@ class Encoder(Generic[_T_out], ABC):
             return self.fit(values).encode(values)
 
 class IdentityEncoder(Encoder[Any]):
-    
+
     @property
     def is_fit(self) -> bool:
         return True
@@ -170,17 +174,6 @@ class NumericEncoder(Encoder[float]):
 class OneHotEncoder(Encoder[Tuple[int,...]]):
     """An Encoder implementation that turns incoming values into a one hot representation."""
 
-    #this in theory could be made more efficient via bit array rather than a byte array
-    class MemoryEffecientStorage(bytes):
-        def __repr__(self) -> str:
-            return str(tuple(self))
-
-        def __eq__(self, x: object) -> bool:
-            return x == tuple(self)
-
-        def __hash__(self) -> int:
-            return hash(tuple(self))
-
     def __init__(self, values: Sequence[Any] = [], err_if_unknown = False) -> None:
         """Instantiate a OneHotEncoder.
 
@@ -188,7 +181,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             values: Provide the universe of values for encoding and set `is_fit==True`.
             err_if_unknown: When an unknown value is passed to `encode` throw an exception (otherwise encode as all 0's).
         """
-        
+
         self._err_if_unknown = err_if_unknown
         self._onehots        = None
         self._default        = None
@@ -196,10 +189,10 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         if values:
 
             values = sorted(set(values), key=lambda v: values.index(v))
-            
+
             self._default = tuple([0] * len(values))
             known_onehots = [ [0] * len(values) for _ in range(len(values)) ]
-            
+
             for i,k in enumerate(known_onehots):
                 k[i] = 1
 
@@ -245,12 +238,12 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         """
 
         if self._onehots is None:
-            raise Exception("This encoder must be fit before it can be used.")
+            raise CobaException("This encoder must be fit before it can be used.")
 
         try:
             return [ self._onehots[value] if self._err_if_unknown else self._onehots.get(value, self._default) for value in values ]
         except KeyError as e:
-            raise Exception(f"We were unable to find {e} in {self._onehots.keys()}")
+            raise CobaException(f"We were unable to find {e} in {self._onehots.keys()}")
 
 class FactorEncoder(Encoder[int]):
     """An Encoder implementation that turns incoming values into factor representation."""
@@ -313,140 +306,104 @@ class FactorEncoder(Encoder[int]):
         """
 
         if self._levels is None:
-            raise Exception("This encoder must be fit before it can be used.")
+            raise CobaException("This encoder must be fit before it can be used.")
 
         try:
             return [ self._levels[value] if self._err_if_unknown else self._levels.get(value, self._default) for value in values ]
         except KeyError as e:
-            raise Exception(f"We were unable to find {e} in {self._levels.keys()}") from None
+            raise CobaException(f"We were unable to find {e} in {self._levels.keys()}") from None
 
 class CobaJsonEncoder(json.JSONEncoder):
     """A json encoder that allows for potential COBA extensions in the future."""
 
-    def default(self, o: Any) -> Any:
-        return super().default(o)
-
 class CobaJsonDecoder(json.JSONDecoder):
     """A json decoder that allows for potential COBA extensions in the future."""
 
-class InteractionTermsEncoder:
+class InteractionsEncoder:
 
     def __init__(self, interactions: Sequence[str]) -> None:
 
-        self._terms = []
+        self.times       = [0,0]
+        self.n           = 0
+        self._cross_pows = OrderedDict(zip(interactions,map(OrderedDict,map(Counter,interactions))))
+        self._ns_max_pow = { n:max(p.get(n,0) for p in self._cross_pows.values()) for n in set(''.join(interactions)) }
 
-        self.times = [0,0]
-        self.n = 0
+    def encode(self, **ns_raw_values: Union[str,float, Sequence[Union[str,float]], Dict[str,Union[str,float]]]):
 
-        for term in interactions:
-            term  = term.lower()
-            x_num = term.count('x')
-            a_num = term.count('a')
-
-            if x_num + a_num != len(term):
-                raise Exception("Letters other than x and a were passed for parameter interactions. Please remove other letters/characters.")
-
-            self._terms.append((x_num, a_num))
-
-    def encode(self,*, x: Union[list,dict], a: Union[list,dict]):
+        self.n+= 1
 
         is_sparse_type = lambda f: isinstance(f,dict) or isinstance(f,str)
         is_sparse_sequ = lambda f: isinstance(f, collections.Sequence) and any(map(is_sparse_type,f))
 
-        is_sparse = is_sparse_type(x) or is_sparse_sequ(x) or is_sparse_type(a) or is_sparse_sequ(a)
-        
-        self.n+= 1
+        is_sparse = any(is_sparse_type(v) or is_sparse_sequ(v) for v in ns_raw_values.values())
 
-        def get_name_values(namespace,features):
-            if isinstance(features, dict):
-                values = list(features.values())
-                names  = [ f"{namespace}{k}" for k in features.keys() ]
-            elif isinstance(features,str):
-                values = [1]
-                names  = [f"{namespace}{features}"]
-            elif isinstance(features,Number):
-                values = [features]
-                names  = [f"{namespace}0"]
-            elif isinstance(features, collections.Sequence):
-                values = list(features or [1])
-                names  = [ f"{namespace}{i}" for i in range(len(values)) ]
-            else:
-                raise Exception("The features provided to InteractionTermsEncoder are not supported.")
-            
-            return (names,values) if is_sparse else ([],values)
+        def make_all_dict_values(v) -> Dict[str,Union[str,float]]:
+            return v if isinstance(v,dict) else dict(zip(map(str,count()),v)) if isinstance(v,(list,tuple)) else { "0":v }
 
-        def handle_string_values(names, values):
-            for i in range(len(values)):
-                if isinstance(values[i],str):
-                    names[i]  = f"{names[i]}{values[i]}"
-                    values[i] = 1
-            
-            return names,values
+        def make_all_list_values(v) -> Sequence[Union[str,float]]:
+            return v if isinstance(v, (list,tuple)) else [v]
 
-        context_names,context_values = get_name_values("x",x)
-        action_names,action_values   = get_name_values("a",a)
+        def handle_str_values(v: Dict[str,Union[str,float]]) -> Dict[str,float]:
+            return { (f"{x}{y}" if isinstance(y,str) else x):(1 if isinstance(y,str) else y) for x,y in v.items() }            
 
-        context_names,context_values = handle_string_values(context_names,context_values)
-        action_names,action_values   = handle_string_values(action_names,action_values)
+        if is_sparse:
+            ns_values = {ns:handle_str_values(make_all_dict_values(v)) for ns,v in ns_raw_values.items()}
+            ns_values = {ns: {f"{ns}{k}":v for k,v in values.items() }  for ns,values in ns_values.items() } 
+        else:
+            ns_values = {ns:make_all_list_values(v) for ns,v in ns_raw_values.items()}
 
-        max_x_term = max([t[0] for t in self._terms])
-        max_a_term = max([t[1] for t in self._terms])
+        if is_sparse:
+            start = time.time()
+            ns_key_pows = { ns: self._pows(list(ns_values[ns].keys()  ), max_pow) for ns, max_pow in self._ns_max_pow.items() }
+            ns_val_pows = { ns: self._pows(list(ns_values[ns].values()), max_pow) for ns, max_pow in self._ns_max_pow.items() }
+            self.times[0] += time.time()-start
 
-        #.16
-        start = time.time()
-        x_f_n_by_degree = self._degree_terms(context_values, context_names, max_x_term, is_sparse)
-        a_f_n_by_degree = self._degree_terms(action_values , action_names , max_a_term, is_sparse)
-        self.times[0] += time.time()-start
-        
-        #.22
-        start = time.time()
-        features,names = self._interaction_terms(x_f_n_by_degree,a_f_n_by_degree)
-        self.times[1] += time.time()-start
+            start = time.time()
+            ns_key_crosses = [ self._cross(ns_key_pows, cross_pow, add) for cross_pow in self._cross_pows.values() ]
+            ns_val_crosses = [ self._cross(ns_val_pows, cross_pow, mul) for cross_pow in self._cross_pows.values() ]
+            self.times[1] += time.time()-start
 
-        return features if not is_sparse else list(zip(names,features))
+            return list(zip(chain.from_iterable(ns_key_crosses), chain.from_iterable(ns_val_crosses)))
+        else:
+            #.16
+            start = time.time()
+            ns_pows = { ns: self._pows(ns_values[ns], max_pow) for ns, max_pow in self._ns_max_pow.items() }
+            self.times[0] += time.time()-start
 
-    def _degree_terms(self,values,names,maxd,sparse):
+            #.22
+            start = time.time()
+            crosses = [ self._cross(ns_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
+            self.times[1] += time.time()-start
 
-        s_by_degree = dict()
-        f_by_degree = dict()
-        n_by_degree = dict()
+            return sum(crosses,[])
 
-        for degree in range(1,maxd+1):
+    def _pows(self, values, degree):
 
-            if degree == 1:
-                n_by_degree[degree] = names
-                f_by_degree[degree] = values
-                s_by_degree[degree] = [1]*len(values)
-            else:
-                n_by_degree[degree] = []
-                f_by_degree[degree] = []
-                s_by_degree[degree] = []
+        starts = [1]*len(values)
 
-                j  = 0
-                for i in range(len(values)):
-                    
-                    f_by_degree[degree].extend([f*values[i] for f in f_by_degree[degree-1][j:]])
-                    n_by_degree[degree].extend([n+ names[i] for n in n_by_degree[degree-1][j:]])
-                        
-                    s_by_degree[degree].append(len(f_by_degree[degree-1])-j)
-                    j = j + s_by_degree[degree-1][i]
+        if isinstance(values[0],str):
+            terms = [[""]]
+            oper  = add
+        else:
+            terms = [[1]]
+            oper  = mul
 
-        return f_by_degree, n_by_degree
+        for d in range(degree):            
+            terms.append([oper(v,t) for v,s in zip(values,starts) for t in terms[d][(s-1):]])
+            starts = list(accumulate(starts[:1]+starts[-1:]+starts[1:-1]))
 
-    def _interaction_terms(self, x_f_n_by_degree, a_f_n_by_degree):
+        return terms
 
-        f_interactions = []
-        n_interactions = []
+    def _cross(self, ns_pows, cross_pows, oper=mul):
+        # this only works when there are only two ns in each cross
+        # if there aren't two names spaces in each cross you should use reduce
+        values = [ ns_pows[ns][p] for ns,p in cross_pows.items() ]
 
-        for term in self._terms:
+        if len(values)==1:
+            finalize = lambda x: x[0]
+        elif len(values)==2:
+            finalize = lambda x: oper(*x)
+        else:
+            finalize=lambda x: reduce(oper,x)
 
-            f_x = x_f_n_by_degree[0].get(term[0], [1])
-            f_a = a_f_n_by_degree[0].get(term[1], [1])
-
-            n_x = x_f_n_by_degree[1].get(term[0], [''])
-            n_a = a_f_n_by_degree[1].get(term[1], [''])
-
-            f_interactions.extend([p[0]*p[1] for p in product(f_x,f_a)])
-            n_interactions.extend([p[0]+p[1] for p in product(n_x,n_a)])
-
-        return f_interactions, n_interactions
+        return [ finalize(p) for p in product(*values) ]

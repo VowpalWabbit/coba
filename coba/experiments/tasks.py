@@ -9,7 +9,7 @@ from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.pipes import Filter
 from coba.environments import Environment, EnvironmentPipe, Interaction, SimulatedInteraction, LoggedInteraction
-from coba.encodings import InteractionTermsEncoder
+from coba.encodings import InteractionsEncoder
 
 class LearnerTask(Filter[Learner,Dict[Any,Any]], ABC):
 
@@ -166,7 +166,7 @@ class ClassEnvironmentTask(EnvironmentTask):
 
             env_statistics = {}
 
-            X   = [ InteractionTermsEncoder('x').encode(x=c, a=[]) for c in contexts ]
+            X   = [ InteractionsEncoder('x').encode(x=c, a=[]) for c in contexts ]
             Y   = [ a[r.index(1)] for a,r in zip(actions,rewards)]
             C   = defaultdict(list)
             clf = DecisionTreeClassifier(random_state=1)

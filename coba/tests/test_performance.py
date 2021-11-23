@@ -7,7 +7,7 @@ import coba.random
 from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction
-from coba.encodings import NumericEncoder, OneHotEncoder, InteractionTermsEncoder
+from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Take, JsonEncode
 
 class Performance_Tests(unittest.TestCase):
@@ -52,16 +52,17 @@ class Performance_Tests(unittest.TestCase):
         self.assertLess(time, 1)
 
     def test_interaction_encode_performance(self):
-        encoder = InteractionTermsEncoder(["xxa"])
+        encoder = InteractionsEncoder(["xxa"])
 
         x = dict(zip(map(str,range(100)), range(100)))
         a = [1,2,3]
         
         time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
         
-        #best observed was 0.62 without interning
-        #best observed was 0.87 with interning
+        #best observed was 0.54 without interning
         #performance time could be reduced to around .47 by using numpy and prime factorization of feature names 
+        print(time)
+        print(encoder.times)
         self.assertLess(time, 1.0)
 
     def test_interaction_context_performance(self):

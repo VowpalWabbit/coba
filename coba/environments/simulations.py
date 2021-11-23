@@ -8,7 +8,7 @@ from coba.pipes import Source, Filter, Pipe
 from coba.pipes import HttpIO, DiskIO
 from coba.pipes import ResponseToLines, CsvReader, ArffReader, LibSvmReader, ManikReader, Structure
 from coba.random import CobaRandom
-from coba.encodings import InteractionTermsEncoder, OneHotEncoder, IdentityEncoder
+from coba.encodings import InteractionsEncoder, OneHotEncoder, IdentityEncoder
 from coba.exceptions import CobaException
 
 from coba.environments.core import Context, Action, SimulatedEnvironment, SimulatedInteraction
@@ -308,9 +308,9 @@ class DebugSimulation(LambdaSimulation):
         rng = CobaRandom(seed)
 
         action_encoder = OneHotEncoder([str(a) for a in range(n_actions)]) if n_action_feats == 0 else IdentityEncoder()
-        interactions_encoder = InteractionTermsEncoder(self._interactions)
+        interactions_encoder = InteractionsEncoder(self._interactions)
 
-        feature_count = len(interactions_encoder.encode(x=range(max(1,n_context_feats)),a=range(max(n_actions,n_action_feats))))
+        feature_count = len(interactions_encoder.encode(x=list(range(max(1,n_context_feats))),a=list(range(max(n_actions,n_action_feats)))))
         normalize     = lambda   X: [ rng.random()*x/sum(X) for x in X]
 
         weights = normalize(rng.randoms(feature_count))

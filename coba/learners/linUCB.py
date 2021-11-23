@@ -5,7 +5,7 @@ from typing import Any, Dict, Sequence
 
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
-from coba.encodings import InteractionTermsEncoder
+from coba.encodings import InteractionsEncoder
 from coba.learners.core import Info, Learner
 
 class LinUCBLearner(Learner):
@@ -37,7 +37,7 @@ class LinUCBLearner(Learner):
         self._timeit       = timeit
 
         self._interactions = interactions
-        self._interactions_encoder = InteractionTermsEncoder(interactions)
+        self._interactions_encoder = InteractionsEncoder(interactions)
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
