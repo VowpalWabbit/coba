@@ -378,7 +378,8 @@ class InteractionsEncoder:
             return sum(crosses,[])
 
     def _pows(self, values, degree):
-        #WARNING: this function has been extremely optimized. Test speed before and after making any changes
+        #WARNING: This function has been extremely optimized. Test speed before and after making any changes.
+        #WARNING: Look in test_performance for three existing performance tests.
         starts = [1]*len(values)
         terms  = [['']] if isinstance(values[0],str) else [[1]]
 
@@ -393,7 +394,9 @@ class InteractionsEncoder:
         return terms
 
     def _cross(self, ns_pows, cross_pow):
-        #WARNING: this function has been extremely optimized. Test speed before and after making any changes
+        #WARNING: This function has been extremely optimized. Test speed before and after making any changes.
+        #WARNING: Look in test_performance for three existing performance tests.
+
         values = [ ns_pows[ns][p] for ns,p in cross_pow.items() ]
         cross  = values[0]
 

@@ -59,9 +59,7 @@ class Performance_Tests(unittest.TestCase):
         time = timeit.timeit(lambda: encoder.encode(x=x), number=100)
         
         #best observed was 0.08
-        print(time)
-        print(encoder.times)
-        self.assertLess(time, 1.0)
+        self.assertLess(time, 0.2)
 
     def test_interaction_xxa_encode_performance(self):
         encoder = InteractionsEncoder(["xxa"])
@@ -72,9 +70,7 @@ class Performance_Tests(unittest.TestCase):
         time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
         
         #best observed was 0.30
-        print(time)
-        print(encoder.times)
-        self.assertLess(time, 1.0)
+        self.assertLess(time, 0.6)
 
     def test_interaction_abc_encode_performance(self):
         encoder = InteractionsEncoder(["aabc"])
@@ -86,8 +82,6 @@ class Performance_Tests(unittest.TestCase):
         time = timeit.timeit(lambda: encoder.encode(a=a, b=b, c=c), number=100)
         
         #best observed was 0.52
-        print(time)
-        print(encoder.times)
         self.assertLess(time, 1.0)
 
     def test_interaction_context_performance(self):
