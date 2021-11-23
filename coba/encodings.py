@@ -378,40 +378,28 @@ class InteractionsEncoder:
             return sum(crosses,[])
 
     def _pows(self, values, degree):
-
+        #WARNING: this function has been extremely optimized. Test speed before and after making any changes
         starts = [1]*len(values)
+        terms  = [['']] if isinstance(values[0],str) else [[1]]
 
-        if isinstance(values[0],str):
-            terms = [['']]
-            oper  = add
-        else:
-            terms = [[1]]
-            oper  = mul
+        for d in range(degree):
+            if isinstance(values[0],str):
+                terms.append([v+t for v,s in zip(values,starts) for t in terms[d][(s-1):]])
+            else:
+                terms.append([v*t for v,s in zip(values,starts) for t in terms[d][(s-1):]])
 
-        for d in range(degree):            
-            terms.append([oper(v,t) for v,s in zip(values,starts) for t in terms[d][(s-1):]])
             starts = list(accumulate(starts[:1]+starts[-1:]+starts[1:-1]))
 
         return terms
 
     def _cross(self, ns_pows, cross_pow):
-
+        #WARNING: this function has been extremely optimized. Test speed before and after making any changes
         values = [ ns_pows[ns][p] for ns,p in cross_pow.items() ]
+        cross  = values[0]
 
-        #while this seems like major overkill defining each of these specific usecases
-        #is much much more performant than a generic solution such as using reduce
-        #always.
-        if len(values) == 1:
-            return values[0]
-        elif len(values)== 2:
-            if isinstance(values[0][0],str):
-                return [ p[0]+p[1] for p in product(values[0],values[1]) ]
-            else:
-                return [ p[0]*p[1] for p in product(values[0],values[1]) ]
+        if isinstance(cross[0],str):
+            for vs in values[1:]: cross = [ o+v for o in cross for v in vs ]
         else:
-            if isinstance(values[0][0],str):
-                return [ ''.join(p) for p in product(*values) ]
-            else:
-                return [ reduce(mul,p) for p in product(*values) ]
+            for vs in values[1:]: cross = [ o*v for o in cross for v in vs ]
 
-
+        return cross
