@@ -1,32 +1,30 @@
 from abc import ABC, abstractmethod
-from copy import deepcopy
 from statistics import median
 from collections import defaultdict
 from itertools import takewhile, chain
-from typing import Iterable, Any, Dict, Tuple
+from typing import Iterable, Any, Dict
 
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
-from coba.pipes import Filter
 from coba.environments import Environment, EnvironmentPipe, Interaction, SimulatedInteraction, LoggedInteraction
 from coba.encodings import InteractionsEncoder
 
-class LearnerTask(Filter[Learner,Dict[Any,Any]], ABC):
+class LearnerTask(ABC):
 
     @abstractmethod
-    def filter(self, item: Learner) -> Dict[Any,Any]:
+    def process(self, item: Learner) -> Dict[Any,Any]:
         ...
 
-class EnvironmentTask(Filter[Tuple[Environment,Iterable[Interaction]], Dict[Any,Any]]):
+class EnvironmentTask(ABC):
 
     @abstractmethod
-    def filter(self, item: Tuple[Environment,Iterable[Interaction]]) -> Dict[Any,Any]:
+    def process(self, environment: Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
         ...
 
-class EvaluationTask(Filter[Tuple[Learner,Iterable[Interaction]], Iterable[Dict[Any,Any]]]):
+class EvaluationTask(ABC):
 
     @abstractmethod
-    def filter(self, item: Tuple[Learner,Iterable[Interaction]]) -> Iterable[Dict[Any,Any]]:
+    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
         ...
 
 class OnPolicyEvaluationTask(EvaluationTask):
@@ -34,11 +32,9 @@ class OnPolicyEvaluationTask(EvaluationTask):
     def __init__(self, seed:int = 1):
         self._seed = seed
 
-    def filter(self, item: Tuple[Learner,Iterable[SimulatedInteraction]]) -> Iterable[Dict[Any,Any]]:
+    def process(self, learner: Learner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
 
-        learner      = deepcopy(item[0])
-        interactions = item[1]
-        random       = CobaRandom(self._seed)
+        random = CobaRandom(self._seed)
 
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
@@ -63,10 +59,7 @@ class OnPolicyEvaluationTask(EvaluationTask):
 
 class OffPolicyEvaluationTask(EvaluationTask):
 
-    def filter(self, item: Tuple[Learner,Iterable[LoggedInteraction]]) -> Iterable[Dict[Any,Any]]:
-
-        learner      = deepcopy(item[0])
-        interactions = item[1]
+    def process(self, learner: Learner, interactions: Iterable[LoggedInteraction]) -> Iterable[Dict[Any,Any]]:
 
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
@@ -89,10 +82,7 @@ class WarmStartEvaluationTask(EvaluationTask):
     def __init__(self, seed: int) -> None:
         self._seed = seed
 
-    def filter(self, item: Tuple[Learner,Iterable[Interaction]]) -> Iterable[Dict[Any,Any]]:
-
-        learner      = deepcopy(item[0])
-        interactions = item[1]
+    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
 
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
@@ -102,10 +92,10 @@ class WarmStartEvaluationTask(EvaluationTask):
         logged_interactions    = takewhile(lambda i: isinstance(i,LoggedInteraction), separable_interactions)
         simulated_interactions = separable_interactions
 
-        for row in OffPolicyEvaluationTask().filter( (learner, logged_interactions)):
+        for row in OffPolicyEvaluationTask().process( (learner, logged_interactions)):
             yield row
 
-        for row in OnPolicyEvaluationTask(self._seed).filter( (learner, simulated_interactions)):
+        for row in OnPolicyEvaluationTask(self._seed).process( (learner, simulated_interactions)):
             yield row
 
     def _repeat_first_simulated(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
@@ -121,15 +111,14 @@ class WarmStartEvaluationTask(EvaluationTask):
             yield interaction
 
 class SimpleLearnerTask(LearnerTask):
-    def filter(self, item: Learner) -> Dict[Any,Any]:
+    
+    def process(self, item: Learner) -> Dict[Any,Any]:
         item = SafeLearner(item)
         return {"full_name": item.full_name, **item.params}
 
 class SimpleEnvironmentTask(EnvironmentTask):
 
-    def filter(self, item: Tuple[Environment,Iterable[Interaction]]) -> Dict[Any,Any]:
-
-            environment  = item[0]
+    def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
 
             source = self._source_repr(environment)
             params = self._pipe_params(environment)
@@ -150,9 +139,9 @@ class SimpleEnvironmentTask(EnvironmentTask):
 
 class ClassEnvironmentTask(EnvironmentTask):
 
-    def filter(self, item: Tuple[Environment,Iterable[SimulatedInteraction]]) -> Dict[Any,Any]:
+    def process(self, environment: Environment, interactions: Iterable[SimulatedInteraction]) -> Dict[Any,Any]:
 
-        contexts,actions,rewards = zip(*[ (i.context, i.actions, i.kwargs["rewards"]) for i in item[1]])
+        contexts,actions,rewards = zip(*[ (i.context, i.actions, i.kwargs["rewards"]) for i in interactions ])
 
         try:
             import numpy as np
@@ -223,4 +212,4 @@ class ClassEnvironmentTask(EnvironmentTask):
         env_statistics["context_median_nz" ] = median(feat_cnts)
         env_statistics["imbalance_ratio"   ] = round(max(label_cnts.values())/min(label_cnts.values()),4)
 
-        return { **SimpleEnvironmentTask().filter(item), **env_statistics }
+        return { **SimpleEnvironmentTask().process(environment, interactions), **env_statistics }

@@ -1,6 +1,7 @@
 import gc
 
-from itertools import groupby, product
+from copy import deepcopy
+from itertools import groupby
 from collections import defaultdict
 from typing import Iterable, Sequence, Any, Optional, Tuple, Union
 
@@ -170,15 +171,18 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
                                 if workitem.environ is None:
                                     with CobaConfig.logger.time(f"Recording Learner {workitem.learner_id} parameters..."):
-                                        yield ["T1", workitem.learner_id, workitem.task.filter(workitem.learner)]
+                                        row = workitem.task.process(deepcopy(workitem.learner))
+                                        yield ["T1", workitem.learner_id, row]
 
                                 if workitem.learner is None:
                                     with CobaConfig.logger.time(f"Recording Environment {workitem.environ_id} statistics..."):
-                                        yield ["T2", workitem.environ_id, workitem.task.filter((workitem.environ,interactions))]
+                                        row = workitem.task.process(workitem.environ,interactions)
+                                        yield ["T2", workitem.environ_id, row]
 
                                 if workitem.environ and workitem.learner:
                                     with CobaConfig.logger.time(f"Evaluating Learner {workitem.learner_id} on Environment {workitem.environ_id}..."):
-                                        yield ["T3", (workitem.environ_id, workitem.learner_id), list(workitem.task.filter((workitem.learner, interactions)))]
+                                        row = list(workitem.task.process(deepcopy(workitem.learner), interactions))
+                                        yield ["T3", (workitem.environ_id, workitem.learner_id), row]
 
                             except Exception as e:
                                 CobaConfig.logger.log_exception(e)

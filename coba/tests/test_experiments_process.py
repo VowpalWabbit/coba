@@ -33,8 +33,8 @@ class ObserveTask:
     def __init__(self):
         self.observed = []
 
-    def filter(self, item):
-        self.observed = item
+    def process(self, *items):
+        self.observed = items
         return {}
 
 class CountReadSimulation:
@@ -271,8 +271,11 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         transactions = list(ProcessWorkItems().filter(items))
 
-        self.assertEqual(task1.observed, lrn1)
-        self.assertEqual(task2.observed, lrn2)
+        self.assertNotEqual(task1.observed[0], (lrn1,))
+        self.assertNotEqual(task2.observed[0], (lrn2,))
+
+        self.assertEqual(task1.observed[0]._param, "1")
+        self.assertEqual(task2.observed[0]._param, "2")
 
         self.assertEqual(['T1', 0, {}], transactions[0])
         self.assertEqual(['T1', 1, {}], transactions[1])

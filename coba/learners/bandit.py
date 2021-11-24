@@ -172,3 +172,80 @@ class UcbBanditLearner(Learner):
         ln = math.log; t = self._t; s = self._s[action]; var = self._v[action].variance
 
         return var + math.sqrt(2*ln(t)/s)
+
+class FixedLearner(Learner):
+    """A Learner implementation that selects actions according to a fixed distribution and learns nothing."""
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """The parameters of the learner.
+        
+        See the base class for more information
+        """
+        return {"family":"fixed"}
+
+    def __init__(self, fixed_pmf: Sequence[float]) -> None:
+        
+        assert round(sum(fixed_pmf),3) == 1, "The given pmf must sum to one to be a valid pmf."
+        assert all([p >= 0 for p in fixed_pmf]), "All given probabilities of the pmf must be greater than or equal to 0."
+
+        self._fixed_pmf = fixed_pmf
+
+    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
+        """Choose an action from the action set.
+        
+        Args:
+            context: The context we're currently in. See the base class for more information.
+            actions: The actions to choose from. See the base class for more information.
+
+        Returns:
+            The probability of taking each action. See the base class for more information.
+        """
+        return self._fixed_pmf
+
+    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
+        """Learns nothing.
+
+        Args:
+            context: The context we're learning about. See the base class for more information.
+            action: The action that was selected in the context. See the base class for more information.
+            reward: The reward that was gained from the action. See the base class for more information.
+            probability: The probability with which the given action was selected.
+            info: Optional information provided during prediction step for use in learning.
+        """
+        pass
+
+class RandomLearner(Learner):
+    """A Learner implementation that selects an action at random and learns nothing."""
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """The parameters of the learner.
+        
+        See the base class for more information
+        """
+        return {"family":"random"}
+
+    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
+        """Choose a random action from the action set.
+        
+        Args:
+            context: The context we're currently in. See the base class for more information.
+            actions: The actions to choose from. See the base class for more information.
+
+        Returns:
+            The probability of taking each action. See the base class for more information.
+        """
+        return [1/len(actions)] * len(actions)
+
+    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
+        """Learns nothing.
+
+        Args:
+            context: The context we're learning about. See the base class for more information.
+            action: The action that was selected in the context. See the base class for more information.
+            reward: The reward that was gained from the action. See the base class for more information.
+            probability: The probability with which the given action was selected.
+            info: Optional information provided during prediction step for use in learning.
+        """
+        pass
