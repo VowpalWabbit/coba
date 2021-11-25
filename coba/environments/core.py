@@ -135,7 +135,7 @@ class LoggedInteraction(Interaction):
     @property
     def action(self) -> Action:
         """The action that was taken."""
-        return self._context
+        return self._action
 
     @property
     def reward(self) -> float:
@@ -143,14 +143,14 @@ class LoggedInteraction(Interaction):
         return self._reward
 
     @property
-    def actions(self) -> Optional[Sequence[Action]]:
-        """The actions that were available to take."""
-        return self._actions
-
-    @property
     def probability(self) -> Optional[float]:
         """The probability that the given action was taken."""
         return self._probability
+
+    @property
+    def actions(self) -> Optional[Sequence[Action]]:
+        """The actions that were available to take."""
+        return self._actions
 
 class Environment:
     pass
