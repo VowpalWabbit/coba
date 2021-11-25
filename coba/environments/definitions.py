@@ -6,11 +6,12 @@ from typing import Sequence, Dict, Any
 
 from coba.registry import CobaRegistry
 from coba.pipes import Filter
+from coba.exceptions import CobaException
 
 from coba.environments.core import SimulatedEnvironment
 from coba.environments.pipes import EnvironmentPipe
 
-class EnvironmentFileFmtV1(Filter[Dict[str,Any], Sequence[SimulatedEnvironment]]):
+class EnvironmentDefinitionFileV1(Filter[Dict[str,Any], Sequence[SimulatedEnvironment]]):
 
     def filter(self, config: Dict[str,Any]) -> Sequence[SimulatedEnvironment]:
 
@@ -37,7 +38,7 @@ class EnvironmentFileFmtV1(Filter[Dict[str,Any], Sequence[SimulatedEnvironment]]
                     result = sum(pieces,[])
 
             if result is None:
-                raise Exception(f"We were unable to construct {item} in the given environments definition file.")
+                raise CobaException(f"We were unable to construct {item} in the given environment definition file.")
 
             return result if isinstance(result, collections.Sequence) else [result]
 

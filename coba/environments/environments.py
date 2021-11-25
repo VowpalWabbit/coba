@@ -6,7 +6,7 @@ from coba.pipes import Source, ResponseToLines, HttpIO, DiskIO, JsonDecode, Shuf
 
 from coba.environments.pipes import EnvironmentPipe
 from coba.environments.filters import SimulationFilter, Binary
-from coba.environments.formats import EnvironmentFileFmtV1
+from coba.environments.definitions import EnvironmentDefinitionFileV1
 from coba.environments.simulations import DebugSimulation
 from coba.environments.openml import OpenmlSimulation
 
@@ -33,7 +33,7 @@ class Environments:
         else:
             content = arg.read() #type: ignore
 
-        return Environments(*EnvironmentFileFmtV1().filter(JsonDecode().filter(content)))
+        return Environments(*EnvironmentDefinitionFileV1().filter(JsonDecode().filter(content)))
 
     @staticmethod
     def from_debug(

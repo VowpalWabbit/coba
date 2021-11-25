@@ -3,8 +3,9 @@ import unittest
 
 from coba.pipes import Take
 from coba.registry import CobaRegistry
+from coba.exceptions import CobaException
 
-from coba.environments.formats import EnvironmentFileFmtV1
+from coba.environments.definitions import EnvironmentDefinitionFileV1
 from coba.environments.core import SimulatedEnvironment
 from coba.environments.openml import OpenmlSimulation
 
@@ -22,7 +23,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             ]
         }"""        
 
-        environments = EnvironmentFileFmtV1().filter(json.loads(json_txt))
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
 
         self.assertIsInstance(environments[0], SimulatedEnvironment)
         self.assertDictEqual({'openml':150, **environments[0].params}, environments[0].params)
@@ -32,7 +33,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             "environments" : { "OpenmlSimulation": 150 }
         }"""
 
-        environments = EnvironmentFileFmtV1().filter(json.loads(json_txt))
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
 
         self.assertIsInstance(environments[0], SimulatedEnvironment)
         self.assertDictEqual({'openml':150, **environments[0].params}, environments[0].params)
@@ -44,7 +45,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentFileFmtV1().filter(json.loads(json_txt))
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
 
         self.assertIsInstance(environments[0], SimulatedEnvironment)
         self.assertDictEqual({"openml":150, "take":10, **environments[0].params}, environments[0].params)
@@ -56,7 +57,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentFileFmtV1().filter(json.loads(json_txt))
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
 
         self.assertEqual(2, len(environments))
         self.assertIsInstance(environments[0], SimulatedEnvironment)
@@ -71,7 +72,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentFileFmtV1().filter(json.loads(json_txt))
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
 
         self.assertEqual(4, len(environments))        
         self.assertIsInstance(environments[0], SimulatedEnvironment)
@@ -91,7 +92,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentFileFmtV1().filter(json.loads(json_txt))
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
 
         self.assertIsInstance(environments[0], SimulatedEnvironment)
         self.assertIsInstance(environments[1], SimulatedEnvironment)
@@ -105,7 +106,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentFileFmtV1().filter(json.loads(json_txt))
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
 
         self.assertIsInstance(environments[0], SimulatedEnvironment)
         self.assertIsInstance(environments[1], SimulatedEnvironment)
@@ -118,7 +119,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             "environments" : [ "$openml_sims" ]
         }"""
 
-        environments = EnvironmentFileFmtV1().filter(json.loads(json_txt))
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
 
         self.assertIsInstance(environments[0], SimulatedEnvironment)
         self.assertIsInstance(environments[1], SimulatedEnvironment)
@@ -137,7 +138,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentFileFmtV1().filter(json.loads(json_txt))
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
 
         self.assertEqual(6, len(environments))
         self.assertIsInstance(environments[0], SimulatedEnvironment)
@@ -160,13 +161,38 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentFileFmtV1().filter(json.loads(json_txt))
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
 
         self.assertEqual(2, len(environments))
         self.assertIsInstance(environments[0], SimulatedEnvironment)
         self.assertIsInstance(environments[1], SimulatedEnvironment)
         self.assertDictEqual({"openml":150, "take":10, **environments[0].params}, environments[0].params)
         self.assertDictEqual({"openml":150, "take":20, **environments[1].params}, environments[1].params)
+
+    def test_pipe_str(self):
+        json_txt = """{
+            "environments" : [
+                [ {"OpenmlSimulation":150}, "Identity" ]
+            ]
+        }"""
+
+        environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
+
+        self.assertEqual(1, len(environments))
+        self.assertIsInstance(environments[0], SimulatedEnvironment)
+        self.assertDictEqual({"openml":150, **environments[0].params}, environments[0].params)
+
+    def test_bad_pipe_exception(self):
+        json_txt = """{
+            "environments" : [
+                [ {"OpenmlSimulation":150}, null ]
+            ]
+        }"""
+
+        with self.assertRaises(CobaException) as e:
+            environments = EnvironmentDefinitionFileV1().filter(json.loads(json_txt))
+
+        self.assertIn("We were unable to construct",str(e.exception))
 
 if __name__ == '__main__':
     unittest.main()
