@@ -3,14 +3,30 @@ import unittest
 from statistics import mean, variance
 from math import isnan
 
-from coba.statistics import OnlineVariance, OnlineMean, iqr
+from coba.statistics import OnlineVariance, OnlineMean, iqr, percentile
 
 class iqr_Tests(unittest.TestCase):
     def test_simple_exclusive(self):
-        self.assertEqual(2, iqr([1,2,3]))
+        self.assertEqual(1, iqr([1,2,3]))
 
-    def test_simple_inclusive(self):
-        self.assertEqual(1, iqr([1,2,3], method='inclusive'))
+class percentile_Tests(unittest.TestCase):
+    def test_simple_sort_true_0_00(self):
+        self.assertEqual(1, percentile([3,2,1], 0, True))
+
+    def test_simple_sort_true_1_00(self):
+        self.assertEqual(3, percentile([3,2,1], 1, True))
+
+    def test_simple_sort_true_0_50(self):
+        self.assertEqual(2, percentile([3,2,1], .5, True))
+
+    def test_simple_sort_false_0_00(self):
+        self.assertEqual(1, percentile([1,2,3], 0, False))
+
+    def test_simple_sort_false_1_00(self):
+        self.assertEqual(3, percentile([1,2,3], 1, False))
+
+    def test_simple_sort_false_0_50(self):
+        self.assertEqual(2, percentile([1,2,3], .5, False))
 
 class OnlineVariance_Tests(unittest.TestCase):
 

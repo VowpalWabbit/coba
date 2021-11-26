@@ -2,33 +2,26 @@
 
 from typing import Sequence
 
-def iqr(values: Sequence[float], method: str = 'exclusive') -> float:
-
-    assert method in ['exclusive', 'inclusive']
+def iqr(values: Sequence[float]) -> float:
 
     if len(values) <= 1: return 0.
-    if len(values) == 2 and method == "exclusive": return 0.
 
     values = sorted(values)
 
-    p25 = percentile(values, 0.25, sort=False, method=method)
-    p75 = percentile(values, 0.75, sort=False, method=method)
+    p25 = percentile(values, 0.25, sort=False)
+    p75 = percentile(values, 0.75, sort=False)
 
     return p75-p25
 
-def percentile(values: Sequence[float], percentile:float, sort:bool=True, method:str='exclusive') -> float:
-    
-    assert method in ['exclusive', 'inclusive']
+def percentile(values: Sequence[float], percentile:float, sort:bool=True) -> float:
+
+    assert 0 <= percentile and percentile <= 1, "Percentile must be between 0 and 1 inclusive."
 
     if sort:
         values = sorted(values)
-    
-    if method == "exclusive":
-        i = percentile*(len(values)+1) - 1
-    
-    if method == "inclusive":
-        i = percentile*(len(values)-1)
-    
+
+    i = percentile*(len(values)-1)
+
     if i == int(i):
         return values[int(i)]
     else:
@@ -36,7 +29,7 @@ def percentile(values: Sequence[float], percentile:float, sort:bool=True, method
 
 class OnlineVariance():
     """Calculate sample variance in an online fashion.
-    
+
     Remarks:
         This algorithm is known as Welford's algorithm and the implementation below
         is a modified version of the Python algorithm by Wikepedia contirubtors (2020).
@@ -61,7 +54,7 @@ class OnlineVariance():
 
     def update(self, value: float) -> None:
         """Update the current variance with the given value."""
-        
+
         (count,mean,M2) = (self._count, self._mean, self._M2)
 
         count   += 1

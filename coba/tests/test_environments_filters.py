@@ -174,9 +174,9 @@ class Scale_tests(unittest.TestCase):
 
         self.assertEqual(3, len(scl_interactions))
 
-        self.assertEqual(( 4/8,-2/4), scl_interactions[0].context)
-        self.assertEqual(( 0/8, 0/4), scl_interactions[1].context)
-        self.assertEqual((-4/8, 2/4), scl_interactions[2].context)
+        self.assertEqual(( 1,-1), scl_interactions[0].context)
+        self.assertEqual(( 0, 0), scl_interactions[1].context)
+        self.assertEqual((-1, 1), scl_interactions[2].context)
 
     def test_scale_med_and_iqr_0(self) -> None:
 
@@ -195,9 +195,9 @@ class Scale_tests(unittest.TestCase):
 
         self.assertEqual(3, len(scl_interactions))
 
-        self.assertEqual(( 4/8, 0), scl_interactions[0].context)
-        self.assertEqual(( 0/8, 0), scl_interactions[1].context)
-        self.assertEqual((-4/8, 0), scl_interactions[2].context)
+        self.assertEqual(( 1, 0), scl_interactions[0].context)
+        self.assertEqual(( 0, 0), scl_interactions[1].context)
+        self.assertEqual((-1, 0), scl_interactions[2].context)
 
     def test_scale_min_and_minmax_with_str(self) -> None:
 
@@ -445,7 +445,6 @@ class Impute_tests(unittest.TestCase):
         self.assertEqual({"scale_shift":"mean","scale_scale":"std","scale_using":None}, Scale(shift="mean",scale="std").params)
         self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":None}, Scale(shift=2,scale=1/2).params)
         self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":10}, Scale(shift=2,scale=1/2,using=10).params)
-
 
 if __name__ == '__main__':
     unittest.main()
