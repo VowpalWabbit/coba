@@ -11,6 +11,11 @@ class TestArgObject:
     def __init__(self, arg):
         self.arg = arg
 
+class TestOptionalArgObject:
+    def __init__(self, arg=1):
+        self.arg = arg
+
+
 class CobaRegistry_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -262,6 +267,14 @@ class CobaRegistry_Tests(unittest.TestCase):
             CobaRegistry.construct(recipe)
 
         self.assertEqual(f"Invalid recipe {str(recipe)}", str(cm.exception))
+
+    def test_registered_create_optionalarray_arg(self):
+
+        CobaRegistry.register("test", TestOptionalArgObject)
+
+        klass = CobaRegistry.construct({ "test": [1,2,3] })
+
+        self.assertEqual(klass.arg, [1,2,3])
 
 if __name__ == '__main__':
     unittest.main()

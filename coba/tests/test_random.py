@@ -1,6 +1,5 @@
 import math
 import random
-import timeit
 
 from collections import defaultdict
 from itertools import count
@@ -10,7 +9,7 @@ import unittest
 
 import coba.random
 
-class Random_Tests(unittest.TestCase):
+class CobaRandom_Tests(unittest.TestCase):
 
     @staticmethod
     def _failure_rate(trials:int, generator: Iterator[Sequence[int]], alpha: float = .001):
@@ -24,7 +23,7 @@ class Random_Tests(unittest.TestCase):
         for _ in range(trials):
             random_walk = next(generator)
 
-            p = Random_Tests._cumsum_test(random_walk)
+            p = CobaRandom_Tests._cumsum_test(random_walk)
             failed_to_reject_rate += (p > alpha)/trials
 
         return failed_to_reject_rate
@@ -85,7 +84,6 @@ class Random_Tests(unittest.TestCase):
 
     def test_empty_shuffle(self):
         self.assertEqual([], coba.random.shuffle([]))
-
 
     def test_coba_randoms_is_unchanged(self):
         coba.random.seed(10)
@@ -148,7 +146,7 @@ class Random_Tests(unittest.TestCase):
 
     def test_randoms_is_uniform_0_1(self):
         #this test will fail maybe 1% of the time
-        
+
         walks = 2000
         steps = 100
 
@@ -169,7 +167,7 @@ class Random_Tests(unittest.TestCase):
         # have a certain number of "false positives". So if this test simply failed once and passes
         # every time after you can simply ignore the failure as one of those "false positives".
         # https://www.itl.nist.gov/div898/software/dataplot/refman1/auxillar/cusumtes.htm
-        
+
         walks = 1000
         steps = 50
 
@@ -181,10 +179,10 @@ class Random_Tests(unittest.TestCase):
 
         def std_shuffle() -> Iterator[Sequence[int]]:
             for base_walk in base_walks:
-                
+
                 base_walk_copy = base_walk.copy()
                 random.shuffle(base_walk_copy)
-                
+
                 yield base_walk_copy
 
         coba_failure_rate = self._failure_rate(walks, coba_shuffle())
@@ -228,11 +226,11 @@ class Random_Tests(unittest.TestCase):
             obs_count[coba.random.randint(1,6)] += 1
 
         chi_squared = sum([ (observed - expected)**2/expected for observed in obs_count.values() ])
-        
+
         #assuming degrees of freedom equals 5 (this will change if lower or upper are changed above)
         #then chi_squared >= 15 would cause us to reject the null incorrectly less than 1% of the time
 
-        self.assertLess(chi_squared, 15)        
+        self.assertLess(chi_squared, 15)
 
     def test_choice1(self):
         choices = [(0,1), (1,0)]
@@ -248,6 +246,26 @@ class Random_Tests(unittest.TestCase):
         choice = coba.random.choice(choices,weights)
 
         self.assertIsInstance(choice, tuple)
+
+    def test_choice_exception(self):
+        with self.assertRaises(ValueError) as e:
+            coba.random.CobaRandom().choice([1,2,3],[0,0,0])
+
+        self.assertIn("The sum of weights cannot be zero", str(e.exception))
+
+    def test_randoms_n_0(self):
+        with self.assertRaises(ValueError) as e:
+            coba.random.CobaRandom().randoms(-1)
+
+        self.assertIn("n must be an integer greater than or equal 0", str(e.exception))
+
+    def test_randoms_n_2(self):
+        cr1 = coba.random.CobaRandom(seed=1)
+        cr2 = coba.random.CobaRandom(seed=1)
+
+        cr2._m_is_power_of_2 = False
+
+        self.assertEqual( cr1.randoms(3), cr2.randoms(3) )
 
 if __name__ == '__main__':
     unittest.main()

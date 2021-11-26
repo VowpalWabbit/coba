@@ -41,7 +41,7 @@ class CobaRandom:
         self._a = 116646453
         self._c = 9
 
-        self._m_is_power_of_2 = math.log2(self._m).is_integer()
+        self._m_is_power_of_2 = (self._m % 2) == 0
         self._m_minus_1       = self._m-1
 
         self._seed: int = std_random.randint(0,self._m_minus_1) if seed is None else seed
@@ -116,7 +116,7 @@ class CobaRandom:
         else:
 
             if sum(weights) == 0:
-                raise ValueError("The sume of weights cannot be zero.")
+                raise ValueError("The sum of weights cannot be zero.")
 
             cdf = list(itertools.accumulate(weights))
             rng = self.random() * sum(weights)
@@ -142,6 +142,7 @@ class CobaRandom:
 
         for _ in range(n):
 
+            #when _m is a power of 2 these two statements are equal to eachother
             if self._m_is_power_of_2:
                 self._seed = int((self._a * self._seed + self._c) & (self._m_minus_1))
             else:

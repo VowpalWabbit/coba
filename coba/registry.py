@@ -156,9 +156,7 @@ class CobaRegistry:
                 try:
                     return cls.retrieve(name)(*args)
                 except TypeError as e:
-                    if "takes 2 positional arguments" in str(e):
-                        return cls.retrieve(name)(args)
-                    raise
+                    return cls.retrieve(name)(args)
 
             elif args is None and kwargs is not None:
                 return cls.retrieve(name)(**kwargs)
