@@ -58,7 +58,7 @@ class CreateWorkItems(Source[Iterable[WorkItem]]):
 
         for env_id, env in keyed_environs.items():
             yield WorkItem(env_id, None, env, None, self._environment_task)
-            
+
         for env_id,env in keyed_environs.items():
             for lrn_id,lrn in keyed_learners.items():
                 yield WorkItem(env_id, lrn_id, env, lrn, self._evaluation_task)
@@ -91,7 +91,6 @@ class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
 
         sans_source_items = [t for t in items if t.environ_id is None]
         with_source_items = [t for t in items if t.environ_id is not None]
-        
 
         for env_item in with_source_items:
             chunks[self._get_source(env_item.environ)].append(env_item)
@@ -101,7 +100,7 @@ class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
 
         for chunk in sorted(chunks.values(), key=lambda chunk: min([c.environ_id for c in chunk])):
             yield list(sorted(chunk, key=lambda c: (c.environ_id, -1 if c.learner_id is None else c.learner_id)))
-    
+
     def _get_source(self, env):
         return env._source  if isinstance(env, (EnvironmentPipe, Pipe.SourceFilters)) else env
 
@@ -142,7 +141,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                         loaded_source = None
                     else:
                         with CobaConfig.logger.time(f"Loading source {env_source}..."):
-                            
+
                             #This is not ideal. I'm not sure how it should be improved so it is being left for now.
                             #Maybe add a flag to the Experiment to say whether the source should be stashed in mem?
                             loaded_source = list(env_source.read())
@@ -191,7 +190,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                     CobaConfig.logger.log_exception(e)
 
     def _get_source(self, task:WorkItem) -> SimulatedEnvironment:
-        if task.environ is None: 
+        if task.environ is None:
             return None
         elif isinstance(task.environ, (Pipe.SourceFilters, EnvironmentPipe)):
             return task.environ._source 

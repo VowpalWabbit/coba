@@ -37,6 +37,13 @@ class ObserveTask:
         self.observed = items
         return {}
 
+class ExceptionTask:
+    def __init__(self):
+        self.observed = []
+
+    def process(self, *items):
+        raise Exception()
+
 class CountReadSimulation:
     def __init__(self) -> None:
         self._reads = 0
@@ -44,6 +51,10 @@ class CountReadSimulation:
     def read(self) -> Iterable[SimulatedInteraction]:
         yield SimulatedInteraction(self._reads, [0,1], rewards=[0,1])
         self._reads += 1
+
+class ExceptionSimulation:
+    def read(self) -> Iterable[SimulatedInteraction]:
+        raise Exception()
 
 class CountFilter:
     def __init__(self) -> None:
@@ -140,6 +151,7 @@ class ChunkBySource_Tests(unittest.TestCase):
         self.assertEqual(groups[1], tasks[1:2])
         self.assertEqual(groups[2], [tasks[3],tasks[4],tasks[6],tasks[5]])
         self.assertEqual(groups[3], [tasks[2],tasks[7]])
+
 class ChunkByTask_Tests(unittest.TestCase):
 
     def test_eight_groups(self):
@@ -302,6 +314,47 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         self.assertEqual(['T2', 0, {}], transactions[0])
         self.assertEqual(['T2', 1, {}], transactions[1])
+
+    def test_empty_environment_tasks(self):
+
+        src1  = DebugSimulation(0)
+        task1 = ObserveTask()
+
+        items = [ WorkItem(0, None, src1, None, task1) ]
+
+        transactions = list(ProcessWorkItems().filter(items))
+
+        self.assertEqual(len(task1.observed), 0)
+        self.assertEqual(len(transactions)  , 0)
+
+    def test_exception_during_read_simulation(self):
+
+        src1  = ExceptionSimulation()
+        task1 = ObserveTask()
+
+        items = [ WorkItem(0, None, src1, None, task1) ]
+
+        transactions = list(ProcessWorkItems().filter(items))
+
+        self.assertEqual(len(task1.observed), 0)
+        self.assertEqual(len(transactions)  , 0)
+
+    def test_exception_during_task_process(self):
+
+        src1  = CountReadSimulation()
+
+        task1 = ExceptionTask()
+        task2 = ObserveTask()
+
+        items = [ WorkItem(0, None, src1, None, task1), WorkItem(1, None, src1, None, task2) ]
+
+        transactions = list(ProcessWorkItems().filter(items))
+
+        self.assertEqual(len(task2.observed[1]), 1)
+
+        self.assertEqual(task2.observed[1][0].context, 0)
+
+        self.assertEqual(['T2', 1, {}], transactions[0])
 
 if __name__ == '__main__':
     unittest.main()

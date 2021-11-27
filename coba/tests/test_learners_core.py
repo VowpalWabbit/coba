@@ -1,31 +1,6 @@
 import unittest
 
-from coba.learners import RandomLearner, FixedLearner, SafeLearner
-
-class FixedLearner_Tests(unittest.TestCase):
-
-    def test_pmf_assert(self):
-        learner = FixedLearner([1/3,1/3,1/3])
-        
-        with self.assertRaises(AssertionError):
-            FixedLearner([1/3, 1/2])
-
-        with self.assertRaises(AssertionError):
-            FixedLearner([-1, 2])
-
-    def test_learn(self):
-        learner = FixedLearner([1/3,1/3,1/3])
-        self.assertEqual([1/3,1/3,1/3], learner.predict(None, [1,2,3]))
-
-class RandomLearner_Tests(unittest.TestCase):
-
-    def test_predict(self):
-        learner = RandomLearner()
-        self.assertEqual([0.25, 0.25, 0.25, 0.25], learner.predict(None, [1,2,3,4]))
-
-    def test_learn(self):
-        learner = RandomLearner()
-        learner.learn(2, None, 1, 1, 1)
+from coba.learners import SafeLearner
 
 class SafeLearner_Tests(unittest.TestCase):
 
