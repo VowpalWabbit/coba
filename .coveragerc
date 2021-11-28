@@ -7,3 +7,4 @@ omit =
 exclude_lines =
     @abstract
     @overload
+    pragma: no cover

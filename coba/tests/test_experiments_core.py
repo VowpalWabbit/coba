@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import cast
 
 from coba.environments import LambdaSimulation
+from coba.environments.core import Environment
 from coba.pipes import Source, MemoryIO
 from coba.learners import Learner
 from coba.config import CobaConfig, NullLogger, IndentLogger, BasicLogger
@@ -104,6 +105,17 @@ class OneTimeSource(Source):
         self._read_count += 1
 
         return self._source.read()
+
+class ExceptionEnvironment(Environment):
+
+    def __init__(self, exception: Exception):
+        self._exc = exception
+
+    def params(self):
+        return {}
+
+    def read(self):
+        raise self._exc
 
 class Experiment_Single_Tests(unittest.TestCase):
 
@@ -286,6 +298,26 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual(2,exp.processes)
         self.assertEqual(5,exp.maxtasksperchild)
         self.assertEqual('task',exp.chunk_by)
+
+    def test_restore_not_matched_environments(self):
+
+        path = Path("coba/tests/.temp/experiment.log")
+
+        if path.exists(): path.unlink()
+        path.write_text('["version",4]\n["experiment",{"n_environments":1,"n_learners":1}]')
+
+        try:
+            sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+            learner    = ModuloLearner()
+
+            with self.assertRaises(AssertionError) as e:
+                result = Experiment([sim1,sim1], [learner]).evaluate(str(path))
+
+            with self.assertRaises(AssertionError) as e:
+                result = Experiment([sim1], [learner,learner]).evaluate(str(path))    
+
+        finally:
+            path.unlink()
 
 class Experiment_Multi_Tests(Experiment_Single_Tests):
 

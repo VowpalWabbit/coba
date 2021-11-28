@@ -2,17 +2,16 @@ from pathlib import Path
 from typing_extensions import Literal
 from typing import Sequence, Optional
 
+from coba.config import CobaConfig
+from coba.pipes import Pipe
 from coba.learners import Learner
 from coba.environments import Environment
-from coba.config import CobaConfig
-from coba.exceptions import CobaFatal
-from coba.pipes import Pipe
 from coba.multiprocessing import CobaMultiprocessFilter
 
-from coba.experiments.process      import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems
-from coba.experiments.tasks        import EnvironmentTask, EvaluationTask, LearnerTask
-from coba.experiments.tasks        import SimpleLearnerTask, SimpleEnvironmentTask, OnPolicyEvaluationTask
-from coba.experiments.results      import Result, TransactionIO
+from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems
+from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
+from coba.experiments.tasks   import SimpleLearnerTask, SimpleEnvironmentTask, OnPolicyEvaluationTask
+from coba.experiments.results import Result, TransactionIO
 
 class Experiment:
     """An Experiment which uses environments and learners to calculate performance statistics."""
@@ -33,7 +32,7 @@ class Experiment:
             evaluation_task: A task which evaluates performance of a learner on an environment's interactions.
         """
 
-        self._environments      = environments
+        self._environments     = environments
         self._learners         = learners
         self._learner_task     = learner_task
         self._environment_task = environment_task
@@ -108,10 +107,10 @@ class Experiment:
             if not restored: sink.write([["T0", n_given_learners, n_given_environments]])
             Pipe.join(workitems, [unfinished, process], sink).run()
 
-        except KeyboardInterrupt:
+        except KeyboardInterrupt: # pragma: no cover
             CobaConfig.logger.log("Experiment execution was manually aborted via Ctrl-C")
         
-        except Exception as ex:
+        except Exception as ex: # pragma: no cover
             CobaConfig.logger.log(ex)
 
         return sink.result

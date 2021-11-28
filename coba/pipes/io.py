@@ -96,7 +96,8 @@ class MemoryIO(IO[Sequence[Any], Any]):
             if isinstance(item,str):
                 self.items.append(item)
             else:
-                self.items.extend(list(item))
+                for item in item:
+                    self.items.append(item)
         except TypeError as e:
             if "not iterable" in str(e):
                 self.items.append(item)

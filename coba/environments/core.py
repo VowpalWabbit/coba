@@ -152,21 +152,30 @@ class LoggedInteraction(Interaction):
         """The actions that were available to take."""
         return self._actions
 
-class Environment:
-    pass
+class Environment(Source[Iterable[Interaction]], ABC):
 
-class SimulatedEnvironment(Environment, Source[Iterable[SimulatedInteraction]], ABC):
+    @property
+    @abstractmethod
+    def params(self) -> Dict[str,Any]:
+        """Paramaters describing the simulation.
+
+        Remarks:
+            These will become columns in the environments data of an experiment result.
+        """
+        ...
+    
+    @abstractmethod
+    def read(self) -> Iterable[Interaction]:
+        """The sequence of interactions in a simulation.
+
+        Remarks:
+            This function should always be "re-iterable".
+        """
+        ...
+
+
+class SimulatedEnvironment(Environment):
     """The interface for a simulated environment."""
-
-    @property
-    @abstractmethod
-    def params(self) -> Dict[str,Any]:
-        """Paramaters describing the simulation.
-
-        Remarks:
-            These will become columns in the environments data of an experiment result.
-        """
-        ...
     
     @abstractmethod
     def read(self) -> Iterable[SimulatedInteraction]:
@@ -177,18 +186,8 @@ class SimulatedEnvironment(Environment, Source[Iterable[SimulatedInteraction]], 
         """
         ...
 
-class LoggedEnvironment(Environment, Source[Iterable[LoggedInteraction]], ABC):
+class LoggedEnvironment(Environment):
     """The interface for an environment made with logged bandit data."""
-
-    @property
-    @abstractmethod
-    def params(self) -> Dict[str,Any]:
-        """Paramaters describing the simulation.
-
-        Remarks:
-            These will become columns in the environments data of an experiment result.
-        """
-        ...
     
     @abstractmethod
     def read(self) -> Iterable[SimulatedInteraction]:
@@ -199,21 +198,11 @@ class LoggedEnvironment(Environment, Source[Iterable[LoggedInteraction]], ABC):
         """
         ...
 
-class WarmStartEnvironment(Environment, Source[Iterable[Interaction]], ABC):
+class WarmStartEnvironment(Environment):
     """The interface for an environment made with logged bandit data and simulated interactions."""
-   
-    @property
+       
     @abstractmethod
-    def params(self) -> Dict[str,Any]:
-        """Paramaters describing the simulation.
-
-        Remarks:
-            These will become columns in the environments data of an experiment result.
-        """
-        ...
-    
-    @abstractmethod
-    def read(self) -> Iterable[SimulatedInteraction]:
+    def read(self) -> Iterable[Interaction]:
         """The sequence of interactions in a simulation.
 
         Remarks:

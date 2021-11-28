@@ -129,6 +129,13 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
         chunk = list(chunk)
 
+        self._source_id = {}
+
+        for item in chunk:
+            if item.environ_id is not None:
+                source = id(self._get_source(item))
+                self._source_id[source] = min(self._source_id.get(source,float('inf')), item.environ_id)
+
         if not chunk: return
 
         with CobaConfig.logger.log(f"Processing chunk..."):
@@ -198,7 +205,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
             return task.environ
     
     def _get_source_sort(self, task:WorkItem) -> int:
-        return id(self._get_source(task))
+        return self._source_id.get(id(self._get_source(task)),-1)
 
     def _get_id_filter(self, task:WorkItem) -> Tuple[int, Filter[SimulatedEnvironment,SimulatedEnvironment]]:
         if task.environ is None:
