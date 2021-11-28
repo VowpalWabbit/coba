@@ -46,15 +46,11 @@ class Logger(ABC):
         ...
 
     @abstractmethod
-    def log(self, message: str) -> 'ContextManager[Logger]':
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         ...
 
     @abstractmethod
     def time(self, message: str) -> 'ContextManager[Logger]':
-        ...
-
-    @abstractmethod
-    def log_exception(self, exception:Exception, message: str = "Unexpected exception:") -> None:
         ...
 
 class ExperimentConfig:

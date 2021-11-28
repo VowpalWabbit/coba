@@ -65,6 +65,18 @@ class Experiment:
 
         return self
 
+    @property
+    def chunk_by(self) -> str:
+        return self._chunk_by if self._chunk_by is not None else CobaConfig.experiment.chunk_by
+
+    @property
+    def processes(self) -> int:
+        return self._processes if self._processes is not None else CobaConfig.experiment.processes
+
+    @property
+    def maxtasksperchild(self) -> int:
+        return self._maxtasksperchild if self._maxtasksperchild is not None else CobaConfig.experiment.maxtasksperchild
+
     def evaluate(self, result_file:str = None) -> Result:
         """Evaluate the experiment and return the results.
 
@@ -81,9 +93,7 @@ class Experiment:
             assert n_given_learners     == restored.experiment['n_learners'    ], "The current experiment doesn't match the given transaction log."
             assert n_given_environments == restored.experiment['n_environments'], "The current experiment doesn't match the given transaction log."
 
-        cb = self._chunk_by         if self._chunk_by         is not None else CobaConfig.experiment.chunk_by
-        mp = self._processes        if self._processes        is not None else CobaConfig.experiment.processes
-        mt = self._maxtasksperchild if self._maxtasksperchild is not None else CobaConfig.experiment.maxtasksperchild
+        cb, mp, mt = self.chunk_by, self.processes, self.maxtasksperchild
 
         workitems  = CreateWorkItems(self._environments, self._learners, self._learner_task, self._environment_task, self._evaluation_task)
         unfinished = RemoveFinished(restored)
@@ -91,7 +101,7 @@ class Experiment:
         sink       = TransactionIO(result_file)
 
         single_process = ProcessWorkItems()
-        multi_process  = Pipe.join([chunk, CobaMultiprocessFilter([ProcessWorkItems()], mp, mt)])
+        multi_process  = Pipe.join([chunk, CobaMultiprocessFilter(ProcessWorkItems(), mp, mt)])
         process        = multi_process if mp > 1 or mt != 0 else single_process
 
         try:
@@ -100,9 +110,8 @@ class Experiment:
 
         except KeyboardInterrupt:
             CobaConfig.logger.log("Experiment execution was manually aborted via Ctrl-C")
-        except CobaFatal:
-            raise
+        
         except Exception as ex:
-            CobaConfig.logger.log_exception(ex)
+            CobaConfig.logger.log(ex)
 
         return sink.result

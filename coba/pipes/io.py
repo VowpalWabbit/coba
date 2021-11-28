@@ -20,14 +20,25 @@ class NullIO(IO[Any,Any]):
     def write(self, item: Any) -> None:
         pass
 
-class ConsoleIO(IO[str,str]):
+class ConsoleIO(IO[str,Union[Any,Iterable[Any]]]):
     def read() -> str:
         return input()
 
-    def write(self, item: str) -> None:
-        print(item)
+    def write(self, item: Union[Any,Iterable[Any]]) -> None:
+        try:
+            if isinstance(item,str):
+                print(item)
+            else:
+               for it in item:
+                   print(it)
+        except TypeError as e:
+            if "not iterable" in str(e):
+                print(item)
+            else:
+                raise
 
 class DiskIO(IO[Iterable[str],Union[str,Iterable[str]]]):
+    
     def __init__(self, filename:str, append=True):
         
         #If you are using the gzip functionality of disk sink

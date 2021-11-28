@@ -9,7 +9,7 @@ from typing          import Sequence, Iterable, Any
 
 from coba.pipes.core    import Pipe, StopPipe
 from coba.pipes.filters import Filter
-from coba.pipes.io      import Sink, QueueIO, NullIO
+from coba.pipes.io      import Sink, QueueIO, ConsoleIO
 
 super_worker = multiprocessing.pool.worker #type: ignore
 
@@ -31,8 +31,8 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
     class Processor:
 
-        def __init__(self, filters: Sequence[Filter], stdout: Sink, stderr: Sink) -> None:
-            self._filter = Pipe.join(filters)
+        def __init__(self, filter: Filter, stdout: Sink, stderr: Sink) -> None:
+            self._filter = filter
             self._stdout = stdout
             self._stderr = stderr
 
@@ -42,12 +42,9 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 self._stdout.write(self._filter.filter(item))
             except StopPipe:
                 pass
-
             except Exception as e:
-                #this will scrub the exception of the traceback... A more advanced
-                #method needs to be developed in order to make sure traceback is 
+                #WARNING: this will scrub the e of its traceback which is why the traceback is also sent as a string
                 self._stderr.write([(time.time(), current_process().name, e, traceback.format_tb(e.__traceback__))])
-
             except KeyboardInterrupt:
                 #When ctrl-c is pressed on the keyboard KeyboardInterrupt is raised in each
                 #process. We need to handle this here because Processor is always ran in a
@@ -56,16 +53,13 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 #handle the keyboard interrupt gracefully.
                 pass
 
-    def __init__(self, filters: Sequence[Filter], processes: int = 1, maxtasksperchild: int = 0, stderr: Sink = NullIO()) -> None:
-        self._filters          = filters
+    def __init__(self, filter: Filter, processes: int = 1, maxtasksperchild: int = 0, stderr: Sink = ConsoleIO()) -> None:
+        self._filter           = filter
         self._processes        = processes
         self._maxtasksperchild = maxtasksperchild
-        self._stderr           = stderr or NullIO()
+        self._stderr           = stderr
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-
-        if len(self._filters) == 0:
-            return items
 
         with Manager() as manager:
 
@@ -130,10 +124,10 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                         if "Can't pickle" in str(results_or_exception) or "Pickling" in str(results_or_exception):
 
                             message = (
-                                str(results_or_exception) + ". We attempted to process your code on multiple processes and "
-                                "the named class was not able to be pickled. This problem can be fixed in one of two ways: 1) "
+                                str(results_or_exception) + ". We attempted to process your code on multiple processes but "
+                                "the named class could not be pickled. This problem can be fixed in one of two ways: 1) "
                                 "evaluate the experiment in question on a single process with no limit on the tasks per child or 2) "
-                                "modify the named class to be picklable. The easiest way to make the given class picklable is to "
+                                "modify the named class to be picklable. The easiest way to make a given class picklable is to "
                                 "add `def __reduce__ (self) return (<the class in question>, (<tuple of constructor arguments>))` to "
                                 "the class. For more information see https://docs.python.org/3/library/pickle.html#object.__reduce__."
                             )
@@ -148,7 +142,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 log_thread.daemon = True
                 log_thread.start()
 
-                processor = MultiprocessFilter.Processor(self._filters, stdout_IO, stderr_IO)
+                processor = MultiprocessFilter.Processor(self._filter, stdout_IO, stderr_IO)
                 result    = pool.map_async(processor.process, items, callback=done_or_failed, error_callback=done_or_failed, chunksize=1)
 
                 # When items is empty finished_callback will not be called and we'll get stuck waiting for the poison pill.

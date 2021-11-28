@@ -184,10 +184,10 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                                         yield ["T3", (workitem.environ_id, workitem.learner_id), row]
 
                             except Exception as e:
-                                CobaConfig.logger.log_exception(e)
+                                CobaConfig.logger.log(e)
 
                 except Exception as e:
-                    CobaConfig.logger.log_exception(e)
+                    CobaConfig.logger.log(e)
 
     def _get_source(self, task:WorkItem) -> SimulatedEnvironment:
         if task.environ is None:

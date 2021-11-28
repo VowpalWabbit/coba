@@ -1,18 +1,18 @@
 from copy import deepcopy
-from multiprocessing.synchronize import Lock, Semaphore
 from multiprocessing import Manager
+from multiprocessing.managers import SyncManager
 from threading import Thread
-from typing import Sequence, Iterable, Any
+from typing import Iterable, Any
 
 from coba.exceptions import CobaFatal
 from coba.config     import CobaConfig, BasicLogger, IndentLogger
-from coba.pipes      import Filter, Sink, Pipe, QueueIO, MultiprocessFilter
+from coba.pipes      import Filter, Sink, QueueIO, MultiprocessFilter
 
 class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
-    class ConfiguredFilter:
+    class MarshalableFilter:
 
-        def __init__(self, filters: Sequence[Filter], logger_sink: Sink, with_name:bool, manager) -> None:
+        def __init__(self, filter: Filter, logger_sink: Sink, with_name:bool, manager: SyncManager) -> None:
 
             self._logger    = deepcopy(CobaConfig.logger)
             self._cacher    = deepcopy(CobaConfig.cacher)
@@ -27,9 +27,9 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 self._logger._with_name = with_name
                 self._logger._sink      = logger_sink
 
-            self._filters = filters
+            self._filter = filter
 
-        def filter(self, item: Iterable[Any]) -> Iterable[Any]:
+        def filter(self, item: Any) -> Any:
 
             #placing this here means this is only set inside the process 
             CobaConfig.logger            = self._logger
@@ -37,10 +37,26 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
             CobaConfig.store["srcsema"]  = self._srcsema
             CobaConfig.store["cachelck"] = self._cachelock
 
-            return Pipe.join(self._filters).filter(item)
+            result = self._filter.filter(item)
 
-    def __init__(self, filters: Sequence[Filter], processes=1, maxtasksperchild=0) -> None:
-        self._filters          = filters
+            try:
+                try:
+                    if isinstance(result,str):
+                        return result
+                    else:
+                        for item in result: yield item
+                except TypeError as e:
+                    if "not iterable" in str(e):
+                        return result
+                    else:
+                        raise 
+                except (EOFError,BrokenPipeError):
+                    pass
+            except Exception as e:
+                self._logger.log(e)
+
+    def __init__(self, filter: Filter, processes=1, maxtasksperchild=0) -> None:
+        self._filter           = filter
         self._processes        = processes
         self._maxtasksperchild = maxtasksperchild
 
@@ -56,23 +72,18 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                     for err in stderr.read():
                         if isinstance(err,str):
                             CobaConfig.logger.sink.write(err)
+                        elif isinstance(err,tuple):
+                            CobaConfig.logger.log(err[2])
                         elif isinstance(err,Exception):
-                            CobaConfig.logger.log_exception(err)
-                        else:
-                            CobaConfig.logger.log_exception(err[2])
-                            #err[3] contains the stack trace... 
-                            #I'm not sure what to do with it at this point, but here it is if any wants it in the future
-                            #When we pass our exception back to the original thread it loses its stacktrace so if we want
-                            #to report stack trace we'll need to turn it into a string and pass it with the exception???
-                            #print("".join(err[3]))
+                            CobaConfig.logger.log(err)
 
                 log_thread = Thread(target=log_stderr)
                 log_thread.daemon = True
                 log_thread.start()
 
-                filter = CobaMultiprocessFilter.ConfiguredFilter(self._filters, stderr, self._processes>1, manager)
+                filter = CobaMultiprocessFilter.MarshalableFilter(self._filter, stderr, self._processes>1, manager)
 
-                for item in MultiprocessFilter([filter], self._processes, self._maxtasksperchild, stderr).filter(items):
+                for item in MultiprocessFilter(filter, self._processes, self._maxtasksperchild, stderr).filter(items):
                     yield item
 
         except RuntimeError as e:

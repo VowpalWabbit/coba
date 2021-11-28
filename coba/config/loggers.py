@@ -6,7 +6,7 @@ import traceback
 from multiprocessing import current_process
 from contextlib import contextmanager
 from datetime import datetime
-from typing import ContextManager, List, cast, Iterator, Iterable
+from typing import ContextManager, List, cast, Iterator, Union
 
 from coba.pipes import Sink, NullIO
 from coba.exceptions import CobaException
@@ -20,22 +20,19 @@ class NullLogger(Logger):
         yield self
 
     @property
-    def sink(self) -> Sink[Iterable[str]]:
+    def sink(self) -> Sink[str]:
         return NullIO()
 
-    def log(self, message: str) -> 'ContextManager[Logger]':
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         return self._context()
 
-    def time(self, message: str) -> 'ContextManager[Logger]':
+    def time(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         return self._context()
-
-    def log_exception(self, exception:Exception, message:str = "Unexpected exception:") -> None:
-        pass
 
 class BasicLogger(Logger):
     """A Logger that writes in real time and indicates time with start/end messages."""
 
-    def __init__(self, sink: Sink[Iterable[str]], with_stamp: bool = True, with_name: bool = False):
+    def __init__(self, sink: Sink[str], with_stamp: bool = True, with_name: bool = False):
         """Instantiate a BasicLogger."""
         self._sink        = sink
         self._with_stamp  = with_stamp
@@ -72,62 +69,58 @@ class BasicLogger(Logger):
             self.log(message + f" ({round(time.time()-self._starts.pop(),2)} seconds) (completed)")
         
     @property
-    def sink(self) -> Sink[Iterable[str]]:
+    def sink(self) -> Sink[str]:
         return self._sink
 
-    def log(self, message: str) -> 'ContextManager[Logger]':
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         """Log a message with an optional begin and end context.
         
         Args:
-            message: The message that should be logged.
+            message: The message or exception that should be logged.
 
         Returns:
-            A ContextManager that while write a finish message on exit
+            A ContextManager that will write a finish message on exit.
         """
+
+        if isinstance(message, Exception):
+            message = self._exception_message(message)
 
         stamp  = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' if self._with_stamp else ''
         name   = "-- " + current_process().name + " -- " if self._with_name else ''
 
         self._sink.write(stamp + name + message)
-        
+
         return self._log_context(message)
 
-    def time(self, message:str) -> 'ContextManager[Logger]':
+    def time(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         """Log a message's start and end time.
 
         Args:
-            message: The message that should be logged.
+            message: The message or exception that should be logged.
 
         Returns:
-            A ContextManager that while write a finish message on exit
+            A ContextManager that will write the total execution time on exit.
         """
+
+        if isinstance(message, Exception):
+            message = self._exception_message(message)
 
         return self._time_context(message)
 
-    def log_exception(self, ex: Exception, message:str="Unexpected exception:") -> None:
+    def _exception_message(self, ex: Exception) -> str:
         """log an exception if it hasn't already been logged."""
 
-        # we don't want to mask any information so we're not using the formally
-        # defined exception chaining syntax (e.g., `raise LoggedException from e`)
-        # instead we add our own dunder attribute to indicate that the exception has
-        # been logged. This is friendlier when debugging since some Python debuggers
-        # don't ever look at the __cause__ attribute set by the explicit syntax
-
-        if not hasattr(ex, '__logged__'):
-            setattr(ex, '__logged__', True)
-
-            if isinstance(ex, CobaException):
-                self.log(str(ex))
-
-            else: 
-                tb = ''.join(traceback.format_tb(ex.__traceback__))
-                msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
-                self.log(f"{message}\n\n{tb}\n  {msg}")
+        if isinstance(ex, CobaException):
+            return str(ex)
+        else: 
+            tb  = ''.join(traceback.format_tb(ex.__traceback__))
+            msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
+            return f"Unexpected exception:\n\n{tb}\n  {msg}"
 
 class IndentLogger(Logger):
     """A Logger with context indentation, exception tracking and a consistent preamble."""
 
-    def __init__(self, sink: Sink[Iterable[str]], with_stamp: bool = True, with_name: bool = False):
+    def __init__(self, sink: Sink[str], with_stamp: bool = True, with_name: bool = False):
         """Instantiate an IndentLogger."""
         self._sink        = sink
         self._with_stamp  = with_stamp
@@ -188,15 +181,17 @@ class IndentLogger(Logger):
         return stamp + name + message
 
     @property
-    def sink(self) -> Sink[Iterable[str]]:
+    def sink(self) -> Sink[str]:
         return self._sink
 
-    def log(self, message: str) -> 'ContextManager[Logger]':
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         """Log a message.
-        
+
         Args:
             message: The message that should be logged.
         """
+        if isinstance(message, Exception):
+            message = self._exception_message(message)
 
         if self._messages:
             self._messages.append(self._level_message(message))
@@ -205,7 +200,7 @@ class IndentLogger(Logger):
 
         return self._indent_context()
 
-    def time(self, message:str) -> 'ContextManager[Logger]':
+    def time(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         """Log a message and the time it takes to exit the returned context manager.
         
         Args:
@@ -215,24 +210,17 @@ class IndentLogger(Logger):
             A ContextManager that maintains the timing context. 
         """
 
+        if isinstance(message, Exception):
+            message = self._exception_message(message)
+
         return self._time_context(message)
 
-    def log_exception(self, ex: Exception, message:str = "Unexpected exception:") -> None:
+    def _exception_message(self, ex: Exception) -> str:
         """log an exception if it hasn't already been logged."""
 
-        # we don't want to mask any information so we're not using the formally
-        # defined exception chaining syntax (e.g., `raise LoggedException from e`)
-        # instead we add our own dunder attribute to indicate that the exception has
-        # been logged. This is friendlier when debugging since some Python debuggers
-        # don't ever look at the __cause__ attribute set by the explicit syntax
-
-        if not hasattr(ex, '__logged__'):
-            setattr(ex, '__logged__', True)
-
-            if isinstance(ex, CobaException):
-                self.log(str(ex))
-            else:
-                tb  = ''.join(traceback.format_tb(ex.__traceback__))
-                msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
-
-                self.log(f"{message}\n\n{tb}\n  {msg}")
+        if isinstance(ex, CobaException):
+            return str(ex)
+        else: 
+            tb  = ''.join(traceback.format_tb(ex.__traceback__))
+            msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
+            return f"Unexpected exception:\n\n{tb}\n  {msg}"

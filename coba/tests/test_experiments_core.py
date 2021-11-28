@@ -269,6 +269,24 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
 
+    def test_config_set(self):
+
+        exp = Experiment([], [])
+
+        CobaConfig.experiment.processes = 10
+        self.assertEqual(10,exp.processes)
+
+        CobaConfig.experiment.maxtasksperchild = 3
+        self.assertEqual(3,exp.maxtasksperchild)
+
+        CobaConfig.experiment.chunk_by = 'source'
+        self.assertEqual('source',exp.chunk_by)
+
+        exp.config(processes=2, maxtasksperchild=5, chunk_by='task')
+        self.assertEqual(2,exp.processes)
+        self.assertEqual(5,exp.maxtasksperchild)
+        self.assertEqual('task',exp.chunk_by)
+
 class Experiment_Multi_Tests(Experiment_Single_Tests):
 
     @classmethod

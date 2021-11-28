@@ -8,8 +8,11 @@ from coba.pipes import MemoryIO
 from coba.config import IndentLogger, BasicLogger, NullLogger
 
 class NullLogger_Tests(unittest.TestCase):
-    def test_log_exception_does_nothing(self):
-        NullLogger().log_exception(Exception("abc"))
+    def test_log_does_nothing(self):
+        NullLogger().log("abc")
+
+    def test_time_does_nothing(self):
+        NullLogger().time("abc")
 
 class BasicLogger_Tests(unittest.TestCase):
 
@@ -261,33 +264,31 @@ class BasicLogger_Tests(unittest.TestCase):
         try:
             raise Exception("Test Exception")
         except Exception as ex:
-            logger.log_exception(ex, 'error:')
+            logger.log(ex)
 
             tb = ''.join(traceback.format_tb(ex.__traceback__))
             msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
 
-            expected_msg = f"error:\n\n{tb}\n  {msg}"
+            expected_msg = f"Unexpected exception:\n\n{tb}\n  {msg}"
 
-            self.assertTrue(ex.__logged__) #type:ignore
             self.assertEqual(len(logs), 1)
             self.assertEqual(logs[0], expected_msg)
 
     def test_log_exception_2(self):
 
-        sink   = MemoryIO()
-        logger = BasicLogger(sink, with_stamp=False)
-        logs   = sink.items
+        sink      = MemoryIO()
+        logger    = BasicLogger(sink, with_stamp=False)
+        logs      = sink.items
         exception = Exception("Test Exception")
 
         logger.log('a')
-        logger.log_exception(exception, '')
+        logger.log(exception)
 
         tb = ''.join(traceback.format_tb(exception.__traceback__))
         msg = ''.join(traceback.TracebackException.from_exception(exception).format_exception_only())
 
-        expected_msg = f"\n\n{tb}\n  {msg}"
+        expected_msg = f"Unexpected exception:\n\n{tb}\n  {msg}"
 
-        self.assertTrue(exception.__logged__) #type:ignore
         self.assertEqual(logs[0], "a")
         self.assertEqual(logs[1], expected_msg)
 
@@ -298,9 +299,8 @@ class BasicLogger_Tests(unittest.TestCase):
         logs      = sink.items
         exception = CobaException("Test Exception")
 
-        logger.log_exception(exception)
+        logger.log(exception)
 
-        self.assertTrue(exception.__logged__) #type:ignore
         self.assertEqual(logs[0], "Test Exception")
 
 class IndentLogger_Tests(unittest.TestCase):
@@ -487,14 +487,13 @@ class IndentLogger_Tests(unittest.TestCase):
         try:
             raise Exception("Test Exception")
         except Exception as ex:
-            logger.log_exception(ex,'error:')
+            logger.log(ex)
 
             tb = ''.join(traceback.format_tb(ex.__traceback__))
             msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
 
-            expected_msg = f"error:\n\n{tb}\n  {msg}"
+            expected_msg = f"Unexpected exception:\n\n{tb}\n  {msg}"
 
-            self.assertTrue(ex.__logged__) #type:ignore
             self.assertEqual(len(logs), 1)
             self.assertEqual(logs[0], expected_msg)
 
@@ -506,14 +505,13 @@ class IndentLogger_Tests(unittest.TestCase):
         exception = Exception("Test Exception")
 
         logger.log('a')
-        logger.log_exception(exception,'')
+        logger.log(exception)
 
-        tb = ''.join(traceback.format_tb(exception.__traceback__))
+        tb  = ''.join(traceback.format_tb(exception.__traceback__))
         msg = ''.join(traceback.TracebackException.from_exception(exception).format_exception_only())
 
-        expected_msg = f"\n\n{tb}\n  {msg}"
+        expected_msg = f"Unexpected exception:\n\n{tb}\n  {msg}"
 
-        self.assertTrue(exception.__logged__) #type:ignore
         self.assertEqual(logs[0], "a")
         self.assertEqual(logs[1], expected_msg)
 
@@ -524,9 +522,8 @@ class IndentLogger_Tests(unittest.TestCase):
         logs      = sink.items
         exception = CobaException("Test Exception")
 
-        logger.log_exception(exception,'')
+        logger.log(exception)
 
-        self.assertTrue(exception.__logged__) #type:ignore
         self.assertEqual(logs[0], "Test Exception")
 
     @unittest.skip("Known bug, should fix with refactor of logging.")
