@@ -26,7 +26,7 @@ class NullLogger(Logger):
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         return self._context()
 
-    def time(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
+    def time(self, message: str) -> 'ContextManager[Logger]':
         return self._context()
 
 class BasicLogger(Logger):
@@ -92,18 +92,15 @@ class BasicLogger(Logger):
 
         return self._log_context(message)
 
-    def time(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
+    def time(self, message: str) -> 'ContextManager[Logger]':
         """Log a message's start and end time.
 
         Args:
-            message: The message or exception that should be logged.
+            message: The message that should be logged to describe what is timed.
 
         Returns:
             A ContextManager that will write the total execution time on exit.
         """
-
-        if isinstance(message, Exception):
-            message = self._exception_message(message)
 
         return self._time_context(message)
 
@@ -200,18 +197,15 @@ class IndentLogger(Logger):
 
         return self._indent_context()
 
-    def time(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
+    def time(self, message: str) -> 'ContextManager[Logger]':
         """Log a message and the time it takes to exit the returned context manager.
         
         Args:
-            message: The message that should be logged.
+            message: The message that should be logged to describe what is timed.
 
         Returns:
-            A ContextManager that maintains the timing context. 
+            A ContextManager that maintains the timing context and writes execution time on exit. 
         """
-
-        if isinstance(message, Exception):
-            message = self._exception_message(message)
 
         return self._time_context(message)
 

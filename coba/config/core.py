@@ -42,7 +42,7 @@ class Logger(ABC):
 
     @property
     @abstractmethod
-    def sink(self) -> Sink[Iterable[str]]:
+    def sink(self) -> Sink[str]:
         ...
 
     @abstractmethod
