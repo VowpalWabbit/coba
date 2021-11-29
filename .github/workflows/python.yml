@@ -28,3 +28,4 @@ jobs:
         shell: bash
         run: |
           python --version
+          python setup.py install
