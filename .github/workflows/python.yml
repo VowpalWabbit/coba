@@ -29,4 +29,5 @@ jobs:
         run: |
           python --version
           python setup.py install
+          pip install pytest
           py.test tests/
