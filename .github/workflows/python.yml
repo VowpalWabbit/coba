@@ -1,0 +1,30 @@
+name: Linux / Python
+
+on:
+  push:
+    branches:
+      - master
+      - 'releases/**'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  test:
+    container:
+      image: python:${{ matrix.config.version }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.config.experimental }}
+    strategy:
+      matrix:
+        config:
+        - { version: 3.6, experimental: false }
+        - { version: 3.7, experimental: false }
+        - { version: 3.8, experimental: false }
+        - { version: 3.9, experimental: false }
+    steps:
+      - uses: actions/checkout@v1
+      - name: Run unit tests
+        shell: bash
+        run: |
+          python --version
