@@ -1,2 +1,5 @@
+requests>=2
+importlib-metadata
+typing-extensions>=4.0
 vowpalwabbit
 sklearn
