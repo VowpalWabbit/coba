@@ -190,7 +190,7 @@ class Performance_Tests(unittest.TestCase):
         time = statistics.mean(timeit.repeat(lambda:encoder.filter(x), repeat=10, number=100))
 
         #0.11 was my final average time.
-        self.assertLess(time, .2)
+        self.assertLess(time, .3)
 
 if __name__ == '__main__':
     unittest.main()
