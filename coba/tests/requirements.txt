@@ -3,5 +3,4 @@ importlib-metadata
 typing-extensions>=4.0
 vowpalwabbit # optional
 wheel # optional & needed for sklearn install
-sklearn # optional
 pandas # optional
