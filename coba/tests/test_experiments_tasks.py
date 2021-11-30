@@ -66,7 +66,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         try:
             import sklearn
         except:
-            raise unittest.skip("sklearn not installed. Skip this Test")
+            raise unittest.SkipTest("sklearn not installed. Skip this Test")
         else:
             sklearn_installed = True
 
@@ -88,7 +88,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         try:
             import sklearn
         except:
-            raise unittest.skip("sklearn not installed. Skip this Test")
+            raise unittest.SkipTest("sklearn not installed. Skip this Test")
         else:
             sklearn_installed = True
 
@@ -112,7 +112,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         try:
             import sklearn
         except:
-            raise unittest.skip("sklearn not installed. Skip this Test")
+            raise unittest.SkipTest("sklearn not installed. Skip this Test")
         else:
             sklearn_installed = True
 
