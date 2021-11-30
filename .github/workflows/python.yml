@@ -27,6 +27,6 @@ jobs:
           python-version: ${{ matrix.config.version }}
           cache: 'pip'
       - run: python --version
-      - run: python setup.py install
       - run: pip install -r coba/tests/requirements.txt
+      - run: python setup.py install
       - run: python -m unittest
