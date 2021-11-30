@@ -3,3 +3,4 @@ importlib-metadata
 typing-extensions>=4.0
 vowpalwabbit
 sklearn
+pandas
