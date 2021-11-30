@@ -23,6 +23,5 @@ jobs:
           cache: 'pip'
       - run: python --version
       - run: python setup.py install
-      - run: pip install pytest
-      - run: pip install vowpalwabbit
+      - run: pip install -r tests/requirements.txt
       - run: py.test tests/
