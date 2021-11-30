@@ -66,7 +66,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         try:
             import sklearn
         except:
-            sklearn_installed = False
+            raise unittest.SkipTest("sklearn not installed. Skip this Test")
         else:
             sklearn_installed = True
 
@@ -88,7 +88,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         try:
             import sklearn
         except:
-            sklearn_installed = False
+            raise unittest.SkipTest("sklearn not installed. Skip this Test")
         else:
             sklearn_installed = True
 
@@ -109,6 +109,12 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
             self.assertEqual(0, row["centroid_distance"])
 
     def test_classification_statistics_encodable(self):
+        try:
+            import sklearn
+        except:
+            raise unittest.SkipTest("sklearn not installed. Skip this Test")
+        else:
+            sklearn_installed = True
 
         c1 = [{"1":1, "2":2 }, "A" ]
         c2 = [{"1":3, "2":4 }, "B" ]

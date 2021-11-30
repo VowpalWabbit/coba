@@ -1,5 +1,6 @@
 import unittest
 import unittest.mock
+import os
 
 from pathlib import Path
 from coba.config.loggers import NullLogger
@@ -164,7 +165,7 @@ class CobaConfig_Tests(unittest.TestCase):
             pass
         
         self.assertIn("An unexpected error occured when initializing CobaConfig", mock_print.call_args_list[0][0][0])
-        self.assertIn("The coba configuration file at coba\\tests\\.temp\\.coba", mock_print.call_args_list[1][0][0])
+        self.assertIn(f"The coba configuration file at coba{os.sep}tests{os.sep}.temp{os.sep}.coba", mock_print.call_args_list[1][0][0])
         self.assertIn("error, Expecting ',' delimiter: line 2 column 1 (char 32).", mock_print.call_args_list[1][0][0])
 
     @unittest.mock.patch('builtins.print')
@@ -179,7 +180,7 @@ class CobaConfig_Tests(unittest.TestCase):
             pass
         
         self.assertIn("An unexpected error occured when initializing CobaConfig", mock_print.call_args_list[0][0][0])
-        self.assertIn("The coba configuration file at coba\\tests\\.temp\\.coba", mock_print.call_args_list[1][0][0])
+        self.assertIn(f"The coba configuration file at coba{os.sep}tests{os.sep}.temp{os.sep}.coba", mock_print.call_args_list[1][0][0])
         self.assertIn("should be a json object.", mock_print.call_args_list[1][0][0])
 
     @unittest.mock.patch('builtins.print')
