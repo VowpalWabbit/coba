@@ -30,4 +30,5 @@ jobs:
           python --version
           python setup.py install
           pip install pytest
+          pip install vowpalwabbit
           py.test tests/
