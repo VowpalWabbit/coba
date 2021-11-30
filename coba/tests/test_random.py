@@ -193,7 +193,7 @@ class CobaRandom_Tests(unittest.TestCase):
             print(f"{coba_failure_rate}")
             print(f"{std_failure_rate}")
 
-        self.assertLess((coba_failure_rate-std_failure_rate)/std_failure_rate , .1)
+        self.assertLess((coba_failure_rate-std_failure_rate)/std_failure_rate , .2)
 
     def test_randint_is_bound_correctly_1(self):
         observed_ints = set()
