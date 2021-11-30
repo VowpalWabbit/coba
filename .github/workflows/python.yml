@@ -11,24 +11,18 @@ on:
 
 jobs:
   test:
-    container:
-      image: python:${{ matrix.config.version }}
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.config.experimental }}
     strategy:
       matrix:
-        config:
-        - { version: 3.6, experimental: false }
-        - { version: 3.7, experimental: false }
-        - { version: 3.8, experimental: false }
-        - { version: 3.9, experimental: false }
+        python-version: ['3.6', '3.7', '3.8', '3.9']
     steps:
       - uses: actions/checkout@v1
-      - name: Run unit tests
-        shell: bash
-        run: |
-          python --version
-          python setup.py install
-          pip install pytest
-          pip install vowpalwabbit
-          py.test tests/
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      - run: python --version
+      - run: python setup.py install
+      - run: pip install pytest
+      - run: pip install vowpalwabbit
+      - run: py.test tests/
