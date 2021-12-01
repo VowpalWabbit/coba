@@ -69,12 +69,12 @@ class Shuffle(Filter[Iterable[Any], Iterable[Any]]):
 class Take(Filter[Iterable[Any], Iterable[Any]]):
     """Take a given number of items from an iterable."""
 
-    def __init__(self, count:Optional[int], keep_first:bool = False, seed: int = None,) -> None:
+    def __init__(self, count:Optional[int], seed: int = None, keep_first:bool = False) -> None:
         """Instantiate a Take filter.
 
         Args:
             count     : The number of items we wish to take from the given iterable.
-            keep_first: Indicates if the first row should be kept and take on the rest. Useful for files with headers.
+            keep_first: Indicates if the first row should be kept with take applied to the rest. Useful for files with headers.
             seed      : An optional random seed to determine which random count items to take.
 
         Remarks:
@@ -88,8 +88,8 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
         if count is not None and (not isinstance(count,int) or count < 0):
             raise ValueError(f"Invalid parameter for Take: {count}. An optional integer value >= 0 was expected.")
 
-        self._count = count
-        self._seed  = seed
+        self._count      = count
+        self._seed       = seed
         self._keep_first = keep_first
 
     @property

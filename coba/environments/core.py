@@ -1,14 +1,16 @@
+import collections
+
 from typing_extensions import Literal
 from typing import Sequence, overload, Union, Iterable, Iterator
 
-from coba.pipes import Source, ResponseToLines, HttpIO, DiskIO, JsonDecode, Shuffle, Take
+from coba.pipes import Source, DiskIO, JsonDecode, Shuffle, Take
 
-from coba.environments.pipes import EnvironmentPipe
-from coba.environments.filters import SimulationFilter, Binary
+from coba.environments.pipes       import EnvironmentPipe
+from coba.environments.filters     import SimulationFilter, Binary
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 from coba.environments.simulations import DebugSimulation
-from coba.environments.primitives import LoggedEnvironment, SimulatedEnvironment, WarmStartEnvironment
-from coba.environments.openml import OpenmlSimulation
+from coba.environments.primitives  import Environment, LoggedEnvironment, SimulatedEnvironment, WarmStartEnvironment
+from coba.environments.openml      import OpenmlSimulation
 
 class Environments:
 
@@ -45,7 +47,7 @@ class Environments:
            interaction terms are calculted by assuming all actions or contexts have a constant feature of 1."""
 
         return Environments(
-            DebugSimulation(n_interactions, n_actions, n_context_features, n_action_features, r_noise_var, interactions,  seed)
+            DebugSimulation(n_interactions, n_actions, n_context_features, n_action_features, r_noise_var, interactions, seed)
         )
 
     @staticmethod
@@ -54,28 +56,31 @@ class Environments:
         take: int = None,
         cat_as_str:bool = False,
         type: Literal["classification", "regression"] = "classification") -> 'Environments':
-        
+
         if isinstance(openml_ids, int): openml_ids = [openml_ids]
         return Environments(*[OpenmlSimulation(id, take, type, cat_as_str) for id in openml_ids])
 
-    def __init__(self, *environments: Union[SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment]):
-        self._environments = list(environments)
+    def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
+
+        self._environments = []
+
+        for env in environments:
+            if isinstance(env, collections.Sequence):
+                self._environments.extend(env)
+            else:
+                self._environments.append(env)
 
     def binary(self) -> 'Environments':
-        self._environments = [ EnvironmentPipe(e,Binary()) for e in self._environments ]
-        return self
+        return self.filter(Binary())
 
     def shuffle(self, seeds: Sequence[int]) -> 'Environments':
-        shuffle_filters    = [ Shuffle(seed) for seed in seeds ]
-        self._environments = [ EnvironmentPipe(e,s) for e in self._environments for s in shuffle_filters ]
-        return self
+        return self.filter([Shuffle(seed) for seed in seeds])
 
     def take(self, n_interactions: int, seed: int = None) -> 'Environments':
-        take_filter = Take(n_interactions, seed)
-        self._environments = [ EnvironmentPipe(e,take_filter) for e in self._environments ]
-        return self
+        return self.filter(Take(n_interactions, seed))
 
-    def filter(self, *filters: SimulationFilter) -> 'Environments':
+    def filter(self, filter: Union[SimulationFilter,Sequence[SimulationFilter]]) -> 'Environments':
+        filters = filter if isinstance(filter, collections.Sequence) else [filter]
         self._environments = [ EnvironmentPipe(e,f) for e in self._environments for f in filters ]
         return self
 
@@ -87,6 +92,9 @@ class Environments:
 
     def __len__(self) -> int:
         return len(self._environments)
+
+    def __add__(self, other: 'Environments') -> 'Environments':
+        return Environments(self._environments,other._environments)
 
     def __repr__(self) -> str:
         return "\n".join([f"{i+1}. {e}" for i,e in enumerate(self._environments)])

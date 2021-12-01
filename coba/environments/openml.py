@@ -31,9 +31,9 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         """Paramaters describing the environment."""
 
         if self._take is not None:
-            return { "openml": self._data_id, "cat_as_str": self._cat_as_str, "openml_take": self._take }
+            return { "openml": self._data_id, "cat_as_str": self._cat_as_str, "openml_type": self._problem_type, "openml_take": self._take,  }
         else:
-            return { "openml": self._data_id, "cat_as_str": self._cat_as_str, }
+            return { "openml": self._data_id, "cat_as_str": self._cat_as_str, "openml_type": self._problem_type, }
 
     def read(self) -> Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]:
 
