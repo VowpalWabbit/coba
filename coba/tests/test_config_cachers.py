@@ -119,5 +119,12 @@ class DiskCacher_Tests(unittest.TestCase):
         self.assertNotIn("test.csv", DiskCacher(self.Cache_Test_Dir))
         self.assertFalse((self.Cache_Test_Dir / "531f844bd184e913b050d49856e8d438.gz").exists())
 
+    def test_None_cach_dir(self):
+        cacher = DiskCacher(None)
+
+        self.assertNotIn('a', cacher)
+        cacher.get("a")
+        cacher.put("a", [b'123'])
+
 if __name__ == '__main__':
     unittest.main()

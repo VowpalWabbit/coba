@@ -95,6 +95,8 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
             value: The bytes that should be cached for the given filename.
         """
 
+        if self._cache_dir is None: return
+
         #I'm not crazy about this... This means we can only put one thing at a time...
         #What we really want is a lock on `key` though I haven't been able to find a good
         #way to do this. A better method might be to create a manager.List() and then only
