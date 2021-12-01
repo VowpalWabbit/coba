@@ -1,66 +1,55 @@
 import unittest
+from pathlib import Path
 
-from coba.environments import SimulatedInteraction, LoggedInteraction
+from coba.pipes import DiskIO
+from coba.environments import Environments
 
-class SimulatedInteraction_Tests(unittest.TestCase):
-    def test_context_none(self):
-        interaction = SimulatedInteraction(None, (1,2,3), rewards=(4,5,6))
+class Environments_Tests(unittest.TestCase):
+    def test_from_file_path(self):
+        if Path("coba/tests/.temp/from_file.env").exists():
+            Path("coba/tests/.temp/from_file.env").unlink()
 
-        self.assertEqual(None, interaction.context)
+        try:
+            Path("coba/tests/.temp/from_file.env").write_text('{ "environments" : { "OpenmlSimulation": 150 } }')
 
-    def test_context_str(self):
-        interaction = SimulatedInteraction("A", (1,2,3), rewards=(4,5,6))
+            env = Environments.from_file("coba/tests/.temp/from_file.env")
 
-        self.assertEqual("A", interaction.context)
+            self.assertEqual(1    , len(env))
+            self.assertEqual(150  , env[0].params['openml'])
+            self.assertEqual(False, env[0].params['cat_as_str'])
 
-    def test_context_dense(self):
-        interaction = SimulatedInteraction((1,2,3), (1,2,3), rewards=(4,5,6))
+        finally:
+            if Path("coba/tests/.temp/from_file.env").exists():
+                Path("coba/tests/.temp/from_file.env").unlink()
 
-        self.assertEqual((1,2,3), interaction.context)
+    def test_from_file_source(self):
+        if Path("coba/tests/.temp/from_file.env").exists():
+            Path("coba/tests/.temp/from_file.env").unlink()
 
-    def test_context_dense_2(self):
-        interaction = SimulatedInteraction((1,2,3,(0,0,1)), (1,2,3), rewards=(4,5,6))
+        try:
+            Path("coba/tests/.temp/from_file.env").write_text('{ "environments" : { "OpenmlSimulation": 150 } }')
 
-        self.assertEqual((1,2,3,(0,0,1)), interaction.context)
+            env = Environments.from_file(DiskIO("coba/tests/.temp/from_file.env"))
 
-    def test_context_sparse_dict(self):
-        interaction = SimulatedInteraction({1:0}, (1,2,3), rewards=(4,5,6))
+            self.assertEqual(1    , len(env))
+            self.assertEqual(150  , env[0].params['openml'])
+            self.assertEqual(False, env[0].params['cat_as_str'])
 
-        self.assertEqual({1:0}, interaction.context)
+        finally:
+            if Path("coba/tests/.temp/from_file.env").exists():
+                Path("coba/tests/.temp/from_file.env").unlink()
 
-    def test_actions_correct_1(self) -> None:
-        self.assertSequenceEqual([1,2], SimulatedInteraction(None, [1,2], rewards=[1,2]).actions)
+    def test_from_debug(self):
+        env = Environments.from_debug(100,2,3,3,0,["xa"],2)
 
-    def test_actions_correct_2(self) -> None:
-        self.assertSequenceEqual(["A","B"], SimulatedInteraction(None, ["A","B"], rewards=[1,2]).actions)
-
-    def test_actions_correct_3(self) -> None:
-        self.assertSequenceEqual([(1,2), (3,4)], SimulatedInteraction(None, [(1,2), (3,4)], rewards=[1,2]).actions)
-
-    def test_custom_rewards(self):
-        interaction = SimulatedInteraction((1,2), (1,2,3), rewards=[4,5,6])
-
-        self.assertEqual((1,2), interaction.context)
-        self.assertCountEqual((1,2,3), interaction.actions)
-        self.assertEqual({"rewards":[4,5,6] }, interaction.kwargs)
-
-    def test_reveals_results(self):
-        interaction = SimulatedInteraction((1,2), (1,2,3), reveals=[(1,2),(3,4),(5,6)],rewards=[4,5,6])
-
-        self.assertEqual((1,2), interaction.context)
-        self.assertCountEqual((1,2,3), interaction.actions)
-        self.assertEqual({"reveals":[(1,2),(3,4),(5,6)], "rewards":[4,5,6]}, interaction.kwargs)
-
-class LoggedInteraction_Tests(unittest.TestCase):
-    def test_simple(self):
-        interaction = LoggedInteraction(1, 2, 3, .2, [1,2,3])
-        
-        self.assertEqual(1, interaction.context)
-        self.assertEqual(2, interaction.action)
-        self.assertEqual(3, interaction.reward)
-        self.assertEqual(.2, interaction.probability)
-        self.assertEqual([1,2,3], interaction.actions)
-
+        self.assertEqual(1     , len(env))
+        self.assertEqual(100   , len(env[0].read()))
+        self.assertEqual(2     , env[0].params['|A|'])
+        self.assertEqual(3     , env[0].params['|phi(C)|'])
+        self.assertEqual(3     , env[0].params['|phi(A)|'])
+        self.assertEqual(0     , env[0].params['e_var'])
+        self.assertEqual(['xa'], env[0].params['X'])
+        self.assertEqual(2     , env[0].params['seed'])
 
 if __name__ == '__main__':
     unittest.main()

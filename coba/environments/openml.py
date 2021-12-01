@@ -13,7 +13,6 @@ from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
 from coba.environments.simulations import  ClassificationSimulation, RegressionSimulation
 
-
 class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]]):
 
     def __init__(self, id:int, problem_type:str = "classification", cat_as_str:bool=False, take:int = None, md5_checksum:str = None):

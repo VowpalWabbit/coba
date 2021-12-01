@@ -14,7 +14,7 @@ class Environments:
 
     @overload
     @staticmethod
-    def from_file(filesource:Union[Source[str], Source[Iterable[str]]]) -> 'Environments': ...
+    def from_file(filesource:Source[Iterable[str]]) -> 'Environments': ...
 
     @overload
     @staticmethod
@@ -23,15 +23,11 @@ class Environments:
     @staticmethod #type: ignore #(this apppears to be a mypy bug https://github.com/python/mypy/issues/7781)
     def from_file(arg) -> 'Environments': #type: ignore
         """Instantiate Environments from an environments definition file."""
-
-        if isinstance(arg,str) and arg.startswith('http'):
-            content = '\n'.join(ResponseToLines().filter(HttpIO(arg).read()))
         
-        elif isinstance(arg,str) and not arg.startswith('http'):
+        if isinstance(arg,str):
             content = '\n'.join(DiskIO(arg).read())
-
         else:
-            content = arg.read() #type: ignore
+            content = '\n'.join(arg.read())
 
         return Environments(*EnvironmentDefinitionFileV1().filter(JsonDecode().filter(content)))
 
@@ -46,7 +42,7 @@ class Environments:
         seed:int=1) -> 'Environments':
         """A simple simulation useful for debugging learning algorithms. It's rewards are linear with respect to the given 
            interactions of context (x) and action (a) features. In the case that no context or action features are requested the 
-           interaction terms are calculted by assuming all actions or contexts have a constant  feature of 1."""
+           interaction terms are calculted by assuming all actions or contexts have a constant feature of 1."""
 
         return Environments(
             DebugSimulation(n_interactions, n_actions, n_context_features, n_action_features, r_noise_var, interactions,  seed)

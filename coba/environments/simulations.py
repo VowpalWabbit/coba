@@ -303,12 +303,12 @@ class DebugSimulation(LambdaSimulation):
         self._n_action_features  = n_context_feats
         self._seed               = seed
         self._r_noise_var        = r_noise_var
-        self._interactions       = interactions
+        self._X                  = interactions
 
         rng = CobaRandom(seed)
 
         action_encoder = OneHotEncoder([str(a) for a in range(n_actions)]) if n_action_feats == 0 else IdentityEncoder()
-        interactions_encoder = InteractionsEncoder(self._interactions)
+        interactions_encoder = InteractionsEncoder(self._X)
 
         feature_count = len(interactions_encoder.encode(x=list(range(max(1,n_context_feats))),a=list(range(max(n_actions,n_action_feats)))))
         normalize     = lambda   X: [ rng.random()*x/sum(X) for x in X]
@@ -337,10 +337,18 @@ class DebugSimulation(LambdaSimulation):
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
-        return { }
+        
+        return { 
+            "|A|"     : self._n_actions,
+            "|phi(C)|": self._n_context_features,
+            "|phi(A)|": self._n_action_features,
+            "e_var"   : self._r_noise_var,
+            "X"       : self._X,
+            "seed"    : self._seed
+        }
 
     def __repr__(self) -> str:
-        return f"DebugSimulation(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},seed={self._seed})"
+        return f"DebugSimulation(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},X={self._X},seed={self._seed})"
 
     def __str__(self) -> str:
         return self.__repr__()
