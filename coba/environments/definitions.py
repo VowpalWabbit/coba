@@ -1,5 +1,5 @@
 
-import collections
+import collections.abc
 
 from itertools import product
 from typing import Sequence, Dict, Any
@@ -40,7 +40,7 @@ class EnvironmentDefinitionFileV1(Filter[Dict[str,Any], Sequence[SimulatedEnviro
             if result is None:
                 raise CobaException(f"We were unable to construct {item} in the given environment definition file.")
 
-            return result if isinstance(result, collections.Sequence) else [result]
+            return result if isinstance(result, collections.abc.Sequence) else [result]
 
         if not isinstance(config['environments'], list): config['environments'] = [config['environments']]
 

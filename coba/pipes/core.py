@@ -1,6 +1,6 @@
 """The data.pipes module contains core classes for creating data pipelines."""
 
-import collections
+import collections.abc
 
 from abc    import ABC, abstractmethod
 from typing import Sequence, Iterable, Any, overload, Union, TypeVar, Generic
@@ -121,9 +121,9 @@ class Pipe:
             return Pipe(*args)
 
         if len(args) == 2:
-            if isinstance(args[1], collections.Sequence):
+            if isinstance(args[1], collections.abc.Sequence):
                 return Pipe.SourceFilters(args[0], args[1])
-            elif isinstance(args[0], collections.Sequence):
+            elif isinstance(args[0], collections.abc.Sequence):
                 return Pipe.FiltersSink(args[0], args[1])
             else:
                 return Pipe(args[0], [], args[1])

@@ -1,4 +1,4 @@
-import collections
+import collections.abc
 
 from typing_extensions import Literal
 from typing import Sequence, overload, Union, Iterable, Iterator
@@ -65,7 +65,7 @@ class Environments:
         self._environments = []
 
         for env in environments:
-            if isinstance(env, collections.Sequence):
+            if isinstance(env, collections.abc.Sequence):
                 self._environments.extend(env)
             else:
                 self._environments.append(env)
@@ -80,7 +80,7 @@ class Environments:
         return self.filter(Take(n_interactions, seed))
 
     def filter(self, filter: Union[SimulationFilter,Sequence[SimulationFilter]]) -> 'Environments':
-        filters = filter if isinstance(filter, collections.Sequence) else [filter]
+        filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
         self._environments = [ EnvironmentPipe(e,f) for e in self._environments for f in filters ]
         return self
 

@@ -2,13 +2,13 @@
 
 import re
 import csv
-import collections
 import itertools
 import json
 import math
+import collections.abc
 
 from itertools import islice
-from typing_extensions import OrderedDict
+from collections import OrderedDict
 from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, Callable, Optional
 
 from requests import Response
@@ -30,11 +30,11 @@ class Cartesian(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
 
     def __init__(self, filter: Union[Filter,Sequence[Filter]]):
 
-        self._filters = filter if isinstance(filter, collections.Sequence) else [filter]
+        self._filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
 
     def filter(self, item: Union[Any,Iterable[Any]]) -> Iterable[Any]:
 
-        items = item if isinstance(item, collections.Iterable) else [item]
+        items = item if isinstance(item, collections.abc.Iterable) else [item]
 
         for item in items:
             for filter in self._filters:
@@ -178,7 +178,10 @@ class JsonEncode(Filter[Any, str]):
                 elif math.isnan(v) or math.isinf(v):
                     obj[k] = v                    
                 else: 
-                    obj[k] = f"|{v:0.5g}|" #rounding by any means is considerably slower than this crazy method
+                    #rounding by any means is considerably slower than this crazy method
+                    #we format as a truncated string and then manually remove the string
+                    #indicators from the json via string replace methods
+                    obj[k] = f"|{v:0.5g}|" 
             else:
                 obj[k] = self._min(v)
 

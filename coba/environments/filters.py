@@ -1,8 +1,9 @@
-import collections
+import collections.abc
 
 from math import isnan
 from statistics import mean, median, stdev, mode
 from numbers import Number
+from collections import defaultdict
 from abc import abstractmethod, ABC
 from itertools import islice, chain
 from typing_extensions import Literal
@@ -33,9 +34,9 @@ class Sort(SimulationFilter):
 
     def __init__(self, *indexes: Union[int,Sequence[int]]) -> None:
         
-        flat_indexes = cast(Sequence[int], indexes[0] if isinstance(indexes[0], collections.Sequence) else indexes)
+        flat_indexes = cast(Sequence[int], indexes[0] if isinstance(indexes[0], collections.abc.Sequence) else indexes)
 
-        if not isinstance(flat_indexes, collections.Sequence) or not isinstance(flat_indexes[0],int):
+        if not isinstance(flat_indexes, collections.abc.Sequence) or not isinstance(flat_indexes[0],int):
             raise ValueError(f"Invalid parameter for Sort: {flat_indexes}. A sequence of integers was expected.")
 
         self._indexes = flat_indexes
@@ -75,9 +76,9 @@ class Scale(SimulationFilter):
         train_interactions = list(islice(iter_interactions,self._using))
         test_interactions  = chain.from_iterable([train_interactions, iter_interactions])
         
-        shifts  : Dict[Hashable,float]     = collections.defaultdict(lambda:0)
-        scales  : Dict[Hashable,float]     = collections.defaultdict(lambda:1)
-        features: Dict[Hashable,List[Any]] = collections.defaultdict(list)
+        shifts  : Dict[Hashable,float]     = defaultdict(lambda:0)
+        scales  : Dict[Hashable,float]     = defaultdict(lambda:1)
+        features: Dict[Hashable,List[Any]] = defaultdict(list)
 
         for interaction in train_interactions:
             for name,value in self._context_as_name_values(interaction.context):
@@ -197,8 +198,8 @@ class Impute(SimulationFilter):
         train_interactions = list(islice(iter_interactions,self._using))
         test_interactions  = chain.from_iterable([train_interactions, iter_interactions])
         
-        stats   : Dict[Hashable,float]     = collections.defaultdict(lambda:0)
-        features: Dict[Hashable,List[Any]] = collections.defaultdict(list)
+        stats   : Dict[Hashable,float]     = defaultdict(lambda:0)
+        features: Dict[Hashable,List[Any]] = defaultdict(list)
 
         for interaction in train_interactions:
             for name,value in self._context_as_name_values(interaction.context):

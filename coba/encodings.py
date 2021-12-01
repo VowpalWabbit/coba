@@ -1,13 +1,11 @@
 """The encodings module contains utility classes for transforming data between encodings."""
 
 import json
-import collections
 import time
+import collections.abc
 
-from operator import mul, add
 from collections import Counter, OrderedDict
-from itertools import product, count, accumulate, chain
-from functools import reduce
+from itertools import count, accumulate, chain
 from abc import ABC, abstractmethod
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Dict
 
@@ -333,7 +331,7 @@ class InteractionsEncoder:
         self.n+= 1
 
         is_sparse_type = lambda f: isinstance(f,dict) or isinstance(f,str)
-        is_sparse_sequ = lambda f: isinstance(f, collections.Sequence) and any(map(is_sparse_type,f))
+        is_sparse_sequ = lambda f: isinstance(f, collections.abc.Sequence) and any(map(is_sparse_type,f))
 
         is_sparse = any(is_sparse_type(v) or is_sparse_sequ(v) for v in ns_raw_values.values())
 

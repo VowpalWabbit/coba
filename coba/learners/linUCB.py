@@ -1,4 +1,4 @@
-import collections
+import collections.abc
 import time
 
 from typing import Any, Dict, Sequence
@@ -53,7 +53,7 @@ class LinUCBLearner(Learner):
 
         self._i += 1
 
-        self._d   = len(actions[0]) if isinstance(actions[0], collections.Sequence) else 1
+        self._d   = len(actions[0]) if isinstance(actions[0], collections.abc.Sequence) else 1
         is_sparse = isinstance(actions[0], dict) or isinstance(context, dict)
 
         if is_sparse:

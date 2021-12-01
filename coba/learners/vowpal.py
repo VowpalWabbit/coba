@@ -1,7 +1,7 @@
 """The vowpal module contains classes to make it easier to interact with pyvw."""
 
 import re
-import collections
+import collections.abc
 
 from os import devnull
 from itertools import repeat
@@ -41,9 +41,9 @@ class VowpalMediator:
             return [("0",features)]
         elif isinstance(features,dict):
             features = features.items()
-        elif isinstance(features, collections.Sequence) and features and isinstance(features[0], tuple):
+        elif isinstance(features, collections.abc.Sequence) and features and isinstance(features[0], tuple):
             features = features
-        elif isinstance(features, collections.Sequence) and features and not isinstance(features[0],tuple):
+        elif isinstance(features, collections.abc.Sequence) and features and not isinstance(features[0],tuple):
             features = zip(map(VowpalMediator._string_cache.__getitem__, range(len(features))) ,features)
         else:
             raise Exception(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")

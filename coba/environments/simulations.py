@@ -1,5 +1,5 @@
 import math
-import collections
+import collections.abc
 
 from itertools import chain, repeat
 from typing import Sequence, Dict, Any, Iterable, Union, List, Callable, cast, Optional, Tuple, overload
@@ -93,14 +93,14 @@ class ClassificationSimulation(SimulatedEnvironment):
 
             #how can we tell the difference between featurized labels and multilabels????
             #for now we will assume multilables will be passed in as arrays not tuples...
-            if not isinstance(labels[0], collections.Hashable):
+            if not isinstance(labels[0], collections.abc.Hashable):
                 labels_flat = list(chain.from_iterable(labels))
             else:
                 labels_flat = list(labels)
 
             reward        = lambda action,label: int(is_label(action,label) or in_multilabel(action,label)) #type: ignore
             is_label      = lambda action,label: action == label #type: ignore
-            in_multilabel = lambda action,label: isinstance(label,collections.Sequence) and action in label #type: ignore
+            in_multilabel = lambda action,label: isinstance(label,collections.abc.Sequence) and action in label #type: ignore
 
             # shuffling so that action order contains no statistical information
             # sorting so that the shuffled values are always shuffled in the same order
