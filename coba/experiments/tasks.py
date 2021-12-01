@@ -142,7 +142,8 @@ class ClassEnvironmentTask(EnvironmentTask):
     def process(self, environment: Environment, interactions: Iterable[SimulatedInteraction]) -> Dict[Any,Any]:
 
         contexts,actions,rewards = zip(*[ (i.context, i.actions, i.kwargs["rewards"]) for i in interactions ])
-
+        env_statistics = {}
+        
         try:
             import numpy as np
             import scipy.sparse as sp
@@ -153,7 +154,7 @@ class ClassEnvironmentTask(EnvironmentTask):
             from sklearn.metrics import pairwise_distances
             from sklearn.decomposition import TruncatedSVD, PCA
 
-            env_statistics = {}
+            
 
             X   = [ InteractionsEncoder('x').encode(x=c, a=[]) for c in contexts ]
             Y   = [ a[r.index(1)] for a,r in zip(actions,rewards)]

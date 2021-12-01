@@ -198,9 +198,8 @@ class Table_Pandas_Tests(unittest.TestCase):
             try:
                 import pandas
             except ImportError:
-                #if somebody is using the package with no intention of
-                #using the VowpalLearner we don't want them to see failed
-                #tests and think something is wrong so we skip these tests
+                # if somebody is using coba with no intention of using pandas we don't want
+                # them to see failed tests and think something is wrong so we skip these tests
                 raise unittest.SkipTest("Pandas is not installed so no need to test Table Pandas functionality")
 
     def test_pandas(self):
@@ -361,9 +360,8 @@ class InteractionTable_Pandas_Tests(unittest.TestCase):
             try:
                 import pandas
             except ImportError:
-                #if somebody is using the package with no intention of
-                #using the VowpalLearner we don't want them to see failed
-                #tests and think something is wrong so we skip these tests
+                # if somebody is using coba with no intention of using pandas we don't want
+                # them to see failed tests and think something is wrong so we skip these tests
                 raise unittest.SkipTest("Pandas is not installed so no need to test Table Pandas functionality")
 
     def test_simple_each_span_none_pandas(self):
