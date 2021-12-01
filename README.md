@@ -12,24 +12,24 @@ Think for a second about the last time you considered evaluating CB methods for 
  2. Was it easy to incorporate the wide array of available CB algorithms?
  3. Was it easy to create, run and share the results of CB experiments?
 
+Coba was built from the ground up to do these three things and more.
+
 ### The Coba Way
- 
- Coba was built from the ground up to do all that and more.
  
  Coba is...
  
  * ... *light-weight* (it has no dependencies to get started)
  * ... *distributed* (it was built to work across the web with caching, api-key support, checksums and more)
  * ... *verbose* (it has customizable, hierarchical logging for meaningful, readable feedback on log running jobs)
- * ... *robust* (experiments write every action to file so they can always be resumed whenever your system crashes)
+ * ... *robust* (experiments write every action to file so they can always be resumed if stopped for any reason)
  * ... *just-in-time* (no resources are loaded until needed, and they are released immediately to keep memory small)
- * ... *a duck?* (Coba relies only on duck-typing so no inheritance is needed to implement our interfaces)
+ * ... *a duck?* (Coba relies only on duck-typing so no inheritance is needed to extend coba's built-in functionality)
  
  But don't take our word for it. We encourage you to look at the code yourself or read more below.
  
  ## Workflow
  
- Coba is architected around a simple workflow: Learners -> Environments -> Experiments -> Results.
+ Coba is architected around a simple workflow: Learners -> Environments -> Experiments -> Results -> Analysis.
  
  Environments represent unique CB problems that need to be solved. Learners are the CB algorithms that we can use to learn policies. Experiments are combinations of Environments and Learners that we want to evaluate. And Results are the outcome of an Experiment, containing all the data from the Experiment.
  
