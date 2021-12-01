@@ -15,7 +15,6 @@ class TestOptionalArgObject:
     def __init__(self, arg=1):
         self.arg = arg
 
-
 class CobaRegistry_Tests(unittest.TestCase):
 
     def setUp(self) -> None:

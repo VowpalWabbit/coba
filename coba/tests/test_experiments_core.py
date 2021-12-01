@@ -4,8 +4,7 @@ import math
 from pathlib import Path
 from typing import cast
 
-from coba.environments import LambdaSimulation
-from coba.environments.core import Environment
+from coba.environments import Environment, LambdaSimulation
 from coba.pipes import Source, MemoryIO
 from coba.learners import Learner
 from coba.config import CobaConfig, NullLogger, IndentLogger, BasicLogger

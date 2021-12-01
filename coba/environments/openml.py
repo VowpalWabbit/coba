@@ -10,7 +10,9 @@ from coba.config import CobaConfig
 from coba.exceptions import CobaException
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 
-from coba.environments.simulations import SimulatedEnvironment, SimulatedInteraction, ClassificationSimulation, RegressionSimulation
+from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
+from coba.environments.simulations import  ClassificationSimulation, RegressionSimulation
+
 
 class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]]):
 

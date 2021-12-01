@@ -7,13 +7,13 @@ They simply make it possible to use static type checking for any project that de
 to do so.
 """
 
-from coba.environments.core         import Context, Action
-from coba.environments.core         import Interaction, SimulatedInteraction, LoggedInteraction
-from coba.environments.core         import Environment, SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment
+from coba.environments.primitives   import Context, Action
+from coba.environments.primitives   import Interaction, SimulatedInteraction, LoggedInteraction
+from coba.environments.primitives   import Environment, SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment
 from coba.environments.openml       import OpenmlSource, OpenmlSimulation
 from coba.environments.filters      import SimulationFilter, Sort, Scale, Cycle, Impute
 from coba.environments.pipes        import EnvironmentPipe
-from coba.environments.environments import Environments
+from coba.environments.core         import Environments
 
 from coba.environments.simulations import (
     MemorySimulation, LambdaSimulation, ClassificationSimulation, CsvSimulation, 

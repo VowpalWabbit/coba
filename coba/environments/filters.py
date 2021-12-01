@@ -12,7 +12,7 @@ from coba.random import CobaRandom
 from coba.pipes import Filter
 from coba.statistics import iqr
 
-from coba.environments.core import SimulatedInteraction, LoggedInteraction, Interaction
+from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, Interaction
 
 class SimulationFilter(Filter[Iterable[SimulatedInteraction],Iterable[SimulatedInteraction]], ABC):
 

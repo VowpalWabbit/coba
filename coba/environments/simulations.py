@@ -11,7 +11,7 @@ from coba.random import CobaRandom
 from coba.encodings import InteractionsEncoder, OneHotEncoder, IdentityEncoder
 from coba.exceptions import CobaException
 
-from coba.environments.core import Context, Action, SimulatedEnvironment, SimulatedInteraction
+from coba.environments.primitives import Context, Action, SimulatedEnvironment, SimulatedInteraction
 
 T_Dense_Feat  = Sequence[Any]
 T_Sparse_Feat = Dict[Any,Any]

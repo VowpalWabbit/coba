@@ -6,7 +6,7 @@ from coba.registry import CobaRegistry
 from coba.exceptions import CobaException
 
 from coba.environments.definitions import EnvironmentDefinitionFileV1
-from coba.environments.core import SimulatedEnvironment
+from coba.environments.primitives import SimulatedEnvironment
 from coba.environments.openml import OpenmlSimulation
 
 class EnvironmentFileFmtV1_Tests(unittest.TestCase):

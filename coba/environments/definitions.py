@@ -8,8 +8,8 @@ from coba.registry import CobaRegistry
 from coba.pipes import Filter
 from coba.exceptions import CobaException
 
-from coba.environments.core import SimulatedEnvironment
 from coba.environments.pipes import EnvironmentPipe
+from coba.environments.primitives import SimulatedEnvironment
 
 class EnvironmentDefinitionFileV1(Filter[Dict[str,Any], Sequence[SimulatedEnvironment]]):
 
