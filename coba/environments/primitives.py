@@ -35,9 +35,9 @@ class SimulatedInteraction(Interaction):
         actions: Sequence[Action],
         *,
         rewards: Sequence[float],
-        **kwargs: Sequence[Any]) -> None:
+        **kwargs) -> None:
         ...
-        """Instantiate Interaction.
+        """Instantiate SimulatedInteraction.
 
         Args
             context : Features describing the interaction's context. This should be `None` for multi-armed bandit simulations.
@@ -53,9 +53,9 @@ class SimulatedInteraction(Interaction):
         actions: Sequence[Action], 
         *,
         reveals: Sequence[Any],
-        **kwargs: Sequence[Any]) -> None:
+        **kwargs) -> None:
         ...
-        """Instantiate Interaction.
+        """Instantiate SimulatedInteraction.
 
         Args
             context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
@@ -73,9 +73,9 @@ class SimulatedInteraction(Interaction):
         *,
         rewards : Sequence[float],
         reveals : Sequence[Any],
-        **kwargs: Sequence[Any]) -> None:
+        **kwargs) -> None:
         ...
-        """Instantiate Interaction.
+        """Instantiate SimulatedInteraction.
 
         Args
             context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
@@ -89,16 +89,15 @@ class SimulatedInteraction(Interaction):
                 data is a sequence with length equal to actions only the data at the selected action index will be recorded.
         """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, context: Context, actions: Sequence[Action], **kwargs) -> None:
 
-        assert len(args) == 2, "An unexpected number of positional arguments was supplied to Interaction."
         assert kwargs.keys() & {"rewards", "reveals"}, "Interaction requires either a rewards or reveals keyword warg."
-  
-        assert "rewards" not in kwargs or len(args[1]) == len(kwargs["rewards"]), "Interaction rewards must match action length."
-        assert "reveals" not in kwargs or len(args[1]) == len(kwargs["reveals"]), "Interaction reveals must match action length."
 
-        self._context = self._hashable(args[0])
-        self._actions = list(map(self._hashable,args[1]))
+        assert "rewards" not in kwargs or len(actions) == len(kwargs["rewards"]), "Interaction rewards must match action length."
+        assert "reveals" not in kwargs or len(actions) == len(kwargs["reveals"]), "Interaction reveals must match action length."
+
+        self._context = self._hashable(context)
+        self._actions = list(map(self._hashable,actions))
 
         self._kwargs  = kwargs
 
@@ -122,18 +121,58 @@ class SimulatedInteraction(Interaction):
 
 class LoggedInteraction(Interaction):
 
-    def __init__(self, 
-        context: Context, 
-        action: Action, 
-        reward: float, 
+    @overload
+    def __init__(self,
+        context: Context,
+        action : Action,
+        *,
+        reward: float,
         probability: Optional[float] = None,
-        actions: Optional[Sequence[Action]] = None) -> None:
+        actions: Optional[Sequence[Action]] = None,
+        **kwargs) -> None:
+        ...
+        """Instantiate LoggedInteraction.
+
+        Args
+            context : Features describing the context that was logged. This should be `None` for multi-armed bandit simulations.
+            action  : Features describing the taken action for logging purposes.
+            reward  : The reward that was revealed when the logged action was taken.
+            probability: The probability that the logged action was taken.
+            actions    : All actions that were availble to be taken when the logged action was taken.
+            **kwargs   : Additional information that should be recorded in the interactions table of an experiment result. If 
+                any data is a sequence with length equal to actions only the data at the selected action index will be recorded.
+        """
+
+    @overload
+    def __init__(self,
+        context: Context,
+        action : Action,
+        *,
+        reveal     : Any,
+        probability: Optional[float] = None,
+        actions    : Optional[Sequence[Action]] = None,
+        **kwargs) -> None:
+        ...
+        """Instantiate LoggedInteraction.
+
+        Args
+            context    : Features describing the context that was logged. This should be `None` for multi-armed bandit simulations.
+            action     : Features describing the taken action for logging purposes.
+            reveal     : The information that was revealed when the logged action was taken.
+            probability: The probability that the logged action was taken.
+            actions    : All actions that were availble to be taken when the logged action was taken.
+            **kwargs   : Additional information that should be recorded in the interactions table of an experiment result. If 
+                any data is a sequence with length equal to actions only the data at the selected action index will be recorded.
+        """
+
+    def __init__(self, context: Context, action: Action, **kwargs) -> None:
 
         self._context     = self._hashable(context)
         self._action      = self._hashable(action)
-        self._reward      = reward
-        self._actions     = list(map(self._hashable,actions)) if actions else actions
-        self._probability = probability
+        self._kwargs      = kwargs
+
+        if "actions" in self._kwargs:
+            self._kwargs["actions"] = list(map(self._hashable,self._kwargs["actions"]))
 
         super().__init__(self._context)
 
@@ -143,19 +182,8 @@ class LoggedInteraction(Interaction):
         return self._action
 
     @property
-    def reward(self) -> float:
-        """The reward that was observed when the action was taken."""
-        return self._reward
-
-    @property
-    def probability(self) -> Optional[float]:
-        """The probability that the given action was taken."""
-        return self._probability
-
-    @property
-    def actions(self) -> Optional[Sequence[Action]]:
-        """The actions that were available to take."""
-        return self._actions
+    def kwargs(self) -> Dict[str,Any]:
+        return self._kwargs
 
 class Environment(Source[Iterable[Interaction]], ABC):
 

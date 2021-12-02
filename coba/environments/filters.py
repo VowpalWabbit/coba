@@ -46,7 +46,7 @@ class Sort(EnvironmentFilter):
     def params(self) -> Dict[str, Any]:
         return { "sort": self._keys }
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         return sorted(interactions, key=lambda interaction: tuple(interaction.context[key] for key in self._keys))
 
 class Scale(EnvironmentFilter):
@@ -67,7 +67,7 @@ class Scale(EnvironmentFilter):
     def params(self) -> Dict[str, Any]:
         return { "scale_shift": self._shift, "scale_scale":self._scale, "scale_using":self._using }
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         iter_interactions  = iter(interactions)
         train_interactions = list(islice(iter_interactions,self._using))
@@ -133,7 +133,10 @@ class Scale(EnvironmentFilter):
             else:
                 final_context = kv_scaled_context[1]
 
-            yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
+            try:
+                yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
+            except:
+                yield LoggedInteraction(final_context, interaction.action, **interaction.kwargs)
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
         
@@ -142,28 +145,6 @@ class Scale(EnvironmentFilter):
         if context is not None      : return [(1,context)]
 
         return []
-
-class Cycle(EnvironmentFilter):
-
-    def __init__(self, after:int = 0):
-        self._after = after
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { "cycle_after": self._after }
-
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-
-        underlying_iterable     = iter(interactions)
-        sans_cycle_interactions = islice(underlying_iterable, self._after)
-        with_cycle_interactions = underlying_iterable
-
-        for interaction in sans_cycle_interactions:
-            yield interaction
-
-        for interaction in with_cycle_interactions:
-            kwargs = {k:v[1:]+v[:1] for k,v in interaction.kwargs.items()}
-            yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
 
 class Impute(EnvironmentFilter):
 
@@ -180,7 +161,7 @@ class Impute(EnvironmentFilter):
     def params(self) -> Dict[str, Any]:
         return { "impute_stat": self._stat, "impute_using": self._using }
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         iter_interactions  = iter(interactions)
         train_interactions = list(islice(iter_interactions,self._using))
@@ -221,7 +202,10 @@ class Impute(EnvironmentFilter):
             else:
                 final_context = kv_imputed_context[1]
 
-            yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
+            try:
+                yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
+            except:
+                yield LoggedInteraction(final_context, interaction.action, **interaction.kwargs)
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
         
@@ -230,6 +214,28 @@ class Impute(EnvironmentFilter):
         if context is not None      : return [(1,context)]
 
         return []
+
+class Cycle(EnvironmentFilter):
+
+    def __init__(self, after:int = 0):
+        self._after = after
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "cycle_after": self._after }
+
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+
+        underlying_iterable     = iter(interactions)
+        sans_cycle_interactions = islice(underlying_iterable, self._after)
+        with_cycle_interactions = underlying_iterable
+
+        for interaction in sans_cycle_interactions:
+            yield interaction
+
+        for interaction in with_cycle_interactions:
+            kwargs = {k:v[1:]+v[:1] for k,v in interaction.kwargs.items()}
+            yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
 
 class Binary(EnvironmentFilter):
     @property
@@ -265,13 +271,20 @@ class ToWarmStart(EnvironmentFilter):
 
         return chain(logged_interactions, simulated_interactions)
 
-    def _to_logged_interaction(self, interaction: SimulatedInteraction) -> LoggedInteraction:        
+    def _to_logged_interaction(self, interaction: SimulatedInteraction) -> LoggedInteraction:
         num_actions   = len(interaction.actions)
         probabilities = [1/num_actions] * num_actions 
         
         selected_index       = self._rng.choice(list(range(num_actions)), probabilities)
         selected_action      = interaction.actions[selected_index]
         selected_probability = probabilities[selected_index]
-        selected_reward      = interaction.kwargs.get("reveals", interaction.kwargs.get("rewards", None))[selected_index]
+        
+        kwargs = {"probability":selected_probability, "actions":interaction.actions}
 
-        return LoggedInteraction(interaction.context, selected_action, selected_reward, selected_probability, interaction.actions)
+        if "reveals" in interaction.kwargs:
+            kwargs["reveal"] = interaction.kwargs["reveals"][selected_index]
+
+        if "rewards" in interaction.kwargs:
+            kwargs["reward"] = interaction.kwargs["rewards"][selected_index]
+
+        return LoggedInteraction(interaction.context, selected_action, **kwargs)

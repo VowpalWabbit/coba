@@ -8,6 +8,7 @@ from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.environments import Environment, EnvironmentPipe, Interaction, SimulatedInteraction, LoggedInteraction
 from coba.encodings import InteractionsEncoder
+from coba.utilities import PackageChecker
 
 class LearnerTask(ABC):
 
@@ -66,14 +67,16 @@ class OffPolicyEvaluationTask(EvaluationTask):
 
         for interaction in interactions:
 
-            if not interaction.probability or not interaction.actions:
+            if len(interaction.kwargs.keys() & {"probability", "actions", "reward"}) != 3:
                 predict_info = {}
             else:
-                probs = learner.predict(interaction.context, interaction.actions)[0]
-                ratio = probs[interaction.actions.index(interaction.action)] / interaction.probability
-                predict_info = { "reward": ratio * interaction.reward }
+                actions      = list(interaction.kwargs["actions"])
+                probs        = learner.predict(interaction.context, actions)[0]
+                ratio        = probs[actions.index(interaction.action)] / interaction.kwargs["probability"]
+                predict_info = { "reward": ratio * interaction.kwargs["reward"] }
 
-            learn_info = learner.learn(interaction.context, interaction.action, interaction.reward, interaction.probability)
+            reveal     = interaction.kwargs.get("reveal", interaction.kwargs["reward"])
+            learn_info = learner.learn(interaction.context, interaction.action, reveal, interaction.kwargs.get("probability"))
 
             yield {**predict_info, **learn_info}
 
@@ -106,12 +109,12 @@ class WarmStartEvaluationTask(EvaluationTask):
             else:
                 first_simulated_interaction = interaction
                 break
-        
+
         for interaction in chain([first_simulated_interaction], interactions):
             yield interaction
 
 class SimpleLearnerTask(LearnerTask):
-    
+
     def process(self, item: Learner) -> Dict[Any,Any]:
         item = SafeLearner(item)
         return {"full_name": item.full_name, **item.params}
@@ -130,7 +133,7 @@ class SimpleEnvironmentTask(EnvironmentTask):
             return env.source_repr
         else:
             return env.__class__.__name__
-    
+
     def _pipe_params(self, env) -> Dict[str,Any]:
         if isinstance(env, EnvironmentPipe):
             return env.params
@@ -143,7 +146,7 @@ class ClassEnvironmentTask(EnvironmentTask):
 
         contexts,actions,rewards = zip(*[ (i.context, i.actions, i.kwargs["rewards"]) for i in interactions ])
         env_statistics = {}
-        
+
         try:
             import numpy as np
             import scipy.sparse as sp
@@ -153,8 +156,6 @@ class ClassEnvironmentTask(EnvironmentTask):
             from sklearn.model_selection import cross_val_score
             from sklearn.metrics import pairwise_distances
             from sklearn.decomposition import TruncatedSVD, PCA
-
-            
 
             X   = [ InteractionsEncoder('x').encode(x=c, a=[]) for c in contexts ]
             Y   = [ a[r.index(1)] for a,r in zip(actions,rewards)]

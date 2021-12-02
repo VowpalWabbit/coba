@@ -9,6 +9,25 @@ CobaConfig.logger = NullLogger()
 
 class Sort_tests(unittest.TestCase):
 
+    def test_sort1_logged(self):
+
+        interactions = [
+            LoggedInteraction((7,2), 1, reward=1),
+            LoggedInteraction((1,9), 1, reward=1),
+            LoggedInteraction((8,3), 1, reward=1)
+        ]
+
+        mem_interactions = interactions
+        srt_interactions = list(Sort([0]).filter(mem_interactions))
+
+        self.assertEqual((7,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((8,3), mem_interactions[2].context)
+
+        self.assertEqual((1,9), srt_interactions[0].context)
+        self.assertEqual((7,2), srt_interactions[1].context)
+        self.assertEqual((8,3), srt_interactions[2].context)
+
     def test_sort1(self):
 
         interactions = [
@@ -74,7 +93,32 @@ class Sort_tests(unittest.TestCase):
 
 class Scale_tests(unittest.TestCase):
 
-    def test_scale_min_and_minmax_using_all(self):
+    def test_scale_min_and_minmax_using_all_logged(self):
+
+        interactions = [
+            LoggedInteraction((7,2), 1, reward=1),
+            LoggedInteraction((1,9), 1, reward=1),
+            LoggedInteraction((8,3), 1, reward=1)
+        ]
+
+        mem_interactions = interactions
+        scl_interactions = list(Scale().filter(interactions))
+
+        self.assertEqual((7,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((8,3), mem_interactions[2].context)
+
+        self.assertEqual(3, len(scl_interactions))
+
+        self.assertIsInstance(scl_interactions[0], LoggedInteraction)
+        self.assertIsInstance(scl_interactions[1], LoggedInteraction)
+        self.assertIsInstance(scl_interactions[2], LoggedInteraction)
+
+        self.assertEqual((6/7,0  ), scl_interactions[0].context)
+        self.assertEqual((0  ,1  ), scl_interactions[1].context)
+        self.assertEqual((1  ,1/7), scl_interactions[2].context)
+
+    def test_scale_min_and_minmax_using_all_simulated(self):
 
         interactions = [
             SimulatedInteraction((7,2), [1], rewards=[1]),
@@ -423,6 +467,26 @@ class Cycle_tests(unittest.TestCase):
 
 class Impute_tests(unittest.TestCase):
 
+    def test_impute_mean_logged(self):
+
+        interactions = [
+            LoggedInteraction((7           , 2           ), 1, reward=1),
+            LoggedInteraction((float('nan'), float('nan')), 1, reward=1),
+            LoggedInteraction((8           , 3           ), 1, reward=1)
+        ]
+
+        mem_interactions = interactions
+        imp_interactions = list(Impute().filter(interactions))
+
+        self.assertEqual((7,2), mem_interactions[0].context)
+        self.assertEqual((8,3), mem_interactions[2].context)
+
+        self.assertEqual(3, len(imp_interactions))
+
+        self.assertEqual((7  ,  2), imp_interactions[0].context)
+        self.assertEqual((7.5,2.5), imp_interactions[1].context)
+        self.assertEqual((8  ,3  ), imp_interactions[2].context)
+
     def test_impute_nothing(self):
 
         interactions = [
@@ -576,11 +640,12 @@ class Binary_tests(unittest.TestCase):
         self.assertEqual({'binary':True}, Binary().params)
 
 class ToWarmStart_tests(unittest.TestCase):
+    
     def test_to_warmstart(self):
         interactions = [
-            SimulatedInteraction((7,2), [1,2], rewards=[.2,.3]),
-            SimulatedInteraction((1,9), [1,2], rewards=[.1,.5]),
-            SimulatedInteraction((8,3), [1,2], rewards=[.5,.2])
+            SimulatedInteraction((7,2), [1,2], rewards=[.2,.3], reveals=[1,2]),
+            SimulatedInteraction((1,9), [1,2], rewards=[.1,.5], reveals=[3,4]),
+            SimulatedInteraction((8,3), [1,2], rewards=[.5,.2], reveals=[5,6])
         ]
 
         warmstart_interactions = list(ToWarmStart(2).filter(interactions))
@@ -591,19 +656,22 @@ class ToWarmStart_tests(unittest.TestCase):
 
         self.assertEqual((7,2), warmstart_interactions[0].context)
         self.assertEqual(1, warmstart_interactions[0].action)
-        self.assertEqual([1,2], warmstart_interactions[0].actions)
-        self.assertEqual(1/2, warmstart_interactions[0].probability)
-        self.assertEqual(.2, warmstart_interactions[0].reward)
+        self.assertEqual([1,2], warmstart_interactions[0].kwargs["actions"])
+        self.assertEqual(1/2, warmstart_interactions[0].kwargs["probability"])
+        self.assertEqual(.2, warmstart_interactions[0].kwargs["reward"])
+        self.assertEqual(1, warmstart_interactions[0].kwargs["reveal"])
 
         self.assertEqual((1,9), warmstart_interactions[1].context)
         self.assertEqual(2, warmstart_interactions[1].action)
-        self.assertEqual([1,2], warmstart_interactions[1].actions)
-        self.assertEqual(1/2, warmstart_interactions[1].probability)
-        self.assertEqual(.5, warmstart_interactions[1].reward)
+        self.assertEqual([1,2], warmstart_interactions[1].kwargs["actions"])
+        self.assertEqual(1/2, warmstart_interactions[1].kwargs["probability"])
+        self.assertEqual(.5, warmstart_interactions[1].kwargs["reward"])
+        self.assertEqual(4, warmstart_interactions[1].kwargs["reveal"])
 
         self.assertEqual((8,3), warmstart_interactions[2].context)
         self.assertEqual([1,2], warmstart_interactions[2].actions)
         self.assertEqual([.5,.2], warmstart_interactions[2].kwargs["rewards"])
+        self.assertEqual([5,6], warmstart_interactions[2].kwargs["reveals"])
 
     def test_params(self):
         self.assertEqual({"n_warmstart": 10}, ToWarmStart(10).params)
