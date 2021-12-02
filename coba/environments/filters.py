@@ -7,7 +7,7 @@ from collections import defaultdict
 from abc import abstractmethod, ABC
 from itertools import islice, chain
 from typing_extensions import Literal
-from typing import Hashable, Optional, Sequence, cast, Union, Iterable, Dict, Any, List, Tuple
+from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple
 
 from coba.random import CobaRandom
 from coba.pipes import Filter
@@ -15,7 +15,7 @@ from coba.statistics import iqr
 
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, Interaction
 
-class SimulationFilter(Filter[Iterable[SimulatedInteraction],Iterable[SimulatedInteraction]], ABC):
+class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
 
     @property
     @abstractmethod
@@ -30,29 +30,26 @@ class SimulationFilter(Filter[Iterable[SimulatedInteraction],Iterable[SimulatedI
     def __repr__(self) -> str:
         return str(self.params)
 
-class Sort(SimulationFilter):
+class Sort(EnvironmentFilter):
 
-    def __init__(self, *indexes: Union[int,Sequence[int]]) -> None:
+    def __init__(self, *keys: Union[str,int,Sequence[Union[str,int]]]) -> None:
         
-        flat_indexes = cast(Sequence[int], indexes[0] if isinstance(indexes[0], collections.abc.Sequence) else indexes)
-
-        if not isinstance(flat_indexes, collections.abc.Sequence) or not isinstance(flat_indexes[0],int):
-            raise ValueError(f"Invalid parameter for Sort: {flat_indexes}. A sequence of integers was expected.")
-
-        self._indexes = flat_indexes
+        self._keys = []
+        
+        for key in keys:
+            if not isinstance(key, collections.abc.Sequence) or isinstance(key,str):
+                self._keys.append(key)
+            else:
+                self._keys.extend(key)
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { "sort": self._indexes }
+        return { "sort": self._keys }
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-        
-        return sorted(interactions, key=lambda interaction: tuple(interaction.context[i] for i in self._indexes))
+        return sorted(interactions, key=lambda interaction: tuple(interaction.context[key] for key in self._keys))
 
-    def __repr__(self) -> str:
-        return str(self.params)
-
-class Scale(SimulationFilter):
+class Scale(EnvironmentFilter):
 
     def __init__(self, 
         shift: Union[Number,Literal["min","mean","med"]] ="min", 
@@ -86,9 +83,6 @@ class Scale(SimulationFilter):
                     features[name].append(value)
 
         for feat_name, feat_numeric_values in features.items():
-
-            if isinstance(feat_numeric_values[0],str):
-                continue 
 
             if isinstance(self._shift, Number):
                 shifts[feat_name] = self._shift
@@ -135,7 +129,7 @@ class Scale(SimulationFilter):
             elif isinstance(interaction.context,dict):
                 final_context = kv_scaled_context
             elif isinstance(interaction.context,tuple):
-                final_context = tuple( kv_scaled_context[k] for k,_ in self._context_as_name_values(interaction.context))
+                final_context = tuple(kv_scaled_context[k] for k,_ in self._context_as_name_values(interaction.context))
             else:
                 final_context = kv_scaled_context[1]
 
@@ -149,10 +143,7 @@ class Scale(SimulationFilter):
 
         return []
 
-    def __repr__(self) -> str:
-        return str(self.params)
-
-class Cycle(SimulationFilter):
+class Cycle(EnvironmentFilter):
 
     def __init__(self, after:int = 0):
         self._after = after
@@ -174,10 +165,7 @@ class Cycle(SimulationFilter):
             kwargs = {k:v[1:]+v[:1] for k,v in interaction.kwargs.items()}
             yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
 
-    def __repr__(self) -> str:
-        return str(self.params)
-
-class Impute(SimulationFilter):
+class Impute(EnvironmentFilter):
 
     def __init__(self, 
         stat : Literal["mean","median","mode"] = "mean",
@@ -198,8 +186,8 @@ class Impute(SimulationFilter):
         train_interactions = list(islice(iter_interactions,self._using))
         test_interactions  = chain.from_iterable([train_interactions, iter_interactions])
         
-        stats   : Dict[Hashable,float]     = defaultdict(lambda:0)
-        features: Dict[Hashable,List[Any]] = defaultdict(list)
+        stats   : Dict[Hashable,float]        = defaultdict(int)
+        features: Dict[Hashable,List[Number]] = defaultdict(list)
 
         for interaction in train_interactions:
             for name,value in self._context_as_name_values(interaction.context):
@@ -207,9 +195,6 @@ class Impute(SimulationFilter):
                     features[name].append(value)
 
         for feat_name, feat_numeric_values in features.items():
-
-            if isinstance(feat_numeric_values[0],str):
-                continue 
 
             if self._stat == "mean":
                 stats[feat_name] = mean(feat_numeric_values)
@@ -232,7 +217,7 @@ class Impute(SimulationFilter):
             elif isinstance(interaction.context,dict):
                 final_context = kv_imputed_context
             elif isinstance(interaction.context,tuple):
-                final_context = tuple( kv_imputed_context[k] for k,_ in self._context_as_name_values(interaction.context))
+                final_context = tuple(kv_imputed_context[k] for k,_ in self._context_as_name_values(interaction.context))
             else:
                 final_context = kv_imputed_context[1]
 
@@ -246,10 +231,7 @@ class Impute(SimulationFilter):
 
         return []
 
-    def __repr__(self) -> str:
-        return str(self.params)
-
-class Binary(SimulationFilter):
+class Binary(EnvironmentFilter):
     @property
     def params(self) -> Dict[str, Any]:
         return { "binary": True }
@@ -263,9 +245,9 @@ class Binary(SimulationFilter):
 
             yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
 
-class ToWarmStart(SimulationFilter):
+class ToWarmStart(EnvironmentFilter):
+
     def __init__(self, n_warmstart:int, seed:int = 1):
-        
         self._n_warmstart = n_warmstart
         self._seed = seed
 
@@ -292,7 +274,4 @@ class ToWarmStart(SimulationFilter):
         selected_probability = probabilities[selected_index]
         selected_reward      = interaction.kwargs.get("reveals", interaction.kwargs.get("rewards", None))[selected_index]
 
-        return LoggedInteraction(interaction.context, selected_action, selected_reward, selected_probability)
-
-    def __repr__(self) -> str:
-        return str(self.params)
+        return LoggedInteraction(interaction.context, selected_action, selected_reward, selected_probability, interaction.actions)

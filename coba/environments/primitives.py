@@ -8,7 +8,23 @@ Action  = Union[Hashable, HashableDict]
 Context = Union[None, Hashable, HashableDict]
 
 class Interaction:
-    pass
+    def __init__(self, context: Context) -> None:
+        self._context = context
+
+    @property
+    def context(self) -> Context:
+        """The context in which an action was taken."""
+        return self._context
+
+    def _hashable(self, feats):
+
+        if isinstance(feats, dict):
+            return HashableDict(feats)
+
+        if isinstance(feats,list):
+            return tuple(feats)
+
+        return feats
 
 class SimulatedInteraction(Interaction):
     """A class to contain all data needed to represent an interaction in a simulated bandit interaction."""
@@ -82,19 +98,11 @@ class SimulatedInteraction(Interaction):
         assert "reveals" not in kwargs or len(args[1]) == len(kwargs["reveals"]), "Interaction reveals must match action length."
 
         self._context = self._hashable(args[0])
-        self._actions = [ self._hashable(action) for action in args[1] ]
+        self._actions = list(map(self._hashable,args[1]))
 
         self._kwargs  = kwargs
 
-    def _hashable(self, feats):
-
-        if isinstance(feats, dict):
-            return HashableDict(feats)
-
-        if isinstance(feats,list):
-            return tuple(feats)
-
-        return feats
+        super().__init__(self._context)
 
     @property
     def context(self) -> Context:
@@ -121,16 +129,13 @@ class LoggedInteraction(Interaction):
         probability: Optional[float] = None,
         actions: Optional[Sequence[Action]] = None) -> None:
 
-        self._context     = context
-        self._action      = action
+        self._context     = self._hashable(context)
+        self._action      = self._hashable(action)
         self._reward      = reward
-        self._actions     = actions
+        self._actions     = list(map(self._hashable,actions)) if actions else actions
         self._probability = probability
 
-    @property
-    def context(self) -> Context:
-        """The context in which an action was taken."""
-        return self._context
+        super().__init__(self._context)
 
     @property
     def action(self) -> Action:

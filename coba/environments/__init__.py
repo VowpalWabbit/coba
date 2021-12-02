@@ -11,7 +11,7 @@ from coba.environments.primitives   import Context, Action
 from coba.environments.primitives   import Interaction, SimulatedInteraction, LoggedInteraction
 from coba.environments.primitives   import Environment, SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment
 from coba.environments.openml       import OpenmlSource, OpenmlSimulation
-from coba.environments.filters      import SimulationFilter, Sort, Scale, Cycle, Impute
+from coba.environments.filters      import EnvironmentFilter, Sort, Scale, Cycle, Impute, Binary, ToWarmStart
 from coba.environments.pipes        import EnvironmentPipe
 from coba.environments.core         import Environments
 
@@ -42,10 +42,12 @@ __all__ = [
     'ManikSimulation',
     'OpenmlSimulation',
     'DebugSimulation',
-    'SimulationFilter',
+    'EnvironmentFilter',
     'Sort',
     'Scale',
     'Cycle',
     'Impute',
+    'Binary',
+    'ToWarmStart',
     'EnvironmentPipe',
 ]

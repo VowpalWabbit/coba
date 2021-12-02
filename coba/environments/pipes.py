@@ -3,11 +3,11 @@ from typing import Iterable, Dict, Any
 from coba.pipes import Pipe
 
 from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
-from coba.environments.filters import SimulationFilter
+from coba.environments.filters import EnvironmentFilter
 
 class EnvironmentPipe(SimulatedEnvironment):
 
-    def __init__(self, source: SimulatedEnvironment, *filters: SimulationFilter):
+    def __init__(self, source: SimulatedEnvironment, *filters: EnvironmentFilter):
         
         if isinstance(source, EnvironmentPipe):
             self._source = source._source

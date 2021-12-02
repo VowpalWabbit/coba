@@ -6,7 +6,7 @@ from typing import Sequence, overload, Union, Iterable, Iterator
 from coba.pipes import Source, DiskIO, JsonDecode, Shuffle, Take
 
 from coba.environments.pipes       import EnvironmentPipe
-from coba.environments.filters     import SimulationFilter, Binary
+from coba.environments.filters     import EnvironmentFilter, Binary
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 from coba.environments.simulations import DebugSimulation
 from coba.environments.primitives  import Environment, LoggedEnvironment, SimulatedEnvironment, WarmStartEnvironment
@@ -79,7 +79,7 @@ class Environments:
     def take(self, n_interactions: int, seed: int = None) -> 'Environments':
         return self.filter(Take(n_interactions, seed))
 
-    def filter(self, filter: Union[SimulationFilter,Sequence[SimulationFilter]]) -> 'Environments':
+    def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
         self._environments = [ EnvironmentPipe(e,f) for e in self._environments for f in filters ]
         return self
