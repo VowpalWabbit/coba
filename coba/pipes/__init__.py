@@ -1,6 +1,6 @@
 
-from coba.pipes.core import Pipe, Filter, Source, Sink, StopPipe
-
+from coba.pipes.primitives import Filter, Source, Sink, StopPipe
+from coba.pipes.core import Pipe
 from coba.pipes.multiprocessing import MultiprocessFilter
 
 from coba.pipes.filters import (

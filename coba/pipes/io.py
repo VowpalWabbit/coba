@@ -5,7 +5,7 @@ from itertools import chain
 from queue import Queue
 from typing import Iterable, Sequence, TypeVar, Any, Generic, Union
 
-from coba.pipes.core import Sink, Source
+from coba.pipes.primitives import Sink, Source
 
 _T_in  = TypeVar("_T_in", bound=Any, contravariant=True)
 _T_out = TypeVar("_T_out", bound=Any, covariant=True)

@@ -16,7 +16,8 @@ from requests import Response
 from coba.random import CobaRandom
 from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder, CobaJsonEncoder, CobaJsonDecoder
 from coba.exceptions import CobaException
-from coba.pipes.core import Filter
+
+from coba.pipes.primitives import Filter
 
 _T_DenseRow   = Sequence[Any]
 _T_SparseRow  = Dict[Any,Any]

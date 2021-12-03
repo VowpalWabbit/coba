@@ -130,7 +130,7 @@ class SimpleEnvironmentTask(EnvironmentTask):
             
     def _source_repr(self, env) -> str:
         if isinstance(env, EnvironmentPipe):
-            return env.source_repr
+            return str(env._source)
         else:
             return env.__class__.__name__
 

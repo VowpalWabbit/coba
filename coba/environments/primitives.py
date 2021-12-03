@@ -2,7 +2,7 @@ from abc import abstractmethod, ABC
 from typing import Optional, Sequence, Hashable, Any, Union, Iterable, overload, Dict
 
 from coba.utilities import HashableDict
-from coba.pipes import Source
+from coba.pipes import Source, Filter
 
 Action  = Union[Hashable, HashableDict]
 Context = Union[None, Hashable, HashableDict]
@@ -206,6 +206,9 @@ class Environment(Source[Iterable[Interaction]], ABC):
         """
         ...
 
+    def __repr__(self) -> str:
+        return str(self.params) if self.params else self.__class__.__name__
+
 class SimulatedEnvironment(Environment):
     """The interface for a simulated environment."""
     
@@ -241,3 +244,18 @@ class WarmStartEnvironment(Environment):
             This function should always be "re-iterable".
         """
         ...
+
+class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
+
+    @property
+    @abstractmethod
+    def params(self) -> Dict[str, Any]:
+        ...
+
+    @abstractmethod
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+        """Apply a filter to a Simulation's interactions."""
+        ...
+
+    def __repr__(self) -> str:
+        return str(self.params) if self.params else self.__class__.__name__

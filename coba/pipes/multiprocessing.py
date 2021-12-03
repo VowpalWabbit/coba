@@ -5,11 +5,11 @@ import traceback
 
 from multiprocessing import Manager, current_process
 from threading       import Thread
-from typing          import Sequence, Iterable, Any
+from typing          import Iterable, Any
 
-from coba.pipes.core    import Pipe, StopPipe
-from coba.pipes.filters import Filter
-from coba.pipes.io      import Sink, QueueIO, ConsoleIO
+from coba.pipes.core       import Pipe
+from coba.pipes.primitives import Filter, StopPipe
+from coba.pipes.io         import Sink, QueueIO, ConsoleIO
 
 super_worker = multiprocessing.pool.worker #type: ignore
 

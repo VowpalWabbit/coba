@@ -12,9 +12,12 @@ class Pipe_Tests(unittest.TestCase):
         def __repr__(self):
             return "ReprIO"
 
-    class ReprFilter(Identity):
+    class ReprFilter(Filter):
         def __repr__(self):
             return "ReprFilter"
+        
+        def filter(self, item: Any) -> Any:
+            return item
 
     class ProcessNameFilter(Filter):
         def filter(self, items: Iterable[Any]) -> Iterable[Any]:

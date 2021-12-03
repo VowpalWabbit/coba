@@ -13,22 +13,7 @@ from coba.random import CobaRandom
 from coba.pipes import Filter
 from coba.statistics import iqr
 
-from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, Interaction
-
-class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
-
-    @property
-    @abstractmethod
-    def params(self) -> Dict[str, Any]:
-        ...
-
-    @abstractmethod
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-        """Apply a filter to a Simulation's interactions."""
-        ...
-
-    def __repr__(self) -> str:
-        return str(self.params)
+from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, Interaction, EnvironmentFilter
 
 class Sort(EnvironmentFilter):
 

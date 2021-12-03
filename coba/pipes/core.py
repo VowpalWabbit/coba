@@ -2,30 +2,10 @@
 
 import collections.abc
 
-from abc    import ABC, abstractmethod
-from typing import Sequence, Iterable, Any, overload, Union, TypeVar, Generic
+from typing import Sequence, Iterable, Any, overload, Union
 
-_T_out = TypeVar("_T_out", bound=Any, covariant=True    )
-_T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
-
-class StopPipe(Exception):
-    pass
-
-class Source(ABC, Generic[_T_out]):
-    @abstractmethod
-    def read(self) -> _T_out:
-        ...
-
-class Filter(ABC, Generic[_T_in, _T_out]):
-    @abstractmethod
-    def filter(self, item: _T_in) -> _T_out:
-        ...
-
-class Sink(ABC, Generic[_T_in]):
-
-    @abstractmethod
-    def write(self, item: _T_in) -> None:
-        ...
+from coba.pipes.primitives import Filter, Source, Sink, StopPipe
+from coba.pipes.filters import Identity 
 
 class Pipe:
 
