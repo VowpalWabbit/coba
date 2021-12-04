@@ -1,7 +1,12 @@
+import requests
+import unittest.mock
 import unittest
+import json
 
 from typing import cast, Tuple
 
+from coba.pipes import HttpIO
+from coba.exceptions import CobaException
 from coba.config import CobaConfig, NullLogger, MemoryCacher, NullCacher
 from coba.environments import OpenmlSimulation, OpenmlSource
 
@@ -14,6 +19,36 @@ class PutOnceCacher(MemoryCacher):
         if key in self: raise Exception("Writing data again without reason.")
         return super().put(key, value)
 
+class ExceptionCacher(MemoryCacher):
+
+    def __init__(self, failure_key, failure_exception) -> None:
+        self._failure_key = failure_key
+        self._failure_exception = failure_exception
+
+        super().__init__()
+
+    def get(self, key):
+
+        if key == self._failure_key:
+            raise self._failure_exception
+        
+        return super().get(key)
+
+class MockResponse:
+    def __init__(self, status_code, text, iter_lines):
+        self.text        = text
+        self.status_code = status_code
+        self._iter_lines = iter_lines
+
+    def __enter__(self, *args, **kwargs):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        pass
+
+    def iter_lines(self, *args, **kwargs):
+        return self._iter_lines
+
 class OpenmlSource_Tests(unittest.TestCase):
     
     def setUp(self) -> None:
@@ -21,18 +56,63 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaConfig.cacher   = MemoryCacher()
         CobaConfig.logger   = NullLogger()
 
-    def test_put_once_cache(self):
+    def test_already_cached_values_are_not_cached_again(self):
 
         CobaConfig.cacher = PutOnceCacher()
 
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
+
         #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
         #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"nominal","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
         #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,1,yes\r\n 7.6,23,4700,1,yes\r\n\r\n'.splitlines())
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
         #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
 
@@ -51,16 +131,122 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((0,1), label_col[3])
         self.assertEqual((0,1), label_col[4])
 
-    def test_csv_default_classification(self):
+    def test_csv_classification_type_classification_dataset_deactivated(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"deactivated",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
 
         #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
         #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"nominal","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
         #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,1,yes\r\n 7.6,23,4700,1,yes\r\n\r\n'.splitlines())
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
         #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        with self.assertRaises(Exception) as e:
+            feature_rows, label_col = OpenmlSource(42693).read()
+
+        self.assertTrue("has been deactivated" in str(e.exception))
+
+    def test_csv_classification_type_classification_dataset(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
 
@@ -79,285 +265,197 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((0,1), label_col[3])
         self.assertEqual((0,1), label_col[4])
 
-    def test_csv_not_classification(self):
+    def test_csv_classification_type_classification_dataset_take_2(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
 
         #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
         #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":[1,2],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"numeric","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
         #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,1\r\n8.2,29,1180,2,2\r\n8.2,28,1410,2,3\r\n8.3,27,1020,1,4\r\n 7.6,23,4700,1,5\r\n\r\n'.splitlines())
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
         #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
 
-        with self.assertRaises(Exception) as e:
-            feature_rows, label_col = OpenmlSource(42693).read()
-
-        self.assertTrue("does not appear" in str(e.exception))
-    
-    def test_csv_not_classification_no_tasks(self):
-
-        #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
-        #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":[1,2],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"numeric","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
-        #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,1\r\n8.2,29,1180,2,2\r\n8.2,28,1410,2,3\r\n8.3,27,1020,1,4\r\n 7.6,23,4700,1,5\r\n\r\n'.splitlines())
-        #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{}\r\n'.splitlines())
-
-        with self.assertRaises(Exception) as e:
-            feature_rows, label_col = OpenmlSource(42693).read()
-
-        self.assertTrue("does not appear" in str(e.exception))
-
-    def test_csv_not_default_classification(self):
-        
-        #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
-        #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":[1,2],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"numeric","is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
-        #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,1\r\n8.2,29,1180,2,2\r\n8.2,28,1410,2,3\r\n8.3,27,1020,1,4\r\n 7.6,23,4700,1,5\r\n\r\n'.splitlines())
-        #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":1,\r\n "task_type":"Classification",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n, {"name":"target_feature", "value":"coli"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
-
-        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
-
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
-
-        self.assertEqual([8.1, 27, 1410, 1], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, 2], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, 3], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, 4], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, 5], feature_rows[4])
-
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((1,0), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
-
-    def test_arff_default_arff_classification(self):
-
-        #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
-        #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"nominal","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
-        #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/download/22044555', b'@relation weather\r\n\r\n@attribute pH real\r\n@attribute temperature real\r\n@attribute conductivity real\r\n@attribute coli {2, 1}\r\n@attribute play {yes, no}\r\n\r\n@data\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,1,yes\r\n 7.6,23,4700,1,yes\r\n\r\n'.splitlines())
-        #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
-
-        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
-
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
-
-        self.assertEqual([8.1, 27.0, 1410.0, (1,0)], feature_rows[0])
-        self.assertEqual([8.2, 29.0, 1180.0, (1,0)], feature_rows[1])
-        self.assertEqual([8.2, 28.0, 1410.0, (1,0)], feature_rows[2])
-        self.assertEqual([8.3, 27.0, 1020.0, (0,1)], feature_rows[3])
-        self.assertEqual([7.6, 23.0, 4700.0, (0,1)], feature_rows[4])
-
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((0,1), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
-
-    def test_arff_sparse_arff_classification(self):
-
-        #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/1594', b'{"data_set_description":{"id":"1594","name":"news20_test","version":"2","description":"this is test data","format":"Sparse_ARFF","upload_date":"2015-06-18T12:22:35","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/1595696\\/news20.sparse_arff","file_id":"1595696","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"79f56a6d9b73f90b6209199589fb2018"}}'.splitlines())
-
-        #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/1594', b'{"data_features":{"feature":[{"index":"0","name":"att_1","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"att_2","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"att_3","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"att_4","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"att_5","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"5","name":"att_6","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"6","name":"att_7","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"7","name":"att_8","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"8","name":"att_9","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"9","name":"att_10","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"10","name":"class","data_type":"nominal","nominal_value":["class_A","class_B","class_C","class_D"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
-
-        #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/download/1595696', b'@relation news20\r\n\r\n@attribute att_1 numeric\r\n@attribute att_2 numeric\r\n@attribute att_3 numeric\r\n@attribute att_4 numeric\r\n@attribute att_5 numeric\r\n@attribute att_6 numeric\r\n@attribute att_7 numeric\r\n@attribute att_8 numeric\r\n@attribute att_9 numeric\r\n@attribute att_10 numeric\r\n@attribute class {class_A, class_B, class_C, class_D}\r\n\r\n@data\r\n{0 2,1 3,10 class_A}\r\n{2 1,3 1,4 1,6 1,8 1,10 class_B}\r\n{0 3,1 1,2 1,3 9,4 1,5 1,6 1,10 class_C}\r\n{0 1,3 1,6 1,7 1,8 1,9 2,10 class_D}\r\n\r\n'.splitlines())
-
-        #trials query -- didn't modify yet
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/1594', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
-
-        feature_rows, label_col = list(zip(*OpenmlSource(1594).read()))
-
-        self.assertEqual(len(feature_rows), 4)
-        self.assertEqual(len(label_col   ), 4)
-
-        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
-        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
-        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
-        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
-
-        self.assertEqual((1,0,0,0), label_col[0])
-        self.assertEqual((0,1,0,0), label_col[1])
-        self.assertEqual((0,0,1,0), label_col[2])
-        self.assertEqual((0,0,0,1), label_col[3])
-
-    def test_arff_sparse_arff_missing_labels(self):
-
-        #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/1594', b'{"data_set_description":{"id":"1594","name":"news20_test","version":"2","description":"this is test data","format":"Sparse_ARFF","upload_date":"2015-06-18T12:22:35","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/1595696\\/news20.sparse_arff","file_id":"1595696","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"79f56a6d9b73f90b6209199589fb2018"}}'.splitlines())
-
-        #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/1594', b'{"data_features":{"feature":[{"index":"0","name":"att_1","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"att_2","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"att_3","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"att_4","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"att_5","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"5","name":"att_6","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"6","name":"att_7","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"7","name":"att_8","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"8","name":"att_9","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"9","name":"att_10","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"10","name":"class","data_type":"nominal","nominal_value":["class_A","class_B","class_C","class_D"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
-
-        #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/download/1595696', b'@relation news20\r\n\r\n@attribute att_1 numeric\r\n@attribute att_2 numeric\r\n@attribute att_3 numeric\r\n@attribute att_4 numeric\r\n@attribute att_5 numeric\r\n@attribute att_6 numeric\r\n@attribute att_7 numeric\r\n@attribute att_8 numeric\r\n@attribute att_9 numeric\r\n@attribute att_10 numeric\r\n@attribute class {0, class_B, class_C, class_D}\r\n\r\n@data\r\n{0 2,1 3}\r\n{2 1,3 1,4 1,6 1,8 1,10 class_B}\r\n{0 3,1 1,2 1,3 9,4 1,5 1,6 1}\r\n{0 1,3 1,6 1,7 1,8 1,9 2,10 class_D}\r\n\r\n'.splitlines())
-
-        #trials query -- didn't modify yet
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/1594', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
-
-        feature_rows, label_col = list(zip(*OpenmlSource(1594).read()))
-
-        self.assertEqual(len(feature_rows), 4)
-        self.assertEqual(len(label_col)   , 4)
-
-        self.assertEqual(dict(zip( (0,1)          , (2,3)           )), feature_rows[0])
-        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)     )), feature_rows[1])
-        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1) )), feature_rows[2])
-        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)   )), feature_rows[3])
-
-        self.assertEqual((1,0,0), label_col[0])
-        self.assertEqual((0,1,0), label_col[1])
-        self.assertEqual((1,0,0), label_col[2])
-        self.assertEqual((0,0,1), label_col[3])
-
-    def test_arff_not_classification(self):
-
-        #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
-        #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"numeric","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
-        #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/download/22044555', b'@relation weather\r\n\r\n@attribute pH real\r\n@attribute temperature real\r\n@attribute conductivity real\r\n@attribute coli real\r\n@attribute play {yes, no}\r\n\r\n@data\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,2,yes\r\n 7.6,23,4700,2,yes\r\n\r\n'.splitlines())
-
-        #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
-
-        with self.assertRaises(Exception) as e:
-            feature_rows, label_col = OpenmlSource(42693).read()
-
-        self.assertTrue("does not appear" in str(e.exception))
-
-    def test_arff_not_default_classification(self):
-
-        #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
-        #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"numeric","is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
-        #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/download/22044555', b'@relation weather\r\n\r\n@attribute pH real\r\n@attribute temperature real\r\n@attribute conductivity real\r\n@attribute coli {1, 2}}\r\n@attribute play real\r\n\r\n@data\r\n8.1,27,1410,2,1\r\n8.2,29,1180,2,2\r\n8.2,28,1410,2,3\r\n8.3,27,1020,1,4\r\n 7.6,23,4700,1,5\r\n\r\n'.splitlines())
-        #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":1,\r\n "task_type":"Classification",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n, {"name":"target_feature", "value":"coli"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
-
-        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
-
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
-
-        self.assertEqual([8.1, 27, 1410, 1], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, 2], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, 3], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, 4], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, 5], feature_rows[4])
-
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((1,0), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
-
-    def test_regression_dataset(self):
-
-        CobaConfig.cacher = PutOnceCacher()
-
-        #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
-        #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
-        #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,1,yes\r\n 7.6,23,4700,1,yes\r\n\r\n'.splitlines())
-        #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
-
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, problem_type="regression").read()))
-
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
-
-        self.assertEqual([27, 1410, (1,0), (1,0)], feature_rows[0])
-        self.assertEqual([29, 1180, (1,0), (1,0)], feature_rows[1])
-        self.assertEqual([28, 1410, (1,0), (0,1)], feature_rows[2])
-        self.assertEqual([27, 1020, (0,1), (0,1)], feature_rows[3])
-        self.assertEqual([23, 4700, (0,1), (0,1)], feature_rows[4])
-
-        self.assertEqual(8.1, label_col[0])
-        self.assertEqual(8.2, label_col[1])
-        self.assertEqual(8.2, label_col[2])
-        self.assertEqual(8.3, label_col[3])
-        self.assertEqual(7.6, label_col[4])
-
-    def test_regression_dataset_take(self):
-        
-        CobaConfig.cacher = PutOnceCacher()
-
-        #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
-        #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
-        #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,1,yes\r\n 7.6,23,4700,1,yes\r\n\r\n'.splitlines())
-        #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
-
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, take=2, problem_type="regression").read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, take=2).read()))
 
         self.assertEqual(len(feature_rows), 2)
         self.assertEqual(len(label_col), 2)
 
-        self.assertEqual([28, 1410, (1,), (1,0)], feature_rows[0])
-        self.assertEqual([29, 1180, (1,), (0,1)], feature_rows[1])
+        self.assertEqual([8.2, 28, 1410, (1,)], feature_rows[0])
+        self.assertEqual([8.2, 29, 1180, (1,)], feature_rows[1])
 
-        self.assertEqual(8.2, label_col[0])
-        self.assertEqual(8.2, label_col[1])
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((0,1), label_col[1])
 
-    def test_csv_missing_values_dense(self):
+    def test_csv_classification_type_classification_dataset_with_missing_values(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            ?,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
 
         #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
         #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"nominal","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
         #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n?,27,1410,2,no\r\n8.2,29,1180,2,no\r\n,28,1410,2,yes\r\n8.3,27,1020,1,yes\r\n 7.6,23,4700,1,yes\r\n\r\n'.splitlines())
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
         #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, cat_as_str=True).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
 
         self.assertEqual(len(feature_rows), 3)
         self.assertEqual(len(label_col), 3)
 
-        self.assertEqual([8.2, 29, 1180, '2'], feature_rows[0])
-        self.assertEqual([8.3, 27, 1020, '1'], feature_rows[1])
-        self.assertEqual([7.6, 23, 4700, '1'], feature_rows[2])
+        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[0])
+        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[1])
+        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[2])
 
-        self.assertEqual('no', label_col[0])
-        self.assertEqual('yes', label_col[1])
-        self.assertEqual('yes', label_col[2])
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((0,1), label_col[1])
+        self.assertEqual((0,1), label_col[2])
 
-    def test_csv_nominal_as_str(self):
+    def test_csv_classification_type_classification_dataset_cat_as_str(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
 
         #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
         #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"nominal","nominal_value":["no","yes"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
         #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,no\r\n8.2,29,1180,2,no\r\n8.2,28,1410,2,yes\r\n8.3,27,1020,1,yes\r\n 7.6,23,4700,1,yes\r\n\r\n'.splitlines())
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
         #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693, cat_as_str=True).read()))
 
@@ -376,65 +474,1244 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual('yes', label_col[3])
         self.assertEqual('yes', label_col[4])
 
-    def test_csv_numeric_nominal(self):
+    def test_csv_regression_type_regression_dataset(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"true","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
 
         #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
         #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"numeric","is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
         #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,0\r\n8.2,29,1180,2,0\r\n8.2,28,1410,2,1\r\n8.3,27,1020,1,1\r\n 7.6,23,4700,1,1\r\n\r\n'.splitlines())
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
         #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":1,\r\n "task_type":"Classification",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"target_feature", "value":"play"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, cat_as_str=True).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, problem_type="regression").read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
 
-        self.assertEqual([8.1, 27, 1410, '2'], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, '2'], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, '2'], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, '1'], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, '1'], feature_rows[4])
+        self.assertEqual([27, 1410, (1,0), (1,0)], feature_rows[0])
+        self.assertEqual([29, 1180, (1,0), (1,0)], feature_rows[1])
+        self.assertEqual([28, 1410, (1,0), (0,1)], feature_rows[2])
+        self.assertEqual([27, 1020, (0,1), (0,1)], feature_rows[3])
+        self.assertEqual([23, 4700, (0,1), (0,1)], feature_rows[4])
 
-        self.assertEqual('0', label_col[0])
-        self.assertEqual('0', label_col[1])
-        self.assertEqual('1', label_col[2])
-        self.assertEqual('1', label_col[3])
-        self.assertEqual('1', label_col[4])
+        self.assertEqual(8.1, label_col[0])
+        self.assertEqual(8.2, label_col[1])
+        self.assertEqual(8.2, label_col[2])
+        self.assertEqual(8.3, label_col[3])
+        self.assertEqual(7.6, label_col[4])
 
-    def test_csv_blank_default_target(self):
+    def test_csv_classification_type_regression_dataset_no_classification_tasks(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
 
         #data description query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', b'{"data_set_description":{"id":"42693","name":"testdata","version":"2","description":"this is test data","format":"ARFF","upload_date":"2020-10-01T20:47:23","licence":"CC0","url":"https:\\/\\/www.openml.org\\/data\\/v1\\/download\\/22044555\\/testdata.arff","file_id":"22044555","visibility":"public","status":"active","processing_date":"2020-10-01 20:48:03","md5_checksum":"6656a444676c309dd8143aa58aa796ad"}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
         #data types query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', b'{"data_features":{"feature":[{"index":"0","name":"pH","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"1","name":"temperature","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"2","name":"conductivity","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"3","name":"coli","data_type":"nominal","nominal_value":["1","2"],"is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"},{"index":"4","name":"play","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}]}}'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
         #data content query
-        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', b'"pH","temperature","conductivity","coli","play"\r\n8.1,27,1410,2,0\r\n8.2,29,1180,2,0\r\n8.2,28,1410,2,1\r\n8.3,27,1020,1,1\r\n 7.6,23,4700,1,1\r\n\r\n'.splitlines())
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
         #trials query
-        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', b'{"tasks":{"task":[\r\n { "task_id":338754,\r\n "task_type_id":5,\r\n "task_type":"Clustering",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"source_data", "value":"42693"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n, { "task_id":359909,\r\n "task_type_id":1,\r\n "task_type":"Classification",\r\n "did":42693,\r\n "name":"testdata",\r\n "status":"active",\r\n "format":"ARFF"\r\n,"input": [\r\n {"name":"estimation_procedure", "value":"17"}\r\n, {"name":"target_feature", "value":"play"}\r\n ]\r\n,"quality": [\r\n {"name":"NumberOfFeatures", "value":"5.0"}\r\n, {"name":"NumberOfInstances", "value":"5.0"}\r\n, {"name":"NumberOfInstancesWithMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfMissingValues", "value":"0.0"}\r\n, {"name":"NumberOfNumericFeatures", "value":"4.0"}\r\n, {"name":"NumberOfSymbolicFeatures", "value":"1.0"}\r\n ]\r\n }\r\n ]}\r\n}\r\n'.splitlines())
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, cat_as_str=True).read()))
+        with self.assertRaises(Exception) as e:
+            feature_rows, label_col = OpenmlSource(42693).read()
+
+        self.assertTrue("does not appear" in str(e.exception))
+
+    def test_csv_classification_type_regression_dataset_no_tasks(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = { }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        with self.assertRaises(Exception) as e:
+            feature_rows, label_col = OpenmlSource(42693).read()
+
+        self.assertTrue("does not appear" in str(e.exception))
+
+    def test_csv_classification_type_regression_dataset_classification_tasks(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" },
+                ]
+            }
+        }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
 
-        self.assertEqual([8.1, 27, 1410, '2'], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, '2'], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, '2'], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, '1'], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, '1'], feature_rows[4])
+        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
 
-        self.assertEqual('0', label_col[0])
-        self.assertEqual('0', label_col[1])
-        self.assertEqual('1', label_col[2])
-        self.assertEqual('1', label_col[3])
-        self.assertEqual('1', label_col[4])
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((1,0), label_col[1])
+        self.assertEqual((1,0), label_col[2])
+        self.assertEqual((0,1), label_col[3])
+        self.assertEqual((0,1), label_col[4])
+
+    def test_csv_classification_type_regression_dataset_classification_tasks_targeting_ignored_col(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"true" ,"is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" },
+                ]
+            }
+        }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_col), 5)
+
+        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((1,0), label_col[1])
+        self.assertEqual((1,0), label_col[2])
+        self.assertEqual((0,1), label_col[3])
+        self.assertEqual((0,1), label_col[4])
+
+    def test_csv_classification_type_regression_dataset_classification_tasks_targeting_numeric_col(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" },
+                ]
+            }
+        }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_col), 5)
+
+        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((1,0), label_col[1])
+        self.assertEqual((1,0), label_col[2])
+        self.assertEqual((0,1), label_col[3])
+        self.assertEqual((0,1), label_col[4])
+
+    def test_csv_classification_type_unsupervised_dataset_classification_tasks(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" },
+                ]
+            }
+        }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_col), 5)
+
+        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((1,0), label_col[1])
+        self.assertEqual((1,0), label_col[2])
+        self.assertEqual((0,1), label_col[3])
+        self.assertEqual((0,1), label_col[4])
+
+    def test_arff_classification_type_classification_dataset(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_arff = """
+            @relation weather
+            
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {yes, no}
+            
+            @data
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" },
+                ]
+            }
+        }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/download/22044555', data_set_arff.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_col), 5)
+
+        self.assertEqual([8.1, 27.0, 1410.0, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29.0, 1180.0, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28.0, 1410.0, (1,0)], feature_rows[2])
+        self.assertEqual([8.3, 27.0, 1020.0, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23.0, 4700.0, (0,1)], feature_rows[4])
+
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((1,0), label_col[1])
+        self.assertEqual((0,1), label_col[2])
+        self.assertEqual((0,1), label_col[3])
+        self.assertEqual((0,1), label_col[4])
+
+    def test_arff_sparse_classification_type_classification_dataset(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"1594",
+                "name":"news20_test",
+                "version":"2",
+                "file_id":"1595696",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"att_1","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"att_2","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"att_3","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"att_4","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"att_5","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"att_6","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"att_7","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"att_8","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"att_9","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"att_10","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
+                ]
+            }
+        }
+
+        data_set_arff = """
+            @relation news20
+            
+            @attribute att_1 numeric
+            @attribute att_2 numeric
+            @attribute att_3 numeric
+            @attribute att_4 numeric
+            @attribute att_5 numeric
+            @attribute att_6 numeric
+            @attribute att_7 numeric
+            @attribute att_8 numeric
+            @attribute att_9 numeric
+            @attribute att_10 numeric
+            @attribute class {A, B, C, D}
+            
+            @data
+            {0 2,1 3,10 A}
+            {2 1,3 1,4 1,6 1,8 1,10 B}
+            {0 3,1 1,2 1,3 9,4 1,5 1,6 1,10 C}
+            {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "task_type":"Clustering", "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "task_type":"Clustering", "status":"active" }
+                ]
+            }
+        }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/1594', json.dumps(data_set_description).encode().splitlines())
+
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/1594', json.dumps(data_set_features).encode().splitlines())
+
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/download/1595696', data_set_arff.encode().splitlines())
+
+        #trials query -- didn't modify yet
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/1594', json.dumps(data_set_tasks).encode().splitlines())
+
+        feature_rows, label_col = list(zip(*OpenmlSource(1594).read()))
+
+        self.assertEqual(len(feature_rows), 4)
+        self.assertEqual(len(label_col   ), 4)
+
+        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
+        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
+        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
+        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
+
+        self.assertEqual((1,0,0,0), label_col[0])
+        self.assertEqual((0,1,0,0), label_col[1])
+        self.assertEqual((0,0,1,0), label_col[2])
+        self.assertEqual((0,0,0,1), label_col[3])
+
+    def test_csv_sparse_classification_type_classification_dataset(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"1594",
+                "name":"news20_test",
+                "version":"2",
+                "file_id":"1595696",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"att_1","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"att_2","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"att_3","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"att_4","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"att_5","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"att_6","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"att_7","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"att_8","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"att_9","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"att_10","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "att_1","att_2","att_3","att_4","att_5","att_6","att_7","att_8","att_9","att_10","class"
+            {0 2,1 3,10 A}
+            {2 1,3 1,4 1,6 1,8 1,10 B}
+            {0 3,1 1,2 1,3 9,4 1,5 1,6 1,10 C}
+            {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "task_type":"Clustering", "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "task_type":"Clustering", "status":"active" }
+                ]
+            }
+        }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/1594', json.dumps(data_set_description).encode().splitlines())
+
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/1594', json.dumps(data_set_features).encode().splitlines())
+
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/1595696', data_set_csv.encode().splitlines())
+
+        #trials query -- didn't modify yet
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/1594', json.dumps(data_set_tasks).encode().splitlines())
+
+        feature_rows, label_col = list(zip(*OpenmlSource(1594).read()))
+
+        self.assertEqual(len(feature_rows), 4)
+        self.assertEqual(len(label_col   ), 4)
+
+        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
+        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
+        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
+        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
+
+        self.assertEqual((1,0,0,0), label_col[0])
+        self.assertEqual((0,1,0,0), label_col[1])
+        self.assertEqual((0,0,1,0), label_col[2])
+        self.assertEqual((0,0,0,1), label_col[3])
+
+    def test_csv_sparse_missing_labels_with_classification_dataset(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"1594",
+                "name":"news20_test",
+                "version":"2",
+                "file_id":"1595696",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"att_1","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"att_2","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"att_3","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"att_4","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"att_5","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"att_6","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"att_7","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"att_8","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"att_9","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"att_10","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "att_1","att_2","att_3","att_4","att_5","att_6","att_7","att_8","att_9","att_10","class"
+            {0 2,1 3}
+            {2 1,3 1,4 1,6 1,8 1,10 B}
+            {0 3,1 1,2 1,3 9,4 1,5 1,6 1}
+            {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "task_type":"Clustering", "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "task_type":"Clustering", "status":"active" }
+                ]
+            }
+        }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/1594', json.dumps(data_set_description).encode().splitlines())
+
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/1594', json.dumps(data_set_features).encode().splitlines())
+
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/1595696', data_set_csv.encode().splitlines())
+
+        #trials query -- didn't modify yet
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/1594', json.dumps(data_set_tasks).encode().splitlines())
+
+        feature_rows, label_col = list(zip(*OpenmlSource(1594).read()))
+
+        self.assertEqual(len(feature_rows), 4)
+        self.assertEqual(len(label_col)   , 4)
+
+        self.assertEqual(dict(zip( (0,1)          , (2,3)           )), feature_rows[0])
+        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)     )), feature_rows[1])
+        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1) )), feature_rows[2])
+        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)   )), feature_rows[3])
+
+        self.assertEqual((1,0,0), label_col[0])
+        self.assertEqual((0,1,0), label_col[1])
+        self.assertEqual((1,0,0), label_col[2])
+        self.assertEqual((0,0,1), label_col[3])
+
+    def test_cache_cleared_on_unexpected_exception(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
+
+        CobaConfig.cacher = ExceptionCacher('http://www.openml.org/data/v1/get_csv/22044555', Exception())
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        with self.assertRaises(Exception) as e:
+            feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+        self.assertNotIn('https://www.openml.org/api/v1/json/data/42693', CobaConfig.cacher)
+
+        self.assertNotIn('https://www.openml.org/api/v1/json/data/features/42693', CobaConfig.cacher)
+
+        self.assertNotIn('http://www.openml.org/data/v1/get_csv/22044555', CobaConfig.cacher)
+
+    def test_cache_not_cleared_on_keyboard_interrupt(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
+
+        CobaConfig.cacher = ExceptionCacher('http://www.openml.org/data/v1/get_csv/22044555', KeyboardInterrupt())
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        with self.assertRaises(KeyboardInterrupt) as e:
+            feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+        self.assertIn('https://www.openml.org/api/v1/json/data/42693', CobaConfig.cacher)
+
+        self.assertIn('https://www.openml.org/api/v1/json/data/features/42693', CobaConfig.cacher)
+
+        self.assertIn('http://www.openml.org/data/v1/get_csv/22044555', CobaConfig.cacher)
+
+    def test_cache_not_cleared_on_coba_exception(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
+
+        CobaConfig.cacher = ExceptionCacher('http://www.openml.org/data/v1/get_csv/22044555', CobaException())
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        with self.assertRaises(Exception) as e:
+            feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+        self.assertIn('https://www.openml.org/api/v1/json/data/42693', CobaConfig.cacher)
+
+        self.assertIn('https://www.openml.org/api/v1/json/data/features/42693', CobaConfig.cacher)
+
+        self.assertIn('http://www.openml.org/data/v1/get_csv/22044555', CobaConfig.cacher)
+
+    def test_tasks_not_loaded_when_not_needed(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+
+        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_col), 5)
+
+        self.assertEqual([8.1, 27.0, 1410.0, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29.0, 1180.0, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28.0, 1410.0, (1,0)], feature_rows[2])
+        self.assertEqual([8.3, 27.0, 1020.0, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23.0, 4700.0, (0,1)], feature_rows[4])
+
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((1,0), label_col[1])
+        self.assertEqual((0,1), label_col[2])
+        self.assertEqual((0,1), label_col[3])
+        self.assertEqual((0,1), label_col[4])
+
+    def test_csv_classification_type_classification_dataset_from_http(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+   
+        def mocked_requests_get(*args, **kwargs):
+
+            if args[0] == 'https://www.openml.org/api/v1/json/data/42693':
+                return MockResponse(200, "", json.dumps(data_set_description).encode().splitlines())
+
+            if args[0] == 'https://www.openml.org/api/v1/json/data/features/42693':
+                return MockResponse(200, "", json.dumps(data_set_features).encode().splitlines())
+
+            if args[0] == 'http://www.openml.org/data/v1/get_csv/22044555':
+                return MockResponse(200, "", data_set_csv.encode().splitlines())
+
+            return MockResponse(None, 404)
+
+        with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
+            feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_col), 5)
+
+        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28, 1410, (1,0)], feature_rows[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((1,0), label_col[1])
+        self.assertEqual((0,1), label_col[2])
+        self.assertEqual((0,1), label_col[3])
+        self.assertEqual((0,1), label_col[4])
+
+        self.assertIn('https://www.openml.org/api/v1/json/data/42693'             , CobaConfig.cacher)
+        self.assertIn('https://www.openml.org/api/v1/json/data/features/42693'    , CobaConfig.cacher)
+        self.assertIn('http://www.openml.org/data/v1/get_csv/22044555'            , CobaConfig.cacher)
+
+    def test_arff_classification_type_classification_dataset_from_http(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_arff = """
+            @relation weather
+            
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {yes, no}
+            
+            @data
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+   
+        def mocked_requests_get(*args, **kwargs):
+
+            if args[0] == 'https://www.openml.org/api/v1/json/data/42693':
+                return MockResponse(200, "", json.dumps(data_set_description).encode().splitlines())
+
+            if args[0] == 'https://www.openml.org/api/v1/json/data/features/42693':
+                return MockResponse(200, "", json.dumps(data_set_features).encode().splitlines())
+
+            if args[0] == 'http://www.openml.org/data/v1/download/22044555':
+                return MockResponse(200, "", data_set_arff.encode().splitlines())
+
+            return MockResponse(None, 404)
+
+        with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
+            feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_col), 5)
+
+        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28, 1410, (1,0)], feature_rows[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((1,0), label_col[1])
+        self.assertEqual((0,1), label_col[2])
+        self.assertEqual((0,1), label_col[3])
+        self.assertEqual((0,1), label_col[4])
+
+        self.assertIn('https://www.openml.org/api/v1/json/data/42693'             , CobaConfig.cacher)
+        self.assertIn('https://www.openml.org/api/v1/json/data/features/42693'    , CobaConfig.cacher)
+        self.assertIn('http://www.openml.org/data/v1/download/22044555'            , CobaConfig.cacher)
+
+    def test_status_code_412_request_api_key(self):
+        with unittest.mock.patch.object(requests, 'get', return_value=MockResponse(412, "please provide api key", [])):
+            with self.assertRaises(CobaException) as e:
+                feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+    def test_status_code_412_rejected_api_key(self):
+        with unittest.mock.patch.object(requests, 'get', return_value=MockResponse(412, "authentication failed", [])):
+            with self.assertRaises(CobaException) as e:
+                feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+    def test_status_code_404(self):
+        with unittest.mock.patch.object(requests, 'get', return_value=MockResponse(404, "authentication failed", [])):
+            with self.assertRaises(CobaException) as e:
+                feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+    def test_status_code_404(self):
+        self.assertEqual('{"OpenmlSource":42693}', str(OpenmlSource(42693)))
 
 class OpenmlSimulation_Tests(unittest.TestCase):
 
-    def test_simple_openml_source(self) -> None:
+    def test_simple_openml_source_classification(self) -> None:
         #this test requires interet acess to download the data
 
         CobaConfig.api_keys = {'openml':None}
@@ -457,6 +1734,87 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             self.assertEqual(len(rnd.actions),2)
             self.assertIn(1, rnd.kwargs["rewards"])
             self.assertIn(0, rnd.kwargs["rewards"])
+
+    def test_simple_openml_source_regression(self) -> None:
+        #this test requires interet acess to download the data
+
+        CobaConfig.api_keys = {'openml':None}
+        CobaConfig.cacher   = MemoryCacher()
+        CobaConfig.logger   = NullLogger()
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "upload_date":"2020-10-01T20:47:23",
+                "licence":"CC0",
+                "url":"https://www.openml.org/data/v1/download/22044555/testdata.arff",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"true","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.3,27,1020,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
+
+        #data description query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/42693', json.dumps(data_set_description).encode().splitlines())
+        #data types query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/data/features/42693', json.dumps(data_set_features).encode().splitlines())
+        #data content query
+        CobaConfig.cacher.put('http://www.openml.org/data/v1/get_csv/22044555', data_set_csv.encode().splitlines() )
+        #trials query
+        CobaConfig.cacher.put('https://www.openml.org/api/v1/json/task/list/data_id/42693', json.dumps(data_set_tasks).encode().splitlines() )
+
+        interactions = list(OpenmlSimulation(42693, simulation_type="regression").read())
+
+        self.assertEqual(len(interactions), 3)
+
+        for rnd in interactions:
+
+            hash(rnd.context)    #make sure these are hashable
+            hash(rnd.actions[0]) #make sure these are hashable
+            hash(rnd.actions[1]) #make sure these are hashable
+
+        self.assertEqual((27,1410,(1,0),(1,0)), interactions[0].context)
+        self.assertEqual((29,1180,(1,0),(1,0)), interactions[1].context)
+        self.assertEqual((27,1020,(0,1),(0,1)), interactions[2].context)
+        
+        self.assertEqual([8.1, 8.3, 8.2], interactions[0].actions)
+        self.assertEqual([8.1, 8.3, 8.2], interactions[1].actions)
+        self.assertEqual([8.1, 8.3, 8.2], interactions[2].actions)
+
+        self.assertEqual([1,.8,.9], interactions[0].kwargs["rewards"])
+        self.assertEqual([.9,.9,1], interactions[1].kwargs["rewards"])
+        self.assertEqual([.8,1,.9], interactions[2].kwargs["rewards"])
 
     def test_repr(self):
         self.assertEqual('OpenmlSimulation(id=150, cat_as_str=False, take=None)', str(OpenmlSimulation(150)))

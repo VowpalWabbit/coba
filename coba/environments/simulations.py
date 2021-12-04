@@ -161,9 +161,9 @@ class RegressionSimulation(SimulatedEnvironment):
 
         if examples:
 
-            features,labels = zip(*self._examples)
+            features,labels = zip(*examples)
 
-            reward   = lambda action,label: 1-abs(float(action)-float(label))
+            reward   = lambda action,label: 1-round(abs(float(action)-float(label)),2)
             contexts = features
             actions  = CobaRandom(1).shuffle(sorted(set(labels)))
             rewards  = [ [ reward(action,label) for action in actions ] for label in labels ]

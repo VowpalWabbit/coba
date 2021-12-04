@@ -258,6 +258,8 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
 
         for line in lines:
 
+            line = line.strip()
+
             if in_meta_section:
 
                 if self._r_comment.match(line): continue
@@ -450,7 +452,7 @@ class Structure(Filter[_T_Data, Iterable[Any]]):
 
         key_structure = self._recursive_structure_keys(header, self._col_structure)
 
-        for row in data:
+        for row in data :
            yield self._recursive_structure_rows(row, key_structure) 
 
     def _recursive_structure_keys(self, header, cols):

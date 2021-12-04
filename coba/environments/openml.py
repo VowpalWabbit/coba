@@ -3,6 +3,7 @@ import json
 from hashlib import md5
 from numbers import Number
 from collections import defaultdict
+from typing_extensions import Literal
 from typing import Tuple, Sequence, Any, Iterable, Dict, Union
 
 from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Take
@@ -108,6 +109,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             raise
         
         except CobaException:
+            #we don't want to clear the cache if it is an error we know about (we the original raise would clear if needed)
             raise
 
         except Exception:
@@ -123,68 +125,75 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         
         if url in CobaConfig.cacher:
             self._cached_urls.append(url)
-            bites = CobaConfig.cacher.get(url)
+            for b in CobaConfig.cacher.get(url):
+                yield b.decode('utf-8')
         else:
 
             api_key  = CobaConfig.api_keys['openml']
-            response = HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read()
+            with HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
 
-            if response.status_code == 412:
-                if 'please provide api key' in response.text:
+                if response.status_code == 412: # pragma: no cover
+                    
+                    if 'please provide api key' in response.text:
+                        message = (
+                            "Openml has requested an API Key to access openml's rest API. A key can be obtained by creating "
+                            "an openml account at openml.org. Once a key has been obtained it should be placed within "
+                            "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+                        raise CobaException(message)
+
+                    if 'authentication failed' in response.text:
+                        message = (
+                            "The API Key you provided no longer seems to be valid. You may need to create a new one by "
+                            "logging into your openml account and regenerating a key. After regenerating the new key "
+                            "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+                        raise CobaException(message)
+
+                if response.status_code == 404: # pragma: no cover
                     message = (
-                        "An API Key is needed to access openml's rest API. A key can be obtained by creating an "
-                        "openml account at openml.org. Once a key has been obtained it should be placed within "
-                        "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
-                    raise CobaException(message) from None
+                        "We're sorry but we were unable to find the requested dataset on openml.")
+                    raise CobaException(message)
 
-                if 'authentication failed' in response.text:
-                    message = (
-                        "The API Key you provided no longer seems to be valid. You may need to create a new one by "
-                        "logging into your openml account and regenerating a key. After regenerating the new key "
-                        "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
-                    raise CobaException(message) from None
+                # NOTE: These two checks need to be gated with a status code failure 
+                # NOTE: otherwise this will cause the data to be downloaded all at once
+                # NOTE: unfortunately I don't know the appropriate status code so commenting out for now
+                # if "Usually due to high server load" in response.text:
+                #     message = (
+                #         "Openml has experienced an error that they believe is the result of high server loads."
+                #         "Openml recommends that you try again in a few seconds. Additionally, if not already "
+                #         "done, consider setting up a DiskCache in CobaConfig to reduce the number of openml "
+                #         "calls in the future.")
+                #     raise CobaException(message) from None
 
-            if response.status_code == 404:
-                message = (
-                    "We're sorry but we were unable to find the requested dataset on openml.")
-                raise CobaException(message) from None
+                # if '' == response.text: # pragma: no cover
+                #     raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
 
-            if "Usually due to high server load" in response.text:
-                message = (
-                    "Openml has experienced an error that they believe is the result of high server loads."
-                    "Openml recommends that you try again in a few seconds. Additionally, if not already "
-                    "done, consider setting up a DiskCache in CobaConfig to reduce the number of openml "
-                    "calls in the future.")
-                raise CobaException(message) from None
+                bites = response.iter_lines(decode_unicode=False)
 
-            if '' == response.text:
-                raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
+                if url not in CobaConfig.cacher:
+                    CobaConfig.cacher.put(url,bites)
+                    
+                    if url in CobaConfig.cacher:
+                        self._cached_urls.append(url)
+                        bites = CobaConfig.cacher.get(url)
 
-            bites = response.iter_lines(decode_unicode=False)
+            # This can't reasonably be done in a streaming manner unless caching to disk so commenting out for now. 
+            # if checksum is not None and md5(bites).hexdigest() != checksum:
 
-            if url not in CobaConfig.cacher:
-                CobaConfig.cacher.put(url,bites)
-                
-                if url in CobaConfig.cacher:
-                    self._cached_urls.append(url)
-                    bites = CobaConfig.cacher.get(url)
+            #     #if the cache has become corrupted we need to clear it
+            #     CobaConfig.cacher.rmv(url)
 
-        if checksum is not None and md5(bites).hexdigest() != checksum:
+            #     message = (
+            #         f"The response from {url} did not match the given checksum {checksum}. This could be the result "
+            #         "of network errors or the file becoming corrupted. Please consider downloading the file again. "
+            #         "If the error persists you may want to manually download and reference the file.")
+            #     raise CobaException(message) from None
 
-            #if the cache has become corrupted we need to clear it
-            CobaConfig.cacher.rmv(url)
-
-            message = (
-                f"The response from {url} did not match the given checksum {checksum}. This could be the result "
-                "of network errors or the file becoming corrupted. Please consider downloading the file again. "
-                "If the error persists you may want to manually download and reference the file.")
-            raise CobaException(message) from None
-
-        return ( b.decode('utf-8') for b in bites )
+                for b in bites:
+                    yield b.decode('utf-8')
 
     def _get_dataset_description(self, data_id:int) -> Dict[str,Any]:
 
-        description_txt = " ".join(self._get_url(f'https://www.openml.org/api/v1/json/data/{data_id}'))
+        description_txt = " ".join(list(self._get_url(f'https://www.openml.org/api/v1/json/data/{data_id}')))
         description_obj = json.loads(description_txt)["data_set_description"]
 
         return description_obj
@@ -240,10 +249,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         raise CobaException(f"Openml {data_id} does not appear to be a {self._problem_type} dataset")
 
     def __repr__(self) -> str:
-        return f'{{"OpenmlSimulation":{self._data_id}}}'
-
-    def __str__(self) -> str:
-        return self.__repr__()
+        return f'{{"OpenmlSource":{self._data_id}}}'
 
 class OpenmlSimulation(SimulatedEnvironment):
     """A simulation created from openml data with features and labels.
@@ -256,8 +262,7 @@ class OpenmlSimulation(SimulatedEnvironment):
     incorrect lables).
     """
 
-    def __init__(self, id: int, take:int = None, simulation_type:str = "classification", cat_as_str:bool = False, md5_checksum: str = None) -> None:
-
+    def __init__(self, id: int, take:int = None, simulation_type:Literal["classification","regression"] = "classification", cat_as_str:bool = False, md5_checksum: str = None) -> None:
         self._sim_type = simulation_type
         self._source = OpenmlSource(id, simulation_type, cat_as_str, take, md5_checksum)
 
