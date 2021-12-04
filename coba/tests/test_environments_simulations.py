@@ -1,110 +1,165 @@
 import unittest
 
+from pathlib import Path
 from typing import List
 
-from coba.pipes import MemoryIO
+from coba.exceptions import CobaException
+from coba.pipes import MemoryIO, DiskIO, NullIO
 from coba.config import CobaConfig, NullLogger
+from coba.environments.simulations import ReaderSimulation
 from coba.environments import (
     SimulatedInteraction, MemorySimulation, ClassificationSimulation,
     LambdaSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation,
-    DebugSimulation
+    DebugSimulation, RegressionSimulation, ManikSimulation
 )
 
 CobaConfig.logger = NullLogger()
 
 class ClassificationSimulation_Tests(unittest.TestCase):
 
-    def assert_simulation_for_data(self, simulation, features, answers) -> None:
+    def test_constructor_with_incorrect_param_count(self) -> None:
 
-        interactions = list(simulation.read())
+        with self.assertRaises(CobaException):
+            ClassificationSimulation()
 
-        self.assertEqual(len(interactions), len(features))
+        with self.assertRaises(CobaException):
+            ClassificationSimulation(1,2,3)
 
-        #first we make sure that all the labels are included 
-        #in the first interactions actions without any concern for order
-        self.assertCountEqual(interactions[0].actions, set(answers))
+    def test_constructor_with_dense_data1(self) -> None:
+        features   = [1,2]
+        labels     = [0,.5]
 
-        #then we set our expected actions to the first interaction
-        #to make sure that every interaction has the exact same actions
-        #with the exact same order
-        expected_actions = interactions[0].actions
+        for sim in [ClassificationSimulation(features, labels), ClassificationSimulation(zip(features, labels))]:
+            interactions = list(sim.read())
 
-        for f,l,i in zip(features, answers, interactions):
+            self.assertEqual(2, len(interactions))
 
-            expected_context = f
-            expected_rewards = [ int(a == l) for a in i.actions]
+            self.assertEqual(1, interactions[0].context)
+            self.assertEqual(2, interactions[1].context)
 
-            actual_context = i.context
-            actual_actions = i.actions
-            actual_rewards = i.kwargs["rewards"]
+            self.assertEqual([0,.5], interactions[0].actions)
+            self.assertEqual([0,.5], interactions[1].actions)
 
-            self.assertEqual(actual_context, expected_context)            
-            self.assertSequenceEqual(actual_actions, expected_actions)
-            self.assertSequenceEqual(actual_rewards, expected_rewards)
+            self.assertEqual([1,0], interactions[0].kwargs["rewards"])
+            self.assertEqual([0,1], interactions[1].kwargs["rewards"])
 
-    def test_constructor_with_features_and_labels1(self) -> None:
-        features   = [1,2,3,4]
-        labels     = [1,1,0,0]
-        simulation = ClassificationSimulation(features, labels)
-
-        self.assert_simulation_for_data(simulation, features, labels)
-
-    def test_constructor_empty_rows1(self) -> None:
-        simulation = ClassificationSimulation([])
-        self.assertEqual(list(simulation.read()),[])
-
-    def test_constructor_empty_rows2(self) -> None:
-        simulation = ClassificationSimulation([],[])
-        self.assertEqual(list(simulation.read()),[])
-
-    def test_constructor_with_good_rows1(self) -> None:
-        features   = [1,2,3,4]
-        labels     = [1,1,0,0]
-        simulation = ClassificationSimulation(zip(features, labels))
-
-        self.assert_simulation_for_data(simulation, features, labels)
-    
-    def test_constructor_with_good_rows2(self) -> None:
+    def test_constructor_with_dense_data2(self) -> None:
         features   = ["a","b"]
         labels     = ["good","bad"]
-        simulation = ClassificationSimulation(zip(features, labels))
 
-        self.assert_simulation_for_data(simulation, features, labels)
+        for sim in [ClassificationSimulation(features, labels), ClassificationSimulation(zip(features, labels))]:
+            interactions = list(sim.read())
 
-    def test_constructor_with_good_rows3(self) -> None:
+            self.assertEqual(2, len(interactions))
+
+            self.assertEqual("a", interactions[0].context)
+            self.assertEqual("b", interactions[1].context)
+
+            self.assertEqual(["bad","good"], interactions[0].actions)
+            self.assertEqual(["bad","good"], interactions[1].actions)
+
+            self.assertEqual([0,1], interactions[0].kwargs["rewards"])
+            self.assertEqual([1,0], interactions[1].kwargs["rewards"])
+    
+    def test_constructor_with_dense_data3(self) -> None:
         features   = [(1,2),(3,4)]
         labels     = ["good","bad"]
-        simulation = ClassificationSimulation(zip(features, labels))
 
-        self.assert_simulation_for_data(simulation, features, labels)
+        for sim in [ClassificationSimulation(features, labels), ClassificationSimulation(zip(features, labels))]:
+            interactions = list(sim.read())
 
-    def test_sparse(self) -> None:
-        feature_rows = [
-            {0:10, 1:11},
-            {1:20, 2:30},
-            {2:30, 3:40},
-            {2:30, 3:40}
-        ]
+            self.assertEqual(2, len(interactions))
 
-        label_column = [1,1,0,2]
+            self.assertEqual((1,2), interactions[0].context)
+            self.assertEqual((3,4), interactions[1].context)
 
-        simulation   = ClassificationSimulation(zip(feature_rows, label_column))
-        interactions = list(simulation.read())
+            self.assertEqual(["bad","good"], interactions[0].actions)
+            self.assertEqual(["bad","good"], interactions[1].actions)
 
-        self.assertEqual(feature_rows[0], interactions[0].context)
-        self.assertEqual(feature_rows[1], interactions[1].context)
-        self.assertEqual(feature_rows[2], interactions[2].context)
-        self.assertEqual(feature_rows[3], interactions[3].context)
+            self.assertEqual([0,1], interactions[0].kwargs["rewards"])
+            self.assertEqual([1,0], interactions[1].kwargs["rewards"])
 
-        self.assertEqual([0,2,1], interactions[0].actions)
-        self.assertEqual([0,2,1], interactions[1].actions)
-        self.assertEqual([0,2,1], interactions[2].actions)
-        self.assertEqual([0,2,1], interactions[3].actions)
+    def test_constructor_with_sparse_data(self) -> None:
+        features   = [{0:1},{0:2}]
+        labels     = ["good","bad"]
 
-        self.assertEqual([0,0,1], interactions[0].kwargs["rewards"])
-        self.assertEqual([0,0,1], interactions[1].kwargs["rewards"])
-        self.assertEqual([1,0,0], interactions[2].kwargs["rewards"])
-        self.assertEqual([0,1,0], interactions[3].kwargs["rewards"])
+        for sim in [ClassificationSimulation(features, labels), ClassificationSimulation(zip(features, labels))]:
+            interactions = list(sim.read())
+
+            self.assertEqual(2, len(interactions))
+
+            self.assertEqual({0:1}, interactions[0].context)
+            self.assertEqual({0:2}, interactions[1].context)
+
+            self.assertEqual(["bad","good"], interactions[0].actions)
+            self.assertEqual(["bad","good"], interactions[1].actions)
+
+            self.assertEqual([0,1], interactions[0].kwargs["rewards"])
+            self.assertEqual([1,0], interactions[1].kwargs["rewards"])
+
+    def test_constructor_with_empty_data(self) -> None:
+        
+        for sim in [ClassificationSimulation([]), ClassificationSimulation([],[])]:
+            self.assertEqual([],list(sim.read()))
+
+    def test_params(self):
+        self.assertEqual({}, ClassificationSimulation([]).params)
+
+class RegressionSimulation_Tests(unittest.TestCase):
+
+    def test_constructor_with_incorrect_param_count(self) -> None:
+
+        with self.assertRaises(CobaException):
+            RegressionSimulation()
+
+        with self.assertRaises(CobaException):
+            RegressionSimulation(1,2,3)
+
+    def test_constructor_with_dense_data(self) -> None:
+        features   = [1,2]
+        labels     = [0,.5]
+
+        for sim in [RegressionSimulation(features, labels), RegressionSimulation(zip(features, labels))]: 
+
+            interactions = list(sim.read())
+
+            self.assertEqual(2, len(interactions))
+
+            self.assertEqual(1, interactions[0].context)
+            self.assertEqual(2, interactions[1].context)
+
+            self.assertEqual([0,.5], interactions[0].actions)
+            self.assertEqual([0,.5], interactions[1].actions)
+
+            self.assertEqual([1,.5], interactions[0].kwargs["rewards"])
+            self.assertEqual([.5,1], interactions[1].kwargs["rewards"])
+
+    def test_constructor_with_empty_data(self) -> None:
+        
+        for sim in [RegressionSimulation([]), RegressionSimulation([],[])]:
+            self.assertEqual([], list(sim.read()))
+    
+    def test_constructor_with_sparse_data(self) -> None:
+        features   = [{0:1},{0:2}]
+        labels     = [0,.5]
+
+        for sim in [RegressionSimulation(features, labels), RegressionSimulation(zip(features, labels))]: 
+        
+            interactions = list(sim.read())
+
+            self.assertEqual(2, len(interactions))
+
+            self.assertEqual({0:1}, interactions[0].context)
+            self.assertEqual({0:2}, interactions[1].context)
+
+            self.assertEqual([0,.5], interactions[0].actions)
+            self.assertEqual([0,.5], interactions[1].actions)
+
+            self.assertEqual([1,.5], interactions[0].kwargs["rewards"])
+            self.assertEqual([.5,1], interactions[1].kwargs["rewards"])
+
+    def test_params(self):
+        self.assertEqual({}, RegressionSimulation([]).params)
 
 class MemorySimulation_Tests(unittest.TestCase):
 
@@ -114,6 +169,9 @@ class MemorySimulation_Tests(unittest.TestCase):
 
         self.assertEqual(interactions[0], interactions[0])
         self.assertEqual(interactions[1], interactions[1])
+
+    def test_params(self):
+        self.assertEqual({}, MemorySimulation([]).params)
 
 class LambdaSimulation_Tests(unittest.TestCase):
 
@@ -153,28 +211,75 @@ class LambdaSimulation_Tests(unittest.TestCase):
         interactions = list(simulation.read())
         self.assertEqual(len(interactions), 2)
 
+    def test_params(self):
+        def C(i:int) -> int:
+            return [1,2][i]
+
+        def A(i:int,c:int) -> List[int]:
+            return [[1,2,3],[4,5,6]][i]
+
+        def R(i:int,c:int,a:int) -> int:
+            return a-c
+
+        self.assertEqual({}, LambdaSimulation(2,C,A,R).params)
+
 class DebugSimulation_Tests(unittest.TestCase):
     def test_simple(self):
         self.assertEqual(500, len(list(DebugSimulation().read())))
 
+class ReaderSimulation_Tests(unittest.TestCase):
+
+    def test_params(self):
+        self.assertEqual({'source': 'abc'}, ReaderSimulation(None, DiskIO("abc"), None).params)
+        self.assertEqual({'source': 'memory'}, ReaderSimulation(None, MemoryIO(), None).params)
+        self.assertEqual({'source': 'NullIO'}, ReaderSimulation(None, NullIO(), None).params)
+
 class CsvSimulation_Tests(unittest.TestCase):
 
-    def test_simple(self):
-        source       = MemoryIO(['a,b,c','1,2,3','4,5,6','7,8,6'])
+    def test_memory_source(self):
+        source       = MemoryIO(['a,b,c','1,2,3','4,5,6'])
         simulation   = CsvSimulation(source,'c')
         interactions = list(simulation.read())
 
-        self.assertEqual(3, len(interactions))
+        self.assertEqual(2, len(interactions))
         
         self.assertEqual(('1','2'), interactions[0].context)
         self.assertEqual(('4','5'), interactions[1].context)
-        self.assertEqual(('7','8'), interactions[2].context)
 
         self.assertEqual(['3','6'], interactions[0].actions)
         self.assertEqual(['3','6'], interactions[1].actions)
 
         self.assertEqual([1,0], interactions[0].kwargs["rewards"])
         self.assertEqual([0,1], interactions[1].kwargs["rewards"])
+    
+    def test_file_path(self):
+
+        Path("coba/tests/.temp/sim.csv").write_text("""
+            a,b,c
+            1,2,3
+            4,5,6
+        """)
+
+        try:
+            simulation   = CsvSimulation("coba/tests/.temp/sim.csv",'c')
+            interactions = list(simulation.read())
+
+            self.assertEqual(2, len(interactions))
+            
+            self.assertEqual(('1','2'), interactions[0].context)
+            self.assertEqual(('4','5'), interactions[1].context)
+
+            self.assertEqual(['3','6'], interactions[0].actions)
+            self.assertEqual(['3','6'], interactions[1].actions)
+
+            self.assertEqual([1,0], interactions[0].kwargs["rewards"])
+            self.assertEqual([0,1], interactions[1].kwargs["rewards"])
+
+        finally:
+            Path("coba/tests/.temp/sim.csv").unlink()
+
+    def test_params(self):
+        self.assertEqual({'csv':'coba/tests/.temp/sim.csv'}, CsvSimulation('coba/tests/.temp/sim.csv', 'c').params)
 
 class ArffSimulation_Tests(unittest.TestCase):
 
@@ -236,6 +341,9 @@ class ArffSimulation_Tests(unittest.TestCase):
         self.assertEqual([1,0], interactions[1].kwargs["rewards"])
         self.assertEqual([1,0], interactions[2].kwargs["rewards"])
 
+    def test_params(self):
+        self.assertEqual({'arff':'coba/tests/.temp/sim.csv'}, ArffSimulation('coba/tests/.temp/sim.csv', 'c').params)
+
 class LibsvmSimulation_Tests(unittest.TestCase):
     
     def test_simple(self):
@@ -261,6 +369,39 @@ class LibsvmSimulation_Tests(unittest.TestCase):
 
         self.assertEqual([1,0], interactions[0].kwargs["rewards"])
         self.assertEqual([0,1], interactions[1].kwargs["rewards"])
+
+    def test_params(self):
+        self.assertEqual({'libsvm':'coba/tests/.temp/sim.csv'}, LibsvmSimulation('coba/tests/.temp/sim.csv').params)
+
+class ManikSimulation_Tests(unittest.TestCase):
+    
+    def test_simple(self):
+
+        lines = [
+            "Total_Points Num_Features Num_Labels",
+            "0 4:2 5:3",
+            "1 1:1 2:1",
+            "1 3:4"
+        ]
+
+        source       = MemoryIO(lines)
+        simulation   = ManikSimulation(source)
+        interactions = list(simulation.read())
+
+        self.assertEqual(3, len(interactions))
+
+        self.assertEqual({4:2,5:3}, interactions[0].context)
+        self.assertEqual({1:1,2:1}, interactions[1].context)
+        self.assertEqual({3:4    }, interactions[2].context)
+
+        self.assertEqual(['0','1'], interactions[0].actions)
+        self.assertEqual(['0','1'], interactions[1].actions)
+
+        self.assertEqual([1,0], interactions[0].kwargs["rewards"])
+        self.assertEqual([0,1], interactions[1].kwargs["rewards"])
+
+    def test_params(self):
+        self.assertEqual({'manik':'coba/tests/.temp/sim.csv'}, ManikSimulation('coba/tests/.temp/sim.csv').params)
 
 if __name__ == '__main__':
     unittest.main()

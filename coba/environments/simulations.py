@@ -7,6 +7,7 @@ from typing import Sequence, Dict, Any, Iterable, Union, List, Callable, cast, O
 from coba.pipes import Source, Filter, Pipe  
 from coba.pipes import HttpIO, DiskIO
 from coba.pipes import ResponseToLines, CsvReader, ArffReader, LibSvmReader, ManikReader, Structure
+from coba.pipes.io import MemoryIO
 from coba.random import CobaRandom
 from coba.encodings import InteractionsEncoder, OneHotEncoder, IdentityEncoder
 from coba.exceptions import CobaException
@@ -27,7 +28,6 @@ class MemorySimulation(SimulatedEnvironment):
         Args:
             interactions: The sequence of interactions in this simulation.
         """
-
         self._interactions = interactions
 
     @property
@@ -70,12 +70,10 @@ class ClassificationSimulation(SimulatedEnvironment):
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate a ClassificationSimulation."""
 
-        if len(args) == 1:
-            self._examples = args[0]
-        elif len(args) ==2:
-            self._examples = zip(args[0],args[1])
-        else:
+        if len(args) not in [1,2]:
             raise CobaException("We were unable to determine which overloaded constructor to use")
+
+        self._examples = args[0] if len(args) == 1 else zip(args[0],args[1])
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -147,12 +145,10 @@ class RegressionSimulation(SimulatedEnvironment):
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate a RegressionSimulation."""
 
-        if len(args) == 1:
-            self._examples = args[0]
-        elif len(args) == 2:
-            self._examples = zip(args[0],args[1])
-        else:
+        if len(args) not in [1,2]:
             raise CobaException("We were unable to determine which overloaded constructor to use")
+        
+        self._examples = args[0] if len(args) == 1 else zip(args[0],args[1])
 
     def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
@@ -221,35 +217,26 @@ class ReaderSimulation(SimulatedEnvironment):
         source   : Union[str,Source[Iterable[str]]], 
         label_col: Union[str,int]) -> None:
         
-        self._reader = reader
-
-        if isinstance(source, str) and source.startswith('http'):
-            self._source = Pipe.join(HttpIO(source), [ResponseToLines()])
-        elif isinstance(source, str):
-            self._source = DiskIO(source)
-        else:
-            self._source = source
-
+        self._reader       = reader
+        self._source       = DiskIO(source) if isinstance(source, str) else source
         self._label_column = label_col
-        self._interactions = cast(Optional[Sequence[SimulatedInteraction]], None)
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
-        return {"source": str(self._source) }
+        if isinstance(self._source,DiskIO):
+            return {"source": str(self._source.filename) }
+        elif isinstance(self._source,MemoryIO):
+            return {"source": 'memory' }
+        else:
+            return {"source": self._source.__class__.__name__}
 
     def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
-        return self._load_interactions()
-
-    def _load_interactions(self) -> Sequence[SimulatedInteraction]:
         parsed_rows_iter = iter(self._reader.filter(self._source.read()))
         structured_rows = Structure([None, self._label_column]).filter(parsed_rows_iter)
 
         return ClassificationSimulation(structured_rows).read()
-
-    def __repr__(self) -> str:
-        return str(self.params)
 
 class CsvSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
@@ -280,7 +267,7 @@ class LibsvmSimulation(ReaderSimulation):
 
 class ManikSimulation(ReaderSimulation):
     def __init__(self, source:Union[str,Source[Iterable[str]]]) -> None:
-        super().__init__(ManikReader(), source, 0, False)
+        super().__init__(ManikReader(), source, 0)
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -322,7 +309,7 @@ class DebugSimulation(LambdaSimulation):
             return None if n_context_feats == 0 else rng.randoms(n_context_feats)
 
         def reward(index:int, context:Context, action:Action) -> float:
-            
+
             W = weights
             X = context or [1]
             A = action_encoder.encode([action])[0]
@@ -337,7 +324,7 @@ class DebugSimulation(LambdaSimulation):
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
-        
+
         return { 
             "|A|"     : self._n_actions,
             "|phi(C)|": self._n_context_features,
@@ -349,6 +336,3 @@ class DebugSimulation(LambdaSimulation):
 
     def __repr__(self) -> str:
         return f"DebugSimulation(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},X={self._X},seed={self._seed})"
-
-    def __str__(self) -> str:
-        return self.__repr__()
