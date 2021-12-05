@@ -147,8 +147,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                     if env_source is None:
                         loaded_source = None
                     else:
-                        with CobaConfig.logger.time(f"Loading source {env_source}..."):
-
+                        with CobaConfig.logger.time(f"Loading {env_source}..."):
                             #This is not ideal. I'm not sure how it should be improved so it is being left for now.
                             #Maybe add a flag to the Experiment to say whether the source should be stashed in mem?
                             loaded_source = list(env_source.read())
@@ -160,7 +159,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                         if loaded_source is None:
                             interactions = []
                         else:
-                            with CobaConfig.logger.time(f"Creating Environment {env_id} from {env_source}..."):
+                            with CobaConfig.logger.time(f"Creating Environment {env_id} from Loaded Source..."):
                                 interactions = list(env_filter.filter(loaded_source)) if env_filter else loaded_source
 
                             if len(filter_groups) == 1:

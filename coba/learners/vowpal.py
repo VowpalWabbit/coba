@@ -10,7 +10,7 @@ from typing_extensions import Literal
 from typing import Any, Dict, Union, Sequence, overload, cast, Optional, Tuple
 
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker, redirect_stderr, KeyDefaultDict
+from coba.utilities import PackageChecker, KeyDefaultDict
 from coba.environments import Context, Action
 
 from coba.learners.core import Learner, Probs, Info
@@ -268,14 +268,12 @@ class VowpalLearner(Learner):
         """
 
         if self._vw is None:
-             #type: ignore
             # vowpal has an annoying warning that is written to stderr whether or not we provide
             # the --quiet flag. Therefore, we temporarily redirect all stderr output to null so that
             # this warning isn't shown during creation. It should be noted this isn't thread-safe
             # so if you are here because of strange problems with threads we may just need to suck
             # it up and accept that there will be an obnoxious warning message.
-            with open(devnull, 'w') as f, redirect_stderr(f):
-                self._vw = VowpalMediator.make_learner(self._cli_args(actions) + " --quiet")
+            self._vw = VowpalMediator.make_learner(self._cli_args(actions) + " --quiet")
 
             if not self._adf:
                 self._actions = actions
