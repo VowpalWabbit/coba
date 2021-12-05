@@ -5,7 +5,6 @@ import json
 
 from typing import cast, Tuple
 
-from coba.pipes import HttpIO
 from coba.exceptions import CobaException
 from coba.config import CobaConfig, NullLogger, MemoryCacher, NullCacher
 from coba.environments import OpenmlSimulation, OpenmlSource

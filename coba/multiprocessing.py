@@ -4,7 +4,7 @@ from multiprocessing.managers import SyncManager
 from threading import Thread
 from typing import Iterable, Any
 
-from coba.exceptions import CobaFatal
+from coba.utilities  import coba_exit
 from coba.config     import CobaConfig, BasicLogger, IndentLogger
 from coba.pipes      import Filter, Sink, QueueIO, MultiprocessFilter
 
@@ -88,4 +88,4 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
         except RuntimeError as e:
             #This happens when importing main causes this code to run again
-            raise CobaFatal(str(e))
+            coba_exit(str(e))

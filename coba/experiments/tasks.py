@@ -4,6 +4,7 @@ from collections import defaultdict
 from itertools import takewhile, chain
 from typing import Iterable, Any, Dict
 
+from coba.exceptions import CobaExit
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.environments import Environment, EnvironmentPipe, Interaction, SimulatedInteraction, LoggedInteraction
@@ -148,6 +149,9 @@ class ClassEnvironmentTask(EnvironmentTask):
         env_statistics = {}
 
         try:
+
+            PackageChecker.sklearn("ClassEnvironmentTask.process")
+
             import numpy as np
             import scipy.sparse as sp
             import scipy.stats as st
@@ -188,10 +192,10 @@ class ClassEnvironmentTask(EnvironmentTask):
             closest_index  = centroid_dists.argmin(1)
             cluster_purity = (closest_index == centroid_index).mean()
 
-            env_statistics["centroid_purity"]   = round(cluster_purity,4)
+            env_statistics["centroid_purity"  ] = round(cluster_purity,4)
             env_statistics["centroid_distance"] = round(median(centroid_dists[range(centroid_dists.shape[0]),centroid_index]),4)
 
-        except ImportError:
+        except CobaExit:
             pass
 
         labels     = set()

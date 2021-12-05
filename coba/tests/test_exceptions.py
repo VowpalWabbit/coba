@@ -1,20 +1,20 @@
 import unittest
 
-from coba.exceptions import CobaException, CobaFatal
+from coba.exceptions import CobaException, CobaExit
 
 class CobaException_Tests(unittest.TestCase):
     def test_no_init_exception(self):
         CobaException("test")
 
     def test_simple(self):
-        self.assertIsNone(CobaException()._render_traceback_())
+        self.assertEqual(["abc"], CobaException("abc")._render_traceback_())
 
-class CobaFatal_Tests(unittest.TestCase):
+class CobaExit_Tests(unittest.TestCase):
     def test_no_init_exception(self):
-        CobaFatal("test")
+        CobaExit("test")
 
     def test_render_traceback(self):
-        self.assertIsNone(CobaFatal()._render_traceback_())
+        self.assertEqual(["abc"], CobaExit("abc")._render_traceback_())
 
 if __name__ == '__main__':
     unittest.main()

@@ -2,19 +2,19 @@
 
 import sys
 import os
+import warnings
+import importlib
 
 from collections import defaultdict
 from io import UnsupportedOperation
 from contextlib import contextmanager
 from typing import IO
 
-from coba.exceptions import CobaException
+from coba.exceptions import CobaExit
 
-def coba_exit():
-    try:
-        exit() #this is my attempt at handling CPython (where this works) vs IPython (e.g., Jupyter Notebooks)
-    except NameError:
-        raise CobaException() #CobaException has been specially made so that it outputs no TB in Jupyter Notebook
+def coba_exit(message:str):
+    warnings.filterwarnings("ignore",message="To exit: use 'exit', 'quit', or Ctrl-D.")
+    raise CobaExit(message) from None
 
 @contextmanager
 def redirect_stderr(to: IO[str]):
@@ -64,15 +64,15 @@ def redirect_stderr(to: IO[str]):
         finally:
             _redirect_stderr(old_stderr_fd) 
             os.close(old_stderr_fd)
-    except UnsupportedOperation:
+    except UnsupportedOperation: # pragma: no cover
         #if for some reason we weren't able to redirect
         #then simply move on. No reason to stop working.
-        yield
+        pass
 
 class PackageChecker:
-
+    
     @staticmethod
-    def matplotlib(caller_name: str, silent: bool = False) -> None:
+    def matplotlib(caller_name: str) -> None:
         """Raise ImportError with detailed error message if matplotlib is not installed.
 
         Functionality requiring matplotlib should call this helper and then lazily import.
@@ -85,12 +85,12 @@ class PackageChecker:
             at https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/utils/__init__.py
         """
         try:
-            import matplotlib # type: ignore
+            importlib.import_module('matplotlib')
         except ImportError:
-            PackageChecker._handle_import_error(caller_name, "matplotlib", silent)
+            PackageChecker._handle_import_error(caller_name, "matplotlib")
 
     @staticmethod
-    def vowpalwabbit(caller_name: str, silent: bool = False) -> None:
+    def vowpalwabbit(caller_name: str) -> None:
         """Raise ImportError with detailed error message if vowpalwabbit is not installed.
 
         Functionality requiring vowpalwabbit should call this helper and then lazily import.
@@ -102,13 +102,13 @@ class PackageChecker:
             This pattern was inspired by sklearn (see `PackageChecker.matplotlib` for more information).
         """
 
-        try:            
-            import vowpalwabbit # type: ignore
+        try:
+            importlib.import_module('vowpalwabbit')
         except ImportError as e:
-            PackageChecker._handle_import_error(caller_name, "vowpalwabbit", silent)
+            PackageChecker._handle_import_error(caller_name, "vowpalwabbit")
 
     @staticmethod
-    def pandas(caller_name: str, silent: bool = False) -> None:
+    def pandas(caller_name: str) -> None:
         """Raise ImportError with detailed error message if pandas is not installed.
 
         Functionality requiring pandas should call this helper and then lazily import.
@@ -120,12 +120,12 @@ class PackageChecker:
             This pattern was inspired by sklearn (see `PackageChecker.matplotlib` for more information).
         """
         try:
-            import pandas # type: ignore
+            importlib.import_module('pandas')
         except ImportError:
-            PackageChecker._handle_import_error(caller_name, "pandas", silent)
+            PackageChecker._handle_import_error(caller_name, "pandas")
 
     @staticmethod
-    def numpy(caller_name: str, silent: bool = False) -> None:
+    def numpy(caller_name: str) -> None:
         """Raise ImportError with detailed error message if numpy is not installed.
 
         Functionality requiring numpy should call this helper and then lazily import.
@@ -137,12 +137,12 @@ class PackageChecker:
             This pattern was inspired by sklearn (see `PackageChecker.matplotlib` for more information).
         """
         try:
-            import numpy # type: ignore
+            importlib.import_module('numpy')
         except ImportError:
-            PackageChecker._handle_import_error(caller_name, "numpy", silent)
+            PackageChecker._handle_import_error(caller_name, "numpy")
 
     @staticmethod
-    def sklearn(caller_name: str, silent: bool = False) -> None:
+    def sklearn(caller_name: str) -> None:
         """Raise ImportError with detailed error message if sklearn is not installed.
 
         Functionality requiring sklearn should call this helper and then lazily import.
@@ -154,25 +154,20 @@ class PackageChecker:
             This pattern was inspired by sklearn (see `PackageChecker.matplotlib` for more information).
         """
         try:
-            import sklearn # type: ignore
+            importlib.import_module('sklearn')
         except ImportError:
-            PackageChecker._handle_import_error(caller_name, "scikit-learn", silent)
+            PackageChecker._handle_import_error(caller_name, "scikit-learn")
 
-    def _handle_import_error(caller_name:str, pkg_name:str, silent:bool):
-        if not silent:
-            print(f"ERROR: {caller_name} requires the {pkg_name} package. You can install this package via `pip install {pkg_name}`.")
-        coba_exit()
+    def _handle_import_error(caller_name:str, pkg_name:str):
+        coba_exit(f"ERROR: {caller_name} requires the {pkg_name} package. You can install this package via `pip install {pkg_name}`.")
 
 class HashableDict(dict):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-
         self._hash = hash(tuple(self.items()))
 
     def __hash__(self) -> int:
-
         assert self._hash == hash(tuple(self.items()))
-
         return self._hash
 
 class KeyDefaultDict(defaultdict):

@@ -13,7 +13,7 @@ from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashabl
 
 from coba.config import CobaConfig
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker, coba_exit
+from coba.utilities import PackageChecker
 from coba.pipes import JsonEncode, JsonDecode, DiskIO, MemoryIO, Sink, Source
 
 class Table:

@@ -1,7 +1,5 @@
 import shutil
-from typing import Iterable
 import unittest
-import unittest.mock
 
 from pathlib import Path
 
@@ -108,7 +106,7 @@ class DiskCacher_Tests(unittest.TestCase):
 
     def test_put_corrupted_cache(self):
 
-        def bad_data() -> Iterable[bytes]:
+        def bad_data():
             yield b'test1'
             raise Exception()
             yield b'test2'

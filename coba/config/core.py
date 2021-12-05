@@ -87,16 +87,15 @@ class CobaConfig_meta(type):
                     file_config = json.loads(potential_coba_config.read_text())
 
                     if not isinstance(file_config, dict):
-                        raise Exception(f"The file at {potential_coba_config} should be a json object.")
+                        raise CobaException(f"Expecting a JSON object (i.e., {{}}).")
 
                     CobaConfig_meta._resolve_and_expand_paths(file_config, str(search_path))
 
                     config.update(file_config)
                 
                 except Exception as e:
-                    raise CobaException(
-                        f"The coba configuration file at {potential_coba_config} has the following formatting error, {str(e).strip('.')}."
-                    )
+                    raise CobaException(f"{str(e).strip('.')} in {potential_coba_config}.")
+
         return config
 
     @staticmethod
@@ -138,16 +137,22 @@ class CobaConfig_meta(type):
                     'experiment': ExperimentConfig(**_raw_config['experiment'])
                 }
             except CobaException as e:
-                print("An unexpected error occured when initializing CobaConfig. Execution is unable to continue.")
-                print(str(e))
-                coba_exit()
+                messages = [
+                    '',
+                    "ERROR: An error occured while initializing CobaConfig. Execution is unable to continue. Please see below for details:",
+                    f"    > {e}",
+                    ''
+                ]
+                coba_exit('\n'.join(messages))
+
             except Exception as e:
-                print("An unexpected error occured when initializing CobaConfig. Execution is unable to continue.")
-                tb = ''.join(traceback.format_tb(e.__traceback__))
-                msg = ''.join(traceback.TracebackException.from_exception(e).format_exception_only())
-                print(str(tb))
-                print(msg)
-                coba_exit()
+                messages = [
+                    '',
+                    "ERROR: An error occured while initializing CobaConfig. Execution is unable to continue. Please see below for details:",
+                    ''.join(traceback.format_tb(e.__traceback__)),
+                    ''.join(traceback.TracebackException.from_exception(e).format_exception_only())
+                ]
+                coba_exit('\n'.join(messages))
 
         return cls._config_backing
 

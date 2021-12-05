@@ -1,7 +1,6 @@
 import time
 import unittest
 import traceback
-import unittest.mock
 
 from coba.exceptions import CobaException
 from coba.pipes import MemoryIO

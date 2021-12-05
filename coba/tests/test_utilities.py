@@ -1,79 +1,47 @@
+import sys
 import unittest
+import unittest.mock
 
-from coba.utilities import PackageChecker, HashableDict
+from coba.exceptions import CobaExit, sans_tb_sys_except_hook
+from coba.utilities import PackageChecker, HashableDict, KeyDefaultDict, coba_exit
 
-class PackageChecker_Tests(unittest.TestCase):
+class coba_exit_Tests(unittest.TestCase):
+    def test_coba_exit(self):
+        
+        self.assertEqual(sans_tb_sys_except_hook, sys.excepthook)
+
+        with self.assertRaises(CobaExit):
+            coba_exit("abc")
+
+class PackageChecker_sans_package_Tests(unittest.TestCase):
     
+    def setUp(self) -> None:
+        self.patch = unittest.mock.patch('importlib.import_module', side_effect=ImportError())
+        self.patch.start()
+
+    def tearDown(self) -> None:
+        self.patch.stop()
+
     def test_check_matplotlib_support(self):
-
-        try:
-            import matplotlib
-        except:
-            installed=False
-        else:
-            installed=True
-
-        try:
-            PackageChecker.matplotlib("",silent=True)
-        except:
-            if installed:
-                self.fail("PackageChecker raised an exception even though matplotlib is installed")
-        else:
-            if not installed:
-                self.fail("PackageChecker did not raise an exception even though matplotib is not installed")
+        with self.assertRaises(CobaExit):
+            PackageChecker.matplotlib("")
 
     def test_check_pandas_support(self):
-        
-        try:
-            import pandas
-        except:
-            installed=False
-        else:
-            installed=True
-
-        try:
-            PackageChecker.pandas("",silent=True)
-        except:
-            if installed:
-                self.fail("PackageChecker raised an exception even though pandas is installed")
-        else:
-            if not installed:
-                self.fail("PackageChecker did not raise an exception even though pandas is not installed")
-
+        with self.assertRaises(CobaExit):
+            PackageChecker.pandas("")
+            
     def test_check_numpy_support(self):
-        try:
-            import numpy
-        except:
-            installed=False
-        else:
-            installed=True
-
-        try:
-            PackageChecker.numpy("",silent=True)
-        except:
-            if installed:
-                self.fail("PackageChecker raised an exception even though numpy is installed")
-        else:
-            if not installed:
-                self.fail("PackageChecker did not raise an exception even though numpy is not installed")
+        with self.assertRaises(CobaExit):
+            PackageChecker.numpy("")
 
     def test_check_vowpal_support(self):
-        try:
-            import vowpalwabbit
-        except:
-            installed=False
-        else:
-            installed=True
+        with self.assertRaises(CobaExit):
+            PackageChecker.vowpalwabbit("")
 
-        try:
-            PackageChecker.vowpalwabbit("",silent=True)
-        except:
-            if installed:
-                self.fail("PackageChecker raised an exception even though vowpalwabbit is installed")
-        else:
-            if not installed:
-                self.fail("PackageChecker did not raise an exception even though vowpalwabbit is not installed")
-
+    def test_check_sklearn_support(self):
+        with self.assertRaises(CobaExit):
+            PackageChecker.sklearn("")
+    
 class HashableDict_Tests(unittest.TestCase):
 
     def test_hash(self):
@@ -91,5 +59,18 @@ class HashableDict_Tests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             hash(hash_dict)
  
+class KeyDefaultDict_Tests(unittest.TestCase):
+
+    def test_with_factory(self):
+        a = KeyDefaultDict(lambda key: str(key))
+        self.assertEqual("1",a[1])
+        self.assertEqual("2",a[2])
+        self.assertEqual(2, len(a))
+
+    def test_sans_factory(self):
+        a = KeyDefaultDict(None)
+        with self.assertRaises(KeyError):
+            a[1]
+
 if __name__ == '__main__':
     unittest.main()

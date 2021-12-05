@@ -1,6 +1,7 @@
 import unittest
 import timeit
 import statistics
+import importlib.util
 
 import coba.random
 
@@ -117,21 +118,18 @@ class Performance_Tests(unittest.TestCase):
         #was approximately 0.0025
         self.assertLess(time,.005)
 
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
     def test_vowpal_mediator_make_example_performance(self):
 
-        try:
-            from vowpalwabbit import pyvw
+        from vowpalwabbit import pyvw
 
-            vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xxa --interactions xa --ignore_linear x --quiet")
+        vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xxa --interactions xa --ignore_linear x --quiet")
 
-            ns = { 'x': [ (str(i),v) for i,v in enumerate(range(1000)) ], 'a': [ (str(i),v) for i,v in enumerate(range(20)) ] }
-            time = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, ns, None, 4), repeat=10, number=100))            
+        ns = { 'x': [ (str(i),v) for i,v in enumerate(range(1000)) ], 'a': [ (str(i),v) for i,v in enumerate(range(20)) ] }
+        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, ns, None, 4), repeat=10, number=100))            
 
-            #.014 was my final average time
-            self.assertLess(time, .025)
-
-        except ImportError:
-            unittest.skip("VW not installed. Skip this Test")
+        #.014 was my final average time
+        self.assertLess(time, .025)
     
     def test_vowpal_mediator_prep_features_tuple_sequence_performance(self):
 
@@ -157,24 +155,21 @@ class Performance_Tests(unittest.TestCase):
         #0.019 was my final average time.
         self.assertLess(time,.1)
 
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
     def test_vowpal_mediator_prep_and_make_performance(self):
 
-        try:
-            from vowpalwabbit import pyvw
+        from vowpalwabbit import pyvw
 
-            vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xx --ignore_linear x --quiet")
-            x  = [ (str(i),round(coba.random.random(),5)) for i in range(200) ]
+        vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xx --ignore_linear x --quiet")
+        x  = [ (str(i),round(coba.random.random(),5)) for i in range(200) ]
 
-            time1 = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, {'x': VowpalMediator.prep_features(x) }, None, 4), repeat=10, number=1000))
-            time2 = statistics.mean(timeit.repeat(lambda:vw.parse("|x " + " ".join(f"{i}:{v}" for i,v in x))                              , repeat=10, number=1000))
+        time1 = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, {'x': VowpalMediator.prep_features(x) }, None, 4), repeat=10, number=1000))
+        time2 = statistics.mean(timeit.repeat(lambda:vw.parse("|x " + " ".join(f"{i}:{v}" for i,v in x))                              , repeat=10, number=1000))
 
-            self.assertLess(time1,time2)
-
-        except ImportError:
-            unittest.skip("VW not installed. Skip this Test.")
+        self.assertLess(time1,time2)
 
     def test_take_performance(self):
-        
+
         x = list(range(10000))
         
         time = statistics.mean(timeit.repeat(lambda:list(Take(2,seed=1).filter(x)), repeat=10, number=100))

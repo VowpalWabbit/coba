@@ -1,10 +1,10 @@
 import unittest
-import unittest.mock
 import os
 
 from pathlib import Path
 from coba.config.loggers import NullLogger
 
+from coba.exceptions import CobaExit
 from coba.pipes import JsonEncode
 from coba.config import CobaConfig, DiskCacher, IndentLogger
 from coba.pipes.io import ConsoleIO, DiskIO, NullIO
@@ -153,49 +153,52 @@ class CobaConfig_Tests(unittest.TestCase):
         self.assertEqual('task', CobaConfig.experiment.chunk_by)
         self.assertEqual(10, CobaConfig.experiment.maxtasksperchild)
 
-    @unittest.mock.patch('builtins.print')
-    def test_bad_config_file1(self,mock_print):
+    def test_bad_config_file1(self):
         CobaConfig.search_paths = ["coba/tests/.temp/"]
 
         DiskIO("coba/tests/.temp/.coba").write('{ "cacher": { "DiskCacher": "~"')
 
-        try:
+        with self.assertRaises(CobaExit) as e:
             CobaConfig.cacher
-        except:
-            pass
-        
-        self.assertIn("An unexpected error occured when initializing CobaConfig", mock_print.call_args_list[0][0][0])
-        self.assertIn(f"The coba configuration file at coba{os.sep}tests{os.sep}.temp{os.sep}.coba", mock_print.call_args_list[1][0][0])
-        self.assertIn("error, Expecting ',' delimiter: line 2 column 1 (char 32).", mock_print.call_args_list[1][0][0])
 
-    @unittest.mock.patch('builtins.print')
-    def test_bad_config_file2(self,mock_print):
+        lines = str(e.exception).splitlines()
+
+        self.assertEqual('', lines[0])
+        self.assertIn("ERROR: An error occured while initializing CobaConfig", lines[1])
+        self.assertIn(f"Expecting ',' delimiter: line 2 column 1 (char 32) ", lines[2])
+        self.assertIn(f" in coba{os.sep}tests{os.sep}.temp{os.sep}.coba.", lines[2])
+        self.assertTrue(str(e.exception).endswith("\n"))
+
+    def test_bad_config_file2(self):
         CobaConfig.search_paths = ["coba/tests/.temp/"]
 
         DiskIO("coba/tests/.temp/.coba").write('[1,2,3]')
 
-        try:
+        with self.assertRaises(CobaExit) as e:
             CobaConfig.cacher
-        except:
-            pass
         
-        self.assertIn("An unexpected error occured when initializing CobaConfig", mock_print.call_args_list[0][0][0])
-        self.assertIn(f"The coba configuration file at coba{os.sep}tests{os.sep}.temp{os.sep}.coba", mock_print.call_args_list[1][0][0])
-        self.assertIn("should be a json object.", mock_print.call_args_list[1][0][0])
+        lines = str(e.exception).splitlines()
 
-    @unittest.mock.patch('builtins.print')
-    def test_bad_search_path(self,mock_print):
+        self.assertEqual('', lines[0])
+        self.assertIn("ERROR: An error occured while initializing CobaConfig", lines[1]) 
+        self.assertIn(f"Expecting a JSON object (i.e., {{}}) ", lines[2])
+        self.assertIn(f" in coba{os.sep}tests{os.sep}.temp{os.sep}.coba.", lines[2])
+        self.assertTrue(str(e.exception).endswith("\n"))
+
+    def test_bad_search_path(self):
         CobaConfig.search_paths = [None]
 
-        try:
+        with self.assertRaises(CobaExit) as e:
             CobaConfig.cacher
-        except:
-            pass
 
-        self.assertIn("An unexpected error occured when initializing CobaConfig", mock_print.call_args_list[0][0][0])
-        self.assertIn("File", mock_print.call_args_list[1][0][0])
-        self.assertIn("line", mock_print.call_args_list[1][0][0])
-        self.assertIn("TypeError: unsupported operand type(s)", mock_print.call_args_list[2][0][0])
+        lines = str(e.exception).splitlines()
+
+        self.assertEqual('', lines[0])
+        self.assertIn("ERROR: An error occured while initializing CobaConfig", lines[1])
+        self.assertIn("File", lines[2])
+        self.assertIn("line", lines[2])
+        self.assertIn("TypeError: unsupported operand type(s)", lines[-1])
+        self.assertTrue(str(e.exception).endswith("\n"))
 
 if __name__ == '__main__':
     unittest.main()
