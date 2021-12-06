@@ -38,6 +38,7 @@ class MemoryCacher_Tests(unittest.TestCase):
         self.assertIn("abc", cacher)
         cacher.rmv("abc")
         self.assertNotIn("abc", cacher)
+        cacher.rmv("abc")
 
 
 class DiskCacher_Tests(unittest.TestCase):
@@ -90,19 +91,20 @@ class DiskCacher_Tests(unittest.TestCase):
         self.assertTrue("test.csv"    in cache)
         cache.rmv("test.csv")
         self.assertFalse("test.csv"    in cache)
+        cache.rmv("test.csv")
 
     def test_get_corrupted_cache(self):
 
         #this is the md5 hexdigest of "text.csv" (531f844bd184e913b050d49856e8d438)
-        (self.Cache_Test_Dir / "531f844bd184e913b050d49856e8d438.gz").write_text("abcd")
+        (self.Cache_Test_Dir / "text.csv.gz").write_text("abcd")
         
         with self.assertRaises(Exception) as e:
-            list(DiskCacher(self.Cache_Test_Dir).get("test.csv"))
+            list(DiskCacher(self.Cache_Test_Dir).get("text.csv"))
         
-        self.assertTrue((self.Cache_Test_Dir / "531f844bd184e913b050d49856e8d438.gz").exists())
+        self.assertTrue((self.Cache_Test_Dir / "text.csv.gz").exists())
         
-        DiskCacher(self.Cache_Test_Dir).rmv("test.csv")
-        self.assertFalse((self.Cache_Test_Dir / "531f844bd184e913b050d49856e8d438.gz").exists())
+        DiskCacher(self.Cache_Test_Dir).rmv("text.csv")
+        self.assertFalse((self.Cache_Test_Dir / "text.csv.gz").exists())
 
     def test_put_corrupted_cache(self):
 
@@ -112,10 +114,10 @@ class DiskCacher_Tests(unittest.TestCase):
             yield b'test2'
         
         with self.assertRaises(Exception) as e:
-            DiskCacher(self.Cache_Test_Dir).put("test.csv", bad_data())
+            DiskCacher(self.Cache_Test_Dir).put("text.csv", bad_data())
         
-        self.assertNotIn("test.csv", DiskCacher(self.Cache_Test_Dir))
-        self.assertFalse((self.Cache_Test_Dir / "531f844bd184e913b050d49856e8d438.gz").exists())
+        self.assertNotIn("text.csv", DiskCacher(self.Cache_Test_Dir))
+        self.assertFalse((self.Cache_Test_Dir / "text.csv.gz").exists())
 
     def test_None_cach_dir(self):
         cacher = DiskCacher(None)

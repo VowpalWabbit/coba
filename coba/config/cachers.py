@@ -2,7 +2,6 @@
 
 import gzip
 
-from hashlib import md5
 from pathlib import Path
 from typing import Union, Dict, TypeVar, Iterable, Optional
 
@@ -41,7 +40,8 @@ class MemoryCacher(Cacher[_K, _V]):
         self._cache[key] = value
 
     def rmv(self, key: _K) -> None:
-        del self._cache[key]
+        if key in self._cache:
+            del self._cache[key]
 
 class DiskCacher(Cacher[str, Iterable[bytes]]):
     """A cache that writes bytes to disk.
@@ -129,7 +129,8 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         if self._cache_path(key).exists(): self._cache_path(key).unlink()
 
     def _cache_name(self, key: str) -> str:
-        return md5(key.encode('utf-8')).hexdigest() + ".gz"
+        return f"{key}.gz"
+        #return f"{md5(key.encode('utf-8')).hexdigest()}.gz"
 
     def _cache_path(self, key: str) -> Path:
         return self._cache_dir/self._cache_name(key)

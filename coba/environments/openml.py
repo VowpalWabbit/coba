@@ -22,10 +22,16 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
         self._data_id      = id
         self._md5_checksum = md5_checksum
-        self._problem_type = problem_type 
+        self._problem_type = problem_type
         self._cat_as_str   = cat_as_str
         self._take         = take
-        self._cached_urls  = []
+        self._cache_keys   = {
+            'descr': f"openml_{id:0>6}_descr",
+            'feats': f"openml_{id:0>6}_feats",
+            'csv'  : f"openml_{id:0>6}_csv",
+            'arff' : f"openml_{id:0>6}_arff",
+            'tasks': f"openml_{id:0>6}_tasks",
+        }
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -90,7 +96,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             if self._problem_type == "classification":
                 encoders[target] = StringEncoder() if self._cat_as_str else OneHotEncoder()
 
-            file_rows = self._get_dataset_rows(dataset_description["file_id"], target, md5_checksum)
+            file_rows = self._get_dataset_rows(dataset_description["file_id"], md5_checksum)
 
             def row_has_missing_values(row):
                 row_values = row.values() if isinstance(row,dict) else row
@@ -107,25 +113,23 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
             raise
-        
+
         except CobaException:
-            #we don't want to clear the cache if it is an error we know about (we the original raise would clear if needed)
+            #we don't want to clear the cache if it is an error we know about (the original raise should clear if needed)
             raise
 
         except Exception:
-            #if something unexpected went wrong clear the
-            #cache just in case it was corrupted somehow
-            
-            for key in self._cached_urls:
+            #if something unexpected went wrong clear the cache just in case it was corrupted somehow
+
+            for key in self._cache_keys.values():
                 CobaConfig.cacher.rmv(key)
 
             raise
 
-    def _get_url(self, url:str, checksum:str=None) -> Iterable[str]:
+    def _get_url(self, url:str, key:str, checksum:str=None) -> Iterable[str]:
         
-        if url in CobaConfig.cacher:
-            self._cached_urls.append(url)
-            for b in CobaConfig.cacher.get(url):
+        if key in CobaConfig.cacher:
+            for b in CobaConfig.cacher.get(key):
                 yield b.decode('utf-8')
         else:
 
@@ -170,17 +174,16 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                 bites = response.iter_lines(decode_unicode=False)
 
                 if url not in CobaConfig.cacher:
-                    CobaConfig.cacher.put(url,bites)
+                    CobaConfig.cacher.put(key,bites)
                     
                     if url in CobaConfig.cacher:
-                        self._cached_urls.append(url)
-                        bites = CobaConfig.cacher.get(url)
+                        bites = CobaConfig.cacher.get(key)
 
             # This can't reasonably be done in a streaming manner unless caching to disk so commenting out for now. 
             # if checksum is not None and md5(bites).hexdigest() != checksum:
 
             #     #if the cache has become corrupted we need to clear it
-            #     CobaConfig.cacher.rmv(url)
+            #     CobaConfig.cacher.rmv(key)
 
             #     message = (
             #         f"The response from {url} did not match the given checksum {checksum}. This could be the result "
@@ -192,32 +195,35 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                     yield b.decode('utf-8')
 
     def _get_dataset_description(self, data_id:int) -> Dict[str,Any]:
-
-        description_txt = " ".join(list(self._get_url(f'https://www.openml.org/api/v1/json/data/{data_id}')))
+        
+        description_txt = " ".join(self._get_url(f'https://www.openml.org/api/v1/json/data/{data_id}', self._cache_keys['descr']))
         description_obj = json.loads(description_txt)["data_set_description"]
 
         return description_obj
 
     def _get_feature_descriptions(self, data_id:int) -> Sequence[Dict[str,Any]]:
 
-        types_txt = " ".join(self._get_url(f'https://www.openml.org/api/v1/json/data/features/{data_id}'))
+        types_txt = " ".join(self._get_url(f'https://www.openml.org/api/v1/json/data/features/{data_id}', self._cache_keys['feats']))
         types_obj = json.loads(types_txt)["data_features"]["feature"]
 
         return types_obj
 
-    def _get_dataset_rows(self, file_id:str, target:str, md5_checksum:str) -> Any:
+    def _get_dataset_rows(self, file_id:str, md5_checksum:str) -> Any:
 
-            csv_url  = f"http://www.openml.org/data/v1/get_csv/{file_id}"
-            arff_url = f"http://www.openml.org/data/v1/download/{file_id}"
+            csv_url  = f"https://www.openml.org/data/v1/get_csv/{file_id}"
+            arff_url = f"https://www.openml.org/data/v1/download/{file_id}"
+
+            csv_key  = self._cache_keys['csv']
+            arff_key = self._cache_keys['arff']
 
             openml_dialect = dict(quotechar="'", escapechar="\\", doublequote=False)
 
-            if arff_url in CobaConfig.cacher:
-                return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_url(arff_url, md5_checksum))
+            if arff_key in CobaConfig.cacher:
+                return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_url(arff_url, arff_key, md5_checksum))
             
-            if csv_url in CobaConfig.cacher:
-                return CsvReader(True, **openml_dialect).filter(self._get_url(csv_url, md5_checksum))
-            
+            if csv_key in CobaConfig.cacher:
+                return CsvReader(True, **openml_dialect).filter(self._get_url(csv_url, csv_key, md5_checksum))
+
             #we lock on downloading a dataset in case a user is running multithreaded and chunked by task
             #in this case they could download the same data set repeatedly. This also makes requests a little
             #nicer in terms of the load we place on openml's file server. srcsema should only be set when a
@@ -227,15 +233,15 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             if srcsema: srcsema.acquire()
 
             try:
-                return CsvReader(True, **openml_dialect).filter(self._get_url(csv_url, md5_checksum))
+                return CsvReader(True, **openml_dialect).filter(self._get_url(csv_url, csv_key, md5_checksum))
             except:
-                return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_url(arff_url, md5_checksum))
+                return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_url(arff_url, arff_key, md5_checksum))
             finally:
                 if srcsema: srcsema.release()
 
     def _get_target_for_problem_type(self, data_id:int):
 
-        text  = " ".join(self._get_url(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}'))
+        text  = " ".join(self._get_url(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}', self._cache_keys['tasks']))
         tasks = json.loads(text).get("tasks",{}).get("task",[])
 
         task_type = 1 if self._problem_type == "classification" else 2
