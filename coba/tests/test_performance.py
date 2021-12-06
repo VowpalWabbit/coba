@@ -136,8 +136,8 @@ class Performance_Tests(unittest.TestCase):
         x    = [ (str(i),v) for i,v in enumerate(range(1000)) ]
         time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))
 
-        #0.013 was my final average time
-        self.assertLess(time,.04)
+        #0.026 was my final average time (this time can be cut in half but prep_features becomes much less flexible)
+        self.assertLess(time,.08)
 
     def test_vowpal_mediator_prep_features_dict_performance(self):
 

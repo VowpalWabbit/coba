@@ -3,7 +3,6 @@
 import re
 import collections.abc
 
-from os import devnull
 from itertools import repeat
 from numbers import Number
 from typing_extensions import Literal
@@ -16,8 +15,8 @@ from coba.environments import Context, Action
 from coba.learners.core import Learner, Probs, Info
 
 Vowpal_Key      = Union[str,int]
-Vowpal_Features = Sequence[Union[str,Tuple[Vowpal_Key,Number]]]
-Coba_Feature    = Union[str,Number]
+Vowpal_Features = Sequence[Union[str,Tuple[Vowpal_Key,float]]]
+Coba_Feature    = Union[str,float]
 Coba_Features   = Union[Coba_Feature, Sequence[Coba_Feature], Sequence[Tuple[str,Coba_Feature]], Dict[str,Coba_Feature]]
 
 class VowpalMediator:
@@ -48,7 +47,7 @@ class VowpalMediator:
         else:
             raise Exception(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")
         
-        return [f"{F[0]}={F[1]}" if isinstance(F[1],str) else F for F in features if F[1] != 0]        
+        return [f"{F[0]}={F[1]}" if isinstance(F[1],str) else (F[0], float(F[1])) for F in features if F[1] != 0]        
 
     @staticmethod
     def make_learner(args:str):
