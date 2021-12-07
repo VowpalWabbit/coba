@@ -16,7 +16,7 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
             self._logger  = deepcopy(CobaConfig.logger)
             self._cacher  = ConcurrentCacher(CobaConfig.cacher, manager.dict(), manager.Lock(), manager.Condition())
-            self._srcsema = manager.Semaphore(2)
+            self._srcsema = manager.Semaphore(3)
 
             if isinstance(self._logger, IndentLogger):
                 self._logger._with_name = with_name

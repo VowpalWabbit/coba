@@ -1,3 +1,4 @@
+import time
 import json
 
 from hashlib import md5
@@ -5,10 +6,9 @@ from numbers import Number
 from collections import defaultdict
 from typing_extensions import Literal
 from typing import Tuple, Sequence, Any, Iterable, Dict, Union
-from coba.config.cachers import DiskCacher
 
 from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Take
-from coba.config import CobaConfig, NullCacher
+from coba.config import CobaConfig
 from coba.exceptions import CobaException
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 
@@ -146,44 +146,54 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
     def _http_request(self, url:str) -> Iterable[bytes]:
         api_key  = CobaConfig.api_keys['openml']
         
-        with HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
+        srcsema = CobaConfig.store.get("srcsema")
+        if srcsema: srcsema.acquire() # we only allow three paralellel request, another attempt at being more "considerate".
+            
+        # An attempt to be considerate of how often we hit their REST api. 
+        # They don't publish any rate-limiting guidelines so this is just a guess.
+        time.sleep(1) 
 
-            if response.status_code == 412: # pragma: no cover
-                if 'please provide api key' in response.text:
+        try:
+            with HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
+
+                if response.status_code == 412: # pragma: no cover
+                    if 'please provide api key' in response.text:
+                        message = (
+                            "Openml has requested an API Key to access openml's rest API. A key can be obtained by creating "
+                            "an openml account at openml.org. Once a key has been obtained it should be placed within "
+                            "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+                        raise CobaException(message)
+
+                    if 'authentication failed' in response.text:
+                        message = (
+                            "The API Key you provided no longer seems to be valid. You may need to create a new one by "
+                            "logging into your openml account and regenerating a key. After regenerating the new key "
+                            "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+                        raise CobaException(message)
+
+                if response.status_code == 404: # pragma: no cover
                     message = (
-                        "Openml has requested an API Key to access openml's rest API. A key can be obtained by creating "
-                        "an openml account at openml.org. Once a key has been obtained it should be placed within "
-                        "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+                        "We're sorry but we were unable to find the requested dataset on openml.")
                     raise CobaException(message)
 
-                if 'authentication failed' in response.text:
-                    message = (
-                        "The API Key you provided no longer seems to be valid. You may need to create a new one by "
-                        "logging into your openml account and regenerating a key. After regenerating the new key "
-                        "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
-                    raise CobaException(message)
+                # NOTE: These two checks need to be gated with a status code failure 
+                # NOTE: otherwise this will cause the data to be downloaded all at once
+                # NOTE: unfortunately I don't know the appropriate status code so commenting out for now
+                # if "Usually due to high server load" in response.text:
+                #     message = (
+                #         "Openml has experienced an error that they believe is the result of high server loads."
+                #         "Openml recommends that you try again in a few seconds. Additionally, if not already "
+                #         "done, consider setting up a DiskCache in CobaConfig to reduce the number of openml "
+                #         "calls in the future.")
+                #     raise CobaException(message) from None
 
-            if response.status_code == 404: # pragma: no cover
-                message = (
-                    "We're sorry but we were unable to find the requested dataset on openml.")
-                raise CobaException(message)
+                # if '' == response.text: # pragma: no cover
+                #     raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
 
-            # NOTE: These two checks need to be gated with a status code failure 
-            # NOTE: otherwise this will cause the data to be downloaded all at once
-            # NOTE: unfortunately I don't know the appropriate status code so commenting out for now
-            # if "Usually due to high server load" in response.text:
-            #     message = (
-            #         "Openml has experienced an error that they believe is the result of high server loads."
-            #         "Openml recommends that you try again in a few seconds. Additionally, if not already "
-            #         "done, consider setting up a DiskCache in CobaConfig to reduce the number of openml "
-            #         "calls in the future.")
-            #     raise CobaException(message) from None
-
-            # if '' == response.text: # pragma: no cover
-            #     raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
-
-            for b in response.iter_lines(decode_unicode=False):
-                yield b
+                for b in response.iter_lines(decode_unicode=False):
+                    yield b
+        finally:
+            if srcsema: srcsema.release()
 
     def _get_dataset_description(self, data_id:int) -> Dict[str,Any]:
         
@@ -211,24 +221,14 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
             if arff_key in CobaConfig.cacher:
                 return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_data(arff_url, arff_key, md5_checksum))
-            
+
             if csv_key in CobaConfig.cacher:
                 return CsvReader(True, **openml_dialect).filter(self._get_data(csv_url, csv_key, md5_checksum))
-
-            #we lock on downloading a dataset in case a user is running multithreaded and chunked by task
-            #in this case they could download the same data set repeatedly. This also makes requests a little
-            #nicer in terms of the load we place on openml's file server. srcsema should only be set when a
-            #user is running an experiment in a multithreaded environment.
-            
-            srcsema = CobaConfig.store.get("srcsema")
-            if srcsema: srcsema.acquire()
 
             try:
                 return CsvReader(True, **openml_dialect).filter(self._get_data(csv_url, csv_key, md5_checksum))
             except:
-                return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_data(arff_url, arff_key, md5_checksum))
-            finally:
-                if srcsema: srcsema.release()
+                return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_data(arff_url, arff_key, md5_checksum))                
 
     def _get_target_for_problem_type(self, data_id:int):
 
