@@ -8,7 +8,7 @@ import traceback
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing_extensions import Literal
-from typing import Dict, Any, Iterable, Generic, Sequence, TypeVar, ContextManager, Union
+from typing import Dict, Any, Iterable, Generic, Sequence, TypeVar, ContextManager, Union, Callable
 
 from coba.exceptions import CobaException
 from coba.registry import CobaRegistry
@@ -35,6 +35,10 @@ class Cacher(Generic[_K, _V], ABC):
 
     @abstractmethod
     def rmv(self, key: _K) -> None:
+        ...
+    
+    @abstractmethod
+    def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
         ...
 
 class Logger(ABC):

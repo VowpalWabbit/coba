@@ -119,7 +119,7 @@ class ExceptionEnvironment(Environment):
 class Experiment_Single_Tests(unittest.TestCase):
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setUp(cls) -> None:
         CobaConfig.logger = NullLogger()
         CobaConfig.experiment.processes = 1
         CobaConfig.experiment.maxtasksperchild = 0
@@ -321,7 +321,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 class Experiment_Multi_Tests(Experiment_Single_Tests):
 
     @classmethod
-    def setUpClass(cls) -> None:
+    def setUp(cls) -> None:
         CobaConfig.logger = NullLogger()
         CobaConfig.experiment.processes = 2
         CobaConfig.experiment.maxtasksperchild = 0

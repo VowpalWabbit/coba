@@ -5,7 +5,7 @@ from threading import Thread
 from typing import Iterable, Any
 
 from coba.utilities  import coba_exit
-from coba.config     import CobaConfig, BasicLogger, IndentLogger
+from coba.config     import CobaConfig, BasicLogger, IndentLogger, ConcurrentCacher
 from coba.pipes      import Filter, Sink, QueueIO, MultiprocessFilter
 
 class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
@@ -14,10 +14,9 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
         def __init__(self, filter: Filter, logger_sink: Sink, with_name:bool, manager: SyncManager) -> None:
 
-            self._logger    = deepcopy(CobaConfig.logger)
-            self._cacher    = deepcopy(CobaConfig.cacher)
-            self._srcsema   = manager.Semaphore(2)
-            self._cachelock = manager.Lock()
+            self._logger  = deepcopy(CobaConfig.logger)
+            self._cacher  = ConcurrentCacher(CobaConfig.cacher, manager.dict(), manager.Lock(), manager.Condition())
+            self._srcsema = manager.Semaphore(2)
 
             if isinstance(self._logger, IndentLogger):
                 self._logger._with_name = with_name
@@ -35,7 +34,6 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
             CobaConfig.logger            = self._logger
             CobaConfig.cacher            = self._cacher
             CobaConfig.store["srcsema"]  = self._srcsema
-            CobaConfig.store["cachelck"] = self._cachelock
 
             result = self._filter.filter(item)
 

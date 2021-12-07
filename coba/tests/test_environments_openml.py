@@ -1642,6 +1642,84 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertIn('openml_042693_feats', CobaConfig.cacher)
         self.assertIn('openml_042693_arff' , CobaConfig.cacher)
 
+    def test_read_twice_http_request_put_once_cache_once(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "licence":"CC0",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_arff = """
+            @relation weather
+            
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {yes, no}
+            
+            @data
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+   
+        request_dict = {
+            'https://www.openml.org/api/v1/json/data/42693': MockResponse(200, "", json.dumps(data_set_description).encode().splitlines()),
+            'https://www.openml.org/api/v1/json/data/features/42693': MockResponse(200, "", json.dumps(data_set_features).encode().splitlines()),
+            'https://www.openml.org/data/v1/download/22044555': MockResponse(200, "", data_set_arff.encode().splitlines())
+        }
+
+        def mocked_requests_get(*args, **kwargs):
+            return request_dict.pop(args[0])
+
+        CobaConfig.cacher = PutOnceCacher()
+
+        with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
+            for _ in range(2):
+                feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+                self.assertEqual(len(feature_rows), 5)
+                self.assertEqual(len(label_col), 5)
+
+                self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+                self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+                self.assertEqual([8.2, 28, 1410, (1,0)], feature_rows[2])
+                self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+                self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+
+                self.assertEqual((1,0), label_col[0])
+                self.assertEqual((1,0), label_col[1])
+                self.assertEqual((0,1), label_col[2])
+                self.assertEqual((0,1), label_col[3])
+                self.assertEqual((0,1), label_col[4])
+
+                self.assertIn('openml_042693_descr', CobaConfig.cacher)
+                self.assertIn('openml_042693_feats', CobaConfig.cacher)
+                self.assertIn('openml_042693_arff' , CobaConfig.cacher)
+
     def test_status_code_412_request_api_key(self):
         with unittest.mock.patch.object(requests, 'get', return_value=MockResponse(412, "please provide api key", [])):
             with self.assertRaises(CobaException) as e:
