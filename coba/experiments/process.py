@@ -169,7 +169,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
                             if not interactions:
                                 CobaConfig.logger.log(f"Environment {env_id} has nothing to evaluate (this is often due to `take` being larger than source).")
-                                return
+                                break
 
                         for workitem in work_for_env_filter:
                             try:

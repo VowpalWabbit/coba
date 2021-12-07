@@ -315,6 +315,21 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(['T2', 0, {}], transactions[0])
         self.assertEqual(['T2', 1, {}], transactions[1])
 
+    def test_two_environment_tasks_first_environment_is_empty(self):
+
+        src1   = DebugSimulation(n_interactions=0)
+        src2   = DebugSimulation(n_interactions=5)
+
+        task1 = ObserveTask()
+        task2 = ObserveTask()
+
+        items = [ WorkItem(0, None, src1, None, task1), WorkItem(1, None, src2, None, task2) ]
+
+        transactions = list(ProcessWorkItems().filter(items))
+
+        self.assertEqual(len(task1.observed), 0)
+        self.assertEqual(len(task2.observed[1]), 5)
+
     def test_empty_environment_tasks(self):
 
         src1  = DebugSimulation(0)

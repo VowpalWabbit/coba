@@ -195,14 +195,18 @@ class ConcurrentCacher(Cacher[_K, _V]):
     def _acquired_write_lock(self, key: _K) -> bool:
         with self._lock:
             if key not in self._dict or self._dict[key] == 0:
-                 self._dict[key] = -1
-                 return True
+                self._dict[key] = -1
+                return True
             return False
 
     def _acquire_write_lock(self, key: _K):
         while not self._acquired_write_lock(key):
             with self._cond:
                 self._cond.wait()
+
+    def _switch_write_to_read_lock(self, key: _K):
+        with self._lock:
+            self._dict[key] = 1
 
     def _release_write_lock(self, key: _K):
         with self._lock:
@@ -225,7 +229,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
         if inspect.isgenerator(value) or isinstance(value,Iterator):
             return self._generator_release(value,lambda:self._release_read_lock(key))
         else:
-            self._release_read_lock(key)            
+            self._release_read_lock(key)
             return value
 
     def put(self, key: _K, value: _V):
@@ -245,9 +249,20 @@ class ConcurrentCacher(Cacher[_K, _V]):
         if key in self._cache:
             return self.get(key)
         else:
-
             self._acquire_write_lock(key)
             if key not in self:
-                self._cache.put(key, getter())
-            self._release_write_lock(key)
-            return self.get(key)
+                
+                value = self._cache.get_put(key, getter)
+                self._switch_write_to_read_lock(key)
+                
+                if inspect.isgenerator(value) or isinstance(value,Iterator):
+                    return self._generator_release(value,lambda:self._release_read_lock(key))
+                else:
+                    self._release_read_lock(key)
+                    return value
+                    
+            self._switch_write_to_read_lock(key)
+            value = self.get(key)
+
+            self._release_read_lock(key)
+            return value

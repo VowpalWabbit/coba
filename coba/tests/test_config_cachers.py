@@ -15,10 +15,14 @@ class IterCacher(MemoryCacher):
         return iter(super().get(key))
 
 class MaxCountCacher:
-    def __init__(self, cacher):
+    def __init__(self, cacher, pause_once_on = None):
         self._cacher = cacher
         self._cur_count = 0
         self.max_count = 0
+
+        self._paused     = False
+        self._pause_on   = pause_once_on
+        self._pause_cond = threading.Condition()
 
     @contextmanager
     def count_context(self):
@@ -29,20 +33,38 @@ class MaxCountCacher:
 
         self._cur_count -= 1
 
+    def release(self):
+        with self._pause_cond:
+            self._pause_cond.notify_all()
+
+    def _try_pause(self,method):
+        if self._pause_on == method and not self._paused:
+            self._paused = True
+            with self._pause_cond:
+                self._pause_cond.wait()
+
     def __contains__(self,key):
         return key in self._cacher
 
     def get(self,key):
         with self.count_context():
+            self._try_pause("get")
             return self._cacher.get(key)
 
     def put(self,key,val):
         with self.count_context():
+            self._try_pause("put")
             self._cacher.put(key,val)
 
     def rmv(self,key):
         with self.count_context():
+            self._try_pause("rmv")
             self._cacher.rmv(key)
+
+    def get_put(self, key, getter):
+        with self.count_context():
+            self._try_pause("get_put")
+            return self._cacher.get_put(key, getter)
 
 class NullCacher_Tests(unittest.TestCase):
 
@@ -208,156 +230,392 @@ class ConcurrentCacher_Test(unittest.TestCase):
         self.assertNotIn("abc", cacher)
         cacher.rmv("abc")
 
-    def test_put_works_correctly_separate_keys_multi_thread(self):
-        cacher = ConcurrentCacher(MaxCountCacher(MemoryCacher()) , {}, threading.Lock(), threading.Condition())
+    def test_get_then_get_works_correctly_with_conflicting_keys_multi_thread(self):
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        curr_cacher.put(1,1)
 
         def thread_1():
-            for i in range(0,10):
-                cacher.put(i,(1,i))
+            curr_cacher.get(1)
 
         def thread_2():
-            for i in range(10,20):
-                cacher.put(i,(2,i))
+            curr_cacher.get(1)
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
 
-        t1.start()
-        t2.start()
+        t1.daemon = True
+        t2.daemon = True
 
-        t1.join()
+        t1.start()
+        time.sleep(.1)
+        
+        t2.start()
         t2.join()
 
-        self.assertEqual(2, cacher._cache.max_count)
+        self.assertTrue(t1.is_alive())
+        base_cacher.release()
 
-        for i in range(0,10):
-            self.assertEqual(cacher.get(i), (1,i))
+        t1.join()
 
-        for i in range(10,20):
-            self.assertEqual(cacher.get(i), (2,i))
+        self.assertEqual(2, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 1)
 
-    def test_put_works_correctly_conflicting_keys_multi_thread(self):
-        cacher = ConcurrentCacher(MaxCountCacher(MemoryCacher()) , {}, threading.Lock(), threading.Condition())
+    def test_get_then_get_works_correctly_sans_conflicting_keys_multi_thread(self):
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        curr_cacher.put(1,1)
+        curr_cacher.put(2,2)
 
         def thread_1():
-            for i in [1]*5:
-                cacher.put(i,1)
+            curr_cacher.get(1)
 
         def thread_2():
-            for i in [1]*5:
-                cacher.put(i,2)
+            curr_cacher.get(2)
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
 
-        t1.start()
-        t2.start()
+        t1.daemon = True
+        t2.daemon = True
 
-        t1.join()
+        t1.start()
+        time.sleep(.1)
+        
+        t2.start()
         t2.join()
 
-        self.assertEqual(1, cacher._cache.max_count)
-        self.assertIn(cacher.get(1), [1,2])
+        self.assertTrue(t1.is_alive())
+        base_cacher.release()
 
-    def test_get_and_put_works_correctly_conflicting_keys_multi_thread(self):
-        cacher = ConcurrentCacher(MaxCountCacher(MemoryCacher()) , {}, threading.Lock(), threading.Condition())
+        t1.join()
 
-        cacher.put(1,1)
+        self.assertEqual(2, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 1)
+        self.assertEqual(curr_cacher.get(2), 2)
+
+    def test_put_then_put_works_correctly_with_conflicting_keys_multi_thread(self):
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="put")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
 
         def thread_1():
-            for _ in [1]*5:
-                cacher.get(1)
+            curr_cacher.put(1,2)
 
         def thread_2():
-            for _ in [1]*5:
-                cacher.put(1,2)
+            curr_cacher.put(1,3)
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
 
+        t1.daemon = True
+        t2.daemon = True
+
         t1.start()
+        time.sleep(.1)
         t2.start()
+        time.sleep(.1)
+
+        self.assertTrue(t1.is_alive())
+        self.assertTrue(t2.is_alive())
+        
+        base_cacher.release()
 
         t1.join()
         t2.join()
 
-        self.assertEqual(1, cacher._cache.max_count)
-        self.assertEqual(cacher.get(1), 2)
+        self.assertEqual(1, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 3)
 
-    def test_get_works_correctly_separate_keys_multi_thread(self):
-        cacher = ConcurrentCacher(MaxCountCacher(MemoryCacher()) , {}, threading.Lock(), threading.Condition())
-
-        for i in range(0,20):
-            cacher.put(i,i)
+    def test_put_then_put_works_correctly_sans_conflicting_keys_multi_thread(self):
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="put")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
 
         def thread_1():
-            for i in range(0,10):
-                cacher.get(i)
+            curr_cacher.put(1,2)
 
         def thread_2():
-            for i in range(10,20):
-                cacher.get(i)
+            curr_cacher.put(2,3)
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
 
-        t1.start()
-        t2.start()
+        t1.daemon = True
+        t2.daemon = True
 
-        t1.join()
+        t1.start()
+        time.sleep(.1)
+        
+        t2.start()
         t2.join()
 
-        self.assertEqual(2, cacher._cache.max_count)
+        self.assertTrue(t1.is_alive())
+        base_cacher.release()
 
-    def test_get_works_correctly_conflicting_keys_multi_thread(self):
-        cacher = ConcurrentCacher(MaxCountCacher(MemoryCacher()) , {}, threading.Lock(), threading.Condition())
+        t1.join()
 
-        cacher.put(1,1)
+        self.assertEqual(2, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 2)
+        self.assertEqual(curr_cacher.get(2), 3)
+
+    def test_put_then_get_works_correctly_with_conflicting_keys_multi_thread(self):
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="put")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
 
         def thread_1():
-            for i in [1]*10:
-                cacher.get(i)
+            curr_cacher.put(1,2)
 
         def thread_2():
-            for i in [1]*10:
-                cacher.get(i)
+            curr_cacher.get(1)
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
 
+        t1.daemon = True
+        t2.daemon = True
+
         t1.start()
+        time.sleep(.1)
         t2.start()
+        time.sleep(.05)
+
+        self.assertTrue(t1.is_alive())
+        self.assertTrue(t2.is_alive())
+
+        base_cacher.release()
 
         t1.join()
         t2.join()
 
-        self.assertEqual(2, cacher._cache.max_count)
+        self.assertEqual(1, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 2)
 
-    def test_get_works_correctly_conflicting_keys_multi_thread(self):
-        cacher  = ConcurrentCacher(MaxCountCacher(MemoryCacher()) , {}, threading.Lock(), threading.Condition())
-        counter = count()
+    def test_put_then_get_works_correctly_sans_conflicting_keys_multi_thread(self):
+        
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="put")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
 
-        def get_count():
-            return next(counter)
+        base_cacher._cacher.put(2,1)
 
         def thread_1():
-            for i in [1]*10:
-                cacher.get_put(i,get_count)
+            curr_cacher.put(1,2)
 
         def thread_2():
-            for i in [1]*10:
-                cacher.get_put(i,get_count)
+            curr_cacher.get(2)
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
 
+        t1.daemon = True
+        t2.daemon = True
+
         t1.start()
+        time.sleep(.01)
         t2.start()
+        t2.join()
+
+        self.assertTrue(t1.is_alive())
+        self.assertFalse(t2.is_alive())
+
+        base_cacher.release()
+        t1.join()
+
+        self.assertEqual(2, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 2)
+
+    def test_get_then_put_works_correctly_with_conflicting_keys_multi_thread(self):
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        curr_cacher.put(1,1)
+
+        def thread_1():
+            curr_cacher.get(1)
+
+        def thread_2():
+            curr_cacher.put(1,2)
+
+        t1 = threading.Thread(None, thread_1)
+        t2 = threading.Thread(None, thread_2)
+
+        t1.daemon = True
+        t2.daemon = True
+
+        t1.start()
+        time.sleep(.1)
+        t2.start()
+        time.sleep(.05)
+
+        self.assertTrue(t1.is_alive())
+        self.assertTrue(t2.is_alive())
+
+        base_cacher.release()
 
         t1.join()
         t2.join()
 
-        self.assertEqual(0, cacher.get(1))
+        self.assertEqual(1, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 2)
+
+    def test_get_then_put_works_correctly_sans_conflicting_keys_multi_thread(self):
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        base_cacher._cacher.put(1,1)
+
+        def thread_1():
+            curr_cacher.get(1)
+
+        def thread_2():
+            curr_cacher.put(2,2)
+
+        t1 = threading.Thread(None, thread_1)
+        t2 = threading.Thread(None, thread_2)
+
+        t1.daemon = True
+        t2.daemon = True
+
+        t1.start()
+        time.sleep(.01)
+        t2.start()
+        t2.join()
+
+        self.assertTrue(t1.is_alive())
+        self.assertFalse(t2.is_alive())
+
+        base_cacher.release()
+        t1.join()
+
+        self.assertEqual(2, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 1)
+        self.assertEqual(curr_cacher.get(2), 2)
+
+    def test_get_put_put_then_get_put_get_works_correctly_with_conflicting_keys_multi_thread(self):
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get_put")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        def thread_1():
+            curr_cacher.get_put(1,lambda: 1)
+
+        def thread_2():
+            curr_cacher.get_put(1,lambda: 2)
+
+        t1 = threading.Thread(None, thread_1)
+        t2 = threading.Thread(None, thread_2)
+
+        t1.daemon = True
+        t2.daemon = True
+
+        t1.start()
+        time.sleep(.1)
+        t2.start()
+        time.sleep(.05)
+
+        self.assertTrue(t1.is_alive())
+        self.assertTrue(t2.is_alive())
+
+        base_cacher.release()
+
+        t1.join()
+        t2.join()
+
+        self.assertEqual(1, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 1)
+
+    def test_get_put_put_then_get_put_get_works_correctly_sans_conflicting_keys_multi_thread(self):
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get_put")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        def thread_1():
+            curr_cacher.get_put(1,lambda: 1)
+
+        def thread_2():
+            curr_cacher.get_put(2,lambda: 2)
+
+        t1 = threading.Thread(None, thread_1)
+        t2 = threading.Thread(None, thread_2)
+
+        t1.daemon = True
+        t2.daemon = True
+
+        t1.start()
+        time.sleep(.01)
+
+        t2.start()
+        t2.join()
+
+        self.assertTrue(t1.is_alive())
+        base_cacher.release()
+
+        t1.join()
+
+        self.assertEqual(2, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 1)
+        self.assertEqual(curr_cacher.get(2), 2)
+
+    def test_get_put_put_then_get_put_get_iter_works_correctly_sans_conflicting_keys_multi_thread(self):
+        base_cacher = MaxCountCacher(IterCacher(),pause_once_on="get_put")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        def thread_1():
+            curr_cacher.get_put(1,lambda: [1])
+
+        def thread_2():
+            curr_cacher.get_put(2,lambda: [2])
+
+        t1 = threading.Thread(None, thread_1)
+        t2 = threading.Thread(None, thread_2)
+
+        t1.daemon = True
+        t2.daemon = True
+
+        t1.start()
+        time.sleep(.01)
+
+        t2.start()
+        t2.join()
+
+        self.assertTrue(t1.is_alive())
+        base_cacher.release()
+
+        t1.join()
+
+        self.assertEqual(2, base_cacher.max_count)
+        self.assertEqual(list(curr_cacher.get(1)), [1])
+        self.assertEqual(list(curr_cacher.get(2)), [2])
+
+    def test_get_put_get_then_get_put_get_works_correctly_with_conflicting_sans_multi_thread(self):
+        base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        curr_cacher.put(1,1)
+
+        def thread_1():
+            curr_cacher.get_put(1,lambda: 1)
+
+        def thread_2():
+            curr_cacher.get_put(1,lambda: 2)
+
+        t1 = threading.Thread(None, thread_1)
+        t2 = threading.Thread(None, thread_2)
+
+        t1.daemon = True
+        t2.daemon = True
+
+        t1.start()
+        time.sleep(.01)
+
+        t2.start()
+        t2.join()
+
+        self.assertTrue(t1.is_alive())
+        base_cacher.release()
+
+        t1.join()
+
+        self.assertEqual(2, base_cacher.max_count)
+        self.assertEqual(curr_cacher.get(1), 1)
 
 if __name__ == '__main__':
     unittest.main()
