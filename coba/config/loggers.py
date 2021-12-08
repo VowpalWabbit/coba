@@ -3,6 +3,7 @@
 import time
 import traceback
 
+from abc import abstractmethod, ABC
 from multiprocessing import current_process
 from contextlib import contextmanager
 from datetime import datetime
@@ -11,7 +12,21 @@ from typing import ContextManager, List, cast, Iterator, Union
 from coba.pipes import Sink, NullIO
 from coba.exceptions import CobaException
 
-from coba.config.core import Logger
+class Logger(ABC):
+    """A more advanced logging interface allowing different types of logs to be written."""
+
+    @property
+    @abstractmethod
+    def sink(self) -> Sink[str]:
+        ...
+
+    @abstractmethod
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
+        ...
+
+    @abstractmethod
+    def time(self, message: str) -> 'ContextManager[Logger]':
+        ...
 
 class NullLogger(Logger):
 

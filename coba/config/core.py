@@ -5,57 +5,16 @@ import json
 import collections
 import traceback
 
-from abc import ABC, abstractmethod
 from pathlib import Path
 from typing_extensions import Literal
-from typing import Dict, Any, Iterable, Generic, Sequence, TypeVar, ContextManager, Union, Callable
+from typing import Dict, Any, Iterable, Sequence, Union
 
 from coba.exceptions import CobaException
 from coba.registry import CobaRegistry
 from coba.utilities import coba_exit
-from coba.pipes import Sink
 
-_K = TypeVar("_K")
-_V = TypeVar("_V")
-
-class Cacher(Generic[_K, _V], ABC):
-    """The interface for a cacher."""
-    
-    @abstractmethod
-    def __contains__(self, key: _K) -> bool:
-        ...
-
-    @abstractmethod
-    def get(self, key: _K) -> _V:
-        ...
-
-    @abstractmethod
-    def put(self, key: _K, value: _V) -> None:
-        ...
-
-    @abstractmethod
-    def rmv(self, key: _K) -> None:
-        ...
-    
-    @abstractmethod
-    def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
-        ...
-
-class Logger(ABC):
-    """A more advanced logging interface allowing different types of logs to be written."""
-
-    @property
-    @abstractmethod
-    def sink(self) -> Sink[str]:
-        ...
-
-    @abstractmethod
-    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
-        ...
-
-    @abstractmethod
-    def time(self, message: str) -> 'ContextManager[Logger]':
-        ...
+from coba.config.cachers import Cacher
+from coba.config.loggers import Logger
 
 class ExperimentConfig:
     

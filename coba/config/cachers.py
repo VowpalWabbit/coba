@@ -3,16 +3,39 @@
 import inspect
 import gzip
 
+from abc import abstractmethod, ABC
 from collections.abc import Iterator
 from threading import Lock, Condition
 from pathlib import Path
-from typing import Union, Dict, TypeVar, Iterable, Optional, Callable
+from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic
 
 from coba.exceptions import CobaException
-from coba.config.core import Cacher
 
 _K = TypeVar("_K")
 _V = TypeVar("_V")
+
+class Cacher(Generic[_K, _V], ABC):
+    """The interface for a cacher."""
+    
+    @abstractmethod
+    def __contains__(self, key: _K) -> bool:
+        ...
+
+    @abstractmethod
+    def get(self, key: _K) -> _V:
+        ...
+
+    @abstractmethod
+    def put(self, key: _K, value: _V) -> None:
+        ...
+
+    @abstractmethod
+    def rmv(self, key: _K) -> None:
+        ...
+    
+    @abstractmethod
+    def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
+        ...
 
 class NullCacher(Cacher[_K, _V]):
     def __init__(self) -> None:
