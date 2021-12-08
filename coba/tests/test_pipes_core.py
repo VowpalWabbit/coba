@@ -32,12 +32,12 @@ class Pipe_Tests(unittest.TestCase):
             raise Exception("Exception Filter")
 
     def test_run(self):
-        memoryIO_in = MemoryIO(list(range(10)))
+        memoryIO_in  = MemoryIO(list(range(10)))
         memoryIO_out = MemoryIO(list(range(10)))
 
         Pipe.join(memoryIO_in, [Pipe_Tests.ProcessNameFilter()], memoryIO_out).run()
 
-        self.assertEqual(memoryIO_out.items[10:], ['MainProcess']*10)
+        self.assertEqual(memoryIO_out.items[10], ['MainProcess']*10)
 
     def test_exception(self):
         memoryIO = MemoryIO(list(range(4)))

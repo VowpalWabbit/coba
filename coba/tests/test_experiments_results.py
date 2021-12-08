@@ -248,7 +248,7 @@ class Table_Pandas_Tests(unittest.TestCase):
         actual_df = table.to_pandas()
 
         pandas.testing.assert_frame_equal(expected_df,actual_df, check_dtype=False)
-    
+
     def test_pandas_with_dict_column(self):
         import pandas as pd   #type: ignore
         import pandas.testing #type: ignore
@@ -381,7 +381,7 @@ class InteractionTable_Pandas_Tests(unittest.TestCase):
         self.assertEqual(actual[3].tolist(), [2,4,6])
 
 class TransactionIO_V3_Tests(unittest.TestCase):
-    
+
     def test_simple_to_and_from_file(self):
         if Path("coba/tests/.temp/transaction_v3.log").exists():
             Path("coba/tests/.temp/transaction_v3.log").unlink()
@@ -389,19 +389,18 @@ class TransactionIO_V3_Tests(unittest.TestCase):
         try:
             io = TransactionIO_V3("coba/tests/.temp/transaction_v3.log")
 
-            t0 = ["T0",1,2]
-            t1 = ["T1",0,{"name":"lrn1"}]
-            t2 = ["T2",1,{"source":"test"}]
-            t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+            io.write(["T0",1,2])
+            io.write(["T1",0,{"name":"lrn1"}])
+            io.write(["T2",1,{"source":"test"}])
+            io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-            io.write([t0,t1,t2,t3])
             result = io.result
 
             self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
             self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
             self.assertEqual([(1,"test")], result.environments.to_tuples())
             self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
-        
+
         finally:
             if Path("coba/tests/.temp/transaction_v3.log").exists():
                 Path("coba/tests/.temp/transaction_v3.log").unlink()
@@ -409,12 +408,11 @@ class TransactionIO_V3_Tests(unittest.TestCase):
     def test_simple_to_and_from_memory(self):
         io = TransactionIO_V3()
 
-        t0 = ["T0",1,2]
-        t1 = ["T1",0,{"name":"lrn1"}]
-        t2 = ["T2",1,{"source":"test"}]
-        t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-        io.write([t0,t1,t2,t3])
         result = io.result
 
         self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
@@ -431,19 +429,18 @@ class TransactionIO_V4_Tests(unittest.TestCase):
         try:
             io = TransactionIO_V4("coba/tests/.temp/transaction_v4.log")
 
-            t0 = ["T0",1,2]
-            t1 = ["T1",0,{"name":"lrn1"}]
-            t2 = ["T2",1,{"source":"test"}]
-            t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+            io.write(["T0",1,2])
+            io.write(["T1",0,{"name":"lrn1"}])
+            io.write(["T2",1,{"source":"test"}])
+            io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-            io.write([t0,t1,t2,t3])
             result = io.result
 
             self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
             self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
             self.assertEqual([(1,"test")], result.environments.to_tuples())
             self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
-        
+
         finally:
             if Path("coba/tests/.temp/transaction_v4.log").exists():
                 Path("coba/tests/.temp/transaction_v4.log").unlink()
@@ -451,12 +448,11 @@ class TransactionIO_V4_Tests(unittest.TestCase):
     def test_simple_to_and_from_memory(self):
         io = TransactionIO_V3()
 
-        t0 = ["T0",1,2]
-        t1 = ["T1",0,{"name":"lrn1"}]
-        t2 = ["T2",1,{"source":"test"}]
-        t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-        io.write([t0,t1,t2,t3])
         result = io.result
 
         self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
@@ -473,19 +469,18 @@ class TransactionIO_Tests(unittest.TestCase):
         try:
             io = TransactionIO("coba/tests/.temp/transaction.log")
 
-            t0 = ["T0",1,2]
-            t1 = ["T1",0,{"name":"lrn1"}]
-            t2 = ["T2",1,{"source":"test"}]
-            t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+            io.write(["T0",1,2])
+            io.write(["T1",0,{"name":"lrn1"}])
+            io.write(["T2",1,{"source":"test"}])
+            io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-            io.write([t0,t1,t2,t3])
             result = io.result
 
             self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
             self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
             self.assertEqual([(1,"test")], result.environments.to_tuples())
             self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
-        
+
         finally:
             if Path("coba/tests/.temp/transaction.log").exists():
                 Path("coba/tests/.temp/transaction.log").unlink()
@@ -493,12 +488,11 @@ class TransactionIO_Tests(unittest.TestCase):
     def test_simple_to_and_from_memory(self):
         io = TransactionIO()
 
-        t0 = ["T0",1,2]
-        t1 = ["T1",0,{"name":"lrn1"}]
-        t2 = ["T2",1,{"source":"test"}]
-        t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-        io.write([t0,t1,t2,t3])
         result = io.result
 
         self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
@@ -513,20 +507,18 @@ class TransactionIO_Tests(unittest.TestCase):
         try:
             io = TransactionIO("coba/tests/.temp/transaction.log")
 
-            t0 = ["T0",1,2]
-            t1 = ["T1",0,{"name":"lrn1"}]
-            t2 = ["T2",1,{"source":"test"}]
-            t3 = ["T3",[0,1], [{"reward":3},{"reward":4}]] 
+            io.write(["T0",1,2])
+            io.write(["T1",0,{"name":"lrn1"}])
+            io.write(["T2",1,{"source":"test"}])
+            io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-            io.write([t0,t1,t2,t3])
-            
             result = TransactionIO("coba/tests/.temp/transaction.log").result
 
             self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
             self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
             self.assertEqual([(1,"test")], result.environments.to_tuples())
             self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
-        
+
         finally:
             if Path("coba/tests/.temp/transaction.log").exists():
                 Path("coba/tests/.temp/transaction.log").unlink()

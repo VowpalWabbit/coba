@@ -14,7 +14,7 @@ from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashabl
 from coba.config import CobaConfig
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.pipes import JsonEncode, JsonDecode, DiskIO, MemoryIO, Sink, Source
+from coba.pipes import JsonEncode, JsonDecode, DiskIO, MemoryIO, IO
 
 class Table:
     """A container class for storing tabular data."""
@@ -298,18 +298,21 @@ class InteractionsTable(Table):
             n_index = len(data[0][1:])
             return pd.DataFrame(data, columns=["learner_id", *range(1,n_index+1)])
 
-class TransactionIO_V3(Source[Iterable[Any]],Sink[Iterable[Any]]):
+class TransactionIO_V3(IO[Iterable[Any], Any]):
 
     def __init__(self, transaction_log: Optional[str] = None, minify:bool=True) -> None:
 
         self._io = DiskIO(transaction_log) if transaction_log else MemoryIO()
         self._minify = minify
 
-    def write(self, items: Iterable[Any]) -> None:
+    def write(self, item: Any) -> None:
+
+        item = self._encode(item)
+
         if isinstance(self._io, MemoryIO):
-            self._io.write(map(self._encode, items))
+            self._io.write(item)
         else:
-            self._io.write(map(JsonEncode(self._minify).filter, map(self._encode,items)))
+            self._io.write(JsonEncode(self._minify).filter(item))
 
     def read(self) -> Iterable[Any]:
         if isinstance(self._io, MemoryIO):
@@ -364,17 +367,17 @@ class TransactionIO_V3(Source[Iterable[Any]],Sink[Iterable[Any]]):
 
             return ["I", item[1], { "_packed": rows_T }]
 
-class TransactionIO_V4(Source[Iterable[Any]],Sink[Iterable[Any]]):
+class TransactionIO_V4(IO[Iterable[Any], Any]):
 
     def __init__(self, transaction_log: Optional[str] = None, minify:bool=True) -> None:
-        self._io = DiskIO(transaction_log) if transaction_log else MemoryIO()
+        self._io     = DiskIO(transaction_log) if transaction_log else MemoryIO()
         self._minify = minify
 
-    def write(self, items: Iterable[Any]) -> None:
+    def write(self, item: Any) -> None:
         if isinstance(self._io, MemoryIO):
-            self._io.write(map(self._encode, items))
+            self._io.write(self._encode(item))
         else:
-            self._io.write(map(JsonEncode(self._minify).filter, map(self._encode,items)))
+            self._io.write(JsonEncode(self._minify).filter(self._encode(item)))
 
     def read(self) -> Iterable[Any]:
         if isinstance(self._io, MemoryIO):
@@ -431,7 +434,7 @@ class TransactionIO_V4(Source[Iterable[Any]],Sink[Iterable[Any]]):
 
         return item
 
-class TransactionIO(Source[Iterable[Any]],Sink[Iterable[Any]]):
+class TransactionIO(IO[Iterable[Any], Any]):
 
     def __init__(self, transaction_log: Optional[str] = None) -> None:
 
@@ -448,13 +451,13 @@ class TransactionIO(Source[Iterable[Any]],Sink[Iterable[Any]]):
 
         elif version is None:
             self._transactionIO = TransactionIO_V4(transaction_log)
-            self._transactionIO.write([['version',4]])
+            self._transactionIO.write(['version',4])
 
         else:
             raise CobaException("We were unable to determine the appropriate Transaction reader for the file.")
 
-    def write(self, items: Iterable[Any]) -> None:
-        self._transactionIO.write(items)
+    def write(self, transaction: Any) -> None:
+        self._transactionIO.write(transaction)
 
     def read(self) -> Iterable[Any]:
         self._transactionIO.read()

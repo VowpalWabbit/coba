@@ -1,7 +1,7 @@
 import requests
 import gzip
 
-from itertools import chain
+from collections.abc import Iterator
 from queue import Queue
 from typing import Iterable, Sequence, TypeVar, Any, Generic, Union
 
@@ -13,130 +13,108 @@ _T_out = TypeVar("_T_out", bound=Any, covariant=True)
 class IO(Source[_T_out], Sink[_T_in], Generic[_T_out, _T_in]):
     pass
 
-class NullIO(IO[Any,Any]):
-    def read(self) -> Any:
+class NullIO(IO[None,Any]):
+    def read(self) -> None:
         return None
 
     def write(self, item: Any) -> None:
         pass
 
-class ConsoleIO(IO[str,Union[Any,Iterable[Any]]]):
-    def read() -> str:
+class ConsoleIO(IO[str,Any]):
+    
+    def read(self) -> str:
         return input()
 
-    def write(self, item: Union[Any,Iterable[Any]]) -> None:
-        try:
-            if isinstance(item,str):
-                print(item)
-            else:
-               for it in item:
-                   print(it)
-        except TypeError as e:
-            if "not iterable" in str(e):
-                print(item)
-            else:
-                raise
+    def write(self, item: Any) -> None:
+        print(item)
 
-class DiskIO(IO[Iterable[str],Union[str,Iterable[str]]]):
-    
-    def __init__(self, filename:str, append=True):
+class DiskIO(IO[Iterable[str],str]):
+
+    def __init__(self, filename:str, mode:str=None):
         
         #If you are using the gzip functionality of disk sink
         #then you should note that this implementation isn't optimal
         #in terms of compression since it compresses one line at a time.
         #see https://stackoverflow.com/a/18109797/1066291 for more info.
-        
+
         gzip_open = lambda filename, mode: gzip.open(filename,mode, compresslevel=6)
         text_open = lambda filename, mode: open(filename,mode)
 
-        self.filename = filename
-        self._open    = gzip_open if ".gz" in filename else text_open
-        self._append  = append
+        self._filename   = filename
+        self._open_func  = gzip_open if ".gz" in filename else text_open
+        self._open_file  = None
+        self._open_count = 0
+        self._given_mode = mode is not None
+        self._mode       = mode
 
-    def read(self) -> Iterable[str]:
-        with self._open(self.filename, "rb+") as f:
-            for line in f:
+    def __enter__(self) -> 'DiskIO':
+        self._open_count += 1
+        
+        if self._open_file is None:
+            self._open_file = self._open_func(self._filename, f"{self._mode}b")
+        
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._open_count -= 1
+        if self._open_count == 0 and self._open_file is not None:
+            self._open_file.close()
+            self._open_file = None
+
+    def read(self) -> Iterable[str]: #read all non-destuctive
+        
+        if not self._given_mode and self._open_count == 0:
+            self._mode = 'r+'
+
+        with self:
+            #self._open_file.seek(0)
+            for line in self._open_file.__enter__():
                 yield line.decode('utf-8').rstrip('\n')
 
-    def write(self, item: Union[str,Iterable[str]]) -> None:
-
-        items = [item] if isinstance(item,str) else item
-        mode  = 'ab+' if self._append else 'wb+'
-
-        try:
-            #by peeking at the first item we can prevent the file
-            #from being opened/created when there are no items to write
-            items      = iter(items)
-            first_item = next(items)
-            items      = chain([first_item], items)
-
-            if self._append:
-                for item in items:
-                    with self._open(self.filename, mode) as f:
-                        f.write((item + '\n').encode('utf-8'))
-                        f.flush()
-            else:
-                with self._open(self.filename, mode) as f:
-                    for item in items:
-                        f.write((item + '\n').encode('utf-8'))
-                        f.flush()
+    def write(self, item: str) -> None: #write one at a time
         
-        except StopIteration:
-            pass
+        if not self._given_mode and self._open_count == 0:
+            self._mode = 'a+'
 
-class MemoryIO(IO[Sequence[Any], Any]):
+        with self:
+            self._open_file.write((item + '\n').encode('utf-8'))
+            self._open_file.flush()
+
+class MemoryIO(IO[Iterable[Any], Any]):
     def __init__(self, initial_memory: Sequence[Any] = []):
         self.items =  list(initial_memory)
 
-    def read(self) -> Sequence[Any]:
+    def read(self) -> Sequence[Any]: #read all nondestructive
         return self.items
 
-    def write(self, item: Any) -> None:
-        try:
-            if isinstance(item,str):
-                self.items.append(item)
-            else:
-                for item in item:
-                    self.items.append(item)
-        except TypeError as e:
-            if "not iterable" in str(e):
-                self.items.append(item)
-            else:
-                raise
+    def write(self, item: Any) -> None: #write one at a time
+        self.items.append(list(item) if isinstance(item, Iterator) else item)
 
-class QueueIO(IO[Iterable[Any], Union[Any,Iterable[Any]]]):
+class QueueIO(IO[Iterable[Any], Any]):
     
-    def __init__(self, queue: Queue = Queue(), poison_pill:Any=None, blocking_get:bool=True) -> None:
-        self._queue        = queue
-        self._poison_pill  = poison_pill
-        self._blocking_get = blocking_get
+    def __init__(self, queue: Queue = Queue(), poison:Any=None, block:bool=True) -> None:
+        self._queue  = queue
+        self._poison = poison
+        self._block  = block
 
-    def read(self) -> Iterable[Any]:
+    def read(self) -> Iterable[Any]: #read all, destructive
         try:
-            while self._blocking_get or self._queue.qsize() > 0:
+            while self._queue.qsize() > 0 or self._block:
                 item = self._queue.get()
 
-                if item == self._poison_pill:
-                    return
+                if item == self._poison:
+                    break
 
                 yield item
         except (EOFError,BrokenPipeError):
             pass
 
-    def write(self, items: Union[Any,Iterable[Any]]) -> None:
+    def write(self, item: Any) -> None: #write one at a time
         try:
-            if isinstance(items,str):
-                self._queue.put(items)
-            else:
-                for item in items: self._queue.put(item)
-        except TypeError as e:
-            if "not iterable" in str(e):
-                self._queue.put(items)
-            else:
-                raise 
+            self._queue.put(item)
         except (EOFError,BrokenPipeError):
             pass
-
+        
 class HttpIO(IO[requests.Response, Any]):
     def __init__(self, url: str) -> None:
         self._url = url
@@ -145,4 +123,4 @@ class HttpIO(IO[requests.Response, Any]):
         return requests.get(self._url, stream=True) #by default sends accept-encoding gzip and deflate
 
     def write(self, item: Any) -> None:
-        requests.put(self._url, item)
+        raise NotImplementedError()

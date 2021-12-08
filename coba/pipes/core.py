@@ -5,7 +5,20 @@ import collections.abc
 from typing import Sequence, Iterable, Any, overload, Union
 
 from coba.pipes.primitives import Filter, Source, Sink, StopPipe
-from coba.pipes.filters import Identity 
+
+class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
+
+    def __init__(self, pipe: Union[Source[Any],Filter[Any,Any],Sink[Any]], poison=None):
+        self._pipe = pipe
+        self._poison = poison
+
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        for item in items:
+            yield self._pipe.filter(item)
+
+    def write(self, items: Iterable[Any]):
+        for item in items:
+            self._pipe.write(item)
 
 class Pipe:
 

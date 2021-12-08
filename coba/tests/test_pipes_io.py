@@ -1,87 +1,143 @@
 import unittest
+import unittest.mock
+import requests.exceptions
 
 from pathlib import Path
 
-from coba.pipes import DiskIO, MemoryIO, QueueIO
+from coba.pipes import DiskIO, MemoryIO, QueueIO, NullIO, ConsoleIO, HttpIO
 from coba.config import NullLogger, CobaConfig
 
 CobaConfig.logger = NullLogger()
 
+class BrokenQueue:
+
+    def __init__(self, exception):
+        self._exception = exception
+
+    def get(self):
+        raise self._exception
+
+    def put(self,item):
+        raise self._exception
+
+class NullIO_Tests(unittest.TestCase):
+    
+    def test_read(self):
+        self.assertIsNone(NullIO().read())
+
+    def test_write(self):
+        NullIO().write([1,2,3])
+
+class ConsoleIO_Tests(unittest.TestCase):
+
+    def test_read(self):
+        with unittest.mock.patch("builtins.input", return_value="abc"):
+            self.assertEqual('abc', ConsoleIO().read())
+
+    def test_write(self):
+        with unittest.mock.patch("builtins.print") as mock:
+            ConsoleIO().write("abc")
+            mock.assert_called_with("abc")
+
 class DiskIO_Tests(unittest.TestCase):
+
+    def setUp(self) -> None:
+        if Path("coba/tests/.temp/test.log").exists(): Path("coba/tests/.temp/test.log").unlink()
+        if Path("coba/tests/.temp/test.gz").exists(): Path("coba/tests/.temp/test.gz").unlink()
+
+    def tearDown(self) -> None:
+        if Path("coba/tests/.temp/test.log").exists(): Path("coba/tests/.temp/test.log").unlink()
+        if Path("coba/tests/.temp/test.gz").exists(): Path("coba/tests/.temp/test.gz").unlink()
+
     def test_simple_sans_gz(self):
 
-        filepath = "coba/tests/.temp/test.log"
+        io = DiskIO("coba/tests/.temp/test.log")
 
-        try:
-            io = DiskIO(filepath)
-
-            io.write(["a","b","c"])
-            out = list(io.read())
-
-            self.assertEqual(["a","b","c"], out)
-
-        finally:
-            if Path(filepath).exists(): Path(filepath).unlink()
+        io.write("a")
+        io.write("b")
+        io.write("c")
+        
+        self.assertEqual(["a","b","c"], list(io.read()))
 
     def test_simple_with_gz(self):
 
-        filepath = "coba/tests/.temp/test.log.gz"
+        io = DiskIO("coba/tests/.temp/test.gz")
 
-        try:
-            io = DiskIO(filepath)
-
-            io.write(["a","b","c"])
-            out = list(io.read())
-
-            self.assertEqual(["a","b","c"], out)
-
-        finally:
-            if Path(filepath).exists(): Path(filepath).unlink()
+        io.write("a")
+        io.write("b")
+        io.write("c")
+        
+        self.assertEqual(["a","b","c"], list(io.read()))
 
 class MemoryIO_Tests(unittest.TestCase):
+    
     def test_simple(self):
 
         io = MemoryIO()
 
-        io.write(["a","b","c"])
-        out = list(io.read())
+        io.write("a")
+        io.write("b")
+        io.write("c")
 
-        self.assertEqual(["a","b","c"], out)
+        self.assertEqual(["a","b","c"], io.read())
 
     def test_string(self):
 
         io = MemoryIO()
-
         io.write("abc")
-        out = list(io.read())
-
-        self.assertEqual(["abc"], out)
+        self.assertEqual(["abc"], io.read())
 
 class QueueIO_Tests(unittest.TestCase):
-    def test_simple_no_blocking(self):
+    
+    def test_read_write_sans_blocking(self):
 
-        io = QueueIO(blocking_get=False)
+        io = QueueIO(block=False)
 
-        io.write(["a","b","c"])
-        out = list(io.read())
+        io.write("a")
+        io.write("b")
+        io.write("c")
 
-        self.assertEqual(["a","b","c"], out)
+        self.assertEqual(["a","b","c"], list(io.read()))
 
-    def test_simple_blocking(self):
+    def test_read_write_with_blocking(self):
 
         io = QueueIO()
 
-        io.write(["a","b","c", None])
-        out = list(io.read())
+        io.write("a")
+        io.write("b")
+        io.write("c")
+        io.write(None)
 
-        self.assertEqual(["a","b","c"], out)
+        self.assertEqual(["a","b","c"], list(io.read()))
 
-    def test_string(self):
+    def test_read_exception(self):
 
-        io = QueueIO(blocking_get=False)
-        io.write("abc")
-        out = list(io.read())
-        self.assertEqual(["abc"], out)
+        with self.assertRaises(Exception):
+            list(QueueIO(BrokenQueue(Exception())).read())
+
+        QueueIO(BrokenQueue(EOFError())).read()
+        QueueIO(BrokenQueue(BrokenPipeError())).read()
+
+    def test_write_exception(self):
+
+        QueueIO(BrokenQueue(EOFError())).write(1)
+        QueueIO(BrokenQueue(BrokenPipeError())).write(1)
+
+        with self.assertRaises(Exception):
+            QueueIO(BrokenQueue(Exception())).write(1)
+
+class HttpIO_Tests(unittest.TestCase):
+
+    def test_read(self):
+        try:
+            with HttpIO("http://www.google.com").read() as response:
+                self.assertIn(b"google", response.content)
+        except requests.exceptions.ConnectionError as e:
+            pass
+
+    def test_write(self):
+        with self.assertRaises(NotImplementedError):
+            HttpIO("www.google.com").write("abc")
 
 if __name__ == '__main__':
     unittest.main()

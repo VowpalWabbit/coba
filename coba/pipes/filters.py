@@ -27,24 +27,10 @@ _T_SparseData = Iterable[_T_SparseRow]
 _T_Row        = Union[_T_DenseRow,  _T_SparseRow ]
 _T_Data       = Union[_T_DenseData, _T_SparseData]
 
-class Cartesian(Filter[Union[Any,Iterable[Any]], Iterable[Any]]):
-
-    def __init__(self, filter: Union[Filter,Sequence[Filter]]):
-
-        self._filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
-
-    def filter(self, item: Union[Any,Iterable[Any]]) -> Iterable[Any]:
-
-        items = item if isinstance(item, collections.abc.Iterable) else [item]
-
-        for item in items:
-            for filter in self._filters:
-                yield filter.filter(item)
-
 class Identity(Filter[Any, Any]):
     def filter(self, item:Any) -> Any:
         return item
-    
+
     def __repr__(self) -> str:
         return "{ Identity }"
 

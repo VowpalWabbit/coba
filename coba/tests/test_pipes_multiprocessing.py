@@ -31,33 +31,33 @@ class MultiprocessFilter_Tests(unittest.TestCase):
         items = list(MultiprocessFilter(ProcessNameFilter(), 1, 1).filter(range(4)))
         self.assertEqual(len(set(items)), 4)
 
-        items = list(MultiprocessFilter(Identity(), 1, 1).filter(range(4)))
+        items = list(MultiprocessFilter(Identity(), 1, 1, foreach=False).filter(range(4)))
         self.assertEqual(len(set(items) & set(range(4))), 4)
 
     def test_singleprocess_multitask(self):
         items = list(MultiprocessFilter(ProcessNameFilter(), 1, None).filter(range(4)))
         self.assertEqual(len(set(items)), 1)
 
-        items = list(MultiprocessFilter(Identity(), 1, 1).filter(range(4)))
+        items = list(MultiprocessFilter(Identity(), 1, 1, foreach=False).filter(range(4)))
         self.assertEqual(len(set(items) & set(range(4))), 4)
 
     def test_multiprocess_singletask(self):
         items = list(MultiprocessFilter(ProcessNameFilter(), 2, 1).filter(range(4)))
         self.assertEqual(len(set(items)), 4)
 
-        items = list(MultiprocessFilter(Identity(), 2, 1).filter(range(4)))
+        items = list(MultiprocessFilter(Identity(), 2, 1, foreach=False).filter(range(4)))
         self.assertEqual(len(set(items) & set(range(4))), 4)
 
     def test_multiprocess_multitask(self):
         items = list(MultiprocessFilter(ProcessNameFilter(), 2).filter(range(40)))
         self.assertEqual(len(set(items)), 2)
 
-        items = list(MultiprocessFilter(Identity(), 2).filter(range(40)))
+        items = list(MultiprocessFilter(Identity(), 2, foreach=False).filter(range(40)))
         self.assertEqual(len(set(items) & set(range(40))), 40)
 
     def test_filter_exception(self):
         stderr_sink = MemoryIO()
-        
+
         list(MultiprocessFilter(ExceptionFilter(), 2, 1, stderr_sink).filter(range(4)))
 
         self.assertEqual(len(stderr_sink.items), 4)

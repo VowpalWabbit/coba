@@ -7,7 +7,7 @@ from multiprocessing import Manager, current_process
 from threading       import Thread
 from typing          import Iterable, Any
 
-from coba.pipes.core       import Pipe
+from coba.pipes.core       import Pipe, Foreach
 from coba.pipes.primitives import Filter, StopPipe
 from coba.pipes.io         import Sink, QueueIO, ConsoleIO
 
@@ -31,10 +31,10 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
     class Processor:
 
-        def __init__(self, filter: Filter, stdout: Sink, stderr: Sink) -> None:
-            self._filter = filter
-            self._stdout = stdout
-            self._stderr = stderr
+        def __init__(self, filter: Filter, stdout: Sink, stderr: Sink, foreach:bool) -> None:
+            self._filter  = filter
+            self._stdout  = stdout if not foreach else Foreach(stdout)
+            self._stderr  = stderr
 
         def process(self, item) -> None:
 
@@ -43,8 +43,8 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
             except StopPipe:
                 pass
             except Exception as e:
-                #WARNING: this will scrub the e of its traceback which is why the traceback is also sent as a string
-                self._stderr.write([(time.time(), current_process().name, e, traceback.format_tb(e.__traceback__))])
+                #WARNING: this will scrub e of its traceback which is why the traceback is also sent as a string
+                self._stderr.write((time.time(), current_process().name, e, traceback.format_tb(e.__traceback__)))
             except KeyboardInterrupt:
                 #When ctrl-c is pressed on the keyboard KeyboardInterrupt is raised in each
                 #process. We need to handle this here because Processor is always ran in a
@@ -53,11 +53,18 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 #handle the keyboard interrupt gracefully.
                 pass
 
-    def __init__(self, filter: Filter, processes: int = 1, maxtasksperchild: int = 0, stderr: Sink = ConsoleIO()) -> None:
+    def __init__(self, 
+        filter: Filter[Any, Any], 
+        processes: int = 1, 
+        maxtasksperchild: int = 0, 
+        stderr: Sink = ConsoleIO(),
+        foreach: bool = True) -> None:
+
         self._filter           = filter
         self._processes        = processes
         self._maxtasksperchild = maxtasksperchild
         self._stderr           = stderr
+        self._foreach          = foreach
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 
@@ -138,11 +145,11 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                     stdout_IO.write(None)
                     stderr_IO.write(None)
 
-                log_thread = Thread(target=Pipe.join(stderr_IO, [], self._stderr).run)
+                log_thread = Thread(target=Pipe.join(stderr_IO, [], Foreach(self._stderr)).run)
                 log_thread.daemon = True
                 log_thread.start()
 
-                processor = MultiprocessFilter.Processor(self._filter, stdout_IO, stderr_IO)
+                processor = MultiprocessFilter.Processor(self._filter, stdout_IO, stderr_IO, self._foreach)
                 result    = pool.map_async(processor.process, items, callback=done_or_failed, error_callback=done_or_failed, chunksize=1)
 
                 # When items is empty finished_callback will not be called and we'll get stuck waiting for the poison pill.

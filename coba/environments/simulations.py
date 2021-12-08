@@ -225,7 +225,7 @@ class ReaderSimulation(SimulatedEnvironment):
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
         if isinstance(self._source,DiskIO):
-            return {"source": str(self._source.filename) }
+            return {"source": str(self._source._filename) }
         elif isinstance(self._source,MemoryIO):
             return {"source": 'memory' }
         else:
