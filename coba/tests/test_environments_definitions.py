@@ -1,13 +1,13 @@
 import json
 import unittest
 
-from coba.pipes import Take
 from coba.registry import CobaRegistry
 from coba.exceptions import CobaException
 
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 from coba.environments.primitives import SimulatedEnvironment
 from coba.environments.openml import OpenmlSimulation
+from coba.environments.filters import Take
 
 class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 

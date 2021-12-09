@@ -4,16 +4,46 @@ from math import isnan
 from statistics import mean, median, stdev, mode
 from numbers import Number
 from collections import defaultdict
-from abc import abstractmethod, ABC
 from itertools import islice, chain
 from typing_extensions import Literal
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple
 
+import coba.pipes
 from coba.random import CobaRandom
-from coba.pipes import Filter
 from coba.statistics import iqr
 
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, Interaction, EnvironmentFilter
+
+class Take(coba.pipes.Take):
+    
+    @property
+    def params(self) -> Dict[str, Any]:
+
+        if self._seed is not None:
+            return { "take": self._count, "take_seed": self._seed }
+        else: 
+            return { "take": self._count }
+
+    def __repr__(self) -> str:
+        return str(self.params)
+
+class Shuffle(coba.pipes.Shuffle):
+    
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "shuffle": self._seed }
+
+    def __repr__(self) -> str:
+        return str(self.params)
+
+class Identity(coba.pipes.Identity):
+    
+    @property
+    def params(self) -> Dict[str, Any]:
+        return {}
+
+    def __repr__(self) -> str:
+        return "{ Identity }"
 
 class Sort(EnvironmentFilter):
 

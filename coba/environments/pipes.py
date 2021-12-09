@@ -1,9 +1,9 @@
 from typing import Iterable, Dict, Any
 
-from coba.pipes import Pipe, Identity
+from coba.pipes import Pipe
 
 from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
-from coba.environments.filters import EnvironmentFilter
+from coba.environments.filters import EnvironmentFilter, Identity
 
 class EnvironmentPipe(SimulatedEnvironment):
 

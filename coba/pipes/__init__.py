@@ -4,7 +4,7 @@ from coba.pipes.core import Pipe, Foreach
 from coba.pipes.multiprocessing import MultiprocessFilter
 
 from coba.pipes.filters import (
-    JsonEncode, JsonDecode, ResponseToLines, ArffReader, CsvReader, 
+    JsonEncode, JsonDecode, ArffReader, CsvReader, 
     LibSvmReader, Encode, Flatten, Default, Drop, Identity, ManikReader,
     _T_Data, Structure, Take, Shuffle
 )
@@ -20,7 +20,6 @@ __all__ = [
     "Foreach",
     "JsonEncode",
     "JsonDecode",
-    "ResponseToLines",
     "ArffReader",
     "CsvReader",
     "LibSvmReader",
@@ -42,5 +41,5 @@ __all__ = [
     "HttpIO",
     _T_Data,
     "Foreach",
-    "IO"
+    "IO",
 ]

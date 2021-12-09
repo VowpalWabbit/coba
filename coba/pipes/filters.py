@@ -11,8 +11,6 @@ from itertools import islice
 from collections import OrderedDict
 from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, Callable, Optional
 
-from requests import Response
-
 from coba.random import CobaRandom
 from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder, CobaJsonEncoder, CobaJsonDecoder
 from coba.exceptions import CobaException
@@ -31,9 +29,6 @@ class Identity(Filter[Any, Any]):
     def filter(self, item:Any) -> Any:
         return item
 
-    def __repr__(self) -> str:
-        return "{ Identity }"
-
 class Shuffle(Filter[Iterable[Any], Iterable[Any]]):
 
     def __init__(self, seed:Optional[int]) -> None:
@@ -43,15 +38,8 @@ class Shuffle(Filter[Iterable[Any], Iterable[Any]]):
 
         self._seed = seed
 
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { "shuffle": self._seed }
-
     def filter(self, items: Iterable[Any]) -> Iterable[Any]: 
         return CobaRandom(self._seed).shuffle(list(items))
-
-    def __repr__(self) -> str:
-        return str(self.params)
 
 class Take(Filter[Iterable[Any], Iterable[Any]]):
     """Take a given number of items from an iterable."""
@@ -79,14 +67,6 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
         self._seed       = seed
         self._keep_first = keep_first
 
-    @property
-    def params(self) -> Dict[str, Any]:
-
-        if self._seed is not None:
-            return { "take": self._count, "take_seed": self._seed }
-        else: 
-            return { "take": self._count }
-
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 
         if self._count is None: 
@@ -112,30 +92,6 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
 
             return itertools.chain( first, resevoir if len(resevoir) == self._count else [])
 
-    def __repr__(self) -> str:
-        return str(self.params)
-
-class StringJoin(Filter[Iterable[str], str]):
-
-    def __init__(self, separator:str = '') -> None:
-        self._separator = separator
-
-    def filter(self, item: Iterable[str]) -> str:
-        return self._separator.join(item)
-
-class ResponseToLines(Filter[Response, Iterable[str]]):
-    def filter(self, item: Response) -> Iterable[str]:
-
-        if item.status_code != 200:
-
-            message = (
-                f"The response from {item.url} reported an error. "
-                "The status and reason were {item.status_code}-{item.reason}.")
-
-            raise Exception(message) from None
-
-        return item.content.decode('utf-8').split('\n')
-
 class JsonEncode(Filter[Any, str]):
  
     def _min(self,obj):
@@ -144,7 +100,7 @@ class JsonEncode(Filter[Any, str]):
         #WARNING: improves the performance of this method by a few percentage points. 
 
         #JsonEncoder writes floats with .0 regardless of if they are integers so we convert them to int to save space
-        #JsonEncoder also writes floats out 16 digits so we round down to 5 here to reduce file size
+        #JsonEncoder also writes floats out 16 digits so we truncate them to 5 digits here to reduce file size
 
         if isinstance(obj,tuple):
             obj = list(obj)
@@ -358,7 +314,7 @@ class Encode(Filter[_T_Data, _T_Data]):
 
             if header is None:
                 yield header
-                header_synced_encoders = dict(self._encoders)
+                header_synced_encoders = self._encoders
 
             elif isinstance(header, dict):
                 yield header
@@ -505,7 +461,7 @@ class Default(Filter[_T_Data, _T_Data]):
 
             if header is None:
                 yield header
-                header_synced_defaults = dict(self._defaults)
+                header_synced_defaults = self._defaults
 
             elif isinstance(header, dict):
                 yield header

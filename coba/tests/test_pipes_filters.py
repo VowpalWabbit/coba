@@ -1,8 +1,11 @@
 import unittest
+from coba.exceptions import CobaException
 
-from coba.pipes import LibSvmReader, ArffReader, CsvReader, Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle
+from coba.pipes import LibSvmReader, ArffReader, CsvReader
+from coba.pipes import Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.config import NullLogger, CobaConfig
+from coba.pipes.filters import Default
 
 CobaConfig.logger = NullLogger()
 
@@ -32,8 +35,22 @@ class Shuffle_Tests(unittest.TestCase):
         self.assertEqual(interactions[2], shuffled_interactions[1])
         self.assertEqual(interactions[0], shuffled_interactions[2])
 
+    def test_bad_seed(self):
+        with self.assertRaises(ValueError):
+            Shuffle(-1)
+
+        with self.assertRaises(ValueError):
+            Shuffle('A')
+
 class Take_Tests(unittest.TestCase):
     
+    def test_bad_count(self):
+        with self.assertRaises(ValueError):
+            Take(-1)
+
+        with self.assertRaises(ValueError):
+            Take('A')
+
     def test_take1_no_seed(self):
 
         items = [ 1,2,3 ]
@@ -97,6 +114,12 @@ class CsvReader_Tests(unittest.TestCase):
 
     def test_sparse(self):
         self.assertCountEqual([{'a':0,'b':1,'c':2},{0:'1',2:'2'},{1:'3'}], list(CsvReader(has_header=True).filter(['a,b,c', '{0 1,2 2}', '{1 3}'])))
+
+    def test_dense_with_header_only(self):
+        self.assertEqual([['a','b','c']], list(CsvReader(has_header=True).filter(['a,b,c'])))
+    
+    def test_dense_sans_header(self):
+        self.assertEqual([None,['a','b','c']], list(CsvReader(has_header=False).filter(['a,b,c'])))
 
 class ArffReader_Tests(unittest.TestCase):
 
@@ -180,6 +203,25 @@ class ArffReader_Tests(unittest.TestCase):
             {0:1, 1:1, 2:(0,1,0,0)},
             {1:1},
             {0:1,2:(0,0,0,1)}
+        ]
+        
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_dense_with_strings(self):
+        lines = [
+            "@relation news20",
+            "@attribute a string",
+            "@attribute b string",
+            "@attribute c {0, class_B, class_C, class_D}",
+            "@data",
+            "1,2,class_B",
+            "2,3,0"
+        ]
+
+        expected = [
+            ['a','b','c'],
+            ['1','2',(0,1,0,0)],
+            ['2','3',(1,0,0,0)]
         ]
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
@@ -284,6 +326,11 @@ class Flatten_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(Flatten().filter(given)) )
 
+    def test_bad_data(self):
+
+        with self.assertRaises(CobaException):
+            list(Flatten().filter(['abc']))
+
 class Encode_Tests(unittest.TestCase):
 
     def test_dense_encode_numeric_sans_header(self):
@@ -318,7 +365,7 @@ class Encode_Tests(unittest.TestCase):
         expected = [{0:1,1:(1,0)},{0:2,1:(0,1)},{0:3,1:(0,1)}]
 
         self.assertEqual(expected, list(encode.filter(given)))
-    
+
     def test_dense_encode_onehot_with_header(self):
         encode = Encode({'a':OneHotEncoder([1,2,3]), 'b':OneHotEncoder()}, has_header=True)
         self.assertEqual([['a','b'], [(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter([['a','b'], [1,4], [2,5], [2,6]])))
@@ -334,13 +381,25 @@ class Encode_Tests(unittest.TestCase):
         encode = Encode({'a':OneHotEncoder([1,2,3]), 'b':OneHotEncoder(), 'c':StringEncoder()}, has_header=True)
         self.assertEqual([['a','b'], [(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter([['a','b'], [1,4], [2,5], [2,6]])))
 
+    def test_dense_encode_onehot_with_None_header(self):
+        encode = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()}, has_header=True)
+        self.assertEqual([None, [(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter([None, [1,4], [2,5], [2,6]])))
+
+    def test_with_bad_header(self):
+        encode = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()}, has_header=True)
+        with self.assertRaises(CobaException):
+            self.assertEqual([None, [(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter(['ab', [1,4], [2,5], [2,6]])))
+
 class JsonEncode_Tests(unittest.TestCase):
+    def test_bool_minified(self):
+        self.assertEqual('true',JsonEncode().filter(True))
+
     def test_list_minified(self):
         self.assertEqual('[1,2]',JsonEncode().filter([1,2.]))
 
     def test_list_list_minified(self):
         self.assertEqual('[1,[2,[1,2]]]',JsonEncode().filter([1,[2.,[1,2.]]]))
-    
+
     def test_tuple_minified(self):
         self.assertEqual('[1,2]',JsonEncode().filter((1,2.)))
 
@@ -350,10 +409,18 @@ class JsonEncode_Tests(unittest.TestCase):
     def test_inf(self):
         self.assertEqual('Infinity',JsonEncode().filter(float('inf')))
         self.assertEqual('-Infinity',JsonEncode().filter(-float('inf')))
-    
+
     def test_nan(self):
         self.assertEqual('NaN',JsonEncode().filter(float('nan')))
- 
+
+    def test_not_serializable(self):
+        with self.assertRaises(TypeError) as e:
+            JsonEncode().filter({1,2,3})
+        self.assertEqual("Object of type 'set' is not JSON serializable", str(e.exception))
+
+    def test_not_minified_list(self):
+        self.assertEqual('[1.0, 2.0]',JsonEncode(minify=False).filter([1.,2.]))
+
 class Structures_Tests(unittest.TestCase):
 
     def test_dense_numeric_row_structure(self):
@@ -376,11 +443,19 @@ class Structures_Tests(unittest.TestCase):
 
         expected_row0 = [ {0:2,1:3}, 4 ]
         expected_row1 = [ {0:1,1:2}, 3 ]
-        
+
         given    = [None, given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
         self.assertEqual( expected, list(Structure([None, 2]).filter(given)) )
+
+    def test_bad_header(self):
+
+        given_row0 = { 0:2, 1:3, 2:4 }
+        given_row1 = { 0:1, 1:2, 2:3 }
+
+        with self.assertRaises(CobaException):
+            list(Structure([None, 2]).filter(['ab', given_row0, given_row1]))
 
 class Drops_Tests(unittest.TestCase):
 
@@ -487,6 +562,32 @@ class Drops_Tests(unittest.TestCase):
         expected = [{'a':0}, expected_row0, expected_row1]
 
         self.assertEqual( expected, list(Drop(drop_cols=['b','c']).filter(given)) )
+
+    def test_bad_header(self):
+
+        given_row0 = {0:1,1:2,2:3}
+        given_row1 = {0:4,1:5,2:6}
+
+        expected_row0 = { 0:1 }
+        expected_row1 = { 0:4 }
+
+        given    = ['abc', given_row0, given_row1]
+        expected = [{'a':0}, expected_row0, expected_row1]
+
+        with self.assertRaises(CobaException):
+            self.assertEqual( expected, list(Drop(drop_cols=['b','c']).filter(given)) )
+
+class Default_Tests(unittest.TestCase):
+
+    def test_fill_in_missing_values(self):
+
+        self.assertEqual([None,{"A":1},{"A":2}], list(Default({"A":1}).filter([None, {},{"A":2}])))
+
+    def test_bad_header(self):
+
+        with self.assertRaises(CobaException):
+            list(Default({"A":1}).filter(['abc', {},{"A":2}]))
+
 
 if __name__ == '__main__':
     unittest.main()

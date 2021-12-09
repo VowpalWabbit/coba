@@ -3,9 +3,14 @@ import unittest
 from math import isnan
 
 from coba.config import CobaConfig, NullLogger
-from coba.environments import LoggedInteraction, SimulatedInteraction, Sort, Scale, Cycle, Impute, Binary, ToWarmStart
+from coba.environments import LoggedInteraction, SimulatedInteraction, Sort, Scale, Cycle, Impute, Binary, ToWarmStart, Shuffle
 
 CobaConfig.logger = NullLogger()
+
+class Shuffle_tests(unittest.TestCase):
+
+    def test_repr(self):
+        self.assertEqual("{'shuffle': 1}", str(Shuffle(1)))
 
 class Sort_tests(unittest.TestCase):
 

@@ -1,8 +1,8 @@
 import unittest
 from pathlib import Path
 
-from coba.pipes import DiskIO, Shuffle, Take
-from coba.environments import Environments, Environment
+from coba.pipes import DiskIO
+from coba.environments import Environments, Environment, Shuffle, Take
 
 class TestEnvironment(Environment):
 

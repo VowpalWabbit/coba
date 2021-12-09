@@ -3,10 +3,10 @@ import collections.abc
 from typing_extensions import Literal
 from typing import Sequence, overload, Union, Iterable, Iterator
 
-from coba.pipes import Source, DiskIO, JsonDecode, Shuffle, Take
+from coba.pipes import Source, DiskIO, JsonDecode
 
 from coba.environments.pipes       import EnvironmentPipe
-from coba.environments.filters     import EnvironmentFilter, Binary
+from coba.environments.filters     import EnvironmentFilter, Binary, Shuffle, Take
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 from coba.environments.simulations import DebugSimulation
 from coba.environments.primitives  import Environment, LoggedEnvironment, SimulatedEnvironment, WarmStartEnvironment

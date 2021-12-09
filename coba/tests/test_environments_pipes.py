@@ -1,8 +1,7 @@
 
 import unittest
 
-from coba.pipes import Take, Shuffle, Identity
-from coba.environments import EnvironmentPipe, SimulatedEnvironment, SimulatedInteraction
+from coba.environments import EnvironmentPipe, SimulatedEnvironment, SimulatedInteraction, Take, Identity
 
 class TestEnvironment(SimulatedEnvironment):
 
@@ -23,6 +22,12 @@ class TestEnvironment(SimulatedEnvironment):
     def __repr__(self) -> str:
         return str(self.params)
 
+class NoParamIdent:
+    def filter(self,item):
+        return item
+
+    def __repr__(self) -> str:
+        return 'NoParamIdent'
 
 class EnvironmentPipe_Tests(unittest.TestCase):
 
@@ -40,12 +45,20 @@ class EnvironmentPipe_Tests(unittest.TestCase):
         self.assertEqual({'id':'A', 'take':1}, ep.params)
         self.assertEqual("{'id': 'A'},{'take': 1}", str(ep))
 
-    def test_environment_one_filter(self):
+    def test_environment_ident_filter_removed(self):
         ep = EnvironmentPipe(TestEnvironment("A"), Identity(), Take(1))
 
         self.assertEqual(1, len(list(ep.read())))
         self.assertEqual({'id':'A', 'take':1}, ep.params)
         self.assertEqual("{'id': 'A'},{'take': 1}", str(ep))
+
+    def test_environment_no_param_ident(self):
+        ep = EnvironmentPipe(TestEnvironment("A"), NoParamIdent())
+
+        self.assertEqual(3, len(list(ep.read())))
+        self.assertEqual({'id':'A'}, ep.params)
+        self.assertEqual("{'id': 'A'},NoParamIdent", str(ep))
+
 
 if __name__ == '__main__':
     unittest.main()
