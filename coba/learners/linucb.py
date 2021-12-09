@@ -1,15 +1,57 @@
-import collections.abc
-import time
-
 from typing import Any, Dict, Sequence
 
+from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
 from coba.encodings import InteractionsEncoder
+
 from coba.learners.core import Info, Learner
 
 class LinUCBLearner(Learner):
-    """A learner using the LinUCB algorithm from "Contextual Bandits with Linear Payoff Functions" by Wei Chu et al."""
+    """This is an implementation of the Chu et al. (2011) LinUCB algorithm.
+
+    This implementation uses the Sherman-Morrison formula to calculate the inversion matrix
+    via iterative vector matrix multiplications. This implementation has computational complexity 
+    that is linear with respect to feature count and memory complexity that is polynomial as the 
+    inversion matrix is non-sparse and has size |phi|x|phi| (where |phi|
+    are the number of features in the linear function). 
+    
+    Remarks:
+
+        The Sherman-Morrsion formulation is given in long form at:
+            https://research.navigating-the-edge.net/assets/publications/linucb_alternate_formulation.pdf
+
+    References:
+        Chu, Wei, Lihong Li, Lev Reyzin, and Robert Schapire. "Contextual bandits 
+        with linear payoff functions." In Proceedings of the Fourteenth International 
+        Conference on Artificial Intelligence and Statistics, pp. 208-214. JMLR Workshop 
+        and Conference Proceedings, 2011.
+    """
+
+    def __init__(self, alpha: float = 0.2, interactions: Sequence[str] = ['a', 'ax']) -> None:
+        """Instantiate a LinUCBLearner.
+
+        Args:
+            alpha: This parameter controls the exploration rate of the algorithm. A value of 0 will cause
+                actions to be selected based on the current best point estimate (i.e., no exploration) while a value of inf
+                means that actions will be selected based solely on the bounds of the action point estimates (i.e., we will
+                always take actions that have the largest bound on their point estimate).
+            interactions: Feature set interactions to use when calculating action value estimates. Context features are 
+                indicated by x's while action features are indicated by a's. For example, xaa means to cross the features
+                between context and actions and actions.
+        """
+        PackageChecker.numpy("LinUCBLearner.__init__")
+
+        self._alpha = alpha
+
+        self._phi = interactions
+        self._phi_encoder = InteractionsEncoder(interactions)
+
+        self._theta = None
+        self._w     = None
+        self._r     = None
+        self._v     = None
+        self._A_inv = None
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -17,27 +59,7 @@ class LinUCBLearner(Learner):
 
         See the base class for more information.
         """
-        dict = {'family': 'linUCB', 'alpha': self._alpha, 'interactions': self._interactions}
-        return dict
-
-    def __init__(self, *, alpha: float, interactions: Sequence[str] = ['a', 'ax'], timeit: bool = False) -> None:
-        """Instantiate a linUCBLearner.
-        Args:
-            alpha: number of standard deviations
-            interactions: the set of interactions the learner will use. x refers to context and a refers to actions, 
-                e.g. xaa would mean interactions between context and actions and actions. 
-        """
-        PackageChecker.numpy("linUCBLearner.__init__")
-
-        self._A            = None
-        self._b            = None
-        self._alpha        = alpha
-        self._times        = [0.,0.]
-        self._i            = 0
-        self._timeit       = timeit
-
-        self._interactions = interactions
-        self._interactions_encoder = InteractionsEncoder(interactions)
+        return {'family': 'LinUCB', 'alpha': self._alpha, 'phi': self._phi}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Sequence[float]:
         """Determine a PMF with which to select the given actions.
@@ -51,44 +73,22 @@ class LinUCBLearner(Learner):
         """
         import numpy as np #type: ignore
 
-        self._i += 1
+        if isinstance(actions[0], dict) or isinstance(context, dict):
+            raise CobaException("Sparse data cannot be handled by this algorithm.")
 
-        self._d   = len(actions[0]) if isinstance(actions[0], collections.abc.Sequence) else 1
-        is_sparse = isinstance(actions[0], dict) or isinstance(context, dict)
+        features: np.ndarray = np.array([self._phi_encoder.encode(x=context,a=action) for action in actions]).T
 
-        if is_sparse:
-            raise Exception("Sparse data cannot be handled by this algorithm.")
-
-        features: np.ndarray = self._featurize(context, actions)
-
-        if(self._A is None):
-            self._A = np.identity(features.shape[0])
-            self._b = np.zeros((features.shape[0], 1))
+        if(self._A_inv is None):
+            self._theta = np.zeros(features.shape[0])
+            self._A_inv = np.identity(features.shape[0])
         
-        start_predict = time.time()
+        point_estimate = self._theta @ features
+        point_bounds   = np.diagonal(features.T @ self._A_inv @ features)
 
-        A_inv = np.linalg.inv(self._A)
+        action_values = point_estimate + self._alpha*np.sqrt(point_bounds)
+        max_indexes   = np.where(action_values == np.amax(action_values))[0]
 
-        self._times[0] += time.time() - start_predict
-
-        theta = np.dot(A_inv, self._b)
-        
-        term_one = np.zeros([len(actions),1])
-        term_two = np.zeros([len(actions),1])
-
-        for i in range(len(actions)):
-            term_one[i] = theta.T @ features[:,i]
-            term_two[i] = self._alpha * np.sqrt(features[:,i].T @ A_inv @ features[:,i])
-
-        action_values = term_one + term_two
-
-        # if (self._i-1) % 100 == 0 and self._timeit:
-        #     print(self._times[0]/(self._i+1))
-        #     print(self._times[1]/(self._i+1))
-
-        max_indexes = np.where(action_values == np.amax(action_values))[0]
-        
-        return [1/len(max_indexes) if ind in max_indexes else 0 for ind in range(len(actions))]
+        return [ int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))]
 
     def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
         """Learn from the given interaction.
@@ -102,21 +102,15 @@ class LinUCBLearner(Learner):
         """
         import numpy as np #type: ignore
 
-        learn_start = time.time()
-        
-        features: np.ndarray = self._featurize(context, [action])
+        features = np.array(self._phi_encoder.encode(x=context,a=action)).T
 
-        self._A = self._A + features@features.T
-        self._b = self._b + features*reward 
+        if(self._A_inv is None):
+            self._theta = np.zeros((features.shape[0], 1))
+            self._A_inv = np.identity(features.shape[0])
 
-        self._times[1] += time.time() - learn_start
+        r = self._theta @ features
+        w = self._A_inv @ features
+        v = features    @ w
 
-    def _featurize(self, context, actions):
-        import numpy as np
-        
-        features = []
-        
-        for action in actions:
-            features.append(self._interactions_encoder.encode(x=context,a=action))
-        
-        return np.array(features).T
+        self._A_inv = self._A_inv - np.outer(w,w)/(1+v)
+        self._theta = self._theta + (reward-r)/(1+v) * w
