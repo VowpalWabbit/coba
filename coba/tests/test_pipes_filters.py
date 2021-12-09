@@ -416,7 +416,8 @@ class JsonEncode_Tests(unittest.TestCase):
     def test_not_serializable(self):
         with self.assertRaises(TypeError) as e:
             JsonEncode().filter({1,2,3})
-        self.assertEqual("Object of type 'set' is not JSON serializable", str(e.exception))
+        self.assertIn("set", str(e.exception))
+        self.assertIn("not JSON serializable", str(e.exception))
 
     def test_not_minified_list(self):
         self.assertEqual('[1.0, 2.0]',JsonEncode(minify=False).filter([1.,2.]))
@@ -587,7 +588,6 @@ class Default_Tests(unittest.TestCase):
 
         with self.assertRaises(CobaException):
             list(Default({"A":1}).filter(['abc', {},{"A":2}]))
-
 
 if __name__ == '__main__':
     unittest.main()
