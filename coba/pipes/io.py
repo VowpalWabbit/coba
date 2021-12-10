@@ -99,7 +99,7 @@ class QueueIO(IO[Iterable[Any], Any]):
 
     def read(self) -> Iterable[Any]: #read all, destructive
         try:
-            while self._queue.qsize() > 0 or self._block:
+            while self._block or self._queue.qsize() > 0:
                 item = self._queue.get()
 
                 if item == self._poison:

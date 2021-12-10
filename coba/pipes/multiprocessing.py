@@ -18,16 +18,16 @@ def worker(inqueue, outqueue, initializer=None, initargs=(), maxtasks=None, wrap
             super_worker(inqueue, outqueue, initializer, initargs, maxtasks, wrap_exception)
         except KeyboardInterrupt:
             #we handle this exception because otherwise it is thrown and written to console
-            #by handling it ourself we can prevent it from being written to console
+            #by handling it ourselves we can prevent it from being written to console
             sys.exit(2000)
         except AttributeError:
             #we handle this exception because otherwise it is thrown and written to console
-            #by handling it ourself we can prevent it from being written to console
+            #by handling it ourselves we can prevent it from being written to console
             sys.exit(1000) #this is the exitcode we use to indicate when we're exiting due to import errors
 
 multiprocessing.pool.worker = worker #type: ignore
 
-class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
+class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
     class Processor:
 
@@ -45,7 +45,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 self._stderr.write((time.time(), current_process().name, e, traceback.format_tb(e.__traceback__)))
             except KeyboardInterrupt:
                 #When ctrl-c is pressed on the keyboard KeyboardInterrupt is raised in each
-                #process. We need to handle this here because Processor is always ran in a
+                #process. We need to handle this here because Processor is always run in a
                 #background process and receives this. We can ignore this because the exception will
                 #also be raised in our main process. Therefore we simply ignore and trust the main to
                 #handle the keyboard interrupt gracefully.
@@ -147,7 +147,7 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 log_thread.daemon = True
                 log_thread.start()
 
-                processor = MultiprocessFilter.Processor(self._filter, stdout_IO, stderr_IO, self._foreach)
+                processor = PipeMultiprocessor.Processor(self._filter, stdout_IO, stderr_IO, self._foreach)
                 result    = pool.map_async(processor.process, items, callback=done_or_failed, error_callback=done_or_failed, chunksize=1)
 
                 # When items is empty finished_callback will not be called and we'll get stuck waiting for the poison pill.

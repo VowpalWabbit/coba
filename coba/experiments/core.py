@@ -3,10 +3,11 @@ from typing_extensions import Literal
 from typing import Sequence, Optional
 
 from coba.config import CobaConfig
+from coba.config.loggers import BasicLogger, IndentLogger
 from coba.pipes import Pipe, Foreach
 from coba.learners import Learner
 from coba.environments import Environment
-from coba.multiprocessing import CobaMultiprocessFilter
+from coba.multiprocessing import CobaMultiprocessor
 
 from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems
 from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
@@ -82,6 +83,10 @@ class Experiment:
         Args:
             result_file: The file we'd like to use for writing/restoring results experiments.
         """
+        cb, mp, mt = self.chunk_by, self.processes, self.maxtasksperchild
+
+        if isinstance(CobaConfig.logger, (IndentLogger,BasicLogger)):
+            CobaConfig.logger._with_name = mp > 1 or mt != 0
 
         restored = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
 
@@ -92,15 +97,13 @@ class Experiment:
             assert n_given_learners     == restored.experiment['n_learners'    ], "The current experiment doesn't match the given transaction log."
             assert n_given_environments == restored.experiment['n_environments'], "The current experiment doesn't match the given transaction log."
 
-        cb, mp, mt = self.chunk_by, self.processes, self.maxtasksperchild
-
         workitems  = CreateWorkItems(self._environments, self._learners, self._learner_task, self._environment_task, self._evaluation_task)
         unfinished = RemoveFinished(restored)
         chunk      = ChunkByTask() if cb == 'task' else ChunkBySource()
         sink       = TransactionIO(result_file)
 
         single_process = ProcessWorkItems()
-        multi_process  = Pipe.join([chunk, CobaMultiprocessFilter(ProcessWorkItems(), mp, mt)])
+        multi_process  = Pipe.join([chunk, CobaMultiprocessor(ProcessWorkItems(), mp, mt)])
         process        = multi_process if mp > 1 or mt != 0 else single_process
 
         try:

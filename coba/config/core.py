@@ -154,6 +154,10 @@ class CobaConfig_meta(type):
     @property
     def store(cls) -> Dict[str,Any]:
         return cls._global
+    
+    @store.setter
+    def store(cls, value:Dict[str,Any]) -> None:
+        cls._global = value
 
     @property
     def search_paths(cls) -> Sequence[str]:

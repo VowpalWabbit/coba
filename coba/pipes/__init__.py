@@ -1,7 +1,7 @@
 
 from coba.pipes.primitives import Filter, Source, Sink
 from coba.pipes.core import Pipe, Foreach, SourceFilters, FiltersFilter, FiltersSink
-from coba.pipes.multiprocessing import MultiprocessFilter
+from coba.pipes.multiprocessing import PipeMultiprocessor
 
 from coba.pipes.filters import (
     JsonEncode, JsonDecode, ArffReader, CsvReader, 
@@ -31,7 +31,7 @@ __all__ = [
     "Identity",
     "Take",
     "Shuffle",
-    "MultiprocessFilter",
+    "PipeMultiprocessor",
     "NullIO",
     "ConsoleIO",
     "DiskIO",

@@ -252,7 +252,6 @@ class Pipe_Tests(unittest.TestCase):
 
         self.assertEqual("ReprIO,ReprIO", str(Pipe.join(source, sink)))
 
-
     def test_join_flattens_filters(self):
 
         filter1 = Pipe.join([ReprFilter()])

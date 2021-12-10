@@ -1,57 +1,38 @@
-from copy import deepcopy
 from multiprocessing import Manager
-from multiprocessing.managers import SyncManager
 from threading import Thread
-from typing import Iterable, Any
+from typing import Iterable, Any, Dict
 
-from coba.utilities  import coba_exit
-from coba.config     import CobaConfig, BasicLogger, IndentLogger, ConcurrentCacher
-from coba.pipes      import Filter, Sink, QueueIO, MultiprocessFilter
+from coba.utilities import coba_exit
+from coba.config    import CobaConfig, ConcurrentCacher, Logger, Cacher
+from coba.pipes     import Filter, Sink, QueueIO, PipeMultiprocessor
 
-class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
+class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
-    class MarshalableFilter:
+    class ProcessFilter:
 
-        def __init__(self, filter: Filter, logger_sink: Sink, with_name:bool, manager: SyncManager) -> None:
+        def __init__(self, filter: Filter, logger: Logger, cacher: Cacher, store: Dict[str,Any], logger_sink: Sink) -> None:
 
-            self._logger  = deepcopy(CobaConfig.logger)
-            self._cacher  = ConcurrentCacher(CobaConfig.cacher, manager.dict(), manager.Lock(), manager.Condition())
-            self._srcsema = manager.Semaphore(3)
-
-            if isinstance(self._logger, IndentLogger):
-                self._logger._with_name = with_name
-                self._logger._sink      = logger_sink
-
-            if isinstance(self._logger, BasicLogger):
-                self._logger._with_name = with_name
-                self._logger._sink      = logger_sink
-
-            self._filter = filter
+            self._filter      = filter
+            self._logger      = logger
+            self._cacher      = cacher
+            self._store       = store
+            self._logger_sink = logger_sink
 
         def filter(self, item: Any) -> Any:
 
-            #placing this here means this is only set inside the process 
-            CobaConfig.logger            = self._logger
-            CobaConfig.cacher            = self._cacher
-            CobaConfig.store["srcsema"]  = self._srcsema
-
-            result = self._filter.filter(item)
+            #placing this here means this is set inside the process 
+            CobaConfig.logger = self._logger
+            CobaConfig.cacher = self._cacher
+            CobaConfig.store  = self._store
+            
+            #at this point logger has been marshalled so we can
+            #modify it without affecting the base process logger
+            CobaConfig.logger.sink = self._logger_sink
 
             try:
-                try:
-                    if isinstance(result,str):
-                        return result
-                    else:
-                        for item in result: yield item
-                except TypeError as e:
-                    if "not iterable" in str(e):
-                        return result
-                    else:
-                        raise 
-                except (EOFError,BrokenPipeError):
-                    pass
+                return self._filter.filter(item)
             except Exception as e:
-                self._logger.log(e)
+                CobaConfig.logger.log(e)
 
     def __init__(self, filter: Filter, processes=1, maxtasksperchild=0) -> None:
         self._filter           = filter
@@ -79,10 +60,16 @@ class CobaMultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
                 log_thread.daemon = True
                 log_thread.start()
 
-                filter = CobaMultiprocessFilter.MarshalableFilter(self._filter, stderr, self._processes>1, manager)
+                logger = CobaConfig.logger
+                cacher = ConcurrentCacher(CobaConfig.cacher, manager.dict(), manager.Lock(), manager.Condition())
+                store  = { "srcsema":  manager.Semaphore(2) }
 
-                for item in MultiprocessFilter(filter, self._processes, self._maxtasksperchild, stderr).filter(items):
+                filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, stderr)
+
+                for item in PipeMultiprocessor(filter, self._processes, self._maxtasksperchild, stderr).filter(items):
                     yield item
+
+                stderr.write(None) #attempt to shutdown the logging process gracefully by sending the poison pill
 
         except RuntimeError as e:
             #This happens when importing main causes this code to run again

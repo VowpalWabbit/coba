@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import ContextManager, List, cast, Iterator, Union
 
-from coba.pipes import Sink, NullIO
+from coba.pipes import Sink, NullIO, ConsoleIO
 from coba.exceptions import CobaException
 
 class Logger(ABC):
@@ -18,6 +18,11 @@ class Logger(ABC):
     @property
     @abstractmethod
     def sink(self) -> Sink[str]:
+        ...
+
+    @sink.setter
+    @abstractmethod
+    def sink(self, sink: Sink[str]):
         ...
 
     @abstractmethod
@@ -38,6 +43,10 @@ class NullLogger(Logger):
     def sink(self) -> Sink[str]:
         return NullIO()
 
+    @sink.setter
+    def sink(self, sink: Sink[str]):
+        pass
+
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         return self._context()
 
@@ -47,7 +56,7 @@ class NullLogger(Logger):
 class BasicLogger(Logger):
     """A Logger that writes in real time and indicates time with start/end messages."""
 
-    def __init__(self, sink: Sink[str], with_stamp: bool = True, with_name: bool = False):
+    def __init__(self, sink: Sink[str] = ConsoleIO(), with_stamp: bool = True, with_name: bool = False):
         """Instantiate a BasicLogger."""
         self._sink        = sink
         self._with_stamp  = with_stamp
@@ -86,6 +95,10 @@ class BasicLogger(Logger):
     @property
     def sink(self) -> Sink[str]:
         return self._sink
+
+    @sink.setter
+    def sink(self, sink: Sink[str]):
+        self._sink = sink
 
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         """Log a message with an optional begin and end context.
@@ -132,7 +145,7 @@ class BasicLogger(Logger):
 class IndentLogger(Logger):
     """A Logger with context indentation, exception tracking and a consistent preamble."""
 
-    def __init__(self, sink: Sink[str], with_stamp: bool = True, with_name: bool = False):
+    def __init__(self, sink: Sink[str] = ConsoleIO(), with_stamp: bool = True, with_name: bool = False):
         """Instantiate an IndentLogger."""
         self._sink        = sink
         self._with_stamp  = with_stamp
@@ -195,6 +208,10 @@ class IndentLogger(Logger):
     @property
     def sink(self) -> Sink[str]:
         return self._sink
+
+    @sink.setter
+    def sink(self, sink: Sink[str]):
+        self._sink = sink
 
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         """Log a message.

@@ -4,12 +4,11 @@ import warnings
 import importlib
 
 from collections import defaultdict
-from contextlib import contextmanager
-from typing import IO
 
 from coba.exceptions import CobaExit
 
 def coba_exit(message:str):
+    #we ignore warnings before exiting in order to make jupyter's output a little cleaner
     warnings.filterwarnings("ignore",message="To exit: use 'exit', 'quit', or Ctrl-D.")
     raise CobaExit(message) from None
 

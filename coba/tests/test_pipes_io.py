@@ -115,16 +115,16 @@ class QueueIO_Tests(unittest.TestCase):
         with self.assertRaises(Exception):
             list(QueueIO(BrokenQueue(Exception())).read())
 
-        QueueIO(BrokenQueue(EOFError())).read()
-        QueueIO(BrokenQueue(BrokenPipeError())).read()
+        list(QueueIO(BrokenQueue(EOFError())).read())
+        list(QueueIO(BrokenQueue(BrokenPipeError())).read())
 
     def test_write_exception(self):
 
-        QueueIO(BrokenQueue(EOFError())).write(1)
-        QueueIO(BrokenQueue(BrokenPipeError())).write(1)
-
         with self.assertRaises(Exception):
             QueueIO(BrokenQueue(Exception())).write(1)
+
+        QueueIO(BrokenQueue(EOFError())).write(1)
+        QueueIO(BrokenQueue(BrokenPipeError())).write(1)
 
 class HttpIO_Tests(unittest.TestCase):
 

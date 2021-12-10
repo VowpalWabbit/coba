@@ -5,6 +5,7 @@ import traceback
 from coba.exceptions import CobaException
 from coba.pipes import MemoryIO
 from coba.config import IndentLogger, BasicLogger, NullLogger
+from coba.pipes.io import NullIO
 
 class NullLogger_Tests(unittest.TestCase):
     def test_log_does_nothing(self):
@@ -12,6 +13,11 @@ class NullLogger_Tests(unittest.TestCase):
 
     def test_time_does_nothing(self):
         NullLogger().time("abc")
+
+    def test_sink_does_nothing(self):
+        logger = NullLogger()
+        logger.sink = None
+        self.assertIsInstance(logger.sink, NullIO)
 
 class BasicLogger_Tests(unittest.TestCase):
 
@@ -302,6 +308,12 @@ class BasicLogger_Tests(unittest.TestCase):
 
         self.assertEqual(logs[0], "Test Exception")
 
+    def test_sink_is_set(self):
+        logger = BasicLogger(MemoryIO())
+        self.assertIsInstance(logger.sink, MemoryIO)
+        logger.sink = NullIO()
+        self.assertIsInstance(logger.sink, NullIO)
+
 class IndentLogger_Tests(unittest.TestCase):
 
     def test_log(self):
@@ -535,6 +547,12 @@ class IndentLogger_Tests(unittest.TestCase):
         logger.log('a')
 
         self.assertEqual(logs[0], "a")
+
+    def test_sink_is_set(self):
+        logger = IndentLogger(MemoryIO())
+        self.assertIsInstance(logger.sink, MemoryIO)
+        logger.sink = NullIO()
+        self.assertIsInstance(logger.sink, NullIO)
 
 if __name__ == '__main__':
     unittest.main()
