@@ -156,9 +156,9 @@ class CobaRandom_Tests(unittest.TestCase):
         coba_failure_rate = self._failure_rate(walks, coba_random_walk)
         std_failure_rate = self._failure_rate(walks, std_random_walk)
 
-        if((coba_failure_rate-std_failure_rate)/std_failure_rate > .25):
-            print(f"\n{coba_failure_rate}")
-            print(f"\n{std_failure_rate}")
+        #if((coba_failure_rate-std_failure_rate)/std_failure_rate > .25):
+        #    print(f"\n{coba_failure_rate}")
+        #    print(f"\n{std_failure_rate}")
 
         self.assertLess((coba_failure_rate-std_failure_rate)/std_failure_rate, .30)
 
@@ -188,10 +188,9 @@ class CobaRandom_Tests(unittest.TestCase):
         coba_failure_rate = self._failure_rate(walks, coba_shuffle())
         std_failure_rate = self._failure_rate(walks, std_shuffle())
 
-        if (coba_failure_rate-std_failure_rate)/std_failure_rate > .1:
-            print("\n")
-            print(f"{coba_failure_rate}")
-            print(f"{std_failure_rate}")
+        #if (coba_failure_rate-std_failure_rate)/std_failure_rate > .1:
+        #    print(f"{coba_failure_rate}")
+        #    print(f"{std_failure_rate}")
 
         self.assertLess((coba_failure_rate-std_failure_rate)/std_failure_rate , .2)
 

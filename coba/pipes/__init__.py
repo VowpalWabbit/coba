@@ -1,6 +1,6 @@
 
-from coba.pipes.primitives import Filter, Source, Sink, StopPipe
-from coba.pipes.core import Pipe, Foreach
+from coba.pipes.primitives import Filter, Source, Sink
+from coba.pipes.core import Pipe, Foreach, SourceFilters, FiltersFilter, FiltersSink
 from coba.pipes.multiprocessing import MultiprocessFilter
 
 from coba.pipes.filters import (
@@ -16,7 +16,6 @@ __all__ = [
     "Filter",
     "Source",
     "Sink",
-    "StopPipe",
     "Foreach",
     "JsonEncode",
     "JsonDecode",
@@ -42,4 +41,7 @@ __all__ = [
     _T_Data,
     "Foreach",
     "IO",
+    "SourceFilters", 
+    "FiltersFilter", 
+    "FiltersSink"
 ]

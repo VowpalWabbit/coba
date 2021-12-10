@@ -15,10 +15,10 @@ class LinUCBLearner(Learner):
     that is linear with respect to feature count and memory complexity that is polynomial as the 
     inversion matrix is non-sparse and has size |phi|x|phi| (where |phi|
     are the number of features in the linear function). 
-    
+
     Remarks:
 
-        The Sherman-Morrsion formulation is given in long form at:
+        The Sherman-Morrsion implementation used below is given in long form at:
             https://research.navigating-the-edge.net/assets/publications/linucb_alternate_formulation.pdf
 
     References:
@@ -81,7 +81,7 @@ class LinUCBLearner(Learner):
         if(self._A_inv is None):
             self._theta = np.zeros(features.shape[0])
             self._A_inv = np.identity(features.shape[0])
-        
+
         point_estimate = self._theta @ features
         point_bounds   = np.diagonal(features.T @ self._A_inv @ features)
 

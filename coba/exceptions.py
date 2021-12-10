@@ -2,6 +2,7 @@ import sys
 
 with_tb_sys_except_hook = sys.excepthook
 sans_tb_sys_except_hook = lambda tp,ex,tb: print(str(ex)) if isinstance(ex, CobaExit) else with_tb_sys_except_hook(tp,ex,tb)
+
 sys.excepthook = sans_tb_sys_except_hook
 
 class CobaException(Exception):

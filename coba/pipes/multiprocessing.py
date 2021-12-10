@@ -8,7 +8,7 @@ from threading       import Thread
 from typing          import Iterable, Any
 
 from coba.pipes.core       import Pipe, Foreach
-from coba.pipes.primitives import Filter, StopPipe
+from coba.pipes.primitives import Filter
 from coba.pipes.io         import Sink, QueueIO, ConsoleIO
 
 super_worker = multiprocessing.pool.worker #type: ignore
@@ -40,8 +40,6 @@ class MultiprocessFilter(Filter[Iterable[Any], Iterable[Any]]):
 
             try:
                 self._stdout.write(self._filter.filter(item))
-            except StopPipe:
-                pass
             except Exception as e:
                 #WARNING: this will scrub e of its traceback which is why the traceback is also sent as a string
                 self._stderr.write((time.time(), current_process().name, e, traceback.format_tb(e.__traceback__)))

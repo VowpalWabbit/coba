@@ -4,9 +4,6 @@ from typing import Any, TypeVar, Generic
 _T_out = TypeVar("_T_out", bound=Any, covariant=True    )
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
 
-class StopPipe(Exception):
-    pass
-
 class Source(ABC, Generic[_T_out]):
     @abstractmethod
     def read(self) -> _T_out:
