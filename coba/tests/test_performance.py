@@ -166,7 +166,7 @@ class Performance_Tests(unittest.TestCase):
         time1 = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, {'x': VowpalMediator.prep_features(x) }, None, 4), repeat=5, number=100))
         time2 = statistics.mean(timeit.repeat(lambda:vw.parse("|x " + " ".join(f"{i}:{v}" for i,v in x))                              , repeat=5, number=100))
 
-        self.assertLess(time1,time2)
+        self.assertLess(time1/time2,1.25)
 
     def test_take_performance(self):
 
