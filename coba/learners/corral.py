@@ -2,6 +2,7 @@
 
 import math
 
+from typing_extensions import Literal
 from typing import Any, Sequence, Optional, Dict, Tuple
 
 from coba.random import CobaRandom
@@ -20,7 +21,12 @@ class CorralLearner(Learner):
         Theory, pp. 12-38. PMLR, 2017.
     """
 
-    def __init__(self, base_learners: Sequence[Learner], eta: float, T: float = math.inf, type:str="importance", seed: int = 1) -> None:
+    def __init__(self, 
+        base_learners: Sequence[Learner], 
+        eta: float = 0.075,
+        T: float = math.inf, 
+        type: Literal["importance","rejection","off-policy"] ="importance", 
+        seed: int = 1) -> None:
         """Instantiate a CorralLearner.
 
         Args:
@@ -62,7 +68,7 @@ class CorralLearner(Learner):
 
         See the base class for more information
         """
-        return { "family": "corral", "eta": self._eta_init, "type":self._type, "T": self._T, "B": [ b.params["family"] for b in self._base_learners ], "seed":self._random_pick._seed }
+        return { "family": "corral", "eta": self._eta_init, "type":self._type, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._random_pick._seed }
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
         """Determine a PMF with which to select the given actions.
@@ -78,16 +84,16 @@ class CorralLearner(Learner):
         base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_learners ]
         base_predicts, base_infos = zip(*base_predicts)
 
-        base_actions = [ self._random_pick.choice(actions, predict) for predict in base_predicts              ]
-        base_probs   = [ predict[actions.index(action)] for action,predict in zip(base_actions,base_predicts) ]
-
         if self._type in ["importance"]:
+            base_actions = [ self._random_pick.choice(actions, predict) for predict in base_predicts              ]
+            base_probs   = [ predict[actions.index(action)] for action,predict in zip(base_actions,base_predicts) ]
+
             predict = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
             info    = (base_actions, base_probs, base_infos, base_predicts, actions, predict)
 
         if self._type in ["off-policy", "rejection"]:
             predict = [ sum([p_b*b_p[i] for p_b,b_p in zip(self._p_bars, base_predicts)]) for i in range(len(actions)) ]
-            info    = (base_actions, base_probs, base_infos, base_predicts, actions, predict)
+            info    = (None, None, base_infos, base_predicts, actions, predict)
 
         return (predict, info)
 

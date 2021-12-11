@@ -3,7 +3,7 @@ import unittest
 from statistics import mean
 
 from coba.random import CobaRandom
-from coba.learners import CorralLearner, FixedLearner
+from coba.learners import CorralLearner, FixedLearner, VowpalLearner
 
 class CorallLearner_Tests(unittest.TestCase):
 
@@ -27,11 +27,11 @@ class CorallLearner_Tests(unittest.TestCase):
     def test_importance_predict(self):
 
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, type="importance")
-        
+
         mean_predict = list(map(mean, zip(*[learner.predict(None, [1,2])[0] for _ in range(1000)])) )
 
-        self.assertAlmostEqual(.375, mean_predict[0], 2)
-        self.assertAlmostEqual(.625, mean_predict[1], 2)
+        self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_predict[0], 2)
+        self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_predict[1], 2)
 
     def test_importance_learn(self):
         actions      = [1,2]
@@ -42,11 +42,11 @@ class CorallLearner_Tests(unittest.TestCase):
 
         action      = actions[0]
         probability = predict[0]
-        reward      = 1
+        reward      = 1/2
 
         learner.learn(None, action, reward, probability, info)
 
-        self.assertEqual((None, 1, 2, 1/2), base1.received_learn())
+        self.assertEqual((None, 1, 1, 1/2), base1.received_learn())
         self.assertEqual((None, 2, 0, 3/4), base2.received_learn())
 
     def test_off_policy_predict(self):
@@ -57,7 +57,7 @@ class CorallLearner_Tests(unittest.TestCase):
 
         self.assertEqual(.375, predict[0])
         self.assertEqual(.625, predict[1])
-    
+
     def test_off_policy_learn(self):
         
         actions      = [1,2]
@@ -85,7 +85,7 @@ class CorallLearner_Tests(unittest.TestCase):
         self.assertEqual(.375, predict[0])
         self.assertEqual(.625, predict[1])
 
-    def test_off_rejection_learn(self):
+    def test_rejection_learn(self):
 
         actions      = [0,1]
         base1        = CorallLearner_Tests.ReceivedLearnFixedLearner([1/2,1/2], 'a')
@@ -116,6 +116,16 @@ class CorallLearner_Tests(unittest.TestCase):
 
         self.assertLessEqual(abs(base2_learn_cnt[0]/sum(base2_learn_cnt) - 1/4), .02)
         self.assertLessEqual(abs(base2_learn_cnt[1]/sum(base2_learn_cnt) - 3/4), .02)
+
+    def test_params(self):
+
+        base1_name = 'vw(args=--cb_explore_adf --epsilon 0.1)'
+        base2_name = 'vw(args=--cb_explore_adf --bag 2)'
+
+        expected = {'family': 'corral', 'eta': 0.075, 'type': 'importance', 'T': float('inf'), 'B': [base1_name, base2_name], 'seed': 1}
+        actual   = CorralLearner([VowpalLearner("--cb_explore_adf --epsilon 0.1"), VowpalLearner("--cb_explore_adf --bag 2")]).params
+
+        self.assertEqual(expected, actual)
 
 if __name__ == '__main__':
     unittest.main()

@@ -32,13 +32,13 @@ class LinUCBLearner(Learner):
         """Instantiate a LinUCBLearner.
 
         Args:
-            alpha: This parameter controls the exploration rate of the algorithm. A value of 0 will cause
-                actions to be selected based on the current best point estimate (i.e., no exploration) while a value of inf
-                means that actions will be selected based solely on the bounds of the action point estimates (i.e., we will
-                always take actions that have the largest bound on their point estimate).
-            interactions: Feature set interactions to use when calculating action value estimates. Context features are 
-                indicated by x's while action features are indicated by a's. For example, xaa means to cross the features
-                between context and actions and actions.
+            alpha: This parameter controls the exploration rate of the algorithm. A value of 0 will cause actions 
+                to be selected based on the current best point estimate (i.e., no exploration) while a value of inf
+                means that actions will be selected based solely on the bounds of the action point estimates (i.e., 
+                we will always take actions that have the largest bound on their point estimate).
+            interactions: Feature set interactions to use when calculating action value estimates. Context features
+                are indicated by x's while action features are indicated by a's. For example, xaa means to cross the 
+                features between context and actions and actions.
         """
         PackageChecker.numpy("LinUCBLearner.__init__")
 
@@ -48,9 +48,6 @@ class LinUCBLearner(Learner):
         self._phi_encoder = InteractionsEncoder(interactions)
 
         self._theta = None
-        self._w     = None
-        self._r     = None
-        self._v     = None
         self._A_inv = None
 
     @property
@@ -102,10 +99,13 @@ class LinUCBLearner(Learner):
         """
         import numpy as np #type: ignore
 
+        if isinstance(action, dict) or isinstance(context, dict):
+            raise CobaException("Sparse data cannot be handled by this algorithm.")
+
         features = np.array(self._phi_encoder.encode(x=context,a=action)).T
 
         if(self._A_inv is None):
-            self._theta = np.zeros((features.shape[0], 1))
+            self._theta = np.zeros((features.shape[0]))
             self._A_inv = np.identity(features.shape[0])
 
         r = self._theta @ features
