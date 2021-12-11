@@ -147,11 +147,16 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         api_key  = CobaConfig.api_keys['openml']
         
         srcsema = CobaConfig.store.get("srcsema")
-        if srcsema: srcsema.acquire() # we only allow three paralellel request, another attempt at being more "considerate".
-            
+        
+        # we only allow three paralellel request, another attempt at being more "considerate".
+        if srcsema:srcsema.acquire() 
+    
         # An attempt to be considerate of how often we hit their REST api. 
         # They don't publish any rate-limiting guidelines so this is just a guess.
-        time.sleep(1) 
+        if srcsema:time.sleep(1)
+
+        
+        
 
         try:
             with HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read() as response:

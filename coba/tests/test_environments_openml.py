@@ -1740,6 +1740,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
 class OpenmlSimulation_Tests(unittest.TestCase):
 
+    @unittest.skip("While it is nice to test this functionality, in practice it is fairly slow.")
     def test_simple_openml_source_classification(self) -> None:
         #this test requires interet acess to download the data
 
@@ -1765,7 +1766,6 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             self.assertIn(0, rnd.kwargs["rewards"])
 
     def test_simple_openml_source_regression(self) -> None:
-        #this test requires interet acess to download the data
 
         CobaConfig.api_keys = {'openml':None}
         CobaConfig.cacher   = MemoryCacher()
