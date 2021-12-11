@@ -30,33 +30,25 @@ if current_process().name == 'MainProcess':
 
 class PipeMultiprocessor_Tests(unittest.TestCase):
 
-    def test_singleprocess_singletask(self):
-        items = list(PipeMultiprocessor(ProcessNameFilter(), 1, 1).filter(range(4)))
+    def test_foreach_false(self):
+        items = list(PipeMultiprocessor(Identity(), 1, 1, foreach=False).filter([[0,1,2,3]]))
+        self.assertEqual(items, [[0,1,2,3]])
+
+    def test_singleprocess_singleperchild(self):
+        items = list(PipeMultiprocessor(ProcessNameFilter(), 1, 1).filter([0,1,2,3]))
         self.assertEqual(len(set(items)), 4)
 
-        items = list(PipeMultiprocessor(Identity(), 1, 1, foreach=False).filter(range(4)))
-        self.assertEqual(len(set(items) & set(range(4))), 4)
-
-    def test_singleprocess_multitask(self):
+    def test_singleprocess_multiperchild(self):
         items = list(PipeMultiprocessor(ProcessNameFilter(), 1, None).filter(range(4)))
         self.assertEqual(len(set(items)), 1)
 
-        items = list(PipeMultiprocessor(Identity(), 1, 1, foreach=False).filter(range(4)))
-        self.assertEqual(len(set(items) & set(range(4))), 4)
-
-    def test_multiprocess_singletask(self):
+    def test_multiprocess_singleperchild(self):
         items = list(PipeMultiprocessor(ProcessNameFilter(), 2, 1).filter(range(4)))
         self.assertEqual(len(set(items)), 4)
 
-        items = list(PipeMultiprocessor(Identity(), 2, 1, foreach=False).filter(range(4)))
-        self.assertEqual(len(set(items) & set(range(4))), 4)
-
-    def test_multiprocess_multitask(self):
+    def test_multiprocess_multiperchild(self):
         items = list(PipeMultiprocessor(ProcessNameFilter(), 2).filter(range(40)))
         self.assertEqual(len(set(items)), 2)
-
-        items = list(PipeMultiprocessor(Identity(), 2, foreach=False).filter(range(40)))
-        self.assertEqual(len(set(items) & set(range(40))), 40)
 
     def test_filter_exception(self):
         stderr_sink = MemoryIO()

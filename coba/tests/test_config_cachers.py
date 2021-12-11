@@ -20,28 +20,31 @@ class MaxCountCacher:
         self._cur_count = 0
         self.max_count = 0
 
-        self._paused     = False
-        self._pause_on   = pause_once_on
-        self._pause_cond = threading.Condition()
+        self._paused      = False
+        self._pause_on    = pause_once_on
+        self._func_event  = threading.Event()
+        self._first_event = threading.Event()
 
     @contextmanager
     def count_context(self):
         self._cur_count += 1
         self.max_count = max(self._cur_count, self.max_count)
-        time.sleep(0.1)
         yield
 
         self._cur_count -= 1
 
+    def wait(self):
+        self._first_event.wait()
+
     def release(self):
-        with self._pause_cond:
-            self._pause_cond.notify_all()
+        self._func_event.set()
 
     def _try_pause(self,method):
         if self._pause_on == method and not self._paused:
             self._paused = True
-            with self._pause_cond:
-                self._pause_cond.wait()
+            self._first_event.set()
+            self._func_event.wait()
+            
 
     def __contains__(self,key):
         return key in self._cacher
@@ -240,7 +243,9 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get(1)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.get(1)
+            base_cacher.release()
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
@@ -249,15 +254,10 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.1)
-        
         t2.start()
-        t2.join()
-
-        self.assertTrue(t1.is_alive())
-        base_cacher.release()
 
         t1.join()
+        t2.join()
 
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(curr_cacher.get(1), 1)
@@ -273,7 +273,9 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get(1)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.get(2)
+            base_cacher.release()
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
@@ -281,16 +283,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.daemon = True
         t2.daemon = True
 
-        t1.start()
-        time.sleep(.1)
-        
+        t1.start()        
         t2.start()
-        t2.join()
-
-        self.assertTrue(t1.is_alive())
-        base_cacher.release()
 
         t1.join()
+        t2.join()
 
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(curr_cacher.get(1), 1)
@@ -304,6 +301,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.put(1,2)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.put(1,3)
 
         t1 = threading.Thread(None, thread_1)
@@ -313,13 +311,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.1)
         t2.start()
-        time.sleep(.1)
-
-        self.assertTrue(t1.is_alive())
-        self.assertTrue(t2.is_alive())
         
+        while curr_cacher.write_waits != 1:
+            time.sleep(0.01)
+
         base_cacher.release()
 
         t1.join()
@@ -336,7 +332,9 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.put(1,2)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.put(2,3)
+            base_cacher.release()
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
@@ -345,15 +343,10 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.1)
-        
         t2.start()
-        t2.join()
-
-        self.assertTrue(t1.is_alive())
-        base_cacher.release()
 
         t1.join()
+        t2.join()
 
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(curr_cacher.get(1), 2)
@@ -367,6 +360,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.put(1,2)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.get(1)
 
         t1 = threading.Thread(None, thread_1)
@@ -376,12 +370,10 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.1)
         t2.start()
-        time.sleep(.05)
 
-        self.assertTrue(t1.is_alive())
-        self.assertTrue(t2.is_alive())
+        while curr_cacher.read_waits != 1:
+            time.sleep(0.01)
 
         base_cacher.release()
 
@@ -402,7 +394,9 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.put(1,2)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.get(2)
+            base_cacher.release()
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
@@ -411,15 +405,10 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.01)
         t2.start()
-        t2.join()
 
-        self.assertTrue(t1.is_alive())
-        self.assertFalse(t2.is_alive())
-
-        base_cacher.release()
         t1.join()
+        t2.join()
 
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(curr_cacher.get(1), 2)
@@ -434,6 +423,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get(1)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.put(1,2)
 
         t1 = threading.Thread(None, thread_1)
@@ -443,13 +433,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.1)
         t2.start()
-        time.sleep(.05)
 
-        self.assertTrue(t1.is_alive())
-        self.assertTrue(t2.is_alive())
-
+        while curr_cacher.write_waits != 1:
+            time.sleep(0.01)
+            
         base_cacher.release()
 
         t1.join()
@@ -468,7 +456,9 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get(1)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.put(2,2)
+            base_cacher.release()
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
@@ -477,15 +467,10 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.01)
         t2.start()
-        t2.join()
 
-        self.assertTrue(t1.is_alive())
-        self.assertFalse(t2.is_alive())
-
-        base_cacher.release()
         t1.join()
+        t2.join()
 
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(curr_cacher.get(1), 1)
@@ -499,6 +484,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get_put(1,lambda: 1)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.get_put(1,lambda: 2)
 
         t1 = threading.Thread(None, thread_1)
@@ -508,12 +494,10 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.1)
         t2.start()
-        time.sleep(.05)
 
-        self.assertTrue(t1.is_alive())
-        self.assertTrue(t2.is_alive())
+        while curr_cacher.write_waits != 1:
+            time.sleep(0.01)
 
         base_cacher.release()
 
@@ -531,7 +515,9 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get_put(1,lambda: 1)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.get_put(2,lambda: 2)
+            base_cacher.release()
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
@@ -540,15 +526,10 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.01)
-
         t2.start()
-        t2.join()
-
-        self.assertTrue(t1.is_alive())
-        base_cacher.release()
 
         t1.join()
+        t2.join()
 
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(curr_cacher.get(1), 1)
@@ -562,7 +543,9 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get_put(1,lambda: [1])
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.get_put(2,lambda: [2])
+            base_cacher.release()
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
@@ -571,21 +554,16 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.01)
-
         t2.start()
-        t2.join()
-
-        self.assertTrue(t1.is_alive())
-        base_cacher.release()
 
         t1.join()
+        t2.join()
 
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(list(curr_cacher.get(1)), [1])
         self.assertEqual(list(curr_cacher.get(2)), [2])
 
-    def test_get_put_get_then_get_put_get_works_correctly_with_conflicting_sans_multi_thread(self):
+    def test_get_put_get_then_get_put_get_works_correctly_with_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
         curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
 
@@ -595,7 +573,9 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get_put(1,lambda: 1)
 
         def thread_2():
+            base_cacher.wait()
             curr_cacher.get_put(1,lambda: 2)
+            base_cacher.release()
 
         t1 = threading.Thread(None, thread_1)
         t2 = threading.Thread(None, thread_2)
@@ -604,15 +584,10 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t2.daemon = True
 
         t1.start()
-        time.sleep(.01)
-
         t2.start()
-        t2.join()
-
-        self.assertTrue(t1.is_alive())
-        base_cacher.release()
 
         t1.join()
+        t2.join()
 
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(curr_cacher.get(1), 1)

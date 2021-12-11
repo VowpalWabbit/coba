@@ -4,7 +4,7 @@ import json
 import time
 import collections.abc
 
-from collections import Counter, OrderedDict
+from collections import Counter, OrderedDict, defaultdict
 from itertools import count, accumulate, chain
 from abc import ABC, abstractmethod
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Dict
@@ -195,7 +195,11 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
                 k[i] = 1
 
             keys_and_values = zip(values, map(tuple,known_onehots))
-            self._onehots   = dict(keys_and_values)
+    
+            if self._err_if_unknown:
+                self._onehots = dict(keys_and_values)
+            else:
+                self._onehots = defaultdict(lambda:self._default, keys_and_values)
 
     @property
     def is_fit(self) -> bool:
@@ -239,7 +243,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             raise CobaException("This encoder must be fit before it can be used.")
 
         try:
-            return [ self._onehots[value] if self._err_if_unknown else self._onehots.get(value, self._default) for value in values ]
+            return [ self._onehots[value] for value in values ]
         except KeyError as e:
             raise CobaException(f"We were unable to find {e} in {self._onehots.keys()}")
 

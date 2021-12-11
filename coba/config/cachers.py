@@ -143,7 +143,7 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
 
             if isinstance(value,bytes): value = [value]
 
-            with gzip.open(self._cache_path(key), 'wb+') as f:
+            with gzip.open(self._cache_path(key), 'wb+', compresslevel=6) as f:
                 for line in value:
                     f.write(line.rstrip(b'\r\n') + b'\r\n')
         except:
@@ -193,6 +193,9 @@ class ConcurrentCacher(Cacher[_K, _V]):
         self._dict  = dict
         self._cond  = cond
 
+        self.read_waits  = 0
+        self.write_waits = 0
+
     def __contains__(self, key: _K) -> bool:
         return key in self._cache
 
@@ -204,9 +207,11 @@ class ConcurrentCacher(Cacher[_K, _V]):
             return False
     
     def _acquire_read_lock(self, key: _K):
+        self.read_waits += 1
         while not self._acquired_read_lock(key):
             with self._cond:
                 self._cond.wait()
+        self.read_waits -= 1
 
     def _release_read_lock(self, key: _K):
         with self._lock:
@@ -223,9 +228,11 @@ class ConcurrentCacher(Cacher[_K, _V]):
             return False
 
     def _acquire_write_lock(self, key: _K):
+        self.write_waits += 1
         while not self._acquired_write_lock(key):
             with self._cond:
                 self._cond.wait()
+        self.write_waits -= 1
 
     def _switch_write_to_read_lock(self, key: _K):
         with self._lock:
