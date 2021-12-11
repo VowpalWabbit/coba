@@ -14,30 +14,25 @@ from coba.environments import Context, Action
 
 from coba.learners.core import Learner, Probs, Info
 
-Vowpal_Key      = Union[str,int]
-Vowpal_Features = Sequence[Union[str,Tuple[Vowpal_Key,float]]]
 Coba_Feature    = Union[str,float]
 Coba_Features   = Union[Coba_Feature, Sequence[Coba_Feature], Sequence[Tuple[str,Coba_Feature]], Dict[str,Coba_Feature]]
+Vowpal_Features = Sequence[Union[str,Tuple[str,float]]]
 
 class VowpalMediator:
 
-    _string_cache = KeyDefaultDict(lambda key: str(key))
-
-    @staticmethod
-    def package_check(caller):
-        PackageChecker.vowpalwabbit(caller)
+    _string_cache = KeyDefaultDict(str)
 
     @staticmethod
     def prep_features(features: Coba_Features) -> Vowpal_Features:
-        # one big potential for error here is if our features are have float keys that are actually integers
-        # checking for this case greatly reduces efficiency of the prep operation.
+        # one big potential for error here is if our features have float keys      
+        # checking for this case though greatly reduces efficiency of the prep operation.
 
         if features is None or features == [] or features == ():
             return []
         elif isinstance(features, str):
             return [features]
         elif isinstance(features, Number):
-            return [("0",features)]
+            return [("0",float(features))]
         elif isinstance(features,dict):
             features = features.items()
         elif isinstance(features, collections.abc.Sequence) and features and isinstance(features[0], tuple):
@@ -45,34 +40,34 @@ class VowpalMediator:
         elif isinstance(features, collections.abc.Sequence) and features and not isinstance(features[0],tuple):
             features = zip(map(VowpalMediator._string_cache.__getitem__, range(len(features))) ,features)
         else:
-            raise Exception(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")
-        
+            raise CobaException(f"Unrecognized features of type {type(features).__name__} passed to VowpalLearner.")
+
         return [f"{F[0]}={F[1]}" if isinstance(F[1],str) else (F[0], float(F[1])) for F in features if F[1] != 0]        
 
     @staticmethod
     def make_learner(args:str):
-        VowpalMediator.package_check('VowpalMediator.make_learner')
+        PackageChecker.vowpalwabbit('VowpalMediator.make_learner')
         from vowpalwabbit import pyvw
-
         return pyvw.vw(args)
 
     @staticmethod
     def make_example(vw, ns:Dict[str,Vowpal_Features], label:Optional[str], label_type:int):
-        VowpalMediator.package_check('VowpalMediator.make_example')
+        PackageChecker.vowpalwabbit('VowpalMediator.make_example')
         from vowpalwabbit.pyvw import example
 
         ns = { k:v for k,v in ns.items() if v != [] }
 
         ex = example(vw, ns, label_type)
-
+        
         if label: ex.set_label_string(label)
+
         ex.setup_example()
 
         return ex
 
     @staticmethod
     def get_version() -> str:
-        VowpalMediator.package_check('VowpalMediator.get_version')
+        PackageChecker.vowpalwabbit('VowpalMediator.get_version')
         from vowpalwabbit.version import __version__
         return __version__
 
@@ -87,11 +82,10 @@ class VowpalLearner(Learner):
     """
 
     @overload
-    def __init__(self, *, epsilon: float = 0.1, adf: bool = True, seed: Optional[int] = 1) -> None:
+    def __init__(self, *, epsilon: float = 0.1, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             epsilon: A value between 0 and 1. If provided, exploration will follow epsilon-greedy.
-            adf: Indicate whether cb_explore or cb_explore_adf should be used.
             seed: The seed used by VW to generate any necessary random numbers.
         """
         ...
@@ -115,7 +109,7 @@ class VowpalLearner(Learner):
             cover: This value determines the number of policies which will be learned and must be
                 greater than 0. For more information on this algorithm see Agarwal et al. (2014).
             seed: The seed used by VW to generate any necessary random numbers.
-        
+
         References:
             Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming 
             the monster: A fast and simple algorithm for contextual bandits." In International Conference on 
@@ -183,7 +177,7 @@ class VowpalLearner(Learner):
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
-        VowpalMediator.package_check("VowpalLearner")
+        PackageChecker.vowpalwabbit("VowpalLearner")
         interactions = "--interactions xxa --interactions xa --ignore_linear x"
 
         if not args and 'seed' not in kwargs:
@@ -202,7 +196,7 @@ class VowpalLearner(Learner):
             self._args = re.sub("--cb_explore(\s+\d+)?\s+", '', self._args, count=1)
 
         elif 'epsilon' in kwargs:
-            self._adf  = kwargs.pop('adf', True)
+            self._adf  = True
             self._args = f"--epsilon {kwargs.pop('epsilon')} " + interactions
 
         elif 'softmax' in kwargs:
@@ -342,7 +336,7 @@ class VowpalLearner(Learner):
         if features is None or isinstance(features,(int,float,str)):
             return features
         elif isinstance(features,dict):
-            new_items = {}            
+            new_items = {}
             for k,v in features.items():
                 if v is None or isinstance(v, (int,float,str)):
                     new_items[str(k)] = v

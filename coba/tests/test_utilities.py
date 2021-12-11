@@ -29,7 +29,7 @@ class PackageChecker_sans_package_Tests(unittest.TestCase):
     def test_check_pandas_support(self):
         with self.assertRaises(CobaExit):
             PackageChecker.pandas("")
-            
+
     def test_check_numpy_support(self):
         with self.assertRaises(CobaExit):
             PackageChecker.numpy("")
@@ -41,7 +41,31 @@ class PackageChecker_sans_package_Tests(unittest.TestCase):
     def test_check_sklearn_support(self):
         with self.assertRaises(CobaExit):
             PackageChecker.sklearn("")
-    
+
+class PackageChecker_with_package_Tests(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.patch = unittest.mock.patch('importlib.import_module')
+        self.patch.start()
+
+    def tearDown(self) -> None:
+        self.patch.stop()
+
+    def test_check_matplotlib_support(self):
+        PackageChecker.matplotlib("")
+
+    def test_check_pandas_support(self):
+        PackageChecker.pandas("")
+            
+    def test_check_numpy_support(self):
+        PackageChecker.numpy("")
+
+    def test_check_vowpal_support(self):
+        PackageChecker.vowpalwabbit("")
+
+    def test_check_sklearn_support(self):
+        PackageChecker.sklearn("")
+
 class HashableDict_Tests(unittest.TestCase):
 
     def test_hash(self):
@@ -58,7 +82,7 @@ class HashableDict_Tests(unittest.TestCase):
 
         with self.assertRaises(AssertionError):
             hash(hash_dict)
- 
+
 class KeyDefaultDict_Tests(unittest.TestCase):
 
     def test_with_factory(self):
