@@ -52,17 +52,27 @@ class Performance_Tests(unittest.TestCase):
         #was approximately 0.027
         self.assertLess(time, .5)
 
-    def test_interaction_xx_encode_performance(self):
+    def test_dense_interaction_xx_encode_performance(self):
+        encoder = InteractionsEncoder(["xx"])
+
+        x = list(range(100))
+        
+        time = timeit.timeit(lambda: encoder.encode(x=x), number=100)
+        
+        #best observed was 0.025
+        self.assertLess(time, 0.2)
+
+    def test_sparse_interaction_xx_encode_performance(self):
         encoder = InteractionsEncoder(["xx"])
 
         x = dict(zip(map(str,range(100)), range(100)))
         
         time = timeit.timeit(lambda: encoder.encode(x=x), number=100)
         
-        #best observed was 0.08
+        #best observed was 0.09
         self.assertLess(time, 0.2)
 
-    def test_interaction_xxa_encode_performance(self):
+    def test_sparse_interaction_xxa_encode_performance(self):
         encoder = InteractionsEncoder(["xxa"])
 
         x = dict(zip(map(str,range(100)), range(100)))
@@ -70,10 +80,10 @@ class Performance_Tests(unittest.TestCase):
         
         time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
         
-        #best observed was 0.30
-        self.assertLess(time, 1.2)
+        #best observed was 0.40
+        self.assertLess(time, 1.6)
 
-    def test_interaction_abc_encode_performance(self):
+    def test_sparse_interaction_abc_encode_performance(self):
         encoder = InteractionsEncoder(["aabc"])
 
         a = dict(zip(map(str,range(100)), range(100)))
@@ -82,8 +92,8 @@ class Performance_Tests(unittest.TestCase):
 
         time = timeit.timeit(lambda: encoder.encode(a=a, b=b, c=c), number=50)
         
-        #best observed was 0.26
-        self.assertLess(time, 1.0)
+        #best observed was 0.31
+        self.assertLess(time, 1.2)
 
     def test_interaction_context_performance(self):
 

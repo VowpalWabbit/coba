@@ -166,8 +166,8 @@ class ClassEnvironmentTask(EnvironmentTask):
             C   = defaultdict(list)
             clf = DecisionTreeClassifier(random_state=1)
 
-            if isinstance(X[0][0],tuple):
-                X = FeatureHasher(n_features=2**14, input_type="pair").fit_transform(X)
+            if isinstance(X[0],dict):
+                X = FeatureHasher(n_features=2**14, input_type="dict").fit_transform(X)
 
             if len(Y) > 5:
                 scores = cross_val_score(clf, X, Y, cv=5)

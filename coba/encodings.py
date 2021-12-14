@@ -325,12 +325,12 @@ class InteractionsEncoder:
 
     def __init__(self, interactions: Sequence[str]) -> None:
 
-        self.times       = [0,0]
+        self.times       = [0,0,0,0]
         self.n           = 0
         self._cross_pows = OrderedDict(zip(interactions,map(OrderedDict,map(Counter,interactions))))
         self._ns_max_pow = { n:max(p.get(n,0) for p in self._cross_pows.values()) for n in set(''.join(interactions)) }
 
-    def encode(self, **ns_raw_values: Union[str,float, Sequence[Union[str,float]], Dict[str,Union[str,float]]]):
+    def encode(self, **ns_raw_values: Union[str, float, Sequence[Union[str,float]], Dict[str,Union[str,float]]]):
 
         self.n+= 1
 
@@ -346,38 +346,46 @@ class InteractionsEncoder:
             return v if isinstance(v, (list,tuple)) else [v]
 
         def handle_str_values(v: Dict[str,Union[str,float]]) -> Dict[str,float]:
-            return { (f"{x}{y}" if isinstance(y,str) else x):(1 if isinstance(y,str) else y) for x,y in v.items() }            
+            return { (f"{x}{y}" if isinstance(y,str) else x):(1 if isinstance(y,str) else y) for x,y in v.items() }
 
+        start = time.time()
         if is_sparse:
             ns_values = {ns:handle_str_values(make_all_dict_values(v)) for ns,v in ns_raw_values.items()}
-            ns_values = {ns:{f"{ns}{k}":v for k,v in values.items()}   for ns,values in ns_values.items() } 
+            ns_values = {ns:{f"{ns}{k}":v for k,v in values.items()}   for ns,values in ns_values.items() }
         else:
             ns_values = {ns:make_all_list_values(v) for ns,v in ns_raw_values.items()}
+        self.times[0] += time.time()-start
 
         if is_sparse:
             start = time.time()
-            ns_key_pows = { ns: self._pows(list(ns_values[ns].keys()  ), max_pow) for ns, max_pow in self._ns_max_pow.items() }
-            ns_val_pows = { ns: self._pows(list(ns_values[ns].values()), max_pow) for ns, max_pow in self._ns_max_pow.items() }
-            self.times[0] += time.time()-start
-
-            start = time.time()
-            ns_key_crosses = [ self._cross(ns_key_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
-            ns_val_crosses = [ self._cross(ns_val_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
+            key_pows = { ns: self._pows(list(ns_values[ns].keys()  ), max_pow) for ns, max_pow in self._ns_max_pow.items() }
+            val_pows = { ns: self._pows(list(ns_values[ns].values()), max_pow) for ns, max_pow in self._ns_max_pow.items() }
             self.times[1] += time.time()-start
 
-            return list(zip(chain.from_iterable(ns_key_crosses), chain.from_iterable(ns_val_crosses)))
+            start = time.time()
+            key_crosses = [ self._cross(key_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
+            val_crosses = [ self._cross(val_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
+            self.times[2] += time.time()-start
+
+            start = time.time()
+            encoded = dict(zip(chain.from_iterable(key_crosses), chain.from_iterable(val_crosses)))
+            self.times[3] += time.time()-start
+
+            return encoded
         else:
-            #.16
             start = time.time()
-            ns_pows = { ns: self._pows(ns_values[ns], max_pow) for ns, max_pow in self._ns_max_pow.items() }
-            self.times[0] += time.time()-start
-
-            #.22
-            start = time.time()
-            crosses = [ self._cross(ns_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
+            val_pows = { ns: self._pows(ns_values[ns], max_pow) for ns, max_pow in self._ns_max_pow.items() }
             self.times[1] += time.time()-start
 
-            return sum(crosses,[])
+            start = time.time()
+            val_crosses = [ self._cross(val_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
+            self.times[2] += time.time()-start
+
+            start = time.time()
+            encoded = sum(val_crosses,[])
+            self.times[3] += time.time()-start
+
+            return encoded
 
     def _pows(self, values, degree):
         #WARNING: This function has been extremely optimized. Test speed before and after making any changes.
