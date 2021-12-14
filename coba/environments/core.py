@@ -91,9 +91,9 @@ class Environments:
         """Convert rewards in an environment to 1 for max reward else 0."""
         return self.filter(Binary())
 
-    def sparse(self) -> 'Environments':
+    def sparse(self, context:bool = True, action:bool = False) -> 'Environments':
         """Convert an environment from a dense representation to sparse. This has little utility beyond debugging."""
-        return self.filter(Sparse())
+        return self.filter(Sparse(context,action))
 
     def shuffle(self, seeds: Sequence[int]) -> 'Environments':
         """Shuffle the order of the interactions in the Environments."""

@@ -307,21 +307,26 @@ class ToWarmStart(EnvironmentFilter):
 
 class Sparse(EnvironmentFilter):
     
+    def __init__(self, context:bool = True, action:bool = False):
+
+        self._context = context
+        self._action  = action
+
     @property
     def params(self) -> Dict[str, Any]:
-        return { "sparse": True }
+        return { "sparse_C": self._context, "sparse_A": self._action }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         for interaction in interactions:
 
-            sparse_context = self._make_sparse(interaction.context)
+            sparse_context = self._make_sparse(interaction.context) if self._context else interaction.context
 
             if hasattr(interaction, 'actions'):
-                sparse_actions = list(map(self._make_sparse,interaction.actions))
+                sparse_actions = list(map(self._make_sparse,interaction.actions)) if self._action else interaction.actions
                 yield SimulatedInteraction(sparse_context, sparse_actions, **interaction.kwargs)
             else:
-                sparse_action = self._make_sparse(interaction.action)
+                sparse_action = self._make_sparse(interaction.action) if self._action else interaction.action
                 yield LoggedInteraction(sparse_context, sparse_action, **interaction.kwargs)
 
     def _make_sparse(self, value) -> Optional[dict]:

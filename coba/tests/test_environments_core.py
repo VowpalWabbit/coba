@@ -159,13 +159,15 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2   , envs[3].params['shuffle'])
 
     def test_sparse(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).sparse()
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).sparse(False,True)
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(True, envs[0].params['sparse'])
+        self.assertEqual(False, envs[0].params['sparse_C'])
+        self.assertEqual(True , envs[0].params['sparse_A'])
         self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(True, envs[1].params['sparse'])
+        self.assertEqual(False, envs[1].params['sparse_C'])
+        self.assertEqual(True, envs[1].params['sparse_A'])
 
     def test_take(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).take(1,2)

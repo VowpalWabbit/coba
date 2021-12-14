@@ -646,9 +646,9 @@ class Binary_tests(unittest.TestCase):
         self.assertEqual({'binary':True}, Binary().params)
 
 class Sparse_tests(unittest.TestCase):
-    def test_sparse_simulated_no_context(self):
+    def test_sparse_simulated_no_context_and_action(self):
         
-        sparse_interactions = list(Sparse().filter([SimulatedInteraction(None, [1,2], rewards=[0,1]) ]))
+        sparse_interactions = list(Sparse(action=True).filter([SimulatedInteraction(None, [1,2], rewards=[0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual(None, sparse_interactions[0].context)
@@ -664,6 +664,15 @@ class Sparse_tests(unittest.TestCase):
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0].actions)
         self.assertEqual([0,1], sparse_interactions[0].kwargs["rewards"])
 
+    def test_sparse_simulated_str_not_context_not_action(self):
+
+        sparse_interactions = list(Sparse(context=False).filter([SimulatedInteraction("a", [{1:2},{3:4}], rewards=[0,1]) ]))
+
+        self.assertEqual(1, len(sparse_interactions))
+        self.assertEqual("a", sparse_interactions[0].context)
+        self.assertEqual([{1:2},{3:4}], sparse_interactions[0].actions)
+        self.assertEqual([0,1], sparse_interactions[0].kwargs["rewards"])
+
     def test_sparse_simulated_tuple_context(self):
 
         sparse_interactions = list(Sparse().filter([SimulatedInteraction((1,2,3), [{1:2},{3:4}], rewards=[0,1]) ]))
@@ -673,17 +682,26 @@ class Sparse_tests(unittest.TestCase):
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0].actions)
         self.assertEqual([0,1], sparse_interactions[0].kwargs["rewards"])
 
-    def test_sparse_logged_tuple_context(self):
+    def test_sparse_logged_tuple_context_and_action(self):
 
-        sparse_interactions = list(Sparse().filter([LoggedInteraction((1,2,3), {1:2}, reward=0)]))
+        sparse_interactions = list(Sparse(action=True).filter([LoggedInteraction((1,2,3), 2, reward=0)]))
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual({0:1,1:2,2:3}, sparse_interactions[0].context)
-        self.assertEqual({1:2}, sparse_interactions[0].action)
+        self.assertEqual({0:2}, sparse_interactions[0].action)
+        self.assertEqual(0, sparse_interactions[0].kwargs["reward"])
+
+    def test_sparse_logged_tuple_context_and_not_action(self):
+
+        sparse_interactions = list(Sparse().filter([LoggedInteraction((1,2,3), 2, reward=0)]))
+
+        self.assertEqual(1, len(sparse_interactions))
+        self.assertEqual({0:1,1:2,2:3}, sparse_interactions[0].context)
+        self.assertEqual(2, sparse_interactions[0].action)
         self.assertEqual(0, sparse_interactions[0].kwargs["reward"])
 
     def test_params(self):
-        self.assertEqual({'sparse':True}, Sparse().params)
+        self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparse().params)
 
 class ToWarmStart_tests(unittest.TestCase):
     
