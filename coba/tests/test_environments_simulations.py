@@ -10,7 +10,8 @@ from coba.environments.simulations import ReaderSimulation
 from coba.environments import (
     SimulatedInteraction, MemorySimulation, ClassificationSimulation,
     LambdaSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation,
-    DebugSimulation, RegressionSimulation, ManikSimulation
+    LinearSyntheticSimulation, RegressionSimulation, ManikSimulation,
+    LocalSyntheticSimulation
 )
 
 CobaConfig.logger = NullLogger()
@@ -223,9 +224,38 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
         self.assertEqual({}, LambdaSimulation(2,C,A,R).params)
 
-class DebugSimulation_Tests(unittest.TestCase):
+class LinearSyntheticSimulation_Tests(unittest.TestCase):
     def test_simple(self):
-        self.assertEqual(500, len(list(DebugSimulation().read())))
+        self.assertEqual(500, len(list(LinearSyntheticSimulation().read())))
+
+    def test_params(self):
+        env = LinearSyntheticSimulation(100,2,3,4,0,["xa"],2)
+
+        self.assertEqual(2     , env.params['n_A'])
+        self.assertEqual(3     , env.params['n_C_phi'])
+        self.assertEqual(4     , env.params['n_A_phi'])
+        self.assertEqual(0     , env.params['r_noise'])
+        self.assertEqual(['xa'], env.params['X'])
+        self.assertEqual(2     , env.params['seed'])
+    
+    def test_repr(self):
+        self.assertEqual("LinearSynth(A=2,c=3,a=4,X=['xa'],seed=2)", str(LinearSyntheticSimulation(100,2,3,4,0,["xa"],2)))
+
+class LocalSyntheticSimulation_Tests(unittest.TestCase):
+    
+    def test_simple(self):
+        self.assertEqual(500, len(list(LocalSyntheticSimulation().read())))
+
+    def test_params(self):
+        env = LocalSyntheticSimulation(100,100,3,4,2)
+
+        self.assertEqual(4  , env.params['n_A'])
+        self.assertEqual(100, env.params['n_C'])
+        self.assertEqual(3  , env.params['n_C_phi'])
+        self.assertEqual(2  , env.params['seed'])
+
+    def test_repr(self):
+        self.assertEqual("LocalSynth(A=4,C=100,c=3,seed=2)", str(LocalSyntheticSimulation(200,100,3,4,2)))
 
 class ReaderSimulation_Tests(unittest.TestCase):
 

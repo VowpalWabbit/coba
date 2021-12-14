@@ -102,13 +102,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv'  , data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
@@ -173,13 +169,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         with self.assertRaises(Exception) as e:
@@ -232,13 +224,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
@@ -304,13 +292,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693, take=2).read()))
@@ -369,13 +353,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
@@ -436,13 +416,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693, cat_as_str=True).read()))
@@ -507,13 +483,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693, problem_type="regression").read()))
@@ -578,13 +550,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         with self.assertRaises(Exception) as e:
@@ -630,13 +598,9 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         data_set_tasks = { }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         with self.assertRaises(Exception) as e:
@@ -689,13 +653,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
@@ -760,13 +720,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
@@ -831,13 +787,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
@@ -902,13 +854,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv'  , data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
@@ -981,13 +929,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
@@ -1069,13 +1013,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_001594_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_001594_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_001594_arff', data_set_arff.encode().splitlines())
-        #tasks query -- didn't modify yet
         CobaConfig.cacher.put('openml_001594_tasks', json.dumps(data_set_tasks).encode().splitlines())
 
         feature_rows, label_col = list(zip(*OpenmlSource(1594).read()))
@@ -1141,16 +1081,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_001594_descr', json.dumps(data_set_description).encode().splitlines())
-
-        #data types query
         CobaConfig.cacher.put('openml_001594_feats', json.dumps(data_set_features).encode().splitlines())
-
-        #data content query
         CobaConfig.cacher.put('openml_001594_csv', data_set_csv.encode().splitlines())
-
-        #tasks query -- didn't modify yet
         CobaConfig.cacher.put('openml_001594_tasks', json.dumps(data_set_tasks).encode().splitlines())
 
         feature_rows, label_col = list(zip(*OpenmlSource(1594).read()))
@@ -1216,16 +1149,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_001594_descr', json.dumps(data_set_description).encode().splitlines())
-
-        #data types query
         CobaConfig.cacher.put('openml_001594_feats', json.dumps(data_set_features).encode().splitlines())
-
-        #data content query
         CobaConfig.cacher.put('openml_001594_csv', data_set_csv.encode().splitlines())
-
-        #tasks query -- didn't modify yet
         CobaConfig.cacher.put('openml_001594_tasks', json.dumps(data_set_tasks).encode().splitlines())
 
         feature_rows, label_col = list(zip(*OpenmlSource(1594).read()))
@@ -1290,13 +1216,9 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         CobaConfig.cacher = ExceptionCacher('openml_042693_csv', Exception())
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv'  , data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         with self.assertRaises(Exception) as e:
@@ -1353,13 +1275,9 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         CobaConfig.cacher = ExceptionCacher('openml_042693_csv', KeyboardInterrupt())
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         with self.assertRaises(KeyboardInterrupt) as e:
@@ -1416,13 +1334,9 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         CobaConfig.cacher = ExceptionCacher('openml_042693_csv', CobaException())
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         with self.assertRaises(Exception) as e:
@@ -1468,11 +1382,8 @@ class OpenmlSource_Tests(unittest.TestCase):
             7.6,23,4700,1,yes
         """
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
 
         feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
@@ -1527,7 +1438,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             8.3,27,1020,1,yes
             7.6,23,4700,1,yes
         """
-   
+
         def mocked_requests_get(*args, **kwargs):
 
             if args[0] == 'https://www.openml.org/api/v1/json/data/42693':
@@ -1741,7 +1652,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 class OpenmlSimulation_Tests(unittest.TestCase):
 
     @unittest.skip("While it is nice to test this functionality, in practice it is fairly slow.")
-    def test_simple_openml_source_classification(self) -> None:
+    def test_simple_openml_source_classification_online(self) -> None:
         #this test requires interet acess to download the data
 
         CobaConfig.api_keys = {'openml':None}
@@ -1765,7 +1676,81 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             self.assertIn(1, rnd.kwargs["rewards"])
             self.assertIn(0, rnd.kwargs["rewards"])
 
-    def test_simple_openml_source_regression(self) -> None:
+    def test_simple_openml_source_classification_offline(self) -> None:
+
+        CobaConfig.api_keys = {'openml':None}
+        CobaConfig.cacher   = MemoryCacher()
+        CobaConfig.logger   = NullLogger()
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "licence":"CC0",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"true","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_csv = """
+            "pH","temperature","conductivity","coli","play"
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.3,27,1020,1,yes
+        """
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
+
+        CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
+        CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
+        CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
+        CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
+
+        interactions = list(OpenmlSimulation(42693, cat_as_str=True, simulation_type="classification").read())
+
+        self.assertEqual(len(interactions), 3)
+
+        for rnd in interactions:
+
+            hash(rnd.context)    #make sure these are hashable
+            hash(rnd.actions[0]) #make sure these are hashable
+            hash(rnd.actions[1]) #make sure these are hashable
+
+        self.assertEqual((8.1,27,1410,'no'), interactions[0].context)
+        self.assertEqual((8.2,29,1180,'no'), interactions[1].context)
+        self.assertEqual((8.3,27,1020,'yes'), interactions[2].context)
+        
+        self.assertEqual(["1","2"], interactions[0].actions)
+        self.assertEqual(["1","2"], interactions[1].actions)
+        self.assertEqual(["1","2"], interactions[2].actions)
+
+        self.assertEqual([0,1], interactions[0].kwargs["rewards"])
+        self.assertEqual([0,1], interactions[1].kwargs["rewards"])
+        self.assertEqual([1,0], interactions[2].kwargs["rewards"])
+
+    def test_simple_openml_source_regression_offline(self) -> None:
 
         CobaConfig.api_keys = {'openml':None}
         CobaConfig.cacher   = MemoryCacher()
@@ -1812,13 +1797,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             }
         }
 
-        #data description query
         CobaConfig.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        #data types query
         CobaConfig.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        #data content query
         CobaConfig.cacher.put('openml_042693_csv', data_set_csv.encode().splitlines() )
-        #tasks query
         CobaConfig.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         interactions = list(OpenmlSimulation(42693, simulation_type="regression").read())

@@ -194,6 +194,12 @@ class InteractionsEncoder_Tests(unittest.TestCase):
 
         self.assertEqual(dict([("x1a0a",1), ("x2a0a",2)]), interactions)
 
+    def test_sparse_xa_with_numeric_keys(self):
+        encoder = InteractionsEncoder(["xa"])
+
+        interactions = encoder.encode(x={1:"z",2:2}, a={1:3,2:4})
+
+        self.assertEqual(dict([("x1za1",3), ("x1za2",4), ("x2a1",6), ("x2a2",8)]), interactions)
 
     def test_sparse_xa_with_strings(self):
         encoder = InteractionsEncoder(["xa"])

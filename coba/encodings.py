@@ -330,7 +330,7 @@ class InteractionsEncoder:
         self._cross_pows = OrderedDict(zip(interactions,map(OrderedDict,map(Counter,interactions))))
         self._ns_max_pow = { n:max(p.get(n,0) for p in self._cross_pows.values()) for n in set(''.join(interactions)) }
 
-    def encode(self, **ns_raw_values: Union[str, float, Sequence[Union[str,float]], Dict[str,Union[str,float]]]):
+    def encode(self, **ns_raw_values: Union[str, float, Sequence[Union[str,float]], Dict[Union[str,int],Union[str,float]]]) -> Union[Sequence[float], Dict[str,float]]:
 
         self.n+= 1
 

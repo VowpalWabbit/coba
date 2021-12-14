@@ -4,7 +4,7 @@ from typing import cast, Iterable
 from coba.config.core import CobaConfig
 from coba.config.loggers import NullLogger
 
-from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, DebugSimulation
+from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation
 from coba.pipes        import Pipe
 from coba.learners     import Learner
 
@@ -130,7 +130,7 @@ class ChunkBySource_Tests(unittest.TestCase):
         self.assertEqual(groups[3], [tasks[2],tasks[7]])
 
     def test_pipe_four_groups(self):
-        sim1 = Environments(DebugSimulation()).shuffle([1,2])._environments
+        sim1 = Environments(LinearSyntheticSimulation()).shuffle([1,2])._environments
         sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
 
         tasks = [
@@ -317,8 +317,8 @@ class ProcessTasks_Tests(unittest.TestCase):
 
     def test_two_environment_tasks_first_environment_is_empty(self):
 
-        src1   = DebugSimulation(n_interactions=0)
-        src2   = DebugSimulation(n_interactions=5)
+        src1   = LinearSyntheticSimulation(n_interactions=0)
+        src2   = LinearSyntheticSimulation(n_interactions=5)
 
         task1 = ObserveTask()
         task2 = ObserveTask()
@@ -332,7 +332,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
     def test_empty_environment_tasks(self):
 
-        src1  = DebugSimulation(0)
+        src1  = LinearSyntheticSimulation(0)
         task1 = ObserveTask()
 
         items = [ WorkItem(0, None, src1, None, task1) ]

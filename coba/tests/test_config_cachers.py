@@ -3,7 +3,6 @@ import shutil
 import threading
 import unittest
 
-from itertools import count
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -81,6 +80,14 @@ class NullCacher_Tests(unittest.TestCase):
 
     def test_rmv_does_nothing(self):
         NullCacher().rmv("abc")
+
+    def test_get_put_returns_iter(self):
+        my_iter = iter([1,2,3])
+        
+        NullCacher().get_put("abc", lambda: my_iter)
+
+        self.assertEqual(my_iter, my_iter)
+        self.assertEqual([1,2,3], list(my_iter))
 
 class MemoryCacher_Tests(unittest.TestCase):
 

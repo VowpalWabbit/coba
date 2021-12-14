@@ -6,9 +6,9 @@ from typing import Sequence, overload, Union, Iterable, Iterator
 from coba.pipes import Source, DiskIO, JsonDecode
 
 from coba.environments.pipes       import EnvironmentPipe
-from coba.environments.filters     import EnvironmentFilter, Binary, Shuffle, Take
+from coba.environments.filters     import EnvironmentFilter, Binary, Shuffle, Take, Sparse
 from coba.environments.definitions import EnvironmentDefinitionFileV1
-from coba.environments.simulations import DebugSimulation
+from coba.environments.simulations import LinearSyntheticSimulation, LocalSyntheticSimulation
 from coba.environments.primitives  import Environment, LoggedEnvironment, SimulatedEnvironment, WarmStartEnvironment
 from coba.environments.openml      import OpenmlSimulation
 
@@ -34,7 +34,7 @@ class Environments:
         return Environments(*EnvironmentDefinitionFileV1().filter(JsonDecode().filter(content)))
 
     @staticmethod
-    def from_debug(
+    def from_linear_synthetic(
         n_interactions:int = 5000, 
         n_actions:int = 3, 
         n_context_features:int = 2, 
@@ -46,9 +46,25 @@ class Environments:
            interactions of context (x) and action (a) features. In the case that no context or action features are requested the 
            interaction terms are calculted by assuming all actions or contexts have a constant feature of 1."""
 
-        return Environments(
-            DebugSimulation(n_interactions, n_actions, n_context_features, n_action_features, r_noise_var, interactions, seed)
-        )
+        return Environments([
+            LinearSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, r_noise_var, interactions, seed)
+        ])
+
+    @staticmethod
+    def from_local_synthetic(
+        n_interactions:int = 5000, 
+        n_actions:int = 3, 
+        n_context_features:int = 2, 
+        n_contexts:int = 200, 
+        seed:int=1) -> 'Environments':
+        """A simple simulation useful for debugging learning algorithms. It's rewards are determined by the location of given 
+            context and action pairs with respect to a small set of pre-generated exemplar context,action pairs. Location
+            is currently determined by equality, though it could potentially be extended to support any number of metric
+            based similarity kernels. The "local" in the name is due to its close relationship to 'local regression'."""
+
+        return Environments([
+            LocalSyntheticSimulation(n_interactions, n_contexts, n_context_features, n_actions, seed)
+        ])
 
     @staticmethod
     def from_openml(
@@ -56,6 +72,7 @@ class Environments:
         take: int = None,
         cat_as_str:bool = False,
         type: Literal["classification", "regression"] = "classification") -> 'Environments':
+        """Create a SimulatedEnvironment from datasets available on openml."""
 
         if isinstance(openml_ids, int): openml_ids = [openml_ids]
         return Environments(*[OpenmlSimulation(id, take, type, cat_as_str) for id in openml_ids])
@@ -71,15 +88,23 @@ class Environments:
                 self._environments.append(env)
 
     def binary(self) -> 'Environments':
+        """Convert rewards in an environment to 1 for max reward else 0."""
         return self.filter(Binary())
 
+    def sparse(self) -> 'Environments':
+        """Convert an environment from a dense representation to sparse. This has little utility beyond debugging."""
+        return self.filter(Sparse())
+
     def shuffle(self, seeds: Sequence[int]) -> 'Environments':
+        """Shuffle the order of the interactions in the Environments."""
         return self.filter([Shuffle(seed) for seed in seeds])
 
     def take(self, n_interactions: int, seed: int = None) -> 'Environments':
+        """Take a fixed number of interactions and simultaneously apply a shuffle if given a seed."""
         return self.filter(Take(n_interactions, seed))
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
+        """Apply filters to each environment currently in Environments."""
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
         self._environments = [ EnvironmentPipe(e,f) for e in self._environments for f in filters ]
         return self

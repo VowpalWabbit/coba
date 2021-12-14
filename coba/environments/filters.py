@@ -8,13 +8,13 @@ from itertools import islice, chain
 from typing_extensions import Literal
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple
 
-import coba.pipes
+from coba.pipes import Take as PipesTake, Shuffle as PipesShuffle, Identity as PipesIdentity
 from coba.random import CobaRandom
 from coba.statistics import iqr
 
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, Interaction, EnvironmentFilter
 
-class Take(coba.pipes.Take):
+class Take(PipesTake):
     
     @property
     def params(self) -> Dict[str, Any]:
@@ -27,7 +27,7 @@ class Take(coba.pipes.Take):
     def __repr__(self) -> str:
         return str(self.params)
 
-class Shuffle(coba.pipes.Shuffle):
+class Shuffle(PipesShuffle):
     
     @property
     def params(self) -> Dict[str, Any]:
@@ -36,7 +36,7 @@ class Shuffle(coba.pipes.Shuffle):
     def __repr__(self) -> str:
         return str(self.params)
 
-class Identity(coba.pipes.Identity):
+class Identity(PipesIdentity):
     
     @property
     def params(self) -> Dict[str, Any]:
@@ -260,8 +260,9 @@ class Binary(EnvironmentFilter):
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
 
         for interaction in interactions:
-            kwargs = interaction.kwargs
+            kwargs  = interaction.kwargs.copy()
             max_rwd = max(kwargs["rewards"])
+            
             kwargs["rewards"] = [int(r==max_rwd) for r in kwargs["rewards"]]
 
             yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
@@ -303,3 +304,29 @@ class ToWarmStart(EnvironmentFilter):
             kwargs["reward"] = interaction.kwargs["rewards"][selected_index]
 
         return LoggedInteraction(interaction.context, selected_action, **kwargs)
+
+class Sparse(EnvironmentFilter):
+    
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "sparse": True }
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        for interaction in interactions:
+
+            sparse_context = self._make_sparse(interaction.context)
+
+            if hasattr(interaction, 'actions'):
+                sparse_actions = list(map(self._make_sparse,interaction.actions))
+                yield SimulatedInteraction(sparse_context, sparse_actions, **interaction.kwargs)
+            else:
+                sparse_action = self._make_sparse(interaction.action)
+                yield LoggedInteraction(sparse_context, sparse_action, **interaction.kwargs)
+
+    def _make_sparse(self, value) -> Optional[dict]:
+        if isinstance(value,dict) or value is None:
+            return value
+        if isinstance(value,(list,tuple)):
+            return dict(enumerate(value))
+        return {0:value}

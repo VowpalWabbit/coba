@@ -51,17 +51,25 @@ class Environments_Tests(unittest.TestCase):
             if Path("coba/tests/.temp/from_file.env").exists():
                 Path("coba/tests/.temp/from_file.env").unlink()
 
-    def test_from_debug(self):
-        env = Environments.from_debug(100,2,3,3,0,["xa"],2)
+    def test_from_linear_synthetic(self):
+        env = Environments.from_linear_synthetic(100,2,3,3,0,["xa"],2)
 
         self.assertEqual(1     , len(env))
         self.assertEqual(100   , len(env[0].read()))
-        self.assertEqual(2     , env[0].params['|A|'])
-        self.assertEqual(3     , env[0].params['|phi(C)|'])
-        self.assertEqual(3     , env[0].params['|phi(A)|'])
-        self.assertEqual(0     , env[0].params['e_var'])
+        self.assertEqual(2     , env[0].params['n_A'])
+        self.assertEqual(3     , env[0].params['n_C_phi'])
+        self.assertEqual(3     , env[0].params['n_A_phi'])
+        self.assertEqual(0     , env[0].params['r_noise'])
         self.assertEqual(['xa'], env[0].params['X'])
         self.assertEqual(2     , env[0].params['seed'])
+
+    def test_from_local_synthetic(self):
+        env = Environments.from_local_synthetic(100,2,1,10,2)
+
+        self.assertEqual(2  , env[0].params['n_A'])
+        self.assertEqual(10 , env[0].params['n_C'])
+        self.assertEqual(1  , env[0].params['n_C_phi'])
+        self.assertEqual(2  , env[0].params['seed'])
 
     def test_from_openml_single(self):
         env = Environments.from_openml(100,100,True,'regression')
@@ -149,6 +157,15 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[2].params['shuffle'])
         self.assertEqual('B' , envs[3].params['id'])
         self.assertEqual(2   , envs[3].params['shuffle'])
+
+    def test_sparse(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).sparse()
+
+        self.assertEqual(2   , len(envs))
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(True, envs[0].params['sparse'])
+        self.assertEqual('B' , envs[1].params['id'])
+        self.assertEqual(True, envs[1].params['sparse'])
 
     def test_take(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).take(1,2)
