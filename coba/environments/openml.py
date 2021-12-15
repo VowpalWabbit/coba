@@ -250,7 +250,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
         raise CobaException(f"Openml {data_id} does not appear to be a {self._problem_type} dataset")
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f'{{"OpenmlSource":{self._data_id}}}'
 
 class OpenmlSimulation(SimulatedEnvironment):
@@ -281,8 +281,5 @@ class OpenmlSimulation(SimulatedEnvironment):
         else:
             return RegressionSimulation(self._source.read()).read()
 
-    def __repr__(self) -> str:
-        return f"OpenmlSimulation(id={self.params['openml']}, cat_as_str={self.params['cat_as_str']}, take={self.params.get('openml_take')})"
-
     def __str__(self) -> str:
-        return self.__repr__()
+        return f"OpenmlSimulation(id={self.params['openml']}, cat_as_str={self.params['cat_as_str']}, take={self.params.get('openml_take')})"

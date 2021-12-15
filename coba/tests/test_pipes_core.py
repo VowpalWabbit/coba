@@ -13,11 +13,11 @@ class SingleItemIdentity:
         return item
 
 class ReprIO(MemoryIO):
-    def __repr__(self):
+    def __str__(self):
         return "ReprIO"
 
 class ReprFilter(Filter):
-    def __repr__(self):
+    def __str__(self):
         return "ReprFilter"
     
     def filter(self, item: Any) -> Any:

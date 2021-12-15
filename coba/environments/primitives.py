@@ -206,7 +206,7 @@ class Environment(Source[Iterable[Interaction]], ABC):
         """
         ...
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return str(self.params) if self.params else self.__class__.__name__
 
 class SimulatedEnvironment(Environment):
@@ -257,5 +257,5 @@ class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC
         """Apply a filter to a Simulation's interactions."""
         ...
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return str(self.params) if self.params else self.__class__.__name__

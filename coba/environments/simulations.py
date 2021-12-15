@@ -206,7 +206,7 @@ class LambdaSimulation(SimulatedEnvironment):
         
         return self._interactions
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return "LambdaSimulation"
 
 class ReaderSimulation(SimulatedEnvironment):
@@ -338,7 +338,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
             "seed"   : self._seed
         }
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},X={self._X},seed={self._seed})"
 
 class LocalSyntheticSimulation(LambdaSimulation):
@@ -388,5 +388,5 @@ class LocalSyntheticSimulation(LambdaSimulation):
             "seed"   : self._seed
         }
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"LocalSynth(A={self._n_actions},C={self._n_contexts},c={self._n_context_features},seed={self._seed})"

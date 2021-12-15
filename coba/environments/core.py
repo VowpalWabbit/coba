@@ -121,5 +121,9 @@ class Environments:
     def __add__(self, other: 'Environments') -> 'Environments':
         return Environments(self._environments,other._environments)
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return "\n".join([f"{i+1}. {e}" for i,e in enumerate(self._environments)])
+
+    def _ipython_display_(self):
+        #pretty print in jupyter notebook (https://ipython.readthedocs.io/en/stable/config/integrating.html)
+        print(str(self))

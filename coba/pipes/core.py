@@ -20,7 +20,7 @@ class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
         for item in items:
             self._pipe.write(item)
     
-    def __repr__(self):
+    def __str__(self):
         return str(self._pipe)
 
 class FiltersFilter(Filter):
@@ -42,7 +42,7 @@ class FiltersFilter(Filter):
             items = filter.filter(items)
         return items
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return ",".join(map(str,self._filters))
 
 class SourceFilters(Source):
@@ -58,7 +58,7 @@ class SourceFilters(Source):
     def read(self) -> Any:
         return self._filter.filter(self._source.read())
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return ",".join(map(str,[self._source, self._filter]))
 
 class FiltersSink(Sink):
@@ -75,7 +75,7 @@ class FiltersSink(Sink):
     def write(self, items: Iterable[Any]):
         self._sink.write(self._filter.filter(items))
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return ",".join(map(str,[self._filter, self._sink]))
 
 class Pipeline:
@@ -88,7 +88,7 @@ class Pipeline:
     def run(self) -> None:
         self._sink.write(self._filter.filter(self._source.read()))
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return ",".join(filter(None,map(str,[self._source, self._filter, self._sink])))
 
 class Pipe:

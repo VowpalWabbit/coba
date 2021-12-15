@@ -19,14 +19,14 @@ class TestEnvironment(SimulatedEnvironment):
             SimulatedInteraction(3, [None,None], rewards=[3,4]),
         ]
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return str(self.params)
 
 class NoParamIdent:
     def filter(self,item):
         return item
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return 'NoParamIdent'
 
 class EnvironmentPipe_Tests(unittest.TestCase):

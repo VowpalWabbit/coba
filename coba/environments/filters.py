@@ -24,7 +24,7 @@ class Take(PipesTake):
         else: 
             return { "take": self._count }
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return str(self.params)
 
 class Shuffle(PipesShuffle):
@@ -33,7 +33,7 @@ class Shuffle(PipesShuffle):
     def params(self) -> Dict[str, Any]:
         return { "shuffle": self._seed }
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return str(self.params)
 
 class Identity(PipesIdentity):
@@ -42,7 +42,7 @@ class Identity(PipesIdentity):
     def params(self) -> Dict[str, Any]:
         return {}
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return "{ Identity }"
 
 class Sort(EnvironmentFilter):

@@ -45,7 +45,7 @@ class EnvironmentPipe(SimulatedEnvironment):
 
         return {}
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
 
         str_source = str(self._source)
         str_filter = str(self._filter)

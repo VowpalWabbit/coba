@@ -1,6 +1,8 @@
-from pathlib import Path
 import unittest
 import timeit
+import importlib.util
+
+from pathlib import Path
 
 from coba.experiments.results import Result, Table, InteractionsTable, TransactionIO, TransactionIO_V3, TransactionIO_V4
 
@@ -192,15 +194,8 @@ class Table_Tests(unittest.TestCase):
         self.assertNotIn("a", filtered_table)
         self.assertIn("A", filtered_table)
 
+@unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
 class Table_Pandas_Tests(unittest.TestCase):
-
-    def setUp(self) -> None:
-            try:
-                import pandas
-            except ImportError:
-                # if somebody is using coba with no intention of using pandas we don't want
-                # them to see failed tests and think something is wrong so we skip these tests
-                raise unittest.SkipTest("Pandas is not installed so no need to test Table Pandas functionality")
 
     def test_pandas(self):
         
@@ -240,8 +235,8 @@ class Table_Pandas_Tests(unittest.TestCase):
         table = Table("test", ['a'], [dict(a='A',b=1.,c=[1,2],d='d',_packed={'z':[[1,2],[3,4]]}),dict(a='B',b=2.,e='E')])
 
         expected_df = pd.DataFrame([
-            dict(a='A',index=1,b=1.,c=[1,2],d='d',z=[1,2]),
-            dict(a='A',index=2,b=1.,c=[1,2],d='d',z=[3,4]),
+            dict(a='A',index=1,b=1.,c=[1,2],d='d',e=None,z=[1,2]),
+            dict(a='A',index=2,b=1.,c=[1,2],d='d',e=None,z=[3,4]),
             dict(a='B',index=1,b=2.,e='E')
         ])
 

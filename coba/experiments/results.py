@@ -1,15 +1,14 @@
-from logging import raiseExceptions
 import re
 import collections
+import collections.abc
 
-from pathlib import Path
 from copy import copy
+from pathlib import Path
 from numbers import Number
 from operator import truediv
 from itertools import chain, repeat, accumulate
-from collections.abc import Container
 from typing_extensions import Literal
-from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Callable
+from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Set, Callable
 
 from coba.config import CobaConfig
 from coba.exceptions import CobaException
@@ -19,41 +18,31 @@ from coba.pipes import JsonEncode, JsonDecode, DiskIO, MemoryIO, IO
 class Table:
     """A container class for storing tabular data."""
 
-    def __init__(self, name:str, primary_cols: Sequence[str], rows: Sequence[Dict[str,Any]] = [], prefered_cols: Sequence[str] = []):
+    def __init__(self, name:str, primary_cols: Sequence[str], rows: Sequence[Dict[str,Any]], preferred_cols: Sequence[str] = []):
         """Instantiate a Table.
-        
+
         Args:
-            name: The name of the table.
-            default: The default values to fill in missing values with
+            name: The name of the table. Used for display purposes.
+            primary_cols: Table columns used to make each row's tuple "key".
+            rows: The actual rows that should be stored in the table. Each row is required to contain the given primary_cols.
+            preferred_cols: A list of columns that we prefer be displayed immediately after primary columns. All remaining 
+                columns (i.e., neither primary nor preferred) will be ordered alphabetically.
         """
         self._name    = name
         self._primary = primary_cols
 
-        def index_cols():
-            for row in rows:
-                if '_packed' in row: 
-                    return ['index']
-            return []
-        
-        def data_cols():
-            return ( sorted(row.keys() - ['_packed'] | row.get('_packed',{}).keys()) for row in rows)
-
         for row in rows:
             assert len(row.keys() & primary_cols) == len(primary_cols), 'A Table row was provided without a primary key.'
 
-        all_columns   = list(chain(primary_cols, index_cols(), *data_cols()))
-        
-        def col_order(col):
-            if col in primary_cols:
-                return primary_cols.index(col)
-            
-            if col in prefered_cols:
-                return len(primary_cols) + prefered_cols.index(col)
+        all_columns: Set[str] = set()
+        for row in rows:
+            all_columns |= {'index'} if '_packed' in row else set()
+            all_columns |= row.keys()-{'_packed'}
+            all_columns |= all_columns.union(row.get('_packed',{}).keys())
 
-            return len(primary_cols) + len(prefered_cols) + all_columns.index(col)
+        col_priority = list(chain(primary_cols + ['index'] + preferred_cols + sorted(all_columns)))
 
-        self._columns = sorted(set(all_columns), key=col_order)
-
+        self._columns = sorted(all_columns, key=col_priority.index)
         self._rows_keys: List[Hashable               ] = []               
         self._rows_flat: Dict[Hashable, Dict[str,Any]] = {}
         self._rows_pack: Dict[Hashable, Dict[str,Any]] = {}
@@ -119,11 +108,11 @@ class Table:
             col_filter_results = [ ]
 
             for col,col_filter in kwargs.items():
-                
-                if isinstance(col_filter,Container) and not isinstance(col_filter,str):
-                    
+
+                if isinstance(col_filter,collections.abc.Container) and not isinstance(col_filter,str):
+
                     col_filter_results.append(row[col] in col_filter or any([satisifies_filter(cf,row[col]) for cf in col_filter]))
-                
+
                 else:
                     col_filter_results.append(satisifies_filter(col_filter,row.get(col,self._default(col)) ))
 
@@ -226,6 +215,10 @@ class Table:
     def __str__(self) -> str:
         return str({"Table": self.name, "Columns": self.columns, "Rows": len(self)})
 
+    def _ipython_display_(self):
+        #pretty print in jupyter notebook (https://ipython.readthedocs.io/en/stable/config/integrating.html)
+        print(str(self))
+
     def __len__(self) -> int:
         return sum([ len(self._rows_pack[key].get('index',[None])) for key in self.keys ])
 
@@ -242,13 +235,13 @@ class InteractionsTable(Table):
         lrn_sim_rows = []
 
         for interactions in self:
-            
+
             rewards = interactions[yaxis]
 
             if span is None or span >= len(rewards):
                 cumwindow  = list(accumulate(rewards))
                 cumdivisor = list(range(1,len(cumwindow)+1))
-            
+
             elif span == 1:
                 cumwindow  = list(rewards)
                 cumdivisor = [1]*len(cumwindow)
@@ -262,10 +255,10 @@ class InteractionsTable(Table):
 
         if each:
             return lrn_sim_rows
-        
+
         else:
             grouped_lrn_sim_rows = collections.defaultdict(list)
-            
+
             for row in lrn_sim_rows:
                 grouped_lrn_sim_rows[row[0]].append(row[2:])
 
@@ -274,7 +267,7 @@ class InteractionsTable(Table):
             for learner_id in grouped_lrn_sim_rows.keys():
 
                 Z = list(zip(*grouped_lrn_sim_rows[learner_id]))
-                
+
                 if not Z: continue
 
                 Y = [ sum(z)/len(z) for z in Z ]
@@ -349,7 +342,7 @@ class TransactionIO_V3(IO[Iterable[Any], Any]):
     def _encode(self,item):
         if item[0] == "T0":
             return ['benchmark', {"n_learners":item[1], "n_simulations":item[2]}]
-        
+
         if item[0] == "T1":
             return ["L", item[1], item[2]]
 
@@ -414,7 +407,7 @@ class TransactionIO_V4(IO[Iterable[Any], Any]):
     def _encode(self,item):
         if item[0] == "T0":
             return ['experiment', {"n_learners":item[1], "n_environments":item[2]}]
-        
+
         if item[0] == "T1":
             return ["L", item[1], item[2]]
 
@@ -469,7 +462,7 @@ class TransactionIO(IO[Iterable[Any], Any]):
     def _encode(self,item):
         if item[0] == "T0":
             return ['benchmark', {"n_learners":item[1], "n_simulations":item[2]}]
-        
+
         if item[0] == "T1":
             return ["L", item[1], item[2]]
 
@@ -542,7 +535,7 @@ class Result:
         """
         return self._interactions
 
-    def _copy(self) -> 'Result':
+    def copy(self) -> 'Result':
         result = Result()
 
         result.environments = copy(self._environments)
@@ -704,5 +697,6 @@ class Result:
     def __str__(self) -> str:
         return str({ "Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })
 
-    def __repr__(self) -> str:
-        return str(self)
+    def _ipython_display_(self):
+        #pretty print in jupyter notebook (https://ipython.readthedocs.io/en/stable/config/integrating.html)
+        print(str(self))
