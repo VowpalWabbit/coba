@@ -238,7 +238,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(['xa'], env.params['X'])
         self.assertEqual(2     , env.params['seed'])
     
-    def test_repr(self):
+    def test_str(self):
         self.assertEqual("LinearSynth(A=2,c=3,a=4,X=['xa'],seed=2)", str(LinearSyntheticSimulation(100,2,3,4,0,["xa"],2)))
 
 class LocalSyntheticSimulation_Tests(unittest.TestCase):
@@ -254,7 +254,7 @@ class LocalSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(3  , env.params['n_C_phi'])
         self.assertEqual(2  , env.params['seed'])
 
-    def test_repr(self):
+    def test_str(self):
         self.assertEqual("LocalSynth(A=4,C=100,c=3,seed=2)", str(LocalSyntheticSimulation(200,100,3,4,2)))
 
 class ReaderSimulation_Tests(unittest.TestCase):

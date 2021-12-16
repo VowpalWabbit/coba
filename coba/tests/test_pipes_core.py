@@ -200,7 +200,7 @@ class Foreach_Tests(unittest.TestCase):
         Foreach(io).write(range(3))
         self.assertEqual([0,1,2], list(io.read()))
     
-    def test_repr(self):
+    def test_str(self):
 
         self.assertEqual("ReprIO", str(Foreach(ReprIO())))
 

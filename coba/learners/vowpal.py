@@ -82,7 +82,7 @@ class VowpalLearner(Learner):
     """
 
     @overload
-    def __init__(self, *, epsilon: float = 0.1, seed: Optional[int] = 1) -> None:
+    def __init__(self, *, epsilon: float = 0.05, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             epsilon: A value between 0 and 1. If provided, exploration will follow epsilon-greedy.
@@ -91,7 +91,7 @@ class VowpalLearner(Learner):
         ...
 
     @overload
-    def __init__(self, *, bag: int, adf: bool = True, seed: Optional[int] = 1) -> None:
+    def __init__(self, *, bag: int, seed: Optional[int] = 1) -> None:
         """Instantiate a VowpalLearner.
         Args:
             bag: This value determines the number of policies which will be learned and must be greater
@@ -174,68 +174,57 @@ class VowpalLearner(Learner):
                 features are namespaced with `s` and action features, when relevant, are namespaced with `a`.
         """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, args:str = None, **kwargs) -> None:
         """Instantiate a VowpalLearner with the requested VW learner and exploration."""
 
         PackageChecker.vowpalwabbit("VowpalLearner")
-        interactions = "--interactions xxa --interactions xa --ignore_linear x"
 
-        if not args and 'seed' not in kwargs:
-            kwargs['seed'] = 1
+        if args is not None and len(kwargs) > 0:
+            raise CobaException("VowpalLearner expects to be initialized by keyword args alone or cli args alone.")
 
-        if not args and all(e not in kwargs for e in ['epsilon', 'softmax', 'bag', 'cover', 'regcb', 'squarecb']): 
-            kwargs['epsilon'] = 0.1
+        if args:
+            assert "--cb" in args, "VowpalLearner was instantiated without a cb learner being defined."
 
-        if len(args) > 0:
-            assert "--cb" in args[0], "VowpalLearner was instantiated without a cb learner being defined."
+            self._exp  = "--cb_explore" in args
+            self._adf  = "--cb_adf"     in args or "--cb_explore_adf" in args
+            self._args = re.sub("--cb[^-]*", '', args, count=1)
 
-            self._adf  = "--cb_explore_adf" in args[0]
-            self._args = cast(str,args[0])
-
-            self._args = re.sub("--cb_explore_adf\s+", '', self._args, count=1)
-            self._args = re.sub("--cb_explore(\s+\d+)?\s+", '', self._args, count=1)
-
-        elif 'epsilon' in kwargs:
-            self._adf  = True
-            self._args = f"--epsilon {kwargs.pop('epsilon')} " + interactions
-
-        elif 'softmax' in kwargs:
-            self._adf  = True
-            self._args = f"--softmax --lambda {kwargs.pop('softmax')} " + interactions
-
-        elif 'bag' in kwargs:
-            self._adf  = kwargs.pop('adf',True)
-            self._args = f"--bag {kwargs.pop('bag')} " + interactions
-
-        elif 'cover' in kwargs:
-            major      = int(VowpalMediator.get_version().split('.')[0])
-            minor      = int(VowpalMediator.get_version().split('.')[1])
-            self._adf  = True if major >= 8 and minor >= 11 else False
-            self._args = f"--cover {kwargs.pop('cover')} " + interactions
-        
-        elif 'regcb' in kwargs:
+        else:
+            self._exp = True
             self._adf = True
-            base_args = f"--regcb " + interactions
 
-            if kwargs.pop('regcb') == "opt":
-                self._args = base_args + " --regcbopt"
-            else:
-                self._args = base_args
-        
-        elif 'squarecb' in kwargs:
-            self._adf = True
-            base_args = f"--squarecb --gamma_scale {kwargs.pop('gamma_scale',10)} " + interactions
+            options = []
 
-            if kwargs.pop('squarecb') == "elim":
-                self._args = base_args + " --elim"
-            else:
-                self._args = base_args
+            kwargs.pop('adf', None) #this is for backwards compatability
 
-        if 'seed' in kwargs and kwargs['seed'] is not None:
-            self._args += f" --random_seed {kwargs.pop('seed')}"
+            if 'epsilon' in kwargs:
+                options.append(f"--epsilon {kwargs.pop('epsilon')}")
 
-        if kwargs:
-            self._args += " " + " ".join(f"{'-' if len(k) == 1 else '--'}{k} {v}" for k,v in kwargs.items())
+            if 'softmax' in kwargs:
+                options.append(f"--softmax --lambda {kwargs.pop('softmax')}")
+
+            if 'bag' in kwargs:
+               options.append(f"--bag {kwargs.pop('bag')}")
+
+            if 'cover' in kwargs:
+                options.append(f"--cover {kwargs.pop('cover')}")
+
+            if 'regcb' in kwargs:
+                options.append(f"--regcb")
+                if kwargs.pop('regcb') == "opt": options.append("--regcbopt")
+
+            if 'squarecb' in kwargs:
+                options.append(f"--squarecb --gamma_scale {kwargs.pop('gamma_scale',10)}")
+                if kwargs.pop('squarecb') == "elim": options.append("--elim")
+
+            if 'interactions' not in kwargs and 'cubic' not in kwargs:
+                options.append("--interactions xxa --interactions xa --ignore_linear x")
+
+            seed = kwargs.pop('seed',1)
+            if seed is not None: options.append(f"--random_seed {seed}")
+
+            options.extend([f"-{k} {v}" if len(k) == 1 else f"--{k} {v}" for k,v in kwargs.items()])
+            self._args = " ".join(options)
 
         self._actions: Sequence[Action] = []
         self._vw                        = None
@@ -247,7 +236,7 @@ class VowpalLearner(Learner):
         See the base class for more information
         """
 
-        return {"family": "vw", 'args': self._cli_args([None])}
+        return {"family": "vw", 'args': self._cli_args(None)}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
         """Determine a PMF with which to select the given actions.
@@ -279,10 +268,22 @@ class VowpalLearner(Learner):
         shared = self._shared(context)
         adfs   = self._adfs(actions)
 
-        if self._adf:
+        if self._adf and self._exp:
             probs = self._vw.predict(self._examples(shared, adfs))
-        else:
+
+        if self._adf and not self._exp:
+            loss_values    = self._vw.predict(self._examples(shared, adfs))
+            min_loss_value = min(loss_values)
+            min_indicators = [int(s == min_loss_value) for s in loss_values]
+            min_count      = sum(min_indicators)
+            probs          = [ min_indicator/min_count for min_indicator in min_indicators ]
+
+        if not self._adf and self._exp:
             probs = self._vw.predict(self._example(shared))
+
+        if not self._adf and not self._exp:
+            index = self._vw.predict(self._example(shared))
+            probs = [ int(i==index) for i in range(1,len(actions)+1) ]
 
         return probs, info
 
@@ -312,10 +313,14 @@ class VowpalLearner(Learner):
 
     def _cli_args(self, actions: Optional[Sequence[Action]]) -> str:
 
-        if self._adf:
-            return "--cb_explore_adf" + " " + self._args
-        else:
-            return f"--cb_explore {len(actions) if actions else ''}" + " " + self._args
+        base_learner = "--cb"
+
+        if self._exp: base_learner += "_explore"
+        if self._adf: base_learner += "_adf"
+        
+        if not self._adf: base_learner += f" {len(actions) if actions else ''}"
+
+        return base_learner + " " + self._args
 
     def _examples(self, shared: Dict[str,Any], adfs: Sequence[Dict[str,Any]] = None, labels: Sequence[str] = repeat(None)):
         return [ self._example({**shared,**adf}, label) for adf,label in zip(adfs,labels) ]

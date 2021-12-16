@@ -1,4 +1,5 @@
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from coba.pipes import DiskIO
@@ -132,7 +133,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('A', envs_3[0].params['id'])
         self.assertEqual('B', envs_3[1].params['id'])
 
-    def test_repr(self):
+    def test_str(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B'))
         self.assertEqual(str(envs), f'1. {envs[0]}\n2. {envs[1]}')
 
@@ -214,6 +215,12 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[1].params['shuffle'])
         self.assertEqual(1   , envs[1].params['take'])
         self.assertEqual(2   , envs[1].params['take_seed'])
+
+    def test_ipython_display(self):
+        with unittest.mock.patch("builtins.print") as mock:
+            envs = Environments(TestEnvironment('A'),TestEnvironment('B'))
+            envs._ipython_display_()
+            mock.assert_called_once_with(f'1. {envs[0]}\n2. {envs[1]}')
 
 if __name__ == '__main__':
     unittest.main()

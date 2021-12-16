@@ -10,7 +10,7 @@ CobaConfig.logger = NullLogger()
 
 class Shuffle_tests(unittest.TestCase):
 
-    def test_repr(self):
+    def test_str(self):
         self.assertEqual("{'shuffle': 1}", str(Shuffle(1)))
 
 class Sort_tests(unittest.TestCase):
@@ -94,7 +94,7 @@ class Sort_tests(unittest.TestCase):
         self.assertEqual({'sort':[0]}, Sort([0]).params)
         self.assertEqual({'sort':[1,2]}, Sort([1,2]).params)
 
-    def test_repr(self):
+    def test_str(self):
         self.assertEqual("{'sort': [0]}", str(Sort([0])))
 
 class Scale_tests(unittest.TestCase):

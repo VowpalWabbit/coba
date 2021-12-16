@@ -1824,7 +1824,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual([.9,.9,1], interactions[1].kwargs["rewards"])
         self.assertEqual([.8,1,.9], interactions[2].kwargs["rewards"])
 
-    def test_repr(self):
+    def test_str(self):
         self.assertEqual('OpenmlSimulation(id=150, cat_as_str=False, take=None)', str(OpenmlSimulation(150)))
 
 if __name__ == '__main__':
