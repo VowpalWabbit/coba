@@ -7,7 +7,7 @@ from typing import Any, Dict, Sequence, Optional, cast, Hashable
 
 from coba.environments import Context, Action
 from coba.statistics import OnlineVariance
-from coba.learners.core import Learner, Probs, Info
+from coba.learners.primitives import Learner, Probs, Info
 
 class EpsilonBanditLearner(Learner):
     """A lookup table bandit learner with epsilon-greedy exploration."""

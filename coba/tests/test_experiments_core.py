@@ -6,7 +6,7 @@ from typing import cast
 
 from coba.environments import Environment, LambdaSimulation
 from coba.pipes import Source, MemoryIO
-from coba.learners import Learner
+from coba.learners import Learner,LearnerConfig
 from coba.config import CobaConfig, NullLogger, IndentLogger, BasicLogger
 from coba.experiments import Experiment
 
@@ -62,7 +62,7 @@ class LearnInfoLearner(Learner):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
 
     def learn(self, context, action, reward, probability, info):
-        return {"Modulo": self._param}
+        LearnerConfig.logger.write({"Modulo": self._param})
 
 class NotPicklableLearner(ModuloLearner):
     def __init__(self):

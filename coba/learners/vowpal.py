@@ -6,13 +6,13 @@ import collections.abc
 from itertools import repeat
 from numbers import Number
 from typing_extensions import Literal
-from typing import Any, Dict, Union, Sequence, overload, cast, Optional, Tuple
+from typing import Any, Dict, Union, Sequence, overload, Optional, Tuple
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, KeyDefaultDict
 from coba.environments import Context, Action
 
-from coba.learners.core import Learner, Probs, Info
+from coba.learners.primitives import Learner, Probs, Info
 
 Coba_Feature    = Union[str,float]
 Coba_Features   = Union[Coba_Feature, Sequence[Coba_Feature], Sequence[Tuple[str,Coba_Feature]], Dict[str,Coba_Feature]]

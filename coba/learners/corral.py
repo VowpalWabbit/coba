@@ -5,9 +5,11 @@ import math
 from typing_extensions import Literal
 from typing import Any, Sequence, Optional, Dict, Tuple
 
+from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.environments import Context, Action
-from coba.learners.core import Learner, SafeLearner, Probs, Info
+
+from coba.learners.primitives import LearnerConfig, Learner, SafeLearner, Probs, Info
 
 class CorralLearner(Learner):
     """This is an implementation of the Agarwal et al. (2017) Corral algorithm.
@@ -23,10 +25,10 @@ class CorralLearner(Learner):
 
     def __init__(self, 
         base_learners: Sequence[Learner], 
-        eta: float = 0.075,
-        T: float = math.inf, 
-        type: Literal["importance","rejection","off-policy"] ="importance", 
-        seed: int = 1) -> None:
+        eta          : float = 0.075,
+        T            : float = math.inf, 
+        type         : Literal["importance","rejection","off-policy"] ="importance", 
+        seed         : int = 1) -> None:
         """Instantiate a CorralLearner.
 
         Args:
@@ -40,8 +42,8 @@ class CorralLearner(Learner):
                 original paper used importance sampling. We also support `off-policy` and `rejection`.
             seed: A seed for a random number generation in ordre to get repeatable results.
         """
-
-        assert type in ["importance", "off-policy", "rejection"], "The provided `type` for CorralLearner was unrecognized."
+        if type not in ["importance", "off-policy", "rejection"]:
+            raise CobaException("The provided `type` for CorralLearner was unrecognized.")
 
         self._base_learners = [ SafeLearner(learner) for learner in base_learners]
 
@@ -117,8 +119,6 @@ class CorralLearner(Learner):
         actions      = info[4]
         predict      = info[5]
 
-        base_learner_infos: Sequence[Optional[dict]] = []
-
         if self._type == "importance":
             # This is what is in the original paper. It has the following characteristics:
             #   > It is able to provide feedback to every base learner on every iteration
@@ -127,7 +127,7 @@ class CorralLearner(Learner):
             # The reward, R, supplied to the base learners satisifies E[R|context,A] = E[reward|context,A]
             for learner, A, P, base_info in zip(self._base_learners, base_actions, base_probs, base_infos):
                 R = reward * int(A==action)/probability
-                base_learner_infos.append(learner.learn(context, A, R, P, base_info))
+                learner.learn(context, A, R, P, base_info)
 
         if self._type == "off-policy":
             # An alternative variation to the paper is provided below. It has the following characterisitcs: 
@@ -135,7 +135,7 @@ class CorralLearner(Learner):
             #   > It uses a MVUB reward estimator (aka, the unmodified, observed reward)
             #   > It is "off-policy" (i.e., base learners receive action feedback distributed differently from their predicts).
             for learner, base_info in zip(self._base_learners, base_infos):
-                base_learner_infos.append(learner.learn(context, action, reward, probability, base_info))
+                learner.learn(context, action, reward, probability, base_info)
 
         if self._type == "rejection":
             # An alternative variation to the paper is provided below. It has the following characterisitcs: 
@@ -149,7 +149,7 @@ class CorralLearner(Learner):
                 
                 M = max([f(A)/g(A) for A in actions if g(A) > 0])
                 if p <= f(action)/(M*g(action)):
-                    base_learner_infos.append(learner.learn(context, action, reward, f(action), base_info))
+                    learner.learn(context, action, reward, f(action), base_info)
 
         # Instant loss is an unbiased estimate of E[loss|learner] for this iteration.
         # Our estimate differs from the orginal Corral paper because we have access to the
@@ -173,9 +173,7 @@ class CorralLearner(Learner):
         base_pbar_data    = { f"pbar_{i}"   : self._p_bars[i]             for i in range(len(self._base_learners)) }
         predict_data      = { "predict"     : probability, **base_predict_data, **base_pbar_data }
 
-        base_info = { k:v for b in filter(None,base_learner_infos) for k,v in b.items() }
-
-        return { k:round(v,4) for k,v in {**predict_data, **base_predict_data, **base_pbar_data, **base_info}.items() }
+        LearnerConfig.logger.write({**predict_data, **base_predict_data, **base_pbar_data})
 
     @staticmethod
     def _log_barrier_omd(ps, losses, etas) -> Sequence[float]:

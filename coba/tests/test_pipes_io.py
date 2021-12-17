@@ -23,7 +23,7 @@ class BrokenQueue:
 class NullIO_Tests(unittest.TestCase):
     
     def test_read(self):
-        self.assertIsNone(NullIO().read())
+        self.assertEqual(0, len(NullIO().read()))
 
     def test_write(self):
         NullIO().write([1,2,3])

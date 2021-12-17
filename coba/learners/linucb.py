@@ -5,7 +5,7 @@ from coba.utilities import PackageChecker
 from coba.environments import Context, Action
 from coba.encodings import InteractionsEncoder
 
-from coba.learners.core import Info, Learner
+from coba.learners.primitives import Probs, Info, Learner
 
 class LinUCBLearner(Learner):
     """This is an implementation of the Chu et al. (2011) LinUCB algorithm.
@@ -58,7 +58,7 @@ class LinUCBLearner(Learner):
         """
         return {'family': 'LinUCB', 'alpha': self._alpha, 'phi': self._phi}
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Sequence[float]:
+    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
         """Determine a PMF with which to select the given actions.
 
         Args:

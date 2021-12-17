@@ -23,11 +23,25 @@ class RecordingLearner(Learner):
     def predict(self, context, actions):
         
         action_index = len(self._predict_calls) % len(actions)
-        self._predict_calls.append([])
         
-        return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
+        self._predict_calls.append((context, actions))
+        self._predict
 
-    def learn(self, key, context, action, reward, probability):
+        #probs
+        #result data
+        #info
+
+        #this doesn't work in Corral
+        #TaskContext.Stash.get()
+        #TaskContext.Stash.put(info)
+        #TaskContext.Result.add(meta)
+        
+        # return Prediction(probs, result, info)
+
+        return [ int(i == action_index) for i in range(len(actions)) ]
+
+    def learn(self, context, action, reward, probability, info):
+        #result data
         pass
 #for testing purposes
 
