@@ -3,7 +3,7 @@ from threading import Thread
 from typing import Iterable, Any, Dict
 
 from coba.utilities import coba_exit
-from coba.config    import CobaConfig, ConcurrentCacher, Logger, Cacher
+from coba.contexts  import CobaContext, ConcurrentCacher, Logger, Cacher
 from coba.pipes     import Filter, Sink, QueueIO, PipeMultiprocessor
 
 class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
@@ -21,18 +21,18 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
         def filter(self, item: Any) -> Any:
 
             #placing this here means this is set inside the process 
-            CobaConfig.logger = self._logger
-            CobaConfig.cacher = self._cacher
-            CobaConfig.store  = self._store
+            CobaContext.logger = self._logger
+            CobaContext.cacher = self._cacher
+            CobaContext.store  = self._store
             
             #at this point logger has been marshalled so we can
             #modify it without affecting the base process logger
-            CobaConfig.logger.sink = self._logger_sink
+            CobaContext.logger.sink = self._logger_sink
 
             try:
                 return self._filter.filter(item)
             except Exception as e:
-                CobaConfig.logger.log(e)
+                CobaContext.logger.log(e)
 
     def __init__(self, filter: Filter, processes=1, maxtasksperchild=0) -> None:
         self._filter           = filter
@@ -50,18 +50,18 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 def log_stderr():
                     for err in stderr.read():
                         if isinstance(err,str):
-                            CobaConfig.logger.sink.write(err)
+                            CobaContext.logger.sink.write(err)
                         elif isinstance(err,tuple):
-                            CobaConfig.logger.log(err[2])
+                            CobaContext.logger.log(err[2])
                         elif isinstance(err,Exception):
-                            CobaConfig.logger.log(err)
+                            CobaContext.logger.log(err)
 
                 log_thread = Thread(target=log_stderr)
                 log_thread.daemon = True
                 log_thread.start()
 
-                logger = CobaConfig.logger
-                cacher = ConcurrentCacher(CobaConfig.cacher, manager.dict(), manager.Lock(), manager.Condition())
+                logger = CobaContext.logger
+                cacher = ConcurrentCacher(CobaContext.cacher, manager.dict(), manager.Lock(), manager.Condition())
                 store  = { "srcsema":  manager.Semaphore(2) }
 
                 filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, stderr)

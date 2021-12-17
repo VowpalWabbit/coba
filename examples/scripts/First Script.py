@@ -3,7 +3,7 @@ This is an example script that creates and execuates an Experiment.
 This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
-from coba.config       import CobaConfig
+from coba.contexts     import CobaContext
 from coba.learners     import RandomLearner, EpsilonBanditLearner, VowpalLearner
 from coba.experiments  import Experiment
 from coba.environments import Environments
@@ -12,10 +12,11 @@ from coba.environments import Environments
 if __name__ == '__main__':
 
     # These configuration changes aren't ever required. 
-    # They are simply here to serve as an example of what can be changed.
-    CobaConfig.cacher.cache_directory = './.coba_cache'
-    CobaConfig.experiment.processes   = 1
-    CobaConfig.experiment.chunk_by    = 'task'
+    # They are simply here to serve as an example.
+    # These can also be set automatically by creating a .coba file your project root. 
+    CobaContext.cacher.cache_directory = './.coba_cache'
+    CobaContext.experiment.processes   = 1
+    CobaContext.experiment.chunk_by    = 'task'
 
     #First, we define the learners that we want to test
     learners = [

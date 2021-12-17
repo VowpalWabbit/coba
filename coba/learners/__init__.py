@@ -6,7 +6,7 @@ inherit from this interface to implement new learners. In addition, a number
 of learners are provided out of the box for testing and baseline comparisons.
 """
 
-from coba.learners.primitives import Learner, LearnerConfig, SafeLearner
+from coba.learners.primitives import Learner, SafeLearner
 from coba.learners.bandit import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
 from coba.learners.corral import CorralLearner
 from coba.learners.vowpal import VowpalLearner, VowpalMediator
@@ -14,7 +14,6 @@ from coba.learners.linucb import LinUCBLearner
 
 __all__ = [
     'Learner',
-    'LearnerConfig',
     'SafeLearner',
     'RandomLearner',
     'FixedLearner',

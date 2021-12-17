@@ -6,7 +6,7 @@ import unittest
 from contextlib import contextmanager
 from pathlib import Path
 
-from coba.config import DiskCacher, MemoryCacher, NullCacher, ConcurrentCacher
+from coba.contexts import DiskCacher, MemoryCacher, NullCacher, ConcurrentCacher
 from coba.exceptions import CobaException
 
 class IterCacher(MemoryCacher):

@@ -1,14 +1,13 @@
 import time
 import json
 
-from hashlib import md5
 from numbers import Number
 from collections import defaultdict
 from typing_extensions import Literal
 from typing import Tuple, Sequence, Any, Iterable, Dict, Union
 
 from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Take
-from coba.config import CobaConfig
+from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 
@@ -123,7 +122,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             #if something unexpected went wrong clear the cache just in case it was corrupted somehow
 
             for key in self._cache_keys.values():
-                CobaConfig.cacher.rmv(key)
+                CobaContext.cacher.rmv(key)
 
             raise
 
@@ -133,20 +132,19 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         # For now we don't require cacher to be consistent so I'm commenting out for now. 
         # if checksum is not None and md5(bites).hexdigest() != checksum:
         #     #if the cache has become corrupted we need to clear it
-        #     CobaConfig.cacher.rmv(key)
+        #     CobaContext.cacher.rmv(key)
         #     message = (
         #         f"The response from {url} did not match the given checksum {checksum}. This could be the result "
         #         "of network errors or the file becoming corrupted. Please consider downloading the file again. "
         #         "If the error persists you may want to manually download and reference the file.")
         #     raise CobaException(message) from None
 
-        for b in CobaConfig.cacher.get_put(key, lambda: self._http_request(url)):
+        for b in CobaContext.cacher.get_put(key, lambda: self._http_request(url)):
             yield b.decode('utf-8')
 
     def _http_request(self, url:str) -> Iterable[bytes]:
-        api_key  = CobaConfig.api_keys['openml']
-        
-        srcsema = CobaConfig.store.get("srcsema")
+        api_key = CobaContext.api_keys['openml']
+        srcsema = CobaContext.store.get("srcsema")
         
         # we only allow three paralellel request, another attempt at being more "considerate".
         if srcsema:srcsema.acquire() 
@@ -154,9 +152,6 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         # An attempt to be considerate of how often we hit their REST api. 
         # They don't publish any rate-limiting guidelines so this is just a guess.
         if srcsema:time.sleep(1)
-
-        
-        
 
         try:
             with HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
@@ -186,10 +181,10 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                 # NOTE: unfortunately I don't know the appropriate status code so commenting out for now
                 # if "Usually due to high server load" in response.text:
                 #     message = (
-                #         "Openml has experienced an error that they believe is the result of high server loads."
+                #         "Openml has experienced an error that they believe is the result of high server loads. "
                 #         "Openml recommends that you try again in a few seconds. Additionally, if not already "
-                #         "done, consider setting up a DiskCache in CobaConfig to reduce the number of openml "
-                #         "calls in the future.")
+                #         "done, consider setting up a DiskCache in a coba config file to reduce the number of "
+                #         "openml calls in the future.")
                 #     raise CobaException(message) from None
 
                 # if '' == response.text: # pragma: no cover
@@ -224,10 +219,10 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
             openml_dialect = dict(quotechar="'", escapechar="\\", doublequote=False)
 
-            if arff_key in CobaConfig.cacher:
+            if arff_key in CobaContext.cacher:
                 return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_data(arff_url, arff_key, md5_checksum))
 
-            if csv_key in CobaConfig.cacher:
+            if csv_key in CobaContext.cacher:
                 return CsvReader(True, **openml_dialect).filter(self._get_data(csv_url, csv_key, md5_checksum))
 
             try:

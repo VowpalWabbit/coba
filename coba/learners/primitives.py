@@ -2,34 +2,12 @@
 
 from abc import ABC, abstractmethod
 from numbers import Number
-from typing import Any, Sequence, Dict, Union, Tuple, Optional, Iterable
+from typing import Any, Sequence, Dict, Union, Tuple, Optional
 
-from coba.pipes import NullIO, IO
 from coba.environments import Context, Action
 
 Info  = Any
 Probs = Sequence[float]
-
-class LearnerConfig_meta(type):
-    """To support class properties before python 3.9 we must implement our properties directly 
-       on a meta class. Using class properties rather than class variables is done to allow 
-       lazy loading. Lazy loading moves errors to execution time instead of import time where
-       they are easier to debug as well as removing import time circular references.
-    """
-
-    def __init__(cls, *args, **kwargs):
-        cls._logger = NullIO[Dict[str,Any]]()
-
-    @property
-    def logger(cls) -> IO[Iterable[Dict[str,Any]],Dict[str,Any]]:
-        return cls._logger
-
-    @logger.setter
-    def logger(cls, value: IO[Iterable[Dict[str,Any]],Dict[str,Any]]):
-        cls._logger = value
-
-class LearnerConfig(metaclass=LearnerConfig_meta):
-    pass
 
 class Learner(ABC):
     """The interface for Learner implementations."""

@@ -2,11 +2,11 @@ import unittest
 
 from math import isnan
 
-from coba.config import CobaConfig, NullLogger
+from coba.contexts import CobaContext, NullLogger
 from coba.environments import LoggedInteraction, SimulatedInteraction
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, ToWarmStart, Shuffle
 
-CobaConfig.logger = NullLogger()
+CobaContext.logger = NullLogger()
 
 class Shuffle_tests(unittest.TestCase):
 

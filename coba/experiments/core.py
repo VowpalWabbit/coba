@@ -2,8 +2,8 @@ from pathlib import Path
 from typing_extensions import Literal
 from typing import Sequence, Optional
 
-from coba.config import CobaConfig
-from coba.config.loggers import BasicLogger, IndentLogger
+from coba.contexts import CobaContext, BasicLogger, IndentLogger
+from coba.contexts.core import CobaContext
 from coba.pipes import Pipe, Foreach
 from coba.learners import Learner
 from coba.environments import Environment
@@ -67,15 +67,15 @@ class Experiment:
 
     @property
     def chunk_by(self) -> str:
-        return self._chunk_by if self._chunk_by is not None else CobaConfig.experiment.chunk_by
+        return self._chunk_by if self._chunk_by is not None else CobaContext.experiment.chunk_by
 
     @property
     def processes(self) -> int:
-        return self._processes if self._processes is not None else CobaConfig.experiment.processes
+        return self._processes if self._processes is not None else CobaContext.experiment.processes
 
     @property
     def maxtasksperchild(self) -> int:
-        return self._maxtasksperchild if self._maxtasksperchild is not None else CobaConfig.experiment.maxtasksperchild
+        return self._maxtasksperchild if self._maxtasksperchild is not None else CobaContext.experiment.maxtasksperchild
 
     def evaluate(self, result_file:str = None) -> Result:
         """Evaluate the experiment and return the results.
@@ -85,8 +85,8 @@ class Experiment:
         """
         cb, mp, mt = self.chunk_by, self.processes, self.maxtasksperchild
 
-        if isinstance(CobaConfig.logger, (IndentLogger,BasicLogger)):
-            CobaConfig.logger._with_name = mp > 1 or mt != 0
+        if isinstance(CobaContext.logger, (IndentLogger,BasicLogger)):
+            CobaContext.logger._with_name = mp > 1 or mt != 0
 
         restored = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
 
@@ -111,9 +111,9 @@ class Experiment:
             Pipe.join(workitems, [unfinished, process], Foreach(sink)).run()
 
         except KeyboardInterrupt: # pragma: no cover
-            CobaConfig.logger.log("Experiment execution was manually aborted via Ctrl-C")
+            CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")
         
         except Exception as ex: # pragma: no cover
-            CobaConfig.logger.log(ex)
+            CobaContext.logger.log(ex)
 
         return sink.result

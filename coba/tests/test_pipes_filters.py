@@ -4,10 +4,10 @@ from coba.exceptions import CobaException
 from coba.pipes import LibSvmReader, ArffReader, CsvReader
 from coba.pipes import Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
-from coba.config import NullLogger, CobaConfig
+from coba.contexts import NullLogger, CobaContext
 from coba.pipes.filters import Default
 
-CobaConfig.logger = NullLogger()
+CobaContext.logger = NullLogger()
 
 class Identity_Tests(unittest.TestCase):
     

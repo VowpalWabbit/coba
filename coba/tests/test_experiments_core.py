@@ -6,8 +6,8 @@ from typing import cast
 
 from coba.environments import Environment, LambdaSimulation
 from coba.pipes import Source, MemoryIO
-from coba.learners import Learner,LearnerConfig
-from coba.config import CobaConfig, NullLogger, IndentLogger, BasicLogger
+from coba.learners import Learner
+from coba.contexts import CobaContext, LearnerContext, CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
 
 class ModuloLearner(Learner):
@@ -62,7 +62,7 @@ class LearnInfoLearner(Learner):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
 
     def learn(self, context, action, reward, probability, info):
-        LearnerConfig.logger.write({"Modulo": self._param})
+        LearnerContext.logger.write({"Modulo": self._param})
 
 class NotPicklableLearner(ModuloLearner):
     def __init__(self):
@@ -120,9 +120,9 @@ class Experiment_Single_Tests(unittest.TestCase):
 
     @classmethod
     def setUp(cls) -> None:
-        CobaConfig.logger = NullLogger()
-        CobaConfig.experiment.processes = 1
-        CobaConfig.experiment.maxtasksperchild = 0
+        CobaContext.logger = NullLogger()
+        CobaContext.experiment.processes = 1
+        CobaContext.experiment.maxtasksperchild = 0
 
     def test_sim(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -255,8 +255,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
     def test_ignore_raise(self):
 
-        log_sink = MemoryIO()
-        CobaConfig.logger = IndentLogger(log_sink)
+        CobaContext.logger = IndentLogger(MemoryIO())
 
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
@@ -271,7 +270,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         expected_environments = [(0,'LambdaSimulation'), (1,'LambdaSimulation')]
         expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 1), (1, 0, 1, 3), (1, 0, 2, 4), (1, 0, 3, 5)]
 
-        self.assertEqual(2, sum([int("Unexpected exception:" in item) for item in log_sink.items]))
+        self.assertEqual(2, sum([int("Unexpected exception:" in item) for item in CobaContext.logger._sink.items]))
 
         self.assertCountEqual(actual_learners[0], expected_learners[0])
         self.assertCountEqual(actual_learners[1][:3], expected_learners[1][:3])
@@ -284,13 +283,13 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         exp = Experiment([], [])
 
-        CobaConfig.experiment.processes = 10
+        CobaContext.experiment.processes = 10
         self.assertEqual(10,exp.processes)
 
-        CobaConfig.experiment.maxtasksperchild = 3
+        CobaContext.experiment.maxtasksperchild = 3
         self.assertEqual(3,exp.maxtasksperchild)
 
-        CobaConfig.experiment.chunk_by = 'source'
+        CobaContext.experiment.chunk_by = 'source'
         self.assertEqual('source',exp.chunk_by)
 
         exp.config(processes=2, maxtasksperchild=5, chunk_by='task')
@@ -322,33 +321,33 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
 
     @classmethod
     def setUp(cls) -> None:
-        CobaConfig.logger = NullLogger()
-        CobaConfig.experiment.processes = 2
-        CobaConfig.experiment.maxtasksperchild = 0
+        CobaContext.logger = NullLogger()
+        CobaContext.experiment.processes = 2
+        CobaContext.experiment.maxtasksperchild = 0
 
     def test_not_picklable_learner_sans_reduce(self):
         sim1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner    = NotPicklableLearner()
         experiment = Experiment([sim1],[learner])
 
-        CobaConfig.logger = BasicLogger(MemoryIO())
+        CobaContext.logger = BasicLogger(MemoryIO())
 
         experiment.evaluate()
 
-        self.assertEqual(1, len(CobaConfig.logger.sink.items))
-        self.assertIn("pickle", CobaConfig.logger.sink.items[0])
+        self.assertEqual(1, len(CobaContext.logger.sink.items))
+        self.assertIn("pickle", CobaContext.logger.sink.items[0])
 
     def test_wrapped_not_picklable_learner_sans_reduce(self):
         sim1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner    = WrappedLearner(NotPicklableLearner())
         experiment = Experiment([sim1],[learner])
 
-        CobaConfig.logger = BasicLogger(MemoryIO())
+        CobaContext.logger = BasicLogger(MemoryIO())
         
         experiment.evaluate()
 
-        self.assertEqual(1, len(CobaConfig.logger.sink.items))
-        self.assertIn("pickle", CobaConfig.logger.sink.items[0])
+        self.assertEqual(1, len(CobaContext.logger.sink.items))
+        self.assertIn("pickle", CobaContext.logger.sink.items[0])
 
     def test_not_picklable_learner_with_reduce(self):
         sim1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))

@@ -5,7 +5,7 @@ from typing import List
 
 from coba.exceptions import CobaException
 from coba.pipes import MemoryIO, DiskIO, NullIO
-from coba.config import CobaConfig, NullLogger
+from coba.contexts import CobaContext, NullLogger
 from coba.environments.simulations import ReaderSimulation
 from coba.environments import (
     SimulatedInteraction, MemorySimulation, ClassificationSimulation,
@@ -14,7 +14,7 @@ from coba.environments import (
     LocalSyntheticSimulation
 )
 
-CobaConfig.logger = NullLogger()
+CobaContext.logger = NullLogger()
 
 class ClassificationSimulation_Tests(unittest.TestCase):
 

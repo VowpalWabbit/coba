@@ -10,7 +10,7 @@ from itertools import chain, repeat, accumulate
 from typing_extensions import Literal
 from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Set, Callable
 
-from coba.config import CobaConfig
+from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.pipes import JsonEncode, JsonDecode, DiskIO, MemoryIO, IO
@@ -554,7 +554,7 @@ class Result:
         new_result._interactions = self.interactions.filter(environment_id=is_complete_sim)
 
         if len(new_result.environments) == 0:
-            CobaConfig.logger.log(f"No simulation was found with interaction data for every learner.")
+            CobaContext.logger.log(f"No simulation was found with interaction data for every learner.")
 
         return new_result
 
@@ -565,7 +565,7 @@ class Result:
         new_result._interactions = new_result.interactions.filter(environment_id=new_result.environments)
 
         if len(new_result.environments) == 0:
-            CobaConfig.logger.log(f"No environments matched the given filter: {kwargs}.")
+            CobaContext.logger.log(f"No environments matched the given filter: {kwargs}.")
 
         return new_result
 
@@ -575,7 +575,7 @@ class Result:
         new_result._interactions = new_result.interactions.filter(learner_id=new_result.learners)
 
         if len(new_result.learners) == 0:
-            CobaConfig.logger.log(f"No learners matched the given filter: {kwargs}.")
+            CobaContext.logger.log(f"No learners matched the given filter: {kwargs}.")
 
         return new_result
 
@@ -638,7 +638,7 @@ class Result:
             end   = xlim[1] if xlim else len(X)
 
             if start >= end:
-                CobaConfig.logger.log("The plot's end is less than the start making plotting impossible.")
+                CobaContext.logger.log("The plot's end is less than the start making plotting impossible.")
                 return
 
             X = X[start:end]

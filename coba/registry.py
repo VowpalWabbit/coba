@@ -50,7 +50,7 @@ class CobaRegistry:
         kwargs = None
         method = "singular"
 
-        if not cls._is_valid_recipe(recipe):
+        if not cls.is_valid_recipe(recipe):
             raise CobaException(f"Invalid recipe {str(recipe)}")
 
         if isinstance(recipe, str):
@@ -90,7 +90,7 @@ class CobaRegistry:
         return cls._registry
 
     @classmethod
-    def _is_valid_recipe(cls, recipe:Any) -> bool:
+    def is_valid_recipe(cls, recipe:Any) -> bool:
 
         if isinstance(recipe, str):
             return True
@@ -117,7 +117,7 @@ class CobaRegistry:
     @classmethod
     def is_known_recipe(cls, recipe:Any) -> bool:
 
-        if not cls._is_valid_recipe(recipe):
+        if not cls.is_valid_recipe(recipe):
             return False
 
         name = None
@@ -136,7 +136,7 @@ class CobaRegistry:
 
     @classmethod
     def _construct_or_return(cls, item:Any):        
-        return cls.construct(item) if cls._is_valid_recipe(item) and cls.is_known_recipe(item) else item
+        return cls.construct(item) if cls.is_valid_recipe(item) and cls.is_known_recipe(item) else item
 
     @classmethod
     def _construct_single(cls, recipe, name, args, kwargs) -> Any:

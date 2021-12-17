@@ -5,9 +5,9 @@ import requests.exceptions
 from pathlib import Path
 
 from coba.pipes import DiskIO, MemoryIO, QueueIO, NullIO, ConsoleIO, HttpIO
-from coba.config import NullLogger, CobaConfig
+from coba.contexts import NullLogger, CobaContext
 
-CobaConfig.logger = NullLogger()
+CobaContext.logger = NullLogger()
 
 class BrokenQueue:
 

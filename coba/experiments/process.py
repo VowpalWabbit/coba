@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing import Iterable, Sequence, Any, Optional, Tuple, Union
 
 from coba.learners import Learner
-from coba.config import CobaConfig
+from coba.contexts import CobaContext
 from coba.pipes import Source, Filter, SourceFilters
 from coba.environments import SimulatedEnvironment, EnvironmentPipe
 
@@ -138,7 +138,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
         if not chunk: return
 
-        with CobaConfig.logger.log(f"Processing chunk..."):
+        with CobaContext.logger.log(f"Processing chunk..."):
 
             for env_source, work_for_env_source in groupby(sorted(chunk, key=self._get_source_sort), key=self._get_source):
 
@@ -147,7 +147,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                     if env_source is None:
                         loaded_source = None
                     else:
-                        with CobaConfig.logger.time(f"Loading {env_source}..."):
+                        with CobaContext.logger.time(f"Loading {env_source}..."):
                             #This is not ideal. I'm not sure how it should be improved so it is being left for now.
                             #Maybe add a flag to the Experiment to say whether the source should be stashed in mem?
                             loaded_source = list(env_source.read())
@@ -159,7 +159,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                         if loaded_source is None:
                             interactions = []
                         else:
-                            with CobaConfig.logger.time(f"Creating Environment {env_id} from Loaded Source..."):
+                            with CobaContext.logger.time(f"Creating Environment {env_id} from Loaded Source..."):
                                 interactions = list(env_filter.filter(loaded_source)) if env_filter else loaded_source
 
                             if len(filter_groups) == 1:
@@ -168,32 +168,32 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                                 gc.collect()
 
                             if not interactions:
-                                CobaConfig.logger.log(f"Environment {env_id} has nothing to evaluate (this is often due to `take` being larger than source).")
+                                CobaContext.logger.log(f"Environment {env_id} has nothing to evaluate (this is often due to `take` being larger than source).")
                                 break
 
                         for workitem in work_for_env_filter:
                             try:
 
                                 if workitem.environ is None:
-                                    with CobaConfig.logger.time(f"Recording Learner {workitem.learner_id} parameters..."):
+                                    with CobaContext.logger.time(f"Recording Learner {workitem.learner_id} parameters..."):
                                         row = workitem.task.process(deepcopy(workitem.learner))
                                         yield ["T1", workitem.learner_id, row]
 
                                 if workitem.learner is None:
-                                    with CobaConfig.logger.time(f"Recording Environment {workitem.environ_id} statistics..."):
+                                    with CobaContext.logger.time(f"Recording Environment {workitem.environ_id} statistics..."):
                                         row = workitem.task.process(workitem.environ,interactions)
                                         yield ["T2", workitem.environ_id, row]
 
                                 if workitem.environ and workitem.learner:
-                                    with CobaConfig.logger.time(f"Evaluating Learner {workitem.learner_id} on Environment {workitem.environ_id}..."):
+                                    with CobaContext.logger.time(f"Evaluating Learner {workitem.learner_id} on Environment {workitem.environ_id}..."):
                                         row = list(workitem.task.process(deepcopy(workitem.learner), interactions))
                                         yield ["T3", (workitem.environ_id, workitem.learner_id), row]
 
                             except Exception as e:
-                                CobaConfig.logger.log(e)
+                                CobaContext.logger.log(e)
 
                 except Exception as e:
-                    CobaConfig.logger.log(e)
+                    CobaContext.logger.log(e)
 
     def _get_source(self, task:WorkItem) -> SimulatedEnvironment:
         if task.environ is None:

@@ -4,7 +4,7 @@ import traceback
 
 from coba.exceptions import CobaException
 from coba.pipes import MemoryIO
-from coba.config import IndentLogger, BasicLogger, NullLogger
+from coba.contexts import IndentLogger, BasicLogger, NullLogger
 from coba.pipes.io import NullIO
 
 class NullLogger_Tests(unittest.TestCase):

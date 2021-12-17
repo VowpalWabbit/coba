@@ -8,8 +8,9 @@ from typing import Any, Sequence, Optional, Dict, Tuple
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.environments import Context, Action
+from coba.contexts import LearnerContext
 
-from coba.learners.primitives import LearnerConfig, Learner, SafeLearner, Probs, Info
+from coba.learners.primitives import Learner, SafeLearner, Probs, Info
 
 class CorralLearner(Learner):
     """This is an implementation of the Agarwal et al. (2017) Corral algorithm.
@@ -173,7 +174,7 @@ class CorralLearner(Learner):
         base_pbar_data    = { f"pbar_{i}"   : self._p_bars[i]             for i in range(len(self._base_learners)) }
         predict_data      = { "predict"     : probability, **base_predict_data, **base_pbar_data }
 
-        LearnerConfig.logger.write({**predict_data, **base_predict_data, **base_pbar_data})
+        LearnerContext.logger.write({**predict_data, **base_predict_data, **base_pbar_data})
 
     @staticmethod
     def _log_barrier_omd(ps, losses, etas) -> Sequence[float]:

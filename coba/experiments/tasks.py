@@ -7,10 +7,11 @@ from typing import Iterable, Any, Dict
 from coba.pipes import QueueIO
 from coba.exceptions import CobaExit
 from coba.random import CobaRandom
-from coba.learners import Learner, SafeLearner, LearnerConfig
+from coba.learners import Learner, SafeLearner
 from coba.environments import Environment, EnvironmentPipe, Interaction, SimulatedInteraction, LoggedInteraction
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker
+from coba.contexts import LearnerContext
 
 class LearnerTask(ABC):
 
@@ -41,7 +42,7 @@ class OnPolicyEvaluationTask(EvaluationTask):
 
         random = CobaRandom(self._seed)
 
-        LearnerConfig.logger = QueueIO[Dict[str,Any]](block=False)
+        LearnerContext.logger = QueueIO[Dict[str,Any]](block=False)
 
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
@@ -59,7 +60,7 @@ class OnPolicyEvaluationTask(EvaluationTask):
 
             learner.learn(context, action, reveal, prob, info)
 
-            learn_info  = { k:v for item in LearnerConfig.logger.read() for k,v in item.items() }
+            learn_info  = { k:v for item in LearnerContext.logger.read() for k,v in item.items() }
             action_info = {k:v[actions.index(action)] for k,v in interaction.kwargs.items()}
 
             yield {**action_info, **learn_info}

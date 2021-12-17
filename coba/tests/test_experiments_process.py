@@ -1,9 +1,8 @@
 import unittest
 
 from typing import cast, Iterable
-from coba.config.core import CobaConfig
-from coba.config.loggers import NullLogger
 
+from coba.contexts import CobaContext, NullLogger
 from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation
 from coba.pipes        import Pipe
 from coba.learners     import Learner
@@ -184,7 +183,7 @@ class ChunkByTask_Tests(unittest.TestCase):
 class ProcessTasks_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
-        CobaConfig.logger = NullLogger()
+        CobaContext.logger = NullLogger()
 
     def test_simple(self):
 
