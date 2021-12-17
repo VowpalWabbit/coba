@@ -1265,8 +1265,8 @@ class OpenmlSource_Tests(unittest.TestCase):
         """
 
         data_set_tasks = {
-            "tasks":{
-                "task":[
+            "tasks": {
+                "task": [
                     { "task_id":338754, "task_type_id":5, "status":"active" }, 
                     { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]

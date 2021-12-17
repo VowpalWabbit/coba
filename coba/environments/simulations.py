@@ -8,7 +8,7 @@ from coba.pipes import Source, Filter
 from coba.pipes import DiskIO, MemoryIO
 from coba.pipes import CsvReader, ArffReader, LibSvmReader, ManikReader, Structure
 from coba.random import CobaRandom
-from coba.encodings import InteractionsEncoder, OneHotEncoder, IdentityEncoder
+from coba.encodings import InteractionsEncoder, OneHotEncoder
 from coba.exceptions import CobaException
 
 from coba.environments.primitives import Context, Action, SimulatedEnvironment, SimulatedInteraction

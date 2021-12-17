@@ -11,45 +11,24 @@ from coba.learners     import Learner, RandomLearner
 from coba.experiments.tasks import OnPolicyEvaluationTask, EvaluationTask, ClassEnvironmentTask, SimpleEnvironmentTask
 
 #for testing purposes
-class ModuloLearner(Learner):
-    def __init__(self, param:str="0"):
-        self._param = param
+class RecordingLearner(Learner):
+    def __init__(self):
+        self._predict_calls = []
+        self._learn_calls   = []
 
     @property
     def params(self):
-        return {"family": "Modulo", "p": self._param}
+        return {"family": "Recording"}
 
-    def predict(self, key, context, actions):
+    def predict(self, context, actions):
+        
+        action_index = len(self._predict_calls) % len(actions)
+        self._predict_calls.append([])
+        
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
 
     def learn(self, key, context, action, reward, probability):
         pass
-
-class ObserveTask(EvaluationTask):
-    def __init__(self):
-        self.observed = []
-
-    def filter(self, item):
-        self.observed = item
-        return {}
-
-class CountReadSimulation:
-    def __init__(self) -> None:
-        self._reads = 0
-
-    def read(self) -> Iterable[SimulatedInteraction]:
-        yield SimulatedInteraction(self._reads, [0,1], rewards=[0,1])
-        self._reads += 1
-
-class CountFilter:
-    def __init__(self) -> None:
-        self._count = 0
-
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-        for interaction in interactions:
-            yield SimulatedInteraction((interaction.context, self._count), interaction.actions, **interaction.kwargs)
-
-        self._count += 1
 #for testing purposes
 
 class SimpleEnvironmentTask_Tests(unittest.TestCase):
@@ -61,9 +40,48 @@ class SimpleEnvironmentTask_Tests(unittest.TestCase):
 
         self.assertEqual({'source':'ClassificationSimulation'}, task.process(simulation,simulation.read()))
 
-@unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
-class ClassEnvironmentTask_with_sklearn_Tests(unittest.TestCase):
+class ClassEnvironmentTask_Tests(unittest.TestCase):
 
+    def test_classification_statistics_dense_sans_sklearn(self):
+        with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
+            simulation = ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10)
+            row        = ClassEnvironmentTask().process(simulation,simulation.read())
+
+            self.assertEqual(2, row["action_cardinality"])
+            self.assertEqual(2, row["context_dimensions"])
+            self.assertEqual(1, row["imbalance_ratio"])
+            self.assertNotIn("bayes_rate_avg",row)
+            self.assertNotIn("bayes_rate_iqr",row)
+            self.assertNotIn("centroid_purity",row)
+            self.assertNotIn("centroid_distance",row)
+
+    def test_classification_statistics_sparse_sans_sklearn(self):
+        with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
+            c1 = [{"1":1, "2":2}, "A"]
+            c2 = [{"1":3, "2":4}, "B"]
+
+            simulation = ClassificationSimulation([c1,c2]*10)
+            row        = ClassEnvironmentTask().process(simulation,simulation.read())
+
+            self.assertEqual(2, row["action_cardinality"])
+            self.assertEqual(2, row["context_dimensions"])
+            self.assertEqual(1, row["imbalance_ratio"])
+            self.assertNotIn("bayes_rate_avg",row)
+            self.assertNotIn("bayes_rate_iqr",row)
+            self.assertNotIn("centroid_purity",row)
+            self.assertNotIn("centroid_distance",row)
+
+    def test_classification_statistics_encodable_sans_sklearn(self):
+        with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
+            c1 = [{"1":1, "2":2 }, "A" ]
+            c2 = [{"1":3, "2":4 }, "B" ]
+
+            simulation = ClassificationSimulation([c1,c2]*10)
+            row        = ClassEnvironmentTask().process(simulation,simulation.read())
+
+            json.dumps(row)
+
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_dense(self):
 
         env = ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10)
@@ -77,6 +95,7 @@ class ClassEnvironmentTask_with_sklearn_Tests(unittest.TestCase):
         self.assertEqual(1, row["centroid_purity"])
         self.assertEqual(0, row["centroid_distance"])
 
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_sparse(self):
         
         c1 = [{"1":1, "2":2}, "A"]
@@ -93,59 +112,13 @@ class ClassEnvironmentTask_with_sklearn_Tests(unittest.TestCase):
         self.assertEqual(1, row["centroid_purity"])
         self.assertEqual(0, row["centroid_distance"])
 
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_encodable(self):
         c1 = [{"1":1, "2":2 }, "A" ]
         c2 = [{"1":3, "2":4 }, "B" ]
 
         env = ClassificationSimulation([c1,c2]*10)
         row = ClassEnvironmentTask().process(env,env.read())
-
-        json.dumps(row)
-
-class ClassEnvironmentTask_sans_sklearn_Tests(unittest.TestCase):
-
-    def setUp(self) -> None:
-        self.patch = unittest.mock.patch('importlib.import_module', side_effect=ImportError())
-        self.patch.start()
-
-    def tearDown(self) -> None:
-        self.patch.stop()
-
-    def test_classification_statistics_dense(self):
-
-        simulation = ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10)
-        row        = ClassEnvironmentTask().process(simulation,simulation.read())
-
-        self.assertEqual(2, row["action_cardinality"])
-        self.assertEqual(2, row["context_dimensions"])
-        self.assertEqual(1, row["imbalance_ratio"])
-        self.assertNotIn("bayes_rate_avg",row)
-        self.assertNotIn("bayes_rate_iqr",row)
-        self.assertNotIn("centroid_purity",row)
-        self.assertNotIn("centroid_distance",row)
-
-    def test_classification_statistics_sparse(self):
-
-        c1 = [{"1":1, "2":2}, "A"]
-        c2 = [{"1":3, "2":4}, "B"]
-
-        simulation = ClassificationSimulation([c1,c2]*10)
-        row        = ClassEnvironmentTask().process(simulation,simulation.read())
-
-        self.assertEqual(2, row["action_cardinality"])
-        self.assertEqual(2, row["context_dimensions"])
-        self.assertEqual(1, row["imbalance_ratio"])
-        self.assertNotIn("bayes_rate_avg",row)
-        self.assertNotIn("bayes_rate_iqr",row)
-        self.assertNotIn("centroid_purity",row)
-        self.assertNotIn("centroid_distance",row)
-
-    def test_classification_statistics_encodable(self):
-        c1 = [{"1":1, "2":2 }, "A" ]
-        c2 = [{"1":3, "2":4 }, "B" ]
-
-        simulation = ClassificationSimulation([c1,c2]*10)
-        row        = ClassEnvironmentTask().process(simulation,simulation.read())
 
         json.dumps(row)
 
