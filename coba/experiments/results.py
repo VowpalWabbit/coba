@@ -561,9 +561,9 @@ class Result:
             span: In general this indicates how many previous evaluations to average together. In practice this works
                 identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
                 rewards are averaged together vs span = 1 WHERE the instantaneous reward is plotted for each interaction.
-            err: Determine what kind of error bars to plot (if any). Valid types are `None`, 'se', and 'sd'. If `None`
+            err: This determines what kind of error bars to plot (if any). Valid types are `None`, 'se', and 'sd'. If `None`
                 then no bars are plotted, if 'se' the standard error is shown, and if 'sd' the standard deviation is shown.
-            each: Determine whether each constituent observation used to estimate mean performance is also plotted.
+            each: This determines whether each evaluated environment used to estimate mean performance is also plotted.
             filename: Provide a filename to write plot image to disk.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
@@ -572,54 +572,14 @@ class Result:
         import matplotlib.pyplot as plt #type: ignore
         import numpy as np              #type: ignore
 
-        progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
-
-        for progressive in self.interactions.to_progressive_lists(span=span,each=True):
-            progressives[progressive[0]].append(progressive[2:])
-
-        if not progressives:
-            return
-        
         show = ax is None
 
-        if ax is None:
-            ax  = plt.figure(figsize=(10,6)).add_subplot(111) #type: ignore
+        for label, X, Y, yerr, Z in self._plot_learners_data(xlim,span,err):
 
-        for learner_id in sorted(self.learners.keys, key=lambda id: self.learners[id]["full_name"]):
-
+            ax = ax or plt.figure(figsize=(10,6)).add_subplot(111) #type: ignore
+            
             color = next(ax._get_lines.prop_cycler)['color']
 
-            label = self._learners[learner_id]["full_name"]
-            Z     = list(zip(*progressives[learner_id]))
-            
-            if not Z: continue
-
-            N     = [ len(z) for z in Z        ]
-            Y     = [ sum(z)/len(z) for z in Z ]
-            X     = list(range(1,len(Y)+1))
-
-            start = xlim[0] if xlim else int(.05*len(X))
-            end   = xlim[1] if xlim else len(X)
-
-            if start >= end:
-                CobaContext.logger.log("The plot's end is less than the start making plotting impossible.")
-                return
-
-            X = X[start:end]
-            Y = Y[start:end]
-            Z = Z[start:end]
-
-            if len(X) == 0: continue
-
-            #this is much faster than python's native stdev
-            #and more or less free computationally so we always
-            #calculate it regardless of if they are showing them
-            #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
-            Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z            ]
-            SD = [ (round(y2-y**2,8))**(1/2)       for y2,y in zip(Y2,Y) ]
-            SE = [ sd/(n**(1/2))                   for sd,n in zip(SD,N) ]
-
-            yerr = 0 if err is None else SE if err.lower() == 'se' else SD if err.lower() == 'sd' else 0
             ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), label=label, color=color)
 
             if each:
@@ -657,6 +617,50 @@ class Result:
 
         if filename:
             plt.savefig(filename, dpi=300)
+
+    def _plot_learners_data(self, xlim: Tuple[Number,Number] = None, span: int = None, err: Literal['se','sd'] = None):
+
+        if xlim and xlim[0] >= xlim[1]:
+            CobaContext.logger.log("The given x-limit end is less than the x-limit start. Plotting is impossible.")
+
+        progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
+
+        for progressive in self.interactions.to_progressive_lists(span=span,each=True):
+            progressives[progressive[0]].append(progressive[2:])
+
+        if progressives and not xlim or xlim[0] < xlim[1]:
+
+            for learner_id in sorted(self.learners.keys, key=lambda id: self.learners[id]["full_name"]):
+
+                label = self._learners[learner_id]["full_name"]
+                Z     = list(zip(*progressives[learner_id]))
+                
+                if not Z: continue
+
+                N     = [ len(z) for z in Z        ]
+                Y     = [ sum(z)/len(z) for z in Z ]
+                X     = list(range(1,len(Y)+1))
+
+                start = xlim[0] if xlim else int(.05*len(X))
+                end   = xlim[1] if xlim else len(X)
+
+                X = X[start:end]
+                Y = Y[start:end]
+                Z = Z[start:end]
+
+                if len(X) == 0: continue
+
+                #this is much faster than python's native stdev
+                #and more or less free computationally so we always
+                #calculate it regardless of if they are showing them
+                #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
+                Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z            ]
+                SD = [ (round(y2-y**2,8))**(1/2)       for y2,y in zip(Y2,Y) ]
+                SE = [ sd/(n**(1/2))                   for sd,n in zip(SD,N) ]
+
+                yerr = 0 if err is None else SE if err.lower() == 'se' else SD if err.lower() == 'sd' else 0
+
+                yield label, X, Y, yerr, Z  
 
     def __str__(self) -> str:
         return str({ "Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })

@@ -632,7 +632,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_fin_no_finished(self):
 
-        CobaContext.logger=IndentLogger(with_stamp=False) 
+        CobaContext.logger=IndentLogger(with_stamp=False)
         CobaContext.logger.sink = MemoryIO()
 
         sims = {1:{}, 2:{}}
@@ -781,6 +781,95 @@ class Result_Tests(unittest.TestCase):
             result = Result(1, 1, sims, lrns, ints)
             result._ipython_display_()
             mock.assert_called_once_with(str(result))
+
+    def test_plot_learners_data_one_environment_all_default(self):
+        
+        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        ints = {(0,1): {"_packed":{"reward":[1,2]}},(0,2):{"_packed":{"reward":[1,2]}}}
+
+        result = Result(None, None, {}, lrns, ints)
+
+        plot_learners_data = list(result._plot_learners_data())
+
+        self.assertEqual(2, len(plot_learners_data))
+        self.assertEqual( ('learner_1', [1,2], [1.,3/2], 0, [(1.,),(3/2,)]), plot_learners_data[0])
+        self.assertEqual( ('learner_2', [1,2], [1.,3/2], 0, [(1.,),(3/2,)]), plot_learners_data[1])
+
+    def test_plot_learners_data_two_environments_all_default(self):
+
+        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        ints = {
+            (0,1): {"_packed":{"reward":[1,2]}},
+            (0,2): {"_packed":{"reward":[1,2]}},
+            (1,1): {"_packed":{"reward":[2,3]}},
+            (1,2): {"_packed":{"reward":[2,3]}}
+        }
+
+        result = Result(None, None, {}, lrns, ints)
+
+        plot_learners_data = list(result._plot_learners_data())
+
+        self.assertEqual(2, len(plot_learners_data))
+        self.assertEqual( ('learner_1', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[0])
+        self.assertEqual( ('learner_2', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[1])
+
+    def test_plot_learners_data_two_environments_xlim(self):
+
+        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        ints = {
+            (0,1): {"_packed":{"reward":[1,2]}},
+            (0,2): {"_packed":{"reward":[1,2]}},
+            (1,1): {"_packed":{"reward":[2,3]}},
+            (1,2): {"_packed":{"reward":[2,3]}}
+        }
+
+        result = Result(None, None, {}, lrns, ints)
+        plot_learners_data = list(result._plot_learners_data(xlim=(1,2)))
+
+        self.assertEqual(2, len(plot_learners_data))
+        self.assertEqual( ('learner_1', [2], [4/2], 0, [(3/2,5/2)]), plot_learners_data[0])
+        self.assertEqual( ('learner_2', [2], [4/2], 0, [(3/2,5/2)]), plot_learners_data[1])
+
+    def test_plot_learners_data_two_environments_err_sd(self):
+
+        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        ints = {
+            (0,1): {"_packed":{"reward":[1,2]}},
+            (0,2): {"_packed":{"reward":[1,2]}},
+            (1,1): {"_packed":{"reward":[2,3]}},
+            (1,2): {"_packed":{"reward":[2,3]}}
+        }
+
+        result = Result(None, None, {}, lrns, ints)
+
+        plot_learners_data = list(result._plot_learners_data(err='sd'))
+
+        self.assertEqual(2, len(plot_learners_data))
+        self.assertEqual( ('learner_1', [1,2], [3/2,4/2], [1/2,1/2], [(1.,2.),(3/2,5/2)]), plot_learners_data[0])
+        self.assertEqual( ('learner_2', [1,2], [3/2,4/2], [1/2,1/2], [(1.,2.),(3/2,5/2)]), plot_learners_data[1])
+
+    def test_plot_learners_bad_xlim(self):
+
+        CobaContext.logger=IndentLogger(with_stamp=False)
+        CobaContext.logger.sink = MemoryIO()
+
+        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        ints = {
+            (0,1): {"_packed":{"reward":[1,2]}},
+            (0,2): {"_packed":{"reward":[1,2]}},
+            (1,1): {"_packed":{"reward":[2,3]}},
+            (1,2): {"_packed":{"reward":[2,3]}}
+        }
+
+        result = Result(None, None, {}, lrns, ints)
+
+        plot_learners_data = list(result._plot_learners_data(xlim=(1,0)))
+
+        expected_length = 0
+        expected_log = "The given x-limit end is less than the x-limit start. Plotting is impossible."
+
+        self.assertEqual(expected_length, len(plot_learners_data))
+        self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
 
 if __name__ == '__main__':
     unittest.main()
