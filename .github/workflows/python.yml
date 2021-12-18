@@ -32,3 +32,5 @@ jobs:
       - run: pip list
       - run: python setup.py install
       - run: coverage run -m unittest
+      - run: coverage xml
+      - uses: codecov/codecov-action@v2
