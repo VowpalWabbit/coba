@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/VowpalWabbit/coba/branch/master/graph/badge.svg?token=885XLZJ2D4)](https://codecov.io/gh/VowpalWabbit/coba)
+
 # Coba
 
 ### What is it?
