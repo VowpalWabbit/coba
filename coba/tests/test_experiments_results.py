@@ -1,12 +1,31 @@
 import unittest
+import unittest.mock
 import timeit
 import importlib.util
 
 from pathlib import Path
+from coba.contexts.core import CobaContext
+from coba.contexts.loggers import IndentLogger
+
+from coba.exceptions import CobaException
+from coba.pipes import DiskIO
 
 from coba.experiments.results import Result, Table, InteractionsTable, TransactionIO, TransactionIO_V3, TransactionIO_V4
+from coba.pipes.io import MemoryIO
 
 class Table_Tests(unittest.TestCase):
+
+    def test_table_name(self):
+        self.assertEqual('abc',Table('abc',[],[]).name)
+
+    def test_table_str(self):
+        self.assertEqual("{'Table': 'abc', 'Columns': ['id', 'col'], 'Rows': 2}",str(Table('abc',['id'],[{'id':1,'col':2},{'id':2,'col':3}])))
+
+    def test_ipython_display(self):
+        with unittest.mock.patch("builtins.print") as mock:
+            table = Table('abc',['id'],[{'id':1,'col':2},{'id':2,'col':3}])
+            table._ipython_display_()
+            mock.assert_called_once_with(str(table))
 
     def test_insert_item(self):
         table = Table("test", ['a'], [{'a':'a', 'b':'B'}, {'a':'A', 'b':'B'}])
@@ -349,16 +368,7 @@ class InteractionTable_Tests(unittest.TestCase):
             for e,a in zip(E,A):
                 self.assertAlmostEqual(e,a,places=3)
 
-class InteractionTable_Pandas_Tests(unittest.TestCase):
-
-    def setUp(self) -> None:
-            try:
-                import pandas
-            except ImportError:
-                # if somebody is using coba with no intention of using pandas we don't want
-                # them to see failed tests and think something is wrong so we skip these tests
-                raise unittest.SkipTest("Pandas is not installed so no need to test Table Pandas functionality")
-
+    @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
     def test_simple_each_span_none_pandas(self):
         table = InteractionsTable("ABC", ["environment_id", "learner_id"], rows=[
             {"learner_id":0, "environment_id":0, "_packed": {"reward":[1,2,3]}},
@@ -366,39 +376,56 @@ class InteractionTable_Pandas_Tests(unittest.TestCase):
             {"learner_id":1, "environment_id":0, "_packed": {"reward":[2,4,6]}}
         ])
 
-        expected = [[0,0,1,1.5,2], [0,1,3,4.5,6], [1,0,2,3,4]]
+        expected = [[0,0,1,1.5,2], [1,0,2,3,4], [0,1,3,4.5,6]]
         actual   = table.to_progressive_pandas(each=True)
 
-        self.assertEqual(actual["learner_id"].tolist()   , [0,1,0])
+        self.assertEqual(actual["learner_id"].tolist(), [0,1,0])
         self.assertEqual(actual["environment_id"].tolist(), [0,0,1])
         self.assertEqual(actual[1].tolist(), [1,2,3])
         self.assertEqual(actual[2].tolist(), [1.5,3,4.5])
         self.assertEqual(actual[3].tolist(), [2,4,6])
 
+    @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
+    def test_simple_not_each_span_none_pandas(self):
+        table = InteractionsTable("ABC", ["environment_id", "learner_id"], rows=[
+            {"learner_id":0, "environment_id":0, "_packed": {"reward":[1,2,3]}},
+            {"learner_id":0, "environment_id":1, "_packed": {"reward":[3,6,9]}},
+            {"learner_id":1, "environment_id":0, "_packed": {"reward":[2,4,6]}}
+        ])
+
+        expected = [[0,2,3,4], [1,2,3,4]]
+        actual   = table.to_progressive_pandas(each=False)
+
+        self.assertEqual(actual["learner_id"].tolist(), [0,1])
+        self.assertEqual(actual[1].tolist(), [2,2])
+        self.assertEqual(actual[2].tolist(), [3,3])
+        self.assertEqual(actual[3].tolist(), [4,4])
+
 class TransactionIO_V3_Tests(unittest.TestCase):
 
-    def test_simple_to_and_from_file(self):
+    def setUp(self) -> None:
         if Path("coba/tests/.temp/transaction_v3.log").exists():
             Path("coba/tests/.temp/transaction_v3.log").unlink()
 
-        try:
-            io = TransactionIO_V3("coba/tests/.temp/transaction_v3.log")
+    def tearDown(self) -> None:
+        if Path("coba/tests/.temp/transaction_v3.log").exists():
+            Path("coba/tests/.temp/transaction_v3.log").unlink()
 
-            io.write(["T0",1,2])
-            io.write(["T1",0,{"name":"lrn1"}])
-            io.write(["T2",1,{"source":"test"}])
-            io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+    def test_simple_to_and_from_file(self):
 
-            result = io.result
+        io = TransactionIO_V3("coba/tests/.temp/transaction_v3.log")
 
-            self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-            self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-            self.assertEqual([(1,"test")], result.environments.to_tuples())
-            self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-        finally:
-            if Path("coba/tests/.temp/transaction_v3.log").exists():
-                Path("coba/tests/.temp/transaction_v3.log").unlink()
+        result = io.read()
+
+        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+        self.assertEqual([(1,"test")], result.environments.to_tuples())
+        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
 
     def test_simple_to_and_from_memory(self):
         io = TransactionIO_V3()
@@ -408,7 +435,23 @@ class TransactionIO_V3_Tests(unittest.TestCase):
         io.write(["T2",1,{"source":"test"}])
         io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-        result = io.result
+        result = io.read()
+
+        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+        self.assertEqual([(1,"test")], result.environments.to_tuples())
+        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+
+    def test_simple_to_and_from_memory_unknown_transaction(self):
+        io = TransactionIO_V3()
+
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T4",'UNKNOWN'])
+        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+
+        result = io.read()
 
         self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
         self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
@@ -417,38 +460,54 @@ class TransactionIO_V3_Tests(unittest.TestCase):
 
 class TransactionIO_V4_Tests(unittest.TestCase):
 
-    def test_simple_to_and_from_file(self):
+    def setUp(self) -> None:
         if Path("coba/tests/.temp/transaction_v4.log").exists():
             Path("coba/tests/.temp/transaction_v4.log").unlink()
 
-        try:
-            io = TransactionIO_V4("coba/tests/.temp/transaction_v4.log")
+    def tearDown(self) -> None:
+        if Path("coba/tests/.temp/transaction_v4.log").exists():
+            Path("coba/tests/.temp/transaction_v4.log").unlink()
 
-            io.write(["T0",1,2])
-            io.write(["T1",0,{"name":"lrn1"}])
-            io.write(["T2",1,{"source":"test"}])
-            io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
-
-            result = io.result
-
-            self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-            self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-            self.assertEqual([(1,"test")], result.environments.to_tuples())
-            self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
-
-        finally:
-            if Path("coba/tests/.temp/transaction_v4.log").exists():
-                Path("coba/tests/.temp/transaction_v4.log").unlink()
-
-    def test_simple_to_and_from_memory(self):
-        io = TransactionIO_V3()
+    def test_simple_to_and_from_file(self):
+        io = TransactionIO_V4("coba/tests/.temp/transaction_v4.log")
 
         io.write(["T0",1,2])
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
         io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-        result = io.result
+        result = io.read()
+
+        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+        self.assertEqual([(1,"test")], result.environments.to_tuples())
+        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+
+    def test_simple_to_and_from_memory(self):
+        io = TransactionIO_V4()
+
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+
+        result = io.read()
+
+        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+        self.assertEqual([(1,"test")], result.environments.to_tuples())
+        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+
+    def test_simple_to_and_from_memory_unknown_transaction(self):
+        io = TransactionIO_V4()
+
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T4",'UNKNOWN'])
+        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+
+        result = io.read()
 
         self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
         self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
@@ -457,28 +516,51 @@ class TransactionIO_V4_Tests(unittest.TestCase):
 
 class TransactionIO_Tests(unittest.TestCase):
 
-    def test_simple_to_and_from_file(self):
+    def setUp(self) -> None:
+        if Path("coba/tests/.temp/transaction.log").exists():
+            Path("coba/tests/.temp/transaction.log").unlink()
+    
+    def tearDown(self) -> None:
         if Path("coba/tests/.temp/transaction.log").exists():
             Path("coba/tests/.temp/transaction.log").unlink()
 
-        try:
+    def test_simple_to_and_from_file_v2(self):
+
+        DiskIO("coba/tests/.temp/transaction.log").write('["version",2]')
+
+        with self.assertRaises(CobaException):
             io = TransactionIO("coba/tests/.temp/transaction.log")
 
-            io.write(["T0",1,2])
-            io.write(["T1",0,{"name":"lrn1"}])
-            io.write(["T2",1,{"source":"test"}])
-            io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+    def test_simple_to_and_from_file_v3(self):
 
-            result = io.result
+        io = TransactionIO_V3("coba/tests/.temp/transaction.log")
 
-            self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-            self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-            self.assertEqual([(1,"test")], result.environments.to_tuples())
-            self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-        finally:
-            if Path("coba/tests/.temp/transaction.log").exists():
-                Path("coba/tests/.temp/transaction.log").unlink()
+        result = TransactionIO("coba/tests/.temp/transaction.log").read()
+
+        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+        self.assertEqual([(1,"test")], result.environments.to_tuples())
+        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+
+    def test_simple_to_and_from_file_v4(self):
+        io = TransactionIO("coba/tests/.temp/transaction.log")
+
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+
+        result = io.read()
+
+        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+        self.assertEqual([(1,"test")], result.environments.to_tuples())
+        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
 
     def test_simple_to_and_from_memory(self):
         io = TransactionIO()
@@ -488,7 +570,7 @@ class TransactionIO_Tests(unittest.TestCase):
         io.write(["T2",1,{"source":"test"}])
         io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-        result = io.result
+        result = io.read()
 
         self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
         self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
@@ -496,27 +578,19 @@ class TransactionIO_Tests(unittest.TestCase):
         self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
 
     def test_simple_resume(self):
-        if Path("coba/tests/.temp/transaction.log").exists():
-            Path("coba/tests/.temp/transaction.log").unlink()
+        io = TransactionIO("coba/tests/.temp/transaction.log")
 
-        try:
-            io = TransactionIO("coba/tests/.temp/transaction.log")
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
 
-            io.write(["T0",1,2])
-            io.write(["T1",0,{"name":"lrn1"}])
-            io.write(["T2",1,{"source":"test"}])
-            io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        result = TransactionIO("coba/tests/.temp/transaction.log").read()
 
-            result = TransactionIO("coba/tests/.temp/transaction.log").result
-
-            self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-            self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-            self.assertEqual([(1,"test")], result.environments.to_tuples())
-            self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
-
-        finally:
-            if Path("coba/tests/.temp/transaction.log").exists():
-                Path("coba/tests/.temp/transaction.log").unlink()
+        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
+        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
+        self.assertEqual([(1,"test")], result.environments.to_tuples())
+        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
 
 class Result_Tests(unittest.TestCase):
 
@@ -556,6 +630,27 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(2, len(filtered_result.interactions))
 
+    def test_filter_fin_no_finished(self):
+
+        CobaContext.logger=IndentLogger(with_stamp=False) 
+        CobaContext.logger.sink = MemoryIO()
+
+        sims = {1:{}, 2:{}}
+        lrns = {1:{}, 2:{}}
+        ints = {(1,1):{}, (2,1):{}}
+
+        original_result = Result(1, 1, sims, lrns, ints)
+        filtered_result = original_result.filter_fin()
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(2, len(original_result.interactions))
+
+        self.assertEqual(0, len(filtered_result.environments))
+        self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(0, len(filtered_result.interactions))
+        self.assertEqual(["No simulation was found with interaction data for every learner."], CobaContext.logger.sink.items)
+
     def test_filter_env(self):
 
         sims = {1:{}, 2:{}}
@@ -572,6 +667,27 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(1, len(filtered_result.interactions))
+
+    def test_filter_env_no_match(self):
+
+        CobaContext.logger=IndentLogger(with_stamp=False) 
+        CobaContext.logger.sink = MemoryIO()
+
+        sims = {1:{}, 2:{}}
+        lrns = {1:{}, 2:{}}
+        ints = {(1,1):{}, (1,2):{}, (2,1):{}}
+
+        original_result = Result(1, 1, sims, lrns, ints)
+        filtered_result = original_result.filter_env(environment_id=3)
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(3, len(original_result.interactions))
+
+        self.assertEqual(0, len(filtered_result.environments))
+        self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(0, len(filtered_result.interactions))
+        self.assertEqual(["No environments matched the given filter."], CobaContext.logger.sink.items)
 
     def test_filter_lrn_1(self):
 
@@ -606,6 +722,65 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(2, len(filtered_result.interactions))
+
+    def test_filter_lrn_no_match(self):
+        
+        CobaContext.logger=IndentLogger(with_stamp=False) 
+        CobaContext.logger.sink = MemoryIO()
+
+        sims = {1:{}, 2:{}}
+        lrns = {1:{}, 2:{}, 3:{}}
+        ints = {(1,1):{}, (1,2):{}, (2,3):{}}
+
+        original_result = Result(1, 1, sims, lrns, ints)
+        filtered_result = original_result.filter_lrn(learner_id=5)
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(3, len(original_result.learners))
+        self.assertEqual(3, len(original_result.interactions))
+
+        self.assertEqual(2, len(filtered_result.environments))
+        self.assertEqual(0, len(filtered_result.learners))
+        self.assertEqual(0, len(filtered_result.interactions))
+        self.assertEqual(["No learners matched the given filter."], CobaContext.logger.sink.items)
+
+    def test_copy(self):
+
+        sims = {1:{}, 2:{}}
+        lrns = {1:{}, 2:{}, 3:{}}
+        ints = {(1,1):{}, (1,2):{}, (2,3):{}}
+
+        result = Result(1, 1, sims, lrns, ints)
+        result_copy = result.copy()
+
+        self.assertIsNot(result, result_copy)
+        self.assertIsNot(result.learners, result_copy.learners)
+        self.assertIsNot(result.environments, result_copy.environments)
+        self.assertIsNot(result.interactions, result_copy.interactions)
+
+        self.assertEqual(result.learners.keys, result_copy.learners.keys)
+        self.assertEqual(result.environments.keys, result_copy.environments.keys)
+        self.assertEqual(result.interactions.keys, result_copy.interactions.keys)
+
+    def test_str(self):
+
+        sims = {1:{}, 2:{}}
+        lrns = {1:{}, 2:{}, 3:{}}
+        ints = {(1,1):{}, (1,2):{}, (2,3):{}}
+
+        self.assertEqual("{'Learners': 3, 'Environments': 2, 'Interactions': 3}", str(Result(1, 1, sims, lrns, ints)))
+
+    def test_ipython_display_(self):
+        
+        with unittest.mock.patch("builtins.print") as mock:
+
+            sims = {1:{}, 2:{}}
+            lrns = {1:{}, 2:{}, 3:{}}
+            ints = {(1,1):{}, (1,2):{}, (2,3):{}}
+
+            result = Result(1, 1, sims, lrns, ints)
+            result._ipython_display_()
+            mock.assert_called_once_with(str(result))
 
 if __name__ == '__main__':
     unittest.main()

@@ -116,4 +116,4 @@ class Experiment:
         except Exception as ex: # pragma: no cover
             CobaContext.logger.log(ex)
 
-        return sink.result
+        return sink.read()

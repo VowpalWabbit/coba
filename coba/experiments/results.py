@@ -8,7 +8,7 @@ from numbers import Number
 from operator import truediv
 from itertools import chain, repeat, accumulate
 from typing_extensions import Literal
-from typing import Any, Iterable, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Set, Callable
+from typing import Any, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Set, Callable
 
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
@@ -291,7 +291,7 @@ class InteractionsTable(Table):
             n_index = len(data[0][1:])
             return pd.DataFrame(data, columns=["learner_id", *range(1,n_index+1)])
 
-class TransactionIO_V3(IO[Iterable[Any], Any]):
+class TransactionIO_V3(IO['Result', Any]):
 
     def __init__(self, transaction_log: Optional[str] = None, minify:bool=True) -> None:
 
@@ -299,30 +299,22 @@ class TransactionIO_V3(IO[Iterable[Any], Any]):
         self._minify = minify
 
     def write(self, item: Any) -> None:
-
-        item = self._encode(item)
-
         if isinstance(self._io, MemoryIO):
-            self._io.write(item)
-        else:
-            self._io.write(JsonEncode(self._minify).filter(item))
+            self._io.write(self._encode(item))
+        else: 
+            if not Path(self._io._filename).exists():self._io.write('["version",3]')
+            self._io.write(JsonEncode(self._minify).filter(self._encode(item)))
 
-    def read(self) -> Iterable[Any]:
-        if isinstance(self._io, MemoryIO):
-            return self._io.read()
-        else:
-            return map(JsonDecode().filter,self._io.read())
-
-    @property
-    def result(self) -> 'Result':
-        
+    def read(self) -> 'Result':
         n_lrns   = None
         n_sims   = None
         lrn_rows = {}
         sim_rows = {}
         int_rows = {}
 
-        for trx in self.read():
+        for trx in self._io.read() if isinstance(self._io, MemoryIO) else map(JsonDecode().filter,self._io.read()):
+
+            if not trx: continue
 
             if trx[0] == "benchmark": 
                 n_lrns = trx[1]["n_learners"]
@@ -360,7 +352,9 @@ class TransactionIO_V3(IO[Iterable[Any], Any]):
 
             return ["I", item[1], { "_packed": rows_T }]
 
-class TransactionIO_V4(IO[Iterable[Any], Any]):
+        return None
+
+class TransactionIO_V4(IO['Result', Any]):
 
     def __init__(self, transaction_log: Optional[str] = None, minify:bool=True) -> None:
         self._io     = DiskIO(transaction_log) if transaction_log else MemoryIO()
@@ -369,25 +363,21 @@ class TransactionIO_V4(IO[Iterable[Any], Any]):
     def write(self, item: Any) -> None:
         if isinstance(self._io, MemoryIO):
             self._io.write(self._encode(item))
-        else:
+        else: 
+            if not Path(self._io._filename).exists():self._io.write('["version",4]')
             self._io.write(JsonEncode(self._minify).filter(self._encode(item)))
 
-    def read(self) -> Iterable[Any]:
-        if isinstance(self._io, MemoryIO):
-            return self._io.read()
-        else:
-            return map(JsonDecode().filter,self._io.read())
+    def read(self) -> 'Result':
 
-    @property
-    def result(self) -> 'Result':
-        
         n_lrns   = None
         n_sims   = None
         lrn_rows = {}
         env_rows = {}
         int_rows = {}
 
-        for trx in self.read():
+        for trx in self._io.read() if isinstance(self._io, MemoryIO) else map(JsonDecode().filter,self._io.read()):
+
+            if not trx: continue
 
             if trx[0] == "experiment": 
                 n_lrns = trx[1]["n_learners"]
@@ -425,9 +415,9 @@ class TransactionIO_V4(IO[Iterable[Any], Any]):
 
             return ["I", item[1], { "_packed": rows_T }]
 
-        return item
+        return None
 
-class TransactionIO(IO[Iterable[Any], Any]):
+class TransactionIO(IO['Result', Any]):
 
     def __init__(self, transaction_log: Optional[str] = None) -> None:
 
@@ -444,7 +434,6 @@ class TransactionIO(IO[Iterable[Any], Any]):
 
         elif version is None:
             self._transactionIO = TransactionIO_V4(transaction_log)
-            self._transactionIO.write(['version',4])
 
         else:
             raise CobaException("We were unable to determine the appropriate Transaction reader for the file.")
@@ -452,33 +441,8 @@ class TransactionIO(IO[Iterable[Any], Any]):
     def write(self, transaction: Any) -> None:
         self._transactionIO.write(transaction)
 
-    def read(self) -> Iterable[Any]:
-        self._transactionIO.read()
-
-    @property
-    def result(self) -> 'Result':
-        return self._transactionIO.result
-
-    def _encode(self,item):
-        if item[0] == "T0":
-            return ['benchmark', {"n_learners":item[1], "n_simulations":item[2]}]
-
-        if item[0] == "T1":
-            return ["L", item[1], item[2]]
-
-        if item[0] == "T2":
-            return ["S", item[1], item[2]]
-
-        if item[0] == "T3":
-            rows_T = collections.defaultdict(list)
-
-            for row in item[2]:
-                for col,val in row.items():
-                    if col == "rewards" : col="reward"
-                    if col == "reveals" : col="reveal"
-                    rows_T[col].append(val)
-
-            return ["I", item[1], { "_packed": rows_T }]
+    def read(self) -> 'Result':
+        return self._transactionIO.read()
 
 class Result:
     """A class representing the result of an Experiment."""
@@ -486,11 +450,11 @@ class Result:
     @staticmethod
     def from_file(filename: str) -> 'Result':
         """Create a Result from a transaction file."""
-        
+
         if not Path(filename).exists(): 
             raise CobaException("We were unable to find the given Result file.")
 
-        return TransactionIO(filename).result
+        return TransactionIO(filename).read()
 
     def __init__(self,
         n_lrns  : int = None,
@@ -538,9 +502,9 @@ class Result:
     def copy(self) -> 'Result':
         result = Result()
 
-        result.environments = copy(self._environments)
-        result.learners     = copy(self._learners)
-        result.interactions = copy(self._interactions)
+        result._environments = copy(self._environments)
+        result._learners     = copy(self._learners)
+        result._interactions = copy(self._interactions)
 
         return result
 
@@ -565,7 +529,7 @@ class Result:
         new_result._interactions = new_result.interactions.filter(environment_id=new_result.environments)
 
         if len(new_result.environments) == 0:
-            CobaContext.logger.log(f"No environments matched the given filter: {kwargs}.")
+            CobaContext.logger.log(f"No environments matched the given filter.")
 
         return new_result
 
@@ -575,7 +539,7 @@ class Result:
         new_result._interactions = new_result.interactions.filter(learner_id=new_result.learners)
 
         if len(new_result.learners) == 0:
-            CobaContext.logger.log(f"No learners matched the given filter: {kwargs}.")
+            CobaContext.logger.log(f"No learners matched the given filter.")
 
         return new_result
 
@@ -652,7 +616,7 @@ class Result:
             #calculate it regardless of if they are showing them
             #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
             Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z            ]
-            SD = [ (round(y2-y**2,8))**(1/2)       for y,y2 in zip(Y,Y2) ]
+            SD = [ (round(y2-y**2,8))**(1/2)       for y2,y in zip(Y2,Y) ]
             SE = [ sd/(n**(1/2))                   for sd,n in zip(SD,N) ]
 
             yerr = 0 if err is None else SE if err.lower() == 'se' else SD if err.lower() == 'sd' else 0
