@@ -21,7 +21,7 @@ class Performance_Tests(unittest.TestCase):
         time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=1000, number=4))
         
         #was approximately .000122
-        self.assertLess(time, .0002)
+        self.assertLess(time, .0004)
 
     def test_numeric_encode_performance_large(self):
 
@@ -126,7 +126,7 @@ class Performance_Tests(unittest.TestCase):
         time = min(timeit.repeat(lambda:coba.random.randoms(5000), repeat=100, number=1))
 
         #was approximately 0.0025
-        self.assertLess(time,.005)
+        self.assertLess(time,.009)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
     def test_vowpal_mediator_make_example_performance(self):
