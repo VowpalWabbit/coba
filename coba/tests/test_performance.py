@@ -31,7 +31,7 @@ class Performance_Tests(unittest.TestCase):
         time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=25, number=1))
         
         #was approximately .0301
-        self.assertLess(time, .05)
+        self.assertLess(time, .1)
 
     def test_onehot_fit_performance(self):
 
@@ -185,7 +185,7 @@ class Performance_Tests(unittest.TestCase):
         time = statistics.mean(timeit.repeat(lambda:list(Take(2,seed=1).filter(x)), repeat=10, number=100))
 
         #0.015 was my final average time.
-        self.assertLess(time, .03)
+        self.assertLess(time, .06)
 
     def test_jsonencode_performance(self):
         
@@ -195,7 +195,7 @@ class Performance_Tests(unittest.TestCase):
         time = statistics.mean(timeit.repeat(lambda:encoder.filter(x), repeat=5, number=100))
 
         #0.11 was my final average time.
-        self.assertLess(time, .3)
+        self.assertLess(time, .5)
 
 if __name__ == '__main__':
     unittest.main()
