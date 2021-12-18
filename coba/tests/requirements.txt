@@ -1,6 +1,7 @@
 requests>=2
 importlib-metadata
 typing-extensions>=4.0
+coverage # for testing purposes only
 vowpalwabbit # optional
 wheel # optional & needed for sklearn install
 sklearn # optional
