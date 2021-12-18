@@ -70,7 +70,7 @@ class Performance_Tests(unittest.TestCase):
         time = timeit.timeit(lambda: encoder.encode(x=x), number=100)
         
         #best observed was 0.09
-        self.assertLess(time, 0.2)
+        self.assertLess(time, 0.3)
 
     def test_sparse_interaction_xxa_encode_performance(self):
         encoder = InteractionsEncoder(["xxa"])
