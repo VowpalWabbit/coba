@@ -31,4 +31,4 @@ jobs:
       - run: pip install -r coba/tests/requirements.txt
       - run: pip list
       - run: python setup.py install
-      - run: python -m unittest
+      - run: coverage run -m unittest
