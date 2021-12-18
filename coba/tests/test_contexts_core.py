@@ -5,8 +5,8 @@ from pathlib import Path
 
 from coba.exceptions import CobaExit
 from coba.pipes import JsonEncode
-from coba.contexts import CobaContext, DiskCacher, IndentLogger, NullLogger
-from coba.pipes.io import ConsoleIO, DiskIO, NullIO
+from coba.contexts import LearnerContext, CobaContext, DiskCacher, IndentLogger, NullLogger
+from coba.pipes.io import ConsoleIO, DiskIO, MemoryIO, NullIO
 
 class CobaContext_Tests(unittest.TestCase):
 
@@ -198,6 +198,22 @@ class CobaContext_Tests(unittest.TestCase):
         self.assertIn("line", lines[2])
         self.assertIn("TypeError: unsupported operand type(s)", lines[-1])
         self.assertTrue(str(e.exception).endswith("\n"))
+
+class LearnerContext_Tests(unittest.TestCase):
+
+    def setUp(self) -> None:
+        LearnerContext._logger = None
+
+    def tearDown(self) -> None:
+        LearnerContext._logger = None
+
+    def test_logger_default(self):
+        self.assertIsInstance(LearnerContext.logger, NullIO)
+
+    def test_logger_setter(self):
+        self.assertIsInstance(LearnerContext.logger, NullIO)
+        LearnerContext.logger = MemoryIO()
+        self.assertIsInstance(LearnerContext.logger, MemoryIO)
 
 if __name__ == '__main__':
     unittest.main()

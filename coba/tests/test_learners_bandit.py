@@ -122,16 +122,19 @@ class FixedLearner_Tests(unittest.TestCase):
 
         self.assertEqual({"family":"fixed"}, FixedLearner([1/2,1/2]).params)
 
-    def test_pmf_assert(self):
+    def test_create_errors(self):
         with self.assertRaises(AssertionError):
             FixedLearner([1/3, 1/2])
 
         with self.assertRaises(AssertionError):
             FixedLearner([-1, 2])
 
-    def test_learn(self):
+    def test_predict(self):
         learner = FixedLearner([1/3,1/3,1/3])
         self.assertEqual([1/3,1/3,1/3], learner.predict(None, [1,2,3]))
+
+    def test_learn(self):
+        FixedLearner([1/3,1/3,1/3]).learn(None, 1, 1, .5, None)
 
 class RandomLearner_Tests(unittest.TestCase):
 

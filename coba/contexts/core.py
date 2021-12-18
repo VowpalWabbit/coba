@@ -187,11 +187,11 @@ class CobaContext(metaclass=CobaContext_meta):
 class LearnerContext_meta(type):
 
     def __init__(cls, *args, **kwargs):
-        cls._logger = NullIO[Dict[str,Any]]()
+        cls._logger = None 
 
     @property
     def logger(cls) -> IO[Iterable[Dict[str,Any]],Dict[str,Any]]:
-        return cls._logger
+        return cls._logger if cls._logger else NullIO[Dict[str,Any]]()  
 
     @logger.setter
     def logger(cls, value: IO[Iterable[Dict[str,Any]],Dict[str,Any]]):

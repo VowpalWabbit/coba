@@ -1,6 +1,8 @@
+import collections
+import collections.abc
+
 from abc import ABC, abstractmethod
 from statistics import median
-from collections import defaultdict
 from itertools import takewhile, chain
 from typing import Iterable, Any, Dict
 
@@ -8,10 +10,10 @@ from coba.pipes import QueueIO
 from coba.exceptions import CobaExit
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
-from coba.environments import Environment, EnvironmentPipe, Interaction, SimulatedInteraction, LoggedInteraction
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker
 from coba.contexts import LearnerContext
+from coba.environments import Environment, EnvironmentPipe, Interaction, SimulatedInteraction, LoggedInteraction
 
 class LearnerTask(ABC):
 
@@ -31,7 +33,14 @@ class EvaluationTask(ABC):
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
         ...
 
-#side data stream that is null by default and queue otherwise????
+class AssertDictQueueIO(QueueIO[Dict[str,Any]]):
+
+    def write(self, item: Dict[str,Any] = {}, **kwargs: Any) -> None:
+
+        assert isinstance(item,dict), "The on-policy LearnerContext.logger was passed a non-dictionary object."
+        item.update(kwargs)
+        return super().write(item)
+
 
 class OnPolicyEvaluationTask(EvaluationTask):
 
@@ -42,7 +51,7 @@ class OnPolicyEvaluationTask(EvaluationTask):
 
         random = CobaRandom(self._seed)
 
-        LearnerContext.logger = QueueIO[Dict[str,Any]](block=False)
+        LearnerContext.logger = AssertDictQueueIO(block=False)
 
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
@@ -55,41 +64,61 @@ class OnPolicyEvaluationTask(EvaluationTask):
             probs,info = learner.predict(context, actions)
 
             action = random.choice(actions, probs)
-            reveal = interaction.kwargs.get("reveals", interaction.kwargs["rewards"])[actions.index(action)]
+            reveal = interaction.kwargs.get("reveals", interaction.kwargs.get("rewards"))[actions.index(action)]
             prob   = probs[actions.index(action)]
 
             learner.learn(context, action, reveal, prob, info)
 
-            learn_info  = { k:v for item in LearnerContext.logger.read() for k,v in item.items() }
-            action_info = {k:v[actions.index(action)] for k,v in interaction.kwargs.items()}
+            learner_info  = { k:v for item in LearnerContext.logger.read() for k,v in item.items() }
+            interaction_info = {}
 
-            yield {**action_info, **learn_info}
+            for k,v in interaction.kwargs.items():
+                if isinstance(v,collections.abc.Sequence) and not isinstance(v,str):
+                    interaction_info[k] = v[actions.index(action)]
+                else:
+                    interaction_info[k] = v
+
+            yield {**interaction_info, **learner_info}
 
 class OffPolicyEvaluationTask(EvaluationTask):
 
     def process(self, learner: Learner, interactions: Iterable[LoggedInteraction]) -> Iterable[Dict[Any,Any]]:
+
+        LearnerContext.logger = AssertDictQueueIO(block=False)
 
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
 
         for interaction in interactions:
 
-            if len(interaction.kwargs.keys() & {"probability", "actions", "reward"}) != 3:
-                predict_info = {}
-            else:
-                actions      = list(interaction.kwargs["actions"])
-                probs        = learner.predict(interaction.context, actions)[0]
-                ratio        = probs[actions.index(interaction.action)] / interaction.kwargs["probability"]
-                predict_info = { "reward": ratio * interaction.kwargs["reward"] }
+            if "actions" not in interaction.kwargs:
+                info             = None
+                interaction_info = {}
 
-            reveal     = interaction.kwargs.get("reveal", interaction.kwargs["reward"])
-            learn_info = learner.learn(interaction.context, interaction.action, reveal, interaction.kwargs.get("probability"))
+            if "actions" in interaction.kwargs:
+                actions          = list(interaction.kwargs["actions"])
+                probs,info       = learner.predict(interaction.context, actions)
+                interaction_info = {}
 
-            yield {**predict_info, **learn_info}
+            if len(interaction.kwargs.keys() & {"probability", "actions", "reward"}) == 3:
+                ratio            = probs[actions.index(interaction.action)] / interaction.kwargs["probability"]
+                interaction_info = { 'reward': ratio*interaction.kwargs['reward'] }
+
+            for k,v in interaction.kwargs.items():
+                if k not in ["probability", "actions", "reward"]:
+                    interaction_info[k] = v
+
+            reveal = interaction.kwargs.get("reveal", interaction.kwargs.get("reward"))
+            prob   = interaction.kwargs.get("probability")
+            learner.learn(interaction.context, interaction.action, reveal, prob, info)
+
+            learner_info  = { k:v for item in LearnerContext.logger.read() for k,v in item.items() }
+
+            yield {**interaction_info, **learner_info}
 
 class WarmStartEvaluationTask(EvaluationTask):
 
-    def __init__(self, seed: int) -> None:
+    def __init__(self, seed: int = 1) -> None:
         self._seed = seed
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
@@ -97,28 +126,28 @@ class WarmStartEvaluationTask(EvaluationTask):
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
 
-        separable_interactions = iter(self._repeat_first_simulated(interactions))
+        separable_interactions = iter(self._repeat_first_simulated_interaction(interactions))
 
         logged_interactions    = takewhile(lambda i: isinstance(i,LoggedInteraction), separable_interactions)
         simulated_interactions = separable_interactions
 
-        for row in OffPolicyEvaluationTask().process( (learner, logged_interactions)):
+        for row in OffPolicyEvaluationTask().process(learner, logged_interactions):
             yield row
 
-        for row in OnPolicyEvaluationTask(self._seed).process( (learner, simulated_interactions)):
+        for row in OnPolicyEvaluationTask(self._seed).process(learner, simulated_interactions):
             yield row
 
-    def _repeat_first_simulated(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+    def _repeat_first_simulated_interaction(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        any_simulated_found = False
 
         for interaction in interactions:
-            if isinstance(interaction, LoggedInteraction):
-                yield interaction
-            else:
-                first_simulated_interaction = interaction
-                break
-
-        for interaction in chain([first_simulated_interaction], interactions):
             yield interaction
+
+            if isinstance(interaction, SimulatedInteraction) and not any_simulated_found:
+                yield interaction
+
+            any_simulated_found = any_simulated_found or isinstance(interaction, SimulatedInteraction)
 
 class SimpleLearnerTask(LearnerTask):
 
@@ -169,7 +198,7 @@ class ClassEnvironmentTask(EnvironmentTask):
 
             X   = [ InteractionsEncoder('x').encode(x=c, a=[]) for c in contexts ]
             Y   = [ a[r.index(1)] for a,r in zip(actions,rewards)]
-            C   = defaultdict(list)
+            C   = collections.defaultdict(list)
             clf = DecisionTreeClassifier(random_state=1)
 
             if isinstance(X[0],dict):
@@ -207,7 +236,7 @@ class ClassEnvironmentTask(EnvironmentTask):
         labels     = set()
         features   = set()
         feat_cnts  = []
-        label_cnts = defaultdict(int)
+        label_cnts = collections.defaultdict(int)
 
         for c,a,f in zip(contexts,actions,rewards):
 
