@@ -156,7 +156,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         try:
             with HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
 
-                if response.status_code == 412: # pragma: no cover
+                if response.status_code == 412:
                     if 'please provide api key' in response.text:
                         message = (
                             "Openml has requested an API Key to access openml's rest API. A key can be obtained by creating "
@@ -171,10 +171,11 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                             "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
                         raise CobaException(message)
 
-                if response.status_code == 404: # pragma: no cover
-                    message = (
-                        "We're sorry but we were unable to find the requested dataset on openml.")
-                    raise CobaException(message)
+                if response.status_code == 404:
+                    raise CobaException("We're sorry but we were unable to find the requested dataset on openml.")
+
+                if response.status_code != 200:
+                    raise CobaException(f"An unexpected response was returned by openml: {response.text}")
 
                 # NOTE: These two checks need to be gated with a status code failure 
                 # NOTE: otherwise this will cause the data to be downloaded all at once
@@ -187,7 +188,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                 #         "openml calls in the future.")
                 #     raise CobaException(message) from None
 
-                # if '' == response.text: # pragma: no cover
+                # if '' == response.text:
                 #     raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
 
                 for b in response.iter_lines(decode_unicode=False):

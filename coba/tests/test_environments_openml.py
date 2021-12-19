@@ -1646,7 +1646,12 @@ class OpenmlSource_Tests(unittest.TestCase):
             with self.assertRaises(CobaException) as e:
                 feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
 
-    def test_status_code_404(self):
+    def test_status_code_405(self):
+        with unittest.mock.patch.object(requests, 'get', return_value=MockResponse(405, "authentication failed", [])):
+            with self.assertRaises(CobaException) as e:
+                feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+
+    def test_str(self):
         self.assertEqual('{"OpenmlSource":42693}', str(OpenmlSource(42693)))
 
 class OpenmlSimulation_Tests(unittest.TestCase):
