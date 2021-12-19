@@ -4,5 +4,4 @@ dependencies:
     - pip=21.0.*
     - pip:
         - matplotlib
-        - vowpalwabbit
         - coba==4.3.0
