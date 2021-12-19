@@ -93,7 +93,7 @@ class Performance_Tests(unittest.TestCase):
         time = timeit.timeit(lambda: encoder.encode(a=a, b=b, c=c), number=50)
         
         #best observed was 0.31
-        self.assertLess(time, 1.2)
+        self.assertLess(time, 1.5)
 
     def test_interaction_context_performance(self):
 
