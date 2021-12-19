@@ -848,7 +848,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual( ('learner_1', [1,2], [3/2,4/2], [1/2,1/2], [(1.,2.),(3/2,5/2)]), plot_learners_data[0])
         self.assertEqual( ('learner_2', [1,2], [3/2,4/2], [1/2,1/2], [(1.,2.),(3/2,5/2)]), plot_learners_data[1])
 
-    def test_plot_learners_bad_xlim(self):
+    def test_plot_learners_data_bad_xlim(self):
 
         CobaContext.logger=IndentLogger(with_stamp=False)
         CobaContext.logger.sink = MemoryIO()
@@ -870,6 +870,154 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(expected_length, len(plot_learners_data))
         self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib is not installed so we must skip plotting tests")
+    def test_plot_learners_not_each(self):
+        with unittest.mock.patch('matplotlib.pyplot.show') as show:
+            with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
+                with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+                    lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+                    ints = {
+                        (0,1): {"_packed":{"reward":[1,2]}},
+                        (0,2): {"_packed":{"reward":[1,2]}},
+                        (1,1): {"_packed":{"reward":[2,3]}},
+                        (1,2): {"_packed":{"reward":[2,3]}}
+                    }
+
+                    mock_ax = plt_figure().add_subplot()
+                    mock_ax.get_legend.return_value=None
+
+                    mock_ax.get_xticks.return_value = [1,2]
+                    mock_ax.get_xlim.return_value   = [2,2]
+
+                    Result(None, None, {}, lrns, ints).plot_learners()
+
+                    plt_figure().add_subplot.assert_called_with(111)
+                                    
+                    self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[0][0])
+                    self.assertEqual('learner_1'     , mock_ax.errorbar.call_args_list[0][1]["label"])
+                    self.assertEqual(0               , mock_ax.errorbar.call_args_list[0][1]["yerr"])
+
+                    self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[1][0])
+                    self.assertEqual('learner_2'     , mock_ax.errorbar.call_args_list[1][1]["label"])
+                    self.assertEqual(0               , mock_ax.errorbar.call_args_list[1][1]["yerr"])
+
+                    self.assertEqual(0, mock_ax.plot.call_count)
+                    self.assertIsNone(mock_ax.get_legend())
+                    self.assertEqual(1, mock_ax.legend.call_count)
+
+                    mock_ax.set_xticks.called_once_with([2,2])
+                    self.assertEqual(1, show.call_count)
+                    self.assertEqual(0, savefig.call_count)
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib is not installed so we must skip plotting tests")
+    def test_plot_learners_each_xlim_ylim(self):
+        with unittest.mock.patch('matplotlib.pyplot.show') as show:
+            with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
+                with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+                    lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+                    ints = {
+                        (0,1): {"_packed":{"reward":[1,2]}},
+                        (0,2): {"_packed":{"reward":[1,2]}},
+                        (1,1): {"_packed":{"reward":[2,3]}},
+                        (1,2): {"_packed":{"reward":[2,3]}}
+                    }
+
+                    mock_ax = plt_figure().add_subplot()
+
+                    mock_ax.get_xticks.return_value = [1,2]
+                    mock_ax.get_xlim.return_value   = [2,2]
+
+                    Result(None, None, {}, lrns, ints).plot_learners(each=True,xlim=(0,1),ylim=(0,1))
+
+                    plt_figure().add_subplot.assert_called_with(111)
+                                    
+                    self.assertEqual(([1],[1.5]) , mock_ax.errorbar.call_args_list[0][0])
+                    self.assertEqual('learner_1' , mock_ax.errorbar.call_args_list[0][1]["label"])
+                    self.assertEqual(0           , mock_ax.errorbar.call_args_list[0][1]["yerr"])
+
+                    self.assertEqual(([1],[1.5]) , mock_ax.errorbar.call_args_list[1][0])
+                    self.assertEqual('learner_2' , mock_ax.errorbar.call_args_list[1][1]["label"])
+                    self.assertEqual(0           , mock_ax.errorbar.call_args_list[1][1]["yerr"])
+
+                    self.assertEqual(4, mock_ax.plot.call_count)
+
+                    mock_ax.set_xticks.called_once_with([2,2])
+                    self.assertEqual(1, show.call_count)
+                    self.assertEqual(0, savefig.call_count)
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib is not installed so we must skip plotting tests")
+    def test_plot_learners_each_figname(self):
+        with unittest.mock.patch('matplotlib.pyplot.show') as show:
+            with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
+                with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+                    lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+                    ints = {
+                        (0,1): {"_packed":{"reward":[1,2]}},
+                        (0,2): {"_packed":{"reward":[1,2]}},
+                        (1,1): {"_packed":{"reward":[2,3]}},
+                        (1,2): {"_packed":{"reward":[2,3]}}
+                    }
+
+                    mock_ax = plt_figure().add_subplot()
+
+                    mock_ax.get_xticks.return_value = [1,2]
+                    mock_ax.get_xlim.return_value   = [2,2]
+
+                    Result(None, None, {}, lrns, ints).plot_learners(filename='abc')
+
+                    plt_figure().add_subplot.assert_called_with(111)
+                                    
+                    self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[0][0])
+                    self.assertEqual('learner_1'     , mock_ax.errorbar.call_args_list[0][1]["label"])
+                    self.assertEqual(0               , mock_ax.errorbar.call_args_list[0][1]["yerr"])
+
+                    self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[1][0])
+                    self.assertEqual('learner_2'     , mock_ax.errorbar.call_args_list[1][1]["label"])
+                    self.assertEqual(0               , mock_ax.errorbar.call_args_list[1][1]["yerr"])
+
+                    self.assertEqual(0, mock_ax.plot.call_count)
+
+                    mock_ax.set_xticks.called_once_with([2,2])
+                    self.assertEqual(1, show.call_count)
+                    self.assertEqual(1, savefig.call_count)
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib is not installed so we must skip plotting tests")
+    def test_plot_learners_ax_provided(self):
+        with unittest.mock.patch('matplotlib.pyplot.show') as show:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+                
+                mock_ax = unittest.mock.MagicMock()
+
+                lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+                ints = {
+                    (0,1): {"_packed":{"reward":[1,2]}},
+                    (0,2): {"_packed":{"reward":[1,2]}},
+                    (1,1): {"_packed":{"reward":[2,3]}},
+                    (1,2): {"_packed":{"reward":[2,3]}}
+                }
+
+                mock_ax.get_xticks.return_value = [1,2]
+                mock_ax.get_xlim.return_value   = [2,2]
+
+                Result(None, None, {}, lrns, ints).plot_learners(ax=mock_ax)
+
+                self.assertEqual(0, plt_figure().add_subplot.call_count)
+                                
+                self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[0][0])
+                self.assertEqual('learner_1'     , mock_ax.errorbar.call_args_list[0][1]["label"])
+                self.assertEqual(0               , mock_ax.errorbar.call_args_list[0][1]["yerr"])
+
+                self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[1][0])
+                self.assertEqual('learner_2'     , mock_ax.errorbar.call_args_list[1][1]["label"])
+                self.assertEqual(0               , mock_ax.errorbar.call_args_list[1][1]["yerr"])
+
+                self.assertEqual(1, mock_ax.get_legend().remove.call_count)
+                self.assertEqual(1, mock_ax.legend.call_count)
+                self.assertEqual(0, mock_ax.plot.call_count)
+
+                mock_ax.set_xticks.called_once_with([2,2])
+                self.assertEqual(0, show.call_count)
 
 if __name__ == '__main__':
     unittest.main()

@@ -570,7 +570,6 @@ class Result:
 
         PackageChecker.matplotlib('Result.plot_learners')
         import matplotlib.pyplot as plt #type: ignore
-        import numpy as np              #type: ignore
 
         show = ax is None
 
@@ -588,7 +587,7 @@ class Result:
 
         padding = .05
         ax.margins(0)
-        ax.set_xticks(np.clip(ax.get_xticks(), *ax.get_xlim()))
+        ax.set_xticks([min(ax.get_xlim()[1], max(ax.get_xlim()[0],x)) for x in ax.get_xticks()])
         ax.margins(padding)
 
         if xlim:
