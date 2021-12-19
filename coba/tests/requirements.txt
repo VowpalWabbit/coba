@@ -6,3 +6,4 @@ vowpalwabbit # optional
 wheel # optional & needed for sklearn install
 sklearn # optional
 pandas # optional
+matplotlib # optional
