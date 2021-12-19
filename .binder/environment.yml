@@ -2,4 +2,5 @@ name: coba
 dependencies:
     - pip:
         - matplotlib
+        - vowpalwabbit
         - coba==4.3.0
