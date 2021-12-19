@@ -1,7 +1,5 @@
 name: coba
 dependencies:
-    - python=3.6.*
-    - pip=21.0.*
     - pip:
         - matplotlib
         - coba==4.3.0
