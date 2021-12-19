@@ -2,12 +2,11 @@ from pathlib import Path
 from typing_extensions import Literal
 from typing import Sequence, Optional
 
-from coba.contexts import CobaContext, BasicLogger, IndentLogger
-from coba.contexts.core import CobaContext
 from coba.pipes import Pipe, Foreach
 from coba.learners import Learner
 from coba.environments import Environment
 from coba.multiprocessing import CobaMultiprocessor
+from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger
 
 from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems
 from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
@@ -85,8 +84,10 @@ class Experiment:
         """
         cb, mp, mt = self.chunk_by, self.processes, self.maxtasksperchild
 
-        if isinstance(CobaContext.logger, (IndentLogger,BasicLogger)):
-            CobaContext.logger._with_name = mp > 1 or mt != 0
+        if mp > 1 or mt != 0:
+            CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [NameLog(), StampLog()])
+        else:
+            CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()])
 
         restored = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
 
@@ -115,5 +116,8 @@ class Experiment:
         
         except Exception as ex: # pragma: no cover
             CobaContext.logger.log(ex)
+
+        if isinstance(CobaContext.logger, DecoratedLogger):
+            CobaContext.logger = CobaContext.logger.undecorate()
 
         return sink.read()

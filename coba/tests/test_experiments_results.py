@@ -632,7 +632,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_fin_no_finished(self):
 
-        CobaContext.logger=IndentLogger(with_stamp=False)
+        CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = MemoryIO()
 
         sims = {1:{}, 2:{}}
@@ -670,7 +670,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_env_no_match(self):
 
-        CobaContext.logger=IndentLogger(with_stamp=False) 
+        CobaContext.logger = IndentLogger() 
         CobaContext.logger.sink = MemoryIO()
 
         sims = {1:{}, 2:{}}
@@ -725,7 +725,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_lrn_no_match(self):
         
-        CobaContext.logger=IndentLogger(with_stamp=False) 
+        CobaContext.logger=IndentLogger() 
         CobaContext.logger.sink = MemoryIO()
 
         sims = {1:{}, 2:{}}
@@ -850,7 +850,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_data_bad_xlim(self):
 
-        CobaContext.logger=IndentLogger(with_stamp=False)
+        CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = MemoryIO()
 
         lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }

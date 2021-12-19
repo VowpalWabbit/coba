@@ -270,7 +270,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         expected_environments = [(0,'LambdaSimulation'), (1,'LambdaSimulation')]
         expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 1), (1, 0, 1, 3), (1, 0, 2, 4), (1, 0, 3, 5)]
 
-        self.assertEqual(2, sum([int("Unexpected exception:" in item) for item in CobaContext.logger._sink.items]))
+        self.assertIsInstance(CobaContext.logger, IndentLogger)
+        self.assertEqual(2, sum([int("Unexpected exception:" in item) for item in CobaContext.logger.sink.items]))
 
         self.assertCountEqual(actual_learners[0], expected_learners[0])
         self.assertCountEqual(actual_learners[1][:3], expected_learners[1][:3])

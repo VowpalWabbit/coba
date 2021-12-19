@@ -4,7 +4,9 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.contexts        import CobaContext, IndentLogger, BasicLogger, NullLogger, NullCacher, MemoryCacher
+from coba.contexts        import CobaContext, NullLogger 
+from coba.contexts        import NullCacher, MemoryCacher
+from coba.contexts        import IndentLogger, BasicLogger, ExceptLog, StampLog, NameLog, DecoratedLogger
 from coba.pipes           import Filter, MemoryIO, Identity
 from coba.multiprocessing import CobaMultiprocessor
 
@@ -47,7 +49,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
     def test_logging(self):
         
         logger_sink = MemoryIO()
-        logger      = IndentLogger(logger_sink, with_stamp=True, with_name=True)
+        logger      = DecoratedLogger([],IndentLogger(logger_sink), [NameLog(), StampLog()])
 
         CobaContext.logger = logger
         CobaContext.cacher = NullCacher()
@@ -59,7 +61,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         self.assertCountEqual(items, [ l.split(' ')[-1] for l in logger_sink.items ] )
 
     def test_exception_logging(self):
-        CobaContext.logger = BasicLogger(MemoryIO())
+        CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(MemoryIO()),[])
         CobaContext.cacher = NullCacher()
         
         list(CobaMultiprocessor(ExceptionFilter(), 2, 1).filter(range(4)))
@@ -107,7 +109,9 @@ class CobaMultiprocessor_ProcessFilter_Tests(unittest.TestCase):
         CobaContext.cacher = NullCacher()
         CobaContext.store  = None
 
-        CobaMultiprocessor.ProcessFilter(ExceptionFilter(),IndentLogger(),None,None,log_sink).filter(1)
+        logger = DecoratedLogger([ExceptLog()], IndentLogger(), [])
+
+        CobaMultiprocessor.ProcessFilter(ExceptionFilter(),logger,None,None,log_sink).filter(1)
 
         self.assertIn('Exception Filter', log_sink.items[0])
 

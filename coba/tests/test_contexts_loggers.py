@@ -1,11 +1,22 @@
 import time
 import unittest
 import traceback
+import multiprocessing
+import unittest.mock
+import datetime
 
 from coba.exceptions import CobaException
-from coba.pipes import MemoryIO
-from coba.contexts import IndentLogger, BasicLogger, NullLogger
-from coba.pipes.io import NullIO
+from coba.pipes      import MemoryIO
+from coba.contexts   import IndentLogger, BasicLogger, NullLogger, DecoratedLogger, ExceptLog, NameLog, StampLog
+from coba.pipes.io   import NullIO
+
+class LogDecorator:
+
+    def __init__(self, name):
+        self._name = name
+
+    def filter(self, item):
+        return f"{self._name} -- {item}"
 
 class NullLogger_Tests(unittest.TestCase):
     def test_log_does_nothing(self):
@@ -14,17 +25,18 @@ class NullLogger_Tests(unittest.TestCase):
     def test_time_does_nothing(self):
         NullLogger().time("abc")
 
-    def test_sink_does_nothing(self):
+    def test_sink_is_set(self):
         logger = NullLogger()
-        logger.sink = None
         self.assertIsInstance(logger.sink, NullIO)
+        logger.sink = None
+        self.assertIsNone(logger.sink)
 
 class BasicLogger_Tests(unittest.TestCase):
 
     def test_log(self):
 
         sink   = MemoryIO()
-        logger = BasicLogger(sink, with_stamp=False, with_name=False)
+        logger = BasicLogger(sink)
         logs   = sink.items
 
         logger.log('a')
@@ -35,14 +47,10 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[1], 'c' )
         self.assertEqual(logs[2], 'd' )
 
-    def test_log_with_1(self):
-
-        #This test is somewhat time dependent.
-        #I don't think it should ever fail, but if it does
-        #try running it again and see if it works that time.
+    def test_log_with(self):
 
         sink   = MemoryIO()
-        logger = BasicLogger(sink,with_stamp=False, with_name=False)
+        logger = BasicLogger(sink)
         logs   = sink.items
 
         with logger.log('a'):
@@ -59,22 +67,16 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[4], 'e')
 
     def test_log_with_exception(self):
-        #This test is somewhat time dependent.
-        #I don't think it should ever fail, but if it does
-        #try running it again and see if it works that time.
 
         sink   = MemoryIO()
-        logger = BasicLogger(sink,with_stamp=False, with_name=False)
+        logger = BasicLogger(sink)
         logs   = sink.items
         
-        try:
-            with self.assertRaises(Exception) as e:
-                with logger.log('a'):
-                    logger.log('c')
-                    logger.log('d')
-                    raise Exception()
-        except:
-            pass
+        with self.assertRaises(Exception):
+            with logger.log('a'):
+                logger.log('c')
+                logger.log('d')
+                raise Exception()
 
         self.assertEqual(4, len(logs))
 
@@ -84,22 +86,16 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[3], 'a (exception)')
 
     def test_log_with_interrupt(self):
-        #This test is somewhat time dependent.
-        #I don't think it should ever fail, but if it does
-        #try running it again and see if it works that time.
 
         sink   = MemoryIO()
-        logger = BasicLogger(sink,with_stamp=False, with_name=False)
+        logger = BasicLogger(sink)
         logs   = sink.items
         
-        try:
-            with self.assertRaises(Exception) as e:
-                with logger.log('a'):
-                    logger.log('c')
-                    logger.log('d')
-                    raise KeyboardInterrupt()
-        except:
-            pass
+        with self.assertRaises(BaseException) as e:
+            with logger.log('a'):
+                logger.log('c')
+                logger.log('d')
+                raise KeyboardInterrupt()
 
         self.assertEqual(4, len(logs))
 
@@ -109,22 +105,16 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[3], 'a (interrupt)')
 
     def test_time_with_exception(self):
-        #This test is somewhat time dependent.
-        #I don't think it should ever fail, but if it does
-        #try running it again and see if it works that time.
 
         sink   = MemoryIO()
-        logger = BasicLogger(sink,with_stamp=False, with_name=False)
+        logger = BasicLogger(sink)
         logs   = sink.items
         
-        try:
-            with self.assertRaises(Exception) as e:
-                with logger.time('a'):
-                    logger.log('c')
-                    logger.log('d')
-                    raise Exception()
-        except:
-            pass
+        with self.assertRaises(Exception) as e:
+            with logger.time('a'):
+                logger.log('c')
+                logger.log('d')
+                raise Exception()
 
         self.assertEqual(4, len(logs))
 
@@ -134,22 +124,16 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertRegex(logs[3], '^a \\(\\d+\\.\\d+ seconds\\) \\(exception\\)$')
 
     def test_time_with_interrupt(self):
-        #This test is somewhat time dependent.
-        #I don't think it should ever fail, but if it does
-        #try running it again and see if it works that time.
 
         sink   = MemoryIO()
-        logger = BasicLogger(sink,with_stamp=False, with_name=False)
+        logger = BasicLogger(sink)
         logs   = sink.items
         
-        try:
-            with self.assertRaises(Exception) as e:
-                with logger.time('a'):
-                    logger.log('c')
-                    logger.log('d')
-                    raise KeyboardInterrupt()
-        except:
-            pass
+        with self.assertRaises(BaseException) as e:
+            with logger.time('a'):
+                logger.log('c')
+                logger.log('d')
+                raise KeyboardInterrupt()
 
         self.assertEqual(4, len(logs))
 
@@ -165,7 +149,7 @@ class BasicLogger_Tests(unittest.TestCase):
         #try running it again and see if it works that time.
 
         sink   = MemoryIO()
-        logger = BasicLogger(sink,with_stamp=False, with_name=False)
+        logger = BasicLogger(sink)
         logs   = sink.items
 
         with logger.time('a'):
@@ -186,8 +170,12 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_time_with_3(self):
 
+        #This test is somewhat time dependent.
+        #I don't think it should ever fail, but if it does
+        #try running it again and see if it works that time.
+
         sink   = MemoryIO()
-        logger = BasicLogger(sink, with_stamp=False)
+        logger = BasicLogger(sink)
         logs   = sink.items
 
         with logger.time('a'):
@@ -223,8 +211,12 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_time_two_separate(self):
 
+        #This test is somewhat time dependent.
+        #I don't think it should ever fail, but if it does
+        #try running it again and see if it works that time.
+
         sink   = MemoryIO()
-        logger = BasicLogger(sink, with_stamp=False)
+        logger = BasicLogger(sink)
         logs   = sink.items
 
         with logger.time('a'):
@@ -260,54 +252,6 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertAlmostEqual(float(logs[9 ][3:7]), 0.05, 1)
         self.assertAlmostEqual(float(logs[10][3:7]), 0.10, 1)
 
-    def test_log_exception_1(self):
-
-        sink   = MemoryIO()
-        logger = BasicLogger(sink, with_stamp=False)
-        logs   = sink.items
-
-        try:
-            raise Exception("Test Exception")
-        except Exception as ex:
-            logger.log(ex)
-
-            tb = ''.join(traceback.format_tb(ex.__traceback__))
-            msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
-
-            expected_msg = f"Unexpected exception:\n\n{tb}\n  {msg}"
-
-            self.assertEqual(len(logs), 1)
-            self.assertEqual(logs[0], expected_msg)
-
-    def test_log_exception_2(self):
-
-        sink      = MemoryIO()
-        logger    = BasicLogger(sink, with_stamp=False)
-        logs      = sink.items
-        exception = Exception("Test Exception")
-
-        logger.log('a')
-        logger.log(exception)
-
-        tb = ''.join(traceback.format_tb(exception.__traceback__))
-        msg = ''.join(traceback.TracebackException.from_exception(exception).format_exception_only())
-
-        expected_msg = f"Unexpected exception:\n\n{tb}\n  {msg}"
-
-        self.assertEqual(logs[0], "a")
-        self.assertEqual(logs[1], expected_msg)
-
-    def test_log_coba_exception(self):
-
-        sink      = MemoryIO()
-        logger    = BasicLogger(sink, with_stamp=False)
-        logs      = sink.items
-        exception = CobaException("Test Exception")
-
-        logger.log(exception)
-
-        self.assertEqual(logs[0], "Test Exception")
-
     def test_sink_is_set(self):
         logger = BasicLogger(MemoryIO())
         self.assertIsInstance(logger.sink, MemoryIO)
@@ -319,7 +263,7 @@ class IndentLogger_Tests(unittest.TestCase):
     def test_log(self):
 
         sink   = MemoryIO()
-        logger = IndentLogger(sink, with_stamp=False, with_name=False)
+        logger = IndentLogger(sink)
         logs   = sink.items
 
         logger.log('a')
@@ -332,12 +276,8 @@ class IndentLogger_Tests(unittest.TestCase):
 
     def test_log_with_1(self):
 
-        #This test is somewhat time dependent.
-        #I don't think it should ever fail, but if it does
-        #try running it again and see if it works that time.
-
         sink   = MemoryIO()
-        logger = IndentLogger(sink,with_stamp=False, with_name=False)
+        logger = IndentLogger(sink)
         logs   = sink.items
 
         with logger.log('a'):
@@ -358,7 +298,7 @@ class IndentLogger_Tests(unittest.TestCase):
         #try running it again and see if it works that time.
 
         sink   = MemoryIO()
-        logger = IndentLogger(sink,with_stamp=False, with_name=False)
+        logger = IndentLogger(sink)
         logs   = sink.items
 
         with logger.time('a'):
@@ -377,8 +317,13 @@ class IndentLogger_Tests(unittest.TestCase):
 
     def test_time_with_3(self):
 
+        #This test is somewhat time dependent.
+        #I don't think it should ever fail, but if it does
+        #try running it again and see if it works that time.
+
+
         sink   = MemoryIO()
-        logger = IndentLogger(sink, with_stamp=False)
+        logger = IndentLogger(sink)
         logs   = sink.items
 
         with logger.time('a'):
@@ -409,8 +354,12 @@ class IndentLogger_Tests(unittest.TestCase):
     
     def test_time_two_separate(self):
 
+        #This test is somewhat time dependent.
+        #I don't think it should ever fail, but if it does
+        #try running it again and see if it works that time.
+
         sink   = MemoryIO()
-        logger = IndentLogger(sink, with_stamp=False)
+        logger = IndentLogger(sink)
         logs   = sink.items
 
         with logger.time('a'):
@@ -443,12 +392,8 @@ class IndentLogger_Tests(unittest.TestCase):
 
     def test_time_with_exception(self):
 
-        #This test is somewhat time dependent.
-        #I don't think it should ever fail, but if it does
-        #try running it again and see if it works that time.
-
         sink   = MemoryIO()
-        logger = IndentLogger(sink,with_stamp=False, with_name=False)
+        logger = IndentLogger(sink)
         logs   = sink.items
 
         try:
@@ -472,7 +417,7 @@ class IndentLogger_Tests(unittest.TestCase):
         #try running it again and see if it works that time.
 
         sink   = MemoryIO()
-        logger = IndentLogger(sink,with_stamp=False, with_name=False)
+        logger = IndentLogger(sink)
         logs   = sink.items
 
         try:
@@ -489,70 +434,195 @@ class IndentLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[1], '  * c')
         self.assertEqual(logs[2], '  * d')
 
-    def test_log_exception_1(self):
-        
-        sink   = MemoryIO()
-        logger = IndentLogger(sink, with_stamp=False)
-        logs   = sink.items
-
-        try:
-            raise Exception("Test Exception")
-        except Exception as ex:
-            logger.log(ex)
-
-            tb = ''.join(traceback.format_tb(ex.__traceback__))
-            msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
-
-            expected_msg = f"Unexpected exception:\n\n{tb}\n  {msg}"
-
-            self.assertEqual(len(logs), 1)
-            self.assertEqual(logs[0], expected_msg)
-
-    def test_log_exception_2(self):
-        
-        sink   = MemoryIO()
-        logger = IndentLogger(sink, with_stamp=False)
-        logs   = sink.items
-        exception = Exception("Test Exception")
-
-        logger.log('a')
-        logger.log(exception)
-
-        tb  = ''.join(traceback.format_tb(exception.__traceback__))
-        msg = ''.join(traceback.TracebackException.from_exception(exception).format_exception_only())
-
-        expected_msg = f"Unexpected exception:\n\n{tb}\n  {msg}"
-
-        self.assertEqual(logs[0], "a")
-        self.assertEqual(logs[1], expected_msg)
-
-    def test_log_coba_exception(self):
-        
-        sink      = MemoryIO()
-        logger    = IndentLogger(sink, with_stamp=False)
-        logs      = sink.items
-        exception = CobaException("Test Exception")
-
-        logger.log(exception)
-
-        self.assertEqual(logs[0], "Test Exception")
-
-    @unittest.skip("Known bug, should fix with refactor of logging.")
-    def test_log_without_stamp_with_name(self):
-        
-        sink   = MemoryIO()
-        logger = IndentLogger(sink, with_stamp=False, with_name=True)
-        logs   = sink.items
-
-        logger.log('a')
-
-        self.assertEqual(logs[0], "a")
-
     def test_sink_is_set(self):
         logger = IndentLogger(MemoryIO())
         self.assertIsInstance(logger.sink, MemoryIO)
         logger.sink = NullIO()
         self.assertIsInstance(logger.sink, NullIO)
+
+class DecoratedLogger_Tests(unittest.TestCase):
+
+    def test_no_decorators(self):
+        pre_decorators  = []
+        post_decorators = []
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        logger.log('a')
+        self.assertEqual(['a'], sink.items)
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        with logger.log('a'):
+            pass
+
+        self.assertEqual(['a', 'a (completed)'], sink.items)
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        with logger.time('a'):
+            pass
+
+        self.assertEqual(['a', 'a (0.0 seconds) (completed)'], sink.items)
+
+    def test_pre_decorators(self):
+        pre_decorators  = [LogDecorator(1),LogDecorator(2)]
+        post_decorators = []
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        logger.log('a')
+        self.assertEqual(['2 -- 1 -- a'], sink.items)
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        with logger.log('a'):
+            pass
+
+        self.assertEqual(['2 -- 1 -- a', '2 -- 1 -- a (completed)'], sink.items)
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        with logger.time('a'):
+            pass
+
+        self.assertEqual(['2 -- 1 -- a', '2 -- 1 -- a (0.0 seconds) (completed)'], sink.items)
+
+    def test_post_decorators(self):
+        pre_decorators  = []
+        post_decorators = [LogDecorator(1),LogDecorator(2)]
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        logger.log('a')
+        self.assertEqual(['2 -- 1 -- a'], sink.items)
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        with logger.log('a'):
+            pass
+
+        self.assertEqual(['2 -- 1 -- a', '2 -- 1 -- a (completed)'], sink.items)
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        with logger.time('a'):
+            pass
+
+        self.assertEqual(['2 -- 1 -- a', '2 -- 1 -- a (0.0 seconds) (completed)'], sink.items)
+
+    def test_pre_post_decorators(self):
+        pre_decorators  = [LogDecorator(1)]
+        post_decorators = [LogDecorator(2)]
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        logger.log('a')
+        self.assertEqual(['2 -- 1 -- a'], sink.items)
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        with logger.log('a'):
+            pass
+
+        self.assertEqual(['2 -- 1 -- a', '2 -- 1 -- a (completed)'], sink.items)
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        with logger.time('a'):
+            pass
+
+        self.assertEqual(['2 -- 1 -- a', '2 -- 1 -- a (0.0 seconds) (completed)'], sink.items)
+
+    def test_sink(self):
+        pre_decorators  = [LogDecorator(1)]
+        post_decorators = [LogDecorator(2)]
+
+        sink   = MemoryIO()
+        logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
+
+        self.assertIs(logger.sink, sink)
+
+        sink = MemoryIO()
+        logger.sink = sink
+
+        self.assertIs(logger.sink, sink)
+
+        logger.log('a')
+        self.assertEqual(['2 -- 1 -- a'], sink.items)
+
+class ExceptLog_Tests(unittest.TestCase):
+    
+    def test_filter_exception(self):
+
+        decorator = ExceptLog()
+        exception = Exception("Test Exception")
+
+        log = decorator.filter(exception)
+
+        tb  = ''.join(traceback.format_tb(exception.__traceback__))
+        msg = ''.join(traceback.TracebackException.from_exception(exception).format_exception_only())
+
+        expected_log = f"Unexpected exception:\n\n{tb}\n  {msg}"
+
+        self.assertEqual(log, expected_log)
+
+
+    def test_filter_exception_raise(self):
+        
+        decorator = ExceptLog()
+        exception = Exception("Test Exception")
+
+        try:
+            raise exception
+        except Exception as ex:
+            log = decorator.filter(ex)
+
+            tb = ''.join(traceback.format_tb(ex.__traceback__))
+            msg = ''.join(traceback.TracebackException.from_exception(ex).format_exception_only())
+
+            expected_log = f"Unexpected exception:\n\n{tb}\n  {msg}"
+
+            self.assertEqual(log, expected_log)
+
+    def test_filter_coba_exception(self):
+        
+        decorator = ExceptLog()
+        exception = CobaException("Test Exception")
+
+        log = decorator.filter(exception)
+
+        self.assertEqual(log, "Test Exception")
+
+class NameLog_Tests(unittest.TestCase):
+
+    def test_filter(self):
+        decorator = NameLog()
+        name = f"pid-{multiprocessing.current_process().pid:<6}"
+        self.assertEqual(decorator.filter('a'), f'{name} -- a' )
+
+class StampLog_Tests(unittest.TestCase):
+
+    def test_log(self):
+
+        now = datetime.datetime.now()
+
+        with unittest.mock.patch('coba.contexts.StampLog._now', return_value=now):
+            decorator = StampLog()
+            stamp = now.strftime('%Y-%m-%d %H:%M:%S')
+            self.assertEqual(decorator.filter('a'), f'{stamp} -- a' )
 
 if __name__ == '__main__':
     unittest.main()

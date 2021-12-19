@@ -3,8 +3,8 @@
 This module contains coba configuration functionality.
 """
 
-from coba.contexts.cachers import NullCacher, MemoryCacher, DiskCacher, Cacher, ConcurrentCacher
-from coba.contexts.loggers import NullLogger, BasicLogger, IndentLogger, Logger
+from coba.contexts.cachers import Cacher, NullCacher, MemoryCacher, DiskCacher, ConcurrentCacher
+from coba.contexts.loggers import Logger, NullLogger, BasicLogger, IndentLogger, ExceptLog, NameLog, StampLog, DecoratedLogger
 from coba.contexts.core    import CobaContext, LearnerContext
 
 __all__ =[
@@ -18,5 +18,9 @@ __all__ =[
     'NullLogger',
     'BasicLogger',
     'IndentLogger',
+    'ExceptLog',
+    'NameLog',
+    'StampLog',
+    'DecoratedLogger',
     'Logger'
 ]
