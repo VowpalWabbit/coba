@@ -649,7 +649,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(0, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(0, len(filtered_result.interactions))
-        self.assertEqual(["No simulation was found with interaction data for every learner."], CobaContext.logger.sink.items)
+        self.assertEqual(["There was no environment which was finished for every learner."], CobaContext.logger.sink.items)
 
     def test_filter_env(self):
 
@@ -771,7 +771,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual("{'Learners': 3, 'Environments': 2, 'Interactions': 3}", str(Result(1, 1, sims, lrns, ints)))
 
     def test_ipython_display_(self):
-        
+
         with unittest.mock.patch("builtins.print") as mock:
 
             sims = {1:{}, 2:{}}
@@ -787,7 +787,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual([], list(result._plot_learners_data(xlim=None)))
 
     def test_plot_learners_data_one_environment_all_default(self):
-        
+ 
         lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
         ints = {(0,1): {"_packed":{"reward":[1,2]}},(0,2):{"_packed":{"reward":[1,2]}}}
 
@@ -897,7 +897,7 @@ class Result_Tests(unittest.TestCase):
                     Result(None, None, {}, lrns, ints).plot_learners()
 
                     plt_figure().add_subplot.assert_called_with(111)
-                                    
+
                     self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[0][0])
                     self.assertEqual('learner_1'     , mock_ax.errorbar.call_args_list[0][1]["label"])
                     self.assertEqual(0               , mock_ax.errorbar.call_args_list[0][1]["yerr"])
@@ -935,7 +935,7 @@ class Result_Tests(unittest.TestCase):
                     Result(None, None, {}, lrns, ints).plot_learners(each=True,xlim=(0,1),ylim=(0,1))
 
                     plt_figure().add_subplot.assert_called_with(111)
-                                    
+
                     self.assertEqual(([1],[1.5]) , mock_ax.errorbar.call_args_list[0][0])
                     self.assertEqual('learner_1' , mock_ax.errorbar.call_args_list[0][1]["label"])
                     self.assertEqual(0           , mock_ax.errorbar.call_args_list[0][1]["yerr"])
@@ -971,7 +971,7 @@ class Result_Tests(unittest.TestCase):
                     Result(None, None, {}, lrns, ints).plot_learners(filename='abc')
 
                     plt_figure().add_subplot.assert_called_with(111)
-                                    
+
                     self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[0][0])
                     self.assertEqual('learner_1'     , mock_ax.errorbar.call_args_list[0][1]["label"])
                     self.assertEqual(0               , mock_ax.errorbar.call_args_list[0][1]["yerr"])
@@ -1007,7 +1007,7 @@ class Result_Tests(unittest.TestCase):
                 Result(None, None, {}, lrns, ints).plot_learners(ax=mock_ax)
 
                 self.assertEqual(0, plt_figure().add_subplot.call_count)
-                                
+
                 self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[0][0])
                 self.assertEqual('learner_1'     , mock_ax.errorbar.call_args_list[0][1]["label"])
                 self.assertEqual(0               , mock_ax.errorbar.call_args_list[0][1]["yerr"])
@@ -1022,6 +1022,20 @@ class Result_Tests(unittest.TestCase):
 
                 mock_ax.set_xticks.called_once_with([2,2])
                 self.assertEqual(0, show.call_count)
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib is not installed so we must skip plotting tests")
+    def test_plot_learners_empty_results(self):
+        with unittest.mock.patch('matplotlib.pyplot.show') as show:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                CobaContext.logger = IndentLogger()
+                CobaContext.logger.sink = MemoryIO()
+
+                result = Result(None, None, {}, {}, {})
+                result.plot_learners()
+
+                self.assertEqual(0, plt_figure().add_subplot.call_count)
+                self.assertEqual([f"No data was found for plotting in the given results: {result}."], CobaContext.logger.sink.items)
 
 if __name__ == '__main__':
     unittest.main()

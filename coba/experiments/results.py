@@ -518,7 +518,7 @@ class Result:
         new_result._interactions = self.interactions.filter(environment_id=is_complete_sim)
 
         if len(new_result.environments) == 0:
-            CobaContext.logger.log(f"No simulation was found with interaction data for every learner.")
+            CobaContext.logger.log(f"There was no environment which was finished for every learner.")
 
         return new_result
 
@@ -585,37 +585,40 @@ class Result:
                 for Y in list(zip(*Z)):
                     ax.plot(X,Y, color=color, alpha=0.15)
 
-        padding = .05
-        ax.margins(0)
-        ax.set_xticks([min(ax.get_xlim()[1], max(ax.get_xlim()[0],x)) for x in ax.get_xticks()])
-        ax.margins(padding)
-
-        if xlim:
-            x_pad = padding*(xlim[1]-xlim[0])
-            ax.set_xlim(xlim[0]-x_pad, xlim[1]+x_pad)
-
-        if ylim:
-            y_pad = padding*(ylim[1]-ylim[0])
-            ax.set_ylim(ylim[0]-y_pad, ylim[1]+y_pad)
-
-        ax.set_title(("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward", loc='left',pad=15)
-        ax.set_ylabel("Reward")
-        ax.set_xlabel("Interactions")
-
-        if ax.get_legend() is None:
-            scale = 0.65
-            box1 = ax.get_position()
-            ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+        if ax is None:
+            CobaContext.logger.log(f"No data was found for plotting in the given results: {self}.")
         else:
-            ax.get_legend().remove()
+            padding = .05
+            ax.margins(0)
+            ax.set_xticks([min(ax.get_xlim()[1], max(ax.get_xlim()[0],x)) for x in ax.get_xticks()])
+            ax.margins(padding)
 
-        ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium') #type: ignore
+            if xlim:
+                x_pad = padding*(xlim[1]-xlim[0])
+                ax.set_xlim(xlim[0]-x_pad, xlim[1]+x_pad)
 
-        if show:
-            plt.show()
+            if ylim:
+                y_pad = padding*(ylim[1]-ylim[0])
+                ax.set_ylim(ylim[0]-y_pad, ylim[1]+y_pad)
 
-        if filename:
-            plt.savefig(filename, dpi=300)
+            ax.set_title(("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward", loc='left',pad=15)
+            ax.set_ylabel("Reward")
+            ax.set_xlabel("Interactions")
+
+            if ax.get_legend() is None:
+                scale = 0.65
+                box1 = ax.get_position()
+                ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+            else:
+                ax.get_legend().remove()
+
+            ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium') #type: ignore
+
+            if show:
+                plt.show()
+
+            if filename:
+                plt.savefig(filename, dpi=300)
 
     def _plot_learners_data(self, xlim: Tuple[Number,Number] = None, span: int = None, err: Literal['se','sd'] = None):
 
