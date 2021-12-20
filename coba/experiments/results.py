@@ -627,7 +627,7 @@ class Result:
         for progressive in self.interactions.to_progressive_lists(span=span,each=True):
             progressives[progressive[0]].append(progressive[2:])
 
-        if progressives and not xlim or xlim[0] < xlim[1]:
+        if progressives and (not xlim or xlim[0] < xlim[1]):
 
             for learner_id in sorted(self.learners.keys, key=lambda id: self.learners[id]["full_name"]):
 

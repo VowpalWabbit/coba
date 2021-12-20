@@ -782,6 +782,10 @@ class Result_Tests(unittest.TestCase):
             result._ipython_display_()
             mock.assert_called_once_with(str(result))
 
+    def test_plot_learners_data_empty_result_xlim_none(self):
+        result = Result(None, None, {}, {}, {})
+        self.assertEqual([], list(result._plot_learners_data(xlim=None)))
+
     def test_plot_learners_data_one_environment_all_default(self):
         
         lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
