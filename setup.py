@@ -2,7 +2,7 @@
 import setuptools
 
 MAJOR               = 4
-MINOR               = 3
+MINOR               = 4
 MICRO               = 0
 VERSION             = f"{MAJOR}.{MINOR}.{MICRO}"
 
