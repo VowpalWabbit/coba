@@ -9,8 +9,8 @@ import collections.abc
 
 from itertools import islice
 from collections import OrderedDict
-from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, Callable, Optional
 
+from coba.typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, Callable, Optional
 from coba.random import CobaRandom
 from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder, CobaJsonEncoder, CobaJsonDecoder
 from coba.exceptions import CobaException

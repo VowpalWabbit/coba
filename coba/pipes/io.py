@@ -3,8 +3,8 @@ import gzip
 
 from collections.abc import Iterator
 from queue import Queue
-from typing import Iterable, Sequence, TypeVar, Any, Generic
 
+from coba.typing import Iterable, Sequence, TypeVar, Any, Generic
 from coba.pipes.primitives import Sink, Source
 
 _T     = TypeVar("_T"    , bound=Any                    )

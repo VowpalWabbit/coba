@@ -11,11 +11,10 @@ Remarks:
     could always change in the future, making randomization by seed potentially non-fixed.
 """
 
-import math
 import random as std_random
 import itertools
 
-from typing import Optional, Sequence, Any, List
+from coba.typing import Optional, Sequence, Any, List
 
 class CobaRandom:
     """A random number generator via a linear congruential generator."""

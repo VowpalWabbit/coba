@@ -2,9 +2,9 @@
 import unittest
 
 from multiprocessing import current_process
-from typing import Iterable, Any
-from coba.exceptions import CobaException
 
+from coba.typing import Iterable, Any
+from coba.exceptions import CobaException
 from coba.pipes import Filter, MemoryIO
 from coba.pipes.core import Pipe, Foreach, SourceFilters, FiltersFilter, FiltersSink, Pipeline
 

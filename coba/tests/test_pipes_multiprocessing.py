@@ -2,8 +2,8 @@ import unittest
 
 from threading       import Thread
 from multiprocessing import current_process
-from typing          import Iterable, Any
 
+from coba.typing import Iterable, Any
 from coba.pipes import Filter, MemoryIO, PipeMultiprocessor, Identity
 
 class NotPicklableFilter(Filter):

@@ -2,8 +2,8 @@ import time
 import unittest
 
 from multiprocessing import current_process
-from typing import Iterable, Any
 
+from coba.typing          import Iterable, Any
 from coba.contexts        import CobaContext, NullLogger 
 from coba.contexts        import NullCacher, MemoryCacher
 from coba.contexts        import IndentLogger, BasicLogger, ExceptLog, StampLog, NameLog, DecoratedLogger

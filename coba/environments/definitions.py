@@ -2,8 +2,8 @@
 import collections.abc
 
 from itertools import product
-from typing import Sequence, Dict, Any
 
+from coba.typing import Sequence, Dict, Any
 from coba.registry import CobaRegistry
 from coba.pipes import Filter
 from coba.exceptions import CobaException

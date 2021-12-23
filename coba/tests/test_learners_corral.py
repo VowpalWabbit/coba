@@ -1,8 +1,8 @@
 import unittest
 
 from statistics import mean
-from typing import Dict, Any
 
+from coba.typing import Dict, Any
 from coba.pipes import MemoryIO, NullIO
 from coba.contexts import LearnerContext
 from coba.random import CobaRandom

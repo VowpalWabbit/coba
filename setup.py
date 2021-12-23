@@ -30,8 +30,8 @@ setuptools.setup(
     ],
     install_requires = [
         'requests>=2',
-        'importlib-metadata',
-        'typing-extensions>=4.0'
+        'importlib-metadata>=1.0;python_version<"3.8"',
+        'typing-extensions>=4.0;python_version<"3.8"'
     ],
     python_requires=">=3.6",
 )

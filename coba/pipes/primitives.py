@@ -1,5 +1,6 @@
-from abc    import ABC, abstractmethod
-from typing import Any, TypeVar, Generic
+from abc import ABC, abstractmethod
+
+from coba.typing import Any, TypeVar, Generic
 
 _T_out = TypeVar("_T_out", bound=Any, covariant=True    )
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)

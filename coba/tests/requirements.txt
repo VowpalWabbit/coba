@@ -1,6 +1,6 @@
 requests>=2
-importlib-metadata
-typing-extensions>=4.0
+importlib-metadata;python_version<"3.8"
+typing-extensions>=4.0;python_version<"3.8"
 coverage # for testing purposes only
 vowpalwabbit # optional
 wheel # optional & needed for sklearn install

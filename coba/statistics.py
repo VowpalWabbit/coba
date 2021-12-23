@@ -1,6 +1,6 @@
 """The coba.statistics module contains algorithms and methods to calculate various statistics."""
 
-from typing import Sequence
+from coba.typing import Sequence
 
 def iqr(values: Sequence[float]) -> float:
 

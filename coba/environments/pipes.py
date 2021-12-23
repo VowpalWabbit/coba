@@ -1,5 +1,4 @@
-from typing import Iterable, Dict, Any
-
+from coba.typing import Iterable, Dict, Any
 from coba.pipes import Pipe
 
 from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction

@@ -5,7 +5,8 @@ import traceback
 
 from multiprocessing import Manager, current_process
 from threading       import Thread
-from typing          import Iterable, Any
+
+from coba.typing import Iterable, Any
 
 from coba.pipes.core       import Pipe, Foreach
 from coba.pipes.primitives import Filter

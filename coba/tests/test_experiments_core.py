@@ -2,8 +2,8 @@ import unittest
 import math
 
 from pathlib import Path
-from typing import cast
 
+from coba.typing import cast
 from coba.environments import Environment, LambdaSimulation
 from coba.pipes import Source, MemoryIO
 from coba.learners import Learner

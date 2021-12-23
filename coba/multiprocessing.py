@@ -1,6 +1,7 @@
 from multiprocessing import Manager
 from threading import Thread
-from typing import Iterable, Any, Dict
+
+from coba.typing import Iterable, Any, Dict
 
 from coba.utilities import coba_exit
 from coba.contexts  import CobaContext, ConcurrentCacher, Logger, Cacher

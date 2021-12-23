@@ -3,9 +3,8 @@ import json
 
 from numbers import Number
 from collections import defaultdict
-from typing_extensions import Literal
-from typing import Tuple, Sequence, Any, Iterable, Dict, Union
 
+from coba.typing import Tuple, Sequence, Any, Iterable, Dict, Union, Literal
 from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Reservoir
 from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException

@@ -7,10 +7,8 @@ and for the core functionality to specify classes creation recipes in config fil
 from itertools import repeat
 from importlib import reload
 
-from importlib_metadata import entry_points #type: ignore 
-
-from typing import Dict, Any, Callable
-
+from coba.typing import Dict, Any, Callable
+from coba.backport.metadata import entry_points 
 from coba.exceptions import CobaException
 
 def coba_registry_class(name:str) -> Callable[[type],type]:
@@ -151,7 +149,7 @@ class CobaRegistry:
 
             if args is not None and kwargs is not None:
                 return cls.retrieve(name)(*args, **kwargs)
-            
+
             elif args is not None and kwargs is None:
                 try:
                     return cls.retrieve(name)(*args)

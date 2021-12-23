@@ -1,5 +1,4 @@
-from typing import Any, Dict, Sequence
-
+from coba.typing import Any, Dict, Sequence
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
