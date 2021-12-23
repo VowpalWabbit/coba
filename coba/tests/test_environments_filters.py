@@ -4,16 +4,16 @@ from math import isnan
 
 from coba.contexts import CobaContext, NullLogger
 from coba.environments import LoggedInteraction, SimulatedInteraction
-from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, ToWarmStart, Shuffle
+from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, ToWarmStart, Shuffle, Take, Reservoir
 
 CobaContext.logger = NullLogger()
 
-class Shuffle_tests(unittest.TestCase):
+class Shuffle_Tests(unittest.TestCase):
 
     def test_str(self):
         self.assertEqual("{'shuffle': 1}", str(Shuffle(1)))
 
-class Sort_tests(unittest.TestCase):
+class Sort_Tests(unittest.TestCase):
 
     def test_sort1_logged(self):
 
@@ -97,7 +97,63 @@ class Sort_tests(unittest.TestCase):
     def test_str(self):
         self.assertEqual("{'sort': [0]}", str(Sort([0])))
 
-class Scale_tests(unittest.TestCase):
+class Take_Tests(unittest.TestCase):
+    def test_bad_count(self):
+        with self.assertRaises(ValueError):
+            Take(-1)
+
+        with self.assertRaises(ValueError):
+            Take('A')
+
+    def test_take1(self):
+
+        items = [ 1,2,3 ]
+        take_items = list(Take(1).filter(items))
+
+        self.assertEqual(1, len(take_items))
+        self.assertEqual(items[0], take_items[0])
+
+        self.assertEqual(3, len(items))
+        self.assertEqual(items[0], items[0])
+        self.assertEqual(items[1], items[1])
+        self.assertEqual(items[2], items[2])
+
+    def test_take4(self):
+        items = [ 1,2,3 ]
+        take_items = list(Take(4).filter(items))
+
+        self.assertEqual(3, len(items))
+        self.assertEqual(0, len(take_items))
+
+    def test_params(self):
+        self.assertEqual({'take':None}, Take(None).params)
+        self.assertEqual({'take':2}, Take(2).params)
+
+    def test_str(self):
+        self.assertEqual("{'take': None}", str(Take(None)))
+
+class Resevoir_Tests(unittest.TestCase):
+
+    def test_bad_count(self):
+        with self.assertRaises(ValueError):
+            Reservoir(-1)
+
+        with self.assertRaises(ValueError):
+            Reservoir('A')
+
+    def test_take_seed(self):
+        take_items = list(Reservoir(2,seed=1).filter(range(10000)))
+        self.assertEqual(2, len(take_items))
+        self.assertLess(0, take_items[0])
+        self.assertLess(0, take_items[1])
+
+    def test_params(self):
+        self.assertEqual({"reservoir_count":2, "reservoir_seed":3}, Reservoir(2,3).params)
+    
+    def test_str(self):
+        self.assertEqual(str({"reservoir_count":2, "reservoir_seed":3}), str(Reservoir(2,3)))
+
+class Scale_Tests(unittest.TestCase):
 
     def test_scale_min_and_minmax_using_all_logged(self):
 
@@ -375,7 +431,7 @@ class Scale_tests(unittest.TestCase):
         self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":None}, Scale(shift=2,scale=1/2).params)
         self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":10}, Scale(shift=2,scale=1/2,using=10).params)
 
-class Cycle_tests(unittest.TestCase):
+class Cycle_Tests(unittest.TestCase):
 
     def test_after_0(self):
 
@@ -471,7 +527,7 @@ class Cycle_tests(unittest.TestCase):
         self.assertEqual({"cycle_after":0 }, Cycle().params)
         self.assertEqual({"cycle_after":2 }, Cycle(2).params)
 
-class Impute_tests(unittest.TestCase):
+class Impute_Tests(unittest.TestCase):
 
     def test_impute_mean_logged(self):
 
@@ -628,7 +684,7 @@ class Impute_tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual({ "impute_stat": "median", "impute_using": 2 }, Impute("median",2).params)
 
-class Binary_tests(unittest.TestCase):
+class Binary_Tests(unittest.TestCase):
     def test_binary(self):
         interactions = [
             SimulatedInteraction((7,2), [1,2], rewards=[.2,.3]),
@@ -645,7 +701,7 @@ class Binary_tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual({'binary':True}, Binary().params)
 
-class Sparse_tests(unittest.TestCase):
+class Sparse_Tests(unittest.TestCase):
     def test_sparse_simulated_no_context_and_action(self):
         
         sparse_interactions = list(Sparse(action=True).filter([SimulatedInteraction(None, [1,2], rewards=[0,1]) ]))
@@ -703,7 +759,7 @@ class Sparse_tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparse().params)
 
-class ToWarmStart_tests(unittest.TestCase):
+class ToWarmStart_Tests(unittest.TestCase):
     
     def test_to_warmstart(self):
         interactions = [

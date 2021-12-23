@@ -9,7 +9,7 @@ from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
-from coba.pipes import Take, JsonEncode
+from coba.pipes import Reservoir, JsonEncode
 
 class Performance_Tests(unittest.TestCase):
     
@@ -178,13 +178,13 @@ class Performance_Tests(unittest.TestCase):
 
         self.assertLess(time1/time2,1.5)
 
-    def test_take_performance(self):
+    def test_reservoir_performance(self):
 
         x = list(range(10000))
         
-        time = statistics.mean(timeit.repeat(lambda:list(Take(2,seed=1).filter(x)), repeat=10, number=100))
+        time = statistics.mean(timeit.repeat(lambda:list(Reservoir(2,seed=1).filter(x)), repeat=10, number=100))
 
-        #0.015 was my final average time.
+        #0.010 was my final average time.
         self.assertLess(time, .06)
 
     def test_jsonencode_performance(self):

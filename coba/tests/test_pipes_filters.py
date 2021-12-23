@@ -5,7 +5,7 @@ from coba.pipes import LibSvmReader, ArffReader, CsvReader
 from coba.pipes import Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.contexts import NullLogger, CobaContext
-from coba.pipes.filters import Default
+from coba.pipes.filters import Default, Reservoir
 
 CobaContext.logger = NullLogger()
 
@@ -51,7 +51,7 @@ class Take_Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Take('A')
 
-    def test_take1_no_seed(self):
+    def test_take1(self):
 
         items = [ 1,2,3 ]
         take_items = list(Take(1).filter(items))
@@ -64,7 +64,7 @@ class Take_Tests(unittest.TestCase):
         self.assertEqual(items[1], items[1])
         self.assertEqual(items[2], items[2])
 
-    def test_take2_no_seed(self):
+    def test_take2(self):
         items = [ 1,2,3 ]
         take_items = list(Take(2).filter(items))
 
@@ -77,7 +77,7 @@ class Take_Tests(unittest.TestCase):
         self.assertEqual(items[1], items[1])
         self.assertEqual(items[2], items[2])
 
-    def test_take3_no_seed(self):
+    def test_take3(self):
         items = [ 1,2,3 ]
         take_items = list(Take(3).filter(items))
 
@@ -91,19 +91,42 @@ class Take_Tests(unittest.TestCase):
         self.assertEqual(items[1], items[1])
         self.assertEqual(items[2], items[2])
 
-    def test_take4_no_seed(self):
+    def test_take4(self):
         items = [ 1,2,3 ]
         take_items = list(Take(4).filter(items))
 
         self.assertEqual(3, len(items))
         self.assertEqual(0, len(take_items))
 
-    def test_take2_seed(self):
-        take_items = list(Take(2,seed=1).filter(range(10000)))
+class Resevoir_Tests(unittest.TestCase):
 
+    def test_bad_count(self):
+        with self.assertRaises(ValueError):
+            Reservoir(-1)
+
+        with self.assertRaises(ValueError):
+            Reservoir('A')
+
+    def test_take_seed(self):
+        take_items = list(Reservoir(2,seed=1).filter(range(10000)))
         self.assertEqual(2, len(take_items))
-        self.assertLess(1, take_items[0])
-        self.assertLess(1, take_items[1])
+        self.assertLess(0, take_items[0])
+        self.assertLess(0, take_items[1])
+
+    def test_take_none_seed(self):
+        take_items = list(Reservoir(None,seed=1).filter(range(10)))
+        self.assertEqual(10, len(take_items))
+
+    def test_take_0_seed(self):
+        take_items = list(Reservoir(0,seed=1).filter(range(10)))
+        self.assertEqual(0, len(take_items))
+
+    def test_take_seed_keep_first(self):
+        take_items = list(Reservoir(2,seed=1,keep_first=True).filter(range(10000)))
+        self.assertEqual(3, len(take_items))
+        self.assertEqual(0, take_items[0])
+        self.assertLess(0, take_items[1])
+        self.assertLess(0, take_items[2])
 
 class CsvReader_Tests(unittest.TestCase):
     def test_dense_sans_empty(self):

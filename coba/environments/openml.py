@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing_extensions import Literal
 from typing import Tuple, Sequence, Any, Iterable, Dict, Union
 
-from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Take
+from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Reservoir
 from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
@@ -103,7 +103,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                 return "?" in row_values or "" in row_values
             
             drops     = Drop(drop_cols=ignored, drop_row=row_has_missing_values)
-            takes     = Take(self._take, keep_first=True, seed=1)
+            takes     = Reservoir(self._take, seed=1, keep_first=True)
             defaults  = Default({target:"0"})
             encodes   = Encode(encoders)
             structure = Structure([None, target])

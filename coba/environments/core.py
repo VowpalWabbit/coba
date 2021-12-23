@@ -6,7 +6,7 @@ from typing import Sequence, overload, Union, Iterable, Iterator
 from coba.pipes import Source, DiskIO, JsonDecode
 
 from coba.environments.pipes       import EnvironmentPipe
-from coba.environments.filters     import EnvironmentFilter, Binary, Shuffle, Take, Sparse
+from coba.environments.filters     import EnvironmentFilter, Binary, Shuffle, Take, Sparse, Reservoir
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 from coba.environments.simulations import LinearSyntheticSimulation, LocalSyntheticSimulation
 from coba.environments.primitives  import Environment, LoggedEnvironment, SimulatedEnvironment, WarmStartEnvironment
@@ -99,9 +99,13 @@ class Environments:
         """Shuffle the order of the interactions in the Environments."""
         return self.filter([Shuffle(seed) for seed in seeds])
 
-    def take(self, n_interactions: int, seed: int = None) -> 'Environments':
-        """Take a fixed number of interactions and simultaneously apply a shuffle if given a seed."""
-        return self.filter(Take(n_interactions, seed))
+    def take(self, n_interactions: int) -> 'Environments':
+        """Take a fixed number of interactions from the Environments."""
+        return self.filter(Take(n_interactions))
+
+    def reservoir(self, n_interactions: int, seed: int = None) -> 'Environments':
+        """Take a random fixed number of interactions from the Environments."""
+        return self.filter(Reservoir(n_interactions, seed))
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""

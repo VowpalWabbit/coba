@@ -8,26 +8,34 @@ from itertools import islice, chain
 from typing_extensions import Literal
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple
 
-from coba.pipes import Take as PipesTake, Shuffle as PipesShuffle, Identity as PipesIdentity
+from coba import pipes
 from coba.random import CobaRandom
 from coba.statistics import iqr
 
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, Interaction, EnvironmentFilter
 
-class Take(PipesTake):
+class Take(pipes.Take):
     
     @property
     def params(self) -> Dict[str, Any]:
-
-        if self._seed is not None:
-            return { "take": self._count, "take_seed": self._seed }
-        else: 
-            return { "take": self._count }
+        return { "take": self._count }
 
     def __str__(self) -> str:
         return str(self.params)
 
-class Shuffle(PipesShuffle):
+class Reservoir(pipes.Reservoir):
+
+    def __init__(self, count: Optional[int], seed:int=1)-> None:
+        super().__init__(count, seed)
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "reservoir_count": self._count, "reservoir_seed": self._seed }
+
+    def __str__(self) -> str:
+        return str(self.params)
+
+class Shuffle(pipes.Shuffle):
     
     @property
     def params(self) -> Dict[str, Any]:
@@ -36,7 +44,7 @@ class Shuffle(PipesShuffle):
     def __str__(self) -> str:
         return str(self.params)
 
-class Identity(PipesIdentity):
+class Identity(pipes.Identity):
     
     @property
     def params(self) -> Dict[str, Any]:

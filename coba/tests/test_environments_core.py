@@ -171,15 +171,24 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(True, envs[1].params['sparse_A'])
 
     def test_take(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).take(1,2)
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).take(1)
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(1   , envs[0].params['take'])
-        self.assertEqual(2   , envs[0].params['take_seed'])
         self.assertEqual('B' , envs[1].params['id'])
         self.assertEqual(1   , envs[1].params['take'])
-        self.assertEqual(2   , envs[1].params['take_seed'])
+
+    def test_reservoir(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).reservoir(1,2)
+
+        self.assertEqual(2   , len(envs))
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(1   , envs[0].params['reservoir_count'])
+        self.assertEqual(2   , envs[0].params['reservoir_seed'])
+        self.assertEqual('B' , envs[1].params['id'])
+        self.assertEqual(1   , envs[1].params['reservoir_count'])
+        self.assertEqual(2   , envs[1].params['reservoir_seed'])
 
     def test_singular_filter(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1))
@@ -204,17 +213,15 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2   , envs[3].params['shuffle'])
 
     def test_two_step_filter(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1)).filter(Take(1,2))
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1)).filter(Take(1))
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(1   , envs[0].params['shuffle'])
         self.assertEqual(1   , envs[0].params['take'])
-        self.assertEqual(2   , envs[0].params['take_seed'])
         self.assertEqual('B' , envs[1].params['id'])
         self.assertEqual(1   , envs[1].params['shuffle'])
         self.assertEqual(1   , envs[1].params['take'])
-        self.assertEqual(2   , envs[1].params['take_seed'])
 
     def test_ipython_display(self):
         with unittest.mock.patch("builtins.print") as mock:

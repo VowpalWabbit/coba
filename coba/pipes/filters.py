@@ -44,22 +44,39 @@ class Shuffle(Filter[Iterable[Any], Iterable[Any]]):
 class Take(Filter[Iterable[Any], Iterable[Any]]):
     """Take a given number of items from an iterable."""
 
-    def __init__(self, count:Optional[int], seed: int = None, keep_first:bool = False) -> None:
+    def __init__(self, count:Optional[int]) -> None:
         """Instantiate a Take filter.
 
         Args:
+            count: The number of items we wish to take from the given iterable.
+        """
+
+        if count is not None and (not isinstance(count,int) or count < 0):
+            raise ValueError(f"Invalid parameter for count: {count}. An optional integer value >= 0 was expected.")
+        
+        self._count = count
+
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        items =  list(islice(items,self._count))
+        return items if len(items) == self._count else []
+
+class Reservoir(Filter[Iterable[Any], Iterable[Any]]):
+    def __init__(self, count:Optional[int], seed: int = 1, keep_first:bool = False) -> None:
+        """Instantiate a Resevoir filter.
+
+        Args:
             count     : The number of items we wish to take from the given iterable.
-            keep_first: Indicates if the first row should be kept with take applied to the rest. Useful for files with headers.
             seed      : An optional random seed to determine which random count items to take.
+            keep_first: Indicate whether the first row should be kept as is (useful for files with headers).
 
         Remarks:
-            We use Algorithm L as described by Kim-Hung Li. (1994) to ranomdly take count items.
+            We use Algorithm L as described by Kim-Hung Li. (1994) to take a random count of items.
 
         References:
             Kim-Hung Li. 1994. Reservoir-sampling algorithms of time complexity O(n(1 + log(N/n))). 
             ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
         """
-
+        
         if count is not None and (not isinstance(count,int) or count < 0):
             raise ValueError(f"Invalid parameter for Take: {count}. An optional integer value >= 0 was expected.")
 
@@ -69,28 +86,29 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 
-        if self._count is None: 
-            return items
-        else:
+        items    = iter(items)
+        first    = [next(items)] if self._keep_first else []
+        resevoir = list(islice(items,self._count))
 
-            items    = iter(items)
-            first    = [next(items)] if self._keep_first else []
-            resevoir = list(islice(items,self._count))
+        this_count = len(resevoir) if self._count is None else self._count
 
-            if self._seed is not None:
-                rng = CobaRandom(self._seed)
-                W = 1
+        if this_count == 0:
+            return []
 
-                try:
-                    while True:
-                        [r1,r2,r3] = rng.randoms(3)
-                        W = W * math.exp(math.log(r1)/self._count)
-                        S = math.floor(math.log(r2)/math.log(1-W))
-                        resevoir[int(r3*self._count-.001)] = next(itertools.islice(items,S,S+1))
-                except StopIteration:
-                    pass
+        if self._seed is not None:
+            rng = CobaRandom(self._seed)
+            W = 1
 
-            return itertools.chain( first, resevoir if len(resevoir) == self._count else [])
+            try:
+                while True:
+                    [r1,r2,r3] = rng.randoms(3)
+                    W = W * math.exp(math.log(r1)/this_count)
+                    S = math.floor(math.log(r2)/math.log(1-W))
+                    resevoir[int(r3*this_count-.001)] = next(itertools.islice(items,S,S+1))
+            except StopIteration:
+                pass
+
+        return itertools.chain( first, resevoir if len(resevoir) == this_count else [])
 
 class JsonEncode(Filter[Any, str]):
  
