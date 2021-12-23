@@ -1,8 +1,8 @@
 import math
 import collections.abc
 
-from itertools import chain, repeat, count
-from typing import Sequence, Dict, Any, Iterable, Union, List, Callable, Tuple, overload
+from itertools import chain, repeat, count, islice
+from typing import Sequence, Dict, Any, Iterable, Union, List, Callable, Tuple, overload, Optional
 
 from coba.pipes import Source, Filter  
 from coba.pipes import DiskIO, MemoryIO
@@ -21,22 +21,27 @@ T_Sparse_Rows = Iterable[Tuple[T_Sparse_Feat,Any]]
 class MemorySimulation(SimulatedEnvironment):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
 
-    def __init__(self, interactions: Sequence[SimulatedInteraction]) -> None:
+    def __init__(self, interactions: Sequence[SimulatedInteraction], str="MemorySimulation", params={}) -> None:
         """Instantiate a MemorySimulation.
 
         Args:
             interactions: The sequence of interactions in this simulation.
         """
         self._interactions = interactions
+        self._str          = str
+        self._params       = params
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
-        return {}
+        return self._params
 
     def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
         return self._interactions
+
+    def __str__(self) -> str:
+        return self._str
 
 class ClassificationSimulation(SimulatedEnvironment):
     """A simulation created from classification dataset with features and labels.
@@ -173,41 +178,85 @@ class LambdaSimulation(SimulatedEnvironment):
         This implementation is useful for creating a simulation from defined distributions.
     """
 
+    @overload
     def __init__(self,
-        n_interactions: int,
+        n_interactions: Optional[int],
         context       : Callable[[int               ],Context         ],
-        actions       : Callable[[int,Context       ],Sequence[Action]], 
+        actions       : Callable[[int,Context       ],Sequence[Action]],
         reward        : Callable[[int,Context,Action],float           ]) -> None:
         """Instantiate a LambdaSimulation.
 
         Args:
-            n_interactions: How many interactions the LambdaSimulation should have.
+            n_interactions: An optional integer indicating the number of interactions in the simulation.
             context: A function that should return a context given an index in `range(n_interactions)`.
             actions: A function that should return all valid actions for a given index and context.
             reward: A function that should return the reward for the index, context and action.
         """
 
-        self._interactions: List[SimulatedInteraction] = []
+    @overload
+    def __init__(self, 
+        n_interactions: Optional[int],
+        context       : Callable[[int               ,CobaRandom],Context         ],
+        actions       : Callable[[int,Context       ,CobaRandom],Sequence[Action]],
+        reward        : Callable[[int,Context,Action,CobaRandom],float           ],
+        seed          : int) -> None:
+        """Instantiate a LambdaSimulation.
 
-        for i in range(n_interactions):
-            _context  = context(i)
-            _actions  = actions(i, _context)
-            _rewards  = [ reward(i, _context, _action) for _action in _actions]
+        Args:
+            n_interactions: An optional integer indicating the number of interactions in the simulation.
+            context: A function that should return a context given an index and random state.
+            actions: A function that should return all valid actions for a given index, context and random state.
+            reward: A function that should return the reward for the index, context, action and random state.
+            seed: An integer used to seed the random state in order to guarantee repeatability.
+        """
 
-            self._interactions.append(SimulatedInteraction(_context, _actions, rewards=_rewards))
+    def __init__(self,n_interactions,context,actions,reward,seed=None) -> None:
+        """Instantiate a LambdaSimulation."""
+
+        self._n_interactions = n_interactions
+        self._context        = context
+        self._actions        = actions
+        self._reward         = reward
+        self._seed           = seed
 
     @property
     def params(self) -> Dict[str, Any]:
         """Paramaters describing the simulation."""
-        return {}
+
+        return {"lambda_seed": self._seed} if self._seed is not None else {}            
 
     def read(self) -> Iterable[SimulatedInteraction]:
         """Read the interactions in this simulation."""
-        
-        return self._interactions
+
+        rng = None if self._seed is None else CobaRandom(self._seed)
+
+        _context = lambda i    : self._context(i    ,rng) if rng else self._context(i) 
+        _actions = lambda i,c  : self._actions(i,c  ,rng) if rng else self._actions(i,c)
+        _reward  = lambda i,c,a: self._reward (i,c,a,rng) if rng else self._reward(i,c,a)  
+
+        for i in islice(count(), self._n_interactions):
+            context  = _context(i)
+            actions  = _actions(i, context)
+            rewards  = [ _reward(i, context, action) for action in actions]
+
+            yield SimulatedInteraction(context, actions, rewards=rewards)
 
     def __str__(self) -> str:
         return "LambdaSimulation"
+
+    def __reduce__(self) -> Tuple[object, ...]:
+        if self._n_interactions is not None:
+            return (MemorySimulation, (list(self.read()), str(self), self.params))
+        else:
+            message = (
+                "In general LambdaSimulation cannot be pickled because Python is unable to pickle lambda methods. "
+                "This is really only a problem if you are trying to perform an experiment with a LambdaSimulation and "
+                "multiple processes. There are three options to get around this limitation: (1) run your experiment "
+                "on a single process rather than multiple, (2) re-design your LambdaSimulation as a class that inherits "
+                "from LambdaSimulation (see coba.environments.simulations.LinearSyntheticSimulation for an example), "
+                "or (3) specify a finite number for n_interactions in the LambdaSimulation constructor (this allows "
+                "us to create the interactions in memory and convert to a MemorySimulation when pickling).")
+            raise CobaException(message)
 
 class ReaderSimulation(SimulatedEnvironment):
 
@@ -276,7 +325,7 @@ class ManikSimulation(ReaderSimulation):
 class LinearSyntheticSimulation(LambdaSimulation):
     
     def __init__(self, 
-        n_interactions: int=500, 
+        n_interactions: Optional[int] = 500, 
         n_actions: int=10, 
         n_context_feats:int = 10, 
         n_action_feats:int = 10, 
@@ -305,13 +354,13 @@ class LinearSyntheticSimulation(LambdaSimulation):
         actions = ( [rng.randoms(n_action_feats) for _ in range(n_actions)] for _ in count()) if n_actions else repeat(identity(n_actions))
         A_ident = None if n_action_feats else identity(n_actions)
 
-        def context(index:int) -> Context:
+        def context(index:int, rng: CobaRandom) -> Context:
             return rng.randoms(n_context_feats) if n_context_feats else None
 
-        def actions(index:int, context: Context) -> Sequence[Action]:
+        def actions(index:int, context: Context, rng: CobaRandom) -> Sequence[Action]:
             return  [rng.randoms(n_action_feats) for _ in range(n_actions)] if n_action_feats else A_ident
 
-        def reward(index:int, context:Context, action:Action) -> float:
+        def reward(index:int, context:Context, action:Action, rng: CobaRandom) -> float:
 
             W = weights
             X = context or [1]
@@ -323,7 +372,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
             
             return min(1,max(0,r+e))
 
-        super().__init__(n_interactions, context, actions, reward)
+        super().__init__(n_interactions, context, actions, reward, seed)
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -344,11 +393,11 @@ class LinearSyntheticSimulation(LambdaSimulation):
 class LocalSyntheticSimulation(LambdaSimulation):
 
     def __init__(self,
-        n_interactions    : int = 500,
-        n_contexts        : int = 200,
+        n_interactions: Optional[int] = 500,
+        n_contexts: int = 200,
         n_context_features: int = 2,
-        n_actions         : int = 10,
-        seed:int = 1) -> None:
+        n_actions: int = 10,
+        seed: int = 1) -> None:
 
         self._n_interactions     = n_interactions
         self._n_context_features = n_context_features
@@ -366,16 +415,16 @@ class LocalSyntheticSimulation(LambdaSimulation):
             for action in actions:
                 rewards[(context,action)] = rng.random()
 
-        def context_generator(index:int):
+        def context_generator(index:int, rng: CobaRandom):
             return rng.choice(contexts)
 
-        def action_generator(index:int, context:Tuple[float,...]):
+        def action_generator(index:int, context:Tuple[float,...], rng: CobaRandom):
             return actions
 
-        def reward_function(index:int, context:Tuple[float,...], action: Tuple[int,...]):
+        def reward_function(index:int, context:Tuple[float,...], action: Tuple[int,...], rng: CobaRandom):
             return rewards[(context,action)]
 
-        return super().__init__(self._n_interactions, context_generator, action_generator, reward_function)
+        return super().__init__(self._n_interactions, context_generator, action_generator, reward_function, seed)
 
     @property
     def params(self) -> Dict[str, Any]:

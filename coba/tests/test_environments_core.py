@@ -56,7 +56,7 @@ class Environments_Tests(unittest.TestCase):
         env = Environments.from_linear_synthetic(100,2,3,3,0,["xa"],2)
 
         self.assertEqual(1     , len(env))
-        self.assertEqual(100   , len(env[0].read()))
+        self.assertEqual(100   , len(list(env[0].read())))
         self.assertEqual(2     , env[0].params['n_A'])
         self.assertEqual(3     , env[0].params['n_C_phi'])
         self.assertEqual(3     , env[0].params['n_A_phi'])
@@ -67,6 +67,8 @@ class Environments_Tests(unittest.TestCase):
     def test_from_local_synthetic(self):
         env = Environments.from_local_synthetic(100,2,1,10,2)
 
+        self.assertEqual(1  , len(env))
+        self.assertEqual(100, len(list(env[0].read())))
         self.assertEqual(2  , env[0].params['n_A'])
         self.assertEqual(10 , env[0].params['n_C'])
         self.assertEqual(1  , env[0].params['n_C_phi'])

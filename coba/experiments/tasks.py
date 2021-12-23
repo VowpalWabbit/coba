@@ -163,12 +163,12 @@ class SimpleEnvironmentTask(EnvironmentTask):
             params = self._pipe_params(environment)
 
             return {"source": source, **params}
-            
+
     def _source_repr(self, env) -> str:
         if isinstance(env, EnvironmentPipe):
             return str(env._source)
         else:
-            return env.__class__.__name__
+            return str(env)
 
     def _pipe_params(self, env) -> Dict[str,Any]:
         if isinstance(env, EnvironmentPipe):

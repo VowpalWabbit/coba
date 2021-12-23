@@ -1,7 +1,7 @@
 import collections.abc
 
 from typing_extensions import Literal
-from typing import Sequence, overload, Union, Iterable, Iterator
+from typing import Sequence, overload, Union, Iterable, Iterator, Optional
 
 from coba.pipes import Source, DiskIO, JsonDecode
 
@@ -35,13 +35,13 @@ class Environments:
 
     @staticmethod
     def from_linear_synthetic(
-        n_interactions:int = 5000, 
-        n_actions:int = 3, 
-        n_context_features:int = 2, 
-        n_action_features:int = 2, 
-        r_noise_var:float = 1/1000,
-        interactions:Sequence[str] = ["a","xa"], 
-        seed:int=1) -> 'Environments':
+        n_interactions: Optional[int] = 500,
+        n_actions: int = 3,
+        n_context_features: int = 2,
+        n_action_features: int = 2,
+        r_noise_var: float = 1/1000,
+        interactions: Sequence[str] = ["a","xa"],
+        seed: int = 1) -> 'Environments':
         """A simple simulation useful for debugging learning algorithms. It's rewards are linear with respect to the given 
            interactions of context (x) and action (a) features. In the case that no context or action features are requested the 
            interaction terms are calculted by assuming all actions or contexts have a constant feature of 1."""
@@ -52,11 +52,11 @@ class Environments:
 
     @staticmethod
     def from_local_synthetic(
-        n_interactions:int = 5000, 
-        n_actions:int = 3, 
-        n_context_features:int = 2, 
-        n_contexts:int = 200, 
-        seed:int=1) -> 'Environments':
+        n_interactions: Optional[int] = 500, 
+        n_actions: int = 3, 
+        n_context_features: int = 2, 
+        n_contexts: int = 200, 
+        seed: int = 1) -> 'Environments':
         """A simple simulation useful for debugging learning algorithms. It's rewards are determined by the location of given 
             context and action pairs with respect to a small set of pre-generated exemplar context,action pairs. Location
             is currently determined by equality, though it could potentially be extended to support any number of metric
