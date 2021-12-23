@@ -325,8 +325,8 @@ class ManikSimulation(ReaderSimulation):
 class LinearSyntheticSimulation(LambdaSimulation):
     
     def __init__(self, 
-        n_interactions: Optional[int] = 500, 
-        n_actions: int=10, 
+        n_interactions: int = 500, 
+        n_actions: int = 10, 
         n_context_feats:int = 10, 
         n_action_feats:int = 10, 
         r_noise_var:float = 1/1000,
@@ -393,7 +393,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
 class LocalSyntheticSimulation(LambdaSimulation):
 
     def __init__(self,
-        n_interactions: Optional[int] = 500,
+        n_interactions: int = 500,
         n_contexts: int = 200,
         n_context_features: int = 2,
         n_actions: int = 10,

@@ -1,7 +1,7 @@
 import collections.abc
 
 from typing_extensions import Literal
-from typing import Sequence, overload, Union, Iterable, Iterator, Optional
+from typing import Sequence, overload, Union, Iterable, Iterator
 
 from coba.pipes import Source, DiskIO, JsonDecode
 
@@ -35,7 +35,7 @@ class Environments:
 
     @staticmethod
     def from_linear_synthetic(
-        n_interactions: Optional[int] = 500,
+        n_interactions: int = 500,
         n_actions: int = 3,
         n_context_features: int = 2,
         n_action_features: int = 2,
@@ -52,7 +52,7 @@ class Environments:
 
     @staticmethod
     def from_local_synthetic(
-        n_interactions: Optional[int] = 500, 
+        n_interactions: int = 500, 
         n_actions: int = 3, 
         n_context_features: int = 2, 
         n_contexts: int = 200, 
