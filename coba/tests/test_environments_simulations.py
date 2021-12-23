@@ -14,6 +14,7 @@ from coba.environments import (
     LinearSyntheticSimulation, RegressionSimulation, ManikSimulation,
     LocalSyntheticSimulation
 )
+from coba.random import CobaRandom
 
 CobaContext.logger = NullLogger()
 
@@ -183,7 +184,7 @@ class MemorySimulation_Tests(unittest.TestCase):
 
 class LambdaSimulation_Tests(unittest.TestCase):
 
-    def test_n_interactions_2(self):
+    def test_n_interactions_2_seed_none(self):
         
         def C(i:int) -> int:
             return [1,2][i]
@@ -207,7 +208,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
         self.assertEqual([4,5,6], interactions[1].actions)
         self.assertEqual([2,3,4], interactions[1].kwargs["rewards"])
 
-    def test_n_interactions_none(self):
+    def test_n_interactions_none_seed_none(self):
         def C(i:int) -> int:
             return [1,2][i]
 
@@ -231,6 +232,30 @@ class LambdaSimulation_Tests(unittest.TestCase):
         self.assertEqual(2      , interaction.context)
         self.assertEqual([4,5,6], interaction.actions)
         self.assertEqual([2,3,4], interaction.kwargs["rewards"])
+
+    def test_n_interactions_2_seed_1(self):
+        
+        def C(i:int, rng: CobaRandom) -> int:
+            return [1,2][i]
+
+        def A(i:int,c:int, rng: CobaRandom) -> List[int]:
+            return [[1,2,3],[4,5,6]][i]
+
+        def R(i:int,c:int,a:int, rng: CobaRandom) -> int:
+            return a-c
+
+        simulation = LambdaSimulation(2,C,A,R,seed=1)
+        interactions = list(simulation.read())
+
+        self.assertEqual(len(interactions), 2)
+
+        self.assertEqual(1      , interactions[0].context)
+        self.assertEqual([1,2,3], interactions[0].actions)
+        self.assertEqual([0,1,2], interactions[0].kwargs["rewards"])
+
+        self.assertEqual(2      , interactions[1].context)
+        self.assertEqual([4,5,6], interactions[1].actions)
+        self.assertEqual([2,3,4], interactions[1].kwargs["rewards"])
 
     def test_params(self):
         def C(i:int) -> int:
