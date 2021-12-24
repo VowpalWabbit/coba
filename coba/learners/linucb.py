@@ -27,7 +27,7 @@ class LinUCBLearner(Learner):
         and Conference Proceedings, 2011.
     """
 
-    def __init__(self, alpha: float = 0.2, interactions: Sequence[str] = ['a', 'ax']) -> None:
+    def __init__(self, alpha: float = 0.2, X: Sequence[str] = ['a', 'ax']) -> None:
         """Instantiate a LinUCBLearner.
 
         Args:
@@ -43,8 +43,8 @@ class LinUCBLearner(Learner):
 
         self._alpha = alpha
 
-        self._phi = interactions
-        self._phi_encoder = InteractionsEncoder(interactions)
+        self._X = X
+        self._X_encoder = InteractionsEncoder(X)
 
         self._theta = None
         self._A_inv = None
@@ -55,7 +55,7 @@ class LinUCBLearner(Learner):
 
         See the base class for more information.
         """
-        return {'family': 'LinUCB', 'alpha': self._alpha, 'phi': self._phi}
+        return {'family': 'LinUCB', 'alpha': self._alpha, 'X': self._X}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
         """Determine a PMF with which to select the given actions.
@@ -72,7 +72,7 @@ class LinUCBLearner(Learner):
         if isinstance(actions[0], dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this algorithm.")
 
-        features: np.ndarray = np.array([self._phi_encoder.encode(x=context,a=action) for action in actions]).T
+        features: np.ndarray = np.array([self._X_encoder.encode(x=context,a=action) for action in actions]).T
 
         if(self._A_inv is None):
             self._theta = np.zeros(features.shape[0])
@@ -101,7 +101,7 @@ class LinUCBLearner(Learner):
         if isinstance(action, dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this algorithm.")
 
-        features = np.array(self._phi_encoder.encode(x=context,a=action)).T
+        features = np.array(self._X_encoder.encode(x=context,a=action)).T
 
         if(self._A_inv is None):
             self._theta = np.zeros((features.shape[0]))
@@ -113,3 +113,6 @@ class LinUCBLearner(Learner):
 
         self._A_inv = self._A_inv - np.outer(w,w)/(1+v)
         self._theta = self._theta + (reward-r)/(1+v) * w
+
+    def __str__(self) -> str:
+        return f"linucb(alpha={self._alpha},X={self._X})"

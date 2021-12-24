@@ -52,8 +52,8 @@ class LinUCBLearner_Tests(unittest.TestCase):
             learner.predict(None, [{},{},{}])
 
     def test_params(self):
-        actual = LinUCBLearner(alpha=0.2,interactions=['a','xa']).params
-        expected = {'family':'LinUCB', 'alpha':0.2, 'phi':['a','xa']}
+        actual = LinUCBLearner(alpha=0.2,X=['a','xa']).params
+        expected = {'family':'LinUCB', 'alpha':0.2, 'X':['a','xa']}
         self.assertEqual(actual,expected)
 
 if __name__ == '__main__':

@@ -12,21 +12,21 @@ from coba.pipes.core       import Pipe, Foreach
 from coba.pipes.primitives import Filter
 from coba.pipes.io         import Sink, QueueIO, ConsoleIO
 
-super_worker = multiprocessing.pool.worker #type: ignore
+# super_worker = multiprocessing.pool.worker #type: ignore
 
-def worker(inqueue, outqueue, initializer=None, initargs=(), maxtasks=None, wrap_exception=False):
-        try:
-            super_worker(inqueue, outqueue, initializer, initargs, maxtasks, wrap_exception)
-        except KeyboardInterrupt:
-            #we handle this exception because otherwise it is thrown and written to console
-            #by handling it ourselves we can prevent it from being written to console
-            sys.exit(2000)
-        except AttributeError:
-            #we handle this exception because otherwise it is thrown and written to console
-            #by handling it ourselves we can prevent it from being written to console
-            sys.exit(1000) #this is the exitcode we use to indicate when we're exiting due to import errors
+# def worker(inqueue, outqueue, initializer=None, initargs=(), maxtasks=None, wrap_exception=False):
+#         try:
+#             super_worker(inqueue, outqueue, initializer, initargs, maxtasks, wrap_exception)
+#         except KeyboardInterrupt:
+#             #we handle this exception because otherwise it is thrown and written to console
+#             #by handling it ourselves we can prevent it from being written to console
+#             sys.exit(2000)
+#         except AttributeError:
+#             #we handle this exception because otherwise it is thrown and written to console
+#             #by handling it ourselves we can prevent it from being written to console
+#             sys.exit(1000) #this is the exitcode we use to indicate when we're exiting due to import errors
 
-multiprocessing.pool.worker = worker #type: ignore
+# multiprocessing.pool.worker = worker #type: ignore
 
 class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
@@ -72,42 +72,42 @@ class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             stdout_IO = QueueIO(manager.Queue()) #type: ignore
             stderr_IO = QueueIO(manager.Queue()) #type: ignore
 
-            class MyPool(multiprocessing.pool.Pool):
+            # class MyPool(multiprocessing.pool.Pool):
 
-                _missing_error_definition_error_is_new = True
+            #     _missing_error_definition_error_is_new = True
 
-                def _join_exited_workers(self):
+            #     def _join_exited_workers(self):
 
-                    for worker in self._pool:
-                        if worker.exitcode == 1000 and MyPool._missing_error_definition_error_is_new:
+            #         for worker in self._pool:
+            #             if worker.exitcode == 1000 and MyPool._missing_error_definition_error_is_new:
 
-                                #this is a hack... This only works so long as we just 
-                                #process one pipe at a time... This is true in our case.
-                                #this is necessary because multiprocessing can get stuck 
-                                #waiting for failed workers and that is frustrating for users.
-                                MyPool._missing_error_definition_error_is_new = False
+            #                     #this is a hack... This only works so long as we just 
+            #                     #process one pipe at a time... This is true in our case.
+            #                     #this is necessary because multiprocessing can get stuck 
+            #                     #waiting for failed workers and that is frustrating for users.
+            #                     MyPool._missing_error_definition_error_is_new = False
 
-                                message = (
-                                    "We attempted to evaluate your code in multiple processes but we were unable to find all the code "
-                                    "definitions needed to pass the tasks to the processes. The two most common causes of this error are: "
-                                    "1) a learner or simulation is defined in a Jupyter Notebook cell or 2) a necessary class definition "
-                                    "exists inside the `__name__=='__main__'` code block in the main execution script. In either case "
-                                    "you can choose one of two simple solutions: 1) evaluate your code in a single process with no limit "
-                                    "child tasks or 2) define all necessary classes in a separate file and include the classes via import "
-                                    "statements."                                    
-                                )
+            #                     message = (
+            #                         "We attempted to evaluate your code in multiple processes but we were unable to find all the code "
+            #                         "definitions needed to pass the tasks to the processes. The two most common causes of this error are: "
+            #                         "1) a learner or simulation is defined in a Jupyter Notebook cell or 2) a necessary class definition "
+            #                         "exists inside the `__name__=='__main__'` code block in the main execution script. In either case "
+            #                         "you can choose one of two simple solutions: 1) evaluate your code in a single process with no limit "
+            #                         "child tasks or 2) define all necessary classes in a separate file and include the classes via import "
+            #                         "statements."                                    
+            #                     )
 
-                                stderr_IO.write(message)
+            #                     stderr_IO.write(message)
 
-                        if worker.exitcode is not None and worker.exitcode != 0:
-                            #A worker exited in an uncontrolled manner and was unable to clean its job
-                            #up. We therefore mark one of the jobs as "finished" but failed in order to 
-                            #prevent waiting forever on a failed job that is actually no longer running.
-                            list(self._cache.values())[0]._set(None, (False, None))
+            #             if worker.exitcode is not None and worker.exitcode != 0:
+            #                 #A worker exited in an uncontrolled manner and was unable to clean its job
+            #                 #up. We therefore mark one of the jobs as "finished" but failed in order to 
+            #                 #prevent waiting forever on a failed job that is actually no longer running.
+            #                 list(self._cache.values())[0]._set(None, (False, None))
 
-                    return super()._join_exited_workers()
+            #         return super()._join_exited_workers()
 
-            with MyPool(self._processes, maxtasksperchild=self._maxtasksperchild or None) as pool:
+            with multiprocessing.pool.Pool(self._processes, maxtasksperchild=self._maxtasksperchild or None) as pool:
 
                 # handle not picklable (this is handled by done_or_failed)    (TESTED)
                 # handle empty list (this is done by checking result.ready()) (TESTED)

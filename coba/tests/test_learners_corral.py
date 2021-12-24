@@ -6,7 +6,7 @@ from coba.typing import Dict, Any
 from coba.pipes import MemoryIO, NullIO
 from coba.contexts import LearnerContext
 from coba.random import CobaRandom
-from coba.learners import CorralLearner, FixedLearner, VowpalLearner
+from coba.learners import CorralLearner, FixedLearner, LinUCBLearner
 
 class ReceivedLearnFixedLearner(FixedLearner):
 
@@ -18,6 +18,14 @@ class ReceivedLearnFixedLearner(FixedLearner):
     def learn(self, context, action, reward, probability, info) -> None:
         self.received_learn = (context, action, reward, probability)
         LearnerContext.logger.write({self.key:1})
+
+class FamilyLearner:
+    def __init__(self, family):
+        self._family = family
+    
+    @property
+    def params(self):
+        return {'family': self._family}
 
 class CorallLearner_Tests(unittest.TestCase):
 
@@ -122,11 +130,13 @@ class CorallLearner_Tests(unittest.TestCase):
 
     def test_params(self):
 
-        base1_name = 'vw(args=--cb_explore_adf --epsilon 0.1)'
-        base2_name = 'vw(args=--cb_explore_adf --bag 2)'
+        LinUCBLearner
+
+        base1_name = 'A'
+        base2_name = 'B'
 
         expected = {'family': 'corral', 'eta': 0.075, 'type': 'importance', 'T': float('inf'), 'B': [base1_name, base2_name], 'seed': 1}
-        actual   = CorralLearner([VowpalLearner("--cb_explore_adf --epsilon 0.1"), VowpalLearner("--cb_explore_adf --bag 2")]).params
+        actual   = CorralLearner([FamilyLearner("A"), FamilyLearner("B")]).params
 
         self.assertEqual(expected, actual)
 
