@@ -113,6 +113,3 @@ class LinUCBLearner(Learner):
 
         self._A_inv = self._A_inv - np.outer(w,w)/(1+v)
         self._theta = self._theta + (reward-r)/(1+v) * w
-
-    def __str__(self) -> str:
-        return f"linucb(alpha={self._alpha},X={self._X})"

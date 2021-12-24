@@ -1,6 +1,6 @@
 import sys
 
-if sys.version_info >= (3,10):
+if sys.version_info >= (3,10):#pragma: no cover
     from importlib.metadata import entry_points, version
 
 elif sys.version_info >= (3,8):# pragma: no cover

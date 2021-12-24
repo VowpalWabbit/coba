@@ -57,10 +57,6 @@ class Learner(ABC):
             An optional dictionary which will be passed to the interactions table in evaluation result.
         """
         ...
-    
-    def __reduce__(self) -> Union[str, Tuple[Any, ...]]:
-        """An optional method that can be overridden to make Learners picklable."""
-        return super().__reduce__()
 
 class SafeLearner(Learner):
 
