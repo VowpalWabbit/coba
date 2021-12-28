@@ -4,7 +4,7 @@ import json
 from numbers import Number
 from collections import defaultdict
 from typing import Tuple, Sequence, Any, Iterable, Dict, Union
-from coba.backport import Literal
+from coba.backports import Literal
 
 
 from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Reservoir

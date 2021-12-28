@@ -8,7 +8,7 @@ from numbers import Number
 from operator import truediv
 from itertools import chain, repeat, accumulate
 from typing import Any, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Set, Callable
-from coba.backport import Literal
+from coba.backports import Literal
 
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException

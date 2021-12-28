@@ -1,6 +1,6 @@
 import collections.abc
 from typing import Sequence, overload, Union, Iterable, Iterator
-from coba.backport import Literal
+from coba.backports import Literal
 
 from coba.pipes import Source, DiskIO, JsonDecode
 

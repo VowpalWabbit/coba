@@ -6,7 +6,7 @@ import collections.abc
 from itertools import repeat
 from numbers import Number
 from typing import Any, Dict, Union, Sequence, overload, Optional, Tuple
-from coba.backport import Literal
+from coba.backports import Literal
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker, KeyDefaultDict

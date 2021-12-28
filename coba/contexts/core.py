@@ -5,7 +5,7 @@ import traceback
 
 from pathlib import Path
 from typing import Iterable, Dict, Any, Sequence, Union
-from coba.backport import Literal
+from coba.backports import Literal
 
 from coba.pipes import IO, NullIO
 from coba.exceptions import CobaException
