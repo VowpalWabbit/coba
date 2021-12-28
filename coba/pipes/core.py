@@ -1,8 +1,8 @@
 """The data.pipes module contains core classes for creating data pipelines."""
 
 import collections.abc
+from typing import Sequence, Iterable, Any, overload, Union
 
-from coba.typing import Sequence, Iterable, Any, overload, Union
 from coba.exceptions import CobaException
 from coba.pipes.primitives import Filter, Source, Sink
 

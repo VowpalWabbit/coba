@@ -4,8 +4,8 @@ import collections.abc
 from abc import ABC, abstractmethod
 from statistics import median
 from itertools import takewhile
+from typing import Iterable, Any, Dict
 
-from coba.typing import Iterable, Any, Dict
 from coba.pipes import QueueIO
 from coba.exceptions import CobaExit
 from coba.random import CobaRandom

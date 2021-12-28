@@ -2,16 +2,14 @@
 import time
 import traceback
 import pickle
-
-import queue
 import inspect
 import collections.abc
 
 from itertools import islice
 from multiprocessing import current_process, Process, Queue
 from threading import Thread
+from typing import Iterable, Any, List, Optional
 
-from coba.typing           import Iterable, Any, List, Optional
 from coba.pipes.core       import Pipe, Foreach
 from coba.pipes.primitives import Filter, Source
 from coba.pipes.io         import Sink, QueueIO, ConsoleIO

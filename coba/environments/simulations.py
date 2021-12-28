@@ -2,8 +2,8 @@ import math
 import collections.abc
 
 from itertools import chain, repeat, count, islice
+from typing import Sequence, Dict, Any, Iterable, Union, Callable, Tuple, overload, Optional
 
-from coba.typing import Sequence, Dict, Any, Iterable, Union, Callable, Tuple, overload, Optional
 from coba.pipes import Source, Filter  
 from coba.pipes import DiskIO, MemoryIO
 from coba.pipes import CsvReader, ArffReader, LibSvmReader, ManikReader, Structure

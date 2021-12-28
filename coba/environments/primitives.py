@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABC
+from typing import Optional, Sequence, Hashable, Any, Union, Iterable, overload, Dict
 
-from coba.typing import Optional, Sequence, Hashable, Any, Union, Iterable, overload, Dict
 from coba.utilities import HashableDict
 from coba.pipes import Source, Filter
 

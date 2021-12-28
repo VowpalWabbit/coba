@@ -1,6 +1,7 @@
 from pathlib import Path
+from typing import Sequence, Optional
+from coba.backport import Literal
 
-from coba.typing import Sequence, Optional, Literal
 from coba.pipes import Pipe, Foreach
 from coba.learners import Learner
 from coba.environments import Environment

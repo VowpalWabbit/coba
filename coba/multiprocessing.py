@@ -1,12 +1,10 @@
-from multiprocessing import Manager, Queue, Lock, Condition, Semaphore
 from threading import Thread
-from coba.pipes.core import Foreach
-
-from coba.typing import Iterable, Any, Dict
+from multiprocessing import Manager, Queue, Lock, Condition, Semaphore
+from typing import Iterable, Any, Dict
 
 from coba.utilities import coba_exit
 from coba.contexts  import CobaContext, ConcurrentCacher, Logger, Cacher
-from coba.pipes     import Pipe, Filter, Sink, QueueIO, PipeMultiprocessor
+from coba.pipes     import Pipe, Filter, Sink, QueueIO, PipeMultiprocessor, Foreach
 
 class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 

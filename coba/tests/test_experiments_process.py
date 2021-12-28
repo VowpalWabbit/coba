@@ -1,6 +1,7 @@
 import unittest
 
-from coba.typing       import cast, Iterable
+from typing import cast, Iterable
+
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation
 from coba.pipes        import Pipe

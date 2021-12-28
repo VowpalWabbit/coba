@@ -3,8 +3,8 @@
 import math
 
 from collections import defaultdict
+from typing import Any, Dict, Sequence, Optional, cast, Hashable
 
-from coba.typing import Any, Dict, Sequence, Optional, cast, Hashable
 from coba.environments import Context, Action
 from coba.statistics import OnlineVariance
 from coba.learners.primitives import Learner, Probs, Info

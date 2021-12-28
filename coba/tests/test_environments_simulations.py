@@ -2,8 +2,8 @@ import unittest
 import pickle
 
 from pathlib import Path
+from typing import List
 
-from coba.typing import List
 from coba.exceptions import CobaException
 from coba.pipes import MemoryIO, DiskIO, NullIO
 from coba.contexts import CobaContext, NullLogger

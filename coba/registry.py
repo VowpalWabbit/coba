@@ -6,8 +6,8 @@ and for the core functionality to specify classes creation recipes in config fil
 
 from itertools import repeat
 from importlib import reload
+from typing import Dict, Any, Callable
 
-from coba.typing import Dict, Any, Callable
 from coba.backport.metadata import entry_points 
 from coba.exceptions import CobaException
 

@@ -2,8 +2,8 @@
 
 from abc import ABC, abstractmethod
 from numbers import Number
+from typing import Any, Sequence, Dict, Union, Tuple, Optional
 
-from coba.typing import Any, Sequence, Dict, Union, Tuple, Optional
 from coba.environments import Context, Action
 
 Info  = Any

@@ -4,8 +4,8 @@ import random
 
 from collections import defaultdict
 from itertools import count
+from typing import Iterator, Sequence
 
-from coba.typing import Iterator, Sequence
 import coba.random
 
 class CobaRandom_Tests(unittest.TestCase):

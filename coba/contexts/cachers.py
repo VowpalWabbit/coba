@@ -7,8 +7,8 @@ from abc import abstractmethod, ABC
 from collections.abc import Iterator
 from threading import Lock, Condition
 from pathlib import Path
+from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic
 
-from coba.typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic
 from coba.exceptions import CobaException
 
 _K = TypeVar("_K")

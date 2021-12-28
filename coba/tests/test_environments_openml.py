@@ -3,7 +3,8 @@ import unittest.mock
 import unittest
 import json
 
-from coba.typing import cast, Tuple
+from typing import cast, Tuple
+
 from coba.exceptions import CobaException
 from coba.contexts import CobaContext, CobaContext, NullLogger, MemoryCacher, NullCacher
 from coba.environments import OpenmlSimulation, OpenmlSource

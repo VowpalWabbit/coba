@@ -7,8 +7,8 @@ from abc import abstractmethod, ABC
 from multiprocessing import current_process
 from contextlib import contextmanager
 from datetime import datetime
+from typing import ContextManager, Iterator, Sequence, Union
 
-from coba.typing import ContextManager, Iterator, Sequence, Union
 from coba.pipes import Pipe, Filter, Sink, NullIO, ConsoleIO
 from coba.exceptions import CobaException
 

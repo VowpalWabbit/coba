@@ -14,7 +14,7 @@ Remarks:
 import random as std_random
 import itertools
 
-from coba.typing import Optional, Sequence, Any, List
+from typing import Optional, Sequence, Any, List
 
 class CobaRandom:
     """A random number generator via a linear congruential generator."""

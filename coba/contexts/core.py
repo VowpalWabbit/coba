@@ -4,8 +4,9 @@ import collections
 import traceback
 
 from pathlib import Path
+from typing import Iterable, Dict, Any, Sequence, Union
+from coba.backport import Literal
 
-from coba.typing import Iterable, Dict, Any, Sequence, Union, Literal
 from coba.pipes import IO, NullIO
 from coba.exceptions import CobaException
 from coba.registry import CobaRegistry

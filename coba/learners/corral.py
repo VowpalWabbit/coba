@@ -2,7 +2,9 @@
 
 import math
 
-from coba.typing import Any, Sequence, Optional, Dict, Tuple, Literal
+from typing import Any, Sequence, Optional, Dict, Tuple
+from coba.backport import Literal
+
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.environments import Context, Action

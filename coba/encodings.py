@@ -8,7 +8,8 @@ from collections import Counter, OrderedDict, defaultdict
 from itertools import count, accumulate, chain
 from abc import ABC, abstractmethod
 
-from coba.typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Dict
+from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Dict
+
 from coba.exceptions import CobaException
 
 _T_out = TypeVar('_T_out', bound=Any, covariant=True) 

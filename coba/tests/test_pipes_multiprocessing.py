@@ -1,14 +1,12 @@
-import time
 import unittest
 import pickle
 
 from queue           import Queue
 from threading       import Thread, Event
-from multiprocessing import current_process
-from coba.pipes.io   import NullIO
+from multiprocessing import current_process, Barrier
+from typing          import Iterable, Any
 
-from coba.typing import Iterable, Any
-from coba.pipes import Filter, MemoryIO, Identity, QueueIO
+from coba.pipes import Filter, MemoryIO, Identity, QueueIO, NullIO
 
 from coba.pipes.multiprocessing import PipeMultiprocessor, PipesPool
 
@@ -22,6 +20,15 @@ class NotPicklableFilter(Filter):
 class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         yield f"pid-{current_process().pid}"
+
+class BarrierNameFilter(Filter):
+    def __init__(self):
+        self._barrier = Barrier(2)
+    
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        self._barrier.wait()
+        yield f"pid-{current_process().pid}"
+
 
 class ExceptionFilter(Filter):
     def __init__(self, exc = Exception("Exception Filter")):
@@ -49,7 +56,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
         self.assertEqual(len(set(items)), 4)
 
     def test_multiprocess_multiperchild(self):
-        items = list(PipeMultiprocessor(ProcessNameFilter(), 2).filter(range(100)))
+        items = list(PipeMultiprocessor(BarrierNameFilter(), 2).filter(range(2)))
         self.assertEqual(len(set(items)), 2)
 
     def test_filter_exception(self):

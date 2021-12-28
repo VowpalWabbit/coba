@@ -11,8 +11,3 @@ elif sys.version_info >= (3,8):# pragma: no cover
         return importlib.metadata.entry_points()[group]
 else:
     from importlib_metadata import entry_points, version 
-
-__all__ = [
-    'entry_points',
-    'version'
-]

@@ -3,8 +3,8 @@ import gc
 from copy import deepcopy
 from itertools import groupby
 from collections import defaultdict
+from typing import Iterable, Sequence, Any, Optional, Tuple, Union
 
-from coba.typing import Iterable, Sequence, Any, Optional, Tuple, Union
 from coba.learners import Learner
 from coba.contexts import CobaContext
 from coba.pipes import Source, Filter, SourceFilters

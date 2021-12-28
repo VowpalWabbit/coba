@@ -5,8 +5,9 @@ from statistics import mean, median, stdev, mode
 from numbers import Number
 from collections import defaultdict
 from itertools import islice, chain
+from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple
+from coba.backport import Literal
 
-from coba.typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Literal
 from coba import pipes
 from coba.random import CobaRandom
 from coba.statistics import iqr
