@@ -95,7 +95,7 @@ class MemoryIO(IO[Iterable[_T], _T], Generic[_T]):
 
 class QueueIO(IO[Iterable[_T], _T], Generic[_T]):
 
-    def __init__(self, queue: Queue = None, poison:Any=None, block:bool=True) -> None:
+    def __init__(self, queue:Queue=None, poison:Any=None, block:bool=True) -> None:
         self._queue  = queue or Queue()
         self._poison = poison
         self._block  = block
@@ -117,7 +117,10 @@ class QueueIO(IO[Iterable[_T], _T], Generic[_T]):
             self._queue.put(item)
         except (EOFError,BrokenPipeError):
             pass
-        
+
+    def __len__(self) -> int:
+        return self._queue.qsize()
+
 class HttpIO(IO[requests.Response, Any]):
     def __init__(self, url: str) -> None:
         self._url = url

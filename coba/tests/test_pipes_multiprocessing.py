@@ -1,10 +1,16 @@
+import time
 import unittest
+import pickle
 
-from threading       import Thread
+from queue           import Queue
+from threading       import Thread, Event
 from multiprocessing import current_process
+from coba.pipes.io   import NullIO
 
 from coba.typing import Iterable, Any
-from coba.pipes import Filter, MemoryIO, PipeMultiprocessor, Identity
+from coba.pipes import Filter, MemoryIO, Identity, QueueIO
+
+from coba.pipes.multiprocessing import PipeMultiprocessor, PipesPool
 
 class NotPicklableFilter(Filter):
     def __init__(self):
@@ -31,7 +37,7 @@ if current_process().name == 'MainProcess':
 class PipeMultiprocessor_Tests(unittest.TestCase):
 
     def test_foreach_false(self):
-        items = list(PipeMultiprocessor(Identity(), 1, 1, foreach=False).filter([[0,1,2,3]]))
+        items = list(PipeMultiprocessor(Identity(), 1, 1, chunked=False).filter([[0,1,2,3]]))
         self.assertEqual(items, [[0,1,2,3]])
 
     def test_singleprocess_singleperchild(self):
@@ -47,7 +53,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
         self.assertEqual(len(set(items)), 4)
 
     def test_multiprocess_multiperchild(self):
-        items = list(PipeMultiprocessor(ProcessNameFilter(), 2).filter(range(40)))
+        items = list(PipeMultiprocessor(ProcessNameFilter(), 2).filter(range(100)))
         self.assertEqual(len(set(items)), 2)
 
     def test_filter_exception(self):
@@ -72,8 +78,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
         items = list(PipeMultiprocessor(ProcessNameFilter(), 1, 1).filter([]))
         self.assertEqual(len(items), 0)
 
-    @unittest.skip("This is a bug with the python multiprocessing module. My efforts to fix it broke across Python versions.")
-    def test_attribute_error_doesnt_freeze_process(self):
+    def test_class_definitions_not_loaded_in_main(self):
 
         stderr_sink = MemoryIO()
 
@@ -85,56 +90,150 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
         t.join(5)
 
         self.assertFalse(t.is_alive())
+        self.assertIn("unable to find", stderr_sink.items[0])
 
-class PipeMultiprocessor_Processor_Tests(unittest.TestCase):
+class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
 
-    def test_filter_single_item(self):
+    def test_worker_stdin_stdout_no_max(self):
 
-        stdout = MemoryIO()
-        stderr = MemoryIO()
+        stdin  = QueueIO(Queue())
+        stdout = QueueIO(Queue())
+        stderr = QueueIO(Queue())
 
-        PipeMultiprocessor.Processor(Identity(),stdout,stderr,False).process(1)
+        filter = Identity()
 
-        self.assertEqual(1, stdout.items[0])
+        stdin.write(pickle.dumps(1))
+        stdin.write(pickle.dumps(2))
+        stdin.write(None)
 
-    def test_filter_list_item(self):
+        self.assertEqual(0,len(stdout))
+        self.assertEqual(0,len(stderr))
+        PipesPool.worker(filter, stdin, stdout, stderr, None)
+        self.assertEqual(2,len(stdout))
+        self.assertEqual(1,next(stdout.read()))
+        self.assertEqual(2,next(stdout.read()))
+        self.assertEqual(0,len(stderr))
 
-        stdout = MemoryIO()
-        stderr = MemoryIO()
+    def test_worker_stdin_stdout_max(self):
 
-        PipeMultiprocessor.Processor(Identity(),stdout,stderr,False).process([1,2])
+        stdin  = QueueIO(Queue())
+        stdout = QueueIO(Queue())
+        stderr = QueueIO(Queue())
 
-        self.assertEqual([1,2], stdout.items[0])
+        filter = Identity()
 
-    def test_filter_foreach_item(self):
+        stdin.write(pickle.dumps(1))
+        stdin.write(pickle.dumps(2))
+        stdin.write(None)
 
-        stdout = MemoryIO()
-        stderr = MemoryIO()
+        self.assertEqual(0,len(stdout))
+        self.assertEqual(0,len(stderr))
+        PipesPool.worker(filter, stdin, stdout, stderr, 1)
+        self.assertEqual(1,len(stdout))
+        self.assertEqual(1,next(stdout.read()))
+        self.assertEqual(0,len(stderr))
 
-        PipeMultiprocessor.Processor(Identity(),stdout,stderr,True).process([1,2])
+    def test_worker_stderr(self):
 
-        self.assertEqual(1, stdout.items[0])
-        self.assertEqual(2, stdout.items[1])
+        stdin  = QueueIO(Queue())
+        stdout = QueueIO(Queue())
+        stderr = QueueIO(Queue())
 
-    def test_ignore_keyboard_interrupt(self):
+        filter = ExceptionFilter()
 
-        stdout = MemoryIO()
-        stderr = MemoryIO()
+        stdin.write(pickle.dumps(1))
+        stdin.write(None)
 
-        PipeMultiprocessor.Processor(ExceptionFilter(KeyboardInterrupt()),stdout,stderr,True).process([1,2])
+        self.assertEqual(0,len(stdout))
+        self.assertEqual(0,len(stderr))
+        PipesPool.worker(filter, stdin, stdout, stderr, None)
+        self.assertEqual(0,len(stdout))
+        self.assertEqual(1,len(stderr))
+        self.assertEqual("Exception Filter", str(next(stderr.read())[2]))
+
+    def test_worker_iterable_filter_return(self):
+
+        stdin  = QueueIO(Queue())
+        stdout = QueueIO(Queue())
+        stderr = QueueIO(Queue())
+
+        filter = ProcessNameFilter()
+
+        stdin.write(pickle.dumps(1))
+        stdin.write(None)
+
+        self.assertEqual(0,len(stdout))
+        self.assertEqual(0,len(stderr))
+        PipesPool.worker(filter, stdin, stdout, stderr, None)
+        self.assertEqual(1,len(stdout))
+        self.assertEqual(1,len(next(stdout.read())))
+        self.assertEqual(0,len(stderr))
+
+    def test_terminate_stops_pipe(self):
+
+        init_event = Event()
+        term_event = Event()
+        pool       = PipesPool(1,None,NullIO())
+
+        def sleepy_iter():
+            yield 1
+            init_event.set()
+            term_event.wait()
+
+        def map_pool():
+            list(pool.map(Identity(), sleepy_iter()))
+
+        thread = Thread(target=map_pool)
         
-        self.assertEqual([], stdout.items)
-        self.assertEqual([], stderr.items)
-
-    def test_logged_exception(self):
-
-        stdout = MemoryIO()
-        stderr = MemoryIO()
-
-        PipeMultiprocessor.Processor(ExceptionFilter(),stdout,stderr,True).process([1,2])
+        thread.start()
+        init_event.wait() #make sure the pool has fully initialized
+        pool.terminate()
+        thread.join(4)
         
-        self.assertEqual([], stdout.items)
-        self.assertIn("Exception Filter", str(stderr.items[0][2]))
+        self.assertFalse(thread.is_alive())
+
+    def test_terminate_called_on_exception(self):
+
+        with self.assertRaises(Exception):
+            with PipesPool(1,None,NullIO()) as pool:
+                raise Exception()
+
+        self.assertTrue(pool.is_terminated)
+
+    def test_attribute_error(self):
+        stdin  = QueueIO(Queue())
+        stdout = QueueIO(Queue())
+        stderr = QueueIO(Queue())
+
+        filter = ExceptionFilter(Exception("Can't get attribute"))
+
+        stdin.write(pickle.dumps(1))
+        stdin.write(pickle.dumps(2))
+        stdin.write(None)
+
+        self.assertEqual(0,len(stdout))
+        self.assertEqual(0,len(stderr))
+        PipesPool.worker(filter, stdin, stdout, stderr, None)
+        self.assertEqual(0,len(stdout))
+        self.assertEqual(1,len(stderr))
+        self.assertIn("We attempted to evaluate", next(stderr.read()))
+
+    def test_keyboard_interrupt(self):
+        stdin  = QueueIO(Queue())
+        stdout = QueueIO(Queue())
+        stderr = QueueIO(Queue())
+
+        filter = ExceptionFilter(KeyboardInterrupt())
+
+        stdin.write(pickle.dumps(1))
+        stdin.write(pickle.dumps(2))
+        stdin.write(None)
+
+        self.assertEqual(0,len(stdout))
+        self.assertEqual(0,len(stderr))
+        PipesPool.worker(filter, stdin, stdout, stderr, None)
+        self.assertEqual(0,len(stdout))
+        self.assertEqual(0,len(stderr))
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,13 +1,21 @@
-from multiprocessing import Manager
+from multiprocessing import Manager, Queue, Lock, Condition, Semaphore
 from threading import Thread
+from coba.pipes.core import Foreach
 
 from coba.typing import Iterable, Any, Dict
 
 from coba.utilities import coba_exit
 from coba.contexts  import CobaContext, ConcurrentCacher, Logger, Cacher
-from coba.pipes     import Filter, Sink, QueueIO, PipeMultiprocessor
+from coba.pipes     import Pipe, Filter, Sink, QueueIO, PipeMultiprocessor
 
 class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
+
+    class PipeStderr(Sink[Any]):
+        def write(self, item: Any) -> None:
+            if isinstance(item,tuple):
+                CobaContext.logger.log(item[2])
+            else:
+                CobaContext.logger.log(item)
 
     class ProcessFilter:
 
@@ -46,32 +54,24 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
             with Manager() as manager:
 
-                stdlog = QueueIO(manager.Queue())
-
-                def log_stdlog():
-                    for err in stdlog.read():
-                        if isinstance(err,str):
-                            CobaContext.logger.sink.write(err)
-                        elif isinstance(err,tuple):
-                            CobaContext.logger.log(err[2])
-                        elif isinstance(err,Exception):
-                            CobaContext.logger.log(err)
-
-                log_thread = Thread(target=log_stdlog)
+                stdlog = QueueIO(Queue())
+                stderr = CobaMultiprocessor.PipeStderr()                
+                
+                log_thread = Thread(target=Pipe.join(stdlog,[],Foreach(CobaContext.logger.sink)).run)
                 log_thread.daemon = True
                 log_thread.start()
 
                 logger = CobaContext.logger
-                cacher = ConcurrentCacher(CobaContext.cacher, manager.dict(), manager.Lock(), manager.Condition())
-                store  = { "srcsema":  manager.Semaphore(2) }
+                cacher = ConcurrentCacher(CobaContext.cacher, manager.dict(), Lock(), Condition())
+                store  = { "srcsema":  Semaphore(2) }
 
                 filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, stdlog)
 
-                for item in PipeMultiprocessor(filter, self._processes, self._maxtasksperchild, stdlog).filter(items):
+                for item in PipeMultiprocessor(filter, self._processes, self._maxtasksperchild, stderr).filter(items):
                     yield item
 
                 stdlog.write(None) #attempt to shutdown the logging process gracefully by sending the poison pill
 
-        except RuntimeError as e:
+        except RuntimeError as e: #pragma: no cover
             #This happens when importing main causes this code to run again
             coba_exit(str(e))

@@ -190,7 +190,7 @@ class LearnerContext_meta(type):
 
     @property
     def logger(cls) -> IO[Iterable[Dict[str,Any]],Dict[str,Any]]:
-        return cls._logger if cls._logger else NullIO[Dict[str,Any]]()  
+        return cls._logger if cls._logger is not None else NullIO[Dict[str,Any]]()
 
     @logger.setter
     def logger(cls, value: IO[Iterable[Dict[str,Any]],Dict[str,Any]]):

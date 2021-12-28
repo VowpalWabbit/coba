@@ -1,169 +1,250 @@
+
 import time
-import sys
-import multiprocessing.pool
 import traceback
+import pickle
 
-from multiprocessing import Manager, current_process
-from threading       import Thread
+import queue
+import inspect
+import collections.abc
 
-from coba.typing import Iterable, Any
+from itertools import islice
+from multiprocessing import current_process, Process, Queue
+from threading import Thread
 
+from coba.typing           import Iterable, Any, List, Optional
 from coba.pipes.core       import Pipe, Foreach
-from coba.pipes.primitives import Filter
+from coba.pipes.primitives import Filter, Source
 from coba.pipes.io         import Sink, QueueIO, ConsoleIO
 
-# super_worker = multiprocessing.pool.worker #type: ignore
+# handle not picklable (this is handled by explicitly pickling)    (TESTED)
+# handle empty list (this is done by PipesPool naturally) (TESTED)
+# handle exceptions in process (wrap worker executing code in an exception handler) (TESTED)
+# handle ctrl-c without hanging 
+#   > This is done by making PipesPool terminate inside its ContextManager.__exit__
+#   > This is also done by handling EOFError,BrokenPipeError in QueueIO since ctr-c kills multiprocessing.Pipe
+# handle AttributeErrors. This occurs when... (this is handled PipePools.worker ) (TESTED)
+#   > a class that is defined in a Jupyter Notebook cell is pickled
+#   > a class that is defined inside the __name__=='__main__' block is pickled
+# handle Experiment.evaluate not being called inside of __name__=='__main__' (this is handled by a big try/catch)
 
-# def worker(inqueue, outqueue, initializer=None, initargs=(), maxtasks=None, wrap_exception=False):
-#         try:
-#             super_worker(inqueue, outqueue, initializer, initargs, maxtasks, wrap_exception)
-#         except KeyboardInterrupt:
-#             #we handle this exception because otherwise it is thrown and written to console
-#             #by handling it ourselves we can prevent it from being written to console
-#             sys.exit(2000)
-#         except AttributeError:
-#             #we handle this exception because otherwise it is thrown and written to console
-#             #by handling it ourselves we can prevent it from being written to console
-#             sys.exit(1000) #this is the exitcode we use to indicate when we're exiting due to import errors
+class PipesPool:
+    # Writing our own multiprocessing pool probably seems a little silly.
+    # However, Python's multiprocessing.Pool does a very poor job handling errors
+    # and it often gets stuck in unrecoverable states. Given that this package is
+    # meant to be used by a general audience who will likely have errors that need
+    # to be debugged as they learn how to use coba this was unacepptable. Therefore,
+    # after countless attempts to make multiprocessing.Pool work the decision was made
+    # to write our own so we could add our own helpful error messages.
+ 
+    def __enter__(self) -> 'PipesPool':
+        return self
 
-# multiprocessing.pool.worker = worker #type: ignore
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        if exc_type is None:
+            self.close()
+        else:
+            self.terminate() 
 
-class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
+    def __init__(self, n_processes: int, maxtasksperchild: Optional[int], stderr: Sink):
 
-    class Processor:
+        self._n_processes = n_processes
+        self._maxtasksperchild = maxtasksperchild or None
+        self._given_stderr = stderr
 
-        def __init__(self, filter: Filter, stdout: Sink, stderr: Sink, foreach:bool) -> None:
-            self._filter  = filter
-            self._stdout  = stdout if not foreach else Foreach(stdout)
-            self._stderr  = stderr
+        self._stdin  = None
+        self._stderr = None
+        self._stdout = None
 
-        def process(self, item) -> None:
+    def map(self, filter: Filter[Any, Any], items:Iterable[Any]) -> Iterable[Any]:
+
+        self._stdin  = QueueIO(Queue(maxsize=self._n_processes))
+        self._stdout = QueueIO(Queue())
+        self._stderr = QueueIO(Queue())
+
+        # Without this multiprocessing.Queue() will output an ugly error message if a user ever hits ctrl-c.
+        # By setting _ignore_epipe we prevent Queue() from displaying its message and we show our own friendly
+        # message instead. In future versions of Python this could break but for now this works for 3.6-3.10.
+        self._stdin ._queue._ignore_epipe = True
+        self._stdout._queue._ignore_epipe = True
+        self._stderr._queue._ignore_epipe = True
+
+        self._threads = []
+
+        self._completed = False
+        self._terminate = False
+
+        self._pool: List[Process] = []
+
+        self._no_more_items = False
+
+        def maintain_pool():
+
+            finished = lambda: self._completed and (len(self._stdin) == 0 or self._terminate)
+
+            while not finished():
+
+                if self._terminate: 
+                    break
+                
+                self._pool = [p for p in self._pool if p.is_alive()]
+
+                for _ in range(self._n_processes-len(self._pool)):
+                    args = (filter, self._stdin, self._stdout, self._stderr, self._maxtasksperchild)
+                    targ = PipesPool.worker
+                    process = Process(target=targ, args=args)
+                    process.start()
+                    self._pool.append(process)
+
+                #I don't like this but it seems to be 
+                #the fastest/simplest way out of all my tests...
+                time.sleep(0.1) 
+
+            if not self._terminate:
+                for _ in self._pool: self._stdin.write(None)
+            else:
+                for p in self._pool: p.terminate()
+
+            for p in self._pool: p.join()
+            self._stderr.write(None)
+            self._stdout.write(None)
+
+        def populate_tasks():
 
             try:
-                self._stdout.write(self._filter.filter(item))
-            except Exception as e:
-                #WARNING: this will scrub e of its traceback which is why the traceback is also sent as a string
-                self._stderr.write((time.time(), current_process().name, e, traceback.format_tb(e.__traceback__)))
-            except KeyboardInterrupt:
-                #When ctrl-c is pressed on the keyboard KeyboardInterrupt is raised in each
-                #process. We need to handle this here because Processor is always run in a
-                #background process and receives this. We can ignore this because the exception will
-                #also be raised in our main process. Therefore we simply ignore and trust the main to
-                #handle the keyboard interrupt gracefully.
-                pass
+                for item in items:
 
-    def __init__(self, 
-        filter: Filter[Any, Any], 
-        processes: int = 1, 
-        maxtasksperchild: int = 0, 
-        stderr: Sink = ConsoleIO(),
-        foreach: bool = True) -> None:
+                    if self._terminate: break
 
-        self._filter           = filter
-        self._processes        = processes
-        self._maxtasksperchild = maxtasksperchild
-        self._stderr           = stderr
-        self._foreach          = foreach
-
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-
-        with Manager() as manager:
-
-            stdout_IO = QueueIO(manager.Queue()) #type: ignore
-            stderr_IO = QueueIO(manager.Queue()) #type: ignore
-
-            # class MyPool(multiprocessing.pool.Pool):
-
-            #     _missing_error_definition_error_is_new = True
-
-            #     def _join_exited_workers(self):
-
-            #         for worker in self._pool:
-            #             if worker.exitcode == 1000 and MyPool._missing_error_definition_error_is_new:
-
-            #                     #this is a hack... This only works so long as we just 
-            #                     #process one pipe at a time... This is true in our case.
-            #                     #this is necessary because multiprocessing can get stuck 
-            #                     #waiting for failed workers and that is frustrating for users.
-            #                     MyPool._missing_error_definition_error_is_new = False
-
-            #                     message = (
-            #                         "We attempted to evaluate your code in multiple processes but we were unable to find all the code "
-            #                         "definitions needed to pass the tasks to the processes. The two most common causes of this error are: "
-            #                         "1) a learner or simulation is defined in a Jupyter Notebook cell or 2) a necessary class definition "
-            #                         "exists inside the `__name__=='__main__'` code block in the main execution script. In either case "
-            #                         "you can choose one of two simple solutions: 1) evaluate your code in a single process with no limit "
-            #                         "child tasks or 2) define all necessary classes in a separate file and include the classes via import "
-            #                         "statements."                                    
-            #                     )
-
-            #                     stderr_IO.write(message)
-
-            #             if worker.exitcode is not None and worker.exitcode != 0:
-            #                 #A worker exited in an uncontrolled manner and was unable to clean its job
-            #                 #up. We therefore mark one of the jobs as "finished" but failed in order to 
-            #                 #prevent waiting forever on a failed job that is actually no longer running.
-            #                 list(self._cache.values())[0]._set(None, (False, None))
-
-            #         return super()._join_exited_workers()
-
-            with multiprocessing.pool.Pool(self._processes, maxtasksperchild=self._maxtasksperchild or None) as pool:
-
-                # handle not picklable (this is handled by done_or_failed)    (TESTED)
-                # handle empty list (this is done by checking result.ready()) (TESTED)
-                # handle exceptions in process (unhandled exceptions can cause children to hang so we pass them to stderr) (TESTED)
-                # handle ctrl-c without hanging 
-                #   > don't call result.get when KeyboardInterrupt has been hit
-                #   > handle EOFError,BrokenPipeError errors with queue since ctr-c kills manager
-                # handle AttributeErrors. These occur when... (this is handled by shadowing several pool methods) (TESTED)
-                #   > a class that is defined in a Jupyter Notebook cell is pickled
-                #   > a class that is defined inside the __name__=='__main__' block is pickeled
-                # handle Experiment.execute not being called inside of __name__=='__main__' (this is handled by a big try/catch)
-
-                def done_or_failed(results_or_exception=None):
-                    #This method is called one time at the completion of map_async
-                    #in the case that one of our jobs threw an exception the argument
-                    #will contain an exception otherwise it will be the returned results
-                    #of all the jobs. This method is executed on a thread in the Main context.
-
-                    if isinstance(results_or_exception, Exception):
-                        if "Can't pickle" in str(results_or_exception) or "Pickling" in str(results_or_exception):
+                    try:
+                        self._stdin.write(pickle.dumps(item))
+                    except Exception as e:
+                        if "Can't pickle" in str(e) or "Pickling" in str(e):
 
                             message = (
-                                str(results_or_exception) + ". We attempted to process your code on multiple processes but "
+                                str(e) + ". We attempted to process your code on multiple processes but "
                                 "the named class could not be pickled. This problem can be fixed in one of two ways: 1) "
                                 "evaluate the experiment in question on a single process with no limit on the tasks per child or 2) "
                                 "modify the named class to be picklable. The easiest way to make a given class picklable is to "
                                 "add `def __reduce__ (self) return (<the class in question>, (<tuple of constructor arguments>))` to "
                                 "the class. For more information see https://docs.python.org/3/library/pickle.html#object.__reduce__."
                             )
-                            stderr_IO.write(message)
-                        else:
-                            stderr_IO.write(results_or_exception)
 
-                    stdout_IO.write(None)
-                    stderr_IO.write(None)
+                            self._stderr.write(message)
+                            
+                            # I'm not sure what I think about this... 
+                            # It means pipes stops after a pickle error...
+                            # This is how it has worked for a long time, though, 
+                            # So I'm leaving as is for now...
+                            break 
+                        else: #pragma: no cover
+                            self._stderr.write((time.time(), current_process().name, e, traceback.format_tb(e.__traceback__)))
+            except Exception as e:
+                self._stderr.write((time.time(), current_process().name, e, traceback.format_tb(e.__traceback__)))
 
-                log_thread = Thread(target=Pipe.join(stderr_IO, [], Foreach(self._stderr)).run)
-                log_thread.daemon = True
-                log_thread.start()
+            self._completed = True
 
-                processor = PipeMultiprocessor.Processor(self._filter, stdout_IO, stderr_IO, self._foreach)
-                result    = pool.map_async(processor.process, items, callback=done_or_failed, error_callback=done_or_failed, chunksize=1)
+        log_thread = Thread(target=Pipe.join(self._stderr, [], Foreach(self._given_stderr)).run)
+        log_thread.daemon = True
+        log_thread.start()
 
-                # When items is empty finished_callback will not be called and we'll get stuck waiting for the poison pill.
-                # When items is empty ready() will be true immediately and this check will place the poison pill into the queues.
-                if result.ready(): done_or_failed()
+        pool_thread = Thread(target=maintain_pool)
+        pool_thread.daemon = True
+        pool_thread.start()
 
-                try:
-                    for item in stdout_IO.read():
-                        yield item
-                    pool.close()
-                except (KeyboardInterrupt, Exception):
-                    try:
-                        pool.terminate()
-                    except:
-                        pass
-                    raise
-                finally:
-                    pool.join()
+        tasks_thread = Thread(target=populate_tasks)
+        tasks_thread.daemon = True
+        tasks_thread.start()
+
+        self._threads.append(log_thread)
+        self._threads.append(pool_thread)
+        self._threads.append(tasks_thread)
+
+        for item in self._stdout.read():
+            yield item
+
+    def close(self):
+        
+        while self._threads:
+            self._threads.pop().join()
+
+        if self._stdin : self._stdin._queue .close()
+        if self._stdout: self._stdout._queue.close()
+        if self._stderr: self._stderr._queue.close()        
+
+    def terminate(self):
+        self._terminate = True
+        self._threads[1].join()
+
+    @property
+    def is_terminated(self) -> bool:
+        return self._terminate
+
+    @staticmethod
+    def worker(filter: Filter[Any,Any], stdin: Source, stdout: Sink, stderr: Sink, maxtasksperchild: Optional[int]):
+        try:
+
+            for item in islice(map(pickle.loads,stdin.read()),maxtasksperchild):
+                result = filter.filter(item)
+                
+                #This is a bit of a hack primarily put in place to deal with
+                #CobaMultiprocessing that performs coba logging of exceptions.
+                #An alternative solution would be to raise a coba exception 
+                #full logging decorators in the exception message. 
+                if result is None: continue
+
+                if inspect.isgenerator(result) or isinstance(result, collections.abc.Iterator):
+                    stdout.write(list(result))
+                else:
+                    stdout.write(result)
+
+        except Exception as e:
+
+                if str(e).startswith("Can't get attribute"):
+
+                    message = (
+                        "We attempted to evaluate your code in multiple processes but we were unable to find all the code "
+                        "definitions needed to pass the tasks to the processes. The two most common causes of this error are: "
+                        "1) a learner or simulation is defined in a Jupyter Notebook cell or 2) a necessary class definition "
+                        "exists inside the `__name__=='__main__'` code block in the main execution script. In either case "
+                        "you can choose one of two simple solutions: 1) evaluate your code in a single process with no limit "
+                        "child tasks or 2) define all necessary classes in a separate file and include the classes via import "
+                        "statements."                                    
+                    )
+
+                    stderr.write(message)
+                
+                else:
+                    #WARNING: this will scrub e of its traceback which is why the traceback is also sent as a string
+                    stderr.write((time.time(), current_process().name, e, traceback.format_tb(e.__traceback__)))
+
+        except KeyboardInterrupt:
+            #When ctrl-c is pressed on the keyboard KeyboardInterrupt is raised in each
+            #process. We need to handle this here because Processor is always run in a
+            #background process and receives this. We can ignore this because the exception will
+            #also be raised in our main process. Therefore we simply ignore and trust the main to
+            #handle the keyboard interrupt gracefully.
+            pass
+
+class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
+
+    def __init__(self,
+        filter: Filter[Any, Any],
+        n_processes: int = 1,
+        maxtasksperchild: int = 0,
+        stderr: Sink = ConsoleIO(),
+        chunked: bool = True) -> None:
+
+        self._filter           = filter
+        self._n_processes      = n_processes
+        self._maxtasksperchild = maxtasksperchild
+        self._stderr           = stderr
+        self._chunked          = chunked
+
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+
+        with PipesPool(self._n_processes, self._maxtasksperchild, self._stderr) as pool:
+            for item in pool.map(self._filter, items):
+                if self._chunked:
+                    for inner_item in item: yield inner_item
+                else:
+                    yield item

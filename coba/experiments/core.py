@@ -110,7 +110,7 @@ class Experiment:
             if not restored: sink.write(["T0", n_given_learners, n_given_environments])
             Pipe.join(workitems, [unfinished, process], Foreach(sink)).run()
 
-        except KeyboardInterrupt: # pragma: no cover
+        except KeyboardInterrupt as e: # pragma: no cover
             CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")
         
         except Exception as ex: # pragma: no cover

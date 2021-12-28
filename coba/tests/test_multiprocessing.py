@@ -35,12 +35,6 @@ class ExceptionFilter(Filter):
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         raise self._exc
-
-#this is needed for testing purposes
-if current_process().name == 'MainProcess':
-    class Test:
-        pass
-
 class CobaMultiprocessor_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -60,14 +54,30 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         self.assertCountEqual(items, [ l.split(' ')[ 3] for l in logger_sink.items ] )
         self.assertCountEqual(items, [ l.split(' ')[-1] for l in logger_sink.items ] )
 
-    def test_exception_logging(self):
+    def test_filter_exception_logging(self):
         CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(MemoryIO()),[])
         CobaContext.cacher = NullCacher()
         
         list(CobaMultiprocessor(ExceptionFilter(), 2, 1).filter(range(4)))
 
-        for item in CobaContext.logger.sink.items:
-            self.assertIn("Unexpected exception:", item)
+        self.assertEqual(4, len(CobaContext.logger.sink.items))
+        self.assertIn("Exception Filter", CobaContext.logger.sink.items[0])
+        self.assertIn("Exception Filter", CobaContext.logger.sink.items[1])
+        self.assertIn("Exception Filter", CobaContext.logger.sink.items[2])
+        self.assertIn("Exception Filter", CobaContext.logger.sink.items[3])
+
+    def test_read_exception_logging(self):
+        CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(MemoryIO()),[])
+        CobaContext.cacher = NullCacher()
+        
+        def broken_generator():
+            yield [1]
+            raise Exception("Generator Exception")
+
+        list(CobaMultiprocessor(Identity(), 2, 1).filter(broken_generator()))
+
+        self.assertEqual(1, len(CobaContext.logger.sink.items))
+        self.assertIn("Generator Exception", CobaContext.logger.sink.items[0])
 
     def test_not_picklable_logging(self):
         logger_sink = MemoryIO()
@@ -78,6 +88,20 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(logger_sink.items))
         self.assertIn("pickle", logger_sink.items[0])
+
+    def test_double_call(self):
+        
+        logger_sink = MemoryIO()
+        logger      = DecoratedLogger([],IndentLogger(logger_sink), [NameLog(), StampLog()])
+
+        CobaContext.logger = logger
+        CobaContext.cacher = NullCacher()
+
+        items = list(CobaMultiprocessor(ProcessNameFilter(), 2, 1).filter(range(4)))
+
+        self.assertEqual(len(logger_sink.items), 4)
+        self.assertCountEqual(items, [ l.split(' ')[ 3] for l in logger_sink.items ] )
+        self.assertCountEqual(items, [ l.split(' ')[-1] for l in logger_sink.items ] )
 
 class CobaMultiprocessor_ProcessFilter_Tests(unittest.TestCase):
 
