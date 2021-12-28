@@ -30,10 +30,6 @@ class ExceptionFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         raise self._exc
 
-if current_process().name == 'MainProcess':
-    class Test:
-        pass
-
 class PipeMultiprocessor_Tests(unittest.TestCase):
 
     def test_foreach_false(self):
@@ -81,6 +77,10 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
     def test_class_definitions_not_loaded_in_main(self):
 
         stderr_sink = MemoryIO()
+
+        global Test
+        class Test:
+            pass
 
         def test_function():
             list(PipeMultiprocessor(ProcessNameFilter(), 2, 1, stderr_sink).filter([Test()]*2))
