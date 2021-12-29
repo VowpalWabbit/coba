@@ -1,0 +1,36 @@
+# codecov recommends calculating coverage on all configurations and submitting with flags
+# here https://community.codecov.com/t/upload-of-coverage-of-several-python-versions/2349/2
+
+name: tests_and_coverage
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        version: ['3.6', '3.7', '3.8', '3.9']
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.version }}
+          cache: 'pip'
+      - run: python --version
+      - run: pip install wheel
+      - run: pip install -r coba/tests/requirements.txt
+      - run: pip list
+      - run: python setup.py install
+      - run: coverage run -m unittest
+      - run: coverage xml
+      - uses: codecov/codecov-action@v2
+        with:
+          flags: unittest, ${{ matrix.os }}, ${{ matrix.version }}
