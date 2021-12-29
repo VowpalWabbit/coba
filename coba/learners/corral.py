@@ -13,10 +13,11 @@ from coba.contexts import LearnerContext
 from coba.learners.primitives import Learner, SafeLearner, Probs, Info
 
 class CorralLearner(Learner):
-    """This is an implementation of the Agarwal et al. (2017) Corral algorithm.
-
-    This algorithm assumes that the reward distribution has support in [0,1]
-    and improves on the remark on pg. 8 to base learner selection efficiency.
+    """A meta-learner that takes a collection of learners and determines
+    which learner is best in an environment.
+    
+    This is an implementation of the Agarwal et al. (2017) Corral algorithm
+    and requires that the reward is always in [0,1].
 
     References:
         Agarwal, Alekh, Haipeng Luo, Behnam Neyshabur, and Robert E. Schapire. 
@@ -25,28 +26,27 @@ class CorralLearner(Learner):
     """
 
     def __init__(self, 
-        base_learners: Sequence[Learner], 
-        eta          : float = 0.075,
-        T            : float = math.inf, 
-        type         : Literal["importance","rejection","off-policy"] ="importance", 
-        seed         : int = 1) -> None:
-        """Instantiate a CorralLearner.
-
+        learners: Sequence[Learner], 
+        eta     : float = 0.075,
+        T       : float = math.inf, 
+        mode    : Literal["importance","rejection","off-policy"] ="importance", 
+        seed    : int = 1) -> None:
+        """
         Args:
-            base_learners: The collection of algorithms to use as base learners.
+            learners: The collection of base learners.
             eta: The learning rate. This controls how quickly Corral picks a best base_learner. 
             T: The number of interactions expected during the learning process. A small T will cause
                 the learning rate to shrink towards 0 quickly while a large value for T will cause the
                 learning rate to shrink towards 0 slowly. A value of inf means that the learning rate
                 will remain constant.
-            type: Determines the method with which feedback is provided to the base learners. The 
+            mode: Determines the method with which feedback is provided to the base learners. The 
                 original paper used importance sampling. We also support `off-policy` and `rejection`.
             seed: A seed for a random number generation in ordre to get repeatable results.
         """
-        if type not in ["importance", "off-policy", "rejection"]:
-            raise CobaException("The provided `type` for CorralLearner was unrecognized.")
+        if mode not in ["importance", "off-policy", "rejection"]:
+            raise CobaException("The provided `mode` for CorralLearner was unrecognized.")
 
-        self._base_learners = [ SafeLearner(learner) for learner in base_learners]
+        self._base_learners = [ SafeLearner(learner) for learner in learners]
 
         M = len(self._base_learners)
 
@@ -60,56 +60,34 @@ class CorralLearner(Learner):
         self._ps       = [ 1/M ] * M
         self._p_bars   = [ 1/M ] * M
 
-        self._type = type
+        self._mode = mode
 
         self._random_pick   = CobaRandom(seed)
         self._random_reject = CobaRandom(CobaRandom(seed).randint(0,10000))
 
     @property
     def params(self) -> Dict[str, Any]:
-        """The parameters of the learner.
-
-        See the base class for more information
-        """
-        return { "family": "corral", "eta": self._eta_init, "type":self._type, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._random_pick._seed }
+        return { "family": "corral", "eta": self._eta_init, "mode":self._mode, "T": self._T, "B": [ str(b) for b in self._base_learners ], "seed":self._random_pick._seed }
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
-        """Determine a PMF with which to select the given actions.
-
-        Args:
-            context: The context we're currently in. See the base class for more information.
-            actions: The actions to choose from. See the base class for more information.
-
-        Returns:
-            The probability of taking each action and information used for learning. See the base class for more information.
-        """
 
         base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_learners ]
         base_predicts, base_infos = zip(*base_predicts)
 
-        if self._type in ["importance"]:
+        if self._mode in ["importance"]:
             base_actions = [ self._random_pick.choice(actions, predict) for predict in base_predicts              ]
             base_probs   = [ predict[actions.index(action)] for action,predict in zip(base_actions,base_predicts) ]
 
             predict = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
             info    = (base_actions, base_probs, base_infos, base_predicts, actions, predict)
 
-        if self._type in ["off-policy", "rejection"]:
+        if self._mode in ["off-policy", "rejection"]:
             predict = [ sum([p_b*b_p[i] for p_b,b_p in zip(self._p_bars, base_predicts)]) for i in range(len(actions)) ]
             info    = (None, None, base_infos, base_predicts, actions, predict)
 
         return (predict, info)
 
-    def learn(self, context: Context, action: Action, reward: float, probability:float, info: Info) -> Dict[str, Any]:
-        """Learn from the given interaction.
-
-        Args:
-            context: The context we're learning about. See the base class for more information.
-            action: The action that was selected in the context. See the base class for more information.
-            reward: The reward that was gained from the action. See the base class for more information.
-            probability: The probability with which the given action was selected.
-            info: Optional information provided during prediction step for use in learning.
-        """
+    def learn(self, context: Context, action: Action, reward: float, probability:float, info: Info) -> None:
 
         assert  0 <= reward and reward <= 1, "This Corral implementation assumes a loss between 0 and 1"
 
@@ -120,7 +98,7 @@ class CorralLearner(Learner):
         actions      = info[4]
         predict      = info[5]
 
-        if self._type == "importance":
+        if self._mode == "importance":
             # This is what is in the original paper. It has the following characteristics:
             #   > It is able to provide feedback to every base learner on every iteration
             #   > It uses a reward estimator with higher variance and no bias (aka, importance sampling)
@@ -130,7 +108,7 @@ class CorralLearner(Learner):
                 R = reward * int(A==action)/probability
                 learner.learn(context, A, R, P, base_info)
 
-        if self._type == "off-policy":
+        if self._mode == "off-policy":
             # An alternative variation to the paper is provided below. It has the following characterisitcs: 
             #   > It is able to provide feedback to every base learner on every iteration
             #   > It uses a MVUB reward estimator (aka, the unmodified, observed reward)
@@ -138,7 +116,7 @@ class CorralLearner(Learner):
             for learner, base_info in zip(self._base_learners, base_infos):
                 learner.learn(context, action, reward, probability, base_info)
 
-        if self._type == "rejection":
+        if self._mode == "rejection":
             # An alternative variation to the paper is provided below. It has the following characterisitcs: 
             #   > It doesn't necessarily provide feedback to every base learner on every iteration
             #   > It uses a MVUB reward estimator (aka, the unmodified, observed reward) when it does provide feedback

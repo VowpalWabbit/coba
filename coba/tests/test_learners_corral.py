@@ -27,11 +27,11 @@ class FamilyLearner:
     def params(self):
         return {'family': self._family}
 
-class CorallLearner_Tests(unittest.TestCase):
+class CorralLearner_Tests(unittest.TestCase):
 
     def test_importance_predict(self):
 
-        learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, type="importance")
+        learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="importance")
 
         mean_predict = list(map(mean, zip(*[learner.predict(None, [1,2])[0] for _ in range(1000)])) )
 
@@ -42,7 +42,7 @@ class CorallLearner_Tests(unittest.TestCase):
         actions      = [1,2]
         base1        = ReceivedLearnFixedLearner([1/2,1/2])
         base2        = ReceivedLearnFixedLearner([1/4,3/4])
-        learner      = CorralLearner([base1, base2], eta=0.5, type="importance")
+        learner      = CorralLearner([base1, base2], eta=0.5, mode="importance")
         predict,info = learner.predict(None, actions)
 
         action      = actions[0]
@@ -56,7 +56,7 @@ class CorallLearner_Tests(unittest.TestCase):
 
     def test_off_policy_predict(self):
 
-        learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, type="off-policy")
+        learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="off-policy")
         
         predict = learner.predict(None, [1,2])[0]
 
@@ -68,7 +68,7 @@ class CorallLearner_Tests(unittest.TestCase):
         actions      = [1,2]
         base1        = ReceivedLearnFixedLearner([1/2,1/2], 'a')
         base2        = ReceivedLearnFixedLearner([1/4,3/4], 'b')
-        learner      = CorralLearner([base1, base2], eta=0.5, type="off-policy")
+        learner      = CorralLearner([base1, base2], eta=0.5, mode="off-policy")
         predict,info = learner.predict(None, actions)
 
         action      = actions[0]
@@ -86,7 +86,7 @@ class CorallLearner_Tests(unittest.TestCase):
 
     def test_rejection_predict(self):
 
-        learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, type="rejection")
+        learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="rejection")
         
         predict = learner.predict(None, [1,2])[0]
 
@@ -98,7 +98,7 @@ class CorallLearner_Tests(unittest.TestCase):
         actions      = [0,1]
         base1        = ReceivedLearnFixedLearner([1/2,1/2], 'a')
         base2        = ReceivedLearnFixedLearner([1/4,3/4], 'b')
-        learner      = CorralLearner([base1, base2], eta=0.5, type="rejection")
+        learner      = CorralLearner([base1, base2], eta=0.5, mode="rejection")
         predict,info = learner.predict(None, actions)
 
         action      = actions[0]
@@ -135,7 +135,7 @@ class CorallLearner_Tests(unittest.TestCase):
         base1_name = 'A'
         base2_name = 'B'
 
-        expected = {'family': 'corral', 'eta': 0.075, 'type': 'importance', 'T': float('inf'), 'B': [base1_name, base2_name], 'seed': 1}
+        expected = {'family': 'corral', 'eta': 0.075, 'mode': 'importance', 'T': float('inf'), 'B': [base1_name, base2_name], 'seed': 1}
         actual   = CorralLearner([FamilyLearner("A"), FamilyLearner("B")]).params
 
         self.assertEqual(expected, actual)

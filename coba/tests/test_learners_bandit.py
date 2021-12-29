@@ -6,7 +6,7 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
     
     def test_params(self):
         learner = EpsilonBanditLearner(epsilon=0.5)
-        self.assertEqual({"family":"bandit_epsilon", "epsilon":0.5}, learner.params)
+        self.assertEqual({"family":"epsilon_bandit", "epsilon":0.5}, learner.params)
 
     def test_predict_no_learn(self):
         learner = EpsilonBanditLearner(epsilon=0.5)
@@ -45,7 +45,7 @@ class UcbBanditLearner_Tests(unittest.TestCase):
     
     def test_params(self):
         learner = UcbBanditLearner()
-        self.assertEqual({ "family": "bandit_UCB" }, learner.params)
+        self.assertEqual({ "family": "UCB_bandit" }, learner.params)
 
     def test_predict_all_actions_first(self):
 

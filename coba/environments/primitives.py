@@ -1,11 +1,12 @@
+from numbers import Number
 from abc import abstractmethod, ABC
-from typing import Optional, Sequence, Hashable, Any, Union, Iterable, overload, Dict
+from typing import Optional, Sequence, Any, Union, Iterable, overload, Dict
 
 from coba.utilities import HashableDict
 from coba.pipes import Source, Filter
 
-Action  = Union[Hashable, HashableDict]
-Context = Union[None, Hashable, HashableDict]
+Action  = Union[str, Number, tuple, HashableDict]
+Context = Union[None, str, Number, tuple, HashableDict]
 
 class Interaction:
     def __init__(self, context: Context) -> None:

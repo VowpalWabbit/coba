@@ -5,6 +5,11 @@ import unittest.mock
 from coba.utilities import KeyDefaultDict
 from coba.exceptions import CobaException
 from coba.learners import VowpalLearner, VowpalMediator
+from coba.learners import (
+    VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner, 
+    VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner,
+    VowpalOffPolicyLearner
+)
 
 class VowpalMockExample:
     
@@ -13,6 +18,102 @@ class VowpalMockExample:
         self.ns = ns
         self.label = label
         self.label_type = label_type
+
+class VowpalEpsilonLearner_Tests(unittest.TestCase):
+    
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_defaults(self, mock) -> None:
+        VowpalEpsilonLearner()
+        mock.assert_called_once_with("--cb_explore_adf --epsilon 0.05 --interactions xxa --interactions xa --ignore_linear x --random_seed 1")
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_specifics(self, mock) -> None:
+        VowpalEpsilonLearner(epsilon=0.1, interactions=["xa"], ignore_linear=[], seed=None)
+        mock.assert_called_once_with("--cb_explore_adf --epsilon 0.1 --interactions xa")
+
+class VowpalSoftmaxLearner_Tests(unittest.TestCase):
+    
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_defaults(self, mock) -> None:
+        VowpalSoftmaxLearner()
+        mock.assert_called_once_with("--cb_explore_adf --softmax --lambda 10 --interactions xxa --interactions xa --ignore_linear x --random_seed 1")
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_specifics(self, mock) -> None:
+        VowpalSoftmaxLearner(softmax=5, interactions=["xa"], ignore_linear=[], seed=None)
+        mock.assert_called_once_with("--cb_explore_adf --softmax --lambda 5 --interactions xa")
+
+class VowpalSoftmaxLearner_Tests(unittest.TestCase):
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_defaults(self, mock) -> None:
+        VowpalSoftmaxLearner()
+        mock.assert_called_once_with("--cb_explore_adf --softmax --lambda 10 --interactions xxa --interactions xa --ignore_linear x --random_seed 1")
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_specifics(self, mock) -> None:
+        VowpalSoftmaxLearner(softmax=5, interactions=["xa"], ignore_linear=[], seed=None)
+        mock.assert_called_once_with("--cb_explore_adf --softmax --lambda 5 --interactions xa")
+
+class VowpalBagLearner_Tests(unittest.TestCase):
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_defaults(self, mock) -> None:
+        VowpalBagLearner()
+        mock.assert_called_once_with("--cb_explore_adf --bag 5 --interactions xxa --interactions xa --ignore_linear x --random_seed 1")
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_specifics(self, mock) -> None:
+        VowpalBagLearner(bag=10, interactions=["xa"], ignore_linear=[], seed=None)
+        mock.assert_called_once_with("--cb_explore_adf --bag 10 --interactions xa")
+
+class VowpalCoverLearner_Tests(unittest.TestCase):
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_defaults(self, mock) -> None:
+        VowpalCoverLearner()
+        mock.assert_called_once_with("--cb_explore_adf --cover 5 --interactions xxa --interactions xa --ignore_linear x --random_seed 1")
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_specifics(self, mock) -> None:
+        VowpalCoverLearner(cover=10, interactions=["xa"], ignore_linear=[], seed=None)
+        mock.assert_called_once_with("--cb_explore_adf --cover 10 --interactions xa")
+
+class VowpalRegcbLearner_Tests(unittest.TestCase):
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_defaults(self, mock) -> None:
+        VowpalRegcbLearner()
+        mock.assert_called_once_with("--cb_explore_adf --regcb --interactions xxa --interactions xa --ignore_linear x --random_seed 1")
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_specifics(self, mock) -> None:
+        VowpalRegcbLearner(mode="optimistic", interactions=["xa"], ignore_linear=[], seed=None)
+        mock.assert_called_once_with("--cb_explore_adf --regcbopt --interactions xa")
+
+class VowpalSquarecbLearner_Tests(unittest.TestCase):
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_defaults(self, mock) -> None:
+        VowpalSquarecbLearner()
+        mock.assert_called_once_with("--cb_explore_adf --squarecb --gamma_scale 10 --interactions xxa --interactions xa --ignore_linear x --random_seed 1")
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_specifics(self, mock) -> None:
+        VowpalSquarecbLearner(mode="elimination", gamma_scale=5, interactions=["xa"], ignore_linear=[], seed=None)
+        mock.assert_called_once_with("--cb_explore_adf --squarecb --gamma_scale 5 --elim --interactions xa")
+
+class VowpalOffpolicyLearner_Tests(unittest.TestCase):
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_defaults(self, mock) -> None:
+        VowpalOffPolicyLearner()
+        mock.assert_called_once_with("--cb_adf --interactions xxa --interactions xa --ignore_linear x --random_seed 1")
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_specifics(self, mock) -> None:
+        VowpalOffPolicyLearner(interactions=["xa"], ignore_linear=[], seed=None)
+        mock.assert_called_once_with("--cb_adf --interactions xa")
 
 class VowpalLearner_Tests(unittest.TestCase):
 
@@ -40,90 +141,29 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.module.stop()
         self.mediat.stop()
 
-    def test_bad_args(self):
+    def test_params(self):
 
+        learners = VowpalLearner()
+
+        expected_args = [
+            "--cb_explore_adf",
+            "--epsilon 0.05",
+            "--interactions xxa",
+            "--interactions xa",
+            "--ignore_linear x",
+            "--random_seed 1",
+        ]
+
+        self.assertEqual(learners.params['family'], "vw")
+        self.assertEqual(learners.params["args"], " ".join(expected_args))
+
+    def test_init_bad(self):
         with self.assertRaises(CobaException):
-            VowpalLearner('--cb_explore', epsilon=.1)
+            VowpalLearner('--epsilon .1')
 
-    def test_no_args(self):
+    def test_init_default(self):
 
         VowpalLearner().predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_custom_flag(self):
-
-        VowpalLearner(b=10).predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1",
-            "-b 10",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_custom_option(self):
-
-        VowpalLearner(bit_precision=10).predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1",
-            "--bit_precision 10",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_random_seed(self):
-
-        VowpalLearner(seed=2).predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 2",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_random_none(self):
-
-        VowpalLearner(seed=None).predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_epsilon_create(self):
-
-        VowpalLearner(epsilon=0.05).predict(None, ['yes','no'])
 
         expected_args = [
             "--cb_explore_adf",
@@ -137,142 +177,7 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.mocked.make_learner.assert_called_with(" ".join(expected_args))
 
-    def test_bag_create(self):
-
-        VowpalLearner(bag=2).predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--bag 2",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_cover_create(self):
-
-        VowpalLearner(cover=3).predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--cover 3",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_softmax_create(self):
-
-        VowpalLearner(softmax=0.2).predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--softmax",
-            "--lambda 0.2",
-            "--interactions xxa", 
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_regcb_opt_create(self):
-
-        VowpalLearner(regcb="opt").predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--regcb",
-            "--regcbopt",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-    
-    def test_regcb_elim_create(self):
-
-        VowpalLearner(regcb="elim").predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--regcb",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_squarecb_all_create(self):
-
-        VowpalLearner(squarecb="all").predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--squarecb",
-            "--gamma_scale 10",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_squarecb_elim_create(self):
-
-        VowpalLearner(squarecb="elim").predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--squarecb",
-            "--gamma_scale 10",
-            "--elim",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1",
-            "--quiet"
-        ]
-
-        self.mocked.make_learner.assert_called_with(" ".join(expected_args))
-
-    def test_params(self):
-
-        learners = VowpalLearner(squarecb="all")
-        learners.predict(None, ['yes','no'])
-
-        expected_args = [
-            "--cb_explore_adf",
-            "--squarecb",
-            "--gamma_scale 10",
-            "--interactions xxa",
-            "--interactions xa",
-            "--ignore_linear x",
-            "--random_seed 1"
-        ]
-
-        self.assertEqual(learners.params['family'], "vw")
-        self.assertEqual(learners.params["args"], " ".join(expected_args))
-
-    def test_explicit_adf_explore(self):
+    def test_init_cb_explore_adf(self):
         VowpalLearner("--cb_explore_adf --epsilon 0.75 --random_seed 20").predict(None, ['yes','no'])
 
         expected_args = [
@@ -284,15 +189,14 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.mocked.make_learner.assert_called_with(" ".join(expected_args))
 
-    def test_explicit_adf_no_explore(self):
+    def test_init_cb_adf(self):
         
         self.mocked.make_learner().predict.return_value = [.25, .75]
 
-        p = VowpalLearner("--cb_adf --epsilon 0.75 --random_seed 20").predict(None, ['yes','no'])[0]
+        p = VowpalLearner("--cb_adf --random_seed 20").predict(None, ['yes','no'])[0]
 
         expected_args = [
             "--cb_adf",
-            "--epsilon 0.75",
             "--random_seed 20",
             "--quiet"
         ]
@@ -300,7 +204,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual([1,0], p)
         self.mocked.make_learner.assert_called_with(" ".join(expected_args))
 
-    def test_explicit_no_adf_explore_args(self):
+    def test_init_cb_explore(self):
         VowpalLearner("--cb_explore 20 --epsilon 0.75 --random_seed 20").predict(None, ['yes','no'])
 
         expected_args = [
@@ -312,7 +216,7 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.mocked.make_learner.assert_called_with(" ".join(expected_args))
 
-    def test_explicit_no_adf_explore_args(self):
+    def test_init_cb(self):
 
         self.mocked.make_learner().predict.return_value = 1
         p = VowpalLearner("--cb 20 --epsilon 0.75 --random_seed 20").predict(None, ['yes','no'])[0]
@@ -327,14 +231,8 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual([1,0], p)
         self.mocked.make_learner.assert_called_with(" ".join(expected_args))
 
-    def test_no_cb_explicit_args(self):
-        with self.assertRaises(Exception) as e:
-            VowpalLearner("--epsilon 0.75 --random_seed 20").predict(None, ['yes','no'])
-
-        self.assertTrue("VowpalLearner was instantiated" in str(e.exception))
-
-    def test_adf_predict_sans_context_str_actions(self):
-        VowpalLearner(epsilon=0.05).predict(None, ['yes','no'])
+    def test_predict_adf_sans_context_str_actions(self):
+        VowpalLearner("--cb_explore_adf").predict(None, ['yes','no'])
 
         mock_learner = self.mocked.make_learner()
 
@@ -352,8 +250,8 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertEqual(0, mock_learner.call_count)
 
-    def test_adf_predict_sans_context_mixed_actions(self):
-        VowpalLearner(epsilon=0.05, seed=20).predict(None, [(1,'a'),(2,'b')])
+    def test_predict_adf_sans_context_mixed_actions(self):
+        VowpalLearner("--cb_explore_adf").predict(None, [(1,'a'),(2,'b')])
 
         mock_learner = self.mocked.make_learner()
 
@@ -371,8 +269,8 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertEqual(0, mock_learner.call_count)
 
-    def test_adf_predict_with_str_context_str_actions(self):
-        VowpalLearner(epsilon=0.05, seed=20).predict('b', ['yes','no'])
+    def test_predict_adf_with_str_context_str_actions(self):
+        VowpalLearner("--cb_explore_adf").predict('b', ['yes','no'])
 
         mock_learner = self.mocked.make_learner()
 
@@ -390,8 +288,8 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertEqual(0, mock_learner.call_count)
 
-    def test_adf_predict_with_dict_context_str_actions(self):
-        VowpalLearner(epsilon=0.05, seed=20).predict({'c':2}, ['yes','no'])
+    def test_predict_adf_with_dict_context_str_actions(self):
+        VowpalLearner("--cb_explore_adf").predict({'c':2}, ['yes','no'])
 
         mock_learner = self.mocked.make_learner()
 
@@ -409,8 +307,8 @@ class VowpalLearner_Tests(unittest.TestCase):
 
         self.assertEqual(0, mock_learner.call_count)
 
-    def test_adf_learn_sans_context_str_actions(self):
-        learner = VowpalLearner(epsilon=0.05, seed=20)
+    def test_learn_adf_sans_context_str_actions(self):
+        learner = VowpalLearner("--cb_explore_adf")
         learner.predict(None, ['yes','no'])
         learner.learn(None, 'yes', 1, 0.2, ['yes','no'])
 
@@ -428,8 +326,8 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual(None         , mock_learner.learn.call_args[0][0][1].label)
         self.assertEqual(4            , mock_learner.learn.call_args[0][0][1].label_type)
 
-    def test_adf_learn_with_str_context_str_actions(self):
-        learner = VowpalLearner(epsilon=0.05, seed=20)
+    def test_learn_adf_with_str_context_str_actions(self):
+        learner = VowpalLearner("--cb_explore_adf")
         learner.predict('b', ['yes','no'])
         learner.learn('b', 'no', .5, 0.2, ['yes','no'])
 
@@ -447,8 +345,8 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual("2:0.5:0.2"            , mock_learner.learn.call_args[0][0][1].label)
         self.assertEqual(4                      , mock_learner.learn.call_args[0][0][1].label_type)
 
-    def test_adf_learn_with_dict_context_str_actions(self):
-        learner = VowpalLearner(epsilon=0.05, seed=20)
+    def test_learn_adf_with_dict_context_str_actions(self):
+        learner = VowpalLearner("--cb_explore_adf")
         learner.predict({'c':2}, ['yes','no'])
         learner.learn({'c':2}, 'no', .5, 0.2, ['yes','no'])
 
@@ -466,8 +364,8 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual("2:0.5:0.2"               , mock_learner.learn.call_args[0][0][1].label)
         self.assertEqual(4                         , mock_learner.learn.call_args[0][0][1].label_type)
 
-    def test_adf_learn_with_dict_context_str_actions2(self):
-        learner = VowpalLearner(epsilon=0.05, seed=20)
+    def test_learn_adf_with_dict_context_str_actions2(self):
+        learner = VowpalLearner("--cb_explore_adf")
         learner.predict({1:(0,1)}, ['yes','no'])
         learner.learn({1:(0,1)}, 'no', .5, 0.2, ['yes','no'])
 
@@ -485,8 +383,8 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual("2:0.5:0.2"                 , mock_learner.learn.call_args[0][0][1].label)
         self.assertEqual(4                           , mock_learner.learn.call_args[0][0][1].label_type)
 
-    def test_adf_learn_with_mixed_dense_context_str_actions(self):
-        learner = VowpalLearner(epsilon=0.05, seed=20)
+    def test_learn_adf_with_mixed_dense_context_str_actions(self):
+        learner = VowpalLearner("--cb_explore_adf")
         learner.predict([1,'a',(0,1)], ['yes','no'])
         learner.learn([1,'a',(0,1)], 'no', .5, 0.2, ['yes','no'])
 
@@ -504,8 +402,8 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual("2:0.5:0.2"                             , mock_learner.learn.call_args[0][0][1].label)
         self.assertEqual(4                                       , mock_learner.learn.call_args[0][0][1].label_type)
 
-    def test_adf_learn_with_no_context_mixed_dense_actions(self):
-        learner = VowpalLearner(epsilon=0.05, seed=20)
+    def test_learn_adf_with_no_context_mixed_dense_actions(self):
+        learner = VowpalLearner("--cb_explore_adf")
         learner.predict(None, [(1,'a'),(2,'b')])
         learner.learn(None, (2,'b'), .5, 0.2, [(1,'a'),(2,'b')])
 
@@ -523,7 +421,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual("2:0.5:0.2"          , mock_learner.learn.call_args[0][0][1].label)
         self.assertEqual(4                    , mock_learner.learn.call_args[0][0][1].label_type)
 
-    def test_no_adf_learn_sans_context_str_actions(self):
+    def test_learn_no_adf_sans_context_str_actions(self):
         learner = VowpalLearner("--cb_explore")
         learner.predict(None, ['yes','no'])
         learner.learn(None, 'no', .5, 0.2, ['yes','no'])
@@ -555,23 +453,54 @@ class VowpalLearner_Tests(unittest.TestCase):
 
 class VowpalMediator_Tests(unittest.TestCase):
 
-    def test_empty(self):
+    def test_make_args(self):
+        args = VowpalMediator.make_args(["--cb_explore_adf"], ["xxa", "xa"], ["x"], 1, bits=20, b=20, c=None)
+
+        expected_options = [
+            "--cb_explore_adf",
+            "--interactions xxa",
+            "--interactions xa",
+            "--ignore_linear x",
+            "--random_seed 1",
+            "--bits 20",
+            "-b 20",
+            "-c"
+        ]
+
+        self.assertEqual(" ".join(expected_options), args)
+
+    def test_make_args_no_seed(self):
+        args = VowpalMediator.make_args(["--cb_explore_adf"], ["xxa", "xa"], ["x"], None, bits=20, b=20, c=None)
+
+        expected_options = [
+            "--cb_explore_adf",
+            "--interactions xxa",
+            "--interactions xa",
+            "--ignore_linear x",
+            "--bits 20",
+            "-b 20",
+            "-c"
+        ]
+
+        self.assertEqual(" ".join(expected_options), args)
+
+    def test_prep_features_empty(self):
         self.assertEqual([],VowpalMediator.prep_features(None))
         self.assertEqual([],VowpalMediator.prep_features([]))
         self.assertEqual([],VowpalMediator.prep_features(()))
 
-    def test_string(self):
+    def test_prep_features_string(self):
         actual   = VowpalMediator.prep_features('a')
         expected = [ 'a' ]
         self.assertEqual(actual, expected)
 
-    def test_numeric(self):
+    def test_prep_features_numeric(self):
         actual   = VowpalMediator.prep_features(2)
         expected = [ ('0',2) ]
         self.assertEqual(actual, expected)
         self.assertIsInstance(actual[0][1], float)
 
-    def test_dense_numeric_sequence(self):
+    def test_prep_features_dense_numeric_sequence(self):
         actual   = VowpalMediator.prep_features((1,2,3))
         expected = [ ('0',1), ('1',2), ('2',3) ]
         
@@ -580,7 +509,7 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertIsInstance(actual[1][1], float)
         self.assertIsInstance(actual[2][1], float)
 
-    def test_dense_string_sequence(self):
+    def test_prep_features_dense_string_sequence(self):
         actual   = VowpalMediator.prep_features((1,'a',3))
         expected = [ ('0',1), '1=a', ('2',3) ]
         
@@ -588,43 +517,43 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertIsInstance(actual[0][1], float)
         self.assertIsInstance(actual[2][1], float)
 
-    def test_sparse_dict_numeric_key_numeric_value(self):
+    def test_prep_features_sparse_dict_numeric_key_numeric_value(self):
         actual   = VowpalMediator.prep_features({1:1,2:2})
         expected = [ (1,1), (2,2) ]
         self.assertEqual(actual, expected)
         self.assertIsInstance(actual[0][1], float)
         self.assertIsInstance(actual[1][1], float)
 
-    def test_sparse_dict_string_key_numeric_value(self):
+    def test_prep_features_sparse_dict_string_key_numeric_value(self):
         actual   = VowpalMediator.prep_features({'a':1,'b':2})
         expected = [ ('a',1), ('b',2) ]
         self.assertEqual(actual, expected)
         self.assertIsInstance(actual[0][1], float)
         self.assertIsInstance(actual[1][1], float)
 
-    def test_sparse_dict_numeric_key_string_value(self):
+    def test_prep_features_sparse_dict_numeric_key_string_value(self):
         actual   = VowpalMediator.prep_features({1:'a',2:'b'})
         expected = [ '1=a', '2=b' ]
         self.assertEqual(actual, expected)
 
-    def test_sparse_dict_string_key_string_value(self):
+    def test_prep_features_sparse_dict_string_key_string_value(self):
         actual   = VowpalMediator.prep_features({'c':'a','d':'b'})
         expected = [ 'c=a', 'd=b' ]
         self.assertEqual(actual, expected)
 
-    def test_sparse_tuple(self):
+    def test_prep_features_sparse_tuple(self):
         actual   = VowpalMediator.prep_features([('a',1),('b',2)])
         expected = [ ('a',1), ('b',2) ]
         self.assertEqual(actual, expected)
         self.assertIsInstance(actual[0][1], float)
         self.assertIsInstance(actual[1][1], float)
 
-    def test_sparse_tuple_with_str_val(self):
+    def test_prep_features_sparse_tuple_with_str_val(self):
         actual   = VowpalMediator.prep_features([('a','c'),('b','d')])
         expected = [ 'a=c', 'b=d' ]
         self.assertEqual(actual, expected)
 
-    def test_sparse_tuple_with_float_val(self):
+    def test_prep_features_sparse_tuple_with_float_val(self):
         actual   = VowpalMediator.prep_features([(1.,1.23),(2.,2.23)])
         expected = [ (1.,1.23), (2.,2.23) ]
 
@@ -634,18 +563,18 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertIsInstance(actual[0][0],float)
         self.assertIsInstance(actual[1][0],float)
 
-    def test_bad_features(self):
+    def test_prep_features_bad_features(self):
         with self.assertRaises(CobaException):
             VowpalMediator.prep_features(object())
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
     def test_make_learner(self):
         vw = VowpalMediator.make_learner("--cb_explore_adf --epsilon .1 --quiet")
 
         self.assertIn("--cb_explore_adf", vw.get_arguments())
         self.assertIn("--epsilon", vw.get_arguments())
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
     def test_make_example(self):
         
         vw = VowpalMediator.make_learner("--cb_explore_adf --epsilon .1 --noconstant --quiet")
@@ -680,7 +609,7 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual(0, label.costs[0].cost)
         self.assertEqual(1, label.costs[0].probability)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
     def test_get_version(self):
         VowpalMediator.get_version()
 

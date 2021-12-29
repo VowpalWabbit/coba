@@ -4,7 +4,7 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
 from coba.contexts     import CobaContext
-from coba.learners     import RandomLearner, EpsilonBanditLearner, VowpalLearner
+from coba.learners     import RandomLearner, VowpalEpsilonLearner, VowpalSquarecbLearner
 from coba.experiments  import Experiment
 from coba.environments import Environments
 
@@ -21,9 +21,8 @@ if __name__ == '__main__':
     #First, we define the learners that we want to test
     learners = [
         RandomLearner(),
-        EpsilonBanditLearner(epsilon=.1),
-        VowpalLearner(epsilon=.1),
-        VowpalLearner(squarecb="all")
+        VowpalEpsilonLearner(),
+        VowpalSquarecbLearner()
     ]
 
     #Next we create the environments we'd like evaluate against
