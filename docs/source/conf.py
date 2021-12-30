@@ -10,13 +10,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
-import sys
-# sys.path.insert(0, os.path.abspath('../../coba'))
-# sys.path.insert(0, os.path.abspath('../coba'))
-# sys.path.insert(0, os.path.abspath('../..'))
-# sys.path.insert(0, os.path.abspath('..'))
-# sys.path.insert(0, os.path.abspath('.'))
+# This isn't necessary for us because we tell RTD to install coba in .readthedocs.yaml
+# as soon as RTD installs coba in the build environment sphynx has access to all the
+# modules it needs 
 
 # -- Project information -----------------------------------------------------
 
@@ -78,17 +74,14 @@ html_theme_options = {
 }
 
 # -- Options for autodoc ----------------------------------------------------
-from sphinx.application import Sphinx
 
 autodoc_docstring_signature = False
-
 autoclass_content = "both"
 autodoc_class_signature = "mixed"
-
 autodoc_member_order = "bysource"
 
-def autodoc_process_bases(app, name, obj, options, bases):
-    pass
+# This "fixes" things in sphinx documentation.
+from coba.learners import Learner, VowpalLearner
 
-def setup(app:Sphinx):
-    app.connect("autodoc-process-bases", autodoc_process_bases)
+Learner.__module__ = "coba.learners"
+VowpalLearner.__module__ = "coba.learners"

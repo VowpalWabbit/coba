@@ -12,10 +12,6 @@ Probs = Sequence[float]
 class Learner(ABC):
     """The Learner interface."""
 
-    # This "fixes" things in sphinx documentation. 
-    # As far as I know it shouldn't cause any undesired behavior.
-    __module__ = "coba.learners" 
-
     @property
     @abstractmethod
     def params(self) -> Dict[str,Any]:
