@@ -1,5 +1,3 @@
-"""Various caching implementations."""
-
 import inspect
 import gzip
 

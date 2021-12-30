@@ -1,5 +1,3 @@
-"""A collection of simple bandit algorithms for comparison purposes."""
-
 import math
 
 from collections import defaultdict
@@ -13,7 +11,8 @@ class EpsilonBanditLearner(Learner):
     """A bandit learner using epsilon-greedy for exploration."""
 
     def __init__(self, epsilon: float) -> None:
-        """
+        """Instantiate an EpsilonBanditLearner.
+
         Args:
             epsilon: We explore with probability epsilon and exploit otherwise.
         """
@@ -58,6 +57,7 @@ class UcbBanditLearner(Learner):
     """
     
     def __init__(self):
+        """Instantiate a UcbBanditLearner."""
         #these variable names were selected for easier comparison with the original paper 
         self._t     : int = 0
         self._m     : Dict[Action, float         ] = {}
@@ -130,10 +130,11 @@ class UcbBanditLearner(Learner):
         return var + math.sqrt(2*ln(t)/s)
 
 class FixedLearner(Learner):
-    """A learner that always selects actions according to a fixed distribution."""
+    """A learner that selects actions according to a fixed distribution."""
 
     def __init__(self, fixed_pmf: Sequence[float]) -> None:
-        """
+        """Instantiate a FixedLearner.
+
         Args:
             fixed_pmf: A PMF whose values are the probability of taking each action.
         """
@@ -156,7 +157,11 @@ class FixedLearner(Learner):
         pass
 
 class RandomLearner(Learner):
-    """A Learner that always selects actions according to a uniform distribution."""
+    """A learner that selects actions according to a uniform distribution."""
+
+    def __init__(self):
+        """Instantiate a RandomLearner."""
+        pass
 
     @property
     def params(self) -> Dict[str, Any]:

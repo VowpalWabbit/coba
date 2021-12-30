@@ -31,11 +31,12 @@ release = '4.5'
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.napoleon"
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autosummary"
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = []
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -75,13 +76,12 @@ html_theme_options = {
 
 # -- Options for autodoc ----------------------------------------------------
 
-autodoc_docstring_signature = False
-autoclass_content = "both"
-autodoc_class_signature = "mixed"
-autodoc_member_order = "bysource"
+autodoc_docstring_signature = True
+autoclass_content = "class"
+autodoc_class_signature = "separated"
+#autodoc_member_order = "bysource"
 
-# This "fixes" things in sphinx documentation.
-from coba.learners import Learner, VowpalLearner
-
-Learner.__module__ = "coba.learners"
-VowpalLearner.__module__ = "coba.learners"
+# This gives coba a consistent public interface in the documentation.
+from coba import learners
+for cls in map(learners.__dict__.get, learners.__all__):
+    cls.__module__ = "coba.learners"

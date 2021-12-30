@@ -1,5 +1,3 @@
-"""The data.pipes module contains core classes for creating data pipelines."""
-
 import collections.abc
 from typing import Sequence, Iterable, Any, overload, Union
 

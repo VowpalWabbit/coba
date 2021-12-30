@@ -1,5 +1,3 @@
-"""Simple one-off utility methods with no clear home."""
-
 import warnings
 import importlib
 

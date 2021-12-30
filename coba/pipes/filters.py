@@ -1,5 +1,3 @@
-"""The coba.pipes.filters module contains core classes for filters used in data pipelines."""
-
 import re
 import csv
 import itertools

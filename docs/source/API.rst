@@ -1,14 +1,10 @@
 =================
-API
+API Reference
 =================
 
-coba.learners
-----------------------------
-
-.. automodule:: coba.learners
-    :members:
-    :exclude-members: Learner, SafeLearner, params, predict, learn
-    :show-inheritance:
-    
-    .. autoclass:: coba.learners.Learner
-        :members: params, predict, learn
+.. autosummary::
+   :template: module_sans_modules.rst
+   :toctree: _autosummary
+   :recursive:
+   
+   coba.learners

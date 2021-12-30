@@ -1,5 +1,3 @@
-"""An implementation of the Corral algorithm."""
-
 import math
 
 from typing import Any, Sequence, Optional, Dict, Tuple
@@ -31,7 +29,8 @@ class CorralLearner(Learner):
         T       : float = math.inf, 
         mode    : Literal["importance","rejection","off-policy"] ="importance", 
         seed    : int = 1) -> None:
-        """
+        """Instantiate a CorralLearner.
+
         Args:
             learners: The collection of base learners.
             eta: The learning rate. This controls how quickly Corral picks a best base_learner. 

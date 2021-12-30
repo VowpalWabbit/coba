@@ -1,5 +1,3 @@
-"""The expected interface for all learner implementations."""
-
 from abc import ABC, abstractmethod
 from numbers import Number
 from typing import Any, Sequence, Dict, Union, Tuple
@@ -49,52 +47,60 @@ class Learner(ABC):
         ...
 
 class SafeLearner(Learner):
+    """A wrapper for learner-likes that guarantees interface consistency."""
 
-        def __init__(self, learner: Learner) -> None:
-            
-            self._learner = learner if not isinstance(learner, SafeLearner) else learner._learner
+    def __init__(self, learner: Learner) -> None:
+        """Instantiate a SafeLearner.
+        
+        Args:
+            learner: The learner we wish to make sure has the expected interface
+        """
+        
+        self._learner = learner if not isinstance(learner, SafeLearner) else learner._learner
 
-        @property
-        def full_name(self) -> str:
-            params = dict(self.params)
-            family = params.pop("family")
+    @property
+    def full_name(self) -> str:
+        """A user-friendly name created from a learner's params for reporting purposes."""
 
-            if len(params) > 0:
-                return f"{family}({','.join(f'{k}={v}' for k,v in params.items())})"
-            else:
-                return family
+        params = dict(self.params)
+        family = params.pop("family")
 
-        @property
-        def params(self) -> Dict[str, Any]:
-            try:
-                params = self._learner.params
-            except AttributeError:
-                params = {}
+        if len(params) > 0:
+            return f"{family}({','.join(f'{k}={v}' for k,v in params.items())})"
+        else:
+            return family
 
-            if "family" not in params:
-                params["family"] = self._learner.__class__.__name__
+    @property
+    def params(self) -> Dict[str, Any]:
+        try:
+            params = self._learner.params
+        except AttributeError:
+            params = {}
 
-            return params
+        if "family" not in params:
+            params["family"] = self._learner.__class__.__name__
 
-        def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
-            predict = self._learner.predict(context, actions)
+        return params
 
-            predict_has_no_info = len(predict) != 2 or isinstance(predict[0],Number)
+    def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
+        predict = self._learner.predict(context, actions)
 
-            if predict_has_no_info:
-                info    = None
-                predict = predict
-            else:
-                info    = predict[1]
-                predict = predict[0]
+        predict_has_no_info = len(predict) != 2 or isinstance(predict[0],Number)
 
-            assert len(predict) == len(actions), "The learner returned an invalid number of probabilities for the actions"
-            assert round(sum(predict),2) == 1 , "The learner returned a pmf which didn't sum to one."
+        if predict_has_no_info:
+            info    = None
+            predict = predict
+        else:
+            info    = predict[1]
+            predict = predict[0]
 
-            return (predict,info)
+        assert len(predict) == len(actions), "The learner returned an invalid number of probabilities for the actions"
+        assert round(sum(predict),2) == 1 , "The learner returned a pmf which didn't sum to one."
 
-        def learn(self, context: Context, action: Action, reward: float, probability:float, info: Info) -> None:
-            self._learner.learn(context, action, reward, probability, info)
+        return (predict,info)
 
-        def __str__(self) -> str:
-            return self.full_name
+    def learn(self, context: Context, action: Action, reward: float, probability:float, info: Info) -> None:
+        self._learner.learn(context, action, reward, probability, info)
+
+    def __str__(self) -> str:
+        return self.full_name

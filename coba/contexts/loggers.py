@@ -1,5 +1,3 @@
-"""Basic logging implementation and interface."""
-
 import time
 import traceback
 

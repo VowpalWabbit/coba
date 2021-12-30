@@ -1,7 +1,4 @@
-"""The public API for the config module.
-
-This module contains coba configuration functionality.
-"""
+"""This module contains classes and state relevant to execution context."""
 
 from coba.contexts.cachers import Cacher, NullCacher, MemoryCacher, DiskCacher, ConcurrentCacher
 from coba.contexts.loggers import Logger, NullLogger, BasicLogger, IndentLogger, ExceptLog, NameLog, StampLog, DecoratedLogger
