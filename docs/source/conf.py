@@ -9,15 +9,10 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# This isn't necessary for us because we tell RTD to install coba in .readthedocs.yaml
-# as soon as RTD installs coba in the build environment sphynx has access to all the
-# modules it needs 
 
 import os
 import sys
 
-print(os.path.abspath('../../'))
 sys.path.insert(0,os.path.abspath('../../'))
 
 # -- Project information -----------------------------------------------------

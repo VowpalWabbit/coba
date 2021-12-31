@@ -3,7 +3,8 @@
 
 .. automodule:: coba.environments
 
-   .. rubric:: Core
+Core
+~~~~
 
    .. autosummary::
       :toctree: _autosummary
@@ -11,7 +12,8 @@
       
       Environments
 
-   .. rubric:: Interfaces
+Interfaces
+~~~~~~~~~~
 
    .. autosummary::
       :toctree: _autosummary
@@ -22,7 +24,8 @@
       LoggedEnvironment
       WarmStartEnvironment
 
-   .. rubric:: Interaction Types
+Interaction Types
+~~~~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: _autosummary
@@ -32,7 +35,8 @@
       SimulatedInteraction
       LoggedInteraction
 
-   .. rubric:: Simulated Environments
+Simulated Environments
+~~~~~~~~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: _autosummary
@@ -50,7 +54,8 @@
       LinearSyntheticSimulation
       LocalSyntheticSimulation
       
-   .. rubric:: Environment Filters
+Environment Filters
+~~~~~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: _autosummary

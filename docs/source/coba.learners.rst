@@ -1,9 +1,10 @@
 ﻿coba.learners
 =============
 
-.. automodule:: coba.learners
+   .. automodule:: coba.learners
 
-   .. rubric:: Interfaces
+Interfaces
+~~~~~~~~~~
 
    .. autosummary::
       :toctree: _autosummary
@@ -11,7 +12,8 @@
 
       Learner
 
-   .. rubric:: Dummy Learners
+Dummy Learners
+~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: _autosummary
@@ -20,7 +22,8 @@
       RandomLearner
       FixedLearner
       
-   .. rubric:: Bandit Learners
+Bandit Learners
+~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: _autosummary
@@ -29,7 +32,8 @@
       EpsilonBanditLearner
       UcbBanditLearner
 
-   .. rubric:: Contextual Bandit Learners
+Contextual Bandit Learners
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: _autosummary
@@ -46,7 +50,8 @@
       VowpalSoftmaxLearner
       VowpalSquarecbLearner
 
-   .. rubric:: Meta Learners
+Meta Learners
+~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: _autosummary
