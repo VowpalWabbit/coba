@@ -1,3 +1,6 @@
-from coba.backports import version
+from coba.backports import version, PackageNotFoundError
 
-__version__ = version('coba') #option #5 on https://packaging.python.org/en/latest/guides/single-sourcing-package-version/
+try:
+    __version__ = version('coba') #option #5 on https://packaging.python.org/en/latest/guides/single-sourcing-package-version/
+except PackageNotFoundError:
+    __version__ = "0.0.0"
