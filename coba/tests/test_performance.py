@@ -78,10 +78,10 @@ class Performance_Tests(unittest.TestCase):
         x = dict(zip(map(str,range(100)), range(100)))
         a = [1,2,3]
         
-        time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=100)
+        time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=50)
         
-        #best observed was 0.40
-        self.assertLess(time, 2.4)
+        #best observed was 0.20
+        self.assertLess(time, 2.0)
 
     def test_sparse_interaction_abc_encode_performance(self):
         encoder = InteractionsEncoder(["aabc"])
@@ -90,9 +90,9 @@ class Performance_Tests(unittest.TestCase):
         b = [1,2]
         c = [2,3]
 
-        time = timeit.timeit(lambda: encoder.encode(a=a, b=b, c=c), number=50)
+        time = timeit.timeit(lambda: encoder.encode(a=a, b=b, c=c), number=25)
         
-        #best observed was 0.31
+        #best observed was 0.15
         self.assertLess(time, 1.5)
 
     def test_interaction_context_performance(self):
