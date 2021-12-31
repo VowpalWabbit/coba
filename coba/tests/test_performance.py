@@ -21,7 +21,7 @@ class Performance_Tests(unittest.TestCase):
         time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=1000, number=4))
         
         #was approximately .000122
-        self.assertLess(time, .0004)
+        self.assertLess(time, .0012)
 
     def test_numeric_encode_performance_large(self):
 
@@ -31,7 +31,7 @@ class Performance_Tests(unittest.TestCase):
         time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=25, number=1))
         
         #was approximately .0301
-        self.assertLess(time, .1)
+        self.assertLess(time, .3)
 
     def test_onehot_fit_performance(self):
 
@@ -40,7 +40,7 @@ class Performance_Tests(unittest.TestCase):
         time = min(timeit.repeat(lambda:OneHotEncoder(fit_values), repeat=25, number = 1))
 
         #was approximately 0.017
-        self.assertLess(time, .03)
+        self.assertLess(time, .17)
 
     def test_onehot_encode_performance(self):
 
@@ -49,8 +49,8 @@ class Performance_Tests(unittest.TestCase):
 
         time = min(timeit.repeat(lambda:encoder.encode(to_encode), repeat=25, number = 1))
 
-        #was approximately 0.027
-        self.assertLess(time, .5)
+        #best observed 0.027
+        self.assertLess(time, .27)
 
     def test_dense_interaction_xx_encode_performance(self):
         encoder = InteractionsEncoder(["xx"])
@@ -60,7 +60,7 @@ class Performance_Tests(unittest.TestCase):
         time = timeit.timeit(lambda: encoder.encode(x=x), number=100)
         
         #best observed was 0.025
-        self.assertLess(time, 0.2)
+        self.assertLess(time, 0.25)
 
     def test_sparse_interaction_xx_encode_performance(self):
         encoder = InteractionsEncoder(["xx"])
@@ -70,7 +70,7 @@ class Performance_Tests(unittest.TestCase):
         time = timeit.timeit(lambda: encoder.encode(x=x), number=100)
         
         #best observed was 0.09
-        self.assertLess(time, 0.4)
+        self.assertLess(time, 0.9)
 
     def test_sparse_interaction_xxa_encode_performance(self):
         encoder = InteractionsEncoder(["xxa"])
@@ -101,7 +101,8 @@ class Performance_Tests(unittest.TestCase):
 
         time = timeit.timeit(lambda: interaction.context, number=10000)
 
-        self.assertLess(time, 1.5)
+        #best observed was 0.0015
+        self.assertLess(time, .015)
 
     def test_hashable_dict_performance(self):
 
@@ -118,15 +119,15 @@ class Performance_Tests(unittest.TestCase):
 
         time = min(timeit.repeat(lambda:coba.random.shuffle(to_shuffle), repeat=10, number=3))
         
-        #was approximately 0.01
-        self.assertLess(time,.5)
+        #best observed 0.01
+        self.assertLess(time,.1)
 
     def test_randoms_performance(self):
         
         time = min(timeit.repeat(lambda:coba.random.randoms(5000), repeat=100, number=1))
 
-        #was approximately 0.0025
-        self.assertLess(time,.009)
+        #best observed 0.0025
+        self.assertLess(time,.025)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
     def test_vowpal_mediator_make_example_performance(self):
@@ -139,7 +140,7 @@ class Performance_Tests(unittest.TestCase):
         time = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, ns, None, 4), repeat=10, number=100))            
 
         #.014 was my final average time
-        self.assertLess(time, .09)
+        self.assertLess(time, .14)
     
     def test_vowpal_mediator_prep_features_tuple_sequence_performance(self):
 
@@ -147,7 +148,7 @@ class Performance_Tests(unittest.TestCase):
         time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))
 
         #0.026 was my final average time (this time can be cut in half but prep_features becomes much less flexible)
-        self.assertLess(time,.08)
+        self.assertLess(time,.26)
 
     def test_vowpal_mediator_prep_features_dict_performance(self):
 
@@ -163,7 +164,7 @@ class Performance_Tests(unittest.TestCase):
         time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))            
 
         #0.019 was my final average time.
-        self.assertLess(time,.1)
+        self.assertLess(time,.19)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
     def test_vowpal_mediator_prep_and_make_performance(self):
@@ -185,7 +186,7 @@ class Performance_Tests(unittest.TestCase):
         time = statistics.mean(timeit.repeat(lambda:list(Reservoir(2,seed=1).filter(x)), repeat=10, number=100))
 
         #0.010 was my final average time.
-        self.assertLess(time, .06)
+        self.assertLess(time, .10)
 
     def test_jsonencode_performance(self):
         
@@ -195,7 +196,7 @@ class Performance_Tests(unittest.TestCase):
         time = statistics.mean(timeit.repeat(lambda:encoder.filter(x), repeat=5, number=100))
 
         #0.11 was my final average time.
-        self.assertLess(time, .5)
+        self.assertLess(time, 1.1)
 
 if __name__ == '__main__':
     unittest.main()
