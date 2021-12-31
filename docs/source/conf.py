@@ -14,6 +14,11 @@
 # as soon as RTD installs coba in the build environment sphynx has access to all the
 # modules it needs 
 
+import os
+import sys
+
+sys.path.insert(0,os.path.abspath('../../'))
+
 # -- Project information -----------------------------------------------------
 
 project = 'coba'
