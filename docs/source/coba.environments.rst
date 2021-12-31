@@ -9,7 +9,7 @@ Core
    .. autosummary::
       :toctree: _autosummary
       :template: class_with_ctor.rst
-      
+
       Environments
 
 Interfaces
@@ -18,7 +18,7 @@ Interfaces
    .. autosummary::
       :toctree: _autosummary
       :template: class_with_ctor.rst
-      
+
       Environment
       SimulatedEnvironment
       LoggedEnvironment
@@ -60,17 +60,17 @@ Environment Filters
    .. autosummary::
       :toctree: _autosummary
       :template: class_with_ctor.rst      
-      
-      EnvironmentFilter
-      FilteredEnvironment
+
       Sort
       Scale
       Cycle
       Impute
       Binary
-      ToWarmStart      
+      WarmStart      
       Shuffle 
       Take
       Reservoir
       Identity
       Sparse
+      FilteredEnvironment
+      EnvironmentFilter

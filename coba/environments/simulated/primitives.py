@@ -16,7 +16,7 @@ T_Dense_Rows  = Iterable[Tuple[T_Dense_Feat,Any]]
 T_Sparse_Rows = Iterable[Tuple[T_Sparse_Feat,Any]]
 
 class SimulatedInteraction(Interaction):
-    """A class to contain all data needed to represent an interaction in a simulated bandit interaction."""
+    """Simulated data that describes an interaction where the choice is up to you."""
 
     @overload
     def __init__(self,
@@ -109,7 +109,7 @@ class SimulatedInteraction(Interaction):
         return self._kwargs
 
 class SimulatedEnvironment(Environment):
-    """The interface for a simulated environment."""
+    """An Environment made from SimulatedInteractions."""
     
     @abstractmethod
     def read(self) -> Iterable[SimulatedInteraction]:

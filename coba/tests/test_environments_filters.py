@@ -5,7 +5,7 @@ from math import isnan
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import LoggedInteraction, SimulatedInteraction
 from coba.environments import FilteredEnvironment
-from coba.environments import Identity, Sparse, Sort, Scale, Cycle, Impute, Binary, ToWarmStart, Shuffle, Take, Reservoir
+from coba.environments import Identity, Sparse, Sort, Scale, Cycle, Impute, Binary, WarmStart, Shuffle, Take, Reservoir
 
 class TestEnvironment:
 
@@ -825,7 +825,7 @@ class ToWarmStart_Tests(unittest.TestCase):
             SimulatedInteraction((8,3), [1,2], rewards=[.5,.2], reveals=[5,6])
         ]
 
-        warmstart_interactions = list(ToWarmStart(2).filter(interactions))
+        warmstart_interactions = list(WarmStart(2).filter(interactions))
 
         self.assertIsInstance(warmstart_interactions[0], LoggedInteraction)
         self.assertIsInstance(warmstart_interactions[1], LoggedInteraction)
@@ -851,7 +851,7 @@ class ToWarmStart_Tests(unittest.TestCase):
         self.assertEqual([5,6], warmstart_interactions[2].kwargs["reveals"])
 
     def test_params(self):
-        self.assertEqual({"n_warmstart": 10}, ToWarmStart(10).params)
+        self.assertEqual({"n_warmstart": 10}, WarmStart(10).params)
 
 if __name__ == '__main__':
     unittest.main()

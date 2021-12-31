@@ -9,12 +9,19 @@ Action  = Union[str, Number, tuple, HashableDict]
 Context = Union[None, str, Number, tuple, HashableDict]
 
 class Interaction:
+    """An individual interaction that occurs in an Environment."""
+    
     def __init__(self, context: Context) -> None:
+        """Instantiate an Interaction.
+        
+        Args:
+            context: The context in which the interaction occured.
+        """
         self._context = context
 
     @property
     def context(self) -> Context:
-        """The context in which an action was taken."""
+        """The context in which the interaction occured."""
         return self._context
 
     def _hashable(self, feats):
@@ -28,6 +35,7 @@ class Interaction:
         return feats
 
 class Environment(Source[Iterable[Interaction]], ABC):
+    """An Environment that produces Contextual Bandit data"""
 
     @property
     @abstractmethod
@@ -35,13 +43,13 @@ class Environment(Source[Iterable[Interaction]], ABC):
         """Paramaters describing the simulation.
 
         Remarks:
-            These will become columns in the environments data of an experiment result.
+            These will become columns in the environment table of an experiment result.
         """
         ...
     
     @abstractmethod
     def read(self) -> Iterable[Interaction]:
-        """The sequence of interactions in a simulation.
+        """The sequence of interactions in the simulation.
 
         Remarks:
             This function should always be "re-iterable".

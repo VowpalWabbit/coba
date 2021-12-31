@@ -5,8 +5,17 @@ from coba.environments.simulated.primitives import SimulatedInteraction
 from coba.environments.filters.primitives import EnvironmentFilter
 
 class Cycle(EnvironmentFilter):
+    """Cycle all rewards associated with actions by one place.
+    
+    This filter is useful for testing an algorithms response to a non-stationary shock.
+    """
 
     def __init__(self, after:int = 0):
+        """Instantiate a Cycle filter.
+        
+        Args:
+            after: How many interactions should be seen before applying the cycle filter.
+        """
         self._after = after
 
     @property
@@ -27,6 +36,8 @@ class Cycle(EnvironmentFilter):
             yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
 
 class Binary(EnvironmentFilter):
+    """Binarize all rewards to either 1 (max rewards) or 0 (all others)."""
+
     @property
     def params(self) -> Dict[str, Any]:
         return { "binary": True }

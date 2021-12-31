@@ -260,18 +260,26 @@ class OpenmlSimulation(SimulatedEnvironment):
     incorrect lables).
     """
 
-    def __init__(self, id: int, take:int = None, simulation_type:Literal["classification","regression"] = "classification", cat_as_str:bool = False, md5_checksum: str = None) -> None:
+    def __init__(self, id: int, take:int = None, simulation_type:Literal["classification","regression"] = "classification", cat_as_str:bool = False) -> None:
+        """Instantiate an OpenmlSimulation.
+        
+        Args:
+            id: The id given to the openml dataset. This can be found in the url openml.org/d/<id>.
+            take: How many interactions we'd like the simulation to have (these will be selected at random). Indicating
+                how many interactions to take here rather than via filter later offers performance advantages.
+            simulation_type: Whether classification or regression openml tasks should be used to create the simulation.
+            cat_as_str: True if categorical features should be left as strings, false if they should be one hot encoded.
+
+        """
+        md5_checksum = None
         self._sim_type = simulation_type
         self._source = OpenmlSource(id, simulation_type, cat_as_str, take, md5_checksum)
 
     @property
     def params(self) -> Dict[str, Any]:
-        """Paramaters describing the simulation."""
         return self._source.params
 
     def read(self) -> Iterable[SimulatedInteraction]:
-        """Read the interactions in this simulation."""
-
         if self._sim_type == "classification":
             return ClassificationSimulation(self._source.read()).read()
         else:

@@ -10,22 +10,39 @@ from coba.environments.primitives import Context, Action
 from coba.environments.simulated.primitives import LambdaSimulation
 
 class LinearSyntheticSimulation(LambdaSimulation):
-    
+    """A simple synthetic simulation useful for debugging learning algorithms. 
+            
+    The simulation's rewards are linear with respect to the given features and their cross terms. In the case 
+    that no context or action features are requested interaction terms are calculted by assuming actions or 
+    contexts have a constant feature of 1.
+    """
+
     def __init__(self, 
         n_interactions: int = 500, 
         n_actions: int = 10, 
         n_context_feats:int = 10, 
         n_action_feats:int = 10, 
         r_noise_var:float = 1/1000,
-        interactions: Sequence[str] = ["a","xa"],
+        cross_terms: Sequence[str] = ["a","xa"],
         seed:int=1) -> None:
+        """Instantiate a LinearSyntheticSimulation.
+        
+        Args:
+            n_interactions: The number of interactions the simulation should have.
+            n_actions: The number of actions each interaction should have.
+            n_context_feats: The number of features each interaction context should have.
+            n_action_feats: The number of features each action should have.
+            r_noise_var: The variance of the noise term added to the expected reward value.
+            cross_terms: The action and context feature cross products to calculate expected reward value.
+            seed: The random number seed used to generate all features, weights and noise in the simulation. 
+        """
 
         self._n_actions          = n_actions
         self._n_context_features = n_context_feats
         self._n_action_features  = n_action_feats
         self._seed               = seed
         self._r_noise_var        = r_noise_var
-        self._X                  = interactions
+        self._X                  = cross_terms
 
         rng = CobaRandom(seed)
         X_encoder = InteractionsEncoder(self._X)
@@ -63,8 +80,6 @@ class LinearSyntheticSimulation(LambdaSimulation):
 
     @property
     def params(self) -> Dict[str, Any]:
-        """Paramaters describing the simulation."""
-
         return { 
             "n_A"    : self._n_actions,
             "n_C_phi": self._n_context_features,
@@ -78,23 +93,39 @@ class LinearSyntheticSimulation(LambdaSimulation):
         return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},X={self._X},seed={self._seed})"
 
 class LocalSyntheticSimulation(LambdaSimulation):
+    """A simple simulation useful for debugging learning algorithms. 
+        
+        The simulation's rewards are determined by the location of given context and action pairs with respect to a 
+        small set of pre-generated exemplar context,action pairs. Location is currently defined as equality though 
+        it could potentially be extended to support any number of metric based similarity kernels. The "local" in 
+        the name is due to its close relationship to 'local regression'.
+    """
 
     def __init__(self,
         n_interactions: int = 500,
         n_contexts: int = 200,
-        n_context_features: int = 2,
+        n_context_feats: int = 2,
         n_actions: int = 10,
         seed: int = 1) -> None:
+        """Instantiate a LocalSyntheticSimulation.
+        
+        Args:
+            n_interactions: The number of interactions the simulation should have.
+            n_contexts: The number of unique contexts the simulation should contain.
+            n_context_feats: The number of features each interaction context should have.
+            n_actions: The number of actions each interaction should have.
+            seed: The random number seed used to generate all contexts and action rewards.
+        """
 
         self._n_interactions     = n_interactions
-        self._n_context_features = n_context_features
+        self._n_context_features = n_context_feats
         self._n_contexts         = n_contexts
         self._n_actions          = n_actions
         self._seed               = seed
 
         rng = CobaRandom(self._seed)
 
-        contexts = [ tuple(rng.randoms(n_context_features)) for _ in range(self._n_contexts) ]        
+        contexts = [ tuple(rng.randoms(n_context_feats)) for _ in range(self._n_contexts) ]        
         actions  = OneHotEncoder().fit_encode(range(n_actions))
         rewards  = {}
 
@@ -115,8 +146,6 @@ class LocalSyntheticSimulation(LambdaSimulation):
 
     @property
     def params(self) -> Dict[str, Any]:
-        """Paramaters describing the simulation."""
-
         return { 
             "n_A"    : self._n_actions,
             "n_C"    : self._n_contexts,

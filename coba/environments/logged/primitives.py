@@ -4,6 +4,7 @@ from typing import Sequence, Dict, Any, Iterable, overload, Optional
 from coba.environments.primitives import Context, Action, Environment, Interaction
 
 class LoggedInteraction(Interaction):
+    """Logged data that describes an interaction where the choice was already made."""
 
     @overload
     def __init__(self,
@@ -39,7 +40,7 @@ class LoggedInteraction(Interaction):
         ...
         """Instantiate LoggedInteraction.
 
-        Args
+        Args:
             context    : Features describing the context that was logged. This should be `None` for multi-armed bandit simulations.
             action     : Features describing the taken action for logging purposes.
             reveal     : The information that was revealed when the logged action was taken.
@@ -50,6 +51,15 @@ class LoggedInteraction(Interaction):
         """
 
     def __init__(self, context: Context, action: Action, **kwargs) -> None:
+        """Instantiate a LoggedInteraction.
+        
+        Args:
+            context: Features describing the context that was logged. This should be `None` for multi-armed bandit simulations.
+            action: Features describing the action that was taken at logging time.
+            [reveal/reward]: The reward or information that was revealed when the action was taken.
+            [actions]: An optional indication of the actions that were available at logging time.
+            [probability]: An optional indication of the probability that the given action was taken.
+        """
 
         self._context     = self._hashable(context)
         self._action      = self._hashable(action)
@@ -67,10 +77,11 @@ class LoggedInteraction(Interaction):
 
     @property
     def kwargs(self) -> Dict[str,Any]:
+        """Additional information associatd with the LoggedInteraction."""
         return self._kwargs
 
 class LoggedEnvironment(Environment):
-    """The interface for an environment made with logged bandit data."""
+    """An Environment made from LoggedInteractions."""
     
     @abstractmethod
     def read(self) -> Iterable[LoggedInteraction]:
@@ -80,4 +91,3 @@ class LoggedEnvironment(Environment):
             This function should always be "re-iterable".
         """
         ...
-

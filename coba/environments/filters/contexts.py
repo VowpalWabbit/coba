@@ -6,6 +6,7 @@ from itertools import islice, chain
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple
 from coba.backports import Literal
 
+from coba.exceptions import CobaException
 from coba.statistics import iqr
 
 from coba.environments.primitives import Interaction
@@ -14,11 +15,19 @@ from coba.environments.simulated.primitives import SimulatedInteraction
 from coba.environments.filters.primitives import EnvironmentFilter
 
 class Scale(EnvironmentFilter):
+    """Shift and scale features to precondition them before learning."""
 
     def __init__(self, 
         shift: Union[Number,Literal["min","mean","med"]] ="min", 
         scale: Union[Number,Literal["minmax","std","iqr"]]="minmax", 
         using: Optional[int] = None):
+        """Instantiate a Scale filter.
+        
+        Args:
+            shift: The statistic to use to shift each context feature.
+            scale: The statistic to use to scale each context feature.
+            using: The number of interactions to use when calculating the necessary statistics.
+        """
 
         assert isinstance(shift,Number) or shift in ["min","mean","med"]
         assert isinstance(scale,Number) or scale in ["minmax","std","iqr"]
@@ -111,10 +120,17 @@ class Scale(EnvironmentFilter):
         return []
 
 class Impute(EnvironmentFilter):
+    """Impute missing values (nan) in Environment interactions."""
 
     def __init__(self, 
         stat : Literal["mean","median","mode"] = "mean",
         using: Optional[int] = None):
+        """Instantiate an Impute filter.
+        
+        Args:
+            stat: The statistic to use for impuatation.
+            using: The number of interactions to use to calculate the imputation statistics.
+        """
 
         assert stat in ["mean","median","mode"]
 
@@ -166,10 +182,12 @@ class Impute(EnvironmentFilter):
             else:
                 final_context = kv_imputed_context[1]
 
-            try:
+            if isinstance(interaction, SimulatedInteraction):
                 yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
-            except:
+            elif isinstance(interaction, LoggedInteraction):
                 yield LoggedInteraction(final_context, interaction.action, **interaction.kwargs)
+            else:#pragma: no cover
+                raise CobaException("Unknown interactions were given to the Impute filter.") 
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
         
@@ -180,9 +198,19 @@ class Impute(EnvironmentFilter):
         return []
 
 class Sparse(EnvironmentFilter):
+    """Sparsify an environment's feature representation. 
     
-    def __init__(self, context:bool = True, action:bool = False):
+    This has little utility beyond debugging.
+    """
 
+    def __init__(self, context:bool = True, action:bool = False):
+        """Instantiate a Sparse filter.
+
+        Args:
+            context: If True then contexts should be made sparse otherwise leave them alone.
+            action: If True then actions should be made sparse otherwise leave them alone.
+        """
+        
         self._context = context
         self._action  = action
 

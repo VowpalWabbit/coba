@@ -148,6 +148,15 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B' , envs[1].params['id'])
         self.assertEqual(True, envs[1].params['binary'])
 
+    def test_cycle(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).cycle(2)
+
+        self.assertEqual(2  , len(envs))
+        self.assertEqual('A', envs[0].params['id'])
+        self.assertEqual(2  , envs[0].params['cycle_after'])
+        self.assertEqual('B', envs[1].params['id'])
+        self.assertEqual(2  , envs[1].params['cycle_after'])
+
     def test_shuffle(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle([1,2])
 

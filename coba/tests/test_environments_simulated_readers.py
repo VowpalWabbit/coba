@@ -12,9 +12,9 @@ CobaContext.logger = NullLogger()
 class ReaderSimulation_Tests(unittest.TestCase):
 
     def test_params(self):
-        self.assertEqual({'source': 'abc'}, ReaderSimulation(None, DiskIO("abc"), None).params)
-        self.assertEqual({'source': 'memory'}, ReaderSimulation(None, MemoryIO(), None).params)
-        self.assertEqual({'source': 'NullIO'}, ReaderSimulation(None, NullIO(), None).params)
+        self.assertEqual({'source': 'abc'}, ReaderSimulation(DiskIO("abc"), None, None).params)
+        self.assertEqual({'source': 'memory'}, ReaderSimulation(MemoryIO(), None, None).params)
+        self.assertEqual({'source': 'NullIO'}, ReaderSimulation(NullIO(), None, None).params)
 
 class CsvSimulation_Tests(unittest.TestCase):
 

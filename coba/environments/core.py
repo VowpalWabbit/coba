@@ -6,7 +6,7 @@ from coba.backports import Literal
 from coba.pipes import Source, DiskIO, JsonDecode
 
 from coba.environments.filters     import FilteredEnvironment, EnvironmentFilter
-from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir
+from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
 from coba.environments          .primitives import Environment
@@ -18,6 +18,7 @@ from coba.environments.simulated.synthetics import LinearSyntheticSimulation, Lo
 from coba.environments.simulated.openml     import OpenmlSimulation
 
 class Environments:
+    """A friendly wrapper around common functionality to make it easier to use."""
 
     @overload
     @staticmethod
@@ -47,9 +48,12 @@ class Environments:
         r_noise_var: float = 1/1000,
         interactions: Sequence[str] = ["a","xa"],
         seed: int = 1) -> 'Environments':
-        """A simple simulation useful for debugging learning algorithms. It's rewards are linear with respect to the given 
-           interactions of context (x) and action (a) features. In the case that no context or action features are requested the 
-           interaction terms are calculted by assuming all actions or contexts have a constant feature of 1."""
+        """A simple simulation useful for debugging learning algorithms. 
+        
+        The simulation's rewards are linear with respect to the given features and their cross terms. In the case 
+        that no context or action features are requested interaction terms are calculted by assuming actions or 
+        contexts have a constant feature of 1.
+        """
 
         return Environments([
             LinearSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, r_noise_var, interactions, seed)
@@ -62,10 +66,12 @@ class Environments:
         n_context_features: int = 2, 
         n_contexts: int = 200, 
         seed: int = 1) -> 'Environments':
-        """A simple simulation useful for debugging learning algorithms. It's rewards are determined by the location of given 
-            context and action pairs with respect to a small set of pre-generated exemplar context,action pairs. Location
-            is currently determined by equality, though it could potentially be extended to support any number of metric
-            based similarity kernels. The "local" in the name is due to its close relationship to 'local regression'."""
+        """A simple synthetic simulation useful for debugging learning algorithms. 
+                
+        The simulation's rewards are linear with respect to the given features and their cross terms. In the case 
+        that no context or action features are requested interaction terms are calculted by assuming actions or 
+        contexts have a constant feature of 1.
+        """
 
         return Environments([
             LocalSyntheticSimulation(n_interactions, n_contexts, n_context_features, n_actions, seed)
@@ -83,7 +89,11 @@ class Environments:
         return Environments(*[OpenmlSimulation(id, take, type, cat_as_str) for id in openml_ids])
 
     def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
-
+        """Instantiate an Environments class.
+        
+        Args:
+            *environments: The base environments to initialize the class.        
+        """
         self._environments = []
 
         for env in environments:
@@ -93,7 +103,7 @@ class Environments:
                 self._environments.append(env)
 
     def binary(self) -> 'Environments':
-        """Convert rewards in an environment to 1 for max reward else 0."""
+        """Binarize all rewards to either 1 (max rewards) or 0 (all others)."""
         return self.filter(Binary())
 
     def sparse(self, context:bool = True, action:bool = False) -> 'Environments':
@@ -103,6 +113,10 @@ class Environments:
     def shuffle(self, seeds: Sequence[int]) -> 'Environments':
         """Shuffle the order of the interactions in the Environments."""
         return self.filter([Shuffle(seed) for seed in seeds])
+
+    def cycle(self, after: int) -> 'Environments':
+        """Cycle all rewards associated with actions by one place."""
+        return self.filter(Cycle(after))
 
     def take(self, n_interactions: int) -> 'Environments':
         """Take a fixed number of interactions from the Environments."""

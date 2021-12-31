@@ -24,12 +24,20 @@ _T_Row        = Union[_T_DenseRow,  _T_SparseRow ]
 _T_Data       = Union[_T_DenseData, _T_SparseData]
 
 class Identity(Filter[Any, Any]):
+    """Return whatever is given to the filter."""
     def filter(self, item:Any) -> Any:
         return item
 
 class Shuffle(Filter[Iterable[Any], Iterable[Any]]):
-
+    """Shuffle a sequence of items."""
+    
     def __init__(self, seed:Optional[int]) -> None:
+        """Instantiate a Shuffle filter.
+        
+        Args:
+            seed: A random number seed which determines the new sequence order.
+        """
+
 
         if seed is not None and (not isinstance(seed,int) or seed < 0):
             raise ValueError(f"Invalid parameter for Shuffle: {seed}. An optional integer value >= 0 was expected.")
@@ -40,7 +48,7 @@ class Shuffle(Filter[Iterable[Any], Iterable[Any]]):
         return CobaRandom(self._seed).shuffle(list(items))
 
 class Take(Filter[Iterable[Any], Iterable[Any]]):
-    """Take a given number of items from an iterable."""
+    """Take a fixed number of items from an iterable."""
 
     def __init__(self, count:Optional[int]) -> None:
         """Instantiate a Take filter.
@@ -59,6 +67,16 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
         return items if len(items) == self._count else []
 
 class Reservoir(Filter[Iterable[Any], Iterable[Any]]):
+    """Take a fixed number of random items from an iterable.
+    
+    Remarks:
+        We use Algorithm L as described by Kim-Hung Li. (1994) to take a random count of items.
+
+    References:
+        Kim-Hung Li. 1994. Reservoir-sampling algorithms of time complexity O(n(1 + log(N/n))). 
+        ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
+    """
+
     def __init__(self, count:Optional[int], seed: int = 1, keep_first:bool = False) -> None:
         """Instantiate a Resevoir filter.
 
@@ -66,13 +84,6 @@ class Reservoir(Filter[Iterable[Any], Iterable[Any]]):
             count     : The number of items we wish to take from the given iterable.
             seed      : An optional random seed to determine which random count items to take.
             keep_first: Indicate whether the first row should be kept as is (useful for files with headers).
-
-        Remarks:
-            We use Algorithm L as described by Kim-Hung Li. (1994) to take a random count of items.
-
-        References:
-            Kim-Hung Li. 1994. Reservoir-sampling algorithms of time complexity O(n(1 + log(N/n))). 
-            ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
         """
         
         if count is not None and (not isinstance(count,int) or count < 0):
