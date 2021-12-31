@@ -8,8 +8,8 @@ from coba.registry import CobaRegistry
 from coba.pipes import Filter
 from coba.exceptions import CobaException
 
-from coba.environments.pipes import EnvironmentPipe
-from coba.environments.primitives import SimulatedEnvironment
+from coba.environments.filters import FilteredEnvironment
+from coba.environments.simulated import SimulatedEnvironment
 
 class EnvironmentDefinitionFileV1(Filter[Dict[str,Any], Sequence[SimulatedEnvironment]]):
 
@@ -33,7 +33,7 @@ class EnvironmentDefinitionFileV1(Filter[Dict[str,Any], Sequence[SimulatedEnviro
                 pieces = list(map(_construct, item))
                 
                 if hasattr(pieces[0][0],'read'):
-                    result = [ EnvironmentPipe(s, *f) for s in pieces[0] for f in product(*pieces[1:])]
+                    result = [ FilteredEnvironment(s, *f) for s in pieces[0] for f in product(*pieces[1:])]
                 else:
                     result = sum(pieces,[])
 

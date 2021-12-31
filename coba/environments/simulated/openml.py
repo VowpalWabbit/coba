@@ -6,14 +6,13 @@ from collections import defaultdict
 from typing import Tuple, Sequence, Any, Iterable, Dict, Union
 from coba.backports import Literal
 
-
 from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Reservoir
 from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 
-from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
-from coba.environments.simulations import ClassificationSimulation, RegressionSimulation
+from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
+from coba.environments.simulated.primitives import ClassificationSimulation, RegressionSimulation
 
 class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]]):
 
@@ -53,7 +52,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
             if dataset_description['status'] == 'deactivated':
                 raise CobaException(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
-            
+
             feature_descriptions = self._get_feature_descriptions(data_id)
 
             encoders = defaultdict(lambda:StringEncoder())
@@ -63,7 +62,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             for description in feature_descriptions:
 
                 header = description['name'].strip().strip('\'"')
-                
+
                 is_ignored = (
                     description['is_ignore'        ] == 'true' or 
                     description['is_row_identifier'] == 'true' or
@@ -75,7 +74,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
                 if description['is_target'] == 'true':
                     target = header
-                    
+
                 if description['data_type'] == 'numeric':
                     encoders[header] = NumericEncoder()
                 elif description['data_type'] == 'nominal' and self._cat_as_str:
@@ -90,7 +89,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
             if target == "" or not isinstance(target_encoder, required_encoder):
                 target = self._get_target_for_problem_type(data_id)
-            
+
             if target in ignored:
                 ignored.pop(ignored.index(target))
 
@@ -102,7 +101,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             def row_has_missing_values(row):
                 row_values = row.values() if isinstance(row,dict) else row
                 return "?" in row_values or "" in row_values
-            
+
             drops     = Drop(drop_cols=ignored, drop_row=row_has_missing_values)
             takes     = Reservoir(self._take, seed=1, keep_first=True)
             defaults  = Default({target:"0"})
@@ -128,7 +127,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             raise
 
     def _get_data(self, url:str, key:str, checksum:str=None) -> Iterable[str]:
-        
+
         # This can't reasonably be done in a streaming manner unless cacher is persistent.
         # For now we don't require cacher to be consistent so I'm commenting out for now. 
         # if checksum is not None and md5(bites).hexdigest() != checksum:
@@ -146,10 +145,10 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
     def _http_request(self, url:str) -> Iterable[bytes]:
         api_key = CobaContext.api_keys['openml']
         srcsema = CobaContext.store.get("srcsema")
-        
+
         # we only allow three paralellel request, another attempt at being more "considerate".
         if srcsema:srcsema.acquire() 
-    
+
         # An attempt to be considerate of how often we hit their REST api. 
         # They don't publish any rate-limiting guidelines so this is just a guess.
         if srcsema:time.sleep(1)
@@ -198,7 +197,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             if srcsema: srcsema.release()
 
     def _get_dataset_description(self, data_id:int) -> Dict[str,Any]:
-        
+
         description_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/data/{data_id}', self._cache_keys['descr']))
         description_obj = json.loads(description_txt)["data_set_description"]
 

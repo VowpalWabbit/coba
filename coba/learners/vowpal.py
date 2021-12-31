@@ -302,11 +302,12 @@ class VowpalSoftmaxLearner(VowpalArgsLearner):
 
         Args:
             softmax: An exploration parameter with 0 indicating predictions should be completely random
-                and infinity indicating that predictions should be greedy. For more information see `lambda`
-                at https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms.
+                and infinity indicating that predictions should be greedy. For more information see `lambda`__.
             interactions: A list of namespace interactions to use when learning reward functions.
             ignore_linear: A list of namespaces to ignore when learning reward functions.
             seed: The seed used by VW to generate any necessary randomness.
+        
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms.
         """
 
         options = [ "--cb_explore_adf", "--softmax", f"--lambda {softmax}" ]
@@ -343,6 +344,13 @@ class VowpalCoverLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 
         information on the types of exploration algorithms availabe in VW see `here`__.
 
+    For more information on this algorithm see Agarwal et al. (2014).
+
+    References:
+        Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming 
+        the monster: A fast and simple algorithm for contextual bandits." In International Conference on 
+        Machine Learning, pp. 1638-1646. 2014.
+
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
 
@@ -355,16 +363,10 @@ class VowpalCoverLearner(VowpalArgsLearner):
         """Instantiate a VowpalCoverLearner.
 
         Args:
-            cover: This value determines the number of policies which will be learned and must be
-                greater than 0. For more information on this algorithm see Agarwal et al. (2014).
+            cover: The number of policies which will be learned (must be greater than 0).
             interactions: A list of namespace interactions to use when learning reward functions.
             ignore_linear: A list of namespaces to ignore when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
-
-        References:
-            Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming 
-            the monster: A fast and simple algorithm for contextual bandits." In International Conference on 
-            Machine Learning, pp. 1638-1646. 2014.
         """
 
         options = [ "--cb_explore_adf", f"--cover {cover}" ]
@@ -373,6 +375,11 @@ class VowpalCoverLearner(VowpalArgsLearner):
 class VowpalRegcbLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 
         information on the types of exploration algorithms availabe in VW see `here`__.
+
+    References:
+        Foster, D., Agarwal, A., Dudik, M., Luo, H. & Schapire, R.. (2018). Practical Contextual 
+        Bandits with Regression Oracles. Proceedings of the 35th International Conference on Machine 
+        Learning, in Proceedings of Machine Learning Research 80:1539-1548.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
@@ -392,11 +399,6 @@ class VowpalRegcbLearner(VowpalArgsLearner):
             interactions: A list of namespace interactions to use when learning reward functions.
             ignore_linear: A list of namespaces to ignore when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
-
-        References:
-            Foster, D., Agarwal, A., Dudik, M., Luo, H. & Schapire, R.. (2018). Practical Contextual 
-            Bandits with Regression Oracles. Proceedings of the 35th International Conference on Machine 
-            Learning, in Proceedings of Machine Learning Research 80:1539-1548.
         """
 
         options = [ "--cb_explore_adf", "--regcb" if mode=="elimination" else "--regcbopt" ]
@@ -405,6 +407,11 @@ class VowpalRegcbLearner(VowpalArgsLearner):
 class VowpalSquarecbLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 
         information on the types of exploration algorithms availabe in VW see `here`__.
+
+    References:
+        Foster, D.& Rakhlin, A.. (2020). Beyond UCB: Optimal and Efficient Contextual Bandits with Regression 
+        Oracles. Proceedings of the 37th International Conference on Machine Learning, in Proceedings of Machine 
+        Learning Research 119:3199-3210.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
@@ -427,11 +434,6 @@ class VowpalSquarecbLearner(VowpalArgsLearner):
             interactions: A list of namespace interactions to use when learning reward functions.
             ignore_linear: A list of namespaces to ignore when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
-
-        References:
-            Foster, D.& Rakhlin, A.. (2020). Beyond UCB: Optimal and Efficient Contextual Bandits with Regression 
-            Oracles. Proceedings of the 37th International Conference on Machine Learning, in Proceedings of Machine 
-            Learning Research 119:3199-3210.
         """
 
         options = [

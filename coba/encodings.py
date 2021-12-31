@@ -1,4 +1,4 @@
-"""The encodings module contains utility classes for transforming data between encodings."""
+"""This module contains utility classes for transforming data between encodings."""
 
 import json
 import time

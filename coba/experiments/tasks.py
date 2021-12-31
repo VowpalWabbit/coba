@@ -13,7 +13,7 @@ from coba.learners import Learner, SafeLearner
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker
 from coba.contexts import LearnerContext
-from coba.environments import Environment, EnvironmentPipe, Interaction, SimulatedInteraction, LoggedInteraction
+from coba.environments import Environment, FilteredEnvironment, Interaction, SimulatedInteraction, LoggedInteraction
 
 class LearnerTask(ABC):
 
@@ -165,13 +165,13 @@ class SimpleEnvironmentTask(EnvironmentTask):
             return {"source": source, **params}
 
     def _source_repr(self, env) -> str:
-        if isinstance(env, EnvironmentPipe):
+        if isinstance(env, FilteredEnvironment):
             return str(env._source)
         else:
             return str(env)
 
     def _pipe_params(self, env) -> Dict[str,Any]:
-        if isinstance(env, EnvironmentPipe):
+        if isinstance(env, FilteredEnvironment):
             return env.params
         else:
             return {}

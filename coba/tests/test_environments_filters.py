@@ -2,11 +2,68 @@ import unittest
 
 from math import isnan
 
-from coba.contexts import CobaContext, NullLogger
+from coba.contexts     import CobaContext, NullLogger
 from coba.environments import LoggedInteraction, SimulatedInteraction
-from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, ToWarmStart, Shuffle, Take, Reservoir
+from coba.environments import FilteredEnvironment
+from coba.environments import Identity, Sparse, Sort, Scale, Cycle, Impute, Binary, ToWarmStart, Shuffle, Take, Reservoir
+
+class TestEnvironment:
+
+    def __init__(self, id) -> None:
+        self._id = id
+
+    @property
+    def params(self):
+        return {'id':self._id}
+
+    def read(self):
+        return [
+            SimulatedInteraction(1, [None,None], rewards=[1,2]),
+            SimulatedInteraction(2, [None,None], rewards=[2,3]),
+            SimulatedInteraction(3, [None,None], rewards=[3,4]),
+        ]
+
+    def __str__(self) -> str:
+        return str(self.params)
+
+class NoParamIdent:
+    def filter(self,item):
+        return item
+
+    def __str__(self) -> str:
+        return 'NoParamIdent'
 
 CobaContext.logger = NullLogger()
+
+class FilteredEnvironment_Tests(unittest.TestCase):
+
+    def test_environment_no_filters(self):
+        ep = FilteredEnvironment(TestEnvironment("A"))
+
+        self.assertEqual(3, len(ep.read()))
+        self.assertEqual({"id":"A"}, ep.params)
+        self.assertEqual(str({"id":"A"}), str(ep))
+
+    def test_environment_one_filter(self):
+        ep = FilteredEnvironment(TestEnvironment("A"), Take(1))
+
+        self.assertEqual(1, len(list(ep.read())))
+        self.assertEqual({'id':'A', 'take':1}, ep.params)
+        self.assertEqual("{'id': 'A'},{'take': 1}", str(ep))
+
+    def test_environment_ident_filter_removed(self):
+        ep = FilteredEnvironment(TestEnvironment("A"), Identity(), Take(1))
+
+        self.assertEqual(1, len(list(ep.read())))
+        self.assertEqual({'id':'A', 'take':1}, ep.params)
+        self.assertEqual("{'id': 'A'},{'take': 1}", str(ep))
+
+    def test_environment_no_param_ident(self):
+        ep = FilteredEnvironment(TestEnvironment("A"), NoParamIdent())
+
+        self.assertEqual(3, len(list(ep.read())))
+        self.assertEqual({'id':'A'}, ep.params)
+        self.assertEqual("{'id': 'A'},NoParamIdent", str(ep))
 
 class Shuffle_Tests(unittest.TestCase):
 

@@ -32,7 +32,7 @@ release = '4.5'
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
-    "sphinx.ext.autosummary"
+    "sphinx.ext.autosummary",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -82,6 +82,17 @@ autodoc_class_signature = "separated"
 #autodoc_member_order = "bysource"
 
 # This gives coba a consistent public interface in the documentation.
-from coba import learners
-for cls in map(learners.__dict__.get, learners.__all__):
-    cls.__module__ = "coba.learners"
+import coba.learners
+import coba.environments
+
+def set_module(module):
+    for cls in map(module.__dict__.get, module.__all__):
+        try:
+            cls.__module__ = module.__name__
+        except:
+            pass
+
+set_module(coba.learners)
+set_module(coba.environments)
+
+autosummary_generate_overwrite = False

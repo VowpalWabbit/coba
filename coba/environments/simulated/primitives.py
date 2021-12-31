@@ -1,22 +1,125 @@
-import math
+
 import collections.abc
 
+from abc import abstractmethod
 from itertools import chain, repeat, count, islice
 from typing import Sequence, Dict, Any, Iterable, Union, Callable, Tuple, overload, Optional
 
-from coba.pipes import Source, Filter  
-from coba.pipes import DiskIO, MemoryIO
-from coba.pipes import CsvReader, ArffReader, LibSvmReader, ManikReader, Structure
 from coba.random import CobaRandom
-from coba.encodings import InteractionsEncoder, OneHotEncoder
 from coba.exceptions import CobaException
 
-from coba.environments.primitives import Context, Action, SimulatedEnvironment, SimulatedInteraction
+from coba.environments.primitives import Context, Action, Environment, Interaction
 
 T_Dense_Feat  = Sequence[Any]
 T_Sparse_Feat = Dict[Any,Any]
 T_Dense_Rows  = Iterable[Tuple[T_Dense_Feat,Any]]
 T_Sparse_Rows = Iterable[Tuple[T_Sparse_Feat,Any]]
+
+class SimulatedInteraction(Interaction):
+    """A class to contain all data needed to represent an interaction in a simulated bandit interaction."""
+
+    @overload
+    def __init__(self,
+        context: Context,
+        actions: Sequence[Action],
+        *,
+        rewards: Sequence[float],
+        **kwargs) -> None:
+        ...
+        """Instantiate SimulatedInteraction.
+
+        Args
+            context : Features describing the interaction's context. This should be `None` for multi-armed bandit simulations.
+            actions : Features describing available actions in the interaction.
+            rewards : The reward that will be revealed to learners based on the taken action. We require len(rewards) == len(actions).
+            **kwargs: Additional information that should be recorded in the interactions table of an experiment result. If any
+                data is a sequence with length equal to actions only the data at the selected action index will be recorded.
+        """
+
+    @overload
+    def __init__(self,
+        context: Context,
+        actions: Sequence[Action], 
+        *,
+        reveals: Sequence[Any],
+        **kwargs) -> None:
+        ...
+        """Instantiate SimulatedInteraction.
+
+        Args
+            context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
+            actions : Features describing available actions in the interaction.
+            reveals : The data that will be revealed to learners based on the selected action. We require len(reveals) == len(actions).
+                When working with non-scalar data use "reveals" instead of "rewards" to make it clear to Coba the data is non-scalar.
+            **kwargs: Additional information that should be recorded in the interactions table of an experiment result. If any
+                data is a sequence with length equal to actions only the data at the selected action index will be recorded.
+        """
+
+    @overload
+    def __init__(self, 
+        context: Context, 
+        actions: Sequence[Action], 
+        *,
+        rewards : Sequence[float],
+        reveals : Sequence[Any],
+        **kwargs) -> None:
+        ...
+        """Instantiate SimulatedInteraction.
+
+        Args
+            context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
+            actions : Features describing available actions in the interaction.
+            rewards : A sequence of scalar values representing reward. When both rewards and reveals are provided only 
+                reveals will be shown to the learner when an action is selected. The reward values will only be used 
+                by Coba when plotting experimental results. We require that len(rewards) == len(actions).
+            reveals : The data that will be revealed to learners based on the selected action. We require len(reveals) == len(actions).
+                When working with non-scalar data use "reveals" instead of "rewards" to make it clear to Coba the data is non-scalar.
+            **kwargs: Additional information that should be recorded in the interactions table of an experiment result. If any
+                data is a sequence with length equal to actions only the data at the selected action index will be recorded.
+        """
+
+    def __init__(self, context: Context, actions: Sequence[Action], **kwargs) -> None:
+
+        assert kwargs.keys() & {"rewards", "reveals"}, "Interaction requires either a rewards or reveals keyword warg."
+
+        assert "rewards" not in kwargs or len(actions) == len(kwargs["rewards"]), "Interaction rewards must match action length."
+        assert "reveals" not in kwargs or len(actions) == len(kwargs["reveals"]), "Interaction reveals must match action length."
+
+        self._context = self._hashable(context)
+        self._actions = list(map(self._hashable,actions))
+
+        self._kwargs  = kwargs
+
+        super().__init__(self._context)
+
+    @property
+    def context(self) -> Context:
+        """The interaction's context description."""
+
+        return self._context
+
+    @property
+    def actions(self) -> Sequence[Action]:
+        """The interaction's available actions."""
+
+        return self._actions
+
+    @property
+    def kwargs(self) -> Dict[str,Any]:
+        return self._kwargs
+
+class SimulatedEnvironment(Environment):
+    """The interface for a simulated environment."""
+    
+    @abstractmethod
+    def read(self) -> Iterable[SimulatedInteraction]:
+        """The sequence of interactions in a simulation.
+
+        Remarks:
+            This function should always be "re-iterable".
+        """
+        ...
+
 
 class MemorySimulation(SimulatedEnvironment):
     """A Simulation implementation created from in memory sequences of contexts, actions and rewards."""
@@ -258,184 +361,3 @@ class LambdaSimulation(SimulatedEnvironment):
                 "us to create the interactions in memory and convert to a MemorySimulation when pickling).")
             raise CobaException(message)
 
-class ReaderSimulation(SimulatedEnvironment):
-
-    def __init__(self, 
-        reader   : Filter[Iterable[str], Any], 
-        source   : Union[str,Source[Iterable[str]]], 
-        label_col: Union[str,int]) -> None:
-        
-        self._reader       = reader
-        self._source       = DiskIO(source) if isinstance(source, str) else source
-        self._label_column = label_col
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        """Paramaters describing the simulation."""
-        if isinstance(self._source,DiskIO):
-            return {"source": str(self._source._filename) }
-        elif isinstance(self._source,MemoryIO):
-            return {"source": 'memory' }
-        else:
-            return {"source": self._source.__class__.__name__}
-
-    def read(self) -> Iterable[SimulatedInteraction]:
-        """Read the interactions in this simulation."""
-        parsed_rows_iter = iter(self._reader.filter(self._source.read()))
-        structured_rows = Structure([None, self._label_column]).filter(parsed_rows_iter)
-
-        return ClassificationSimulation(structured_rows).read()
-
-class CsvSimulation(ReaderSimulation):
-    def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int], with_header:bool=True) -> None:
-        super().__init__(CsvReader(with_header), source, label_column)
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        """Paramaters describing the simulation."""
-        return { "csv": super().params["source"] }
-
-class ArffSimulation(ReaderSimulation):
-    def __init__(self, source:Union[str,Source[Iterable[str]]], label_column:Union[str,int]) -> None:
-        super().__init__(ArffReader(skip_encoding=[label_column]), source, label_column)
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        """Paramaters describing the simulation."""
-        return { "arff": super().params["source"] }
-
-class LibsvmSimulation(ReaderSimulation):
-    def __init__(self, source:Union[str,Source[Iterable[str]]]) -> None:
-        super().__init__(LibSvmReader(), source, 0)
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        """Paramaters describing the simulation."""
-        return { "libsvm": super().params["source"] }
-
-class ManikSimulation(ReaderSimulation):
-    def __init__(self, source:Union[str,Source[Iterable[str]]]) -> None:
-        super().__init__(ManikReader(), source, 0)
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        """Paramaters describing the simulation."""
-        return { "manik": super().params["source"] }
-
-class LinearSyntheticSimulation(LambdaSimulation):
-    
-    def __init__(self, 
-        n_interactions: int = 500, 
-        n_actions: int = 10, 
-        n_context_feats:int = 10, 
-        n_action_feats:int = 10, 
-        r_noise_var:float = 1/1000,
-        interactions: Sequence[str] = ["a","xa"],
-        seed:int=1) -> None:
-
-        self._n_actions          = n_actions
-        self._n_context_features = n_context_feats
-        self._n_action_features  = n_action_feats
-        self._seed               = seed
-        self._r_noise_var        = r_noise_var
-        self._X                  = interactions
-
-        rng = CobaRandom(seed)
-        X_encoder = InteractionsEncoder(self._X)
-
-        dummy_context = list(range(max(1,n_context_feats)))
-        dummy_action  = list(range(n_action_feats)) if n_action_feats else list(range(n_actions))
-        feature_count = len(X_encoder.encode(x=dummy_context,a=dummy_action))
-
-        normalize = lambda X: [ rng.random()*x/sum(X) for x in X]
-        identity  = lambda n: OneHotEncoder().fit_encode(range(n))
-
-        weights = normalize(rng.randoms(feature_count)) # we normalize weights so that reward will be in [0,1]
-        actions = ( [rng.randoms(n_action_feats) for _ in range(n_actions)] for _ in count()) if n_actions else repeat(identity(n_actions))
-        A_ident = None if n_action_feats else identity(n_actions)
-
-        def context(index:int, rng: CobaRandom) -> Context:
-            return rng.randoms(n_context_feats) if n_context_feats else None
-
-        def actions(index:int, context: Context, rng: CobaRandom) -> Sequence[Action]:
-            return  [rng.randoms(n_action_feats) for _ in range(n_actions)] if n_action_feats else A_ident
-
-        def reward(index:int, context:Context, action:Action, rng: CobaRandom) -> float:
-
-            W = weights
-            X = context or [1]
-            A = action
-            F = X_encoder.encode(x=X,a=A)
-
-            r = sum([w*f for w,f in zip(W,F)])
-            e = (rng.random()-1/2)*math.sqrt(12)*math.sqrt(self._r_noise_var)
-            
-            return min(1,max(0,r+e))
-
-        super().__init__(n_interactions, context, actions, reward, seed)
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        """Paramaters describing the simulation."""
-
-        return { 
-            "n_A"    : self._n_actions,
-            "n_C_phi": self._n_context_features,
-            "n_A_phi": self._n_action_features,
-            "r_noise": self._r_noise_var,
-            "X"      : self._X,
-            "seed"   : self._seed
-        }
-
-    def __str__(self) -> str:
-        return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},X={self._X},seed={self._seed})"
-
-class LocalSyntheticSimulation(LambdaSimulation):
-
-    def __init__(self,
-        n_interactions: int = 500,
-        n_contexts: int = 200,
-        n_context_features: int = 2,
-        n_actions: int = 10,
-        seed: int = 1) -> None:
-
-        self._n_interactions     = n_interactions
-        self._n_context_features = n_context_features
-        self._n_contexts         = n_contexts
-        self._n_actions          = n_actions
-        self._seed               = seed
-
-        rng = CobaRandom(self._seed)
-
-        contexts = [ tuple(rng.randoms(n_context_features)) for _ in range(self._n_contexts) ]        
-        actions  = OneHotEncoder().fit_encode(range(n_actions))
-        rewards  = {}
-
-        for context in contexts:
-            for action in actions:
-                rewards[(context,action)] = rng.random()
-
-        def context_generator(index:int, rng: CobaRandom):
-            return rng.choice(contexts)
-
-        def action_generator(index:int, context:Tuple[float,...], rng: CobaRandom):
-            return actions
-
-        def reward_function(index:int, context:Tuple[float,...], action: Tuple[int,...], rng: CobaRandom):
-            return rewards[(context,action)]
-
-        return super().__init__(self._n_interactions, context_generator, action_generator, reward_function, seed)
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        """Paramaters describing the simulation."""
-
-        return { 
-            "n_A"    : self._n_actions,
-            "n_C"    : self._n_contexts,
-            "n_C_phi": self._n_context_features,
-            "seed"   : self._seed
-        }
-
-    def __str__(self) -> str:
-        return f"LocalSynth(A={self._n_actions},C={self._n_contexts},c={self._n_context_features},seed={self._seed})"

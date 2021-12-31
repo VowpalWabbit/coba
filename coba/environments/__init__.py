@@ -1,27 +1,26 @@
-"""The environments module contains core classes and types for defining contextual bandit environments.
+"""This module contains core functionality for working with contextual bandit environments.
 
-This module contains the abstract interface expected for bandit environments along with the 
-class defining an Interaction within a bandit environment. Additionally, this module also contains 
-the type hints for Context, Action and Reward. These type hints don't contain any functionality. 
-They simply make it possible to use static type checking for any project that desires 
-to do so.
+This module contains the abstract interfaces for common types of bandit environments, several 
+concrete implementations of these environments for use in experiments, and various filters that 
+can be applied to environments to modify them in useful ways (e.g., shuffling, scaling, and imputing).
 """
 
-from coba.environments.primitives   import Context, Action
-from coba.environments.primitives   import Interaction, SimulatedInteraction, LoggedInteraction
-from coba.environments.primitives   import Environment, SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment
-from coba.environments.primitives   import EnvironmentFilter
-from coba.environments.openml       import OpenmlSource, OpenmlSimulation
-from coba.environments.filters      import Shuffle, Take, Identity, Reservoir
-from coba.environments.filters      import Sort, Scale, Cycle, Impute
-from coba.environments.filters      import Binary, ToWarmStart, Sparse
-from coba.environments.pipes        import EnvironmentPipe
-from coba.environments.core         import Environments
+from coba.environments.core       import Environments
+from coba.environments.primitives import Context, Action, Interaction, Environment
+from coba.environments.filters    import Shuffle, Take, Identity, Reservoir
+from coba.environments.filters    import Sort, Scale, Cycle, Impute
+from coba.environments.filters    import Binary, ToWarmStart, Sparse
+from coba.environments.filters    import FilteredEnvironment, EnvironmentFilter
 
-from coba.environments.simulations import MemorySimulation, LambdaSimulation
-from coba.environments.simulations import CsvSimulation, ArffSimulation, LibsvmSimulation, ManikSimulation
-from coba.environments.simulations import ClassificationSimulation, RegressionSimulation
-from coba.environments.simulations import LinearSyntheticSimulation, LocalSyntheticSimulation
+from coba.environments.simulated import SimulatedInteraction, SimulatedEnvironment
+from coba.environments.simulated import MemorySimulation, LambdaSimulation
+from coba.environments.simulated import ClassificationSimulation, RegressionSimulation
+from coba.environments.simulated import LinearSyntheticSimulation, LocalSyntheticSimulation
+from coba.environments.simulated import OpenmlSimulation, OpenmlSource
+from coba.environments.simulated import ReaderSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation, ManikSimulation
+
+from coba.environments.logged.primitives import LoggedInteraction, LoggedEnvironment
+from coba.environments.warmstart.primitives import WarmStartEnvironment
 
 __all__ = [
     'Context',
@@ -34,16 +33,17 @@ __all__ = [
     'LoggedEnvironment',
     'WarmStartEnvironment',
     'Environments',
-    'OpenmlSource',
     'MemorySimulation',
     'LambdaSimulation',
     'ClassificationSimulation',
     'RegressionSimulation',
+    'ReaderSimulation',
     'CsvSimulation',
     'ArffSimulation',
     'LibsvmSimulation',
     'ManikSimulation',
     'OpenmlSimulation',
+    'OpenmlSource',
     'LinearSyntheticSimulation',
     'LocalSyntheticSimulation',
     'EnvironmentFilter',
@@ -53,7 +53,7 @@ __all__ = [
     'Impute',
     'Binary',
     'ToWarmStart',
-    'EnvironmentPipe',
+    'FilteredEnvironment',
     'Shuffle', 
     'Take',
     'Reservoir',

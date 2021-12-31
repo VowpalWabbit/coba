@@ -5,9 +5,9 @@ import json
 
 from typing import cast, Tuple
 
-from coba.exceptions import CobaException
-from coba.contexts import CobaContext, CobaContext, NullLogger, MemoryCacher, NullCacher
-from coba.environments import OpenmlSimulation, OpenmlSource
+from coba.exceptions   import CobaException
+from coba.contexts     import CobaContext, CobaContext, NullLogger, MemoryCacher, NullCacher
+from coba.environments import OpenmlSource, OpenmlSimulation
 
 CobaContext.logger = NullLogger()
 

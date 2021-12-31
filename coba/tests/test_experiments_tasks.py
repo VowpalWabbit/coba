@@ -4,7 +4,7 @@ import unittest.mock
 import importlib.util
 
 from coba.contexts     import LearnerContext
-from coba.environments import SimulatedInteraction, ClassificationSimulation, LoggedInteraction, EnvironmentPipe, Shuffle
+from coba.environments import SimulatedInteraction, ClassificationSimulation, LoggedInteraction, FilteredEnvironment, Shuffle
 from coba.learners     import Learner
 
 from coba.experiments.tasks import (
@@ -59,7 +59,7 @@ class SimpleEnvironmentTask_Tests(unittest.TestCase):
 
     def test_environment_pipe_statistics_dense(self):
 
-        env  = EnvironmentPipe(ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10), Shuffle(1))
+        env  = FilteredEnvironment(ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10), Shuffle(1))
         task = SimpleEnvironmentTask()
 
         self.assertEqual({'source':str(env._source), **env.params}, task.process(env,env.read()))

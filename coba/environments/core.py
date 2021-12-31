@@ -1,15 +1,21 @@
 import collections.abc
+
 from typing import Sequence, overload, Union, Iterable, Iterator
 from coba.backports import Literal
 
 from coba.pipes import Source, DiskIO, JsonDecode
 
-from coba.environments.pipes       import EnvironmentPipe
-from coba.environments.filters     import EnvironmentFilter, Binary, Shuffle, Take, Sparse, Reservoir
+from coba.environments.filters     import FilteredEnvironment, EnvironmentFilter
+from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir
 from coba.environments.definitions import EnvironmentDefinitionFileV1
-from coba.environments.simulations import LinearSyntheticSimulation, LocalSyntheticSimulation
-from coba.environments.primitives  import Environment, LoggedEnvironment, SimulatedEnvironment, WarmStartEnvironment
-from coba.environments.openml      import OpenmlSimulation
+
+from coba.environments          .primitives import Environment
+from coba.environments.logged   .primitives import LoggedEnvironment
+from coba.environments.simulated.primitives import SimulatedEnvironment
+from coba.environments.warmstart.primitives import WarmStartEnvironment
+
+from coba.environments.simulated.synthetics import LinearSyntheticSimulation, LocalSyntheticSimulation
+from coba.environments.simulated.openml     import OpenmlSimulation
 
 class Environments:
 
@@ -109,7 +115,7 @@ class Environments:
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
-        self._environments = [ EnvironmentPipe(e,f) for e in self._environments for f in filters ]
+        self._environments = [ FilteredEnvironment(e,f) for e in self._environments for f in filters ]
         return self
 
     def __getitem__(self, index:int) -> Union[SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment]:

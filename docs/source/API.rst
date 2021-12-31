@@ -3,8 +3,7 @@ API Reference
 =================
 
 .. autosummary::
-   :template: module_sans_modules.rst
-   :toctree: _autosummary
-   :recursive:
+   :toctree:
    
    coba.learners
+   coba.environments
