@@ -1,4 +1,6 @@
-﻿coba.environments
+﻿.. _coba-environments:
+
+coba.environments
 =================
 
 .. automodule:: coba.environments

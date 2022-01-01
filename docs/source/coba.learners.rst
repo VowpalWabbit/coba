@@ -1,4 +1,6 @@
-﻿coba.learners
+﻿.. _coba-learners:
+
+coba.learners
 =============
 
    .. automodule:: coba.learners

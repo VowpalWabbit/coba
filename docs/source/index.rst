@@ -6,4 +6,5 @@ Welcome to coba's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   API
+   getting_started
+   api_reference

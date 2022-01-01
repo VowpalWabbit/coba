@@ -12,7 +12,7 @@ from coba.learners.primitives import Learner, SafeLearner, Probs, Info
 
 class CorralLearner(Learner):
     """A meta-learner that takes a collection of learners and determines
-    which learner is best in an environment.
+    which is best in an environment.
     
     This is an implementation of the Agarwal et al. (2017) Corral algorithm
     and requires that the reward is always in [0,1].

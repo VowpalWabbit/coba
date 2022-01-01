@@ -120,7 +120,7 @@ class Scale(EnvironmentFilter):
         return []
 
 class Impute(EnvironmentFilter):
-    """Impute missing values (nan) in Environment interactions."""
+    """Impute missing values (nan) in Interaction contexts."""
 
     def __init__(self, 
         stat : Literal["mean","median","mode"] = "mean",
