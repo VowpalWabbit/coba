@@ -35,7 +35,7 @@ class CobaContext_Tests(unittest.TestCase):
 
         self.assertEqual(CobaContext.cacher.cache_directory, None)
         self.assertEqual(CobaContext.experiment.processes, 1)
-        self.assertEqual(CobaContext.experiment.maxtasksperchild, 0)
+        self.assertEqual(CobaContext.experiment.maxchunksperchild, 0)
         self.assertEqual(CobaContext.experiment.chunk_by, 'source')
         self.assertEqual(CobaContext.api_keys, {})
         self.assertEqual(CobaContext.store, {})
@@ -52,7 +52,7 @@ class CobaContext_Tests(unittest.TestCase):
 
         self.assertEqual(CobaContext.cacher.cache_directory, str(Path("~").expanduser()))
         self.assertEqual(CobaContext.experiment.processes, 1)
-        self.assertEqual(CobaContext.experiment.maxtasksperchild, 0)
+        self.assertEqual(CobaContext.experiment.maxchunksperchild, 0)
         self.assertEqual(CobaContext.experiment.chunk_by, 'source')
         self.assertEqual(CobaContext.api_keys, {})
         self.assertEqual(CobaContext.store, {})
@@ -69,7 +69,7 @@ class CobaContext_Tests(unittest.TestCase):
 
         self.assertEqual(CobaContext.cacher.cache_directory, str(Path("~/").expanduser()))
         self.assertEqual(CobaContext.experiment.processes, 1)
-        self.assertEqual(CobaContext.experiment.maxtasksperchild, 0)
+        self.assertEqual(CobaContext.experiment.maxchunksperchild, 0)
         self.assertEqual(CobaContext.experiment.chunk_by, 'source')
         self.assertEqual(CobaContext.api_keys, {})
         self.assertEqual(CobaContext.store, {})
@@ -86,7 +86,7 @@ class CobaContext_Tests(unittest.TestCase):
 
         self.assertEqual(CobaContext.cacher.cache_directory, str(Path("coba/tests/.temp").resolve()))
         self.assertEqual(CobaContext.experiment.processes, 1)
-        self.assertEqual(CobaContext.experiment.maxtasksperchild, 0)
+        self.assertEqual(CobaContext.experiment.maxchunksperchild, 0)
         self.assertEqual(CobaContext.experiment.chunk_by, 'source')
         self.assertEqual(CobaContext.api_keys, {})
         self.assertEqual(CobaContext.store, {})
@@ -103,7 +103,7 @@ class CobaContext_Tests(unittest.TestCase):
 
         self.assertEqual(CobaContext.cacher.cache_directory, str(Path("coba/tests/").resolve()))
         self.assertEqual(CobaContext.experiment.processes, 1)
-        self.assertEqual(CobaContext.experiment.maxtasksperchild, 0)
+        self.assertEqual(CobaContext.experiment.maxchunksperchild, 0)
         self.assertEqual(CobaContext.experiment.chunk_by, 'source')
         self.assertEqual(CobaContext.api_keys, {})
         self.assertEqual(CobaContext.store, {})
@@ -120,7 +120,7 @@ class CobaContext_Tests(unittest.TestCase):
 
         self.assertEqual(CobaContext.cacher.cache_directory, None)
         self.assertEqual(CobaContext.experiment.processes, 1)
-        self.assertEqual(CobaContext.experiment.maxtasksperchild, 0)
+        self.assertEqual(CobaContext.experiment.maxchunksperchild, 0)
         self.assertEqual(CobaContext.experiment.chunk_by, 'source')
         self.assertEqual(CobaContext.api_keys, {})
         self.assertEqual(CobaContext.store, {})
@@ -129,7 +129,7 @@ class CobaContext_Tests(unittest.TestCase):
 
         CobaContext.search_paths = ["coba/tests/.temp/"]
 
-        DiskIO("coba/tests/.temp/.coba").write(JsonEncode().filter({"experiment": {"processes":2, "chunk_by": "task"}}))
+        DiskIO("coba/tests/.temp/.coba").write(JsonEncode().filter({"experiment": {"processes":2, "maxtasksperchild":3, "chunk_by": "task"}}))
 
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertIsInstance(CobaContext.logger, IndentLogger)
@@ -137,7 +137,7 @@ class CobaContext_Tests(unittest.TestCase):
 
         self.assertEqual(CobaContext.cacher.cache_directory, None)
         self.assertEqual(CobaContext.experiment.processes, 2)
-        self.assertEqual(CobaContext.experiment.maxtasksperchild, 0)
+        self.assertEqual(CobaContext.experiment.maxchunksperchild, 3)
         self.assertEqual(CobaContext.experiment.chunk_by, 'task')
         self.assertEqual(CobaContext.api_keys, {})
         self.assertEqual(CobaContext.store, {})
@@ -146,11 +146,11 @@ class CobaContext_Tests(unittest.TestCase):
 
         CobaContext.experiment.processes = 3
         CobaContext.experiment.chunk_by = 'task'
-        CobaContext.experiment.maxtasksperchild = 10
+        CobaContext.experiment.maxchunksperchild = 10
 
         self.assertEqual(3, CobaContext.experiment.processes)
         self.assertEqual('task', CobaContext.experiment.chunk_by)
-        self.assertEqual(10, CobaContext.experiment.maxtasksperchild)
+        self.assertEqual(10, CobaContext.experiment.maxchunksperchild)
 
     def test_bad_config_file1(self):
         CobaContext.search_paths = ["coba/tests/.temp/"]

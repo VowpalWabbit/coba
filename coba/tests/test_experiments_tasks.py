@@ -8,7 +8,7 @@ from coba.environments import SimulatedInteraction, ClassificationSimulation, Lo
 from coba.learners     import Learner
 
 from coba.experiments.tasks import (
-    OnPolicyEvaluationTask, ClassEnvironmentTask, SimpleEnvironmentTask, OffPolicyEvaluationTask, WarmStartEvaluationTask
+    OnlineOnPolicyEvalTask, ClassEnvironmentTask, SimpleEnvironmentTask, OnlineOffPolicyEvalTask, OnlineWarmStartEvalTask
 )
 
 #for testing purposes
@@ -151,7 +151,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_none_rewards_no_info_no_logs_no_kwargs(self):
 
-        task         = OnPolicyEvaluationTask()
+        task         = OnlineOnPolicyEvalTask()
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(None,[1,2,3],rewards=[7,8,9]),
@@ -173,7 +173,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_sparse_rewards_no_info_no_logs_no_kwargs(self):
 
-        task         = OnPolicyEvaluationTask()
+        task         = OnlineOnPolicyEvalTask()
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction({'c':1},[{'a':1},{'a':2}],rewards=[7,8]),
@@ -194,7 +194,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_rewards_no_info_no_logs_no_kwargs(self):
 
-        task         = OnPolicyEvaluationTask()
+        task         = OnlineOnPolicyEvalTask()
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(1,[1,2,3],rewards=[7,8,9]),
@@ -216,7 +216,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_reveals_no_info_no_logs_no_kwargs(self):
 
-        task         = OnPolicyEvaluationTask()
+        task         = OnlineOnPolicyEvalTask()
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(1,[1,2,3],reveals=[7,8,9]),
@@ -238,7 +238,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_reveals_rewards_no_info_no_logs_no_kwargs(self):
 
-        task         = OnPolicyEvaluationTask()
+        task         = OnlineOnPolicyEvalTask()
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(1,[1,2,3],reveals=[7,8,9],rewards=[1,3,5]),
@@ -260,7 +260,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_rewards_info_logs_kwargs(self):
 
-        task         = OnPolicyEvaluationTask()
+        task         = OnlineOnPolicyEvalTask()
         learner      = RecordingLearner(with_info=True, with_log=True)
         interactions = [
             SimulatedInteraction(1,[1,2,3],rewards=[7,8,9],letters=['a','b','c'],I=1),
@@ -286,7 +286,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_rewards_info_logs_kwargs_partial(self):
 
-        task         = OnPolicyEvaluationTask()
+        task         = OnlineOnPolicyEvalTask()
         learner      = RecordingLearner(with_info=True, with_log=True)
         interactions = [
             SimulatedInteraction(1,[1,2,3],rewards=[7,8,9]),
@@ -313,7 +313,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
 class OffPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_reward_no_actions_no_probability_no_info_no_logs(self):
-        task    = OffPolicyEvaluationTask()
+        task    = OnlineOffPolicyEvalTask()
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, reward=3),
@@ -334,7 +334,7 @@ class OffPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_process_reward_actions_no_probability_no_info_no_logs(self):
-        task    = OffPolicyEvaluationTask()
+        task    = OnlineOffPolicyEvalTask()
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, reward=3, actions=[2,5,8]),
@@ -355,7 +355,7 @@ class OffPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_process_reward_actions_probability_no_info_no_logs(self):
-        task    = OffPolicyEvaluationTask()
+        task    = OnlineOffPolicyEvalTask()
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, reward=3, actions=[2,5,8], probability=.2),
@@ -376,7 +376,7 @@ class OffPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_process_reward_actions_probability_info_logs_kwargs(self):
-        task    = OffPolicyEvaluationTask()
+        task    = OnlineOffPolicyEvalTask()
         learner = RecordingLearner(with_info=True,with_log=True)
         interactions = [
             LoggedInteraction(1, 2, reward=3, actions=[2,5,8], probability=.2, L='a'),
@@ -403,7 +403,7 @@ class OffPolicyEvaluationTask_Tests(unittest.TestCase):
 class WarmStartEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_reward_no_actions_no_probability_no_info_no_logs(self):
-        task         = WarmStartEvaluationTask()
+        task         = OnlineWarmStartEvalTask()
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             LoggedInteraction(1, 2, reward=3),

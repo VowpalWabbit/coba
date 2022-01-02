@@ -3,7 +3,7 @@
 coba.learners
 =============
 
-   .. automodule:: coba.learners
+.. automodule:: coba.learners
 
 Interfaces
 ~~~~~~~~~~

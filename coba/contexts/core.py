@@ -40,10 +40,10 @@ class CobaContext_meta(type):
 
     class ExperimentConfig:
     
-        def __init__(self, processes:int, maxtasksperchild:int, chunk_by: Literal["source","task"] = "source"):
-            self.processes       : int                      = processes
-            self.maxtasksperchild: int                      = maxtasksperchild
-            self.chunk_by        : Literal["source","task"] = chunk_by
+        def __init__(self, processes:int, maxchunksperchild:int, chunk_by: Literal["source","task"]):
+            self.processes        : int                      = processes
+            self.maxchunksperchild: int                      = maxchunksperchild
+            self.chunk_by         : Literal["source","task"] = chunk_by
 
     def __init__(cls, *args, **kwargs):
         cls._api_keys     = None
@@ -98,11 +98,16 @@ class CobaContext_meta(type):
                     "api_keys"  : collections.defaultdict(lambda:None),
                     "cacher"    : { "DiskCacher": None},
                     "logger"    : { "IndentLogger": "Console" },
-                    "experiment": { "processes": 1, "maxtasksperchild": 0, "chunk_by": "source" }
+                    "experiment": { "processes": 1, "maxchunksperchild": 0, "chunk_by": "source" }
                 }
 
                 for key,value in cls._load_file_configs().items():
                     if key in _raw_config and isinstance(_raw_config[key],dict) and not CobaRegistry.is_known_recipe(value):
+                       
+                        if key == "experiment" and "maxtasksperchild" in value:
+                            value["maxchunksperchild"] = value["maxtasksperchild"]
+                            del value["maxtasksperchild"]
+
                         _raw_config[key].update(value)
                     else:
                         _raw_config[key] = value

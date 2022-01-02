@@ -16,21 +16,50 @@ from coba.contexts import LearnerContext
 from coba.environments import Environment, FilteredEnvironment, Interaction, SimulatedInteraction, LoggedInteraction
 
 class LearnerTask(ABC):
-
+    """A task which describes a Learner."""
+    
     @abstractmethod
-    def process(self, item: Learner) -> Dict[Any,Any]:
+    def process(self, learner: Learner) -> Dict[Any,Any]:
+        """Process the LearnerTask.
+
+        Args:
+            learner: The learner that we wish to describe.
+
+        Returns:
+            A dictionary which describes the given learner.
+        """
         ...
 
 class EnvironmentTask(ABC):
-
+    """A task which describes an Environment."""
+    
     @abstractmethod
     def process(self, environment: Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
+        """Process the EnvironmentTask.
+
+        Args:
+            environment: The environment that we wish to describe.
+            interactions: The interactions which belong to the environment.
+
+        Returns:
+            A dictionary which describes the given environment.
+        """
         ...
 
 class EvaluationTask(ABC):
+    """A task which evaluates a Learner on an Environment."""
 
     @abstractmethod
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
+        """Process the EvaluationTask.
+
+        Args:
+            learner: The Learner that we wish to evaluate.
+            interactions: The Interactions which we wish to evaluate on.
+
+        Returns:
+            An iterable of evaluation statistics (for online evaluation there should be one dict per interaction).
+        """
         ...
 
 class AssertDictQueueIO(QueueIO[Dict[str,Any]]):
@@ -41,10 +70,15 @@ class AssertDictQueueIO(QueueIO[Dict[str,Any]]):
         item.update(kwargs)
         return super().write(item)
 
+class OnlineOnPolicyEvalTask(EvaluationTask):
+    """Evaluate a Learner on a SimulatedEnvironment."""
 
-class OnPolicyEvaluationTask(EvaluationTask):
+    def __init__(self, seed:int = 1) -> None:
+        """Instantiate an OnlineOnPolicyEvalTask.
 
-    def __init__(self, seed:int = 1):
+        Args:
+            seed: A random seed which determines which action is taken given predictions.        
+        """
         self._seed = seed
 
     def process(self, learner: Learner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
@@ -80,10 +114,10 @@ class OnPolicyEvaluationTask(EvaluationTask):
 
             yield {**interaction_info, **learner_info}
 
-class OffPolicyEvaluationTask(EvaluationTask):
+class OnlineOffPolicyEvalTask(EvaluationTask):
+    """Evaluate a Learner on a LoggedEnvironment."""
 
     def process(self, learner: Learner, interactions: Iterable[LoggedInteraction]) -> Iterable[Dict[Any,Any]]:
-
         LearnerContext.logger = AssertDictQueueIO(block=False)
 
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
@@ -116,9 +150,15 @@ class OffPolicyEvaluationTask(EvaluationTask):
 
             yield {**interaction_info, **learner_info}
 
-class WarmStartEvaluationTask(EvaluationTask):
-
+class OnlineWarmStartEvalTask(EvaluationTask):
+    """Evaluate a Learner on a WarmStartEnvironment."""
+    
     def __init__(self, seed: int = 1) -> None:
+        """Instantiate an OnlineOnPolicyEvalTask.
+
+        Args:
+            seed: A random seed which determines which action is taken given predictions.        
+        """        
         self._seed = seed
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
@@ -131,10 +171,10 @@ class WarmStartEvaluationTask(EvaluationTask):
         logged_interactions    = takewhile(lambda i: isinstance(i,LoggedInteraction), separable_interactions)
         simulated_interactions = separable_interactions
 
-        for row in OffPolicyEvaluationTask().process(learner, logged_interactions):
+        for row in OnlineOffPolicyEvalTask().process(learner, logged_interactions):
             yield row
 
-        for row in OnPolicyEvaluationTask(self._seed).process(learner, simulated_interactions):
+        for row in OnlineOnPolicyEvalTask(self._seed).process(learner, simulated_interactions):
             yield row
 
     def _repeat_first_simulated_interaction(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
@@ -150,12 +190,14 @@ class WarmStartEvaluationTask(EvaluationTask):
             any_simulated_found = any_simulated_found or isinstance(interaction, SimulatedInteraction)
 
 class SimpleLearnerTask(LearnerTask):
+    """Describe a Learner using its name and hyperparameters."""
 
     def process(self, item: Learner) -> Dict[Any,Any]:
         item = SafeLearner(item)
         return {"full_name": item.full_name, **item.params}
 
 class SimpleEnvironmentTask(EnvironmentTask):
+    """Describe an Environment using its Environment and Filter parameters."""
 
     def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
 
@@ -177,6 +219,12 @@ class SimpleEnvironmentTask(EnvironmentTask):
             return {}
 
 class ClassEnvironmentTask(EnvironmentTask):
+    """Describe an Environment made from a Classification dataset.
+    
+    In addition to the Environment's parameters this task also calculates a number
+    of classification statistics which can be used to analyze the performance of learners
+    after an Experiment has finished. To make the most of this Task sklearn should be installed.
+    """
 
     def process(self, environment: Environment, interactions: Iterable[SimulatedInteraction]) -> Dict[Any,Any]:
 

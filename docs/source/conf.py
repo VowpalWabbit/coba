@@ -85,6 +85,7 @@ autodoc_class_signature = "separated"
 # This gives coba a consistent public interface in the documentation.
 import coba.learners
 import coba.environments
+import coba.experiments
 
 def set_module(module):
     for cls in map(module.__dict__.get, module.__all__):
@@ -95,5 +96,6 @@ def set_module(module):
 
 set_module(coba.learners)
 set_module(coba.environments)
+set_module(coba.experiments)
 
 autosummary_generate_overwrite = False

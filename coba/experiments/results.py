@@ -63,19 +63,22 @@ class Table:
 
     @property
     def name(self) -> str:
+        """The name of the table."""
         return self._name
 
     @property
     def keys(self) -> Sequence[Hashable]:
+        """Keys for accessing data in the table."""
         return self._rows_keys
 
     @property
     def columns(self) -> Sequence[str]:
+        """The columns in the table."""
         return self._columns
 
     @property
     def dtypes(self) -> Sequence[Type[Union[int,float,bool,object]]]:
-
+        """The dtypes for the columns in the table."""
         flats = self._rows_flat
         packs = self._rows_pack
 
@@ -85,6 +88,17 @@ class Table:
         return [ self._infer_type(column_packed, column_values) for column_packed, column_values in zip(columns_packed,columns_values)]
 
     def filter(self, row_pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Table':
+        """Filter to specific rows.
+
+        Args:
+            pred: A predicate that returns true for row dictionaries that should be kept.
+            kwargs: key value pairs where the key is the column and the value indicates what
+                value a row should have in that column to be kept. Keeping logic depends on
+                the row value type and the kwargs value type. If kwarg value == row value keep
+                the row. If kwarg value is callable pass the row value to the predicate. If
+                kwarg value is a collection keep the row if the row value is in the collection.
+                If kwarg value is a string apply a regular expression match to the row value.
+        """
 
         def satisifies_filter(col_filter,col_value):
             if col_filter == col_value:
@@ -124,6 +138,8 @@ class Table:
         return new_result
 
     def to_pandas(self) -> Any:
+        """Turn the Table into a Pandas data frame."""
+
         PackageChecker.pandas("Table.to_pandas")
         import pandas as pd #type: ignore
         import numpy as np  #type: ignore #pandas installs numpy so if we have pandas we have numpy
@@ -151,7 +167,7 @@ class Table:
 
                 else:
                     val = self._default(col)
-                    
+
                 col_numpy[col][row_index:(row_index+pack_size)] = val
 
             row_index += pack_size
@@ -159,11 +175,12 @@ class Table:
         return pd.DataFrame(col_numpy, columns=self.columns)
 
     def to_tuples(self) -> Sequence[Tuple[Any,...]]:
+        """Turn the Table into a sequence of tuples."""
 
         tooples = []
 
         for key in self.keys:
-            
+
             flat = self._rows_flat[key]
             pack = self._rows_pack[key]
 
@@ -228,28 +245,40 @@ class Table:
 
 class InteractionsTable(Table):
 
-    def to_progressive_lists(self, span: int = None, each: bool = False, yaxis: str = "reward"):
-        #Learner, Simulation, Index
-        #Learner,             Index
+    def to_progressive_lists(self, span: int = None, each: bool = False, ord_col: str = "index", val_col: str = "reward"):
+        """Return expanding or exponential averages for col grouped by learner and possibly environment.
 
+        Args:
+            span: If span is None return an expanding average (i.e., progressive validation). If span is not
+                none calculate an expontial moving average identical to Pandas df.ewm(span=span).mean().
+            each: If true the group by learner and environment (as in each environment). If each is false
+                then only group by learner.
+            ord_col: The column which indicates the order in which averaging is calculated on the val_col.
+            val_col: The column we wish to calculate the progressive average values for.
+
+        Returns:
+            Either [[learner_id, col progressive means...],...] or [[learner_id, environment_id, col progressive means...],...].
+        """
         lrn_sim_rows = []
 
         for interactions in self:
 
-            rewards = interactions[yaxis]
+            values = interactions[val_col]
+            orders = interactions[ord_col]
+            values = [ v[1] for v in sorted(zip(orders,values)) ]
 
-            if span is None or span >= len(rewards):
-                cumwindow  = list(accumulate(rewards))
+            if span is None or span >= len(values):
+                cumwindow  = list(accumulate(values))
                 cumdivisor = list(range(1,len(cumwindow)+1))
 
             elif span == 1:
-                cumwindow  = list(rewards)
+                cumwindow  = list(values)
                 cumdivisor = [1]*len(cumwindow)
 
             else:
                 alpha = 2/(1+span)
-                cumwindow  = list(accumulate(rewards          , lambda a,c: c + (1-alpha)*a))
-                cumdivisor = list(accumulate([1.]*len(rewards), lambda a,c: c + (1-alpha)*a)) #type: ignore
+                cumwindow  = list(accumulate(values          , lambda a,c: c + (1-alpha)*a))
+                cumdivisor = list(accumulate([1.]*len(values), lambda a,c: c + (1-alpha)*a)) #type: ignore
 
             lrn_sim_rows.append([interactions["learner_id"], interactions["environment_id"], *list(map(truediv, cumwindow, cumdivisor))])
 
@@ -276,17 +305,31 @@ class InteractionsTable(Table):
 
             return lrn_rows
 
-    def to_progressive_pandas(self, span: int = None, each: bool = False, yaxis: str = "reward"):
+    def to_progressive_pandas(self, span: int = None, each: bool = False, ord_col="index", val_col: str = "reward"):
+        """Return expanding or exponential averages for yaxis grouped by learner and possibly environment.
+
+        Args:
+            span: If span is None return an expanding average (i.e., progressive validation). If span is not
+                none calculate an expontial moving average identical to Pandas df.ewm(span=span).mean().
+            each: If true the group by learner and environment (as in each environment). If each is false
+                then only group by learner.
+            ord_col: The column which indicates the order in which averaging is calculated on the val_col.
+            val_col: The column we wish to calculate the progressive average values for.
+
+        Returns:
+            A data frame whose columns are (learner_id, [environment_id], interaction indexes...).
+        """
+
         PackageChecker.pandas("Result.to_pandas")
 
         import pandas as pd
 
-        data = self.to_progressive_lists(span, each, yaxis)
-        
+        data = self.to_progressive_lists(span, each, ord_col, val_col)
+
         if each:
             n_index = len(data[0][2:])
             return pd.DataFrame(data, columns=["learner_id", "environment_id", *range(1,n_index+1)])
-        
+
         else:
             n_index = len(data[0][1:])
             return pd.DataFrame(data, columns=["learner_id", *range(1,n_index+1)])
@@ -462,7 +505,11 @@ class Result:
         env_rows: Dict[int           ,Dict[str,Any]] = {},
         lrn_rows: Dict[int           ,Dict[str,Any]] = {},
         int_rows: Dict[Tuple[int,int],Dict[str,Any]] = {}) -> None:
-        """Instantiate a Result class."""
+        """Instantiate a Result class.
+
+        This constructor should never be called directly. Instead a Result file should be created
+        from an Experiment and the result file should be loaded via Result.from_file(filename).
+        """
 
         self.experiment = {}
 
@@ -479,27 +526,33 @@ class Result:
 
     @property
     def learners(self) -> Table:
-        """The collection of learners evaluated by Experiment. The easiest way to work with the 
-            learners is to convert them to a pandas data frame via Result.learners.to_pandas()
+        """The collection of learners used in the Experiment. 
+        
+        The primary key of this table is learner_id.
         """
         return self._learners
 
     @property
     def environments(self) -> Table:
-        """The collection of environments used to evaluate each learner in the Experiment. The easiest
-            way to work with environments is to convert to a dataframe via Result.environments.to_pandas()
+        """The collection of environments used in the Experiment. 
+        
+        The primary key of this table is environment_id.
         """
         return self._environments
 
     @property
     def interactions(self) -> InteractionsTable:
-        """The collection of interactions that learners chose actions for in the Experiment. Each interaction
-            has a environment_id and learner_id column to link them to the learners and environments tables. The 
-            easiest way to work with interactions is to convert to a dataframe via Result.interactions.to_pandas()
+        """The collection of interactions that learners chose actions for in the Experiment. 
+            
+        The primary key of this Table is (index, environment_id, learner_id). It should be noted that the InteractionTable 
+        has an additional property, to_progressive_pandas() which calculates the expanding moving average or exponential 
+        moving average for interactions ordered by index and grouped by environment_id and learner_id.
         """
         return self._interactions
 
     def copy(self) -> 'Result':
+        """Create a copy of Result."""
+        
         result = Result()
 
         result._environments = copy(self._environments)
@@ -509,6 +562,12 @@ class Result:
         return result
 
     def filter_fin(self) -> 'Result':
+        """Filter the result to only contain data about environments with all learners.
+
+        Args:
+            pred: A predicate that returns true for learner dictionaries that should be kept.
+            **kwargs: key-value pairs to filter on. For more information see Table.filter.
+        """
 
         def is_complete_sim(sim_id):
             return all((sim_id, lrn_id) in self.interactions for lrn_id in self.learners.keys)
@@ -522,7 +581,13 @@ class Result:
 
         return new_result
 
-    def filter_env(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Result':
+    def filter_env(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
+        """Filter the result to only contain data about specific environments.
+
+        Args:
+            pred: A predicate that returns true for learner dictionaries that should be kept.
+            **kwargs: key-value pairs to filter on. To see filtering options see Table.filter.
+        """
 
         new_result = copy(self)
         new_result._environments = new_result.environments.filter(pred, **kwargs)
@@ -533,7 +598,14 @@ class Result:
 
         return new_result
 
-    def filter_lrn(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs) -> 'Result':
+    def filter_lrn(self, pred:Callable[[Dict[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
+        """Filter the result to only contain data about specific learners.
+
+        Args:
+            pred: A predicate that returns true for learner dictionaries that should be kept.
+            **kwargs: key-value pairs to filter on. To see filtering options see Table.filter.
+        """
+
         new_result = copy(self)
         new_result._learners     = new_result.learners.filter(pred, **kwargs)
         new_result._interactions = new_result.interactions.filter(learner_id=new_result.learners)
@@ -551,9 +623,9 @@ class Result:
         each : bool = False,
         filename: str = None,
         ax = None) -> None:
-        """This plots the performance of multiple learners on multiple environments. It gives a sense of the expected 
-            performance for different learners across independent environments. This plot is valuable in gaining insight 
-            into how various learners perform in comparison to one another. 
+        """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected 
+            performance for different learners across independent environments. This plot is valuable in gaining 
+            insight into how various learners perform in comparison to one another. 
 
         Args:
             xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
@@ -576,7 +648,7 @@ class Result:
         for label, X, Y, yerr, Z in self._plot_learners_data(xlim,span,err):
 
             ax = ax or plt.figure(figsize=(10,6)).add_subplot(111) #type: ignore
-            
+
             color = next(ax._get_lines.prop_cycler)['color']
 
             ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), label=label, color=color)
@@ -627,7 +699,7 @@ class Result:
 
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-        for progressive in self.interactions.to_progressive_lists(span=span,each=True):
+        for progressive in self.interactions.to_progressive_lists(span=span, each=True, ord_col="index", val_col="reward"):
             progressives[progressive[0]].append(progressive[2:])
 
         if progressives and (not xlim or xlim[0] < xlim[1]):
@@ -636,7 +708,7 @@ class Result:
 
                 label = self._learners[learner_id]["full_name"]
                 Z     = list(zip(*progressives[learner_id]))
-                
+
                 if not Z: continue
 
                 N     = [ len(z) for z in Z        ]
@@ -662,7 +734,7 @@ class Result:
 
                 yerr = 0 if err is None else SE if err.lower() == 'se' else SD if err.lower() == 'sd' else 0
 
-                yield label, X, Y, yerr, Z  
+                yield label, X, Y, yerr, Z
 
     def __str__(self) -> str:
         return str({ "Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })

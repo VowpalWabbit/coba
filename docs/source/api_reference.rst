@@ -7,3 +7,4 @@ API Reference
    
    coba.learners
    coba.environments
+   coba.experiments

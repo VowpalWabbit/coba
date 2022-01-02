@@ -122,7 +122,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def setUp(cls) -> None:
         CobaContext.logger = NullLogger()
         CobaContext.experiment.processes = 1
-        CobaContext.experiment.maxtasksperchild = 0
+        CobaContext.experiment.maxchunksperchild = 0
 
     def test_sim(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -287,15 +287,15 @@ class Experiment_Single_Tests(unittest.TestCase):
         CobaContext.experiment.processes = 10
         self.assertEqual(10,exp.processes)
 
-        CobaContext.experiment.maxtasksperchild = 3
-        self.assertEqual(3,exp.maxtasksperchild)
+        CobaContext.experiment.maxchunksperchild = 3
+        self.assertEqual(3,exp.maxchunksperchild)
 
         CobaContext.experiment.chunk_by = 'source'
         self.assertEqual('source',exp.chunk_by)
 
-        exp.config(processes=2, maxtasksperchild=5, chunk_by='task')
+        exp.config(processes=2, maxchunksperchild=5, chunk_by='task')
         self.assertEqual(2,exp.processes)
-        self.assertEqual(5,exp.maxtasksperchild)
+        self.assertEqual(5,exp.maxchunksperchild)
         self.assertEqual('task',exp.chunk_by)
 
     def test_restore_not_matched_environments(self):
@@ -324,7 +324,7 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
     def setUp(cls) -> None:
         CobaContext.logger = NullLogger()
         CobaContext.experiment.processes = 2
-        CobaContext.experiment.maxtasksperchild = 0
+        CobaContext.experiment.maxchunksperchild = 0
 
     def test_not_picklable_learner_sans_reduce(self):
         sim1       = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
