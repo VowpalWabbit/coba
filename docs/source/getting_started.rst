@@ -88,5 +88,5 @@ To get you there as quickly as possible we have two recommendations for next-ste
 you'll be making real meaningful progress with your research in no-time. Then you can use this documentation simply as a reference when issues come up.
 
  * For *all* researchers we suggest reading about the recommended workflow. :ref:`to-do`
- * For *algorithmic* researchers we suggest reading about creating custom Learners. :ref:`to-do`
+ * For *algorithm* researchers we suggest reading about creating custom Learners. :ref:`to-do`
  * For *applied* researchers we suggest reading about creating custom Environments. :ref:`to-do`
