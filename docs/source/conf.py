@@ -83,9 +83,13 @@ autodoc_class_signature = "separated"
 #autodoc_member_order = "bysource"
 
 # This gives coba a consistent public interface in the documentation.
+# An alternative way to do this might be :canonical: on ..py:class::
+# https://www.sphinx-doc.org/en/master/usage/restructuredtext/domains.html#directive-py-class
 import coba.learners
 import coba.environments
 import coba.experiments
+import coba.contexts
+import coba.contexts.core
 
 def set_module(module):
     for cls in map(module.__dict__.get, module.__all__):
@@ -97,5 +101,16 @@ def set_module(module):
 set_module(coba.learners)
 set_module(coba.environments)
 set_module(coba.experiments)
+set_module(coba.contexts)
+
+#we have to point to meta because sphinx can't handle class level properties
+coba.contexts.core.CobaContext_meta.__module__ = "coba.contexts"
+coba.contexts.core.CobaContext_meta.__name__ = "CobaContext"
+coba.contexts.__dict__['CobaContext'] = coba.contexts.core.CobaContext_meta 
+
+#we have to point to meta because sphinx can't handle class level properties
+coba.contexts.core.LearnerContext_meta.__module__ = "coba.contexts"
+coba.contexts.core.LearnerContext_meta.__name__ = "LearnerContext"
+coba.contexts.__dict__['LearnerContext'] = coba.contexts.core.LearnerContext_meta
 
 autosummary_generate_overwrite = False

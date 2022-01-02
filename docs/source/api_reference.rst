@@ -3,8 +3,9 @@ API Reference
 =================
 
 .. autosummary::
-   :toctree:
+   :toctree: _manualsummary
    
    coba.learners
    coba.environments
    coba.experiments
+   coba.contexts

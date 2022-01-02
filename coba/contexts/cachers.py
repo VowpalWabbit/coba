@@ -17,27 +17,57 @@ class Cacher(Generic[_K, _V], ABC):
     
     @abstractmethod
     def __contains__(self, key: _K) -> bool:
+        """Determine if key is in cache."""
         ...
 
     @abstractmethod
     def get(self, key: _K) -> _V:
+        """Get a key from the cache.
+
+        Args:
+            key: The key to retreive from the cache.
+        """
         ...
 
     @abstractmethod
     def put(self, key: _K, value: _V) -> None:
+        """Put a key and its bytes into the cache. 
+
+        In the case of a key collision nothing will be put.
+
+        Args:
+            key: The key to store in the cache.
+            value: The value that should be cached for the key.
+        """
         ...
 
     @abstractmethod
     def rmv(self, key: _K) -> None:
+        """Remove a key from the cache.
+
+        Args:
+            key: The key to remove from the cache.
+        """
         ...
     
     @abstractmethod
     def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
+        """Get a key from the cache. 
+        
+        If the key is not in the cache put it first using getter.
+
+        Args:
+            key: The key to get from the cache.
+            getter: A method for getting the value if necessary.
+        """
         ...
 
 class NullCacher(Cacher[_K, _V]):
+    """A cacher which does not cache any data."""
+
     def __init__(self) -> None:
-        self._cache: Dict[_K,_V] = {}
+        """Instantiate a NullCacher."""
+        pass
 
     def __contains__(self, key: _K) -> bool:
         return False
@@ -55,7 +85,10 @@ class NullCacher(Cacher[_K, _V]):
         return getter()
 
 class MemoryCacher(Cacher[_K, _V]):
+    """A cacher that caches in memory."""
+    
     def __init__(self) -> None:
+        """Instantiate a MemoryCacher."""
         self._cache: Dict[_K,_V] = {}
 
     def __contains__(self, key: _K) -> bool:
@@ -77,13 +110,13 @@ class MemoryCacher(Cacher[_K, _V]):
         return self.get(key)
 
 class DiskCacher(Cacher[str, Iterable[bytes]]):
-    """A cache that writes bytes to disk.
+    """A cacher that writes to disk.
 
-    The DiskCache compresses all values before storing in order to conserve space.
+    The DiskCacher compresses all values before writing to conserve disk space.
     """
 
     def __init__(self, cache_dir: Union[str, Path] = None) -> None:
-        """Instantiate a DiskCache.
+        """Instantiate a DiskCacher.
 
         Args:
             cache_dir: The directory path where all given keys will be cached as files
@@ -92,6 +125,7 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
 
     @property
     def cache_directory(self) -> Optional[str]:
+        """The directory where the cache will write to disk."""
         return str(self._cache_dir) if self._cache_dir is not None else None
 
     @cache_directory.setter
@@ -103,12 +137,6 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         return self._cache_dir is not None and self._cache_path(key).exists()
 
     def get(self, key: str) -> Iterable[bytes]:
-        """Get a key from the cache.
-
-        Args:
-            key: Requested key to retreive from the cache.
-        """
-
         if key not in self: return []
 
         try:
@@ -121,21 +149,9 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
             raise
 
     def put(self, key: str, value: Iterable[bytes]):
-        """Put a key and its bytes into the cache. In the case of a key collision nothing will be put.
-
-        Args:
-            key: The key to store in the cache.
-            value: The bytes that should be cached for the given filename.
-        """
 
         if self._cache_dir is None: return
 
-        #I'm not crazy about this... This means we can only put one thing at a time...
-        #What we really want is a lock on `key` though I haven't been able to find a good
-        #way to do this. A better method might be to create a manager.List() and then only
-        #lock long enough to add and remove keys from the manager.List() rather than locking
-        #for the entire time it takes to put something (which could be a considerable amount)
-        #of time.
         try:
             if key in self: return
 
@@ -149,21 +165,12 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
             raise
 
     def rmv(self, key: str) -> None:
-        """Remove a key from the cache.
 
-        Args:
-            key: The key to remove from the cache.
-        """
 
         if self._cache_path(key).exists(): self._cache_path(key).unlink()
 
     def get_put(self, key: str, getter: Callable[[], Iterable[bytes]]) -> Iterable[bytes]:
-        """Get a key from the cache. If the key is not in the cache put it first using getter.
 
-        Args:
-            key: The key to get from the cache.
-            getter: A callable method to get the value for the cache if necessary.
-        """
 
         if self._cache_dir is None:
             return getter()
@@ -184,8 +191,19 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         return self._cache_dir/self._cache_name(key)
 
 class ConcurrentCacher(Cacher[_K, _V]):
+    """A cacher that is multi-process safe."""
 
     def __init__(self, cache:Cacher[_K, _V], dict:Dict[_K,int], lock: Lock, cond: Condition):
+        """Instantiate a ConcurrentCacher.
+        
+        Args:
+            cache: The base cacher that we wish to make multi-process safe.
+            dict: This must be a multiprocessing dict capable of communicating across processes.
+            lock: A lock that can be marshalled to other processes.
+            cond: A condition that can be marshaled to other processes.
+        """
+        #With more thought the 3 concurrency objects could probably be reduced to just 1 or 2.
+
         self._cache = cache
         self._lock  = lock
         self._dict  = dict
@@ -274,6 +292,12 @@ class ConcurrentCacher(Cacher[_K, _V]):
 
     def get_put(self, key: _K, getter: Callable[[],_V]):
 
+        ### I'm pretty sure there is still a potential race-condition here.
+        ### We need to get a read-lock probably before the first get check
+        ### Otherwise it is possible for an item to be removed from the cache
+        ### after the contains check and before the get. Given how I use
+        ### the cache currently though this is very unlikely to happen so 
+        ### I'm not going to fix it at this time. 
         if key in self._cache:
             return self.get(key)
         else:

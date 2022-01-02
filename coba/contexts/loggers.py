@@ -11,11 +11,12 @@ from coba.pipes import Pipe, Filter, Sink, NullIO, ConsoleIO
 from coba.exceptions import CobaException
 
 class Logger(ABC):
-    """A more advanced logging interface allowing different types of logs to be written."""
+    """The interface for a logger."""
 
     @property
     @abstractmethod
     def sink(self) -> Sink[str]:
+        """The sink the logger writes to."""
         ...
 
     @sink.setter
@@ -25,13 +26,30 @@ class Logger(ABC):
 
     @abstractmethod
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
+        """Log a message or exception to the sink.
+        
+        Args:
+            message: The message or exception that should be logged.
+
+        Returns:
+            A ContextManager that can be used to communicate log hierarchy.
+        """
         ...
 
     @abstractmethod
     def time(self, message: str) -> 'ContextManager[Logger]':
+        """Log a timed message to the sink.
+
+        Args:
+            message: The message that should be logged.
+
+        Returns:
+            A ContextManager that indicates when to stop timing.
+        """
         ...
 
 class NullLogger(Logger):
+    """A logger which writes nothing."""
 
     def __init__(self) -> None:
         self._sink = NullIO()
@@ -55,10 +73,14 @@ class NullLogger(Logger):
         return self._context()
 
 class BasicLogger(Logger):
-    """A Logger that writes in real time and indicates time with start/end messages."""
+    """A Logger with flat hierarchy and separate begin/end messages."""
 
     def __init__(self, sink: Sink[str] = ConsoleIO()):
-        """Instantiate a BasicLogger."""
+        """Instantiate a BasicLogger.
+        
+        Args:
+            sink: The sink to write to (by default console).
+        """
         self._sink = sink
         self._starts = []
 
@@ -99,35 +121,21 @@ class BasicLogger(Logger):
         self._sink = sink
 
     def log(self, message: str) -> 'ContextManager[Logger]':
-        """Log a message with an optional begin and end context.
-        
-        Args:
-            message: The message or exception that should be logged.
-
-        Returns:
-            A ContextManager that will write a finish message on exit.
-        """
-
         self._sink.write(message)
         return self._log_context(message)
 
     def time(self, message: str) -> 'ContextManager[Logger]':
-        """Log a message's start and end time.
-
-        Args:
-            message: The message that should be logged to describe what is timed.
-
-        Returns:
-            A ContextManager that will write the total execution time on exit.
-        """
-
         return self._time_context(message)
 
 class IndentLogger(Logger):
-    """A Logger with context indentation, exception tracking and a consistent preamble."""
+    """A Logger with indentation hierarchy and a single timed log with total runtime."""
 
     def __init__(self, sink: Sink[str] = ConsoleIO()):
-        """Instantiate an IndentLogger."""
+        """Instantiate an IndentLogger.
+        
+        Args:
+            sink: The sink to write the logs to (by default console).
+        """
         self._sink = sink
 
         self._messages = []
@@ -186,12 +194,6 @@ class IndentLogger(Logger):
         self._sink = sink
 
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
-        """Log a message.
-
-        Args:
-            message: The message that should be logged.
-        """
-
         if self._messages:
             self._messages.append(self._level_message(message))
         else:
@@ -200,20 +202,19 @@ class IndentLogger(Logger):
         return self._indent_context()
 
     def time(self, message: str) -> 'ContextManager[Logger]':
-        """Log a message and the time it takes to exit the returned context manager.
-        
-        Args:
-            message: The message that should be logged to describe what is timed.
-
-        Returns:
-            A ContextManager that maintains the timing context and writes execution time on exit. 
-        """
-
         return self._time_context(message)
 
 class DecoratedLogger(Logger):
+    """A Logger which decorates a base logger."""
 
     def __init__(self, pre_decorators: Sequence[Filter], logger: Logger, post_decorators: Sequence[Filter]):
+        """Instantiate DecoratedLogger.
+        
+        Args:
+            pre_decorators: A sequence of decorators to be applied before the base logger.
+            logger: The base logger we are decorating.
+            post_decorators: A sequence of decorators to be applied after the base logger.
+        """
 
         self._pre_decorator   = Pipe.join(pre_decorators)
         self._post_decorators = post_decorators
@@ -241,10 +242,14 @@ class DecoratedLogger(Logger):
         return self._logger
 
 class NameLog(Filter[str,str]):
+    """A log decorator that names the process writing the log."""
+
     def filter(self, log: str) -> str:
         return f"pid-{current_process().pid:<6} -- {log}"
 
 class StampLog(Filter[str,str]):
+    """A log decorator that adds a timestamp to logs."""
+
     def filter(self, log: str) -> str:
         return f"{self._now().strftime('%Y-%m-%d %H:%M:%S')} -- {log}"
 
@@ -252,6 +257,8 @@ class StampLog(Filter[str,str]):
         return datetime.now()
 
 class ExceptLog(Filter[Union[str,Exception],str]):
+    """A Log decorator that turns exceptions into messages."""
+
     def filter(self, log: Union[str,Exception]) -> str:
         if isinstance(log, str):
             return log

@@ -9,7 +9,7 @@ Core
 ~~~~
 
    .. autosummary::
-      :toctree: _autosummary
+      :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
       Environments
@@ -18,7 +18,7 @@ Interfaces
 ~~~~~~~~~~
 
    .. autosummary::
-      :toctree: _autosummary
+      :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
       Environment
@@ -30,7 +30,7 @@ Interaction Types
 ~~~~~~~~~~~~~~~~~~
 
    .. autosummary::
-      :toctree: _autosummary
+      :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
       Interaction
@@ -41,7 +41,7 @@ Simulated Environments
 ~~~~~~~~~~~~~~~~~~~~~~
 
    .. autosummary::
-      :toctree: _autosummary
+      :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
       MemorySimulation
@@ -60,7 +60,7 @@ Environment Filters
 ~~~~~~~~~~~~~~~~~~~
 
    .. autosummary::
-      :toctree: _autosummary
+      :toctree: ../_autosummary
       :template: class_with_ctor.rst      
 
       Sort

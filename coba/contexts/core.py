@@ -31,27 +31,30 @@ from coba.contexts.loggers import Logger
 #         [3] https://www.python.org/dev/peps/pep-0567/
 #         [4] https://docs.python.org/3/library/contextvars.html
 
-class CobaContext_meta(type):
-    """To support class properties before python 3.9 we must implement our properties directly 
-       on a meta class. Using class properties rather than class variables is done to allow 
-       lazy loading. Lazy loading moves errors to execution time instead of import time where
-       they are easier to debug as well as removing import time circular references.
+class ExperimentConfig:
+    """Default configuration settings for Experiments.
+
+    These can be overridden directly calling `config` on an Experiment.
     """
 
-    class ExperimentConfig:
-    
-        def __init__(self, processes:int, maxchunksperchild:int, chunk_by: Literal["source","task"]):
-            self.processes        : int                      = processes
-            self.maxchunksperchild: int                      = maxchunksperchild
-            self.chunk_by         : Literal["source","task"] = chunk_by
+    def __init__(self, processes:int, maxchunksperchild:int, chunk_by: Literal["source","task"]):
+        """Instantiate an ExperimentConfig."""
+        self.processes        : int                      = processes
+        self.maxchunksperchild: int                      = maxchunksperchild
+        self.chunk_by         : Literal["source","task"] = chunk_by
 
-    def __init__(cls, *args, **kwargs):
-        cls._api_keys     = None
-        cls._cacher       = None
-        cls._logger       = None
-        cls._experiment   = None
-        cls._search_paths = [Path.home() , Path.cwd(), Path(sys.path[0]) ]
-        cls._store        = {}
+class CobaContext_meta(type):
+    """Concurrent global execution context accessible to all Coba classes.
+
+    Coba context can either be set directly or set in a .coba configuration file.
+    """
+
+    _api_keys     = None
+    _cacher       = None
+    _logger       = None
+    _experiment   = None
+    _search_paths = [Path.home() , Path.cwd(), Path(sys.path[0]) ]
+    _store        = {}        
 
     def _load_file_configs(cls) -> Dict[str,Any]:
         config = {}
@@ -116,7 +119,7 @@ class CobaContext_meta(type):
                     'api_keys'  : _raw_config['api_keys'],
                     'cacher'    : CobaRegistry.construct(_raw_config['cacher']),
                     'logger'    : CobaRegistry.construct(_raw_config['logger']),
-                    'experiment': CobaContext_meta.ExperimentConfig(**_raw_config['experiment'])
+                    'experiment': ExperimentConfig(**_raw_config['experiment'])
                 }
             except CobaException as e:
                 messages = [
@@ -139,16 +142,18 @@ class CobaContext_meta(type):
         return cls._config_backing
 
     @property
-    def api_keys(cls):
+    def api_keys(cls) -> Dict[str,str]:
+        """Global dictionary of API keys."""
         cls._api_keys = cls._api_keys if cls._api_keys else cls._config['api_keys']
         return cls._api_keys
 
     @api_keys.setter
-    def api_keys(cls, value):
+    def api_keys(cls, value: Dict[str,str]):
         cls._api_keys = value
 
     @property
     def cacher(cls) -> Cacher[str,Iterable[bytes]]:
+        """Global caching strategy."""
         cls._cacher = cls._cacher if cls._cacher else cls._config['cacher']
         return cls._cacher
 
@@ -158,6 +163,7 @@ class CobaContext_meta(type):
 
     @property
     def logger(cls) -> Logger:
+        """Global logging strategy."""
         cls._logger = cls._logger if cls._logger else cls._config['logger']
         return cls._logger
 
@@ -167,6 +173,10 @@ class CobaContext_meta(type):
 
     @property
     def store(cls) -> Dict[str,Any]:
+        """A global, concurrent store of objects.
+
+        This store will be correctly marshalled to background processes if multiprocessing is used.
+        """
         return cls._store
     
     @store.setter
@@ -174,12 +184,14 @@ class CobaContext_meta(type):
         cls._store = value
 
     @property
-    def experiment(cls) -> 'CobaContext_meta.ExperimentConfig':
+    def experiment(cls) -> ExperimentConfig:
+        """Global Experiment configurations."""
         cls._experiment = cls._experiment if cls._experiment else cls._config['experiment']
         return cls._experiment
 
     @property
     def search_paths(cls) -> Sequence[Path]:
+        """The sequence of search paths for .coba configuration files."""
         return cls._search_paths
 
     @search_paths.setter
@@ -187,15 +199,29 @@ class CobaContext_meta(type):
         cls._search_paths = [ Path(path) if isinstance(path,str) else path for path in value  ]
 
 class CobaContext(metaclass=CobaContext_meta):
+    """To support class properties before python 3.9 we must implement our properties directly 
+       on a meta class. Using class properties rather than class variables is done to allow 
+       lazy loading. Lazy loading moves errors to execution time instead of import time making
+       them easier to debug as well as removing the potential for import time circular references.
+    """ #I'm not sure some of the claims in the docstring are still true...
     pass
 
 class LearnerContext_meta(type):
+    """Global context scoped to the currently executing learner on a process.
 
-    def __init__(cls, *args, **kwargs):
-        cls._logger = None 
+    At this time this exists primarily to allow Learners to log more in-depth information 
+    about their performance for algorithm debugging and analysis.
+    """
+    _logger = None
 
     @property
     def logger(cls) -> IO[Iterable[Dict[str,Any]],Dict[str,Any]]:
+        """Log information about a learner.
+        
+        These values are stored in the Result.interactions table. This means leaners
+        can log information on each learn/predict call and researchers can access it 
+        after the experiment for in-depth analysis.
+        """
         return cls._logger if cls._logger is not None else NullIO[Dict[str,Any]]()
 
     @logger.setter
@@ -203,4 +229,8 @@ class LearnerContext_meta(type):
         cls._logger = value
 
 class LearnerContext(metaclass=LearnerContext_meta):
-    pass
+    """To support class properties before python 3.9 we must implement our properties directly 
+       on a meta class. Using class properties rather than class variables is done to allow 
+       lazy loading. Lazy loading moves errors to execution time instead of import time making
+       them easier to debug as well as removing the potential for import time circular references.
+    """ #I'm not sure some of the claims in the docstring are still true...

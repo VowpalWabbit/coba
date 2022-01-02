@@ -9,7 +9,7 @@ Interfaces
 ~~~~~~~~~~
 
    .. autosummary::
-      :toctree: _autosummary
+      :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
       Learner
@@ -18,7 +18,7 @@ Dummy Learners
 ~~~~~~~~~~~~~~
 
    .. autosummary::
-      :toctree: _autosummary
+      :toctree: ../_autosummary
       :template: class_with_ctor.rst
       
       RandomLearner
@@ -28,7 +28,7 @@ Bandit Learners
 ~~~~~~~~~~~~~~~
 
    .. autosummary::
-      :toctree: _autosummary
+      :toctree: ../_autosummary
       :template: class_with_ctor.rst
             
       EpsilonBanditLearner
@@ -38,7 +38,7 @@ Contextual Bandit Learners
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
    .. autosummary::
-      :toctree: _autosummary
+      :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
       LinUCBLearner
@@ -56,7 +56,7 @@ Meta Learners
 ~~~~~~~~~~~~~
 
    .. autosummary::
-      :toctree: _autosummary
+      :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
       CorralLearner
