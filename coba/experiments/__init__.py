@@ -1,13 +1,7 @@
-"""This module contains core functionality for conducting and analyzing CB experiments.
-
-This module contains the abstract interfaces for common types of bandit environments, several 
-concrete implementations of these environments for use in experiments, and various filters that 
-can be applied to environments to modify them in useful ways (e.g., shuffling, scaling, and imputing).
-"""
-
 """The experiments module contains core experiment functionality and protocols.
 
-This module contains the abstract interface expected for Experiment implementations.
+This module contains the Experiment evaluator, implementations of specific tasks that are performed
+during an experiment evaluation, and the Result datastructures returned after experiment evalution.
 """
 
 from coba.experiments.core    import Experiment
