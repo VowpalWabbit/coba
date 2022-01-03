@@ -9,3 +9,4 @@ API Reference
    coba.environments
    coba.experiments
    coba.contexts
+   coba.random

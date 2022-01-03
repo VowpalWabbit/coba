@@ -2,7 +2,7 @@
 
 This module follows the pattern of the standard library's random module by creating
 by instantiation an internal, global Random class and then referencing that in all
-the public methods in order to maintain state.
+the public methods in to maintain state.
 
 Remarks:
     This implementation has been made to guarantee the reproducibility of experiments
@@ -20,7 +20,7 @@ class CobaRandom:
     """A random number generator via a linear congruential generator."""
 
     def __init__(self, seed: Optional[int] = None) -> None:
-        """Instantiate a Random class.
+        """Instantiate a CobaRandom.
 
         Args:
             seed: the seed to start random number generation.
@@ -67,8 +67,8 @@ class CobaRandom:
             A new sequence with the order of items shuffled.
 
         Remarks:
-            This is the Richard Durstenfeld's method popularized by Donald Knuth in The Art of Computer Programming.
-            This algorithm is unbiased (i.e., all possible permutations are equally likely to occur).
+            This is the Richard Durstenfeld's method popularized by Donald Knuth in The Art of Computer 
+            Programming. This algorithm is unbiased (i.e., all possible permutations are equally likely to occur).
         """
 
         n = len(sequence)
