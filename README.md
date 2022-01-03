@@ -5,7 +5,7 @@
 
 ### What is it?
 
- Coba is a powerful research framework built specifically for contextual bandit (CB) methods.
+ Coba is a powerful research framework built specifically for online contextual bandit (CB) methods.
 
 ### How do you research?
 
