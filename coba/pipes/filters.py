@@ -220,8 +220,8 @@ class ArffReader(Filter[Iterable[str], Iterable[MutableMap[int,Any]]]):
 
             if attribute_match:
                 attribute_text  = attribute_match.group(1).strip()
-                attribute_type  = re.split('[ ]', attribute_text, 1)[1]
-                attribute_name  = re.split('[ ]', attribute_text)[0]
+                attribute_type  = re.split('\s+', attribute_text, 1)[1]
+                attribute_name  = re.split('\s+', attribute_text)[0]
                 attribute_index = len(headers)
 
                 headers.append(attribute_name)

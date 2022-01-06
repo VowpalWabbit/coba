@@ -98,9 +98,11 @@ class OpenmlSource(Source[Iterable[Tuple[Any, Any]]]):
             file_rows = iter(self._get_dataset_rows(dataset_description["file_id"], md5_checksum))
 
             headers   = [ self._name_cleaning(h) for h in next(file_rows)]
-            encoders  = { headers.index(k): v for k,v in encoders.items() }
-            target    = headers.index(target)
             ignored   = [ headers.index(i) for i in ignored ]
+            headers   = list(Drop(drop_cols=ignored).filter([headers]))[0]
+            encoders  = { headers.index(k): v for k,v in encoders.items() if k in headers }
+            target    = headers.index(target)
+            
 
             def row_has_missing_values(row):
                 row_values = row.values() if isinstance(row,dict) else row
@@ -124,10 +126,7 @@ class OpenmlSource(Source[Iterable[Tuple[Any, Any]]]):
 
         except Exception:
             #if something unexpected went wrong clear the cache just in case it was corrupted somehow
-            for key in self._cache_keys.values():
-                CobaContext.cacher.release(key) #to make sure we don't get stuck in a race condition
-                CobaContext.cacher.rmv(key)
-
+            self._clear_cache()
             raise
 
     def _name_cleaning(self, name: str) -> str:
@@ -183,6 +182,7 @@ class OpenmlSource(Source[Iterable[Tuple[Any, Any]]]):
                     raise CobaException("We're sorry but we were unable to find the requested dataset on openml.")
 
                 if response.status_code != 200:
+                    self._clear_cache()
                     raise CobaException(f"An unexpected response was returned by openml: {response.text}")
 
                 # NOTE: These two checks need to be gated with a status code failure 
@@ -238,18 +238,26 @@ class OpenmlSource(Source[Iterable[Tuple[Any, Any]]]):
 
     def _get_target_for_problem_type(self, data_id:int):
 
-        text  = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}', self._cache_keys['tasks']))
-        tasks = json.loads(text).get("tasks",{}).get("task",[])
+        try:
+            text  = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}', self._cache_keys['tasks']))
+            tasks = json.loads(text).get("tasks",{}).get("task",[])
 
-        task_type = 1 if self._problem_type == "classification" else 2
+            task_type = 1 if self._problem_type == "classification" else 2
 
-        for task in tasks:
-            if task["task_type_id"] == task_type: #aka, classification task
-                for input in task['input']:
-                    if input['name'] == 'target_feature':
-                        return input['value'] # just take the first one
+            for task in tasks:
+                if task["task_type_id"] == task_type: #aka, classification task
+                    for input in task['input']:
+                        if input['name'] == 'target_feature':
+                            return input['value'] # just take the first one
+        except CobaException:
+            pass
 
         raise CobaException(f"Openml {data_id} does not appear to be a {self._problem_type} dataset")
+
+    def _clear_cache(self) -> None:
+        for key in self._cache_keys.values():
+                CobaContext.cacher.release(key) #to make sure we don't get stuck in a race condition
+                CobaContext.cacher.rmv(key)
 
     def __str__(self) -> str:
         return f'{{"OpenmlSource":{self._data_id}}}'
