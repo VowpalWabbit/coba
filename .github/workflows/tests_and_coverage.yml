@@ -38,6 +38,6 @@ jobs:
           flags: unittest, ${{ matrix.os }}, ${{ matrix.version }}
       - name: Test examples
         run: |
-          python examples/scripts/*.py
-          jupyter nbconvert --to script examples/notebooks/*.ipynb
-          python examples/notebooks/*.py
+          python "examples/scripts/First Script.py"
+          jupyter nbconvert --to script "examples/notebooks/First Experiment.ipynb" "examples/notebooks/Results.ipynb" "examples/notebooks/Experiments.ipynb" "examples/notebooks/Environments.ipynb"
+          python "examples/notebooks/First Experiment.py" "examples/notebooks/Results.py" "examples/notebooks/Experiments.py" "examples/notebooks/Environments.py"
