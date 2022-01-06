@@ -7,6 +7,7 @@ can be applied to environments to modify them in useful ways (e.g., shuffling, s
 
 from coba.environments.core       import Environments
 from coba.environments.primitives import Context, Action, Interaction, Environment, ReaderEnvironment
+from coba.environments.logged.primitives import LoggedInteraction, LoggedEnvironment
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir
 from coba.environments.filters    import Sort, Scale, Cycle, Impute
 from coba.environments.filters    import Binary, WarmStart, Sparse
@@ -19,7 +20,6 @@ from coba.environments.simulated import LinearSyntheticSimulation, LocalSyntheti
 from coba.environments.simulated import OpenmlSimulation
 from coba.environments.simulated import CsvSimulation, ArffSimulation, LibsvmSimulation, ManikSimulation
 
-from coba.environments.logged.primitives import LoggedInteraction, LoggedEnvironment
 from coba.environments.warmstart.primitives import WarmStartEnvironment
 
 __all__ = [
