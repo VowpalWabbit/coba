@@ -7,3 +7,4 @@ wheel # optional & needed for sklearn install
 sklearn # optional
 pandas # optional
 matplotlib # optional
+jupyterlab # optional: only to test nb
