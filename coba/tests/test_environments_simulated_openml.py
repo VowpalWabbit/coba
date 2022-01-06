@@ -448,6 +448,53 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(8.3, label_col[3])
         self.assertEqual(7.6, label_col[4])
 
+    def test_classification_type_regression_dataset_cache_exception(self):
+
+        data_set_description = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "licence":"CC0",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+            }
+        }
+
+        data_set_features = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+                ]
+            }
+        }
+
+        CobaContext.cacher = ExceptionCacher('openml_042693_tasks', CobaException())
+
+        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
+
+        with self.assertRaises(Exception) as e:
+            feature_rows, label_col = OpenmlSource(42693).read()
+
+        self.assertTrue("does not appear" in str(e.exception))
+
     def test_classification_type_regression_dataset_no_classification_tasks(self):
 
         data_set_description = {
@@ -1018,7 +1065,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertIn('openml_042693_feats', CobaContext.cacher)
         self.assertIn('openml_042693_arff' , CobaContext.cacher)
 
-    def test_cache_not_cleared_on_coba_exception(self):
+    def test_cache_cleared_on_cache_coba_exception(self):
 
         data_set_description = {
             "data_set_description":{
@@ -1081,9 +1128,9 @@ class OpenmlSource_Tests(unittest.TestCase):
         with self.assertRaises(Exception) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
 
-        self.assertIn('openml_042693_descr', CobaContext.cacher)
-        self.assertIn('openml_042693_feats', CobaContext.cacher)
-        self.assertIn('openml_042693_arff' , CobaContext.cacher)
+        self.assertNotIn('openml_042693_descr', CobaContext.cacher)
+        self.assertNotIn('openml_042693_feats', CobaContext.cacher)
+        self.assertNotIn('openml_042693_arff' , CobaContext.cacher)
 
     def test_tasks_not_loaded_when_not_needed(self):
 

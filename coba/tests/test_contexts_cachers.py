@@ -626,7 +626,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.release(1)
             curr_cacher.rmv(1)
 
-    def test_rmv_during_get_same_process_with_exception(self):
+    def test_rmv_during_get_same_process_causes_exception(self):
         
         base_cacher = IterCacher()
         curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
@@ -638,6 +638,48 @@ class ConcurrentCacher_Test(unittest.TestCase):
         
         with self.assertRaises(CobaException):
             curr_cacher.rmv(1)
+
+    def test_rmv_during_get_put_same_process_causes_exception(self):
+
+        base_cacher = IterCacher()
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        def getter():
+            yield 1
+            curr_cacher.rmv(1)
+            yield 2
+
+        with self.assertRaises(CobaException):
+            curr_cacher.get_put(1,getter)
+
+    def test_put_during_get_put_same_process_causes_exception(self):
+
+        base_cacher = IterCacher()
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        def getter():
+            yield 1
+            curr_cacher.put(1,1)
+            yield 2
+
+        with self.assertRaises(CobaException):
+            curr_cacher.get_put(1,getter)
+        
+        self.assertFalse(curr_cacher._has_write_lock(1))
+
+    def test_get_during_get_put_same_process_causes_exception(self):
+
+        base_cacher = IterCacher()
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        def getter():
+            yield 1
+            curr_cacher.get(1)
+            yield 2
+
+        with self.assertRaises(CobaException):
+            curr_cacher.get_put(1,getter)
+
 
 if __name__ == '__main__':
     unittest.main()

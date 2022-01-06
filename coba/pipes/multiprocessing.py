@@ -170,7 +170,9 @@ class PipesPool:
 
     def terminate(self):
         self._terminate = True
-        self._threads[1].join()
+        
+        if len(self._threads) > 2:
+            self._threads[1].join()
 
     @property
     def is_terminated(self) -> bool:

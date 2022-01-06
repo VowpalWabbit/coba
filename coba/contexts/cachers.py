@@ -17,7 +17,7 @@ _V = TypeVar("_V")
 
 class Cacher(Generic[_K, _V], ABC):
     """The interface for a cacher."""
-    
+
     @abstractmethod
     def __contains__(self, key: _K) -> bool:
         """Determine if key is in cache."""
@@ -116,12 +116,12 @@ class MemoryCacher(Cacher[_K, _V]):
         return self._cache[key]
 
     def put(self, key: _K, value: _V) -> None:
-        self._cache[key] = list(value) if inspect.isgenerator(value) else value  
+        self._cache[key] = list(value) if inspect.isgenerator(value) else value
 
     def rmv(self, key: _K) -> None:
         if key in self:
             del self._cache[key]
-    
+
     def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
         if key not in self: 
             self.put(key,getter())
@@ -226,7 +226,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
 
     def __init__(self, cache:Cacher[_K, _V], dict:Dict[_K,int], lock: Lock, cond: Condition):
         """Instantiate a ConcurrentCacher.
-        
+
         Args:
             cache: The base cacher that we wish to make multi-process safe.
             dict: This must be a multiprocessing dict capable of communicating across processes.
@@ -257,8 +257,12 @@ class ConcurrentCacher(Cacher[_K, _V]):
                 self._dict[key] = self._dict.get(key,0)+1
                 return True
             return False
-    
+
     def _acquire_read_lock(self, key: _K):
+        
+        if self._has_write_lock(key):
+            raise CobaException("The concurrent cacher was asked to enter a race condition.")
+
         self.read_waits += 1
         while not self._acquired_read_lock(key):
             with self._cond:
@@ -273,6 +277,9 @@ class ConcurrentCacher(Cacher[_K, _V]):
             self._cond.notify_all()
         self._read_locks[(current_thread().ident,key)] -= 1
 
+    def _has_read_lock(self, key) -> bool:
+        return self._read_locks[(current_thread().ident,key)] > 0
+
     def _acquired_write_lock(self, key: _K) -> bool:
         with self._lock:
             if key not in self._dict or self._dict[key] == 0:
@@ -280,9 +287,9 @@ class ConcurrentCacher(Cacher[_K, _V]):
                 return True
             return False
 
-    def _acquire_write_lock(self, key: _K):        
-        
-        if self._read_locks[(current_thread().ident,key)] > 0:
+    def _acquire_write_lock(self, key: _K):
+
+        if self._has_read_lock(key) or self._has_write_lock(key):
             raise CobaException("The concurrent cacher was asked to enter a race condition.")
 
         self.write_waits += 1
@@ -295,7 +302,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
     def _switch_write_to_read_lock(self, key: _K):
         with self._lock:
             self._dict[key] = 1
-        
+
         self._read_locks[(current_thread().ident,key)] += 1
         self._write_locks[(current_thread().ident,key)] -= 1
 
@@ -307,6 +314,9 @@ class ConcurrentCacher(Cacher[_K, _V]):
             self._cond.notify_all()
 
         self._write_locks[(current_thread().ident,key)] -= 1
+
+    def _has_write_lock(self, key) -> bool:
+        return self._write_locks[(current_thread().ident,key)] > 0
 
     def _generator_release(self, value: _V, release: Callable[[],None]):
         try:
@@ -351,26 +361,32 @@ class ConcurrentCacher(Cacher[_K, _V]):
         ### different from anywhere else that I check before getting. The
         ### real solution would be to add a try_get method that gets if
         ### it has it otherwise nothing.
-        if key in self._cache:
-            return self.get(key)
-        else:
-            self._acquire_write_lock(key)
+        try:
+            if key in self._cache:
+                return self.get(key)
+            else:
 
-            if key not in self:
-                value = self._cache.get_put(key, getter)
-                self._switch_write_to_read_lock(key)
+                self._acquire_write_lock(key)
 
-                if inspect.isgenerator(value) or isinstance(value,Iterator):
-                    return self._generator_release(value, lambda:self._release_read_lock(key))
-                else:
-                    self._release_read_lock(key)
-                    return value
+                if key not in self:
+                    value = self._cache.get_put(key, getter)
                     
-            self._switch_write_to_read_lock(key)
-            value = self.get(key)
+                    self._switch_write_to_read_lock(key)
 
-            self._release_read_lock(key)
-            return value
+                    if inspect.isgenerator(value) or isinstance(value,Iterator):
+                        return self._generator_release(value, lambda:self._release_read_lock(key))
+                    else:
+                        self._release_read_lock(key)
+                        return value
+                        
+                self._switch_write_to_read_lock(key)
+                value = self.get(key)
+
+                self._release_read_lock(key)
+                return value
+        except:
+            self.release(key)
+            raise
 
     def release(self, key:_K) -> None:
         self._cache.release(key)
@@ -378,6 +394,5 @@ class ConcurrentCacher(Cacher[_K, _V]):
         while self._read_locks[(current_thread().ident,key)] > 0:
             self._release_read_lock(key)
         
-        #because put,rmv execute immediately this can't happen
-        #while self._write_locks[(current_thread().ident,key)] > 0:
-        #    self._release_write_lock(key)
+        while self._write_locks[(current_thread().ident,key)] > 0:
+            self._release_write_lock(key)

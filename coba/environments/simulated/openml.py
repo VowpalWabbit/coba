@@ -102,7 +102,6 @@ class OpenmlSource(Source[Iterable[Tuple[Any, Any]]]):
             headers   = list(Drop(drop_cols=ignored).filter([headers]))[0]
             encoders  = { headers.index(k): v for k,v in encoders.items() if k in headers }
             target    = headers.index(target)
-            
 
             def row_has_missing_values(row):
                 row_values = row.values() if isinstance(row,dict) else row
@@ -144,9 +143,12 @@ class OpenmlSource(Source[Iterable[Tuple[Any, Any]]]):
         #         "of network errors or the file becoming corrupted. Please consider downloading the file again. "
         #         "If the error persists you may want to manually download and reference the file.")
         #     raise CobaException(message) from None
-
-        for b in CobaContext.cacher.get_put(key, lambda: self._http_request(url)):
-            yield b.decode('utf-8')
+        try:
+            for b in CobaContext.cacher.get_put(key, lambda: self._http_request(url)):
+                yield b.decode('utf-8')
+        except Exception:
+            self._clear_cache()
+            raise
 
     def _http_request(self, url:str) -> Iterable[bytes]:
         api_key = CobaContext.api_keys['openml']
@@ -182,8 +184,7 @@ class OpenmlSource(Source[Iterable[Tuple[Any, Any]]]):
                     raise CobaException("We're sorry but we were unable to find the requested dataset on openml.")
 
                 if response.status_code != 200:
-                    self._clear_cache()
-                    raise CobaException(f"An unexpected response was returned by openml: {response.text}")
+                    raise CobaException(f"An error was returned by openml: {response.text}")
 
                 # NOTE: These two checks need to be gated with a status code failure 
                 # NOTE: otherwise this will cause the data to be downloaded all at once
@@ -256,8 +257,8 @@ class OpenmlSource(Source[Iterable[Tuple[Any, Any]]]):
 
     def _clear_cache(self) -> None:
         for key in self._cache_keys.values():
-                CobaContext.cacher.release(key) #to make sure we don't get stuck in a race condition
-                CobaContext.cacher.rmv(key)
+            CobaContext.cacher.release(key) #to make sure we don't get stuck in a race condition
+            CobaContext.cacher.rmv(key)
 
     def __str__(self) -> str:
         return f'{{"OpenmlSource":{self._data_id}}}'
@@ -275,7 +276,7 @@ class OpenmlSimulation(SimulatedEnvironment):
 
     def __init__(self, id: int, take:int = None, simulation_type:Literal["classification","regression"] = "classification", cat_as_str:bool = False) -> None:
         """Instantiate an OpenmlSimulation.
-        
+
         Args:
             id: The id given to the openml dataset. This can be found in the url openml.org/d/<id>.
             take: How many interactions we'd like the simulation to have (these will be selected at random). Indicating

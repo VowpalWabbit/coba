@@ -19,7 +19,7 @@ class CsvSimulation(ReaderEnvironment):
             source: Either a path to the file or an IO object able to iterate over the csv data.
             label: The column that contains the label for each line in the source. 
             has_header: Whether the CSV data contains a header row.
-            **dialect: Optional reader configurations identical to the stdlib csv.reader(**dialect).
+            dialect: Optional reader configurations identical to the stdlib csv.reader(dialect).
         """
 
         super().__init__(source, CsvReader(**dialect), SupervisedToSimulation(label,has_header))
