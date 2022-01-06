@@ -1,13 +1,12 @@
 import re
 import csv
-import itertools
 import json
 import math
-import collections.abc
 
-from itertools import islice
-from collections import OrderedDict
-from typing import Iterable, Any, Sequence, Union, Tuple, List, Dict, Callable, Optional
+from collections import defaultdict, OrderedDict
+from itertools import islice, takewhile, chain
+from typing import Generic, Iterable, Any, Sequence, TypeVar, List, Dict, Callable, Optional
+from coba.backports import Protocol
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder, CobaJsonEncoder, CobaJsonDecoder
@@ -15,13 +14,13 @@ from coba.exceptions import CobaException
 
 from coba.pipes.primitives import Filter
 
-_T_DenseRow   = Sequence[Any]
-_T_SparseRow  = Dict[Any,Any]
-_T_DenseData  = Iterable[_T_DenseRow]
-_T_SparseData = Iterable[_T_SparseRow]
+_TK = TypeVar('_TK', bound=Any)
+_TV = TypeVar('_TV', bound=Any)
 
-_T_Row        = Union[_T_DenseRow,  _T_SparseRow ]
-_T_Data       = Union[_T_DenseData, _T_SparseData]
+class MutableMap(Protocol, Generic[_TK,_TV]):
+    def __getitem__(self, key: _TK) -> _TV: pass
+    def __setitem__(self, key: _TK, val: _TV) -> None: pass
+    def pop( key:_TK) -> _TV: pass
 
 class Identity(Filter[Any, Any]):
     """Return whatever is given to the filter."""
@@ -30,14 +29,13 @@ class Identity(Filter[Any, Any]):
 
 class Shuffle(Filter[Iterable[Any], Iterable[Any]]):
     """Shuffle a sequence of items."""
-    
+
     def __init__(self, seed:Optional[int]) -> None:
         """Instantiate a Shuffle filter.
-        
+
         Args:
             seed: A random number seed which determines the new sequence order.
         """
-
 
         if seed is not None and (not isinstance(seed,int) or seed < 0):
             raise ValueError(f"Invalid parameter for Shuffle: {seed}. An optional integer value >= 0 was expected.")
@@ -59,7 +57,7 @@ class Take(Filter[Iterable[Any], Iterable[Any]]):
 
         if count is not None and (not isinstance(count,int) or count < 0):
             raise ValueError(f"Invalid parameter for count: {count}. An optional integer value >= 0 was expected.")
-        
+
         self._count = count
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -77,7 +75,7 @@ class Reservoir(Filter[Iterable[Any], Iterable[Any]]):
         ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
     """
 
-    def __init__(self, count:Optional[int], seed: int = 1, keep_first:bool = False) -> None:
+    def __init__(self, count:Optional[int], seed: int = 1) -> None:
         """Instantiate a Resevoir filter.
 
         Args:
@@ -85,21 +83,19 @@ class Reservoir(Filter[Iterable[Any], Iterable[Any]]):
             seed      : An optional random seed to determine which random count items to take.
             keep_first: Indicate whether the first row should be kept as is (useful for files with headers).
         """
-        
+
         if count is not None and (not isinstance(count,int) or count < 0):
             raise ValueError(f"Invalid parameter for Take: {count}. An optional integer value >= 0 was expected.")
 
         self._count      = count
         self._seed       = seed
-        self._keep_first = keep_first
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 
         items    = iter(items)
-        first    = [next(items)] if self._keep_first else []
-        resevoir = list(islice(items,self._count))
+        reservoir = list(islice(items,self._count))
 
-        this_count = len(resevoir) if self._count is None else self._count
+        this_count = len(reservoir) if self._count is None else self._count
 
         if this_count == 0:
             return []
@@ -113,11 +109,11 @@ class Reservoir(Filter[Iterable[Any], Iterable[Any]]):
                     [r1,r2,r3] = rng.randoms(3)
                     W = W * math.exp(math.log(r1)/this_count)
                     S = math.floor(math.log(r2)/math.log(1-W))
-                    resevoir[int(r3*this_count-.001)] = next(itertools.islice(items,S,S+1))
+                    reservoir[int(r3*this_count-.001)] = next(islice(items,S,S+1))
             except StopIteration:
                 pass
 
-        return itertools.chain( first, resevoir if len(resevoir) == this_count else [])
+        return reservoir if len(reservoir) == self._count or self._count is None else []
 
 class JsonEncode(Filter[Any, str]):
  
@@ -175,12 +171,12 @@ class JsonDecode(Filter[str, Any]):
     def filter(self, item: str) -> Any:
         return self._decoder.decode(item)
 
-class ArffReader(Filter[Iterable[str], _T_Data]):
+class ArffReader(Filter[Iterable[str], Iterable[MutableMap[int,Any]]]):
     """
         https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
 
-    def __init__(self, skip_encoding: Union[bool,Sequence[Union[str,int]]] = False, **dialect):
+    def __init__(self, skip_encoding: bool = False, **dialect):
 
         self._skip_encoding = skip_encoding
 
@@ -204,8 +200,40 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
 
         self._dialect = dialect
 
-    def _determine_encoder(self, index:int, name: str, tipe: str) -> Encoder:
+    def filter(self, source: Iterable[str]) -> Iterable[MutableMap[int,Any]]:
+        headers   : List[str    ] = []
+        encoders  : List[Encoder] = []
 
+        lines_iter = iter(( line.strip() for line in source ))
+        meta_lines = takewhile(lambda line: not self._r_data.match(line), lines_iter)
+        data_lines = lines_iter
+
+        for line in meta_lines:
+
+            if self._r_comment.match(line): 
+                continue
+
+            if self._r_relation.match(line): 
+                continue
+
+            attribute_match = self._r_attribute.match(line)
+
+            if attribute_match:
+                attribute_text  = attribute_match.group(1).strip()
+                attribute_type  = re.split('[ ]', attribute_text, 1)[1]
+                attribute_name  = re.split('[ ]', attribute_text)[0]
+                attribute_index = len(headers)
+
+                headers.append(attribute_name)
+                encoders.append(self._determine_encoder(attribute_index,attribute_name,attribute_type))
+
+        data_lines    = (d for d in data_lines if not d.startswith("%")) 
+        parsed_lines  = self._try_sparse_parser(CsvReader(**self._dialect).filter(data_lines))
+        encoded_lines = parsed_lines if self._skip_encoding == True else Encode(encoders).filter(parsed_lines)
+
+        return chain([headers],encoded_lines)
+
+    def _determine_encoder(self, index:int, name: str, tipe: str) -> Encoder:
         is_numeric = tipe in ['numeric', 'integer', 'real']
         is_one_hot = '{' in tipe
 
@@ -217,91 +245,40 @@ class ArffReader(Filter[Iterable[str], _T_Data]):
 
         return StringEncoder()
 
-    def _parse_file(self, lines: Iterable[str]) -> Tuple[_T_Data, Dict[str,Encoder]]:
-        in_meta_section=True
-        in_data_section=False
-
-        headers   : List[str        ] = []
-        encoders  : Dict[str,Encoder] = {}
-        data_lines: List[str        ] = []
-
-        for line in lines:
-
-            line = line.strip()
-
-            if in_meta_section:
-
-                if self._r_comment.match(line): continue
-                if self._r_relation.match(line): continue
-
-                attribute_match = self._r_attribute.match(line)
-
-                if attribute_match:
-                    attribute_text  = attribute_match.group(1).strip()
-                    attribute_type  = re.split('[ ]', attribute_text, 1)[1]
-                    attribute_name  = re.split('[ ]', attribute_text)[0]
-                    attribute_index = len(headers)
-
-                    headers.append(attribute_name)
-                    encoders[attribute_name] = self._determine_encoder(attribute_index,attribute_name,attribute_type)
-
-                if self._r_data.match(line):
-                    in_data_section = True
-                    in_meta_section = False
-                    continue
-
-            if in_data_section and line != '':
-                data_lines.append(line)
-
-        parsed_data = CsvReader(True, **self._dialect).filter(itertools.chain([",".join(headers)], data_lines))
-
-        return parsed_data, encoders
-
-    def filter(self, source: Iterable[str]) -> _T_Data:
-
-        data, encoders = self._parse_file(source)
-
-        return data if self._skip_encoding == True else Encode(encoders).filter(data)
-
-class CsvReader(Filter[Iterable[str], _T_Data]):
-
-    def __init__(self, has_header: bool, **dialect):
-        self._has_header = has_header
-        self._dialect = dialect
-
-    def filter(self, items: Iterable[str]) -> _T_Data:
-
-        lines = iter(filter(None, csv.reader( (i.strip() for i in items), **self._dialect)))
+    def _try_sparse_parser(self, lines: Iterable[Sequence[str]]) -> Iterable[Dict[int,str]]:
+        
+        lines = iter(lines)
 
         try:
-            header     = [ h.strip().strip('\'"') for h in next(lines)] if self._has_header else None
-            first_data = next(lines)
+            first_line = next(lines)
         except StopIteration:
-            return [header] #[None] because every other filter method assumes there is some kind of a header row.
+            return []
+        else:
+            
+            is_dense = not (first_line[0].startswith("{") and first_line[-1].endswith("}"))
+            lines    = chain([first_line], lines)
 
-        is_sparse = first_data[0].startswith("{") and first_data[-1].endswith("}")
-        parser    = self._sparse_parser if is_sparse else self._dense_parser
+            if is_dense:
+                for line in lines:
+                    yield line
+            else:    
+                for line in (l for l in lines if len(l) > 0 and l[0] != '{}'):
+                    yield OrderedDict((int(k),v) for l in line for k,v in [l.strip("}{").strip().split(' ', 1)])
 
-        return parser(header, itertools.chain([first_data], lines))
+class CsvReader(Filter[Iterable[str], Iterable[List[str]]]):
 
-    def _dense_parser(self, header: Optional[Sequence[str]],  lines: Iterable[Sequence[str]]) -> Iterable[Sequence[str]]:
-        return itertools.chain([header], lines)
+    def __init__(self, **dialect):
+        self._dialect = dialect
 
-    def _sparse_parser(self, header: Optional[Sequence[str]],  lines: Iterable[Sequence[str]]) -> Iterable[Dict[int,str]]:
-        yield header if header is None else OrderedDict(zip(header, itertools.count()))
+    def filter(self, items: Iterable[str]) -> Iterable[Sequence[str]]:
+        return filter(None, csv.reader((i.strip() for i in items if i.strip()), **self._dialect))
 
-        for line in lines:
-            if len(line) > 1 or line[0] != '{}':
-                yield OrderedDict((int(k),v) for l in line for k,v in [l.strip("}{").strip().split(' ', 1)])
-
-class LibSvmReader(Filter[Iterable[str], _T_SparseData]):
+class LibSvmReader(Filter[Iterable[str], Iterable[Dict[int,float]]]):
 
     """https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/"""
     """https://github.com/cjlin1/libsvm"""
 
-    def filter(self, lines: Iterable[str]) -> _T_SparseData:
-
-        yield None # we yield None because there is no header row
+    def filter(self, lines: Iterable[str]) -> Iterable[Dict[int,float]]:
 
         for line in filter(None,lines):
 
@@ -312,149 +289,84 @@ class LibSvmReader(Filter[Iterable[str], _T_SparseData]):
 
             yield row
 
-class ManikReader(Filter[Iterable[str], _T_SparseData]):
+class ManikReader(Filter[Iterable[str], Iterable[Dict[int,float]]]):
 
     """http://manikvarma.org/downloads/XC/XMLRepository.html"""
     """https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view"""
 
-    def filter(self, lines: Iterable[str]) -> _T_SparseData:
+    def filter(self, lines: Iterable[str]) -> Iterable[Dict[int,float]]:
 
         # we skip first line because it just has metadata
         return LibSvmReader().filter(islice(lines,1,None))
 
-class Encode(Filter[_T_Data, _T_Data]):
+class Encode(Filter[Iterable[MutableMap[int,Any]], Iterable[MutableMap[int,Any]]]):
 
-    def __init__(self, encoders: Dict[str,Encoder], fit_using=None, has_header:bool = True):
+    def __init__(self, encoders:MutableMap[int,Encoder], fit_using:int = None, has_header:bool = False):
         self._encoders   = encoders
         self._fit_using  = fit_using
         self._has_header = has_header
 
-    def filter(self, items: _T_Data) -> _T_Data:
+    def filter(self, items: Iterable[MutableMap[int,Any]]) -> Iterable[MutableMap[int,Any]]:
 
-        items  = iter(items) # this makes sure items are pulled out for fitting
+        items = iter(items) # this makes sure items are pulled out for fitting
+        
+        if self._has_header: 
+            yield next(items)
 
-        if not self._has_header:
-            header_synced_encoders = self._encoders
-
-        else:
-            header = next(items)
-
-            if header is None:
-                yield header
-                header_synced_encoders = self._encoders
-
-            elif isinstance(header, dict):
-                yield header
-                header_synced_encoders = { header[k]:encoder for k,encoder in self._encoders.items() if k in header } 
-
-            elif isinstance(header, list):
-                yield header
-                header_synced_encoders = { header.index(k):encoder for k,encoder in self._encoders.items() if k in header }
-
-            else:
-                raise CobaException(f"Unrecognized type ({type(header).__name__}) passed to Encodes.")
-
-        fit_using  = 0 if all([e.is_fit for e in header_synced_encoders.values()]) else self._fit_using
-        fit_items  = list(islice(items, fit_using))
-        fit_values = collections.defaultdict(list)
+        encode_vals = self._encoders.values() if isinstance(self._encoders,dict) else self._encoders
+        fit_using   = 0 if all([e.is_fit for e in encode_vals]) else self._fit_using
+        fit_items   = list(islice(items, fit_using))
+        fit_values  = defaultdict(list)
 
         for item in fit_items:
             for k,v in (item.items() if isinstance(item,dict) else enumerate(item)):
-                fit_values[k].append(v)
+                if not self._encoders[k].is_fit: fit_values[k].append(v)
 
         for k,v in fit_values.items():
-            if not header_synced_encoders[k].is_fit:
-                header_synced_encoders[k] = header_synced_encoders[k].fit(v)
+            self._encoders[k] = self._encoders[k].fit(v)
 
-        for item in itertools.chain(fit_items, items):
-
+        for item in chain(fit_items, items):
             for k,v in (item.items() if isinstance(item,dict) else enumerate(item)):
-                item[k] = header_synced_encoders[k].encode([v])[0]
-
+                item[k] = self._encoders[k].encode([v])[0]
             yield item
 
-class Drop(Filter[_T_Data, _T_Data]):
+class Drop(Filter[Iterable[MutableMap[int,Any]], Iterable[MutableMap[int,Any]]]):
 
-    def __init__(self, drop_cols: Sequence[Any] = [], drop_row: Callable[[_T_Row], bool] = None) -> None:
-        self._drop_cols = drop_cols
+    def __init__(self, drop_cols: Sequence[int] = [], drop_row: Callable[[MutableMap[int,Any]], bool] = lambda r: False) -> None:
+        self._drop_cols = sorted(drop_cols, reverse=True)
         self._drop_row  = drop_row
 
-    def filter(self, data: _T_Data) -> _T_Data:
+    def filter(self, data: Iterable[MutableMap[int,Any]]) -> Iterable[MutableMap[int,Any]]:
         
-        if not self._drop_cols and not self._drop_row: return data
-        else:
+        keep_row = lambda r: not self._drop_row(r) if self._drop_row else True
+        for row in filter(keep_row, data):            
+            if row is not None:
+                for col in self._drop_cols:
+                    row.pop(col)            
+            yield row
 
-            data   = iter(data)
-            header = next(data)
-
-            if header is None:
-                drop_keys = sorted(self._drop_cols,reverse=True)
-            elif isinstance(header,dict):
-                drop_keys = sorted([ header.pop(k) for k in self._drop_cols ],reverse=True)
-            elif isinstance(header,list):
-                drop_keys = sorted([ header.index(k) for k in self._drop_cols ],reverse=True)
-                for i in drop_keys: header.pop(i)
-            else:
-                raise CobaException(f"Unrecognized type ({type(header).__name__}) passed to Drops.")
-
-            yield header
-
-            for row in data:
-
-                if self._drop_row and self._drop_row(row):
-                    continue
-
-                for k in drop_keys:
-                    row.pop(k)
-
-                yield row
-
-class Structure(Filter[_T_Data, Iterable[Any]]):
+class Structure(Filter[Iterable[MutableMap[int,Any]], Iterable[Any]]):
 
     def __init__(self, split_cols: Sequence[Any]) -> None:
         self._col_structure = split_cols
 
-    def filter(self, data: _T_Data) -> _T_Data:
+    def filter(self, data: Iterable[MutableMap[int,Any]]) -> Iterable[Any]:
+        for row in data:
+           yield self._structure_row(row, self._col_structure) 
 
-        data   = iter(data)
-        header = next(data)
-
-        key_structure = self._recursive_structure_keys(header, self._col_structure)
-
-        for row in data :
-           yield self._recursive_structure_rows(row, key_structure) 
-
-    def _recursive_structure_keys(self, header, cols):
-
-        if header is None:
-            return cols
-
-        elif isinstance(cols,(list,tuple)):
-            return [ self._recursive_structure_keys(header,s) for s in cols ]
-
-        elif cols is None:
-            return cols
-
-        elif isinstance(header,list):
-            return header.index(cols)
-
-        elif isinstance(header,dict):
-            return header[cols]
-
-        else:
-            raise CobaException(f"Unrecognized type ({type(header).__name__}) passed to Structure.")
-
-    def _recursive_structure_rows(self, row, keys):
-        if keys is None:
+    def _structure_row(self, row: MutableMap[int,Any], col_structure: Sequence[Any]):
+        if col_structure is None:
             return row
-        elif isinstance(keys,(list,tuple)):
-            return [ self._recursive_structure_rows(row,k) for k in keys ]
+
+        elif isinstance(col_structure,(list,tuple)):
+            return [ self._structure_row(row, k) for k in col_structure ]
+
         else:
-            return row.pop(keys)
+            return row.pop(col_structure)
 
-class Flatten(Filter[_T_Data, _T_Data]):
+class Flatten(Filter[Iterable[Any], Iterable[Any]]):
 
-    def filter(self, data: _T_Data) -> _T_Data:
+    def filter(self, data: Iterable[Any]) -> Iterable[Any]:
 
         for row in data:
 
@@ -473,39 +385,17 @@ class Flatten(Filter[_T_Data, _T_Data]):
 
             yield row
 
-class Default(Filter[_T_Data, _T_Data]):
+class Default(Filter[Iterable[MutableMap[int,Any]], Iterable[MutableMap[int,Any]]]):
 
-    def __init__(self, defaults: Dict[str, Any]) -> None:
+    def __init__(self, defaults: Dict[Any, Any]) -> None:
         self._defaults = defaults
 
-    def filter(self, data: _T_Data) -> _T_Data:
+    def filter(self, data: Iterable[MutableMap[Any,Any]]) -> Iterable[MutableMap[Any,Any]]:
 
-        if not self._defaults: return data
-        else:
+        for row in data:
 
-            data   = iter(data)
-            header = next(data)
+            if isinstance(row,dict):
+                for k,v in self._defaults.items():
+                    if k not in row: row[k] = v
 
-            if header is None:
-                yield header
-                header_synced_defaults = self._defaults
-
-            elif isinstance(header, dict):
-                yield header
-                header_synced_defaults = { header[k]:encoder for k,encoder in self._defaults.items() } 
-
-            elif isinstance(header, list):
-                yield header
-                header_synced_defaults = { header.index(k):encoder for k,encoder in self._defaults.items() }
-
-            else:
-                raise CobaException(f"Unrecognized type ({type(header).__name__}) passed to Defaults.")
-
-            for row in data:
-
-                if isinstance(row,dict):
-                    for k,v in header_synced_defaults.items():
-                        if k not in row:
-                            row[k] = v
-
-                yield row
+            yield row

@@ -5,16 +5,9 @@ from pathlib import Path
 from coba.pipes import MemoryIO, DiskIO, NullIO
 from coba.contexts import CobaContext, NullLogger
 
-from coba.environments import ReaderSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation, ManikSimulation
+from coba.environments import CsvSimulation, ArffSimulation, LibsvmSimulation, ManikSimulation
 
 CobaContext.logger = NullLogger()
-
-class ReaderSimulation_Tests(unittest.TestCase):
-
-    def test_params(self):
-        self.assertEqual({'source': 'abc'}, ReaderSimulation(DiskIO("abc"), None, None).params)
-        self.assertEqual({'source': 'memory'}, ReaderSimulation(MemoryIO(), None, None).params)
-        self.assertEqual({'source': 'NullIO'}, ReaderSimulation(NullIO(), None, None).params)
 
 class CsvSimulation_Tests(unittest.TestCase):
 

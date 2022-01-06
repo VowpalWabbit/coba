@@ -83,13 +83,12 @@ class PipesPool:
 
                 if self._terminate: 
                     break
-                
+
                 self._pool = [p for p in self._pool if p.is_alive()]
 
                 for _ in range(self._n_processes-len(self._pool)):
                     args = (filter, self._stdin, self._stdout, self._stderr, self._maxtasksperchild)
-                    targ = PipesPool.worker
-                    process = Process(target=targ, args=args)
+                    process = Process(target=PipesPool.worker, args=args)
                     process.start()
                     self._pool.append(process)
 

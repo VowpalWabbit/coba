@@ -161,7 +161,7 @@ class RegressionSimulation_Tests(unittest.TestCase):
             RegressionSimulation(1,2,3)
 
     def test_constructor_with_dense_data(self) -> None:
-        features   = [1,2]
+        features   = [1, 2]
         labels     = [0,.5]
 
         for sim in [RegressionSimulation(features, labels), RegressionSimulation(zip(features, labels))]: 
@@ -176,20 +176,20 @@ class RegressionSimulation_Tests(unittest.TestCase):
             self.assertEqual([0,.5], interactions[0].actions)
             self.assertEqual([0,.5], interactions[1].actions)
 
-            self.assertEqual([1,.5], interactions[0].kwargs["rewards"])
-            self.assertEqual([.5,1], interactions[1].kwargs["rewards"])
+            self.assertEqual([0,-.5], interactions[0].kwargs["rewards"])
+            self.assertEqual([-.5,0], interactions[1].kwargs["rewards"])
 
     def test_constructor_with_empty_data(self) -> None:
         
         for sim in [RegressionSimulation([]), RegressionSimulation([],[])]:
             self.assertEqual([], list(sim.read()))
-    
+
     def test_constructor_with_sparse_data(self) -> None:
         features   = [{0:1},{0:2}]
         labels     = [0,.5]
 
         for sim in [RegressionSimulation(features, labels), RegressionSimulation(zip(features, labels))]: 
-        
+
             interactions = list(sim.read())
 
             self.assertEqual(2, len(interactions))
@@ -200,8 +200,8 @@ class RegressionSimulation_Tests(unittest.TestCase):
             self.assertEqual([0,.5], interactions[0].actions)
             self.assertEqual([0,.5], interactions[1].actions)
 
-            self.assertEqual([1,.5], interactions[0].kwargs["rewards"])
-            self.assertEqual([.5,1], interactions[1].kwargs["rewards"])
+            self.assertEqual([0,-.5], interactions[0].kwargs["rewards"])
+            self.assertEqual([-.5,0], interactions[1].kwargs["rewards"])
 
     def test_params(self):
         self.assertEqual({}, RegressionSimulation([]).params)

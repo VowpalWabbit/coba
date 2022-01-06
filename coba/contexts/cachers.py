@@ -1,11 +1,14 @@
+from collections import defaultdict
 import inspect
 import gzip
 
+from contextlib import contextmanager
+from threading import current_thread
 from abc import abstractmethod, ABC
 from collections.abc import Iterator
 from threading import Lock, Condition
 from pathlib import Path
-from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic
+from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic, Set, Tuple
 
 from coba.exceptions import CobaException
 
@@ -61,6 +64,18 @@ class Cacher(Generic[_K, _V], ABC):
             getter: A method for getting the value if necessary.
         """
         ...
+    
+    @abstractmethod
+    def release(self, key: _K) -> None:
+        """Release any held resources for the key.
+        
+        Args:
+            key: The key to release resources for.
+
+        Remarks:
+            This method has been added to the interface primarily to help with 
+            unexpected DiskCacher failures while iterating over a get request.
+        """
 
 class NullCacher(Cacher[_K, _V]):
     """A cacher which does not cache any data."""
@@ -83,6 +98,9 @@ class NullCacher(Cacher[_K, _V]):
     
     def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
         return getter()
+    
+    def release(self, key: _K) -> None:
+        pass
 
 class MemoryCacher(Cacher[_K, _V]):
     """A cacher that caches in memory."""
@@ -109,6 +127,9 @@ class MemoryCacher(Cacher[_K, _V]):
             self.put(key,getter())
         return self.get(key)
 
+    def release(self, key: _K) -> None:
+        pass
+
 class DiskCacher(Cacher[str, Iterable[bytes]]):
     """A cacher that writes to disk.
 
@@ -121,6 +142,7 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         Args:
             cache_dir: The directory path where all given keys will be cached as files
         """
+        self._files: Dict[str,gzip.GzipFile] = {}
         self.cache_directory = cache_dir
 
     @property
@@ -136,11 +158,19 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
     def __contains__(self, key: str) -> bool:
         return self._cache_dir is not None and self._cache_path(key).exists()
 
+    @contextmanager
+    def _open(self, key, mode, compresslevel=9) -> gzip.GzipFile:
+        try:
+            self._files[key] = gzip.open(self._cache_path(key), mode, compresslevel)
+            yield self._files[key]
+        finally:
+            if key in self._files: self._files.pop(key).close()
+
     def get(self, key: str) -> Iterable[bytes]:
         if key not in self: return []
 
         try:
-            with gzip.open(self._cache_path(key), 'rb') as f:
+            with self._open(key, 'rb') as f:
                 for line in f:
                     yield line.rstrip(b'\r\n')
         except:
@@ -157,7 +187,7 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
 
             if isinstance(value,bytes): value = [value]
 
-            with gzip.open(self._cache_path(key), 'wb+', compresslevel=6) as f:
+            with self._open(key, 'wb+', compresslevel=6) as f:
                 for line in value:
                     f.write(line.rstrip(b'\r\n') + b'\r\n')
         except:
@@ -165,12 +195,9 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
             raise
 
     def rmv(self, key: str) -> None:
-
-
         if self._cache_path(key).exists(): self._cache_path(key).unlink()
 
     def get_put(self, key: str, getter: Callable[[], Iterable[bytes]]) -> Iterable[bytes]:
-
 
         if self._cache_dir is None:
             return getter()
@@ -190,6 +217,10 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
     def _cache_path(self, key: str) -> Path:
         return self._cache_dir/self._cache_name(key)
 
+    def release(self, key:str) -> None:
+        if key in self._files:
+            self._files.pop(key).close()
+            
 class ConcurrentCacher(Cacher[_K, _V]):
     """A cacher that is multi-process safe."""
 
@@ -209,6 +240,11 @@ class ConcurrentCacher(Cacher[_K, _V]):
         self._dict  = dict
         self._cond  = cond
 
+        #we localize these to thread-id to make conccurent cacher
+        #work the same whether multi-threading or multi-processing 
+        self._read_locks : Dict[Tuple[int,_K],int] = defaultdict(int)
+        self._write_locks: Dict[Tuple[int,_K],int] = defaultdict(int)
+
         self.read_waits  = 0
         self.write_waits = 0
 
@@ -226,15 +262,16 @@ class ConcurrentCacher(Cacher[_K, _V]):
         self.read_waits += 1
         while not self._acquired_read_lock(key):
             with self._cond:
-                self._cond.wait()
+                self._cond.wait(1)
         self.read_waits -= 1
+        self._read_locks[(current_thread().ident,key)] += 1
 
     def _release_read_lock(self, key: _K):
         with self._lock:
             self._dict[key] -= 1
-        
         with self._cond:
             self._cond.notify_all()
+        self._read_locks[(current_thread().ident,key)] -= 1
 
     def _acquired_write_lock(self, key: _K) -> bool:
         with self._lock:
@@ -243,16 +280,24 @@ class ConcurrentCacher(Cacher[_K, _V]):
                 return True
             return False
 
-    def _acquire_write_lock(self, key: _K):
+    def _acquire_write_lock(self, key: _K):        
+        
+        if self._read_locks[(current_thread().ident,key)] > 0:
+            raise CobaException("The concurrent cacher was asked to enter a race condition.")
+
         self.write_waits += 1
         while not self._acquired_write_lock(key):
             with self._cond:
-                self._cond.wait()
+                self._cond.wait(1)
         self.write_waits -= 1
+        self._write_locks[(current_thread().ident,key)] += 1
 
     def _switch_write_to_read_lock(self, key: _K):
         with self._lock:
             self._dict[key] = 1
+        
+        self._read_locks[(current_thread().ident,key)] += 1
+        self._write_locks[(current_thread().ident,key)] -= 1
 
     def _release_write_lock(self, key: _K):
         with self._lock:
@@ -261,14 +306,17 @@ class ConcurrentCacher(Cacher[_K, _V]):
         with self._cond:
             self._cond.notify_all()
 
-    def _generator_release(self, value: _V, release: Callable[[],None]):
-        for v in value:
-            yield v
+        self._write_locks[(current_thread().ident,key)] -= 1
 
-        release()
+    def _generator_release(self, value: _V, release: Callable[[],None]):
+        try:
+            for v in value:
+                yield v
+        finally:
+            release()
 
     def get(self, key:_K) -> _V:    
-        
+
         self._acquire_read_lock(key)
         value = self._cache.get(key)
 
@@ -279,16 +327,18 @@ class ConcurrentCacher(Cacher[_K, _V]):
             return value
 
     def put(self, key: _K, value: _V):
-
         self._acquire_write_lock(key)
-        self._cache.put(key, value)
-        self._release_write_lock(key)        
+        try:
+            self._cache.put(key, value)
+        finally:
+            self._release_write_lock(key)
 
-    def rmv(self,key: _K):
-
+    def rmv(self, key: _K):
         self._acquire_write_lock(key)
-        self._cache.rmv(key)
-        self._release_write_lock(key)
+        try:
+            self._cache.rmv(key)
+        finally:
+            self._release_write_lock(key)
 
     def get_put(self, key: _K, getter: Callable[[],_V]):
 
@@ -297,18 +347,21 @@ class ConcurrentCacher(Cacher[_K, _V]):
         ### Otherwise it is possible for an item to be removed from the cache
         ### after the contains check and before the get. Given how I use
         ### the cache currently though this is very unlikely to happen so 
-        ### I'm not going to fix it at this time. 
+        ### I'm not going to fix it at this time. In fact this risk is no
+        ### different from anywhere else that I check before getting. The
+        ### real solution would be to add a try_get method that gets if
+        ### it has it otherwise nothing.
         if key in self._cache:
             return self.get(key)
         else:
             self._acquire_write_lock(key)
+
             if key not in self:
-                
                 value = self._cache.get_put(key, getter)
                 self._switch_write_to_read_lock(key)
-                
+
                 if inspect.isgenerator(value) or isinstance(value,Iterator):
-                    return self._generator_release(value,lambda:self._release_read_lock(key))
+                    return self._generator_release(value, lambda:self._release_read_lock(key))
                 else:
                     self._release_read_lock(key)
                     return value
@@ -318,3 +371,13 @@ class ConcurrentCacher(Cacher[_K, _V]):
 
             self._release_read_lock(key)
             return value
+
+    def release(self, key:_K) -> None:
+        self._cache.release(key)
+        
+        while self._read_locks[(current_thread().ident,key)] > 0:
+            self._release_read_lock(key)
+        
+        #because put,rmv execute immediately this can't happen
+        #while self._write_locks[(current_thread().ident,key)] > 0:
+        #    self._release_write_lock(key)

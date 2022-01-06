@@ -8,8 +8,8 @@ import coba.random
 from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction
-from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
-from coba.pipes import Reservoir, JsonEncode
+from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder, StringEncoder
+from coba.pipes import Reservoir, JsonEncode, Encode
 
 class Performance_Tests(unittest.TestCase):
     
@@ -51,6 +51,16 @@ class Performance_Tests(unittest.TestCase):
 
         #best observed 0.027
         self.assertLess(time, .27)
+
+    def test_encode_performance(self):
+
+        encoder   = Encode([StringEncoder()]*30)
+        to_encode = [['a']*30]*6000
+
+        time = min(timeit.repeat(lambda:list(encoder.filter(to_encode)), number = 2))
+
+        #best observed 0.13
+        self.assertLess(time, 1.3)
 
     def test_dense_interaction_xx_encode_performance(self):
         encoder = InteractionsEncoder(["xx"])

@@ -10,7 +10,7 @@ to do so.
 from coba.environments.simulated.primitives import SimulatedInteraction, SimulatedEnvironment
 from coba.environments.simulated.primitives import MemorySimulation, LambdaSimulation
 from coba.environments.simulated.primitives import ClassificationSimulation, RegressionSimulation
-from coba.environments.simulated.readers    import ReaderSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation, ManikSimulation
+from coba.environments.simulated.readers    import CsvSimulation, ArffSimulation, LibsvmSimulation, ManikSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation, OpenmlSource
 from coba.environments.simulated.synthetics import LinearSyntheticSimulation, LocalSyntheticSimulation
 

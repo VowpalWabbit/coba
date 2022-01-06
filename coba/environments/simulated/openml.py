@@ -1,20 +1,19 @@
 import time
 import json
 
-from numbers import Number
 from collections import defaultdict
-from typing import Tuple, Sequence, Any, Iterable, Dict, Union
+from typing import Tuple, Sequence, Any, Iterable, Dict
 from coba.backports import Literal
 
-from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, _T_Data, Structure, ArffReader, CsvReader, Reservoir
+from coba.random import random
+from coba.pipes import Pipe, Source, HttpIO, Default, Drop, Encode, Structure, ArffReader, Reservoir
 from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 
-from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
-from coba.environments.simulated.primitives import ClassificationSimulation, RegressionSimulation
+from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction, SupervisedToSimulation
 
-class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]]):
+class OpenmlSource(Source[Iterable[Tuple[Any, Any]]]):
 
     def __init__(self, id:int, problem_type:str = "classification", cat_as_str:bool=False, take:int = None, md5_checksum:str = None):
 
@@ -42,7 +41,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
         else:
             return { "openml": self._data_id, "cat_as_str": self._cat_as_str, "openml_type": self._problem_type, }
 
-    def read(self) -> Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T_Data, Number]]]:
+    def read(self) -> Iterable[Tuple[Any, Any]]:
 
         try:
             data_id        = self._data_id
@@ -61,7 +60,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
             for description in feature_descriptions:
 
-                header = description['name'].strip().strip('\'"')
+                header = self._name_cleaning(description['name'])
 
                 is_ignored = (
                     description['is_ignore'        ] == 'true' or 
@@ -88,7 +87,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
                 required_encoder = NumericEncoder if self._problem_type == "regression" else (OneHotEncoder,StringEncoder)
 
             if target == "" or not isinstance(target_encoder, required_encoder):
-                target = self._get_target_for_problem_type(data_id)
+                target = self._name_cleaning(self._get_target_for_problem_type(data_id))
 
             if target in ignored:
                 ignored.pop(ignored.index(target))
@@ -96,14 +95,19 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             if self._problem_type == "classification":
                 encoders[target] = StringEncoder() if self._cat_as_str else OneHotEncoder()
 
-            file_rows = self._get_dataset_rows(dataset_description["file_id"], md5_checksum)
+            file_rows = iter(self._get_dataset_rows(dataset_description["file_id"], md5_checksum))
+
+            headers   = [ self._name_cleaning(h) for h in next(file_rows)]
+            encoders  = { headers.index(k): v for k,v in encoders.items() }
+            target    = headers.index(target)
+            ignored   = [ headers.index(i) for i in ignored ]
 
             def row_has_missing_values(row):
                 row_values = row.values() if isinstance(row,dict) else row
                 return "?" in row_values or "" in row_values
 
             drops     = Drop(drop_cols=ignored, drop_row=row_has_missing_values)
-            takes     = Reservoir(self._take, seed=1, keep_first=True)
+            takes     = Reservoir(self._take, seed=1)
             defaults  = Default({target:"0"})
             encodes   = Encode(encoders)
             structure = Structure([None, target])
@@ -120,11 +124,14 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
         except Exception:
             #if something unexpected went wrong clear the cache just in case it was corrupted somehow
-
             for key in self._cache_keys.values():
+                CobaContext.cacher.release(key) #to make sure we don't get stuck in a race condition
                 CobaContext.cacher.rmv(key)
 
             raise
+
+    def _name_cleaning(self, name: str) -> str:
+        return name.strip().strip('\'"').replace('\\','')
 
     def _get_data(self, url:str, key:str, checksum:str=None) -> Iterable[str]:
 
@@ -151,7 +158,8 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
         # An attempt to be considerate of how often we hit their REST api. 
         # They don't publish any rate-limiting guidelines so this is just a guess.
-        if srcsema:time.sleep(1)
+        
+        if srcsema: time.sleep(2*random())
 
         try:
             with HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
@@ -220,16 +228,13 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
 
             openml_dialect = dict(quotechar="'", escapechar="\\", doublequote=False)
 
+            if csv_key in CobaContext.cacher:
+                CobaContext.cacher.rmv(csv_key)
+
             if arff_key in CobaContext.cacher:
                 return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_data(arff_url, arff_key, md5_checksum))
 
-            if csv_key in CobaContext.cacher:
-                return CsvReader(True, **openml_dialect).filter(self._get_data(csv_url, csv_key, md5_checksum))
-
-            try:
-                return CsvReader(True, **openml_dialect).filter(self._get_data(csv_url, csv_key, md5_checksum))
-            except:
-                return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_data(arff_url, arff_key, md5_checksum))                
+            return ArffReader(skip_encoding=True, **openml_dialect).filter(self._get_data(arff_url, arff_key, md5_checksum))
 
     def _get_target_for_problem_type(self, data_id:int):
 
@@ -242,7 +247,7 @@ class OpenmlSource(Source[Union[Iterable[Tuple[_T_Data, str]], Iterable[Tuple[_T
             if task["task_type_id"] == task_type: #aka, classification task
                 for input in task['input']:
                     if input['name'] == 'target_feature':
-                        return input['value'].strip().strip('\'"') #just take the first one
+                        return input['value'] # just take the first one
 
         raise CobaException(f"Openml {data_id} does not appear to be a {self._problem_type} dataset")
 
@@ -281,9 +286,9 @@ class OpenmlSimulation(SimulatedEnvironment):
 
     def read(self) -> Iterable[SimulatedInteraction]:
         if self._sim_type == "classification":
-            return ClassificationSimulation(self._source.read()).read()
+            return SupervisedToSimulation(1,False,"C","pairs").filter(self._source.read())
         else:
-            return RegressionSimulation(self._source.read()).read()
+            return SupervisedToSimulation(1,False,"R","pairs").filter(self._source.read())
 
     def __str__(self) -> str:
         return f"OpenmlSimulation(id={self.params['openml']}, cat_as_str={self.params['cat_as_str']}, take={self.params.get('openml_take')})"

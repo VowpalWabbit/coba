@@ -83,11 +83,14 @@ class NullCacher_Tests(unittest.TestCase):
 
     def test_get_put_returns_iter(self):
         my_iter = iter([1,2,3])
-        
+
         NullCacher().get_put("abc", lambda: my_iter)
 
         self.assertEqual(my_iter, my_iter)
         self.assertEqual([1,2,3], list(my_iter))
+    
+    def test_release_does_nothing(self):
+        NullCacher().release("abc")
 
 class MemoryCacher_Tests(unittest.TestCase):
 
@@ -95,7 +98,7 @@ class MemoryCacher_Tests(unittest.TestCase):
         cacher = MemoryCacher()
         cacher.put("abc", "abc")
         self.assertIn("abc", cacher)
-    
+
     def test_get_works_correctly(self):
         cacher = MemoryCacher()
         cacher.put("abc", "abcd")
@@ -112,7 +115,7 @@ class MemoryCacher_Tests(unittest.TestCase):
 
 class DiskCacher_Tests(unittest.TestCase):
     Cache_Test_Dir = Path("coba/tests/.temp/cache_tests/")
-    
+
     def setUp(self):
 
         if self.Cache_Test_Dir.exists():
@@ -121,7 +124,7 @@ class DiskCacher_Tests(unittest.TestCase):
         self.Cache_Test_Dir.mkdir()
 
     def tearDown(self) -> None:
-        
+
         if self.Cache_Test_Dir.exists():
             shutil.rmtree(self.Cache_Test_Dir)
 
@@ -135,7 +138,7 @@ class DiskCacher_Tests(unittest.TestCase):
         cache.cache_directory = self.Cache_Test_Dir / "folder1/folder2"
         cache.put("test.csv", [b"test"])
         self.assertTrue("test.csv" in cache)
-            
+
     def test_write_csv_to_cache(self):
 
         cache = DiskCacher(self.Cache_Test_Dir)
@@ -143,7 +146,7 @@ class DiskCacher_Tests(unittest.TestCase):
         cache.put("test.csv", [b"test"])
         self.assertTrue("test.csv" in cache)
         self.assertEqual(list(cache.get("test.csv")), [b"test"])
-    
+
     def test_write_multiline_csv_to_cache(self):
 
         cache = DiskCacher(self.Cache_Test_Dir)
@@ -166,12 +169,12 @@ class DiskCacher_Tests(unittest.TestCase):
 
         #this is the md5 hexdigest of "text.csv" (531f844bd184e913b050d49856e8d438)
         (self.Cache_Test_Dir / "text.csv.gz").write_text("abcd")
-        
+
         with self.assertRaises(Exception) as e:
             list(DiskCacher(self.Cache_Test_Dir).get("text.csv"))
-        
+
         self.assertTrue((self.Cache_Test_Dir / "text.csv.gz").exists())
-        
+
         DiskCacher(self.Cache_Test_Dir).rmv("text.csv")
         self.assertFalse((self.Cache_Test_Dir / "text.csv.gz").exists())
 
@@ -181,10 +184,10 @@ class DiskCacher_Tests(unittest.TestCase):
             yield b'test1'
             raise Exception()
             yield b'test2'
-        
+
         with self.assertRaises(Exception) as e:
             DiskCacher(self.Cache_Test_Dir).put("text.csv", bad_data())
-        
+
         self.assertNotIn("text.csv", DiskCacher(self.Cache_Test_Dir))
         self.assertFalse((self.Cache_Test_Dir / "text.csv.gz").exists())
 
@@ -201,16 +204,26 @@ class DiskCacher_Tests(unittest.TestCase):
 
     def test_get_put_multiline_csv_to_cache(self):
         cache = DiskCacher(self.Cache_Test_Dir)
-        self.assertFalse("test.csv" in cache)        
+        self.assertFalse("test.csv" in cache)
         self.assertEqual(list(cache.get_put("test.csv", lambda: [b"test", b"test2"])), [b"test", b"test2"])
         self.assertEqual(list(cache.get("test.csv")), [b"test", b"test2"])
         self.assertEqual(list(cache.get_put("test.csv", lambda: None)), [b"test", b"test2"])
 
     def test_get_put_None_cache_dir(self):
         cache = DiskCacher(None)
-        self.assertFalse("test.csv" in cache)        
+        self.assertFalse("test.csv" in cache)
         self.assertEqual(list(cache.get_put("test.csv", lambda: [b"test", b"test2"])), [b"test", b"test2"])
-        self.assertFalse("test.csv" in cache)        
+        self.assertFalse("test.csv" in cache)
+
+    def test_remove_while_getting(self):
+        cache = DiskCacher(self.Cache_Test_Dir)
+        cache.put("test.csv", [b"test", b"test2"])
+
+        test_iter = cache.get("test.csv")
+        first_line = next(test_iter)
+
+        cache.release("test.csv")
+        cache.rmv("test.csv")
 
 class ConcurrentCacher_Test(unittest.TestCase):
 
@@ -598,6 +611,33 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(curr_cacher.get(1), 1)
+
+    def test_rmv_during_get_same_process_with_release(self):
+        
+        base_cacher = IterCacher()
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        curr_cacher.put(1,range(4))
+        try:
+            iter_1 = curr_cacher.get(1)
+            next(iter_1)
+            raise Exception("Something unexpected went wrong while reading")
+        except:
+            curr_cacher.release(1)
+            curr_cacher.rmv(1)
+
+    def test_rmv_during_get_same_process_with_exception(self):
+        
+        base_cacher = IterCacher()
+        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+
+        curr_cacher.put(1,range(4))
+
+        iter_1 = curr_cacher.get(1)
+        next(iter_1)
+        
+        with self.assertRaises(CobaException):
+            curr_cacher.rmv(1)
 
 if __name__ == '__main__':
     unittest.main()
