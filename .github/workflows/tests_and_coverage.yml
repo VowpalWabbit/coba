@@ -36,7 +36,7 @@ jobs:
       - uses: codecov/codecov-action@v2
         with:
           flags: unittest, ${{ matrix.os }}, ${{ matrix.version }}
-      - name: test examples
+      - name: Test examples
         run: |
           python examples/scripts/*.py
           jupyter nbconvert --to script examples/notebooks/*.ipynb
