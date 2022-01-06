@@ -39,5 +39,7 @@ jobs:
       - name: Test examples
         run: |
           python "examples/scripts/First Script.py"
-          jupyter nbconvert --to script "examples/notebooks/First Experiment.ipynb" "examples/notebooks/Results.ipynb" "examples/notebooks/Experiments.ipynb" "examples/notebooks/Environments.ipynb"
-          python "examples/notebooks/First Experiment.py" "examples/notebooks/Results.py" "examples/notebooks/Experiments.py" "examples/notebooks/Environments.py"
+          jupyter nbconvert --execute "examples/notebooks/First Experiment.ipynb" --to notebook
+          jupyter nbconvert --execute "examples/notebooks/Results.ipynb" --to notebook
+          jupyter nbconvert --execute "examples/notebooks/Experiments.ipynb" --to notebook
+          jupyter nbconvert --execute "examples/notebooks/Environments.ipynb" --to notebook
