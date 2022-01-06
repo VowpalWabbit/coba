@@ -691,6 +691,8 @@ class Result:
 
             if filename:
                 plt.savefig(filename, dpi=300)
+            
+            plt.close()
 
     def _plot_learners_data(self, xlim: Tuple[Number,Number] = None, span: int = None, err: Literal['se','sd'] = None):
 
