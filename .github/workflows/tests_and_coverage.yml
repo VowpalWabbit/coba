@@ -31,7 +31,7 @@ jobs:
       - run: pip install -r coba/tests/requirements.txt
       - run: pip list
       - run: python setup.py install
-      - run: jupyter nbconvert --to script examples/notebooks/*.ipynb
+      - run: jupyter nbconvert --to script examples/notebooks/*.ipynb && python examples/notebooks/*.py
       - run: coverage run -m unittest
       - run: coverage xml
       - uses: codecov/codecov-action@v2
