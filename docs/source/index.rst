@@ -7,5 +7,5 @@ Welcome to coba's documentation!
    :caption: Contents:
 
    getting_started
+   suggested_workflow
    api_reference
-   recommended_workflow
