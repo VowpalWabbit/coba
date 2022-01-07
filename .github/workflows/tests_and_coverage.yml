@@ -37,6 +37,7 @@ jobs:
         with:
           flags: unittest, ${{ matrix.os }}, ${{ matrix.version }}
       - name: Test examples
+        if: ${{ matrix.os == "ubuntu-latest" }}
         continue-on-error: true
         run: |
           python "examples/scripts/First Script.py"
