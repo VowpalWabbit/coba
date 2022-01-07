@@ -1,4 +1,5 @@
 from typing import Dict, Any, Iterable, Union
+from coba.backports import Literal
 
 from coba.pipes import Source, CsvReader, ArffReader, LibSvmReader, ManikReader
 
@@ -9,20 +10,22 @@ class CsvSimulation(ReaderEnvironment):
     """Create a SimulatedEnvironment from a supervised CSV dataset."""
 
     def __init__(self, 
-        source:Union[str,Source[Iterable[str]]],
-        label:Union[str,int], 
-        has_header:bool=True,
+        source: Union[str,Source[Iterable[str]]],
+        label: Union[str,int], 
+        has_header: bool=True,
+        label_type: Literal["C","R"] = "C",
         **dialect) -> None:
         """Instantiate a CsvSimulation.
 
         Args:
-            source: Either a path to the file or an IO object able to iterate over the csv data.
+            source: Either file path or a Source object iterating over csv data.
             label: The column that contains the label for each line in the source. 
             has_header: Whether the CSV data contains a header row.
-            dialect: Optional reader configurations identical to the stdlib csv.reader(dialect).
+            label_type: Whether the label is a continuous real value or a class. 
+            dialect: Reader configurations identical to the stdlib csv.reader(dialect).
         """
 
-        super().__init__(source, CsvReader(**dialect), SupervisedToSimulation(label,has_header))
+        super().__init__(source, CsvReader(**dialect), SupervisedToSimulation(label,has_header,label_type))
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -31,14 +34,15 @@ class CsvSimulation(ReaderEnvironment):
 class ArffSimulation(ReaderEnvironment):
     """Create a SimulatedEnvironment from a supervised ARFF dataset."""
 
-    def __init__(self, source:Union[str,Source[Iterable[str]]], label:str) -> None:
+    def __init__(self, source:Union[str,Source[Iterable[str]]], label:str, label_type: Literal["C","R"] = "C") -> None:
         """Instantiate an ArffSimulation.
     
         Args:
-            source: Either a path to the file or an IO object able to iterate over the arff data.
-            label_col: The col that contains label for each line in the source. 
+            source: Either a file path or a Source object iterating over arff data.
+            label: The column that contains the label for each line in the source.
+            label_type: Whether the label is a continuous real value or a class. 
         """
-        super().__init__(source, ArffReader(skip_encoding=[label]), SupervisedToSimulation(label,True))
+        super().__init__(source, ArffReader(skip_encoding=[label]), SupervisedToSimulation(label,True,label_type))
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -51,7 +55,7 @@ class LibsvmSimulation(ReaderEnvironment):
         """Instantiate a LibsvmSimulation.
 
         Args:
-            source: Either a path to the file or an IO object able to iterate over the libsvm data.
+            source: Either a file path or a Source object iterating over libsvm data.
         """
         super().__init__(source, LibSvmReader(), SupervisedToSimulation(0,False))
 

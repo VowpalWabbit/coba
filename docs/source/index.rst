@@ -8,3 +8,4 @@ Welcome to coba's documentation!
 
    getting_started
    api_reference
+   recommended_workflow

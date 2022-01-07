@@ -5,7 +5,7 @@ from statistics import mean, median, stdev, mode
 from abc import abstractmethod, ABC
 from numbers import Number
 from collections import defaultdict
-from itertools import islice, chain, repeat
+from itertools import islice, chain
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple
 from coba.backports import Literal
 

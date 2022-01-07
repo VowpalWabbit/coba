@@ -3,10 +3,10 @@ import collections.abc
 
 from abc import abstractmethod
 from itertools import chain, repeat, count, islice
-from typing import Sequence, Dict, Any, Iterable, Callable, Tuple, overload, Optional, Union
+from typing import Sequence, Dict, Any, Iterable, Callable, Tuple, overload, Optional
 from coba.backports import Literal
 
-from coba.pipes import Filter, Flatten
+from coba.pipes import Filter
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
 

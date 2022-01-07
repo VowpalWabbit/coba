@@ -1,14 +1,14 @@
-from collections import defaultdict
 import inspect
 import gzip
 
+from collections import defaultdict
 from contextlib import contextmanager
 from threading import current_thread
 from abc import abstractmethod, ABC
 from collections.abc import Iterator
 from threading import Lock, Condition
 from pathlib import Path
-from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic, Set, Tuple
+from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic, Tuple
 
 from coba.exceptions import CobaException
 
