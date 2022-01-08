@@ -18,7 +18,7 @@ class Performance_Tests(unittest.TestCase):
         encoder   = NumericEncoder()
         many_ones = ["1"]*100
         
-        time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=1000, number=4))
+        time = min(timeit.repeat(lambda:encoder.encodes(many_ones), repeat=1000, number=4))
         
         #was approximately .000122
         self.assertLess(time, .0012)
@@ -26,12 +26,12 @@ class Performance_Tests(unittest.TestCase):
     def test_numeric_encode_performance_large(self):
 
         encoder   = NumericEncoder()
-        many_ones = ["1"]*100000
+        many_ones = ["1.2"]*100000
         
-        time = min(timeit.repeat(lambda:encoder.encode(many_ones), repeat=25, number=1))
+        time = min(timeit.repeat(lambda:encoder.encodes(many_ones), repeat=25, number=1))
         
-        #was approximately .0301
-        self.assertLess(time, .3)
+        #was approximately .019
+        self.assertLess(time, .19)
 
     def test_onehot_fit_performance(self):
 
@@ -47,20 +47,20 @@ class Performance_Tests(unittest.TestCase):
         encoder = OneHotEncoder(list(range(1000)), err_if_unknown=False )
         to_encode = [100,200,300,400,-1]*100000
 
-        time = min(timeit.repeat(lambda:encoder.encode(to_encode), repeat=25, number = 1))
+        time = min(timeit.repeat(lambda:encoder.encodes(to_encode), repeat=25, number = 1))
 
         #best observed 0.027
         self.assertLess(time, .27)
 
     def test_encode_performance(self):
 
-        encoder   = Encode([StringEncoder()]*30)
-        to_encode = [['a']*30]*6000
+        encoder   = Encode([NumericEncoder()]*50)
+        to_encode = [['1.23']*50]*6000
 
-        time = min(timeit.repeat(lambda:list(encoder.filter(to_encode)), number = 2))
+        time = min(timeit.repeat(lambda:list(encoder.filter(to_encode)), number = 1))
 
-        #best observed 0.13
-        self.assertLess(time, 1.3)
+        #best observed 0.06
+        self.assertLess(time, .6)
 
     def test_dense_interaction_xx_encode_performance(self):
         encoder = InteractionsEncoder(["xx"])

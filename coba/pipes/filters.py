@@ -92,7 +92,7 @@ class Reservoir(Filter[Iterable[Any], Iterable[Any]]):
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 
-        items    = iter(items)
+        items     = iter(items)
         reservoir = list(islice(items,self._count))
 
         this_count = len(reservoir) if self._count is None else self._count
@@ -271,7 +271,7 @@ class CsvReader(Filter[Iterable[str], Iterable[List[str]]]):
         self._dialect = dialect
 
     def filter(self, items: Iterable[str]) -> Iterable[Sequence[str]]:
-        return filter(None, csv.reader((i.strip() for i in items if i.strip()), **self._dialect))
+        return csv.reader(filter(None,(i.strip() for i in items)), **self._dialect)
 
 class LibSvmReader(Filter[Iterable[str], Iterable[Dict[int,float]]]):
 
@@ -326,8 +326,8 @@ class Encode(Filter[Iterable[MutableMap[int,Any]], Iterable[MutableMap[int,Any]]
             self._encoders[k] = self._encoders[k].fit(v)
 
         for item in chain(fit_items, items):
-            for k,v in (item.items() if isinstance(item,dict) else enumerate(item)):
-                item[k] = self._encoders[k].encode([v])[0]
+            for k in (item if isinstance(item,dict) else range(len(item))):
+                item[k] = self._encoders[k].encode(item[k])
             yield item
 
 class Drop(Filter[Iterable[MutableMap[int,Any]], Iterable[MutableMap[int,Any]]]):

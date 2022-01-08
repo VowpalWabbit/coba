@@ -52,7 +52,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
         feature_count = len(X_encoder.encode(x=dummy_context,a=dummy_action))
 
         normalize = lambda X: [ rng.random()*x/sum(X) for x in X]
-        identity  = lambda n: OneHotEncoder().fit_encode(range(n))
+        identity  = lambda n: OneHotEncoder().fit_encodes(range(n))
 
         weights = normalize(rng.randoms(feature_count)) # we normalize weights so that reward will be in [0,1]
         actions = ( [rng.randoms(n_action_feats) for _ in range(n_actions)] for _ in count()) if n_actions else repeat(identity(n_actions))
@@ -126,7 +126,7 @@ class LocalSyntheticSimulation(LambdaSimulation):
         rng = CobaRandom(self._seed)
 
         contexts = [ tuple(rng.randoms(n_context_feats)) for _ in range(self._n_contexts) ]        
-        actions  = OneHotEncoder().fit_encode(range(n_actions))
+        actions  = OneHotEncoder().fit_encodes(range(n_actions))
         rewards  = {}
 
         for context in contexts:

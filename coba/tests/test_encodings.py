@@ -6,80 +6,73 @@ from coba.exceptions import CobaException
 
 class IdentityEncoder_Tests(unittest.TestCase):
 
-    def test_fit_no_except(self):
-        encoder = IdentityEncoder()
-        encoder.fit([1,2,3])
+    def test_fit(self):
+        IdentityEncoder().fit([1,2,3])
 
-    def test_is_fit_marks_as_fitted(self):
-        encoder = IdentityEncoder()
-        self.assertTrue(encoder.is_fit)
+    def test_is_fit(self):
+        self.assertTrue(IdentityEncoder().is_fit)
 
     def test_encode(self):
         self.assertEqual([1, "2", 3.23, None], IdentityEncoder().encode([1, "2", 3.23, None]))
 
-    def test_fit_encode(self):
-        self.assertEqual([1, "2", 3.23, None], IdentityEncoder().fit_encode([1, "2", 3.23, None]))
+    def test_encodes(self):
+        self.assertEqual([1, "2", 3.23, None], IdentityEncoder().encodes([1, "2", 3.23, None]))
+
+    def test_fit_encodes(self):
+        self.assertEqual([1, "2", 3.23, None], IdentityEncoder().fit_encodes([1, "2", 3.23, None]))
 
 class StringEncoder_Tests(unittest.TestCase):
 
-    def test_fit_no_except(self):
-        encoder = StringEncoder()
-        encoder.fit([1,2,3])
+    def test_fit(self):
+        StringEncoder().fit([1,2,3])
 
-    def test_is_fit_marks_as_fitted(self):
-        encoder = StringEncoder()
-        self.assertTrue(encoder.is_fit)
+    def test_is_fit(self):
+        self.assertTrue(StringEncoder().is_fit)
 
     def test_encode(self):
-        self.assertEqual(["1","2","3.23","None"], StringEncoder().encode([1, "2", 3.23, None]))
+        self.assertEqual("1", StringEncoder().encode(1))
 
-    def test_fit_encode(self):
-        self.assertEqual(["1","2","3.23","None"], StringEncoder().fit_encode([1, "2", 3.23, None]))
+    def test_encodes(self):
+        self.assertEqual(["1","2","3.23","None"], StringEncoder().encodes([1, "2", 3.23, None]))
 
-class StringEncoder_Tests(unittest.TestCase):
-
-    def test_fit_no_except(self):
-        encoder = StringEncoder()
-        encoder.fit([1,2,3])
-
-    def test_is_fit_marks_as_fitted(self):
-        encoder = StringEncoder()
-        self.assertTrue(encoder.is_fit)
-
-    def test_encode(self):
-        self.assertEqual(["1","2","3.23","None"], StringEncoder().encode([1, "2", 3.23, None]))
-
-    def test_fit_encode(self):
-        self.assertEqual(["1","2","3.23","None"], StringEncoder().fit_encode([1, "2", 3.23, None]))
+    def test_fit_encodes(self):
+        self.assertEqual(["1","2","3.23","None"], StringEncoder().fit_encodes([1, "2", 3.23, None]))
 
 class NumericEncoder_Tests(unittest.TestCase):
 
-    def test_fit_no_except(self):
+    def test_fit(self):
         NumericEncoder().fit([1,2,3])
 
-    def test_is_fit_marks_as_fitted(self):
+    def test_is_fit(self):
         self.assertTrue(NumericEncoder().is_fit)
 
     def test_encode(self):
-        self.assertEqual([1,2,3.23], NumericEncoder().encode(["1", "2", "3.23"]))
+        self.assertEqual(1.23, NumericEncoder().encode("1.23"))
 
-    def test_not_numeric_string(self):
-        self.assertTrue(math.isnan(NumericEncoder().encode(["5 1"])[0]))
+    def test_encodes(self):
+        actual_result = NumericEncoder().encodes(["1", 'a', '3.23'])
+        self.assertEqual(1, actual_result[0])
+        self.assertTrue(math.isnan(actual_result[1]))
+        self.assertEqual(3.23, actual_result[2])
 
-    def test_fit_encode(self):
-        self.assertEqual([1,2,3.23], NumericEncoder().fit_encode(["1", "2", "3.23"]))
+    def test_encode_bad(self):
+        self.assertTrue(math.isnan(NumericEncoder().encode("5 1")))
+
+    def test_fit_encodes(self):
+        self.assertEqual([1,2,3.23], NumericEncoder().fit_encodes(["1", "2", "3.23"]))
 
 class OneHotEncoder_Tests(unittest.TestCase):
 
-    def test_err_if_unkonwn_true(self):
-        encoder = OneHotEncoder(err_if_unknown=True).fit(["1","1","1","0","0"])
-
-        with self.assertRaises(Exception):
-            self.assertEqual(encoder.encode(["2"]), [(0)])
+    def test_encode_err_if_unkonwn_true(self):
+        with self.assertRaises(CobaException): 
+            OneHotEncoder(err_if_unknown=True).fit(["1","1","1","0","0"]).encode("2")
+    
+    def test_encodes_err_if_unkonwn_true(self):
+        with self.assertRaises(CobaException): 
+            OneHotEncoder(err_if_unknown=True).fit(["1","1","1","0","0"]).encodes(["2"])
 
     def test_err_if_unkonwn_false(self):
-        encoder = OneHotEncoder().fit(["0","1","2"])
-        self.assertEqual([(0,0,0)],encoder.encode(["5"]))
+        self.assertEqual((0,0,0),OneHotEncoder().fit(["0","1","2"]).encode("5"))
 
     def test_fit(self):
         encoder = OneHotEncoder()
@@ -87,34 +80,38 @@ class OneHotEncoder_Tests(unittest.TestCase):
 
         self.assertEqual(False, encoder.is_fit)
         self.assertEqual(True, fit_encoder.is_fit)
-        self.assertEqual([(1,0,0),(0,1,0),(0,0,1),(0,1,0)], fit_encoder.encode(["0","1","2","1"]))
+        self.assertEqual([(1,0,0),(0,1,0),(0,0,1),(0,1,0)], fit_encoder.encodes(["0","1","2","1"]))
 
     def test_encode_sans_fit_exception(self):
         with self.assertRaises(CobaException):
-            OneHotEncoder().encode(["0","1","2"])
+            OneHotEncoder().encode("0")
+
+    def test_encodes_sans_fit_exception(self):
+        with self.assertRaises(CobaException):
+            OneHotEncoder().encodes(["0","1","2"])
 
     def test_init_values(self):
         encoder = OneHotEncoder(values=["0","1","2"])
         self.assertEqual(True, encoder.is_fit)
-        self.assertEqual([(1,0,0),(0,1,0),(0,0,1),(0,1,0)], encoder.encode(["0","1","2","1"]))
+        self.assertEqual([(1,0,0),(0,1,0),(0,0,1),(0,1,0)], encoder.encodes(["0","1","2","1"]))
 
     def test_fit_encode(self):
-        self.assertEqual([(1,0,0),(0,1,0),(0,0,1),(0,1,0)], OneHotEncoder().fit_encode(["0","1","2","1"]))
+        self.assertEqual([(1,0,0),(0,1,0),(0,0,1),(0,1,0)], OneHotEncoder().fit_encodes(["0","1","2","1"]))
 
 class FactorEncoder_Tests(unittest.TestCase):
-    def test_err_if_unkonwn_true(self):
-        encoder = FactorEncoder(err_if_unknown=True).fit(["1","1","1","0","0"])
+    def test_encode_err_if_unkonwn_true(self):
+        with self.assertRaises(CobaException):
+            FactorEncoder(err_if_unknown=True).fit(["1","1","1","0","0"]).encode("2")
+    
+    def test_encodes_err_if_unkonwn_true(self):
+        with self.assertRaises(CobaException):
+            FactorEncoder(err_if_unknown=True).fit(["1","1","1","0","0"]).encodes(["2"])
 
-        with self.assertRaises(Exception):
-            self.assertEqual(encoder.encode(["2"]), [(0)])
+    def test_encode_err_if_unkonwn_false(self):
+        self.assertTrue(math.isnan(FactorEncoder().fit(["0","1","2"]).encode("5")))
 
-    def test_err_if_unkonwn_false(self):
-        encoder = FactorEncoder().fit(["0","1","2"])
-        self.assertTrue([float('nan')],encoder.encode(["5"]))
-
-    def test_err_if_unkonwn_false(self):
-        encoder = FactorEncoder().fit(["0","1","2"])
-        self.assertTrue(math.isnan(encoder.encode(["5"])[0]))
+    def test_encodes_err_if_unkonwn_false(self):
+        self.assertTrue(math.isnan(FactorEncoder().fit(["0","1","2"]).encodes(["5"])[0]))
 
     def test_fit(self):
         encoder     = FactorEncoder()
@@ -122,19 +119,23 @@ class FactorEncoder_Tests(unittest.TestCase):
 
         self.assertEqual(False, encoder.is_fit)
         self.assertEqual(True, fit_encoder.is_fit)
-        self.assertEqual([1,2,3,2], fit_encoder.encode(["0","1","2","1"]))
+        self.assertEqual([1,2,3,2], fit_encoder.encodes(["0","1","2","1"]))
 
     def test_encode_sans_fit_exception(self):
         with self.assertRaises(CobaException):
-            FactorEncoder().encode(["0","1","2"])
+            FactorEncoder().encode("0")
+
+    def test_encodes_sans_fit_exception(self):
+        with self.assertRaises(CobaException):
+            FactorEncoder().encodes(["0","1","2"])
 
     def test_init_values(self):
         encoder = FactorEncoder(values=["0","1","2"])
         self.assertEqual(True, encoder.is_fit)
-        self.assertEqual([1,2,3,2], encoder.encode(["0","1","2","1"]))
+        self.assertEqual([1,2,3,2], encoder.encodes(["0","1","2","1"]))
 
     def test_fit_encode(self):
-        self.assertEqual([1,2,3,2], FactorEncoder().fit_encode(["0","1","2","1"]))
+        self.assertEqual([1,2,3,2], FactorEncoder().fit_encodes(["0","1","2","1"]))
 
 class InteractionsEncoder_Tests(unittest.TestCase):
 

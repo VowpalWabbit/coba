@@ -15,7 +15,7 @@ from coba.exceptions import CobaException
 _T_out = TypeVar('_T_out', bound=Any, covariant=True) 
 
 class Encoder(Generic[_T_out], ABC):
-    """The interface for encoder implementations.
+    """The Encoder interface.
 
     Remarks:
         While it can't be enforced by the interface, the assumption is that all Encoder
@@ -29,47 +29,59 @@ class Encoder(Generic[_T_out], ABC):
         """Indicates if the encoder has been fit.
 
         Returns:
-            A boolean indicating if this encoder has been fit (i.e., ready to "encode").
+            True if the Encoder is ready to encode otherwise False.
         """
         ...
 
     @abstractmethod
     def fit(self, values: Sequence[Any]) -> 'Encoder':
-        """Determine how to encode from given training data.
+        """Fit the encoder given training data.
 
         Args:
-            values: A collection of values to use for determining the encoding.
+            values: The encoder training values.
 
         Returns:
-            An Encoder that has been fit.
-
-        Remarks:
-            This method should return a new Encoder that is fit without altering
-            the original Encoder. If the original Encoder is already fit this 
-            should raise an Exception.
+            A fit Encoder.
         """
         ...
 
     @abstractmethod
-    def encode(self, values: Sequence[Any]) -> Sequence[_T_out]:
-        """Encode the given value into the implementation's generic type.
+    def encode(self, value: Any) -> Sequence[_T_out]:
+        """Encode the given value.
 
         Args:
-            values: The values that need to be encoded as the given generic type.
+            value: The value to encode.
 
         Returns:
-            The encoded value as a sequence of generic types.
-
-        Remarks:
-            This method should raise an Exception if `is_fit == False`.
+            The encoded value.
         """
         ...
 
-    def fit_encode(self, values: Sequence[Any]) -> Sequence[_T_out]:
+    @abstractmethod
+    def encodes(self, values: Sequence[Any]) -> Sequence[_T_out]:
+        """Encode the given values.
+
+        Args:
+            values: The values toencode.
+
+        Returns:
+            The encoded values.
+        """
+        ...
+
+    def fit_encodes(self, values: Sequence[Any]) -> Sequence[_T_out]:
+        """Fit and then encode the given values.
+
+        Args:
+            values: The values toencode.
+
+        Returns:
+            The encoded values.
+        """
         if self.is_fit:
-            return self.encode(values)
+            return self.encodes(values)
         else:
-            return self.fit(values).encode(values)
+            return self.fit(values).encodes(values)
 
 class IdentityEncoder(Encoder[Any]):
 
@@ -80,7 +92,10 @@ class IdentityEncoder(Encoder[Any]):
     def fit(self, values: Sequence[Any]) -> 'Encoder':
         return self
 
-    def encode(self, values: Sequence[Any]) -> Sequence[Any]:
+    def encode(self, value: Any) -> Any:
+        return value
+
+    def encodes(self, values: Sequence[Any]) -> Sequence[Any]:
         return values
 
 class StringEncoder(Encoder[str]):
@@ -88,87 +103,42 @@ class StringEncoder(Encoder[str]):
 
     @property
     def is_fit(self) -> bool:
-        """Indicates if the encoder has been fit.
-
-        Remarks:
-            See the base class for more information.
-        """
-
         return True
 
     def fit(self, values: Sequence[Any]) -> 'StringEncoder':
-        """Determine how to encode from given training data.
-
-        Args:
-            values: A collection of values to use for determining the encoding.
-
-        Returns:
-            An Encoder that has been fit.
-
-        Remarks:
-            See the base class for more information.
-        """
-
         return StringEncoder()
 
-    def encode(self, values: Sequence[Any]) -> Sequence[str]:
-        """Encode the given values as a sequence of strings.
+    def encode(self, value: Any) -> str:
+        return str(value)
 
-        Args:
-            values: The values that needs to be encoded as a sequence of strings.
-
-        Remarks:
-            See the base class for more information.
-        """
-
-        return [str(value) for value in values]
+    def encodes(self, values: Sequence[Any]) -> Sequence[str]:
+        return list(map(str,values))
 
 class NumericEncoder(Encoder[float]):
     """An Encoder implementation that turns incoming values into float values."""
 
     @property
     def is_fit(self) -> bool:
-        """Indicates if the encoder has been fit.
-
-        Remarks:
-            See the base class for more information.
-        """
-
         return True
 
     def fit(self, values: Sequence[Any]) -> 'NumericEncoder':
-        """Determine how to encode from given training data.
-
-        Args:
-            values: A collection of values to use for determining the encoding.
-
-        Returns:
-            An Encoder that has been fit.
-
-        Remarks:
-            See the base class for more information.
-        """
-
         return NumericEncoder()
 
-    def encode(self, values: Sequence[Any]) -> Sequence[float]:
-        """Encode the given values as a sequence of floats.
+    def encode(self, value: Any) -> float:
+        try:
+            return float(value)
+        except:
+            return float('nan')
 
-        Args:
-            value: The value that needs to be encoded as a sequence of floats.
+    def encodes(self, values: Sequence[Any]) -> Sequence[float]:
+        return list(self._float_generator(values))
 
-        Remarks:
-            See the base class for more information.
-        """
-
-        def float_generator() -> Iterator[float]:
-            for value in values:
-                try:
-                    yield float(value)
-                except:
-                    yield float('nan')
-
-        return list(float_generator())
+    def _float_generator(self,values) -> Iterator[float]:
+        for value in values:
+            try:
+                yield float(value)
+            except:
+                yield float('nan')
 
 class OneHotEncoder(Encoder[Tuple[int,...]]):
     """An Encoder implementation that turns incoming values into a one hot representation."""
@@ -204,47 +174,28 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
 
     @property
     def is_fit(self) -> bool:
-        """Indicates if the encoder has been fit.
-
-        Remarks:
-            See the base class for more information.
-        """
-
         return self._onehots is not None
 
     def fit(self, values: Sequence[Any]) -> 'OneHotEncoder':
-        """Determine how to encode from given training data.
-
-        Args:
-            values: A collection of values to use for determining the encoding.
-
-        Returns:
-            An Encoder that has been fit.
-
-        Remarks:
-            See the base class for more information.
-        """
-
         return OneHotEncoder(values = values, err_if_unknown = self._err_if_unknown)
 
-    def encode(self, values: Sequence[Any]) -> Sequence[Tuple[int,...]]:
-        """Encode the given value as a sequence of 0's and 1's.
-
-        Args:
-            value: The value that needs to be encoded as a sequence of 0's and 1's.
-
-        Returns:
-            The encoded value as a sequence of 0's and 1's.
-
-        Remarks:
-            See the base class for more information.
-        """
-
+    def encode(self, value: Any) -> Tuple[int,...]:
+        
         if self._onehots is None:
             raise CobaException("This encoder must be fit before it can be used.")
 
         try:
-            return [ self._onehots[value] for value in values ]
+            return self._onehots[value]
+        except KeyError as e:
+            raise CobaException(f"We were unable to find {e} in {self._onehots.keys()}")
+
+    def encodes(self, values: Sequence[Any]) -> Sequence[Tuple[int,...]]:
+        
+        if self._onehots is None:
+            raise CobaException("This encoder must be fit before it can be used.")
+
+        try:
+            return list(map(self._onehots.__getitem__,values))
         except KeyError as e:
             raise CobaException(f"We were unable to find {e} in {self._onehots.keys()}")
 
@@ -261,58 +212,39 @@ class FactorEncoder(Encoder[int]):
 
         self._err_if_unknown = err_if_unknown
         self._levels         = None
-        self._default        = None
 
         if values:
 
             values = sorted(set(values), key=lambda v: values.index(v))
+            levels  = [ i + 1 for i in range(len(values)) ]
 
-            self._default = float('nan')
-            known_levels  = [ i + 1 for i in range(len(values)) ]                
-
-            keys_and_values = zip(values, known_levels)
-            self._levels    = dict(keys_and_values)
+            pairs = zip(values, levels)
+            self._levels = dict(pairs) if self._err_if_unknown else defaultdict(lambda: float('nan'), pairs)
 
     @property
     def is_fit(self) -> bool:
-        """Indicates if the encoder has been fit.
-
-        Remarks:
-            See the base class for more information.
-        """
-
         return self._levels is not None
 
     def fit(self, values: Sequence[Any]) -> 'FactorEncoder':
-        """Determine how to encode from given training data.
-
-        Args:
-            values: A collection of values to use for determining the encoding.
-
-        Returns:
-            An Encoder that has been fit.
-
-        Remarks:
-            See the base class for more information.
-        """
-
         return FactorEncoder(values = values, err_if_unknown = self._err_if_unknown)
 
-    def encode(self, values: Sequence[Any]) -> Sequence[int]:
-        """Encode the given values as a sequence factor levels.
-
-        Args:
-            values: The values that needs to be encoded as factor levels.
-
-        Remarks:
-            See the base class for more information.
-        """
+    def encode(self, value: Any) -> int:
 
         if self._levels is None:
             raise CobaException("This encoder must be fit before it can be used.")
 
         try:
-            return [ self._levels[value] if self._err_if_unknown else self._levels.get(value, self._default) for value in values ]
+            return self._levels[value]
+        except KeyError as e:
+            raise CobaException(f"We were unable to find {e} in {self._levels.keys()}") from None
+
+    def encodes(self, values: Sequence[Any]) -> Sequence[int]:
+        
+        if self._levels is None:
+            raise CobaException("This encoder must be fit before it can be used.")
+
+        try:
+            return list(map(self._levels.__getitem__,values))
         except KeyError as e:
             raise CobaException(f"We were unable to find {e} in {self._levels.keys()}") from None
 
@@ -323,7 +255,7 @@ class CobaJsonDecoder(json.JSONDecoder):
     """A json decoder that allows for potential COBA extensions in the future."""
 
 class InteractionsEncoder:
-
+    
     def __init__(self, interactions: Sequence[str]) -> None:
 
         self.times       = [0,0,0,0]
