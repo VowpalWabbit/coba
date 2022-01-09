@@ -8,9 +8,9 @@ from coba.utilities import HeaderDict, HeaderList
 from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder
 
 from coba.pipes.filters import Encode
-from coba.pipes.primitives import Filter, MutableMap
+from coba.pipes.primitives import MutableMap, Reader
 
-class ArffReader(Filter[Iterable[str], Iterable[MutableMap]]):
+class ArffReader(Reader):
     """
         https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
@@ -106,7 +106,7 @@ class ArffReader(Filter[Iterable[str], Iterable[MutableMap]]):
                 pairing = [ to_pair(*l.split(' ', 1)) for l in line ]
                 yield HeaderDict(pairing,headers)
 
-class CsvReader(Filter[Iterable[str], Iterable[MutableMap]]):
+class CsvReader(Reader):
 
     def __init__(self, has_header: bool=False, **dialect):
         self._dialect    = dialect
@@ -122,7 +122,7 @@ class CsvReader(Filter[Iterable[str], Iterable[MutableMap]]):
         for line in lines:
             yield line if not self._has_header else HeaderList(line,headers)
 
-class LibSvmReader(Filter[Iterable[str], Iterable[MutableMap]]):
+class LibSvmReader(Reader):
 
     """https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/"""
     """https://github.com/cjlin1/libsvm"""
@@ -138,7 +138,7 @@ class LibSvmReader(Filter[Iterable[str], Iterable[MutableMap]]):
 
             yield row
 
-class ManikReader(Filter[Iterable[str], Iterable[MutableMap]]):
+class ManikReader(Reader):
 
     """http://manikvarma.org/downloads/XC/XMLRepository.html"""
     """https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view"""

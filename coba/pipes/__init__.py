@@ -1,5 +1,5 @@
 
-from coba.pipes.primitives import Filter, Source, Sink
+from coba.pipes.primitives import Filter, Source, Sink, Reader
 from coba.pipes.core import Pipe, Foreach, SourceFilters, FiltersFilter, FiltersSink
 from coba.pipes.multiprocessing import PipeMultiprocessor
 
@@ -42,5 +42,6 @@ __all__ = [
     "IO",
     "SourceFilters", 
     "FiltersFilter", 
-    "FiltersSink"
+    "FiltersSink",
+    "Reader"
 ]
