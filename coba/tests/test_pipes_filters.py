@@ -126,6 +126,18 @@ class Resevoir_Tests(unittest.TestCase):
         self.assertEqual(0, len(take_items))
 
 class CsvReader_Tests(unittest.TestCase):
+    def test_dense_with_header(self):
+
+        parsed = list(CsvReader(has_header=True).filter(['a,b,c', '1,2,3']))
+
+        self.assertEqual(1, len(parsed))
+        self.assertEqual('1', parsed[0][0])
+        self.assertEqual('1', parsed[0]['a'])
+        self.assertEqual('2', parsed[0][1])
+        self.assertEqual('2', parsed[0]['b'])
+        self.assertEqual('3', parsed[0][2])
+        self.assertEqual('3', parsed[0]['c'])
+
     def test_dense_sans_empty(self):
         self.assertEqual([['a','b','c'],['1','2','3']], list(CsvReader().filter(['a,b,c', '1,2,3'])))
     
@@ -143,7 +155,7 @@ class ArffReader_Tests(unittest.TestCase):
             "@data",
         ]
 
-        expected = [['a','B','c']]
+        expected = []
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
@@ -160,7 +172,6 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['a','B','c'],
             [1,2,(0,1,0,0)],
             [2,3,(1,0,0,0)]
         ]
@@ -182,7 +193,6 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['A','B','C'],
             [1,2,(0,1,0,0)],
             [2,3,(1,0,0,0)]
         ]
@@ -202,7 +212,6 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['a','b','c'],
             [1,2,(0,1,0,0)],
             [2,3,(1,0,0,0)]
         ]
@@ -223,7 +232,6 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['a', 'b', 'c'],
             {0:2, 1:3},
             {0:1, 1:1, 2:(0,1,0,0)},
             {1:1},
@@ -244,7 +252,6 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['a','b','c'],
             ['1','2',(0,1,0,0)],
             ['2','3',(1,0,0,0)]
         ]
@@ -266,7 +273,6 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ['a','b','c'],
             ['1','2',(0,1,0,0)],
             ['2','3',(1,0,0,0)]
         ]
@@ -288,7 +294,6 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            ["'a%3'","'b%4'","'c%5'"],
             ['1','2',(0,1,0,0)],
             ['2','3',(1,0,0,0)]
         ]
@@ -400,57 +405,46 @@ class Flatten_Tests(unittest.TestCase):
 
 class Encode_Tests(unittest.TestCase):
 
-    def test_dense_encode_numeric_sans_header(self):
-        encode = Encode({0:NumericEncoder(), 1:NumericEncoder()}, has_header=False)
-        self.assertEqual( [[1,2],[4,5]], list(encode.filter([["1","2"],["4","5"]])))
+    def test_encode_empty(self):
+        encode = Encode({0:NumericEncoder()})
+        self.assertEqual([],list(encode.filter([])))
 
-    def test_dense_encode_onehot_sans_header(self):
-        encode = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()}, has_header=False)
+    def test_dense_encode_numeric(self):
+        encode = Encode({0:NumericEncoder(), 1:NumericEncoder()})
+        self.assertEqual([[1,2],[4,5]], list(encode.filter([["1","2"],["4","5"]])))
+
+    def test_dense_encode_onehot(self):
+        encode = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()})
         self.assertEqual([[(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter([[1,4], [2,5], [2,6]])))
 
-    def test_dense_encode_mixed_sans_header(self):
-        encode = Encode({0:NumericEncoder(), 1:OneHotEncoder()}, has_header=False)
-        self.assertEqual( [[1,(1,0)],[2,(0,1)],[3,(0,1)]], list(encode.filter([[1,4],[2,5],[3,5]])))
+    def test_dense_encode_mixed(self):
+        encode = Encode({0:NumericEncoder(), 1:OneHotEncoder()})
+        self.assertEqual([[1,(1,0)],[2,(0,1)],[3,(0,1)]], list(encode.filter([[1,4],[2,5],[3,5]])))
 
-    def test_sparse_encode_numeric_sans_header(self):
-        encode   = Encode({0:NumericEncoder(), 1:NumericEncoder()}, has_header=False)
+    def test_sparse_encode_numeric(self):
+        encode   = Encode({0:NumericEncoder(), 1:NumericEncoder()})
         given    = [ {0:"1",1:"4"}, {0:"2",1:"5"}, {0:"3",1:"6"}]
         expected = [ {0:1,1:4}, {0:2,1:5}, {0:3,1:6}]
 
         self.assertEqual(expected, list(encode.filter(given)))
 
-    def test_sparse_encode_onehot_sans_header(self):
-        encode   = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()},has_header=False)
-        given    = [{0:1,1:4}, {0:2,1:5}, {0:2,1:6}]
-        expected = [ {0:(1,0,0), 1:(1,0,0)}, {0:(0,1,0), 1:(0,1,0)}, {0:(0,1,0), 1:(0,0,1)}]
+    def test_sparse_encode_onehot(self):
+        encode   = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()})
+        given    = [{0:1}, {0:2,1:5}, {0:2,1:6}]
+        expected = [{0:(1,0,0)}, {0:(0,1,0), 1:(0,1,0)}, {0:(0,1,0), 1:(0,0,1)}]
 
         self.assertEqual(expected, list(encode.filter(given)))
 
-    def test_sparse_encode_mixed_sans_header(self):
-        encode   = Encode({0:NumericEncoder(), 1:OneHotEncoder()}, has_header=False)
+    def test_sparse_encode_mixed(self):
+        encode   = Encode({0:NumericEncoder(), 1:OneHotEncoder()})
         given    = [{0:"1",1:4},{0:"2",1:5},{0:"3",1:5}]
         expected = [{0:1,1:(1,0)},{0:2,1:(0,1)},{0:3,1:(0,1)}]
 
         self.assertEqual(expected, list(encode.filter(given)))
 
-    def test_dense_encode_onehot_with_header(self):
-        encode = Encode([OneHotEncoder([1,2,3]), OneHotEncoder()], has_header=True)
-        self.assertEqual([['a','b'], [(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter([['a','b'], [1,4], [2,5], [2,6]])))
-
-    def test_sparse_encode_onehot_sans_header(self):
-        encode   = Encode([OneHotEncoder([1,2,3]), OneHotEncoder()],has_header=True)
-        given    = [['a','b'], {0:1,1:4}, {0:2,1:5}, {0:2,1:6}]
-        expected = [['a','b'], {0:(1,0,0), 1:(1,0,0)}, {0:(0,1,0), 1:(0,1,0)}, {0:(0,1,0), 1:(0,0,1)}]
-
-        self.assertEqual(expected, list(encode.filter(given)))
-
     def test_dense_encode_onehot_with_header_and_extra_encoder(self):
-        encode = Encode([OneHotEncoder([1,2,3]), OneHotEncoder(), StringEncoder()], has_header=True)
-        self.assertEqual([['a','b'], [(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter([['a','b'], [1,4], [2,5], [2,6]])))
-
-    def test_dense_encode_onehot_with_None_header(self):
-        encode = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()}, has_header=True)
-        self.assertEqual([None, [(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)], [(0,1,0),(0,0,1)]], list(encode.filter([None, [1,4], [2,5], [2,6]])))
+        encode = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder(), 2:StringEncoder()})
+        self.assertEqual([[(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)],[(0,1,0),(0,0,1)]], list(encode.filter([[1,4], [2,5], [2,6]])))
 
 class JsonEncode_Tests(unittest.TestCase):
     def test_bool_minified(self):

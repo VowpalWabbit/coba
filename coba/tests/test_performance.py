@@ -54,7 +54,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_encode_performance(self):
 
-        encoder   = Encode([NumericEncoder()]*50)
+        encoder   = Encode(dict(zip(range(50),[NumericEncoder()]*50)))
         to_encode = [['1.23']*50]*6000
 
         time = min(timeit.repeat(lambda:list(encoder.filter(to_encode)), number = 1))

@@ -97,12 +97,6 @@ class OpenmlSource(Source[Iterable[Tuple[Any, Any]]]):
 
             file_rows = iter(self._get_dataset_rows(dataset_description["file_id"], md5_checksum))
 
-            headers   = [ self._name_cleaning(h) for h in next(file_rows)]
-            ignored   = [ headers.index(i) for i in ignored ]
-            headers   = list(Drop(drop_cols=ignored).filter([headers]))[0]
-            encoders  = { headers.index(k): v for k,v in encoders.items() if k in headers }
-            target    = headers.index(target)
-
             def row_has_missing_values(row):
                 row_values = row.values() if isinstance(row,dict) else row
                 return "?" in row_values or "" in row_values

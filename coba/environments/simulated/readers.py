@@ -42,7 +42,7 @@ class ArffSimulation(ReaderEnvironment):
             label: The column that contains the label for each line in the source.
             label_type: Whether the label is a continuous real value or a class. 
         """
-        super().__init__(source, ArffReader(skip_encoding=[label]), SupervisedToSimulation(label,True,label_type))
+        super().__init__(source, ArffReader(skip_encoding=[label]), SupervisedToSimulation(label,False,label_type))
 
     @property
     def params(self) -> Dict[str, Any]:

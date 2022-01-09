@@ -989,7 +989,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
         CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , b"" )
+        CobaContext.cacher.put('openml_042693_arff' , b"bad data" )
 
         with self.assertRaises(Exception) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))

@@ -3,14 +3,15 @@ import csv
 import json
 import math
 
-from collections import defaultdict, OrderedDict
-from itertools import islice, takewhile, chain
-from typing import Generic, Iterable, Any, Sequence, TypeVar, List, Dict, Callable, Optional
+from collections import defaultdict
+from itertools import islice, takewhile, chain, count
+from typing import Generic, Iterable, Any, Sequence, TypeVar, List, Dict, Callable, Optional, Union
 from coba.backports import Protocol
 
 from coba.random import CobaRandom
-from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder, CobaJsonEncoder, CobaJsonDecoder
 from coba.exceptions import CobaException
+from coba.utilities import HeaderDict, HeaderList
+from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder, CobaJsonEncoder, CobaJsonDecoder
 
 from coba.pipes.primitives import Filter
 
@@ -224,14 +225,23 @@ class ArffReader(Filter[Iterable[str], Iterable[MutableMap[int,Any]]]):
                 attribute_name  = re.split('\s+', attribute_text)[0]
                 attribute_index = len(headers)
 
-                headers.append(attribute_name)
+                headers.append(attribute_name.strip().strip('\'"').replace('\\',''))
                 encoders.append(self._determine_encoder(attribute_index,attribute_name,attribute_type))
 
-        data_lines    = (d for d in data_lines if not d.startswith("%")) 
-        parsed_lines  = self._try_sparse_parser(CsvReader(**self._dialect).filter(data_lines))
-        encoded_lines = parsed_lines if self._skip_encoding == True else Encode(encoders).filter(parsed_lines)
+        try:
+            first_line = next(data_lines)
+        except StopIteration:
+            return []
+        
+        is_dense   = not (first_line.strip().startswith('{') and first_line.strip().endswith('}'))
 
-        return chain([headers],encoded_lines)
+        data_lines = chain([first_line], data_lines)
+        data_lines = filter(None,(d.strip('} {') for d in data_lines if not d.startswith("%")))
+
+        data_lines = self._parse(data_lines, headers, is_dense)
+        data_lines = data_lines if self._skip_encoding == True else Encode(dict(zip(count(),encoders))).filter(data_lines)
+
+        return data_lines
 
     def _determine_encoder(self, index:int, name: str, tipe: str) -> Encoder:
         is_numeric = tipe in ['numeric', 'integer', 'real']
@@ -245,33 +255,34 @@ class ArffReader(Filter[Iterable[str], Iterable[MutableMap[int,Any]]]):
 
         return StringEncoder()
 
-    def _try_sparse_parser(self, lines: Iterable[Sequence[str]]) -> Iterable[Dict[int,str]]:
+    def _parse(self, lines: Iterable[str], headers: Sequence[str], is_dense: bool) -> Iterable[Dict[int,str]]:
         
-        lines = iter(lines)
+        lines = CsvReader(has_header=False,**self._dialect).filter(lines)
 
-        try:
-            first_line = next(lines)
-        except StopIteration:
-            return []
+        if is_dense:
+            for line in lines:
+                yield HeaderList(line,headers)
         else:
-            
-            is_dense = not (first_line[0].startswith("{") and first_line[-1].endswith("}"))
-            lines    = chain([first_line], lines)
-
-            if is_dense:
-                for line in lines:
-                    yield line
-            else:    
-                for line in (l for l in lines if len(l) > 0 and l[0] != '{}'):
-                    yield OrderedDict((int(k),v) for l in line for k,v in [l.strip("}{").strip().split(' ', 1)])
+            for line in lines:
+                to_pair = lambda k,v: (int(k),v)
+                pairing = [ to_pair(*l.split(' ', 1)) for l in line ]
+                yield HeaderDict(pairing,headers)
 
 class CsvReader(Filter[Iterable[str], Iterable[List[str]]]):
 
-    def __init__(self, **dialect):
-        self._dialect = dialect
+    def __init__(self, has_header: bool=False, **dialect):
+        self._dialect    = dialect
+        self._has_header = has_header 
 
     def filter(self, items: Iterable[str]) -> Iterable[Sequence[str]]:
-        return csv.reader(filter(None,(i.strip() for i in items)), **self._dialect)
+
+        lines = iter(csv.reader(iter(filter(None,(i.strip() for i in items))), **self._dialect))
+
+        if self._has_header:
+            headers = next(lines)
+
+        for line in lines:
+            yield line if not self._has_header else HeaderList(line,headers)
 
 class LibSvmReader(Filter[Iterable[str], Iterable[Dict[int,float]]]):
 
@@ -301,33 +312,53 @@ class ManikReader(Filter[Iterable[str], Iterable[Dict[int,float]]]):
 
 class Encode(Filter[Iterable[MutableMap[int,Any]], Iterable[MutableMap[int,Any]]]):
 
-    def __init__(self, encoders:MutableMap[int,Encoder], fit_using:int = None, has_header:bool = False):
+    def __init__(self, encoders:Dict[Union[str,int],Encoder], fit_using:int = None):
         self._encoders   = encoders
         self._fit_using  = fit_using
-        self._has_header = has_header
 
     def filter(self, items: Iterable[MutableMap[int,Any]]) -> Iterable[MutableMap[int,Any]]:
 
         items = iter(items) # this makes sure items are pulled out for fitting
-        
-        if self._has_header: 
-            yield next(items)
 
-        encode_vals = self._encoders.values() if isinstance(self._encoders,dict) else self._encoders
-        fit_using   = 0 if all([e.is_fit for e in encode_vals]) else self._fit_using
-        fit_items   = list(islice(items, fit_using))
-        fit_values  = defaultdict(list)
+        try:
+            first_item = next(items)
+            items      = chain([first_item], items)
+        except StopIteration:
+            return []
 
-        for item in fit_items:
-            for k,v in (item.items() if isinstance(item,dict) else enumerate(item)):
-                if not self._encoders[k].is_fit: fit_values[k].append(v)
+        is_dense = not isinstance(first_item,dict) 
 
-        for k,v in fit_values.items():
-            self._encoders[k] = self._encoders[k].fit(v)
+        if not is_dense:
+            encoders = self._encoders
+        else:
+            encoders = {}
+            for k,v in self._encoders.items():
+                try:
+                    first_item[k]
+                    encoders[k] = v
+                except:
+                    pass
 
-        for item in chain(fit_items, items):
-            for k in (item if isinstance(item,dict) else range(len(item))):
-                item[k] = self._encoders[k].encode(item[k])
+        unfit_enc = { k:v for k,v in encoders.items() if not v.is_fit }
+        fit_using = self._fit_using if unfit_enc else 0
+
+        items_for_fitting  = list(islice(items, fit_using))
+        values_for_fitting = defaultdict(list)
+
+        for item in items_for_fitting:
+            for k in unfit_enc:
+                if is_dense:
+                    values_for_fitting[k].append(item[k])
+                else:
+                    values_for_fitting[k].append(item.get(k,0))
+
+        for k,v in values_for_fitting.items():
+            encoders[k] = encoders[k].fit(v)
+
+        for item in chain(items_for_fitting, items):
+            for k,v in encoders.items():
+                if is_dense or k in item:
+                    item[k] = encoders[k].encode(item[k])
             yield item
 
 class Drop(Filter[Iterable[MutableMap[int,Any]], Iterable[MutableMap[int,Any]]]):
