@@ -8,7 +8,10 @@ from coba.utilities import HeaderDict, HeaderList
 from coba.encodings import Encoder, OneHotEncoder, NumericEncoder, StringEncoder
 
 from coba.pipes.filters import Encode
-from coba.pipes.primitives import MutableMap, Reader
+from coba.pipes.primitives import MutableMap, Filter
+
+class Reader(Filter[Iterable[str], Iterable[MutableMap]]):
+    pass
 
 class ArffReader(Reader):
     """
