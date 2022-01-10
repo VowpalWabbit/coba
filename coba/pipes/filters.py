@@ -184,9 +184,10 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
 
 class Encode(Filter[Iterable[MutableMap], Iterable[MutableMap]]):
 
-    def __init__(self, encoders:Dict[Union[str,int],Encoder], fit_using:int = None):
-        self._encoders   = encoders
-        self._fit_using  = fit_using
+    def __init__(self, encoders:Dict[Union[str,int],Encoder], fit_using:int = None, missing_val: str = None):
+        self._encoders    = encoders
+        self._fit_using   = fit_using
+        self._missing_val = missing_val
 
     def filter(self, items: Iterable[MutableMap]) -> Iterable[MutableMap]:
 
@@ -219,10 +220,8 @@ class Encode(Filter[Iterable[MutableMap], Iterable[MutableMap]]):
 
         for item in items_for_fitting:
             for k in unfit_enc:
-                if is_dense:
-                    values_for_fitting[k].append(item[k])
-                else:
-                    values_for_fitting[k].append(item.get(k,0))
+                val = item[k] if is_dense else item.get(k,0)
+                if val not in  ['',self._missing_val]: values_for_fitting[k].append(val)
 
         for k,v in values_for_fitting.items():
             encoders[k] = encoders[k].fit(v)
@@ -230,7 +229,8 @@ class Encode(Filter[Iterable[MutableMap], Iterable[MutableMap]]):
         for item in chain(items_for_fitting, items):
             for k,v in encoders.items():
                 if is_dense or k in item:
-                    item[k] = encoders[k].encode(item[k])
+                    val = item[k]
+                    item[k] = encoders[k].encode(val) if val not in ['',self._missing_val] else val
             yield item
 
 class Drop(Filter[Iterable[MutableMap], Iterable[MutableMap]]):

@@ -180,14 +180,14 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         return OneHotEncoder(values = values, err_if_unknown = self._err_if_unknown)
 
     def encode(self, value: Any) -> Tuple[int,...]:
-        
+
         if self._onehots is None:
             raise CobaException("This encoder must be fit before it can be used.")
 
         try:
             return self._onehots[value]
         except KeyError as e:
-            raise CobaException(f"We were unable to find {e} in {self._onehots.keys()}")
+            raise CobaException(f"We were unable to find {e} in {list(self._onehots.keys())}")
 
     def encodes(self, values: Sequence[Any]) -> Sequence[Tuple[int,...]]:
         
@@ -197,7 +197,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
         try:
             return list(map(self._onehots.__getitem__,values))
         except KeyError as e:
-            raise CobaException(f"We were unable to find {e} in {self._onehots.keys()}")
+            raise CobaException(f"We were unable to find {e} in {list(self._onehots.keys())}")
 
 class FactorEncoder(Encoder[int]):
     """An Encoder implementation that turns incoming values into factor representation."""

@@ -1,7 +1,6 @@
 import unittest
 from coba.exceptions import CobaException
 
-from coba.pipes import LibSvmReader, ArffReader, CsvReader
 from coba.pipes import Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.contexts import NullLogger, CobaContext
@@ -124,216 +123,6 @@ class Resevoir_Tests(unittest.TestCase):
     def test_take_10_has_5(self):
         take_items = list(Reservoir(10,seed=1).filter(range(5)))
         self.assertEqual(0, len(take_items))
-
-class CsvReader_Tests(unittest.TestCase):
-    def test_dense_with_header(self):
-
-        parsed = list(CsvReader(has_header=True).filter(['a,b,c', '1,2,3']))
-
-        self.assertEqual(1, len(parsed))
-        self.assertEqual('1', parsed[0][0])
-        self.assertEqual('1', parsed[0]['a'])
-        self.assertEqual('2', parsed[0][1])
-        self.assertEqual('2', parsed[0]['b'])
-        self.assertEqual('3', parsed[0][2])
-        self.assertEqual('3', parsed[0]['c'])
-
-    def test_dense_sans_empty(self):
-        self.assertEqual([['a','b','c'],['1','2','3']], list(CsvReader().filter(['a,b,c', '1,2,3'])))
-    
-    def test_dense_with_empty(self):
-        self.assertEqual([['a','b','c'],['1','2','3']], list(CsvReader().filter(['a,b,c', '', '1,2,3', ''])))
-
-class ArffReader_Tests(unittest.TestCase):
-
-    def test_dense_sans_data(self):
-        lines = [
-            "@relation news20",
-            "@attribute a numeric",
-            "@attribute B numeric",
-            "@attribute c {0, class_B, class_C, class_D}",
-            "@data",
-        ]
-
-        expected = []
-        
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
-
-
-    def test_dense_sans_empty_lines(self):
-        lines = [
-            "@relation news20",
-            "@attribute a numeric",
-            "@attribute B numeric",
-            "@attribute c {0, class_B, class_C, class_D}",
-            "@data",
-            "1,2,class_B",
-            "2,3,0",
-        ]
-
-        expected = [
-            [1,2,(0,1,0,0)],
-            [2,3,(1,0,0,0)]
-        ]
-        
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
-
-    def test_dense_with_empty_lines(self):
-        lines = [
-            "@relation news20",
-            "@attribute A numeric",
-            "@attribute B numeric",
-            "@attribute C {0, class_B, class_C, class_D}",
-            "@data",
-            "",
-            "",
-            "1,2,class_B",
-            "2,3,0",
-            ""
-        ]
-
-        expected = [
-            [1,2,(0,1,0,0)],
-            [2,3,(1,0,0,0)]
-        ]
-        
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
-
-    def test_dense_with_comments(self):
-        lines = [
-            "%This is a comment",
-            "@relation news20",
-            "@attribute a numeric",
-            "@attribute b numeric",
-            "@attribute c {0, class_B, class_C, class_D}",
-            "@data",
-            "1,2,class_B",
-            "2,3,0"
-        ]
-
-        expected = [
-            [1,2,(0,1,0,0)],
-            [2,3,(1,0,0,0)]
-        ]
-        
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
-
-    def test_sparse(self):
-        lines = [
-            "@relation news20",
-            "@attribute a numeric",
-            "@attribute b numeric",
-            "@attribute c {0, class_B, class_C, class_D}",
-            "@data",
-            "{0 2,1 3}",
-            "{0 1,1 1,2 class_B}",
-            "{1 1}",
-            "{0 1,2 class_D}",
-        ]
-
-        expected = [
-            {0:2, 1:3},
-            {0:1, 1:1, 2:(0,1,0,0)},
-            {1:1},
-            {0:1,2:(0,0,0,1)}
-        ]
-        
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
-
-    def test_dense_with_strings(self):
-        lines = [
-            "@relation news20",
-            "@attribute a string",
-            "@attribute b string",
-            "@attribute c {0, class_B, class_C, class_D}",
-            "@data",
-            "1,2,class_B",
-            "2,3,0"
-        ]
-
-        expected = [
-            ['1','2',(0,1,0,0)],
-            ['2','3',(1,0,0,0)]
-        ]
-        
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
-
-    def test_leading_and_trailing_comments(self):
-        lines = [
-            "%",
-            "%",
-            "@relation news20",
-            "@attribute a string",
-            "@attribute b string",
-            "@attribute c {0, class_B, class_C, class_D}",
-            "@data",
-            "1,2,class_B",
-            "2,3,0",
-            "%"
-        ]
-
-        expected = [
-            ['1','2',(0,1,0,0)],
-            ['2','3',(1,0,0,0)]
-        ]
-        
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
-
-    def test_headers_with_quotes_and_pct(self):
-        lines = [
-            "%",
-            "%",
-            "@relation news20",
-            "@attribute 'a%3' string",
-            "@attribute 'b%4' string",
-            "@attribute 'c%5' {0, class_B, class_C, class_D}",
-            "@data",
-            "1,2,class_B",
-            "2,3,0",
-            "%"
-        ]
-
-        expected = [
-            ['1','2',(0,1,0,0)],
-            ['2','3',(1,0,0,0)]
-        ]
-        
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
-
-class LibsvmReader_Tests(unittest.TestCase):
-    def test_sparse(self):
-        lines = [
-            "0 1:2 2:3",
-            "1 1:1 2:1",
-            "2 2:1",
-            "1 1:1",
-        ]
-
-        expected = [
-            {0:['0'], 1:2, 2:3},
-            {0:['1'], 1:1, 2:1},
-            {0:['2'], 2:1},
-            {0:['1'], 1:1}
-        ]
-        
-        self.assertEqual(expected, list(LibSvmReader().filter(lines)))
-
-    def test_trailing_whitespace(self):
-        lines = [
-            "0 1:2 2:3",
-            "1 1:1 2:1   ",
-            "2 2:1",
-            "1 1:1",
-        ]
-
-        expected = [
-            {0:['0'], 1:2, 2:3},
-            {0:['1'], 1:1, 2:1},
-            {0:['2'], 2:1},
-            {0:['1'], 1:1}
-        ]
-        
-        self.assertEqual(expected, list(LibSvmReader().filter(lines)))
 
 class Flatten_Tests(unittest.TestCase):
 
@@ -459,6 +248,10 @@ class Encode_Tests(unittest.TestCase):
     def test_dense_encode_onehot_with_header_and_extra_encoder(self):
         encode = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder(), 2:StringEncoder()})
         self.assertEqual([[(1,0,0),(1,0,0)],[(0,1,0),(0,1,0)],[(0,1,0),(0,0,1)]], list(encode.filter([[1,4], [2,5], [2,6]])))
+
+    def test_ignore_missing_value(self):
+        encode = Encode({0:OneHotEncoder([1,2,3]), 1:OneHotEncoder()}, missing_val="?")
+        self.assertEqual([[(1,0,0),'?'],[(0,1,0),(1,0)],[(0,1,0),(0,1)]], list(encode.filter([[1,'?'], [2,5], [2,6]])))
 
 class JsonEncode_Tests(unittest.TestCase):
     def test_bool_minified(self):

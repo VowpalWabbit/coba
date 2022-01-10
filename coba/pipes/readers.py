@@ -18,8 +18,12 @@ class ArffReader(Reader):
         https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
 
-    def __init__(self, skip_encoding: bool = False, **dialect):
+    def __init__(self, str_encode_cat=False, skip_encoding: bool = False, **dialect):
 
+        dialect = dict(quotechar="'", escapechar="\\", doublequote=False, skipinitialspace=True)
+        
+        self._str_enc_cat   = str_encode_cat 
+        self._csv_reader    = CsvReader(has_header=False,**dialect)
         self._skip_encoding = skip_encoding
 
         # Match a comment
@@ -39,8 +43,6 @@ class ArffReader(Reader):
 
         #The @data line indicates when the data begins. After @data there should be no more @ lines.
         self._r_data = re.compile(r'^@[Dd][Aa][Tt][Aa]')
-
-        self._dialect = dialect
 
     def filter(self, source: Iterable[str]) -> Iterable[MutableMap]:
         headers   : List[str    ] = []
@@ -69,18 +71,22 @@ class ArffReader(Reader):
                 headers.append(attribute_name.strip().strip('\'"').replace('\\',''))
                 encoders.append(self._determine_encoder(attribute_index,attribute_name,attribute_type))
 
+        #Remove empty lines and comments
+        data_lines = filter(None,(d.strip() for d in data_lines if not d.startswith("%")))
+
         try:
             first_line = next(data_lines)
         except StopIteration:
             return []
-        
+
         is_dense   = not (first_line.strip().startswith('{') and first_line.strip().endswith('}'))
 
         data_lines = chain([first_line], data_lines)
-        data_lines = filter(None,(d.strip('} {') for d in data_lines if not d.startswith("%")))
-
+        
+        #remove sparse brackets before parsing
+        data_lines = filter(None,(d.strip('} {') for d in data_lines))
         data_lines = self._parse(data_lines, headers, is_dense)
-        data_lines = data_lines if self._skip_encoding == True else Encode(dict(zip(count(),encoders))).filter(data_lines)
+        data_lines = data_lines if self._skip_encoding == True else Encode(dict(zip(count(),encoders)), missing_val='?').filter(data_lines)
 
         return data_lines
 
@@ -90,15 +96,18 @@ class ArffReader(Reader):
 
         if self._skip_encoding != False and (self._skip_encoding == True or index in self._skip_encoding or name in self._skip_encoding):
             return StringEncoder()
-
-        if is_numeric: return NumericEncoder()
-        if is_one_hot: return OneHotEncoder([v.strip() for v in tipe.strip("}{").split(',')])
+        
+        if is_numeric: 
+            return NumericEncoder()
+        
+        if is_one_hot and not self._str_enc_cat: 
+            return OneHotEncoder(list(self._csv_reader.filter([tipe.strip("}{")]))[0], err_if_unknown=True)
 
         return StringEncoder()
 
     def _parse(self, lines: Iterable[str], headers: Sequence[str], is_dense: bool) -> Iterable[Dict[int,str]]:
         
-        lines = CsvReader(has_header=False,**self._dialect).filter(lines)
+        lines = self._csv_reader.filter(lines)
 
         if is_dense:
             for line in lines:
@@ -106,7 +115,7 @@ class ArffReader(Reader):
         else:
             for line in lines:
                 to_pair = lambda k,v: (int(k),v)
-                pairing = [ to_pair(*l.split(' ', 1)) for l in line ]
+                pairing = [ to_pair(*l.strip().split(' ', 1)) for l in line ]
                 yield HeaderDict(pairing,headers)
 
 class CsvReader(Reader):
