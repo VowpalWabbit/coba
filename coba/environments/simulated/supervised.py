@@ -11,17 +11,6 @@ from coba.statistics import percentile
 
 from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
 
-#         #also a filter applied later???
-#         #take: int = None,
-
-#         # these can be a filter applied later
-#         # missing_val: str = "?",
-#         # missing_rep: Any = float('nan'),
-#         # drop_missing: bool = False
-
-#         #define function all labels to action subset
-#         #define function label,action to reward
-
 class SupervisedSimulation(SimulatedEnvironment):
 
     @overload
@@ -49,26 +38,28 @@ class SupervisedSimulation(SimulatedEnvironment):
             label_col  = args[2] if len(args) > 2 else kwargs.get("label_col", 0)
             label_type = args[3] if len(args) > 3 else kwargs.get("label_type", "C")
             take       = args[4] if len(args) > 4 else kwargs.get("take", None)
+            params     = {"super_source": args[0] if isinstance(args[0],str) else type(args[0]).__name__}
 
             if label_col is None:
-                source    = Pipe.join(source, [reader])
+                source = Pipe.join(source, [reader])
             else:
-                source    = Pipe.join(source, [reader, Structure((None,label_col))])
+                source = Pipe.join(source, [reader, Structure((None,label_col))])
         else:
             X          = args[0]
             Y          = args[1]
             label_type = args[2] if len(args) > 2 else kwargs.get("label_type", "C")
             take       = args[3] if len(args) > 3 else kwargs.get("take", None)
-            
             source     = IdentityIO(list(zip(X,Y)))
+            params     = {"super_source": "XY"}
 
         self._label_type = label_type
         self._source     = Pipe.join(source, [Reservoir(take)])
         self._take       = take
+        self._sup_params = {**params, "super_type": self._label_type, "super_take": self._take}
 
     @property
     def params(self) -> Dict[str,Any]:
-        return {"super_take": self._take, "super_type": self._label_type}
+        return {k:v for k,v in self._sup_params.items() if v is not None}
 
     def read(self) -> Iterable[SimulatedInteraction]:
         
@@ -112,36 +103,3 @@ class SupervisedSimulation(SimulatedEnvironment):
 
         for c,a,r in zip(contexts, repeat(actions), rewards):
             yield SimulatedInteraction(c,a,rewards=r)
-
-#         source  = self._get_source(source)
-#         reader  = self._get_reader(format)
-#         actions = self._get_actions()
-
-#         make reader passed in
-
-    # def _get_source(self, source: Union[str, Source[Iterable[str]], Sequence[str]]) -> Source[Iterable[str]]:
-        
-    #     if isinstance(source,str):
-    #         return DiskIO(source)
-        
-    #     if hasattr(source, "read"):
-    #         return source
-
-    #     return MemoryIO(list(source))
-
-    # def _get_reader(self, format: Literal["csv","arff","libsvm","manik"]) -> Filter[Iterable[str], Iterable[Any]]:
-
-    #     if format == "csv":
-    #         return CsvReader()
-        
-    #     if format == "arff":
-    #         return ArffReader()
-        
-    #     if format == "libsvm":
-    #         return LibSvmReader()
-
-    #     if format == "manik":
-    #         return ManikReader()
-
-    # def _get_actions(self, source, reader, format, label_col):
-    #     pass

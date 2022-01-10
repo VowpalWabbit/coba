@@ -28,12 +28,6 @@ class OpenmlSource(Source[Iterable[Tuple[Any,Any]]]):
             'tasks': f"openml_{id:0>6}_tasks",
         }
 
-    @property
-    def params(self) -> Dict[str, Any]:
-        """Paramaters describing the environment."""
-
-        return { "openml": self._data_id, "cat_as_str": self._cat_as_str, "openml_type": self._problem_type, }
-
     def read(self) -> Iterable[Tuple[Any, Any]]:
 
         try:
@@ -206,9 +200,6 @@ class OpenmlSource(Source[Iterable[Tuple[Any,Any]]]):
             CobaContext.cacher.release(key) #to make sure we don't get stuck in a race condition
             CobaContext.cacher.rmv(key)
 
-    def __str__(self) -> str:
-        return f'{{"OpenmlSource":{self._data_id}}}'
-
 class OpenmlSimulation(SupervisedSimulation):
     """A simulation created from openml data with features and labels.
 
@@ -232,12 +223,16 @@ class OpenmlSimulation(SupervisedSimulation):
 
         """
 
-        self._openml_source = OpenmlSource(id, label_type, cat_as_str)
-        super().__init__(self._openml_source, Identity(), None, label_type, take)
+        self._openml_params = { "openml": id, "cat_as_str": cat_as_str, "openml_type": label_type }
+        super().__init__(OpenmlSource(id, label_type, cat_as_str), Identity(), None, label_type, take)
 
     @property
     def params(self) -> Dict[str, Any]:
-        return {**super().params, **self._openml_source.params}
+        
+        super_params = super().params
+        super_params.pop("super_source")
+        
+        return {**super_params, **self._openml_params}
 
     def __str__(self) -> str:
         return f"Openml(id={self.params['openml']}, cat_as_str={self.params['cat_as_str']})"

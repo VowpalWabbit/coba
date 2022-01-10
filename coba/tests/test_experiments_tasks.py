@@ -4,7 +4,7 @@ import unittest.mock
 import importlib.util
 
 from coba.contexts     import LearnerContext
-from coba.environments import SimulatedInteraction, ClassificationSimulation, LoggedInteraction, FilteredEnvironment, Shuffle
+from coba.environments import SimulatedInteraction, LoggedInteraction, FilteredEnvironment, Shuffle, SupervisedSimulation
 from coba.learners     import Learner
 
 from coba.experiments.tasks import (
@@ -52,24 +52,23 @@ class SimpleEnvironmentTask_Tests(unittest.TestCase):
 
     def test_classification_statistics_dense(self):
 
-        env  = ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10)
+        env  = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
         task = SimpleEnvironmentTask()
 
-        self.assertEqual({'source':'ClassificationSimulation'}, task.process(env,env.read()))
+        self.assertEqual({'type': 'SupervisedSimulation', **env.params}, task.process(env,env.read()))
 
     def test_environment_pipe_statistics_dense(self):
 
-        env  = FilteredEnvironment(ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10), Shuffle(1))
+        env  = FilteredEnvironment(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10), Shuffle(1))
         task = SimpleEnvironmentTask()
 
-        self.assertEqual({'source':str(env._source), **env.params}, task.process(env,env.read()))
-
+        self.assertEqual({'type':'SupervisedSimulation', **env.params}, task.process(env,env.read()))
 
 class ClassEnvironmentTask_Tests(unittest.TestCase):
 
     def test_classification_statistics_dense_sans_sklearn(self):
         with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
-            simulation = ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10)
+            simulation = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
             row        = ClassEnvironmentTask().process(simulation,simulation.read())
 
             self.assertEqual(2, row["action_cardinality"])
@@ -85,7 +84,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
             c1 = [{"1":1, "2":2}, "A"]
             c2 = [{"1":3, "2":4}, "B"]
 
-            simulation = ClassificationSimulation([c1,c2]*10)
+            simulation = SupervisedSimulation(*zip(*[c1,c2]*10))
             row        = ClassEnvironmentTask().process(simulation,simulation.read())
 
             self.assertEqual(2, row["action_cardinality"])
@@ -101,7 +100,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
             c1 = [{"1":1, "2":2 }, "A" ]
             c2 = [{"1":3, "2":4 }, "B" ]
 
-            simulation = ClassificationSimulation([c1,c2]*10)
+            simulation = SupervisedSimulation(*zip(*[c1,c2]*10))
             row        = ClassEnvironmentTask().process(simulation,simulation.read())
 
             json.dumps(row)
@@ -109,7 +108,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
     @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_dense(self):
 
-        env = ClassificationSimulation([[[1,2],"A"],[[3,4],"B"]]*10)
+        env = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
         row = ClassEnvironmentTask().process(env,env.read())
 
         self.assertEqual(2, row["action_cardinality"])
@@ -126,7 +125,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         c1 = [{"1":1, "2":2}, "A"]
         c2 = [{"1":3, "2":4}, "B"]
 
-        env = ClassificationSimulation([c1,c2]*10)
+        env = SupervisedSimulation(*zip(*[c1,c2]*10))
         row = ClassEnvironmentTask().process(env,env.read())
 
         self.assertEqual(2, row["action_cardinality"])
@@ -142,7 +141,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         c1 = [{"1":1, "2":2 }, "A" ]
         c2 = [{"1":3, "2":4 }, "B" ]
 
-        env = ClassificationSimulation([c1,c2]*10)
+        env = SupervisedSimulation(*zip(*[c1,c2]*10))
         row = ClassEnvironmentTask().process(env,env.read())
 
         json.dumps(row)

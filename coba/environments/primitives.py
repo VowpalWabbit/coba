@@ -2,10 +2,10 @@ import collections.abc
 
 from numbers import Number
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Dict, Callable
+from typing import Any, Union, Iterable, Dict
 
 from coba.utilities import HashableDict
-from coba.pipes import Source, Filter, DiskIO, ListIO
+from coba.pipes import Source
 
 Action  = Union[str, Number, tuple, HashableDict]
 Context = Union[None, str, Number, tuple, HashableDict]
@@ -60,26 +60,3 @@ class Environment(Source[Iterable[Interaction]], ABC):
 
     def __str__(self) -> str:
         return str(self.params) if self.params else self.__class__.__name__
-
-class ReaderEnvironment(Environment):
-
-    def __init__(self,
-        source: Union[str,Source[Iterable[str]]],
-        reader: Filter[Iterable[str], Iterable[Any]],
-        inters: Filter[Iterable[Any], Iterable[Interaction]]) -> None:
-
-        self._source = DiskIO(source) if isinstance(source,str) else source
-        self._reader = reader
-        self._inters = inters
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        if isinstance(self._source,DiskIO):
-            return {"source": str(self._source._filename) }
-        elif isinstance(self._source, ListIO):
-            return {"source": 'memory' }
-        else:
-            return {"source": self._source.__class__.__name__}
-
-    def read(self) -> Iterable[Interaction]:
-        return self._inters.filter(self._reader.filter(self._source.read()))

@@ -1,4 +1,5 @@
 import unittest
+
 from coba.encodings import NumericEncoder, StringEncoder
 from coba.exceptions import CobaException
 
@@ -64,6 +65,12 @@ class LazyDense_Tests(unittest.TestCase):
     def test_insert_not_implemented(self):
         with self.assertRaises(NotImplementedError):
             LazyDense([1,2]).insert(0,1)
+
+    def test_str(self):
+        self.assertEqual('[1, 2, 3]', str(LazyDense([1,2,3])))
+
+    def test_repr(self):
+        self.assertEqual('[1, 2, 3]', LazyDense([1,2,3]).__repr__())
 
 class LazySparse_Tests(unittest.TestCase):
 
@@ -132,6 +139,12 @@ class LazySparse_Tests(unittest.TestCase):
 
         self.assertEqual('0', a['c'])
 
+    def test_str(self):
+        self.assertEqual("{'a': 2}", str(LazySparse({'a':2})))
+
+    def test_repr(self):
+        self.assertEqual("{'a': 2}", LazySparse({'a':2}).__repr__())
+
 class CsvReader_Tests(unittest.TestCase):
     def test_dense_with_header(self):
 
@@ -153,7 +166,7 @@ class CsvReader_Tests(unittest.TestCase):
 
 class ArffReader_Tests(unittest.TestCase):
 
-    def test_dense_sans_data(self):
+    def test_sans_data(self):
         lines = [
             "@relation news20",
             "@attribute a numeric",
@@ -165,6 +178,24 @@ class ArffReader_Tests(unittest.TestCase):
         expected = []
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_skip_encoding(self):
+        lines = [
+            "@relation news20",
+            "@attribute a numeric",
+            "@attribute B numeric",
+            "@attribute c {class_B, class_C, class_D}",
+            "@data",
+            "1,  2,  class_B",
+            "2,  3,  class_C",
+        ]
+
+        expected = [
+            ['1', '2', 'class_B'],
+            ['2', '3', 'class_C']
+        ]
+
+        self.assertEqual(expected, list(ArffReader(skip_encoding=True).filter(lines)))
 
     def test_dense_with_spaces_after_commas(self):
         lines = [
@@ -327,8 +358,6 @@ class ArffReader_Tests(unittest.TestCase):
         ]
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
-
-
 
     def test_sparse_with_empty_lines(self):
         lines = [

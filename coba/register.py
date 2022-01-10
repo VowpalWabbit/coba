@@ -1,7 +1,7 @@
 
 from coba.registry     import CobaRegistry
 from coba.pipes        import NullIO, ConsoleIO, DiskIO, ListIO
-from coba.environments import OpenmlSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation
+from coba.environments import OpenmlSimulation, SupervisedSimulation
 from coba.environments import Sort, Scale, Cycle, Shuffle, Take, Identity
 from coba.contexts     import DiskCacher, NullCacher, MemoryCacher, IndentLogger, NullLogger, BasicLogger
 
@@ -19,9 +19,6 @@ CobaRegistry.register("NullCacher"   , NullCacher  )
 CobaRegistry.register("MemoryCacher" , MemoryCacher)
 
 CobaRegistry.register("OpenmlSimulation", OpenmlSimulation)
-CobaRegistry.register("LibsvmSimulation", LibsvmSimulation)
-CobaRegistry.register("CsvSimulation"   , CsvSimulation   )
-CobaRegistry.register("ArffSimulation"  , ArffSimulation  )
 
 CobaRegistry.register("Identity", Identity)
 CobaRegistry.register("Take"    , Take    )

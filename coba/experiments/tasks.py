@@ -200,23 +200,11 @@ class SimpleEnvironmentTask(EnvironmentTask):
     """Describe an Environment using its Environment and Filter parameters."""
 
     def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
+            return {"type": self._source_name(environment), **environment.params }
 
-            source = self._source_repr(environment)
-            params = self._pipe_params(environment)
-
-            return {"source": source, **params}
-
-    def _source_repr(self, env) -> str:
-        if isinstance(env, FilteredEnvironment):
-            return str(env._source)
-        else:
-            return str(env)
-
-    def _pipe_params(self, env) -> Dict[str,Any]:
-        if isinstance(env, FilteredEnvironment):
-            return env.params
-        else:
-            return {}
+    def _source_name(self, env) -> str:
+        base_env = env._source if isinstance(env, FilteredEnvironment) else env
+        return type(base_env).__name__
 
 class ClassEnvironmentTask(EnvironmentTask):
     """Describe an Environment made from a Classification dataset.

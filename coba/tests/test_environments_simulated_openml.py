@@ -1284,9 +1284,6 @@ class OpenmlSource_Tests(unittest.TestCase):
             with self.assertRaises(CobaException) as e:
                 feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
 
-    def test_str(self):
-        self.assertEqual('{"OpenmlSource":42693}', str(OpenmlSource(42693)))
-
 class OpenmlSimulation_Tests(unittest.TestCase):
 
     @unittest.skip("While it is nice to test this functionality, in practice it is fairly slow.")

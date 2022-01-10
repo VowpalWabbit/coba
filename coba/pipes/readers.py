@@ -58,6 +58,12 @@ class LazyDense(collections.abc.MutableSequence):
     def __eq__(self, __o: object) -> bool:
         return list(self).__eq__(__o)
 
+    def __repr__(self) -> str:
+        return str(list(self))
+
+    def __str__(self) -> str:
+        return str(list(self))
+
 class LazySparse(collections.abc.MutableMapping):
     
     def __init__(self, items: Dict[Any,str], headers: Dict[str,Any] = {}, encoders: Dict[Any,Encoder] = {}, modifiers: Sequence[str] = []) -> None:
@@ -110,6 +116,12 @@ class LazySparse(collections.abc.MutableMapping):
 
     def __eq__(self, __o: object) -> bool:
         return dict(self.items()).__eq__(__o)
+
+    def __repr__(self) -> str:
+        return str(dict(self))
+
+    def __str__(self) -> str:
+        return str(dict(self))
 
 class Reader(Filter[Iterable[str], Iterable[MutableMap]]):
     pass
@@ -195,6 +207,9 @@ class ArffReader(Reader):
                     new_encoders.append(e)
             encoders = new_encoders
 
+        if self._skip_encoding:
+            encoders = []
+
         #remove sparse brackets before parsing
         data_lines = filter(None,(d.strip('} {') for d in data_lines))
         data_lines = self._parse(data_lines, headers, is_dense, encoders)
@@ -205,9 +220,6 @@ class ArffReader(Reader):
         is_numeric = tipe in ['numeric', 'integer', 'real']
         is_one_hot = '{' in tipe
 
-        if self._skip_encoding != False and (self._skip_encoding == True or index in self._skip_encoding or name in self._skip_encoding):
-            return StringEncoder()
-        
         if is_numeric: 
             return NumericEncoder()
         
