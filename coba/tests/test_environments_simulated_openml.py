@@ -77,11 +77,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -93,7 +93,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -106,7 +106,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_tasks = {
             "tasks":{
                 "task":[
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"play"}]}, 
                     { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]
             }
@@ -117,22 +117,22 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+        features,labels = list(zip(*OpenmlSource(42693).read()))
 
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
+        self.assertEqual(len(features), 5)
+        self.assertEqual(len(labels), 5)
 
-        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, (1,0)], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+        self.assertEqual([8.1, 27, 1410, (1,0)], features[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], features[1])
+        self.assertEqual([8.2, 28, 1410, (1,0)], features[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], features[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], features[4])
 
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((0,1), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
+        self.assertEqual((1,0), labels[0])
+        self.assertEqual((1,0), labels[1])
+        self.assertEqual((0,1), labels[2])
+        self.assertEqual((0,1), labels[3])
+        self.assertEqual((0,1), labels[4])
 
     def test_dataset_deactivated(self):
 
@@ -157,76 +157,6 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         self.assertTrue("has been deactivated" in str(e.exception))
 
-    def test_classification_type_classification_dataset_take_2(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "upload_date":"2020-10-01T20:47:23",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set_arff = """
-            @relation weather
-            
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {yes, no}
-            
-            @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, take=2).read()))
-
-        self.assertEqual(len(feature_rows), 2)
-        self.assertEqual(len(label_col), 2)
-
-        self.assertEqual([8.2, 28, 1410, (1,)], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, (1,)], feature_rows[1])
-
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((0,1), label_col[1])
-
     def test_classification_type_classification_dataset_with_missing_values(self):
 
         data_set_description = {
@@ -245,11 +175,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -261,7 +191,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             ?,27,1410,2,no
@@ -274,7 +204,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_tasks = {
             "tasks":{
                 "task":[
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"play"}]}, 
                     { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]
             }
@@ -316,11 +246,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -332,7 +262,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -345,7 +275,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_tasks = {
             "tasks":{
                 "task":[
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"play"}]}, 
                     { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]
             }
@@ -391,11 +321,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"true","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -407,7 +337,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -420,7 +350,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_tasks = {
             "tasks":{
                 "task":[
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":338754, "task_type_id":2, "status":"active", "input": [{"name":"target_feature", "value":"pH"}]}, 
                     { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]
             }
@@ -466,11 +396,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -513,11 +443,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -558,11 +488,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -596,11 +526,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -612,7 +542,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -671,11 +601,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"true" ,"is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"true" ,"is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -687,7 +617,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -746,11 +676,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"numeric"                             ,"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -762,7 +692,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -821,11 +751,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -837,7 +767,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -894,17 +824,17 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"att_1","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"att_2","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"att_3","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"att_4","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"att_5","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"5","name":"att_6","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"6","name":"att_7","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"7","name":"att_8","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"8","name":"att_9","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"9","name":"att_10","data_type":"numeric","is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_target":"true","is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
+                    {"index":"0","name":"att_1","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"att_2","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"att_3","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"att_4","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"att_5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"att_6","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"att_7","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"att_8","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"att_9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"att_10","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
                 ]
             }
         }
@@ -922,10 +852,10 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute att_8 numeric
             @attribute att_9 numeric
             @attribute att_10 numeric
-            @attribute class {A, B, C, D}
+            @attribute class {B, C, D}
             
             @data
-            {0 2,1 3,10 A}
+            {0 2,1 3}
             {2 1,3 1,4 1,6 1,8 1,10 B}
             {0 3,1 1,2 1,3 9,4 1,5 1,6 1,10 C}
             {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
@@ -934,7 +864,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_tasks = {
             "tasks":{
                 "task":[
-                    { "task_id":338754, "task_type_id":5, "task_type":"Clustering", "status":"active" }, 
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"class"}]}, 
                     { "task_id":359909, "task_type_id":5, "task_type":"Clustering", "status":"active" }
                 ]
             }
@@ -978,18 +908,30 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
 
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"class"}]}, 
+                    { "task_id":359909, "task_type_id":5, "task_type":"Clustering", "status":"active" }
+                ]
+            }
+        }
+
+        CobaContext.cacher = ExceptionCacher('openml_042693_arff', Exception())
+
         CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
         CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , b"bad data" )
+        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff' , b"" )
 
         with self.assertRaises(Exception) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
@@ -1016,11 +958,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -1032,7 +974,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -1045,7 +987,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_tasks = {
             "tasks": {
                 "task": [
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"class"}]}, 
                     { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]
             }
@@ -1083,11 +1025,11 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -1099,7 +1041,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -1112,7 +1054,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_tasks = {
             "tasks":{
                 "task":[
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"class"}]}, 
                     { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]
             }
@@ -1131,71 +1073,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertNotIn('openml_042693_descr', CobaContext.cacher)
         self.assertNotIn('openml_042693_feats', CobaContext.cacher)
         self.assertNotIn('openml_042693_arff' , CobaContext.cacher)
-
-    def test_tasks_not_loaded_when_not_needed(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set = """
-            @relation weather
-            
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {yes, no}
-            
-            @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
-
-        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
-
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
-
-        self.assertEqual([8.1, 27.0, 1410.0, (1,0)], feature_rows[0])
-        self.assertEqual([8.2, 29.0, 1180.0, (1,0)], feature_rows[1])
-        self.assertEqual([8.2, 28.0, 1410.0, (1,0)], feature_rows[2])
-        self.assertEqual([8.3, 27.0, 1020.0, (0,1)], feature_rows[3])
-        self.assertEqual([7.6, 23.0, 4700.0, (0,1)], feature_rows[4])
-
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((0,1), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
 
     def test_arff_classification_type_classification_dataset_from_http_with_sparse_csv_cache(self):
 
@@ -1225,11 +1102,20 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"play"}]}, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]
             }
         }
@@ -1241,7 +1127,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -1258,6 +1144,9 @@ class OpenmlSource_Tests(unittest.TestCase):
 
             if args[0] == 'https://www.openml.org/api/v1/json/data/features/42693':
                 return MockResponse(200, "", json.dumps(data_set_features).encode().splitlines())
+
+            if args[0] == 'https://www.openml.org/api/v1/json/task/list/data_id/42693':
+                return MockResponse(200, "", json.dumps(data_set_tasks).encode().splitlines())
 
             if args[0] == 'https://www.openml.org/data/v1/download/22044555':
                 return MockResponse(200, "", data_set_arff.encode().splitlines())
@@ -1285,7 +1174,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertIn   ('openml_042693_descr', CobaContext.cacher)
         self.assertIn   ('openml_042693_feats', CobaContext.cacher)
         self.assertIn   ('openml_042693_arff' , CobaContext.cacher)
-        self.assertNotIn('openml_042693_csv' , CobaContext.cacher)
+        self.assertNotIn('openml_042693_csv'  , CobaContext.cacher)
 
     def test_read_twice_http_request_put_once_cache_once(self):
 
@@ -1305,11 +1194,20 @@ class OpenmlSource_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"true" ,"is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set_tasks = {
+            "tasks":{
+                "task":[
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"play"}]}, 
+                    { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]
             }
         }
@@ -1321,7 +1219,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -1332,9 +1230,10 @@ class OpenmlSource_Tests(unittest.TestCase):
         """
    
         request_dict = {
-            'https://www.openml.org/api/v1/json/data/42693': MockResponse(200, "", json.dumps(data_set_description).encode().splitlines()),
-            'https://www.openml.org/api/v1/json/data/features/42693': MockResponse(200, "", json.dumps(data_set_features).encode().splitlines()),
-            'https://www.openml.org/data/v1/download/22044555': MockResponse(200, "", data_set_arff.encode().splitlines())
+            'https://www.openml.org/api/v1/json/data/42693'             : MockResponse(200, "", json.dumps(data_set_description).encode().splitlines()),
+            'https://www.openml.org/api/v1/json/data/features/42693'    : MockResponse(200, "", json.dumps(data_set_features).encode().splitlines()),
+            'https://www.openml.org/data/v1/download/22044555'          : MockResponse(200, "", data_set_arff.encode().splitlines()),
+            'https://www.openml.org/api/v1/json/task/list/data_id/42693': MockResponse(200, "", json.dumps(data_set_tasks).encode().splitlines())
         }
 
         def mocked_requests_get(*args, **kwargs):
@@ -1437,11 +1336,11 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"true","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -1453,7 +1352,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -1464,7 +1363,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         data_set_tasks = {
             "tasks":{
                 "task":[
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
                     { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]
             }
@@ -1475,7 +1374,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        interactions = list(OpenmlSimulation(42693, cat_as_str=True, simulation_type="classification").read())
+        interactions = list(OpenmlSimulation(42693, cat_as_str=True, label_type="C").read())
 
         self.assertEqual(len(interactions), 3)
 
@@ -1519,11 +1418,11 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         data_set_features = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric"                             ,"is_target":"true","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric"                             ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","nominal_value":["1","2"]   ,"is_target":"false","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","nominal_value":["no","yes"],"is_target":"false","is_ignore":"false","is_row_identifier":"false"}
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
@@ -1535,7 +1434,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {no, yes}
             
             @data
             8.1,27,1410,2,no
@@ -1546,7 +1445,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         data_set_tasks = {
             "tasks":{
                 "task":[
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
+                    { "task_id":338754, "task_type_id":2, "status":"active", "input": [{"name":"target_feature", "value":"pH"}]}, 
                     { "task_id":359909, "task_type_id":5, "status":"active" } 
                 ]
             }
@@ -1557,7 +1456,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        interactions = list(OpenmlSimulation(42693, simulation_type="regression").read())
+        interactions = list(OpenmlSimulation(42693, label_type="R").read())
 
         self.assertEqual(len(interactions), 3)
 
@@ -1571,16 +1470,16 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual((29,1180,(1,0),(1,0)), interactions[1].context)
         self.assertEqual((27,1020,(0,1),(0,1)), interactions[2].context)
         
-        self.assertEqual([8.1, 8.3, 8.2], interactions[0].actions)
-        self.assertEqual([8.1, 8.3, 8.2], interactions[1].actions)
-        self.assertEqual([8.1, 8.3, 8.2], interactions[2].actions)
+        self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[0].actions)
+        self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[1].actions)
+        self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[2].actions)
 
-        self.assertEqual([0,-.2,-.1], [ round(r,2) for r in interactions[0].kwargs["rewards"]])
-        self.assertEqual([-.1,-.1,0], [ round(r,2) for r in interactions[1].kwargs["rewards"]])
-        self.assertEqual([-.2,0,-.1], [ round(r,2) for r in interactions[2].kwargs["rewards"]])
+        self.assertEqual([0 ,  1, .5], [ round(r,2) for r in interactions[0].kwargs["rewards"]])
+        self.assertEqual([.5, .5,  1], [ round(r,2) for r in interactions[1].kwargs["rewards"]])
+        self.assertEqual([1 ,  0, .5], [ round(r,2) for r in interactions[2].kwargs["rewards"]])
 
     def test_str(self):
-        self.assertEqual('OpenmlSimulation(id=150, cat_as_str=False, take=None)', str(OpenmlSimulation(150)))
+        self.assertEqual('Openml(id=150, cat_as_str=False)', str(OpenmlSimulation(150)))
 
 if __name__ == '__main__':
     unittest.main()

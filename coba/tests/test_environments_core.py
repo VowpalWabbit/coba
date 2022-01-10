@@ -75,26 +75,29 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2  , env[0].params['seed'])
 
     def test_from_openml_single(self):
-        env = Environments.from_openml(100,100,True,'regression')
+        env = Environments.from_openml(100,100,'R',True)
 
-        self.assertEqual(1           , len(env))
-        self.assertEqual(100         , env[0].params['openml'])
-        self.assertEqual(True        , env[0].params['cat_as_str'])
-        self.assertEqual('regression', env[0].params['openml_type'])
-        self.assertEqual(100         , env[0].params['openml_take'])
+        self.assertEqual(1   , len(env))
+        self.assertEqual(100 , env[0].params['openml'])
+        self.assertEqual(True, env[0].params['cat_as_str'])
+        self.assertEqual('R' , env[0].params['openml_type'])
+        self.assertEqual('R' , env[0].params['super_type'])
+        self.assertEqual(100 , env[0].params['super_take'])
 
     def test_from_openml_multi(self):
-        env = Environments.from_openml([100,200],100,True,'regression')
+        env = Environments.from_openml([100,200],100,'R',True)
 
-        self.assertEqual(2           , len(env))
-        self.assertEqual(100         , env[0].params['openml'])
-        self.assertEqual(True        , env[0].params['cat_as_str'])
-        self.assertEqual('regression', env[0].params['openml_type'])
-        self.assertEqual(100         , env[0].params['openml_take'])
-        self.assertEqual(200         , env[1].params['openml'])
-        self.assertEqual(True        , env[1].params['cat_as_str'])
-        self.assertEqual('regression', env[1].params['openml_type'])
-        self.assertEqual(100         , env[1].params['openml_take'])
+        self.assertEqual(2   , len(env))
+        self.assertEqual(100 , env[0].params['openml'])
+        self.assertEqual(True, env[0].params['cat_as_str'])
+        self.assertEqual('R' , env[0].params['openml_type'])
+        self.assertEqual('R' , env[0].params['super_type'])
+        self.assertEqual(100 , env[0].params['super_take'])
+        self.assertEqual(200 , env[1].params['openml'])
+        self.assertEqual(True, env[1].params['cat_as_str'])
+        self.assertEqual('R' , env[1].params['openml_type'])
+        self.assertEqual('R' , env[1].params['super_type'])
+        self.assertEqual(100 , env[1].params['super_take'])
 
     def test_init_args(self):
         env = Environments(TestEnvironment('A'), TestEnvironment('B'))

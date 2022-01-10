@@ -5,11 +5,10 @@ from typing import Dict, Any, Iterable, Union, Sequence, overload
 from coba.backports import Literal
 from coba.pipes.filters import Reservoir, Structure
 
-from coba.random import CobaRandom
 from coba.pipes import Source, CsvReader, ArffReader, LibSvmReader, ManikReader, Reader, CsvReader, DiskIO, IdentityIO, Pipe
 
 from coba.environments.primitives import ReaderEnvironment
-from coba.environments.simulated.primitives import SupervisedToSimulation, SimulatedEnvironment, SimulatedInteraction
+from coba.environments.simulated.primitives import SupervisedToSimulation
 
 class CsvSimulation(ReaderEnvironment):
     """Create a SimulatedEnvironment from a supervised CSV dataset."""
@@ -82,4 +81,3 @@ class ManikSimulation(ReaderEnvironment):
     @property
     def params(self) -> Dict[str, Any]:
         return { "manik": super().params["source"] }
-

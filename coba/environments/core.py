@@ -81,8 +81,8 @@ class Environments:
     def from_openml(
         openml_ids: Union[int, Sequence[int]], 
         take: int = None,
-        cat_as_str:bool = False,
-        type: Literal["classification", "regression"] = "classification") -> 'Environments':
+        type: Literal["C", "R"] = "C",
+        cat_as_str:bool = False) -> 'Environments':
         """Create a SimulatedEnvironment from datasets available on openml."""
 
         if isinstance(openml_ids, int): openml_ids = [openml_ids]

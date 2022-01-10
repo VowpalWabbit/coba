@@ -113,16 +113,13 @@ class Resevoir_Tests(unittest.TestCase):
         self.assertLess(0, take_items[1])
 
     def test_take_none_seed(self):
-        take_items = list(Reservoir(None,seed=1).filter(range(10)))
-        self.assertEqual(10, len(take_items))
+        self.assertEqual(list(range(10)), list(Reservoir(None,seed=1).filter(range(10))))
 
     def test_take_0_seed(self):
-        take_items = list(Reservoir(0,seed=1).filter(range(10)))
-        self.assertEqual(0, len(take_items))
+        self.assertEqual(0, len(list(Reservoir(0,seed=1).filter(range(10)))))
 
     def test_take_10_has_5(self):
-        take_items = list(Reservoir(10,seed=1).filter(range(5)))
-        self.assertEqual(0, len(take_items))
+        self.assertEqual(0, len(list(Reservoir(10,seed=1).filter(range(5)))))
 
 class Flatten_Tests(unittest.TestCase):
 

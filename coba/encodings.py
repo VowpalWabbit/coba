@@ -98,6 +98,26 @@ class IdentityEncoder(Encoder[Any]):
     def encodes(self, values: Sequence[Any]) -> Sequence[Any]:
         return values
 
+class MissingEncoder(Encoder[Any]):
+
+    def __init__(self, encoder:Encoder = IdentityEncoder(), missing_vals: Sequence[Any] = ["?",""], missing_rep: Any = None) -> None:
+        self._encoder      = encoder
+        self._missing_vals = missing_vals
+        self._missing_rep  = missing_rep
+
+    @property
+    def is_fit(self) -> bool:
+        return True
+
+    def fit(self, values: Sequence[Any]) -> 'Encoder':
+        return self
+
+    def encode(self, value: Any) -> Any:
+        return self._missing_rep if value in self._missing_vals else self._encoder.encode(value)
+
+    def encodes(self, values: Sequence[Any]) -> Sequence[Any]:
+        return [ self.encode(v) for v in values ]
+
 class StringEncoder(Encoder[str]):
     """An Encoder implementation that turns incoming values into string values."""
 

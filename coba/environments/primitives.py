@@ -1,3 +1,5 @@
+import collections.abc
+
 from numbers import Number
 from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Dict, Callable
@@ -22,14 +24,14 @@ class Interaction:
     @property
     def context(self) -> Context:
         """The context in which the interaction occured."""
-        return self._context
+        return self._hashable(self._context)
 
     def _hashable(self, feats):
 
-        if isinstance(feats, dict):
+        if isinstance(feats, collections.abc.Mapping):
             return HashableDict(feats)
 
-        if isinstance(feats,list):
+        if isinstance(feats,collections.abc.Sequence) and not isinstance(feats,str):
             return tuple(feats)
 
         return feats

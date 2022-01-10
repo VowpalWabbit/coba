@@ -1,7 +1,12 @@
 import unittest
 import math
 
-from coba.encodings import IdentityEncoder, StringEncoder, NumericEncoder, OneHotEncoder, FactorEncoder, InteractionsEncoder
+from coba.encodings import( 
+    IdentityEncoder, StringEncoder, NumericEncoder, 
+    OneHotEncoder, FactorEncoder, InteractionsEncoder,
+    MissingEncoder
+)
+
 from coba.exceptions import CobaException
 
 class IdentityEncoder_Tests(unittest.TestCase):
@@ -20,6 +25,23 @@ class IdentityEncoder_Tests(unittest.TestCase):
 
     def test_fit_encodes(self):
         self.assertEqual([1, "2", 3.23, None], IdentityEncoder().fit_encodes([1, "2", 3.23, None]))
+
+class MissingEncoder_Tests(unittest.TestCase):
+
+    def test_fit(self):
+        MissingEncoder().fit([1,2,3])
+
+    def test_is_fit(self):
+        self.assertTrue(MissingEncoder().is_fit)
+
+    def test_encode(self):
+        self.assertEqual("", MissingEncoder(missing_rep='').encode("?"))
+
+    def test_encodes(self):
+        self.assertEqual([1, "", 3.23, None], MissingEncoder(missing_rep='').encodes([1, "?", 3.23, None]))
+
+    def test_fit_encodes(self):
+        self.assertEqual([1, "", 3.23, None], MissingEncoder(missing_rep='').fit_encodes([1, "?", 3.23, None]))
 
 class StringEncoder_Tests(unittest.TestCase):
 

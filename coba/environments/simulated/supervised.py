@@ -3,11 +3,10 @@ import collections.abc
 from itertools import chain, repeat
 from typing import Any, Iterable, Union, Sequence, overload, Dict
 from coba.backports import Literal
-from coba.encodings import OneHotEncoder
-from coba.pipes.filters import Reservoir, Structure
 
+from coba.encodings import OneHotEncoder
 from coba.random import CobaRandom
-from coba.pipes import Source, CsvReader, Reader, DiskIO, IdentityIO, Pipe
+from coba.pipes import Source, CsvReader, Reader, DiskIO, IdentityIO, Pipe, Reservoir, Structure
 from coba.statistics import percentile
 
 from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
@@ -27,7 +26,7 @@ class SupervisedSimulation(SimulatedEnvironment):
 
     @overload
     def __init__(self,
-        source: Union[str, Source[Iterable[str]]], 
+        source: Union[str, Source[Any]],
         reader: Reader = CsvReader(), 
         label_col: Union[int,str] = 0,
         label_type: Literal["C","R"] = "C",
@@ -38,11 +37,12 @@ class SupervisedSimulation(SimulatedEnvironment):
     def __init__(self,
         X: Sequence[Any],
         Y: Sequence[Any],
-        label_type: Literal["C","R"] = "C") -> None:
+        label_type: Literal["C","R"] = "C",
+        take: int = None) -> None:
         ...
 
     def __init__(self, *args, **kwargs) -> None:
-        
+
         if isinstance(args[0],str) or hasattr(args[0], 'read'):
             source     = DiskIO(args[0]) if isinstance(args[0],str) else args[0]
             reader     = args[1] if len(args) > 1 else kwargs.get('reader', CsvReader())
@@ -50,30 +50,40 @@ class SupervisedSimulation(SimulatedEnvironment):
             label_type = args[3] if len(args) > 3 else kwargs.get("label_type", "C")
             take       = args[4] if len(args) > 4 else kwargs.get("take", None)
 
-            self._source     = Pipe.join(source, [reader, Reservoir(take), Structure((None,label_col))])
-            self._label_type = label_type
-
+            if label_col is None:
+                source    = Pipe.join(source, [reader])
+            else:
+                source    = Pipe.join(source, [reader, Structure((None,label_col))])
         else:
             X          = args[0]
             Y          = args[1]
             label_type = args[2] if len(args) > 2 else kwargs.get("label_type", "C")
+            take       = args[3] if len(args) > 3 else kwargs.get("take", None)
+            
+            source     = IdentityIO(list(zip(X,Y)))
 
-            self._source = IdentityIO(list(zip(X,Y)))
-            self._label_type = label_type
+        self._label_type = label_type
+        self._source     = Pipe.join(source, [Reservoir(take)])
+        self._take       = take
 
     @property
     def params(self) -> Dict[str,Any]:
-        return {}
+        return {"super_take": self._take, "super_type": self._label_type}
 
     def read(self) -> Iterable[SimulatedInteraction]:
-        features,labels = zip(*self._source.read())
+        
+        items = list(self._source.read())
+
+        if not items: return []
+
+        features,labels = zip(*items)
 
         if self._label_type == "R":
             max_n_actions = 10
 
             #Scale the labels so their range is 1.
             min_l, max_l = min(labels), max(labels)
-            labels = [float(l)/(max_l-min_l) for l in labels]
+            labels = [float(l)/(max_l-min_l)-(min_l/(max_l-min_l)) for l in labels]
 
             if len(labels) <= max_n_actions:
                 actions = labels

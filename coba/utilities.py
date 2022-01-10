@@ -1,5 +1,6 @@
 import warnings
 import importlib
+import collections.abc
 
 from itertools import count
 from collections import defaultdict
@@ -121,44 +122,3 @@ class KeyDefaultDict(defaultdict):
             value = self.default_factory(key)
             self[key] = value
             return value
-
-class HeaderList(list):
-    def __init__(self, values: Sequence[Any], headers: Sequence[str]) -> None:
-        self._headers = dict(zip(headers,count()))
-        return super().__init__(values)
-
-    def __getitem__(self, index: Union[str,int]) -> Any:
-        return super().__getitem__(self._headers.get(index,index))
-
-    def __setitem__(self, index: Union[str,int], value: Any) -> None:
-        super().__setitem__(self._headers.get(index,index), value)
-
-    def pop(self, index: Union[str,int]) -> Any:
-        index = self._headers.pop(index,index)
-        for k,v in self._headers.items():
-            if v > index:
-                self._headers[k] = v-1
-        return super().pop(index)
-
-class HeaderDict(dict):
-
-    def __init__(self, values, headers: Sequence[str]) -> None:
-        self._headers = dict(zip(headers,count()))
-        return super().__init__(values)
-
-    def __contains__(self, key: Union[str,int]) -> bool:
-        return super().__contains__(self._headers.get(key,key))
-
-    def __getitem__(self, key: Union[str,int]) -> Any:
-        return super().__getitem__(self._headers.get(key,key))
-
-    def __setitem__(self, index: Union[str,int], value: Any) -> None:
-        super().__setitem__(self._headers.get(index,index), value)
-
-    def get(self, *args) -> Any:
-        index = self._headers.get(args[0],args[0])
-        return super().get(*(index, *args[1:]))
-
-    def pop(self, *args) -> Any:
-        index = self._headers.pop(args[0],args[0])
-        return super().pop(*(index, *args[1:]))

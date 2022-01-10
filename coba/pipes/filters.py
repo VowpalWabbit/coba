@@ -1,5 +1,6 @@
 import json
 import math
+import collections.abc
 
 from collections import defaultdict
 from itertools import islice, chain
@@ -81,28 +82,31 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
 
     def filter(self, items: Iterable[Any]) -> Sequence[Any]:
 
+        if self._count is None:
+            return items
+
+        if self._count == 0:
+            return []
+
         items     = iter(items)
         reservoir = list(islice(items,self._count))
 
-        this_count = len(reservoir) if self._count is None else self._count
-
-        if this_count == 0:
+        if len(reservoir) < self._count:
             return []
 
-        if self._seed is not None:
-            rng = CobaRandom(self._seed)
-            W = 1
+        rng = CobaRandom(self._seed)
+        W = 1
 
-            try:
-                while True:
-                    [r1,r2,r3] = rng.randoms(3)
-                    W = W * math.exp(math.log(r1)/this_count)
-                    S = math.floor(math.log(r2)/math.log(1-W))
-                    reservoir[int(r3*this_count-.001)] = next(islice(items,S,S+1))
-            except StopIteration:
-                pass
+        try:
+            while True:
+                [r1,r2,r3] = rng.randoms(3)
+                W = W * math.exp(math.log(r1)/self._count)
+                S = math.floor(math.log(r2)/math.log(1-W))
+                reservoir[int(r3*self._count-.001)] = next(islice(items,S,S+1))
+        except StopIteration:
+            pass
 
-        return reservoir if len(reservoir) == self._count or self._count is None else []
+        return reservoir
 
 class JsonEncode(Filter[Any, str]):
  
@@ -268,7 +272,10 @@ class Structure(Filter[Iterable[MutableMap], Iterable[Any]]):
             return tuple([ self._structure_row(row, k) for k in col_structure ])
 
         else:
-            return row.pop(col_structure)
+            if isinstance(row, collections.abc.Mapping):
+                return row.pop(col_structure,0)
+            else:
+                return row.pop(col_structure)
 
 class Default(Filter[Iterable[MutableMap], Iterable[MutableMap]]):
 
