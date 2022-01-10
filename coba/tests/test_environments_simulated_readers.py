@@ -178,5 +178,7 @@ class ManikSimulation_Tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual({'manik':'coba/tests/.temp/sim.csv'}, ManikSimulation('coba/tests/.temp/sim.csv').params)
 
+
+
 if __name__ == '__main__':
     unittest.main()

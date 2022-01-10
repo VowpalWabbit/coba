@@ -172,9 +172,10 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
                         row.update([((k,i), v) for i,v in enumerate(row.pop(k))])
 
             elif isinstance(row,list):
-                for k in range(len(row)):
+                for k in reversed(range(len(row))):
                     if isinstance(row[k],(list,tuple)):
-                        row.extend(row.pop(k))
+                        for v in reversed(row.pop(k)):
+                            row.insert(k,v) 
 
             else:
                 raise CobaException(f"Unrecognized type ({type(row).__name__}) passed to Flattens.")
@@ -254,14 +255,17 @@ class Structure(Filter[Iterable[MutableMap], Iterable[Any]]):
 
     def filter(self, data: Iterable[MutableMap]) -> Iterable[Any]:
         for row in data:
-           yield self._structure_row(row, self._col_structure) 
+            yield self._structure_row(row, self._col_structure)
 
     def _structure_row(self, row: MutableMap, col_structure: Sequence[Any]):
         if col_structure is None:
             return row
 
-        elif isinstance(col_structure,(list,tuple)):
+        elif isinstance(col_structure,list):            
             return [ self._structure_row(row, k) for k in col_structure ]
+
+        elif isinstance(col_structure,tuple):
+            return tuple([ self._structure_row(row, k) for k in col_structure ])
 
         else:
             return row.pop(col_structure)

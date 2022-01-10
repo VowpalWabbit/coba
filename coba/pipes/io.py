@@ -130,3 +130,14 @@ class HttpIO(IO[requests.Response, Any]):
 
     def write(self, item: Any) -> None:
         raise NotImplementedError()
+
+class IdentityIO(IO[_T,_T], Generic[_T]):
+
+    def __init__(self, item: _T = None):
+        self.item = item
+
+    def read(self) -> _T:
+        return self.item
+
+    def write(self, item: _T) -> None:
+        self.item = item

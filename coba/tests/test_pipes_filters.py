@@ -337,7 +337,7 @@ class LibsvmReader_Tests(unittest.TestCase):
 
 class Flatten_Tests(unittest.TestCase):
 
-    def test_dense_numeric_row_flatten(self):
+    def test_dense_numeric_row_flatten_1(self):
 
         given_row0 = [1,2,3]
         given_row1 = [4,5,6]
@@ -350,13 +350,27 @@ class Flatten_Tests(unittest.TestCase):
 
         self.assertEqual( expected, list(Flatten().filter(given)) )
 
+    def test_dense_numeric_row_flatten_2(self):
+
+        given_row0 = [[1],2,3]
+        given_row1 = [[4],5,6]
+
+        expected_row0 = [1,2,3]
+        expected_row1 = [4,5,6]
+
+        given    = [given_row0, given_row1]
+        expected = [expected_row0, expected_row1]
+
+        self.assertEqual( expected, list(Flatten().filter(given)) )
+
+
     def test_dense_onehot_row_flatten(self):
 
         given_row0 = [(0,1), 1]
         given_row1 = [(1,0), 2]
 
-        expected_row0 = [1, 0, 1]
-        expected_row1 = [2, 1, 0]
+        expected_row0 = [0, 1, 1]
+        expected_row1 = [1, 0, 2]
 
         given    = [given_row0   , given_row1   ]
         expected = [expected_row0, expected_row1]
@@ -480,7 +494,7 @@ class JsonEncode_Tests(unittest.TestCase):
 
 class Structures_Tests(unittest.TestCase):
 
-    def test_dense_numeric_row_structure(self):
+    def test_dense_numeric_row_list_structure(self):
 
         given_row0 = [1,2,3]
         given_row1 = [4,5,6]
@@ -492,6 +506,34 @@ class Structures_Tests(unittest.TestCase):
         expected = [expected_row0, expected_row1]
 
         self.assertEqual(expected, list(Structure([None, 2]).filter(given)) )
+
+    def test_dense_numeric_row_tuple_structure(self):
+
+        given_row0 = [1,2,3]
+        given_row1 = [4,5,6]
+
+        expected_row0 = ([1,2], 3)
+        expected_row1 = ([4,5], 6)
+
+        given    = [given_row0, given_row1]
+        expected = [expected_row0, expected_row1]
+
+        self.assertEqual(expected, list(Structure((None, 2)).filter(given)) )
+
+
+    def test_dense_numeric_row_value_structure(self):
+
+        given_row0 = [1,2,3]
+        given_row1 = [4,5,6]
+
+        expected_row0 = 3
+        expected_row1 = 6
+
+        given    = [given_row0, given_row1]
+        expected = [expected_row0, expected_row1]
+
+        self.assertEqual(expected, list(Structure(2).filter(given)) )
+
 
     def test_sparse_numeric_row_structure(self):
 

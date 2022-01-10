@@ -10,23 +10,17 @@ class iqr_Tests(unittest.TestCase):
         self.assertEqual(1, iqr([1,2,3]))
 
 class percentile_Tests(unittest.TestCase):
-    def test_simple_sort_true_0_00(self):
-        self.assertEqual(1, percentile([3,2,1], 0, True))
+    def test_simple_0_00(self):
+        self.assertEqual(1, percentile([3,2,1], 0))
 
-    def test_simple_sort_true_1_00(self):
-        self.assertEqual(3, percentile([3,2,1], 1, True))
+    def test_simple_1_00(self):
+        self.assertEqual(3, percentile([3,2,1], 1))
 
-    def test_simple_sort_true_0_50(self):
-        self.assertEqual(2, percentile([3,2,1], .5, True))
+    def test_simple_0_50(self):
+        self.assertEqual(2, percentile([3,2,1], .5))
 
-    def test_simple_sort_false_0_00(self):
-        self.assertEqual(1, percentile([1,2,3], 0, False))
-
-    def test_simple_sort_false_1_00(self):
-        self.assertEqual(3, percentile([1,2,3], 1, False))
-
-    def test_simple_sort_false_0_50(self):
-        self.assertEqual(2, percentile([1,2,3], .5, False))
+    def test_simple_00_50_01(self):
+        self.assertEqual((1,2,3), percentile([3,2,1], [0,.5,1]))
 
 class OnlineVariance_Tests(unittest.TestCase):
 
@@ -36,9 +30,7 @@ class OnlineVariance_Tests(unittest.TestCase):
 
     def test_one_update_variance_nan(self):
         online = OnlineVariance()
-
         online.update(1)
-
         self.assertTrue(isnan(online.variance))
 
     def test_two_update_variance(self):

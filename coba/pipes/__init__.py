@@ -8,7 +8,7 @@ from coba.pipes.filters import Encode, JsonDecode, JsonEncode
 
 from coba.pipes.readers import Reader, ManikReader, LibSvmReader, CsvReader, ArffReader
 
-from coba.pipes.io import NullIO, ConsoleIO, DiskIO, MemoryIO, QueueIO, HttpIO, IO
+from coba.pipes.io import NullIO, ConsoleIO, DiskIO, MemoryIO, QueueIO, HttpIO, IdentityIO, IO
 
 __all__ = [
     "Pipe",
@@ -38,6 +38,7 @@ __all__ = [
     "MemoryIO",
     "QueueIO",
     "HttpIO",
+    "IdentityIO"
     "Foreach",
     "IO",
     "SourceFilters", 

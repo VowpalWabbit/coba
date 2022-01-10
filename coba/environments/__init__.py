@@ -16,7 +16,7 @@ from coba.environments.simulated import SimulatedInteraction, SimulatedEnvironme
 from coba.environments.simulated import MemorySimulation, LambdaSimulation
 from coba.environments.simulated import ClassificationSimulation, RegressionSimulation
 from coba.environments.simulated import LinearSyntheticSimulation, LocalSyntheticSimulation
-from coba.environments.simulated import OpenmlSimulation
+from coba.environments.simulated import OpenmlSimulation, SupervisedSimulation
 from coba.environments.simulated import CsvSimulation, ArffSimulation, LibsvmSimulation, ManikSimulation
 
 from coba.environments.logged.primitives import LoggedInteraction, LoggedEnvironment
@@ -44,6 +44,7 @@ __all__ = [
     'LibsvmSimulation',
     'ManikSimulation',
     'OpenmlSimulation',
+    'SupervisedSimulation',
     'LinearSyntheticSimulation',
     'LocalSyntheticSimulation',
     'EnvironmentFilter',

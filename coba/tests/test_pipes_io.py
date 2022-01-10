@@ -4,7 +4,7 @@ import requests.exceptions
 
 from pathlib import Path
 
-from coba.pipes import DiskIO, MemoryIO, QueueIO, NullIO, ConsoleIO, HttpIO
+from coba.pipes import DiskIO, MemoryIO, QueueIO, NullIO, ConsoleIO, HttpIO, IdentityIO
 from coba.contexts import NullLogger, CobaContext
 
 CobaContext.logger = NullLogger()
@@ -138,6 +138,18 @@ class HttpIO_Tests(unittest.TestCase):
     def test_write(self):
         with self.assertRaises(NotImplementedError):
             HttpIO("www.google.com").write("abc")
+
+class IdentityIO_Tests(unittest.TestCase):
+    
+    def test_init_read(self):
+
+        io = IdentityIO('a')
+        self.assertEqual("a", io.read())
+
+    def test_write_read(self):
+        io = IdentityIO()
+        io.write("a")
+        self.assertEqual("a", io.read())
 
 if __name__ == '__main__':
     unittest.main()

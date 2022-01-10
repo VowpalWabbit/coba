@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, Tuple, Union
 
 def iqr(values: Sequence[float]) -> float:
 
@@ -6,24 +6,28 @@ def iqr(values: Sequence[float]) -> float:
 
     values = sorted(values)
 
-    p25 = percentile(values, 0.25, sort=False)
-    p75 = percentile(values, 0.75, sort=False)
+    p25,p75 = percentile(values, [0.25,0.75])
 
     return p75-p25
 
-def percentile(values: Sequence[float], percentile:float, sort:bool=True) -> float:
+def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]]) -> Union[float, Tuple[float,...]]:
 
-    assert 0 <= percentile and percentile <= 1, "Percentile must be between 0 and 1 inclusive."
+    def _percentile(values: Sequence[float], percentile: float) -> float:
+        assert 0 <= percentile and percentile <= 1, "Percentile must be between 0 and 1 inclusive."
 
-    if sort:
-        values = sorted(values)
+        i = percentile*(len(values)-1)
 
-    i = percentile*(len(values)-1)
+        if i == int(i):
+            return values[int(i)]
+        else:
+            return values[int(i)] * (1-(i-int(i))) + values[int(i)+1] * (i-int(i))
 
-    if i == int(i):
-        return values[int(i)]
+    values = sorted(values)
+
+    if isinstance(percentiles,(float,int)):
+        return _percentile(values, percentiles)
     else:
-        return values[int(i)] * (1-(i-int(i))) + values[int(i)+1] * (i-int(i))
+        return tuple([_percentile(values, p) for p in percentiles ])
 
 class OnlineVariance():
     """Calculate sample variance in an online fashion.
