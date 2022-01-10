@@ -82,7 +82,7 @@ class DiskIO(IO[Iterable[str],str]):
             self._open_file.write((item + '\n').encode('utf-8'))
             self._open_file.flush()
 
-class MemoryIO(IO[Iterable[_T], _T], Generic[_T]):
+class ListIO(IO[Iterable[_T], _T], Generic[_T]):
 
     def __init__(self, initial_memory: Sequence[Any] = []):
         self.items =  list(initial_memory)

@@ -1,13 +1,13 @@
 
 from coba.registry     import CobaRegistry
-from coba.pipes        import NullIO, ConsoleIO, DiskIO, MemoryIO
+from coba.pipes        import NullIO, ConsoleIO, DiskIO, ListIO
 from coba.environments import OpenmlSimulation, CsvSimulation, ArffSimulation, LibsvmSimulation
 from coba.environments import Sort, Scale, Cycle, Shuffle, Take, Identity
 from coba.contexts     import DiskCacher, NullCacher, MemoryCacher, IndentLogger, NullLogger, BasicLogger
 
 CobaRegistry.register("Null"   , NullIO   )
 CobaRegistry.register("Disk"   , DiskIO   )
-CobaRegistry.register("Memory" , MemoryIO )
+CobaRegistry.register("Memory" , ListIO )
 CobaRegistry.register("Console", ConsoleIO)
 
 CobaRegistry.register("BasicLogger" , BasicLogger )

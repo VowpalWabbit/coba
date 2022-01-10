@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import cast
 
 from coba.environments import Environment, LambdaSimulation
-from coba.pipes import Source, MemoryIO
+from coba.pipes import Source, ListIO
 from coba.learners import Learner
 from coba.contexts import CobaContext, LearnerContext, CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
@@ -255,7 +255,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
     def test_ignore_raise(self):
 
-        CobaContext.logger = IndentLogger(MemoryIO())
+        CobaContext.logger = IndentLogger(ListIO())
 
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
@@ -331,7 +331,7 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
         learner    = NotPicklableLearner()
         experiment = Experiment([sim1],[learner])
 
-        CobaContext.logger = BasicLogger(MemoryIO())
+        CobaContext.logger = BasicLogger(ListIO())
 
         experiment.evaluate()
 
@@ -343,7 +343,7 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
         learner    = WrappedLearner(NotPicklableLearner())
         experiment = Experiment([sim1],[learner])
 
-        CobaContext.logger = BasicLogger(MemoryIO())
+        CobaContext.logger = BasicLogger(ListIO())
         
         experiment.evaluate()
 

@@ -3,7 +3,7 @@ import unittest
 from statistics import mean
 from typing import Dict, Any
 
-from coba.pipes import MemoryIO, NullIO
+from coba.pipes import ListIO, NullIO
 from coba.contexts import LearnerContext
 from coba.random import CobaRandom
 from coba.learners import CorralLearner, FixedLearner, LinUCBLearner
@@ -75,7 +75,7 @@ class CorralLearner_Tests(unittest.TestCase):
         probability = predict[0]
         reward      = 1
 
-        LearnerContext.logger = MemoryIO[Dict[str,Any]]()
+        LearnerContext.logger = ListIO[Dict[str,Any]]()
         learner.learn(None, action, reward, probability, info)
         info = { k:v for item in LearnerContext.logger.read() for k,v in item.items() }
         LearnerContext.logger = NullIO()

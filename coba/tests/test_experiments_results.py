@@ -11,7 +11,7 @@ from coba.exceptions import CobaException
 from coba.pipes import DiskIO
 
 from coba.experiments.results import Result, Table, InteractionsTable, TransactionIO, TransactionIO_V3, TransactionIO_V4
-from coba.pipes.io import MemoryIO
+from coba.pipes.io import ListIO
 
 class Table_Tests(unittest.TestCase):
 
@@ -633,7 +633,7 @@ class Result_Tests(unittest.TestCase):
     def test_filter_fin_no_finished(self):
 
         CobaContext.logger = IndentLogger()
-        CobaContext.logger.sink = MemoryIO()
+        CobaContext.logger.sink = ListIO()
 
         sims = {1:{}, 2:{}}
         lrns = {1:{}, 2:{}}
@@ -671,7 +671,7 @@ class Result_Tests(unittest.TestCase):
     def test_filter_env_no_match(self):
 
         CobaContext.logger = IndentLogger() 
-        CobaContext.logger.sink = MemoryIO()
+        CobaContext.logger.sink = ListIO()
 
         sims = {1:{}, 2:{}}
         lrns = {1:{}, 2:{}}
@@ -726,7 +726,7 @@ class Result_Tests(unittest.TestCase):
     def test_filter_lrn_no_match(self):
         
         CobaContext.logger=IndentLogger() 
-        CobaContext.logger.sink = MemoryIO()
+        CobaContext.logger.sink = ListIO()
 
         sims = {1:{}, 2:{}}
         lrns = {1:{}, 2:{}, 3:{}}
@@ -855,7 +855,7 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_data_bad_xlim(self):
 
         CobaContext.logger = IndentLogger()
-        CobaContext.logger.sink = MemoryIO()
+        CobaContext.logger.sink = ListIO()
 
         lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
         ints = {
@@ -1029,7 +1029,7 @@ class Result_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 CobaContext.logger = IndentLogger()
-                CobaContext.logger.sink = MemoryIO()
+                CobaContext.logger.sink = ListIO()
 
                 result = Result(None, None, {}, {}, {})
                 result.plot_learners()

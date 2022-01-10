@@ -2,7 +2,7 @@ import unittest
 
 from pathlib import Path
 
-from coba.pipes import MemoryIO, DiskIO, NullIO
+from coba.pipes import ListIO, DiskIO, NullIO
 from coba.contexts import CobaContext, NullLogger
 
 from coba.environments import CsvSimulation, ArffSimulation, LibsvmSimulation, ManikSimulation
@@ -12,7 +12,7 @@ CobaContext.logger = NullLogger()
 class CsvSimulation_Tests(unittest.TestCase):
 
     def test_memory_source(self):
-        source       = MemoryIO(['a,b,c','1,2,3','4,5,6'])
+        source       = ListIO(['a,b,c','1,2,3','4,5,6'])
         simulation   = CsvSimulation(source,'c')
         interactions = list(simulation.read())
 
@@ -70,7 +70,7 @@ class ArffSimulation_Tests(unittest.TestCase):
             "2,3,0",
         ]
 
-        source       = MemoryIO(lines)
+        source       = ListIO(lines)
         simulation   = ArffSimulation(source,'c')
         interactions = list(simulation.read())
 
@@ -98,7 +98,7 @@ class ArffSimulation_Tests(unittest.TestCase):
             "3,1,0"
         ]
 
-        source       = MemoryIO(lines)
+        source       = ListIO(lines)
         simulation   = ArffSimulation(source,'c',)
         interactions = list(simulation.read())
 
@@ -129,7 +129,7 @@ class LibsvmSimulation_Tests(unittest.TestCase):
             "1 3:4"
         ]
 
-        source       = MemoryIO(lines)
+        source       = ListIO(lines)
         simulation   = LibsvmSimulation(source)
         interactions = list(simulation.read())
 
@@ -159,7 +159,7 @@ class ManikSimulation_Tests(unittest.TestCase):
             "1 3:4"
         ]
 
-        source       = MemoryIO(lines)
+        source       = ListIO(lines)
         simulation   = ManikSimulation(source)
         interactions = list(simulation.read())
 

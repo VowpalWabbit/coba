@@ -3,7 +3,7 @@ from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Dict, Callable
 
 from coba.utilities import HashableDict
-from coba.pipes import Source, Filter, DiskIO, MemoryIO
+from coba.pipes import Source, Filter, DiskIO, ListIO
 
 Action  = Union[str, Number, tuple, HashableDict]
 Context = Union[None, str, Number, tuple, HashableDict]
@@ -74,7 +74,7 @@ class ReaderEnvironment(Environment):
     def params(self) -> Dict[str, Any]:
         if isinstance(self._source,DiskIO):
             return {"source": str(self._source._filename) }
-        elif isinstance(self._source, MemoryIO):
+        elif isinstance(self._source, ListIO):
             return {"source": 'memory' }
         else:
             return {"source": self._source.__class__.__name__}

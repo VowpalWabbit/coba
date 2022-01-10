@@ -4,7 +4,7 @@ import requests.exceptions
 
 from pathlib import Path
 
-from coba.pipes import DiskIO, MemoryIO, QueueIO, NullIO, ConsoleIO, HttpIO, IdentityIO
+from coba.pipes import DiskIO, ListIO, QueueIO, NullIO, ConsoleIO, HttpIO, IdentityIO
 from coba.contexts import NullLogger, CobaContext
 
 CobaContext.logger = NullLogger()
@@ -69,21 +69,18 @@ class DiskIO_Tests(unittest.TestCase):
         
         self.assertEqual(["a","b","c"], list(io.read()))
 
-class MemoryIO_Tests(unittest.TestCase):
+class ListIO_Tests(unittest.TestCase):
     
     def test_simple(self):
-
-        io = MemoryIO()
-
+        io = ListIO()
         io.write("a")
         io.write("b")
         io.write("c")
-
         self.assertEqual(["a","b","c"], io.read())
 
     def test_string(self):
 
-        io = MemoryIO()
+        io = ListIO()
         io.write("abc")
         self.assertEqual(["abc"], io.read())
 

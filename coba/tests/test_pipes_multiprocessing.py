@@ -6,7 +6,7 @@ from threading       import Thread, Event
 from multiprocessing import current_process, Barrier
 from typing          import Iterable, Any
 
-from coba.pipes import Filter, MemoryIO, Identity, QueueIO, NullIO
+from coba.pipes import Filter, ListIO, Identity, QueueIO, NullIO
 
 from coba.pipes.multiprocessing import PipeMultiprocessor, PipesPool
 
@@ -60,7 +60,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
         self.assertEqual(len(set(items)), 2)
 
     def test_filter_exception(self):
-        stderr_sink = MemoryIO()
+        stderr_sink = ListIO()
 
         list(PipeMultiprocessor(ExceptionFilter(), 2, 1, stderr_sink).filter(range(4)))
 
@@ -70,7 +70,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
             self.assertIn("Exception Filter", str(item))
 
     def test_items_not_picklable(self):
-        stderr_sink = MemoryIO()
+        stderr_sink = ListIO()
 
         list(PipeMultiprocessor(ProcessNameFilter(), 2, 1, stderr_sink).filter([NotPicklableFilter()]))
 
@@ -84,7 +84,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
     @unittest.skip("I have been unable to get this to work in the CI tests.")
     def test_class_definitions_not_loaded_in_main(self):
 
-        stderr_sink = MemoryIO()
+        stderr_sink = ListIO()
 
         global Test
         class Test:

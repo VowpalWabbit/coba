@@ -13,7 +13,7 @@ from coba.backports import Literal
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.pipes import JsonEncode, JsonDecode, DiskIO, MemoryIO, IO
+from coba.pipes import JsonEncode, JsonDecode, DiskIO, ListIO, IO
 
 class Table:
     """A container class for storing tabular data."""
@@ -338,11 +338,11 @@ class TransactionIO_V3(IO['Result', Any]):
 
     def __init__(self, transaction_log: Optional[str] = None, minify:bool=True) -> None:
 
-        self._io = DiskIO(transaction_log) if transaction_log else MemoryIO()
+        self._io = DiskIO(transaction_log) if transaction_log else ListIO()
         self._minify = minify
 
     def write(self, item: Any) -> None:
-        if isinstance(self._io, MemoryIO):
+        if isinstance(self._io, ListIO):
             self._io.write(self._encode(item))
         else: 
             if not Path(self._io._filename).exists():self._io.write('["version",3]')
@@ -355,7 +355,7 @@ class TransactionIO_V3(IO['Result', Any]):
         sim_rows = {}
         int_rows = {}
 
-        for trx in self._io.read() if isinstance(self._io, MemoryIO) else map(JsonDecode().filter,self._io.read()):
+        for trx in self._io.read() if isinstance(self._io, ListIO) else map(JsonDecode().filter,self._io.read()):
 
             if not trx: continue
 
@@ -400,11 +400,11 @@ class TransactionIO_V3(IO['Result', Any]):
 class TransactionIO_V4(IO['Result', Any]):
 
     def __init__(self, transaction_log: Optional[str] = None, minify:bool=True) -> None:
-        self._io     = DiskIO(transaction_log) if transaction_log else MemoryIO()
+        self._io     = DiskIO(transaction_log) if transaction_log else ListIO()
         self._minify = minify
 
     def write(self, item: Any) -> None:
-        if isinstance(self._io, MemoryIO):
+        if isinstance(self._io, ListIO):
             self._io.write(self._encode(item))
         else: 
             if not Path(self._io._filename).exists():self._io.write('["version",4]')
@@ -418,7 +418,7 @@ class TransactionIO_V4(IO['Result', Any]):
         env_rows = {}
         int_rows = {}
 
-        for trx in self._io.read() if isinstance(self._io, MemoryIO) else map(JsonDecode().filter,self._io.read()):
+        for trx in self._io.read() if isinstance(self._io, ListIO) else map(JsonDecode().filter,self._io.read()):
 
             if not trx: continue
 

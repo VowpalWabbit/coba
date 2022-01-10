@@ -5,14 +5,14 @@ from multiprocessing import current_process
 from typing import Iterable, Any
 
 from coba.exceptions import CobaException
-from coba.pipes import Filter, MemoryIO
+from coba.pipes import Filter, ListIO
 from coba.pipes.core import Pipe, Foreach, SourceFilters, FiltersFilter, FiltersSink, Pipeline
 
 class SingleItemIdentity:
     def filter(self,item):
         return item
 
-class ReprIO(MemoryIO):
+class ReprIO(ListIO):
     def __str__(self):
         return "ReprIO"
 
@@ -196,7 +196,7 @@ class Foreach_Tests(unittest.TestCase):
         self.assertEqual([0,1,2],  list(Foreach(SingleItemIdentity()).filter(range(3))))
 
     def test_write(self):
-        io = MemoryIO()
+        io = ListIO()
         Foreach(io).write(range(3))
         self.assertEqual([0,1,2], list(io.read()))
     
@@ -207,15 +207,15 @@ class Foreach_Tests(unittest.TestCase):
 class Pipe_Tests(unittest.TestCase):
 
     def test_run(self):
-        memoryIO_in  = MemoryIO(list(range(10)))
-        memoryIO_out = MemoryIO(list(range(10)))
+        memoryIO_in  = ListIO(list(range(10)))
+        memoryIO_out = ListIO(list(range(10)))
 
         Pipe.join(memoryIO_in, [ProcessNameFilter()], memoryIO_out).run()
 
         self.assertEqual(memoryIO_out.items[10], ['MainProcess']*10)
 
     def test_exception(self):
-        memoryIO = MemoryIO(list(range(4)))
+        memoryIO = ListIO(list(range(4)))
 
         with self.assertRaises(Exception):
             Pipe.join(memoryIO, [ExceptionFilter()], memoryIO).run()

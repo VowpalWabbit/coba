@@ -6,7 +6,7 @@ import unittest.mock
 import datetime
 
 from coba.exceptions import CobaException
-from coba.pipes      import MemoryIO
+from coba.pipes      import ListIO
 from coba.contexts   import IndentLogger, BasicLogger, NullLogger, DecoratedLogger, ExceptLog, NameLog, StampLog
 from coba.pipes.io   import NullIO
 
@@ -35,7 +35,7 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_log(self):
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
 
@@ -49,7 +49,7 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_log_with(self):
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
 
@@ -68,7 +68,7 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_log_with_exception(self):
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
         
@@ -87,7 +87,7 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_log_with_interrupt(self):
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
         
@@ -106,7 +106,7 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_time_with_exception(self):
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
         
@@ -125,7 +125,7 @@ class BasicLogger_Tests(unittest.TestCase):
 
     def test_time_with_interrupt(self):
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
         
@@ -148,7 +148,7 @@ class BasicLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
 
@@ -174,7 +174,7 @@ class BasicLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
 
@@ -215,7 +215,7 @@ class BasicLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
 
@@ -253,8 +253,8 @@ class BasicLogger_Tests(unittest.TestCase):
         self.assertAlmostEqual(float(logs[10][3:7]), 0.10, 1)
 
     def test_sink_is_set(self):
-        logger = BasicLogger(MemoryIO())
-        self.assertIsInstance(logger.sink, MemoryIO)
+        logger = BasicLogger(ListIO())
+        self.assertIsInstance(logger.sink, ListIO)
         logger.sink = NullIO()
         self.assertIsInstance(logger.sink, NullIO)
 
@@ -262,7 +262,7 @@ class IndentLogger_Tests(unittest.TestCase):
 
     def test_log(self):
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = IndentLogger(sink)
         logs   = sink.items
 
@@ -276,7 +276,7 @@ class IndentLogger_Tests(unittest.TestCase):
 
     def test_log_with_1(self):
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = IndentLogger(sink)
         logs   = sink.items
 
@@ -297,7 +297,7 @@ class IndentLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = IndentLogger(sink)
         logs   = sink.items
 
@@ -322,7 +322,7 @@ class IndentLogger_Tests(unittest.TestCase):
         #try running it again and see if it works that time.
 
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = IndentLogger(sink)
         logs   = sink.items
 
@@ -358,7 +358,7 @@ class IndentLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = IndentLogger(sink)
         logs   = sink.items
 
@@ -392,7 +392,7 @@ class IndentLogger_Tests(unittest.TestCase):
 
     def test_time_with_exception(self):
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = IndentLogger(sink)
         logs   = sink.items
 
@@ -416,7 +416,7 @@ class IndentLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = IndentLogger(sink)
         logs   = sink.items
 
@@ -435,8 +435,8 @@ class IndentLogger_Tests(unittest.TestCase):
         self.assertEqual(logs[2], '  * d')
 
     def test_sink_is_set(self):
-        logger = IndentLogger(MemoryIO())
-        self.assertIsInstance(logger.sink, MemoryIO)
+        logger = IndentLogger(ListIO())
+        self.assertIsInstance(logger.sink, ListIO)
         logger.sink = NullIO()
         self.assertIsInstance(logger.sink, NullIO)
 
@@ -446,13 +446,13 @@ class DecoratedLogger_Tests(unittest.TestCase):
         pre_decorators  = []
         post_decorators = []
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         logger.log('a')
         self.assertEqual(['a'], sink.items)
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         with logger.log('a'):
@@ -460,7 +460,7 @@ class DecoratedLogger_Tests(unittest.TestCase):
 
         self.assertEqual(['a', 'a (completed)'], sink.items)
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         with logger.time('a'):
@@ -472,13 +472,13 @@ class DecoratedLogger_Tests(unittest.TestCase):
         pre_decorators  = [LogDecorator(1),LogDecorator(2)]
         post_decorators = []
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         logger.log('a')
         self.assertEqual(['2 -- 1 -- a'], sink.items)
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         with logger.log('a'):
@@ -486,7 +486,7 @@ class DecoratedLogger_Tests(unittest.TestCase):
 
         self.assertEqual(['2 -- 1 -- a', '2 -- 1 -- a (completed)'], sink.items)
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         with logger.time('a'):
@@ -498,13 +498,13 @@ class DecoratedLogger_Tests(unittest.TestCase):
         pre_decorators  = []
         post_decorators = [LogDecorator(1),LogDecorator(2)]
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         logger.log('a')
         self.assertEqual(['2 -- 1 -- a'], sink.items)
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         with logger.log('a'):
@@ -512,7 +512,7 @@ class DecoratedLogger_Tests(unittest.TestCase):
 
         self.assertEqual(['2 -- 1 -- a', '2 -- 1 -- a (completed)'], sink.items)
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         with logger.time('a'):
@@ -524,13 +524,13 @@ class DecoratedLogger_Tests(unittest.TestCase):
         pre_decorators  = [LogDecorator(1)]
         post_decorators = [LogDecorator(2)]
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         logger.log('a')
         self.assertEqual(['2 -- 1 -- a'], sink.items)
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         with logger.log('a'):
@@ -538,7 +538,7 @@ class DecoratedLogger_Tests(unittest.TestCase):
 
         self.assertEqual(['2 -- 1 -- a', '2 -- 1 -- a (completed)'], sink.items)
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         with logger.time('a'):
@@ -550,12 +550,12 @@ class DecoratedLogger_Tests(unittest.TestCase):
         pre_decorators  = [LogDecorator(1)]
         post_decorators = [LogDecorator(2)]
 
-        sink   = MemoryIO()
+        sink   = ListIO()
         logger = DecoratedLogger(pre_decorators,BasicLogger(sink),post_decorators)
 
         self.assertIs(logger.sink, sink)
 
-        sink = MemoryIO()
+        sink = ListIO()
         logger.sink = sink
 
         self.assertIs(logger.sink, sink)

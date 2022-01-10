@@ -6,7 +6,7 @@ from pathlib import Path
 from coba.exceptions import CobaExit
 from coba.pipes import JsonEncode
 from coba.contexts import LearnerContext, CobaContext, DiskCacher, IndentLogger, NullLogger
-from coba.pipes.io import ConsoleIO, DiskIO, MemoryIO, NullIO
+from coba.pipes.io import ConsoleIO, DiskIO, ListIO, NullIO
 
 class CobaContext_Tests(unittest.TestCase):
 
@@ -212,8 +212,8 @@ class LearnerContext_Tests(unittest.TestCase):
 
     def test_logger_setter(self):
         self.assertIsInstance(LearnerContext.logger, NullIO)
-        LearnerContext.logger = MemoryIO()
-        self.assertIsInstance(LearnerContext.logger, MemoryIO)
+        LearnerContext.logger = ListIO()
+        self.assertIsInstance(LearnerContext.logger, ListIO)
 
 if __name__ == '__main__':
     unittest.main()

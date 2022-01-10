@@ -4,7 +4,7 @@ import unittest
 from coba.pipes        import ArffReader
 from coba.contexts     import CobaContext, CobaContext, NullLogger
 from coba.environments import SupervisedSimulation
-from coba.pipes.io import MemoryIO
+from coba.pipes.io import ListIO
 
 CobaContext.logger = NullLogger()
 
@@ -15,7 +15,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_source_reader_classification(self):
 
-        source = MemoryIO("""
+        source = ListIO("""
             @relation weather
             
             @attribute pH real
@@ -54,7 +54,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_source_reader_regression_less_than_10(self):
 
-        source = MemoryIO("""
+        source = ListIO("""
             @relation weather
 
             @attribute pH real
