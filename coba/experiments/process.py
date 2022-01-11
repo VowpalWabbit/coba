@@ -36,10 +36,10 @@ class CreateWorkItems(Source[Iterable[WorkItem]]):
         learner_task    : LearnerTask,
         environment_task: EnvironmentTask,
         evaluation_task : EvaluationTask) -> None:
-                
+
         self._environs = environs
         self._learners = learners
-        
+
         self._learner_task     = learner_task
         self._environment_task = environment_task
         self._evaluation_task  = evaluation_task        
@@ -117,10 +117,7 @@ class ChunkByTask(Filter[Iterable[WorkItem], Iterable[Iterable[WorkItem]]]):
         for item in sorted(learner_items, key = lambda t: t.learner_id):
             yield [ item ]
 
-        for item in sorted(environ_items, key = lambda t: t.environ_id):
-            yield [ item ]
-
-        for item in sorted(eval_items, key=lambda t:( t.environ_id, t.learner_id)):
+        for item in sorted(environ_items+eval_items, key=lambda t:( t.environ_id, t.learner_id if t.learner_id is not None else -1)):
             yield [ item ]
 
 class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
