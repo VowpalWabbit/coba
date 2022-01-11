@@ -204,7 +204,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[1].params['take'])
 
     def test_reservoir(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).reservoir(1,2)
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).reservoir(1,[2])
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])

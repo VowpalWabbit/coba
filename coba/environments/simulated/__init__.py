@@ -8,10 +8,10 @@ to do so.
 """
 
 from coba.environments.simulated.primitives import SimulatedInteraction, SimulatedEnvironment
-from coba.environments.simulated.primitives import MemorySimulation, LambdaSimulation
+from coba.environments.simulated.primitives import MemorySimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation, OpenmlSource
-from coba.environments.simulated.synthetics import LinearSyntheticSimulation, LocalSyntheticSimulation
+from coba.environments.simulated.synthetics import LambdaSimulation, LinearSyntheticSimulation, LocalSyntheticSimulation
 
 __all__ = [
     'SimulatedInteraction',

@@ -1,12 +1,8 @@
 import unittest
-import pickle
 
-from typing import List
 
-from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext, NullLogger
-from coba.environments import SimulatedInteraction, MemorySimulation, LambdaSimulation
-from coba.random       import CobaRandom
+from coba.environments import SimulatedInteraction, MemorySimulation
 
 CobaContext.logger = NullLogger()
 
@@ -73,134 +69,6 @@ class MemorySimulation_Tests(unittest.TestCase):
 
     def test_str(self):
         self.assertEqual("MemorySimulation", str(MemorySimulation([])))
-
-class LambdaSimulation_Tests(unittest.TestCase):
-
-    def test_n_interactions_2_seed_none(self):
-        
-        def C(i:int) -> int:
-            return [1,2][i]
-
-        def A(i:int,c:int) -> List[int]:
-            return [[1,2,3],[4,5,6]][i]
-
-        def R(i:int,c:int,a:int) -> int:
-            return a-c
-
-        simulation = LambdaSimulation(2,C,A,R)
-        interactions = list(simulation.read())
-
-        self.assertEqual(len(interactions), 2)
-
-        self.assertEqual(1      , interactions[0].context)
-        self.assertEqual([1,2,3], interactions[0].actions)
-        self.assertEqual([0,1,2], interactions[0].kwargs["rewards"])
-
-        self.assertEqual(2      , interactions[1].context)
-        self.assertEqual([4,5,6], interactions[1].actions)
-        self.assertEqual([2,3,4], interactions[1].kwargs["rewards"])
-
-    def test_n_interactions_none_seed_none(self):
-        def C(i:int) -> int:
-            return [1,2][i]
-
-        def A(i:int,c:int) -> List[int]:
-            return [[1,2,3],[4,5,6]][i]
-
-        def R(i:int,c:int,a:int) -> int:
-            return a-c
-
-        simulation   = LambdaSimulation(None,C,A,R)
-        interactions = iter(simulation.read())
-
-        interaction = next(interactions)
-
-        self.assertEqual(1      , interaction.context)
-        self.assertEqual([1,2,3], interaction.actions)
-        self.assertEqual([0,1,2], interaction.kwargs["rewards"])
-
-        interaction = next(interactions)
-
-        self.assertEqual(2      , interaction.context)
-        self.assertEqual([4,5,6], interaction.actions)
-        self.assertEqual([2,3,4], interaction.kwargs["rewards"])
-
-    def test_n_interactions_2_seed_1(self):
-        
-        def C(i:int, rng: CobaRandom) -> int:
-            return [1,2][i]
-
-        def A(i:int,c:int, rng: CobaRandom) -> List[int]:
-            return [[1,2,3],[4,5,6]][i]
-
-        def R(i:int,c:int,a:int, rng: CobaRandom) -> int:
-            return a-c
-
-        simulation = LambdaSimulation(2,C,A,R,seed=1)
-        interactions = list(simulation.read())
-
-        self.assertEqual(len(interactions), 2)
-
-        self.assertEqual(1      , interactions[0].context)
-        self.assertEqual([1,2,3], interactions[0].actions)
-        self.assertEqual([0,1,2], interactions[0].kwargs["rewards"])
-
-        self.assertEqual(2      , interactions[1].context)
-        self.assertEqual([4,5,6], interactions[1].actions)
-        self.assertEqual([2,3,4], interactions[1].kwargs["rewards"])
-
-    def test_params(self):
-        def C(i:int) -> int:
-            return [1,2][i]
-
-        def A(i:int,c:int) -> List[int]:
-            return [[1,2,3],[4,5,6]][i]
-
-        def R(i:int,c:int,a:int) -> int:
-            return a-c
-
-        self.assertEqual({}, LambdaSimulation(2,C,A,R).params)
-
-    def test_pickle_n_interactions_2(self):
-        def C(i:int) -> int:
-            return [1,2][i]
-
-        def A(i:int,c:int) -> List[int]:
-            return [[1,2,3],[4,5,6]][i]
-        
-        def R(i:int,c:int,a:int) -> int:
-            return a-c
-
-        simulation = pickle.loads(pickle.dumps(LambdaSimulation(2,C,A,R)))
-        interactions = list(simulation.read())
-
-        self.assertEqual("LambdaSimulation",str(simulation))
-        self.assertEqual({}, simulation.params)
-
-        self.assertEqual(len(interactions), 2)
-
-        self.assertEqual(1      , interactions[0].context)
-        self.assertEqual([1,2,3], interactions[0].actions)
-        self.assertEqual([0,1,2], interactions[0].kwargs["rewards"])
-
-        self.assertEqual(2      , interactions[1].context)
-        self.assertEqual([4,5,6], interactions[1].actions)
-        self.assertEqual([2,3,4], interactions[1].kwargs["rewards"])
-
-    def test_pickle_n_interactions_none(self):
-        def C(i:int) -> int:
-            return [1,2][i]
-
-        def A(i:int,c:int) -> List[int]:
-            return [[1,2,3],[4,5,6]][i]
-        
-        def R(i:int,c:int,a:int) -> int:
-            return a-c
-
-        with self.assertRaises(CobaException) as e:
-            pickle.loads(pickle.dumps(LambdaSimulation(None,C,A,R)))
-        
-        self.assertIn("In general LambdaSimulation", str(e.exception))
 
 if __name__ == '__main__':
     unittest.main()

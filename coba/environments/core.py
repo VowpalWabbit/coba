@@ -47,7 +47,7 @@ class Environments:
         n_context_features: int = 2,
         n_action_features: int = 2,
         r_noise_var: float = 1/1000,
-        interactions: Sequence[str] = ["a","xa"],
+        cross_terms: Sequence[str] = ["a","xa"],
         seed: int = 1) -> 'Environments':
         """A simple simulation useful for debugging learning algorithms. 
         
@@ -57,7 +57,7 @@ class Environments:
         """
 
         return Environments([
-            LinearSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, r_noise_var, interactions, seed)
+            LinearSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, r_noise_var, cross_terms, seed)
         ])
 
     @staticmethod
@@ -149,9 +149,9 @@ class Environments:
         """Take a fixed number of interactions from the Environments."""
         return self.filter(Take(n_interactions))
 
-    def reservoir(self, n_interactions: int, seed: int = None) -> 'Environments':
+    def reservoir(self, n_interactions: int, seeds: Sequence[int]) -> 'Environments':
         """Take a random fixed number of interactions from the Environments."""
-        return self.filter(Reservoir(n_interactions, seed))
+        return self.filter([Reservoir(n_interactions,seed) for seed in seeds])
 
     def scale(self,
         shift: Union[float,Literal["min","mean","med"]] ="min", 
