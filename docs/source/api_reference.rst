@@ -8,5 +8,7 @@ API Reference
    coba.learners
    coba.environments
    coba.experiments
+   coba.pipes
    coba.contexts
    coba.random
+   

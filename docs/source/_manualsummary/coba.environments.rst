@@ -46,13 +46,8 @@ Simulated Environments
 
       MemorySimulation
       LambdaSimulation
-      ClassificationSimulation
-      RegressionSimulation
+      SupervisedSimulation
       OpenmlSimulation
-      CsvSimulation
-      ArffSimulation
-      LibsvmSimulation
-      ManikSimulation
       LinearSyntheticSimulation
       LocalSyntheticSimulation
       

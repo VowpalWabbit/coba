@@ -2,7 +2,7 @@
 Getting Started
 =================
 
-``Coba`` is a contextual bandit (CB) research package (for both algorithmic and applied research).
+``Coba`` is an online contextual bandit (CB) research package (for both algorithmic and applied research).
 
 Installation
 ~~~~~~~~~~~~

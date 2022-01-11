@@ -8,4 +8,5 @@ Welcome to coba's documentation!
 
    getting_started
    suggested_workflow
+   environments
    api_reference

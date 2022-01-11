@@ -88,6 +88,7 @@ autodoc_class_signature = "separated"
 import coba.learners
 import coba.environments
 import coba.experiments
+import coba.pipes
 import coba.contexts
 import coba.contexts.core
 
@@ -101,6 +102,7 @@ def set_module(module):
 set_module(coba.learners)
 set_module(coba.environments)
 set_module(coba.experiments)
+set_module(coba.pipes)
 set_module(coba.contexts)
 
 #we have to point to meta because sphinx can't handle class level properties
