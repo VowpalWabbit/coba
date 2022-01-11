@@ -18,14 +18,14 @@ class TestEnvironment(Environment):
         return []
 
 class Environments_Tests(unittest.TestCase):
-    def test_from_file_path(self):
+    def test_from_definition_path(self):
         if Path("coba/tests/.temp/from_file.env").exists():
             Path("coba/tests/.temp/from_file.env").unlink()
 
         try:
             Path("coba/tests/.temp/from_file.env").write_text('{ "environments" : { "OpenmlSimulation": 150 } }')
 
-            env = Environments.from_file("coba/tests/.temp/from_file.env")
+            env = Environments.from_definition("coba/tests/.temp/from_file.env")
 
             self.assertEqual(1    , len(env))
             self.assertEqual(150  , env[0].params['openml'])
@@ -35,14 +35,14 @@ class Environments_Tests(unittest.TestCase):
             if Path("coba/tests/.temp/from_file.env").exists():
                 Path("coba/tests/.temp/from_file.env").unlink()
 
-    def test_from_file_source(self):
+    def test_from_definition_source(self):
         if Path("coba/tests/.temp/from_file.env").exists():
             Path("coba/tests/.temp/from_file.env").unlink()
 
         try:
             Path("coba/tests/.temp/from_file.env").write_text('{ "environments" : { "OpenmlSimulation": 150 } }')
 
-            env = Environments.from_file(DiskIO("coba/tests/.temp/from_file.env"))
+            env = Environments.from_definition(DiskIO("coba/tests/.temp/from_file.env"))
 
             self.assertEqual(1    , len(env))
             self.assertEqual(150  , env[0].params['openml'])
@@ -73,6 +73,16 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(10 , env[0].params['n_C'])
         self.assertEqual(1  , env[0].params['n_C_phi'])
         self.assertEqual(2  , env[0].params['seed'])
+
+    def test_from_supervised(self):
+        X = [1,2]
+        Y = [2,3]
+
+        env = Environments.from_supervised([1,2], [2,3], label_type="R", take=2)
+        self.assertEqual(1   , len(env))
+        self.assertEqual("XY", env[0].params['super_source'])
+        self.assertEqual("R" , env[0].params['super_type'])
+        self.assertEqual(2   , env[0].params['super_take'])
 
     def test_from_openml_single(self):
         env = Environments.from_openml(100,100,'R',True)
@@ -203,6 +213,24 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B' , envs[1].params['id'])
         self.assertEqual(1   , envs[1].params['reservoir_count'])
         self.assertEqual(2   , envs[1].params['reservoir_seed'])
+
+    def test_scale(self):
+        envs = Environments(TestEnvironment('A')).scale("med", "std", 2)
+
+        self.assertEqual(1  , len(envs))
+        self.assertEqual('A'  , envs[0].params['id'])
+        self.assertEqual('med', envs[0].params['scale_shift'])
+        self.assertEqual('std', envs[0].params['scale_scale'])
+        self.assertEqual(2    , envs[0].params['scale_using'])
+
+    def test_impute(self):
+        envs = Environments(TestEnvironment('A')).impute('median', 2)
+
+        self.assertEqual(1       , len(envs))
+        self.assertEqual('A'     , envs[0].params['id'])
+        self.assertEqual('median', envs[0].params['impute_stat'])
+        self.assertEqual(2       , envs[0].params['impute_using'])
+
 
     def test_singular_filter(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1))

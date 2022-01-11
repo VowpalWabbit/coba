@@ -1,7 +1,7 @@
 
 from coba.registry     import CobaRegistry
 from coba.pipes        import NullIO, ConsoleIO, DiskIO, ListIO
-from coba.environments import OpenmlSimulation, SupervisedSimulation
+from coba.environments import OpenmlSimulation
 from coba.environments import Sort, Scale, Cycle, Shuffle, Take, Identity
 from coba.contexts     import DiskCacher, NullCacher, MemoryCacher, IndentLogger, NullLogger, BasicLogger
 

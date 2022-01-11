@@ -1,12 +1,12 @@
 import collections.abc
 
-from typing import Sequence, overload, Union, Iterable, Iterator
+from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional
 from coba.backports import Literal
 
-from coba.pipes import Source, DiskIO, JsonDecode
+from coba.pipes import Source, DiskIO, JsonDecode, Reader, CsvReader
 
 from coba.environments.filters     import FilteredEnvironment, EnvironmentFilter
-from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle
+from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
 from coba.environments          .primitives import Environment
@@ -16,20 +16,21 @@ from coba.environments.warmstart.primitives import WarmStartEnvironment
 
 from coba.environments.simulated.synthetics import LinearSyntheticSimulation, LocalSyntheticSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation
+from coba.environments.simulated.supervised import SupervisedSimulation
 
 class Environments:
     """A friendly wrapper around common functionality to make it easier to use."""
 
     @overload
     @staticmethod
-    def from_file(filesource:Source[Iterable[str]]) -> 'Environments': ...
+    def from_definition(filesource:Source[Iterable[str]]) -> 'Environments': ...
 
     @overload
     @staticmethod
-    def from_file(filename:str) -> 'Environments': ...
+    def from_definition(filename:str) -> 'Environments': ...
     
-    @staticmethod #type: ignore #(this apppears to be a mypy bug https://github.com/python/mypy/issues/7781)
-    def from_file(arg) -> 'Environments': #type: ignore
+    @staticmethod
+    def from_definition(arg) -> 'Environments':
         """Instantiate Environments from an environments definition file."""
         
         if isinstance(arg,str):
@@ -88,6 +89,32 @@ class Environments:
         if isinstance(openml_ids, int): openml_ids = [openml_ids]
         return Environments(*[OpenmlSimulation(id, take, type, cat_as_str) for id in openml_ids])
 
+    @overload
+    @staticmethod
+    def from_supervised(
+        source: Union[str, Source[Any]],
+        reader: Reader = CsvReader(), 
+        label_col: Union[int,str] = 0,
+        label_type: Literal["C","R"] = "C",
+        take: int = None) -> 'Environments':
+        """Create a SimulatedEnvironment from a supervised dataset"""
+        ...
+
+    @overload
+    @staticmethod
+    def from_supervised(
+        X = Sequence[Any], 
+        Y = Sequence[Any],
+        label_type: Literal["C","R"] = "C", 
+        take:int = None) -> 'Environments':
+        """Create a SimulatedEnvironment from a supervised dataset"""
+        ...
+
+    @staticmethod
+    def from_supervised(*args, **kwargs) -> 'Environments':
+        """Create a SimulatedEnvironment from a supervised dataset"""
+        return Environments(SupervisedSimulation(*args, **kwargs))
+
     def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
         """Instantiate an Environments class.
         
@@ -125,6 +152,19 @@ class Environments:
     def reservoir(self, n_interactions: int, seed: int = None) -> 'Environments':
         """Take a random fixed number of interactions from the Environments."""
         return self.filter(Reservoir(n_interactions, seed))
+
+    def scale(self,
+        shift: Union[float,Literal["min","mean","med"]] ="min", 
+        scale: Union[float,Literal["minmax","std","iqr"]]="minmax", 
+        using: Optional[int] = None) -> 'Environments':
+        """Apply an affine shift and scaling factor to precondition environments."""
+        return self.filter(Scale(shift, scale, using))
+        
+    def impute(self,
+        stat : Literal["mean","median","mode"] = "mean",
+        using: Optional[int] = None) -> 'Environments':
+        """Impute missing values with a feature statistic using a given number of interactions."""
+        return self.filter(Impute(stat, using))
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""

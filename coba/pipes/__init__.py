@@ -38,7 +38,7 @@ __all__ = [
     "ListIO",
     "QueueIO",
     "HttpIO",
-    "IdentityIO"
+    "IdentityIO",
     "Foreach",
     "IO",
     "SourceFilters", 

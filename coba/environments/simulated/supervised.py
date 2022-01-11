@@ -12,6 +12,7 @@ from coba.statistics import percentile
 from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
 
 class SupervisedSimulation(SimulatedEnvironment):
+    """Create a contextual bandit simulation using an existing supervised regression or classification dataset."""
 
     @overload
     def __init__(self,
@@ -20,6 +21,18 @@ class SupervisedSimulation(SimulatedEnvironment):
         label_col: Union[int,str] = 0,
         label_type: Literal["C","R"] = "C",
         take: int = None) -> None:
+        """Instantiate a SupervisedSimulation.
+
+        Args:
+            source: Either a source object or the path to a data file containing the supervised data.
+            reader: A filter that usually accepts an iterable of strings and returns parsed/encoded data.
+                Coba has four readers implemented natively (CsvReader, ArffReader, LibsvmReader, ManikReader).
+            label_col: The header name or index which identifies the label feature in each example.
+            label_type: Indicates whether the label column is a classification or regression value.
+            take: The number of random examples you'd like to draw from the given data set for the environment.
+                This value is particularly useful when working with extremely large data sets or multiple data sets
+                with different amounts of examples.
+        """
         ...
 
     @overload
@@ -28,9 +41,20 @@ class SupervisedSimulation(SimulatedEnvironment):
         Y: Sequence[Any],
         label_type: Literal["C","R"] = "C",
         take: int = None) -> None:
+        """Instantiate a SupervisedSimulation.
+
+        Args:
+            X: A sequence of example features that will be used to create interaction contexts in the simulation.
+            Y: A sequence of supervised labels that will be used to construct actions and rewards in the simulation.
+            label_type: Indicates whether the label column is a classification or regression value.
+            take: The number of random examples you'd like to draw from the given data set for the environment.
+                This value is particularly useful when working with extremely large data sets or multiple data sets
+                with different amounts of examples.
+        """
         ...
 
     def __init__(self, *args, **kwargs) -> None:
+        """Instantiate a SupervisedSimulation."""
 
         if isinstance(args[0],str) or hasattr(args[0], 'read'):
             source     = DiskIO(args[0]) if isinstance(args[0],str) else args[0]

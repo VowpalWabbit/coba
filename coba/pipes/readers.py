@@ -2,7 +2,7 @@ import re
 import csv
 import collections.abc
 
-from itertools import islice, takewhile, chain, count, repeat
+from itertools import islice, takewhile, chain, count
 from typing import Iterable, Sequence, List, Dict, Union, Any, Iterator
 
 from coba.encodings import Encoder, IdentityEncoder, OneHotEncoder, NumericEncoder, StringEncoder, MissingEncoder

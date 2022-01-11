@@ -1,10 +1,7 @@
 import warnings
 import importlib
-import collections.abc
 
-from itertools import count
 from collections import defaultdict
-from typing import Sequence, Any, Union
 
 from coba.exceptions import CobaExit
 

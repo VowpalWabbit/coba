@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from typing import Any, TypeVar, Generic, Iterable
+from typing import Any, TypeVar, Generic
 from coba.backports import Protocol
 
 _T_out = TypeVar("_T_out", bound=Any, covariant=True    )
