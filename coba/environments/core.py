@@ -19,18 +19,18 @@ from coba.environments.simulated.openml     import OpenmlSimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
 
 class Environments:
-    """A friendly wrapper around common functionality to make it easier to use."""
+    """A friendly wrapper around commonly used environment functionality."""
 
     @overload
     @staticmethod
-    def from_definition(filesource:Source[Iterable[str]]) -> 'Environments': ...
+    def from_file(filesource:Source[Iterable[str]]) -> 'Environments': ...
 
     @overload
     @staticmethod
-    def from_definition(filename:str) -> 'Environments': ...
+    def from_file(filename:str) -> 'Environments': ...
     
     @staticmethod
-    def from_definition(arg) -> 'Environments':
+    def from_file(arg) -> 'Environments':
         """Instantiate Environments from an environments definition file."""
         
         if isinstance(arg,str):

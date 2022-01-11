@@ -25,7 +25,7 @@ class Environments_Tests(unittest.TestCase):
         try:
             Path("coba/tests/.temp/from_file.env").write_text('{ "environments" : { "OpenmlSimulation": 150 } }')
 
-            env = Environments.from_definition("coba/tests/.temp/from_file.env")
+            env = Environments.from_file("coba/tests/.temp/from_file.env")
 
             self.assertEqual(1    , len(env))
             self.assertEqual(150  , env[0].params['openml'])
@@ -42,7 +42,7 @@ class Environments_Tests(unittest.TestCase):
         try:
             Path("coba/tests/.temp/from_file.env").write_text('{ "environments" : { "OpenmlSimulation": 150 } }')
 
-            env = Environments.from_definition(DiskIO("coba/tests/.temp/from_file.env"))
+            env = Environments.from_file(DiskIO("coba/tests/.temp/from_file.env"))
 
             self.assertEqual(1    , len(env))
             self.assertEqual(150  , env[0].params['openml'])
