@@ -165,8 +165,13 @@ class ArffReader(Reader):
 
             if attribute_match:
                 attribute_text  = attribute_match.group(1).strip()
-                attribute_type  = re.split('\s+', attribute_text, 1)[1]
-                attribute_name  = re.split('\s+', attribute_text)[0]
+                if "'" in attribute_text:  # some attributes are quoted i.e. 'total weight' in openml(720)
+                    attribute_text = attribute_text.replace("'","")
+                    attribute_type  = re.split('\s+', attribute_text)[-1] # the last word is the type
+                    attribute_name  = "_".join(re.split('\s+', attribute_text)[:-1]) # the rest is the name
+                else:
+                    attribute_type  = re.split('\s+', attribute_text, 1)[1]
+                    attribute_name  = re.split('\s+', attribute_text)[0]
                 attribute_index = len(headers)
 
                 headers.append(attribute_name.strip().strip('\'"').replace('\\',''))
