@@ -3,8 +3,10 @@ import csv
 import collections.abc
 
 from itertools import islice, takewhile, chain, count
+from tokenize import String
 from typing import Iterable, Sequence, List, Dict, Union, Any, Iterator
 
+from coba.exceptions import CobaException
 from coba.encodings import Encoder, IdentityEncoder, OneHotEncoder, NumericEncoder, StringEncoder, MissingEncoder
 
 from coba.pipes.primitives import MutableMap, Filter
@@ -139,113 +141,149 @@ class ArffReader(Reader):
         self._csv_reader    = CsvReader(has_header=False,**dialect)
         self._skip_encoding = skip_encoding
 
-        # Match a comment
-        self._r_comment = re.compile(r'^%')
-
-        # Match an empty line
-        self.r_empty = re.compile(r'^\s+$')
-
-        #@ lines give metadata describing the file. These always come at the top of the file
-        self._r_meta = re.compile(r'^\s*@\S*')
-
-        #The @relation line simply names the data. In practice we don't really care about it.
-        self._r_relation = re.compile(r'^@[Rr][Ee][Ll][Aa][Tt][Ii][Oo][Nn]\s*(\S*)')
-
-        #The @attribute lines contain typing information for 'columns'
-        self._r_attribute = re.compile(r'^\s*@[Aa][Tt][Tt][Rr][Ii][Bb][Uu][Tt][Ee]\s*(..*$)')
-
-        #The @data line indicates when the data begins. After @data there should be no more @ lines.
-        self._r_data = re.compile(r'^@[Dd][Aa][Tt][Aa]')
+        self._r_attribute = re.compile(r'^@attribute', re.IGNORECASE)
+        self._r_data = re.compile(r'^@data', re.IGNORECASE)
+        self._r_unescaped_single_quote = re.compile("(?<!\\\)'")
+        self._r_unescaped_double_quote = re.compile('(?<!\\\)"')
 
     def filter(self, source: Iterable[str]) -> Iterable[MutableMap]:
         headers   : List[str           ] = []
         encoders  : List[MissingEncoder] = []
 
-        lines_iter = iter(( line.strip() for line in source ))
+        #strip all lines to remove leading/trailing spaces
+        source = (line.strip() for line in source)
+
+        #remove all comment lines, empty lines, and empty sparse lines
+        source = (line for line in source if not line.startswith("%") and line != "")
+
+        lines_iter = iter(source)
         meta_lines = takewhile(lambda line: not self._r_data.match(line), lines_iter)
         data_lines = lines_iter
 
         for line in meta_lines:
 
-            if self._r_comment.match(line): 
-                continue
+            if self._r_attribute.match(line):
+                
+                attribute_split = self._split_line(line[11:], ' ', 1)
+                attribute_name  = attribute_split[0]
+                attribute_type  = attribute_split[1]
 
-            if self._r_relation.match(line): 
-                continue
-
-            attribute_match = self._r_attribute.match(line)
-
-            if attribute_match:
-                attribute_text  = attribute_match.group(1).strip()
-                attribute_type  = re.split('\s+', attribute_text, 1)[1]
-                attribute_name  = re.split('\s+', attribute_text)[0]
-                attribute_index = len(headers)
-
-                headers.append(attribute_name.strip().strip('\'"').replace('\\',''))
-                encoders.append(MissingEncoder(self._determine_encoder(attribute_index,attribute_name,attribute_type)))
-
-        #Remove empty lines and comments
-        data_lines = filter(None,(d.strip() for d in data_lines if not d.startswith("%")))
+                headers.append(attribute_name)
+                encoders.append(self._determine_encoder(attribute_type))
 
         try:
             first_line = next(data_lines)
         except StopIteration:
             return []
 
-        is_dense   = not (first_line.strip().startswith('{') and first_line.strip().endswith('}'))
+        is_dense = not (first_line.strip().startswith('{') and first_line.strip().endswith('}'))
+        encoders = self._encoder_prep(is_dense, encoders)
+
         data_lines = chain([first_line], data_lines)
-        
-        if not is_dense:
-            #this is a bug in ARFF such that it is not uncommon for the first class value in an ARFF class 
-            #list to be dropped from the actual data because it is encoded as 0. Therefore our ARFF reader
-            #automatically adds a 0 value to all categorical one-hot encoders to protect against this.
-            new_encoders = []
-            for e in encoders:
-                if isinstance(e._encoder,OneHotEncoder):
-                    new_encoders.append(MissingEncoder(OneHotEncoder([0]+list(e._encoder._onehots.keys()))))
-                else:
-                    new_encoders.append(e)
-            encoders = new_encoders
-
-        if self._skip_encoding:
-            encoders = []
-
-        #remove sparse brackets before parsing
         data_lines = filter(None,(d.strip('} {') for d in data_lines))
-        data_lines = self._parse(data_lines, headers, is_dense, encoders)
+        data_lines = self._parse_data(is_dense, data_lines, headers, encoders)
 
         return data_lines
 
-    def _determine_encoder(self, index:int, name: str, tipe: str) -> Encoder:
+    def _determine_encoder(self, tipe: str) -> Encoder:
         is_numeric = tipe in ['numeric', 'integer', 'real']
-        is_one_hot = '{' in tipe
+        is_one_hot = tipe.startswith('{') and tipe.endswith('}')
+        is_string  = tipe == "string"
+        is_date    = tipe.startswith('date')
+        is_relate  = tipe.startswith('relational')
 
         if is_numeric: 
             return NumericEncoder()
         
-        if is_one_hot and not self._str_enc_cat: 
-            return OneHotEncoder(list(self._csv_reader.filter([tipe.strip("}{")]))[0], err_if_unknown=True)
+        if is_one_hot: 
+            if self._str_enc_cat: 
+                return StringEncoder()
+            else:
+                return OneHotEncoder(self._split_line(tipe[1:-1], ','), err_if_unknown=True)
 
-        return StringEncoder()
+        if is_string or is_date or is_relate:
+            return StringEncoder()
 
-    def _parse(self, lines: Iterable[str], headers: Sequence[str], is_dense: bool, encoders: Sequence[MissingEncoder]) -> Iterable[MutableMap]:
+        raise CobaException(f"An unrecognized type was found in the arff attributes: {tipe}.")
+
+    def _encoder_prep(self, is_dense: bool, encoders: List[Encoder]) -> Sequence[Encoder]:
+        
+        if self._skip_encoding:
+            return []
+
+        #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the 
+        #actual data because it is encoded as 0. Therefore our ARFF reader automatically adds a 0 value 
+        #to all sparse categorical one-hot encoders to protect against this.
+        if not is_dense:
+            for i in range(len(encoders)):
+                if isinstance(encoders[i],OneHotEncoder):
+                    encoders[i] = OneHotEncoder([0]+list(encoders[i]._onehots.keys()))
+
+        #ARFF allows for missing values so we wrap all our encoders with a missing encoder to handle these
+        for i in range(len(encoders)):
+            encoders[i] = MissingEncoder(encoders[i])
+        
+        return encoders
+
+    def _parse_data(self, is_dense: bool, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMap]:
 
         if is_dense:
-            for line in self._csv_reader.filter(lines):
+            for i, line in enumerate(self._csv_reader.filter(lines)):
+
+                if len(line) < len(headers):
+                    raise CobaException(f"There are not enough elements on line {i} in the ARFF file.")
+                
+                if len(line) > len(headers):
+                    raise CobaException(f"There are too many elements on line {i} in the ARFF file.")
+
                 yield LazyDense(line, headers, encoders) 
         else:
             dict_encoders = dict(enumerate(encoders))
             dict_headers  = dict(zip(headers,count()))
             modifiers     = [k for k,e in enumerate(encoders) if not isinstance(e._encoder,(IdentityEncoder,NumericEncoder))]
 
-            for line in lines:
+            for i,line in enumerate(lines):
                 
                 keys_and_vals = re.split('\s*,\s*|\s+', line)
 
                 keys = list(map(int,keys_and_vals[0::2]))
                 vals = keys_and_vals[1::2]
 
+                if max(keys) > len(headers):
+                    raise CobaException(f"There are elements we can't associate with a header on line {i} in the ARFF file.")
+
                 yield LazySparse(dict(zip(keys,vals)), dict_headers, dict_encoders, modifiers)
+
+    def _split_line(self, line: str, delimiter:str, count=float('inf')) -> Sequence[str]:
+
+        line = line.strip()
+        items: List[str] = []
+
+        while line != "":
+
+            if line.startswith("'"):
+                line = line[1:]
+                end  = self._r_unescaped_single_quote.search(line).start(0)
+            elif line.startswith('"'):
+                line = line[1:]
+                end  = self._r_unescaped_double_quote.search(line).start(0)
+            else:
+                end = line.find(delimiter)
+
+            if end == -1:
+                items.append(line)
+                line = ""
+            else:
+                items.append(line[:end])
+                line = line[end+1:].strip()
+
+            count -= 1
+
+            if count == 0:
+                items.append(line)
+                line = ""
+
+        return [ i.strip().strip('\'"').replace('\\','') for i in items]
 
 class CsvReader(Reader):
 

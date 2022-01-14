@@ -460,6 +460,100 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertIn("We were unable to find 'class_A' in ['class_B', 'class_C', 'class_D']", str(e.exception))
 
+    def test_spaces_in_attribute_name(self):
+        lines = [
+            "@relation news20",
+            "@attribute 'a a' string",
+            "@attribute 'b b' string",
+            "@attribute 'c c' {class_B, class_C, class_D}",
+            "@data",
+            "1,2,class_B",
+        ]
+
+        expected = [
+            ['1','2',(1,0,0)],
+        ]
+        
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_escaped_quote_in_attribute_name(self):
+        lines = [
+            "@relation news20",
+            "@attribute 'a\\'a' numeric",
+            "@attribute 'b b' string",
+            "@attribute 'c c' {class_B, class_C, class_D}",
+            "@data",
+            "1,2,class_B",
+        ]
+
+        expected = [
+            [1,'2',(1,0,0)],
+        ]
+        
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_capitalized_attribute(self):
+        lines = [
+            "@relation news20",
+            "@ATTRIBUTE 'a\\'a' numeric",
+            "@attribute 'b b' string",
+            "@attribute 'c c' {class_B, class_C, class_D}",
+            "@data",
+            "1,2,class_B",
+        ]
+
+        expected = [
+            [1,'2',(1,0,0)],
+        ]
+
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_bad_tipe_raises_exception(self):
+        lines = [
+            "@relation news20",
+            "@ATTRIBUTE 'a\\'a' numeric",
+            "@attribute 'b b' abcd",
+            "@attribute 'c c' {class_B, class_C, class_D}",
+            "@data",
+            "1,2,class_B",
+        ]
+        
+        with self.assertRaises(CobaException) as ex:
+            list(ArffReader().filter(lines))
+
+        self.assertEqual('An unrecognized type was found in the arff attributes: abcd.', str(ex.exception))
+
+    def test_all_good_tipes_do_not_raise_exception(self):
+        lines = [
+            "@relation news20",
+            "@ATTRIBUTE a numeric",
+            "@ATTRIBUTE b integer",
+            "@ATTRIBUTE c real",
+            "@attribute d    date",
+            "@attribute e   {class_B, class_C, class_D}",
+            "@attribute f relational",
+            "@data",
+        ]
+        
+        list(ArffReader().filter(lines))
+
+    def test_str_as_cat(self):
+        lines = [
+            "@relation news20",
+            "@attribute A numeric",
+            "@attribute C {0, class_B, class_C, class_D}",
+            "@data",
+            "1,class_B",
+            "2,0",
+        ]
+
+        expected = [
+            [1,"class_B"],
+            [2,"0"]
+        ]
+
+        self.assertEqual(expected, list(ArffReader(cat_as_str=True).filter(lines)))
+
 class LibsvmReader_Tests(unittest.TestCase):
     def test_sparse(self):
         lines = [

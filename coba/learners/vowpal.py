@@ -167,11 +167,6 @@ class VowpalArgsLearner(Learner):
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
 
         if self._vw is None:
-            # vowpal has an annoying warning that is written to stderr whether or not we provide
-            # the --quiet flag. Therefore, we temporarily redirect all stderr output to null so that
-            # this warning isn't shown during creation. It should be noted this isn't thread-safe
-            # so if you are here because of strange problems with threads we may just need to suck
-            # it up and accept that there will be an obnoxious warning message.
             self._vw = VowpalMediator.make_learner(self._cli_args(actions) + " --quiet")
 
             if not self._adf:

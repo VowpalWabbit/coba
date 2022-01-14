@@ -77,7 +77,8 @@ class FilteredEnvironment(Environment):
 
     def _safe_params(self, obj) -> Dict[str, Any]:
         try:
-            return obj.params
+            if hasattr(obj, 'params'):
+                return obj.params
         except AttributeError:
             pass
 
