@@ -464,7 +464,7 @@ class ArffReader_Tests(unittest.TestCase):
         lines = [
             "@relation news20",
             "@attribute 'a a' string",
-            "@attribute 'b b' string",
+            '@attribute "b b" string',
             "@attribute 'c c' {class_B, class_C, class_D}",
             "@data",
             "1,2,class_B",
@@ -553,6 +553,63 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         self.assertEqual(expected, list(ArffReader(cat_as_str=True).filter(lines)))
+
+    def test_too_many_dense_elements(self):
+        lines = [
+            "@relation news20",
+            "@attribute A numeric",
+            "@attribute C {0, class_B, class_C, class_D}",
+            "@data",
+            "1,0,class_B",
+        ]
+
+        with self.assertRaises(CobaException) as e:
+            list(ArffReader().filter(lines))
+
+        self.assertEqual(str(e.exception), "There are too many elements on line 0 in the ARFF file.")
+
+    def test_too_few_dense_elements(self):
+        lines = [
+            "@relation news20",
+            "@attribute A numeric",
+            "@attribute C {0, class_B, class_C, class_D}",
+            "@data",
+            "1",
+        ]
+
+        with self.assertRaises(CobaException) as e:
+            list(ArffReader().filter(lines))
+
+        self.assertEqual(str(e.exception), "There are not enough elements on line 0 in the ARFF file.")
+
+    def test_min_unknown_sparse_elements(self):
+        lines = [
+            "@relation news20",
+            "@attribute A numeric",
+            "@attribute C {0, class_B, class_C, class_D}",
+            "@data",
+            "{-1 2,0 2,1 3}",
+        ]
+
+        with self.assertRaises(CobaException) as e:
+            list(ArffReader().filter(lines))
+
+        self.assertEqual(str(e.exception), "There are elements we can't associate with a header on line 0 in the ARFF file.")
+
+    def test_max_unknown_sparse_elements(self):
+        lines = [
+            "@relation news20",
+            "@attribute A numeric",
+            "@attribute C {0, class_B, class_C, class_D}",
+            "@data",
+            "{0 2,1 3,2 4}",
+        ]
+
+        with self.assertRaises(CobaException) as e:
+            list(ArffReader().filter(lines))
+
+        self.assertEqual(str(e.exception), "There are elements we can't associate with a header on line 0 in the ARFF file.")
+
 
 class LibsvmReader_Tests(unittest.TestCase):
     def test_sparse(self):

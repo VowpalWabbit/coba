@@ -76,19 +76,15 @@ class FilteredEnvironment(Environment):
         return self._filter.filter(self._source.read())
 
     def _safe_params(self, obj) -> Dict[str, Any]:
-        try:
-            if hasattr(obj, 'params'):
-                return obj.params
-        except AttributeError:
-            pass
+        
+        if hasattr(obj, 'params'):
+            return obj.params
 
-        try:
+        if hasattr(obj, '_filters'):
             params = {}
             for filter in obj._filters:
                 params.update(self._safe_params(filter))
             return params
-        except AttributeError:
-            pass
 
         return {}
 

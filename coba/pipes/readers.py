@@ -249,7 +249,7 @@ class ArffReader(Reader):
                 keys = list(map(int,keys_and_vals[0::2]))
                 vals = keys_and_vals[1::2]
 
-                if max(keys) > len(headers):
+                if max(keys) >= len(headers) or min(keys) < 0:
                     raise CobaException(f"There are elements we can't associate with a header on line {i} in the ARFF file.")
 
                 yield LazySparse(dict(zip(keys,vals)), dict_headers, dict_encoders, modifiers)
