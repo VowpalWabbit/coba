@@ -86,16 +86,18 @@ class BasicLogger(Logger):
 
     @contextmanager
     def _log_context(self, message:str) -> 'Iterator[Logger]':
+        outcome = "(error)"
         try:
             yield self
+            outcome = "(completed)"
         except KeyboardInterrupt:
-            self.log(message + " (interrupt)")
+            outcome = "(interrupt)"
             raise
-        except Exception as e:
-            self.log(message + " (exception)")
+        except (Exception, TypeError) as e:
+            outcome = "(exception)"
             raise
-        else:
-            self.log(message + " (completed)")
+        finally:
+            self.log(message + f" {outcome}")
     
     @contextmanager
     def _time_context(self, message:str) -> 'Iterator[Logger]':
@@ -161,6 +163,7 @@ class IndentLogger(Logger):
         message = self._level_message(message)
 
         with self._indent_context():
+            outcome = "(error)"
             try:
                 start = time.time()
                 yield self
@@ -168,7 +171,7 @@ class IndentLogger(Logger):
             except KeyboardInterrupt:
                 outcome = "(interrupt)"
                 raise
-            except Exception:
+            except (Exception, TypeError):
                 outcome = "(exception)"
                 raise
             finally:
