@@ -1,4 +1,5 @@
 
+from sys import stderr
 import time
 import traceback
 import pickle
@@ -9,6 +10,7 @@ from itertools import islice
 from multiprocessing import current_process, Process, Queue
 from threading import Thread
 from typing import Iterable, Any, List, Optional
+from coba.exceptions import CobaException
 
 from coba.pipes.core       import Pipe, Foreach
 from coba.pipes.primitives import Filter, Source
@@ -113,26 +115,28 @@ class PipesPool:
                     if self._terminate: break
 
                     try:
-                        self._stdin.write(pickle.dumps(item))
-                    except Exception as e:
-                        if "Can't pickle" in str(e) or "Pickling" in str(e):
 
-                            message = (
-                                str(e) + ". We attempted to process your code on multiple processes but "
-                                "the named class could not be pickled. This problem can be fixed in one of two ways: 1) "
-                                "evaluate the experiment in question on a single process with no limit on the tasks per child or 2) "
-                                "modify the named class to be picklable. The easiest way to make a given class picklable is to "
-                                "add `def __reduce__ (self) return (<the class in question>, (<tuple of constructor arguments>))` to "
-                                "the class. For more information see https://docs.python.org/3/library/pickle.html#object.__reduce__."
+                        self._stdin.write(pickle.dumps(item))
+
+                    except Exception as e:
+                        if "pickle" in str(e) or "Pickling" in str(e):
+
+                            message = str(e) if isinstance(e,CobaException) else (
+                                str(e) + ". We attempted to process your code on multiple processes but the named class could not "
+                                "be pickled. This problem can be fixed in one of two ways: 1) evaluate the experiment in question "
+                                "on a single process with no limit on the tasks per child or 2) modify the named class to be "
+                                "picklable. The easiest way to make a given class picklable is to add `def __reduce__ (self) return "
+                                "(<the class in question>, (<tuple of constructor arguments>))` to the class. For more information "
+                                "see https://docs.python.org/3/library/pickle.html#object.__reduce__."
                             )
 
                             self._stderr.write(message)
-                            
-                            # I'm not sure what I think about this... 
+
+                            # I'm not sure what I think about this...
                             # It means pipes stops after a pickle error...
-                            # This is how it has worked for a long time, though, 
-                            # So I'm leaving as is for now...
-                            break 
+                            # This is how it has worked for a long time
+                            # So we're leaving it as is for now...
+                            break
                         else: #pragma: no cover
                             self._stderr.write((time.time(), current_process().name, e, traceback.format_tb(e.__traceback__)))
             except Exception as e:
@@ -160,17 +164,17 @@ class PipesPool:
             yield item
 
     def close(self):
-        
+
         while self._threads:
             self._threads.pop().join()
 
         if self._stdin : self._stdin._queue .close()
         if self._stdout: self._stdout._queue.close()
-        if self._stderr: self._stderr._queue.close()        
+        if self._stderr: self._stderr._queue.close()
 
     def terminate(self):
         self._terminate = True
-        
+
         if len(self._threads) > 2:
             self._threads[1].join()
 
@@ -184,7 +188,7 @@ class PipesPool:
 
             for item in islice(map(pickle.loads,stdin.read()),maxtasksperchild):
                 result = filter.filter(item)
-                
+
                 #This is a bit of a hack primarily put in place to deal with
                 #CobaMultiprocessing that performs coba logging of exceptions.
                 #An alternative solution would be to raise a coba exception 
@@ -211,7 +215,7 @@ class PipesPool:
                     )
 
                     stderr.write(message)
-                
+
                 else:
                     #WARNING: this will scrub e of its traceback which is why the traceback is also sent as a string
                     stderr.write((time.time(), current_process().name, e, traceback.format_tb(e.__traceback__)))
@@ -244,6 +248,7 @@ class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
         with PipesPool(self._n_processes, self._maxtasksperchild, self._stderr) as pool:
             for item in pool.map(self._filter, items):
                 if self._chunked:
-                    for inner_item in item: yield inner_item
+                    for inner_item in item: 
+                        yield inner_item
                 else:
                     yield item

@@ -135,7 +135,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             pickle.loads(pickle.dumps(LambdaSimulation(None,C,A,R)))
         
-        self.assertIn("In general LambdaSimulation", str(e.exception))
+        self.assertIn("pickle", str(e.exception))
 
 class LinearSyntheticSimulation_Tests(unittest.TestCase):
     def test_simple(self):
@@ -150,13 +150,13 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(0     , env.params['r_noise'])
         self.assertEqual(['xa'], env.params['X'])
         self.assertEqual(2     , env.params['seed'])
-    
+
     def test_str(self):
         self.assertEqual("LinearSynth(A=2,c=3,a=4,X=['xa'],seed=2)", str(LinearSyntheticSimulation(100,2,3,4,0,["xa"],2)))
 
     def test_pickle(self):
-        env = pickle.loads(pickle.dumps(LinearSyntheticSimulation(100,2,3,4,0,["xa"],2)))
-        
+        env = pickle.loads(pickle.dumps(LinearSyntheticSimulation(2000,2,3,4,0,["xa"],2)))
+
         self.assertEqual(2     , env.params['n_A'])
         self.assertEqual(3     , env.params['n_C_phi'])
         self.assertEqual(4     , env.params['n_A_phi'])
@@ -164,10 +164,10 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(['xa'], env.params['X'])
         self.assertEqual(2     , env.params['seed'])
         self.assertEqual("LinearSynth(A=2,c=3,a=4,X=['xa'],seed=2)", str(env))
-        self.assertEqual(100, len(list(env.read())))
+        self.assertEqual(2000, len(list(env.read())))
 
 class LocalSyntheticSimulation_Tests(unittest.TestCase):
-    
+
     def test_simple(self):
         self.assertEqual(500, len(list(LocalSyntheticSimulation().read())))
 
@@ -181,6 +181,16 @@ class LocalSyntheticSimulation_Tests(unittest.TestCase):
 
     def test_str(self):
         self.assertEqual("LocalSynth(A=4,C=100,c=3,seed=2)", str(LocalSyntheticSimulation(200,100,3,4,2)))
+
+    def test_pickle(self):
+        env = pickle.loads(pickle.dumps(LocalSyntheticSimulation(2000,2,3,4,5)))
+        
+        self.assertEqual(2     , env.params['n_C'])
+        self.assertEqual(3     , env.params['n_C_phi'])
+        self.assertEqual(4     , env.params['n_A'])
+        self.assertEqual(5     , env.params['seed'])
+        self.assertEqual("LocalSynth(A=4,C=2,c=3,seed=5)", str(env))
+        self.assertEqual(2000, len(list(env.read())))
 
 if __name__ == '__main__':
     unittest.main()

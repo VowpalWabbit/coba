@@ -2,8 +2,8 @@ import unittest
 import pickle
 
 from queue           import Queue
-from threading       import Thread, Event
-from multiprocessing import current_process, Barrier
+from threading       import Thread
+from multiprocessing import current_process, Barrier, Event
 from typing          import Iterable, Any
 
 from coba.pipes import Filter, ListIO, Identity, QueueIO, NullIO
@@ -29,6 +29,12 @@ class BarrierNameFilter(Filter):
         self._barrier.wait()
         yield f"pid-{current_process().pid}"
 
+class KillableFilter(Filter):
+    def __init__(self, kill_event: Event) -> None:
+        self._kill_event = kill_event
+
+    def filter(self, item):
+        self._kill_event.wait()
 
 class ExceptionFilter(Filter):
     def __init__(self, exc = Exception("Exception Filter")):

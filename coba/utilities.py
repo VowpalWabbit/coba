@@ -26,7 +26,7 @@ class PackageChecker:
             at https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/utils/__init__.py
         """
         try:
-            importlib.import_module('matplotlib')
+            importlib.import_module('matplotlib.pyplot')
         except ImportError:
             PackageChecker._handle_import_error(caller_name, "matplotlib")
 

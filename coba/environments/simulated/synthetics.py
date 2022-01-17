@@ -100,17 +100,20 @@ class LambdaSimulation(SimulatedEnvironment):
             return self._str
 
     def __reduce__(self) -> Tuple[object, ...]:
-        if self._n_interactions is not None:
+        if self._n_interactions is not None and self._n_interactions < 1000:
+            #This is an interesting idea but maybe too wink-wink nudge-nudge in practice. It causes weird flow
+            #in the logs that looks like bugs and lags because IO is happening at strange places in a manner that
+            #can cause thread locks.
             return (LambdaSimulation.Spoof, (list(self.read()), self.params, str(self), type(self).__name__ ))
         else:
             message = (
-                "In general LambdaSimulation cannot be pickled because Python is unable to pickle lambda methods. "
-                "This is really only a problem if you are trying to perform an experiment with a LambdaSimulation and "
-                "multiple processes. There are three options to get around this limitation: (1) run your experiment "
+                "It is not possible to pickle a LambdaSimulation due to its use of lambda methods in the constructor. "
+                "This error occured because an experiment containing a LambdaSimulation tried to execute on multiple processes. "
+                "If this is neccesary there are three options to get around this limitation: (1) run your experiment "
                 "on a single process rather than multiple, (2) re-design your LambdaSimulation as a class that inherits "
-                "from LambdaSimulation (see coba.environments.simulations.LinearSyntheticSimulation for an example), "
-                "or (3) specify a finite number for n_interactions in the LambdaSimulation constructor (this allows "
-                "us to create the interactions in memory ahead of time and convert to a MemorySimulation when pickling).")
+                "from LambdaSimulation and implements __reduce__ (see coba.environments.simulations.LinearSyntheticSimulation "
+                "for an example), or (3) specify a finite number for n_interactions in the LambdaSimulation constructor (this "
+                "allows us to create the interactions in memory ahead of time and convert to a MemorySimulation when pickling).")
             raise CobaException(message)
 
 class LinearSyntheticSimulation(LambdaSimulation):
@@ -140,6 +143,8 @@ class LinearSyntheticSimulation(LambdaSimulation):
             cross_terms: The action and context feature cross products to calculate expected reward value.
             seed: The random number seed used to generate all features, weights and noise in the simulation. 
         """
+
+        self._args = (n_interactions, n_actions, n_context_feats, n_action_feats, r_noise_var, cross_terms, seed)
 
         self._n_actions          = n_actions
         self._n_context_features = n_context_feats
@@ -193,6 +198,9 @@ class LinearSyntheticSimulation(LambdaSimulation):
             "seed"   : self._seed
         }
 
+    def __reduce__(self) -> Tuple[object, ...]:
+        return (LinearSyntheticSimulation, self._args)
+
     def __str__(self) -> str:
         return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},X={self._X},seed={self._seed})"
 
@@ -220,6 +228,8 @@ class LocalSyntheticSimulation(LambdaSimulation):
             n_actions: The number of actions each interaction should have.
             seed: The random number seed used to generate all contexts and action rewards.
         """
+
+        self._args = (n_interactions, n_contexts, n_context_feats, n_actions, seed)
 
         self._n_interactions     = n_interactions
         self._n_context_features = n_context_feats
@@ -259,3 +269,6 @@ class LocalSyntheticSimulation(LambdaSimulation):
 
     def __str__(self) -> str:
         return f"LocalSynth(A={self._n_actions},C={self._n_contexts},c={self._n_context_features},seed={self._seed})"
+
+    def __reduce__(self) -> Tuple[object, ...]:
+        return (LocalSyntheticSimulation, self._args)
