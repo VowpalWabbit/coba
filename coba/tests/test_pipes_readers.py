@@ -476,6 +476,22 @@ class ArffReader_Tests(unittest.TestCase):
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
+    def test_tab_delimieted_attributes(self):
+        lines = [
+            "@relation news20",
+            "@attribute a	string",
+            '@attribute b	string',
+            "@attribute c	{class_B, class_C, class_D}",
+            "@data",
+            "1,2,class_B",
+        ]
+
+        expected = [
+            ['1','2',(1,0,0)],
+        ]
+        
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
     def test_escaped_quote_in_attribute_name(self):
         lines = [
             "@relation news20",

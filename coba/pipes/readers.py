@@ -164,7 +164,7 @@ class ArffReader(Reader):
 
             if self._r_attribute.match(line):
                 
-                attribute_split = self._split_line(line[11:], ' ', 1)
+                attribute_split = self._split_line(line[11:], '\s', 1)
                 attribute_name  = attribute_split[0]
                 attribute_type  = attribute_split[1]
 
@@ -268,7 +268,8 @@ class ArffReader(Reader):
                 line = line[1:]
                 end  = self._r_unescaped_double_quote.search(line).start(0)
             else:
-                end = line.find(delimiter)
+                match = re.search(delimiter,line)
+                end = -1 if match is None else match.start(0)
 
             if end == -1:
                 items.append(line)
