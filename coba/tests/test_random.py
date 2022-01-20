@@ -61,6 +61,13 @@ class CobaRandom_Tests(unittest.TestCase):
 
         return p
 
+    def test_value_of_random(self):
+
+        for _ in range(10000):
+            n = coba.random.random()
+            self.assertLessEqual(n,1)
+            self.assertGreaterEqual(n,0)
+
     def test_zero_randoms(self):
         self.assertEqual([],coba.random.randoms(0))
 

@@ -169,7 +169,6 @@ def seed(seed: Optional[int]) -> None:
 
 def random() -> float:
     """Generate a uniform random number in [0,1]."""
-
     return _random.random()
 
 def randoms(n: int) -> Sequence[float]:

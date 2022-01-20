@@ -140,54 +140,65 @@ class Performance_Tests(unittest.TestCase):
         self.assertLess(time,.025)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
-    def test_vowpal_mediator_make_example_performance(self):
+    def test_vowpal_mediator_make_example_sequence_str_performance(self):
 
-        from vowpalwabbit import pyvw
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --quiet",4)
 
-        vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xxa --interactions xa --ignore_linear x --quiet")
+        ns = { 'x': list(map(str,range(1000))) }
+        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))            
 
-        ns = { 'x': [ (str(i),v) for i,v in enumerate(range(1000)) ], 'a': [ (str(i),v) for i,v in enumerate(range(20)) ] }
-        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, ns, None, 4), repeat=10, number=100))            
-
-        #.014 was my final average time
-        self.assertLess(time, .14)
-    
-    def test_vowpal_mediator_prep_features_tuple_sequence_performance(self):
-
-        x    = [ (str(i),v) for i,v in enumerate(range(1000)) ]
-        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))
-
-        #0.026 was my final average time (this time can be cut in half but prep_features becomes much less flexible)
-        self.assertLess(time,.26)
-
-    def test_vowpal_mediator_prep_features_dict_performance(self):
-
-        x    = dict(zip(map(str,range(1000)), range(1000)))
-        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))
-
-        #0.016 was my final average time
-        self.assertLess(time,.16)
-
-    def test_vowpal_mediator_prep_features_values_sequence(self):
-
-        x    = list(range(1000))
-        time = statistics.mean(timeit.repeat(lambda:VowpalMediator.prep_features(x), repeat=10, number=100))            
-
-        #0.019 was my final average time.
-        self.assertLess(time,.19)
+        #.030 was my final average time
+        self.assertLess(time, .3)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
-    def test_vowpal_mediator_prep_and_make_performance(self):
+    def test_vowpal_mediator_make_example_highly_sparse_performance(self):
 
-        from vowpalwabbit import pyvw
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --quiet",4)
 
-        vw = pyvw.vw("--cb_explore_adf 10 --epsilon 0.1 --interactions xx --ignore_linear x --quiet")
-        x  = [ (str(i),round(coba.random.random(),5)) for i in range(200) ]
+        ns = { 'x': [1]+[0]*1000  }
+        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))            
 
-        time1 = statistics.mean(timeit.repeat(lambda:VowpalMediator.make_example(vw, {'x': VowpalMediator.prep_features(x) }, None, 4), repeat=5, number=100))
-        time2 = statistics.mean(timeit.repeat(lambda:vw.parse("|x " + " ".join(f"{i}:{v}" for i,v in x))                              , repeat=5, number=100))
+        #.005 was my final average time
+        self.assertLess(time, .05)
 
-        self.assertLess(time1/time2,1.5)
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    def test_vowpal_mediator_make_example_sequence_int_performance(self):
+
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --quiet",4)
+
+        ns = { 'x': list(range(1000)) }
+        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=30, number=100))            
+
+        #.034 was my final average time
+        self.assertLess(time, .34)
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    def test_vowpal_mediator_make_example_sequence_dict_performance(self):
+
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --quiet",4)
+
+        ns = { 'x': dict(zip(map(str,range(1000)), range(1000))) }
+        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))            
+
+        #.035 was my final average time
+        self.assertLess(time, .35)
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    def test_vowpal_mediator_make_examples_sequence_int_performance(self):
+
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --quiet",4)
+
+        shared    = { 'a': list(range(500))} 
+        distincts = [{ 'x': list(range(500)) }, { 'x': list(range(500)) }]
+        time = statistics.mean(timeit.repeat(lambda:vw.make_examples(shared, distincts, None), repeat=10, number=100))            
+
+        #.057 was my final average time
+        self.assertLess(time, .57)
 
     def test_reservoir_performance(self):
 

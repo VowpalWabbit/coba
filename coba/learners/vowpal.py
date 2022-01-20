@@ -1,32 +1,181 @@
 import re
-import collections.abc
 
 from itertools import repeat
-from numbers import Number
-from typing import Any, Dict, Union, Sequence, Optional, Tuple
+from typing import Any, Dict, Union, Sequence, Optional, Tuple, List
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker, KeyDefaultDict
+from coba.utilities import PackageChecker
 from coba.environments import Context, Action
 
 from coba.learners.primitives import Learner, Probs, Info
 
-Coba_Feature    = Union[str,float]
-Coba_Features   = Union[Coba_Feature, Sequence[Coba_Feature], Sequence[Tuple[str,Coba_Feature]], Dict[str,Coba_Feature]]
-Vowpal_Features = Sequence[Union[str,Tuple[str,float]]]
+Coba_Feature      = Union[str,int,float]
+Coba_Features     = Union[Coba_Feature, Sequence[Coba_Feature], Dict[str,Coba_Feature]]
+Coba_Namespaces   = Dict[str,Coba_Features]
+Vowpal_Features   = Sequence[Union[str,int,Tuple[str,float],Tuple[int,float]]]
+Vowpal_Namespaces = Dict[str,Vowpal_Features]
 
 class VowpalMediator:
-    """A class to handle all communication between coba and VW."""
+    """A class to handle all communication between Coba and VW."""
+
+    def __init__(self) -> None:
+        self._vw = None
+        self._ns_offsets: Dict[str,int] = {}
+        self._curr_ns_offset = 0
+
+    @property
+    def is_initialized(self) -> bool:
+        """Indicate whether init_learner has been called previously."""
+        return self._vw is not None
+
+    def init_learner(self, args:str, label_type: int) -> 'VowpalMediator':
+        """Create a VW learner from a command line arg string.
+        
+        Args:
+            args: The command line arg string to use for VW learner creation.
+            label_type: The label type this VW learner will take.
+                - 0 : `simple`__
+                - 1 : binary
+                - 2 : `multiclass`__
+                - 3 : `cost sensitive`__
+                - 4 : `contextual bandit`__
+                - 5 : max
+                - 6 : `conditional contextual bandit`__
+                - 7 : `slates`__
+                - 8 : `continuous actions`__
+
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format#simple
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format#multiclass
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format#cost-sensitive
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Input-format#contextual-bandit
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Conditional-Contextual-Bandit#vw-text-format
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Slates#text-format
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/CATS,-CATS-pdf-for-Continuous-Actions#vw-text-format
+        """
+        PackageChecker.vowpalwabbit('VowpalMediator.make_learner')
+        from vowpalwabbit import pyvw
+        
+        if self._vw is not None:
+            raise CobaException("We cannot initilaize a VW learner twice in a single mediator.")
+
+        self._vw = pyvw.vw(args)
+        self._label_type = label_type
+
+        return self
+
+    def predict(self, example: Any) -> Any:
+        """Predict for an example created by the mediator."""
+        pred = self._vw.predict(example)
+        self._vw.finish_example(example)
+        return pred
+
+    def learn(self, example: Any) -> None:
+        """Learn for an example created by the mediator."""
+        self._vw.learn(example)
+        self._vw.finish_example(example)
+
+    def make_example(self, namespaces:Vowpal_Namespaces, label:Optional[str]) -> Any:
+        """Create a VW example.
+        
+        Args:
+            ns: The features grouped by namespace in this example.
+            label: An optional label (required if this example will be used for learning).
+        """
+        PackageChecker.vowpalwabbit('VowpalMediator.make_example')
+        from vowpalwabbit.pyvw import example
+
+        ns = dict(self._prep_namespaces(namespaces))
+        ex = example(self._vw, ns, self._label_type)
+        if label is not None: ex.set_label_string(label)
+
+        ex.setup_example()
+
+        return ex
+
+    def make_examples(self, shared:Vowpal_Namespaces, separates:Sequence[Vowpal_Namespaces], labels:Optional[Sequence[str]]) -> Sequence[Any]:
+        """Create a list of VW examples.
+        
+        Args:
+            shared: The features grouped by namespace in this example.
+            label: An optional label (required if this example will be used for learning).
+        """
+
+        PackageChecker.vowpalwabbit('VowpalMediator.make_examples')
+        from vowpalwabbit.pyvw import example
+
+        labels       = repeat(None) if labels is None else labels
+        vw_shared    = dict(self._prep_namespaces(shared))
+        vw_separates = list(map(dict,map(self._prep_namespaces,separates)))
+
+        examples: List[example] = []
+        for vw_separate, label in zip(vw_separates,labels):
+            ex = example(self._vw, {**vw_shared, **vw_separate}, self._label_type)
+            if label: ex.set_label_string(label)
+            ex.setup_example()
+            examples.append(ex)
+
+        return examples
+
+    def _prep_namespaces(self, namespaces: Coba_Namespaces) -> Vowpal_Namespaces:
+        """Turn a collection of coba formatted namespaces into VW format."""        
+
+        #the strange type checks below were faster than traditional methods when performance testing
+        for ns, feats in namespaces.items():
+            if not feats and feats != 0 and feats != "":
+                continue
+            elif feats.__class__ is str:
+                yield (ns, [f"{self._get_ns_offset(ns,1)}={feats}"])
+            elif feats.__class__ is int or feats.__class__ is float:
+                yield (ns, [(self._get_ns_offset(ns,1), float(feats))])
+            else:
+                feats = feats.items() if feats.__class__ is dict else enumerate(feats,self._get_ns_offset(ns,len(feats)))
+                yield (ns, [f"{k}={v}" if v.__class__ is str else (k, float(v)) for k,v in feats if v!= 0])
+
+    def _get_ns_offset(self, namespace:str, length:int) -> Sequence[int]:
+        value = self._ns_offsets.setdefault(namespace, self._curr_ns_offset)
+        self._curr_ns_offset += length
+        return value
+
+class VowpalArgsLearner(Learner):
+    """A friendly wrapper around Vowpal Wabbit's python interface to support CB learning.
     
-    _string_cache = KeyDefaultDict(str)
+    Remarks: 
+        This learner requires that the Vowpal Wabbit package be installed. This package can be
+        installed via `pip install vowpalwabbit`. To learn more about solving contextual bandit
+        problems with Vowpal Wabbit see `here`__ and `here`__.
+
+    __ https://vowpalwabbit.org/tutorials/contextual_bandits.html
+    __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
+    """
+
+    def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions xxa --interactions xa --ignore_linear x --random_seed 1", vw: VowpalMediator = None) -> None:
+        """Instantiate a VowpalArgsLearner.
+
+        Args:
+            args: Command line arguments to instantiate a Vowpal Wabbit contextual bandit learner. For 
+                examples and documentation on how to instantiate VW learners from command line arguments 
+                see `here`__. We require that either cb, cb_adf, cb_explore, or cb_explore_adf is used. 
+                When we format examples for VW context features are placed in the 'x' namespace and action 
+                features, when relevant, are placed in the 'a' namespace.
+            vw: A mediator able to communicate with VW. This should not need to ever be changed. 
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
+        """
+
+        PackageChecker.vowpalwabbit("VowpalArgsLearner")
+
+        if "--cb" not in args: 
+            raise CobaException("VowpalArgsLearner was instantiated without a cb flag. One cb flag must be defined.")
+
+        self._exp  = "--cb_explore" in args
+        self._adf  = "--cb_adf"     in args or "--cb_explore_adf" in args
+        self._args = re.sub("--cb[^-]*", '', args, count=1)
+
+        self._actions: Sequence[Action] = []
+        self._vw                        = vw if vw is not None else VowpalMediator()
 
     @staticmethod
-    def make_args(options: Sequence[str],
-        interactions: Sequence[str],
-        ignore_linear:Sequence[str],
-        seed: Optional[int], 
-        **kwargs) -> str:
+    def make_args(options: Sequence[str], interactions: Sequence[str], ignore_linear:Sequence[str], seed: Optional[int], **kwargs) -> str:
         """Turn specific settings into a VW command line arg string.
 
         Args:
@@ -37,7 +186,7 @@ class VowpalMediator:
             kwargs: Any number of additional options to add to the arg string.
         """
 
-        options = list(options)
+        options = list(filter(None,options))
 
         for interaction in interactions:
             options.append(f"--interactions {interaction}")
@@ -54,165 +203,60 @@ class VowpalMediator:
 
         return " ".join(options)
 
-    @staticmethod
-    def prep_features(features: Coba_Features) -> Vowpal_Features:
-        """Turn a collection of coba formatted features into VW format.
-        
-        Args:
-            features: The features in coba format we wish to prepare for VW.
-        """
-        # one big potential for error here is if our features have float keys      
-        # checking for this case though greatly reduces efficiency of the prep operation.
-
-        if features is None or features == [] or features == ():
-            return []
-        elif isinstance(features, str):
-            return [features]
-        elif isinstance(features, Number):
-            return [("0",float(features))]
-        elif isinstance(features,dict):
-            features = features.items()
-        elif isinstance(features, collections.abc.Sequence) and features and isinstance(features[0], tuple):
-            features = features
-        elif isinstance(features, collections.abc.Sequence) and features and not isinstance(features[0],tuple):
-            features = zip(map(VowpalMediator._string_cache.__getitem__, range(len(features))) ,features)
-        else:
-            raise CobaException(f"Unrecognized features of type {type(features).__name__} passed to VowpalMediator.")
-
-        return [f"{F[0]}={F[1]}" if isinstance(F[1],str) else (F[0], float(F[1])) for F in features if F[1] != 0]        
-
-    @staticmethod
-    def make_learner(args:str):
-        """Create a VW learner from a command line arg string.
-        
-        Args:
-            args: The command line arg string to use for VW learner creation.
-        """
-        PackageChecker.vowpalwabbit('VowpalMediator.make_learner')
-        from vowpalwabbit import pyvw
-        return pyvw.vw(args)
-    
-
-    @staticmethod
-    def make_example(vw, ns:Dict[str,Vowpal_Features], label:Optional[str], label_type:int):
-        """Create a VW example using the given features and optional label.
-        
-        Args:
-            vw: The vw learner we are creating an example for.
-            ns: The features grouped by namespace in this example.
-            label: An optional label (required if this a learning example).
-            label_type: The expected VW label_type (4 indicates a CB label).
-        """
-        PackageChecker.vowpalwabbit('VowpalMediator.make_example')
-        from vowpalwabbit.pyvw import example
-
-        ns = { k:v for k,v in ns.items() if v != [] }
-
-        ex = example(vw, ns, label_type)
-        
-        if label: ex.set_label_string(label)
-
-        ex.setup_example()
-
-        return ex
-
-    @staticmethod
-    def get_version() -> str:
-        """Return the current version of VW."""
-        PackageChecker.vowpalwabbit('VowpalMediator.get_version')
-        from vowpalwabbit.version import __version__
-        return __version__
-
-class VowpalArgsLearner(Learner):
-    """A friendly wrapper around Vowpal Wabbit's python interface to support CB learning.
-    
-    Remarks: 
-        This learner requires that the Vowpal Wabbit package be installed. This package can be
-        installed via `pip install vowpalwabbit`. To learn more about solving contextual bandit
-        problems with Vowpal Wabbit see `here`__ and `here`__.
-
-    __ https://vowpalwabbit.org/tutorials/contextual_bandits.html
-    __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
-    """
-
-    def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions xxa --interactions xa --ignore_linear x --random_seed 1") -> None:
-        """Instantiate a VowpalArgsLearner.
-
-        Args:
-            args: Command line arguments to instantiate a Vowpal Wabbit contextual bandit learner. For 
-                examples and documentation on how to instantiate VW learners from command line arguments 
-                see `here`__. We require that either cb, cb_adf, cb_explore, or cb_explore_adf is used. 
-                When we format examples for VW context features are placed in the 'x' namespace and action 
-                features, when relevant, are placed in the 'a' namespace.
-        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
-        """
-
-        PackageChecker.vowpalwabbit("VowpalArgsLearner")
-
-        if "--cb" not in args: 
-            raise CobaException("VowpalArgsLearner was instantiated without a cb flag. One cb flag must be defined.")
-
-        self._exp  = "--cb_explore" in args
-        self._adf  = "--cb_adf"     in args or "--cb_explore_adf" in args
-        self._args = re.sub("--cb[^-]*", '', args, count=1)
-
-        self._actions: Sequence[Action] = []
-        self._vw                        = None
-
     @property
     def params(self) -> Dict[str, Any]:
-
         return {"family": "vw", 'args': self._cli_args(None)}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
 
-        if self._vw is None:
-            self._vw = VowpalMediator.make_learner(self._cli_args(actions) + " --quiet")
+        if not self._vw.is_initialized:
+            self._vw.init_learner(self._cli_args(actions) + " --quiet", 4)
 
             if not self._adf:
                 self._actions = actions
 
-        if not self._adf and (len(actions) != len(self._actions) or any(a not in self._actions for a in actions)):
+        if not self._adf and (len(actions) != len(self._actions) or set(self._actions) != set(actions)):
             raise CobaException("Actions are only allowed to change between predictions with `--cb_explore_adf`.")
 
         info = (actions if self._adf else self._actions)
 
-        shared = self._shared(context)
-        adfs   = self._adfs(actions)
+        context = {'x':self._flat(context)}
+        adfs    = None if not self._adf else [{'a':self._flat(action)} for action in actions]
 
         if self._adf and self._exp:
-            probs = self._vw.predict(self._examples(shared, adfs))
+            probs = self._vw.predict(self._vw.make_examples(context, adfs, None))
 
         if self._adf and not self._exp:
-            loss_values    = self._vw.predict(self._examples(shared, adfs))
-            min_loss_value = min(loss_values)
-            min_indicators = [int(s == min_loss_value) for s in loss_values]
-            min_count      = sum(min_indicators)
-            probs          = [ min_indicator/min_count for min_indicator in min_indicators ]
-
+            losses    = self._vw.predict(self._vw.make_examples(context,adfs, None))
+            min_loss  = min(losses)
+            min_bools = [s == min_loss for s in losses]
+            min_count = sum(min_bools)
+            probs     = [ int(min_indicator)/min_count for min_indicator in min_bools ]
+        
         if not self._adf and self._exp:
-            probs = self._vw.predict(self._example(shared))
-
+            probs = self._vw.predict(self._vw.make_example(context, None))
+            
         if not self._adf and not self._exp:
-            index = self._vw.predict(self._example(shared))
+            index = self._vw.predict(self._vw.make_example(context, None))
             probs = [ int(i==index) for i in range(1,len(actions)+1) ]
 
         return probs, info
 
     def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
 
-        assert self._vw is not None, "You must call predict before learn in order to initialize the VW learner"
+        assert self._vw.is_initialized, "You must call predict before learn in order to initialize the VW learner"
 
         actions = info
-        shared  = self._shared(context)
-        adfs    = self._adfs(actions)
         labels  = self._labels(actions, action, reward, probability)
         label   = labels[actions.index(action)]
 
+        context = {'x':self._flat(context)}
+        adfs    = None if not self._adf else [{'a':self._flat(action)} for action in actions]
+
         if self._adf:
-            self._vw.learn(self._examples(shared, adfs, labels))
+            self._vw.learn(self._vw.make_examples(context,adfs, labels))
         else:
-            self._vw.learn(self._example(shared, label))
+            self._vw.learn(self._vw.make_example(context, label))
 
     def _cli_args(self, actions: Optional[Sequence[Action]]) -> str:
 
@@ -223,22 +267,10 @@ class VowpalArgsLearner(Learner):
         
         if not self._adf: base_learner += f" {len(actions) if actions else ''}"
 
-        return base_learner + " " + self._args
-
-    def _examples(self, shared: Dict[str,Any], adfs: Sequence[Dict[str,Any]] = None, labels: Sequence[str] = repeat(None)):
-        return [ self._example({**shared,**adf}, label) for adf,label in zip(adfs,labels) ]
-
-    def _example(self, ns, label=None):
-        return VowpalMediator.make_example(self._vw, ns, label, 4)
+        return " ".join(filter(None,[base_learner, self._args]))
 
     def _labels(self,actions,action,reward:float,prob:float) -> Sequence[Optional[str]]:
         return [ f"{i+1}:{round(1-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
-
-    def _shared(self, context) -> Dict[str,Any]:
-        return {} if not context else { 'x': VowpalMediator.prep_features(self._flat(context)) }
-
-    def _adfs(self,actions) -> Sequence[Dict[str,Any]]:
-        return [ {'a': VowpalMediator.prep_features(self._flat(a))} for a in actions]
 
     def _flat(self,features:Any) -> Any:
         if features is None or isinstance(features,(int,float,str)):
@@ -278,7 +310,7 @@ class VowpalEpsilonLearner(VowpalArgsLearner):
         """
 
         options = [ "--cb_explore_adf", f"--epsilon {epsilon}" ]
-        super().__init__(VowpalMediator.make_args(options, interactions, ignore_linear, seed, **kwargs))
+        super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalSoftmaxLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 
@@ -306,7 +338,7 @@ class VowpalSoftmaxLearner(VowpalArgsLearner):
         """
 
         options = [ "--cb_explore_adf", "--softmax", f"--lambda {softmax}" ]
-        super().__init__(VowpalMediator.make_args(options, interactions, ignore_linear, seed, **kwargs))
+        super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalBagLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 
@@ -333,7 +365,7 @@ class VowpalBagLearner(VowpalArgsLearner):
         """
 
         options = [ "--cb_explore_adf", f"--bag {bag}" ]
-        super().__init__(VowpalMediator.make_args(options, interactions, ignore_linear, seed, **kwargs))
+        super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalCoverLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 
@@ -365,7 +397,7 @@ class VowpalCoverLearner(VowpalArgsLearner):
         """
 
         options = [ "--cb_explore_adf", f"--cover {cover}" ]
-        super().__init__(VowpalMediator.make_args(options, interactions, ignore_linear, seed, **kwargs))
+        super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalRegcbLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 
@@ -397,7 +429,7 @@ class VowpalRegcbLearner(VowpalArgsLearner):
         """
 
         options = [ "--cb_explore_adf", "--regcb" if mode=="elimination" else "--regcbopt" ]
-        super().__init__(VowpalMediator.make_args(options, interactions, ignore_linear, seed, **kwargs))
+        super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalSquarecbLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 
@@ -435,10 +467,10 @@ class VowpalSquarecbLearner(VowpalArgsLearner):
             "--cb_explore_adf",
             "--squarecb",
             f"--gamma_scale {gamma_scale}",
+            "" if mode != "elimination" else "--elim"
         ]
 
-        if mode == "elimination": options.append("--elim")
-        super().__init__(VowpalMediator.make_args(options, interactions, ignore_linear, seed, **kwargs))
+        super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalOffPolicyLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 
@@ -465,4 +497,4 @@ class VowpalOffPolicyLearner(VowpalArgsLearner):
         """
 
         options = ["--cb_adf"]
-        super().__init__(VowpalMediator.make_args(options, interactions, ignore_linear, seed, **kwargs))
+        super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
