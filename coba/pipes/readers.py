@@ -3,7 +3,6 @@ import csv
 import collections.abc
 
 from itertools import islice, takewhile, chain, count
-from tokenize import String
 from typing import Iterable, Sequence, List, Dict, Union, Any, Iterator
 
 from coba.exceptions import CobaException

@@ -12,19 +12,24 @@ Context = Union[None, str, Number, tuple, HashableDict]
 
 class Interaction:
     """An individual interaction that occurs in an Environment."""
-    
+
     def __init__(self, context: Context) -> None:
         """Instantiate an Interaction.
-        
+
         Args:
             context: The context in which the interaction occured.
         """
-        self._context = context
+
+        self._raw_context = context
+        self._hash_context = None
 
     @property
     def context(self) -> Context:
         """The context in which the interaction occured."""
-        return self._hashable(self._context)
+        if self._hash_context is None:
+            self._hash_context = self._hashable(self._raw_context)
+
+        return self._hash_context
 
     def _hashable(self, feats):
 
@@ -48,7 +53,7 @@ class Environment(Source[Iterable[Interaction]], ABC):
             These will become columns in the environment table of an experiment result.
         """
         ...
-    
+
     @abstractmethod
     def read(self) -> Iterable[Interaction]:
         """The sequence of interactions in the simulation.

@@ -1,10 +1,5 @@
-
 from abc import abstractmethod
-from itertools import count, islice
-from typing import Sequence, Dict, Any, Iterable, Callable, Tuple, overload, Optional
-
-from coba.random import CobaRandom
-from coba.exceptions import CobaException
+from typing import Sequence, Dict, Any, Iterable, overload
 
 from coba.environments.primitives import Context, Action, Environment, Interaction
 
@@ -78,24 +73,19 @@ class SimulatedInteraction(Interaction):
         assert "rewards" not in kwargs or len(actions) == len(kwargs["rewards"]), "Interaction rewards must match action length."
         assert "reveals" not in kwargs or len(actions) == len(kwargs["reveals"]), "Interaction reveals must match action length."
 
-        self._context = self._hashable(context)
-        self._actions = list(map(self._hashable,actions))
+        self._raw_actions  = actions
+        self._hash_actions = None
+        self._kwargs       = kwargs
 
-        self._kwargs  = kwargs
-
-        super().__init__(self._context)
-
-    @property
-    def context(self) -> Context:
-        """The interaction's context description."""
-
-        return self._context
+        super().__init__(context)
 
     @property
     def actions(self) -> Sequence[Action]:
         """The interaction's available actions."""
+        if self._hash_actions is None:
+            self._hash_actions = list(map(self._hashable,self._raw_actions))
 
-        return self._actions
+        return self._hash_actions
 
     @property
     def kwargs(self) -> Dict[str,Any]:
