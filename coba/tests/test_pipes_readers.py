@@ -1,4 +1,5 @@
 import unittest
+from itertools import count
 
 from coba.encodings import NumericEncoder, StringEncoder
 from coba.exceptions import CobaException
@@ -6,14 +7,14 @@ from coba.exceptions import CobaException
 from coba.pipes import LibSvmReader, ArffReader, CsvReader, ManikReader
 from coba.contexts import NullLogger, CobaContext
 
-from coba.pipes.readers import LazyDense, LazySparse
+from coba.pipes.readers import LazyDualDense, LazyDualSparse
 
 CobaContext.logger = NullLogger()
 
-class LazyDense_Tests(unittest.TestCase):
+class LazyDualDense_Tests(unittest.TestCase):
 
     def test_no_headers_no_encoders(self):
-        a = LazyDense([1,2])
+        a = LazyDualDense([1,2])
 
         self.assertEqual([1,2], a)
         self.assertEqual(2, len(a))
@@ -26,7 +27,7 @@ class LazyDense_Tests(unittest.TestCase):
         self.assertEqual([1], a)
 
     def test_headers_no_encoders(self):
-        a = LazyDense([1,2,3],['a','b','c'])
+        a = LazyDualDense([1,2,3],dict(zip(['a','b','c'],count())))
 
         self.assertEqual([1,2,3], a)
         self.assertEqual(3, len(a))
@@ -47,7 +48,7 @@ class LazyDense_Tests(unittest.TestCase):
         self.assertEqual(3, a['c'])
 
     def test_headers_and_encoders(self):
-        a = LazyDense(['1','2'],['a','b'], encoders=[NumericEncoder(), StringEncoder()])
+        a = LazyDualDense(['1','2'],dict(zip(['a','b','c'],count())), encoders=[float, str])
 
         self.assertEqual([1,'2'], a)
         self.assertEqual(2, len(a))
@@ -58,24 +59,26 @@ class LazyDense_Tests(unittest.TestCase):
         a['b'] = 3
         self.assertEqual(3, a['b'])
 
-        del a['b']
+        del a['a']
         self.assertEqual(1, len(a))
-        self.assertEqual([1], a)
+        self.assertEqual([3], a)
+        self.assertEqual(3, a['b'])
+        self.assertEqual(3, a[0])
 
     def test_insert_not_implemented(self):
         with self.assertRaises(NotImplementedError):
-            LazyDense([1,2]).insert(0,1)
+            LazyDualDense([1,2]).insert(0,1)
 
     def test_str(self):
-        self.assertEqual('[1, 2, 3]', str(LazyDense([1,2,3])))
+        self.assertEqual('[1, 2, 3]', str(LazyDualDense([1,2,3])))
 
     def test_repr(self):
-        self.assertEqual('[1, 2, 3]', LazyDense([1,2,3]).__repr__())
+        self.assertEqual('[1, 2, 3]', LazyDualDense([1,2,3]).__repr__())
 
-class LazySparse_Tests(unittest.TestCase):
+class LazyDualSparse_Tests(unittest.TestCase):
 
     def test_no_headers_no_encoders(self):
-        a = LazySparse({'a':1,'b':2})
+        a = LazyDualSparse({'a':1,'b':2})
 
         self.assertEqual({'a':1,'b':2}, a)
         self.assertEqual(2, len(a))
@@ -88,7 +91,7 @@ class LazySparse_Tests(unittest.TestCase):
         self.assertEqual({'a':1}, a)
 
     def test_headers_no_encoders(self):
-        a = LazySparse({'a':1,'b':2}, {'aa':'a', 'bb':'b'})
+        a = LazyDualSparse({'a':1,'b':2}, {'aa':'a', 'bb':'b'})
 
         self.assertEqual({'a':1,'b':2}, a)
         self.assertEqual(2, len(a))
@@ -105,7 +108,7 @@ class LazySparse_Tests(unittest.TestCase):
         self.assertEqual({'a':1}, a)
 
     def test_headers_and_encoders(self):
-        a = LazySparse({'a':'1','b':'2'}, {'aa':'a', 'bb':'b'}, {'a':NumericEncoder(), 'b': StringEncoder()})
+        a = LazyDualSparse({'a':'1','b':'2'}, {'aa':'a', 'bb':'b'}, {'a':float, 'b': str})
 
         self.assertEqual({'a':1,'b':'2'}, a)
         self.assertEqual(2, len(a))
@@ -121,29 +124,11 @@ class LazySparse_Tests(unittest.TestCase):
         self.assertEqual(1, len(a))
         self.assertEqual({'a':1}, a)
 
-    def test_encode_sparse_value(self):
-        values   = {'a':'1','b':'2'}
-        headers  = {'A':'a', 'B':'b', 'C':'c'}
-        encoders = {'a':NumericEncoder(), 'b': StringEncoder(), 'c': StringEncoder()}
-        
-        a = LazySparse(values, headers, encoders)
-
-        self.assertEqual('0', a['c'])
-
-    def test_encode_sparse_value_with_modifier(self):
-        values   = {'a':'1','b':'2'}
-        headers  = {'A':'a', 'B':'b', 'C':'c'}
-        encoders = {'a':NumericEncoder(), 'b': StringEncoder(), 'c': StringEncoder()}
-        
-        a = LazySparse(values, headers, encoders, ['b','c'])
-
-        self.assertEqual('0', a['c'])
-
     def test_str(self):
-        self.assertEqual("{'a': 2}", str(LazySparse({'a':2})))
+        self.assertEqual("{'a': 2}", str(LazyDualSparse({'a':2})))
 
     def test_repr(self):
-        self.assertEqual("{'a': 2}", LazySparse({'a':2}).__repr__())
+        self.assertEqual("{'a': 2}", LazyDualSparse({'a':2}).__repr__())
 
 class CsvReader_Tests(unittest.TestCase):
     def test_dense_with_header(self):
@@ -248,7 +233,7 @@ class ArffReader_Tests(unittest.TestCase):
             [1,2,(1,0,0)],
             [2,3,None]
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_dense_with_empty_lines(self):
@@ -458,7 +443,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             list(list(ArffReader().filter(lines))[0])
 
-        self.assertIn("We were unable to find 'class_A' in ['class_B', 'class_C', 'class_D']", str(e.exception))
+        self.assertIn("We were unable to find one of the categorical values in the arff data.", str(e.exception))
 
     def test_spaces_in_attribute_name(self):
         lines = [
@@ -537,7 +522,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as ex:
             list(ArffReader().filter(lines))
 
-        self.assertEqual('An unrecognized type was found in the arff attributes: abcd.', str(ex.exception))
+        self.assertEqual('An unrecognized encoding was found in the arff attributes: abcd.', str(ex.exception))
 
     def test_all_good_tipes_do_not_raise_exception(self):
         lines = [
@@ -582,7 +567,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             list(ArffReader().filter(lines))
 
-        self.assertEqual(str(e.exception), "There are too many elements on line 0 in the ARFF file.")
+        self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
     def test_too_few_dense_elements(self):
         lines = [
@@ -596,7 +581,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             list(ArffReader().filter(lines))
 
-        self.assertEqual(str(e.exception), "There are not enough elements on line 0 in the ARFF file.")
+        self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
     def test_min_unknown_sparse_elements(self):
         lines = [
@@ -610,7 +595,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             list(ArffReader().filter(lines))
 
-        self.assertEqual(str(e.exception), "There are elements we can't associate with a header on line 0 in the ARFF file.")
+        self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
     def test_max_unknown_sparse_elements(self):
         lines = [
@@ -624,8 +609,30 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             list(ArffReader().filter(lines))
 
-        self.assertEqual(str(e.exception), "There are elements we can't associate with a header on line 0 in the ARFF file.")
+        self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
+    def test_quotes_from_hell_dense(self):
+        lines = [
+            "@relation news20",
+            "@attribute 'A  a' numeric",
+            "@attribute '\"' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
+            "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
+            "@attribute ',' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
+            "@data",
+            "1,    'class\'B', '\"class_C\"', 'class\",D'",
+        ]
+
+        expected = [
+            [1, "class'B", '"class_C"', 'class",D']
+        ]
+
+        items = list(ArffReader(cat_as_str=True).filter(lines))
+
+        self.assertEqual(expected, items)
+        self.assertEqual(1, items[0]['A  a'])
+        self.assertEqual("class'B", items[0]['"'])
+        self.assertEqual('"class_C"', items[0]["'"])
+        self.assertEqual('class",D', items[0][","])
 
 class LibsvmReader_Tests(unittest.TestCase):
     def test_sparse(self):

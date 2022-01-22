@@ -2,56 +2,49 @@ import re
 import csv
 import collections.abc
 
-from itertools import islice, takewhile, chain, count
-from typing import Iterable, Sequence, List, Dict, Union, Any, Iterator
+from collections import deque, defaultdict
+from itertools import islice, chain, count, product
+from typing import Iterable, Sequence, List, Dict, Union, Any, Iterator, Pattern, Callable, Set
 
 from coba.exceptions import CobaException
-from coba.encodings import Encoder, IdentityEncoder, OneHotEncoder, NumericEncoder, StringEncoder, MissingEncoder
+from coba.encodings import Encoder, OneHotEncoder
 
 from coba.pipes.primitives import MutableMap, Filter
 
-class LazyDense(collections.abc.MutableSequence):
-    def __init__(self, items: Sequence[Any], headers: Sequence[str] = [], encoders: Sequence[Encoder] = []) -> None:
-        self._sentinel = object()
-        self._headers  = dict(zip(headers,count()))
+class LazyDualDense(collections.abc.MutableSequence):
+    def __init__(self, values: Sequence[Any], headers: Dict[str,int] = {}, encoders: Sequence[Callable[[Any],Any]] = []) -> None:
+        self._headers  = headers
+        self._encoders = encoders
+        self._values   = values
+        
+        self._removed  = 0
+        self._offsets  = [0]*len(values)
+        self._encoded  = [not encoders]*len(values)
 
-        if not encoders:
-            self._enc_vals = items
-            self._encoders = None
-            self._raw_vals = None 
-        else:
-            self._enc_vals = [self._sentinel]*len(items)
-            self._encoders = list(encoders)
-            self._raw_vals = list(items)
-    
     def __getitem__(self, index: Union[str,int]) -> Any:
-        index: int = self._headers.get(index,index)
+        index = self._headers[index] if index in self._headers else self._offsets[index] + index
 
-        if self._enc_vals[index] == self._sentinel and self._encoders:
-            self._enc_vals[index] = self._encoders[index].encode(self._raw_vals[index])
+        if not self._encoded[index] and self._encoders:
+            self._values[index] = self._encoders[index](self._values[index])
+            self._encoded[index] = True
 
-        return self._enc_vals[index]
+        return self._values[index]
 
     def __setitem__(self, index: Union[str,int], value: Any) -> None:
-        self._enc_vals[self._headers.get(index,index)] = value
+        index = self._headers[index] if index in self._headers else self._offsets[index] + index
+        self._values[index] = value
+        self._encoded[index] = True
 
     def __delitem__(self, index: Union[str,int]):
-        index = self._headers.pop(index,index)
-        
-        for k,v in list(self._headers.items()):
-            if v > index:
-                self._headers[k] = v-1
-        
-        self._enc_vals.pop(index)
-        
-        if self._raw_vals:
-            self._raw_vals.pop(index)
-        
-        if self._encoders:
-            self._encoders.pop(index)
+        index = self._headers[index] if index in self._headers else self._offsets[index] + index
+
+        for i in range(index, len(self._values)):
+            self._offsets[i] += 1
+
+        self._removed += 1
 
     def __len__(self) -> int:
-        return len(self._enc_vals)
+        return len(self._values) - self._removed
 
     def insert(self, index: int, value:Any):
         raise NotImplementedError()
@@ -60,60 +53,46 @@ class LazyDense(collections.abc.MutableSequence):
         return list(self).__eq__(__o)
 
     def __repr__(self) -> str:
-        return str(list(self))
+        return str(list(self._values))
 
     def __str__(self) -> str:
-        return str(list(self))
+        return str(list(self._values))
 
-class LazySparse(collections.abc.MutableMapping):
-    
-    def __init__(self, items: Dict[Any,str], headers: Dict[str,Any] = {}, encoders: Dict[Any,Encoder] = {}, modifiers: Sequence[str] = []) -> None:
-        self._headers  = dict(headers)
-        
-        if not encoders:
-            self._enc_vals = dict(items)
-            self._raw_vals = {}
-            self._encoders = {}
-        else:
-            self._encoders = dict(encoders)
-            self._enc_vals = {}
-            self._raw_vals = dict(items)
+class LazyDualSparse(collections.abc.MutableMapping):
 
-        if modifiers:
-            for k in modifiers:
-                if k not in self._raw_vals: 
-                    self._raw_vals[k] = 0 #we add it so that it will be encoded if queried
-        else:
-            for k,e in self._encoders.items():
-                base_encoder = e if not isinstance(e,MissingEncoder) else e._encoder
-                base_is_modifying_encoder = not isinstance(base_encoder,(IdentityEncoder,NumericEncoder))
+    def __init__(self, values: Dict[Any,str], headers: Dict[str,Any] = {}, encoders: Dict[Any,Callable[[Any],Any]] = {}) -> None:
+        self._headers  = headers
+        self._encoders = encoders
+        self._values   = values
 
-                if base_is_modifying_encoder and k not in self._raw_vals:
-                    self._raw_vals[k] = 0 #we add it so that it will be encoded if queried
+        self._removed: Set[Any] = set()
+        self._encoded: Dict[Any,bool] = defaultdict(bool)
     
     def __getitem__(self, index: Union[str,int]) -> Any:
-        index: int = self._headers.get(index,index)
+        index = self._headers[index] if index in self._headers else index
+        if index in self._removed: raise KeyError(index)
 
-        if index not in self._enc_vals:
-            self._enc_vals[index] = self._encoders[index].encode(self._raw_vals[index])
+        if not self._encoded[index] and self._encoders:
+            self._values[index] = self._encoders[index](self._values[index])
+            self._encoded[index] = True
 
-        return self._enc_vals[index]
+        return self._values[index]
 
     def __setitem__(self, index: Union[str,int], value: Any) -> None:
-        self._enc_vals[self._headers.get(index,index)] = value
+        index = self._headers[index] if index in self._headers else index
+        if index in self._removed: raise KeyError(index)
+        self._values[index] = value
 
     def __delitem__(self, index: Union[str,int]):
-        index = self._headers.pop(index,index)
-
-        self._enc_vals.pop(index,None)
-        self._raw_vals.pop(index,None)
-        self._encoders.pop(index,None)
+        index = self._headers[index] if index in self._headers else index
+        if index in self._removed: raise KeyError(index)
+        self._removed.add(index)
 
     def __len__(self) -> int:
-        return len(self._enc_vals)
+        return len(self._values) - len(self._removed)
 
     def __iter__(self) -> Iterator[Any]:
-        return iter(self._enc_vals.keys() | self._raw_vals.keys())
+        return iter(self._values.keys()-self._removed)
 
     def __eq__(self, __o: object) -> bool:
         return dict(self.items()).__eq__(__o)
@@ -128,162 +107,191 @@ class Reader(Filter[Iterable[str], Iterable[MutableMap]]):
     pass
 
 class ArffReader(Reader):
+
     """
         https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
 
+    #this class has been highly highly optimized. Before modifying anything one should 
+    #run Performance_Tests.test_arffreader_performance to get a performance baseline.
+
     def __init__(self, cat_as_str=False, skip_encoding: bool = False):
 
-        dialect = dict(quotechar="'", escapechar="\\", doublequote=False, skipinitialspace=True)
-        
-        self._str_enc_cat   = cat_as_str 
-        self._csv_reader    = CsvReader(has_header=False,**dialect)
+        self._time = 0
+        self._cat_as_str    = cat_as_str 
         self._skip_encoding = skip_encoding
-
-        self._r_attribute = re.compile(r'^@attribute', re.IGNORECASE)
-        self._r_data = re.compile(r'^@data', re.IGNORECASE)
-        self._r_unescaped_single_quote = re.compile("(?<!\\\)'")
-        self._r_unescaped_double_quote = re.compile('(?<!\\\)"')
+        self._quotes        = '"'+"'"
 
     def filter(self, source: Iterable[str]) -> Iterable[MutableMap]:
-        headers   : List[str           ] = []
-        encoders  : List[MissingEncoder] = []
+        headers  : List[str    ] = []
+        encodings: List[Encoder] = []
 
-        #strip all lines to remove leading/trailing spaces
         source = (line.strip() for line in source)
+        source = (line for line in source if line and not line.startswith("%"))
 
-        #remove all comment lines, empty lines, and empty sparse lines
-        source = (line for line in source if not line.startswith("%") and line != "")
+        lines = iter(source)
 
-        lines_iter = iter(source)
-        meta_lines = takewhile(lambda line: not self._r_data.match(line), lines_iter)
-        data_lines = lines_iter
-
-        for line in meta_lines:
-
-            if self._r_attribute.match(line):
-                
-                attribute_split = self._split_line(line[11:], '\s', 1)
-                attribute_name  = attribute_split[0]
-                attribute_type  = attribute_split[1]
-
-                headers.append(attribute_name)
-                encoders.append(self._determine_encoder(attribute_type))
+        r_space = re.compile("(\s+)")
+        for line in lines:
+            if line[0:10].lower() == "@attribute":
+                header, encoding = tuple(self._pattern_split(line[11:], r_space, n=2))
+                headers.append(header)
+                encodings.append(encoding)
+            elif line[0:5].lower() == "@data":
+                break
 
         try:
-            first_line = next(data_lines)
+            first_data_line = next(lines)
         except StopIteration:
             return []
 
-        is_dense = not (first_line.strip().startswith('{') and first_line.strip().endswith('}'))
-        encoders = self._encoder_prep(is_dense, encoders)
-
-        data_lines = chain([first_line], data_lines)
-        data_lines = filter(None,(d.strip('} {') for d in data_lines))
-        data_lines = self._parse_data(is_dense, data_lines, headers, encoders)
-
-        return data_lines
-
-    def _determine_encoder(self, tipe: str) -> Encoder:
-        is_numeric = tipe in ['numeric', 'integer', 'real']
-        is_one_hot = tipe.startswith('{') and tipe.endswith('}')
-        is_string  = tipe == "string"
-        is_date    = tipe.startswith('date')
-        is_relate  = tipe.startswith('relational')
-
-        if is_numeric: 
-            return NumericEncoder()
-        
-        if is_one_hot: 
-            if self._str_enc_cat: 
-                return StringEncoder()
-            else:
-                return OneHotEncoder(self._split_line(tipe[1:-1], ','), err_if_unknown=True)
-
-        if is_string or is_date or is_relate:
-            return StringEncoder()
-
-        raise CobaException(f"An unrecognized type was found in the arff attributes: {tipe}.")
-
-    def _encoder_prep(self, is_dense: bool, encoders: List[Encoder]) -> Sequence[Encoder]:
-        
-        if self._skip_encoding:
-            return []
-
-        #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the 
-        #actual data because it is encoded as 0. Therefore our ARFF reader automatically adds a 0 value 
-        #to all sparse categorical one-hot encoders to protect against this.
-        if not is_dense:
-            for i in range(len(encoders)):
-                if isinstance(encoders[i],OneHotEncoder):
-                    encoders[i] = OneHotEncoder([0]+list(encoders[i]._onehots.keys()))
-
-        #ARFF allows for missing values so we wrap all our encoders with a missing encoder to handle these
-        for i in range(len(encoders)):
-            encoders[i] = MissingEncoder(encoders[i])
-        
-        return encoders
-
-    def _parse_data(self, is_dense: bool, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMap]:
+        is_dense = not (first_data_line.startswith('{') and first_data_line.endswith('}'))
+        encoders = list(self._encoders(encodings,is_dense))
 
         if is_dense:
-            for i, line in enumerate(self._csv_reader.filter(lines)):
-
-                if len(line) < len(headers):
-                    raise CobaException(f"There are not enough elements on line {i} in the ARFF file.")
-                
-                if len(line) > len(headers):
-                    raise CobaException(f"There are too many elements on line {i} in the ARFF file.")
-
-                yield LazyDense(line, headers, encoders) 
+            return self._parse_dense_data(chain([first_data_line], lines), headers, encoders)
         else:
-            dict_encoders = dict(enumerate(encoders))
-            dict_headers  = dict(zip(headers,count()))
-            modifiers     = [k for k,e in enumerate(encoders) if not isinstance(e._encoder,(IdentityEncoder,NumericEncoder))]
+            return self._parse_sparse_data(chain([first_data_line], lines), headers, encoders)
 
-            for i,line in enumerate(lines):
-                
-                keys_and_vals = re.split('\s*,\s*|\s+', line)
+    def _encoders(self, encodings: Sequence[str], is_dense:bool) -> Encoder:
+        numeric_types = ('numeric', 'integer', 'real')
+        string_types  = ("string", "date", "relational")
+        cat_as_str    = self._cat_as_str
+        r_comma       = None
+        identity      = lambda x: None if x=="?" else x.strip()
 
-                keys = list(map(int,keys_and_vals[0::2]))
-                vals = keys_and_vals[1::2]
+        for encoding in encodings:
+            
+            if self._skip_encoding:
+                yield identity
+            elif encoding in numeric_types: 
+                yield lambda x: None if x=="?" else float(x)
+            elif encoding.startswith(string_types):
+                yield identity
+            elif encoding.startswith('{'):
+                if cat_as_str:
+                    yield identity
+                else:
+                    #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the 
+                    #actual data because it is encoded as 0. Therefore our ARFF reader automatically adds a 0 value 
+                    #to all sparse categorical one-hot encoders to protect against this.
+                    r_comma = r_comma or re.compile("(,)")
+                    categories = list(self._pattern_split(encoding[1:-1], r_comma))
+                    
+                    if not is_dense: 
+                        categories = ["0"] + categories
 
-                if max(keys) >= len(headers) or min(keys) < 0:
-                    raise CobaException(f"There are elements we can't associate with a header on line {i} in the ARFF file.")
-
-                yield LazySparse(dict(zip(keys,vals)), dict_headers, dict_encoders, modifiers)
-
-    def _split_line(self, line: str, delimiter:str, count=float('inf')) -> Sequence[str]:
-
-        line = line.strip()
-        items: List[str] = []
-
-        while line != "":
-
-            if line.startswith("'"):
-                line = line[1:]
-                end  = self._r_unescaped_single_quote.search(line).start(0)
-            elif line.startswith('"'):
-                line = line[1:]
-                end  = self._r_unescaped_double_quote.search(line).start(0)
+                    def encoder(x,cats=categories,get=OneHotEncoder(categories, err_if_unknown=True)._onehots.__getitem__):
+                        x=x.strip()
+                        if x =="?":
+                            return None
+                        if x not in cats:
+                            raise CobaException("We were unable to find one of the categorical values in the arff data.")
+                        return get(x)
+                    
+                    yield encoder
             else:
-                match = re.search(delimiter,line)
-                end = -1 if match is None else match.start(0)
+                raise CobaException(f"An unrecognized encoding was found in the arff attributes: {encoding}.")
 
-            if end == -1:
-                items.append(line)
-                line = ""
-            else:
-                items.append(line[:end])
-                line = line[end+1:].strip()
+    def _parse_dense_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMap]:
+        headers_dict        = dict(zip(headers,count()))
+        possible_dialects   = self._possible_dialects()
 
-            count -= 1
+        dialect             = possible_dialects.pop()
+        fallback_delimieter = None
 
-            if count == 0:
-                items.append(line)
-                line = ""
+        for i,line in enumerate(lines):
 
-        return [ i.strip().strip('\'"').replace('\\','') for i in items]
+            if dialect is not None:
+                final = next(csv.reader([line], dialect=dialect))
+
+                while len(final) != len(headers) and possible_dialects:
+                    dialect = possible_dialects.pop()
+                    final   = next(csv.reader([line], dialect=dialect))
+
+                if len(final) != len(headers): dialect = None
+
+            if dialect is None:
+                #None of the csv dialects we tried were successful at parsing
+                #we fall back now to a slightly slower, but more flexible, parser
+
+                if fallback_delimieter is None:
+                    #this isn't airtight but we can only infer so much.
+                    fallback_delimieter = ',' if len(line.split(',')) > len(line.split('\t')) else "\t"
+
+                line = deque(line.split(fallback_delimieter))
+                final = []
+
+                while line:
+                    item = line.popleft()
+
+                    if "'" in item or '"' in item:
+                        quotechar = item[min(i for i in [item.find("'"), item.find('"')] if i >= 0)]
+                        while item.rstrip()[-1] != quotechar and item.rstrip()[-2] != "\\":
+                            item += "," + line.popleft()
+                        item = item.strip()[1:-1]
+
+                    final.append(item)
+
+            if len(final) != len(headers):
+                raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
+            
+            yield LazyDualDense(final, headers_dict, encoders)
+
+    def _parse_sparse_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMap]:
+
+        headers_dict  = dict(zip(headers,count()))
+        defaults_dict = { k:"0" for k in range(len(encoders)) if encoders[k]("0") != 0 }
+        encoders_dict = dict(zip(count(),encoders))
+
+        for i,line in enumerate(lines):
+
+            keys_and_vals = re.split('\s*,\s*|\s+', line.strip("} {"))
+
+            keys = list(map(int,keys_and_vals[0::2]))
+            vals = keys_and_vals[1::2]
+
+            if max(keys) >= len(headers) or min(keys) < 0:
+                raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
+
+            values = { **defaults_dict, ** dict(zip(keys,vals)) }
+            yield LazyDualSparse(values, headers_dict, encoders_dict)
+
+    def _pattern_split(self, line: str, pattern: Pattern[str], n=None):
+
+        items  = iter(pattern.split(line))
+        count  = 0
+        quotes = self._quotes
+
+        try:
+            while True:
+
+                item = next(items).lstrip()
+                if not item or pattern.match(item): continue
+
+                count += 1
+                if count == n: 
+                    items = chain([item],items)
+                    break
+
+                if item[0] in quotes:
+                    while item.strip()[-1] not in quotes:
+                        item += next(items)
+                    item = item.rstrip()[1:-1]
+
+                yield item.strip()
+
+            yield "".join(items).strip()
+        except StopIteration:
+            pass
+
+    def _possible_dialects(self):
+        legal_quotechars = ['"', "'"]
+        legal_delimeters = [",", "\t"]
+
+        return [
+            {"delimeter":d, "quotechar": q, "skipinitialspace":True} for d,q in product(legal_delimeters, legal_quotechars) 
+        ]
 
 class CsvReader(Reader):
 
@@ -296,10 +304,10 @@ class CsvReader(Reader):
         lines = iter(csv.reader(iter(filter(None,(i.strip() for i in items))), **self._dialect))
 
         if self._has_header:
-            headers = next(lines)
-
+            headers = dict(zip(next(lines), count()))
+        
         for line in lines:
-            yield line if not self._has_header else LazyDense(line,headers)
+            yield line if not self._has_header else LazyDualDense(line,headers)
 
 class LibSvmReader(Reader):
 

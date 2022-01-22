@@ -10,8 +10,7 @@ from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 
 from coba.environments.simulated.supervised import SupervisedSimulation
-
-from coba.pipes.readers import LazySparse
+from coba.pipes.readers import LazyDualSparse
 
 class OpenmlSource(Source[Iterable[Tuple[Any,Any]]]):
 
@@ -51,7 +50,7 @@ class OpenmlSource(Source[Iterable[Tuple[Any,Any]]]):
             if target in ignore: ignore.pop(ignore.index(target))
 
             def row_has_missing_values(row):
-                row_values = row._raw_vals.values() if isinstance(row,LazySparse) else row._raw_vals
+                row_values = row._values.values() if isinstance(row,LazyDualSparse) else row._values
                 return "?" in row_values or "" in row_values
 
             source    = IdentityIO(self._get_dataset_lines(dataset_description["file_id"], None))

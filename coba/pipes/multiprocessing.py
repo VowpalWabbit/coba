@@ -225,7 +225,7 @@ class PipesPool:
             #process. We need to handle this here because Processor is always run in a
             #background process and receives this. We can ignore this because the exception will
             #also be raised in our main process. Therefore we simply ignore and trust the main to
-            #handle the keyboard interrupt gracefully.
+            #handle the keyboard interrupt correctly.
             pass
 
 class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):

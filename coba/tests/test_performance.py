@@ -8,8 +8,8 @@ import coba.random
 from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction
-from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder, StringEncoder
-from coba.pipes import Reservoir, JsonEncode, Encode
+from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
+from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 
 class Performance_Tests(unittest.TestCase):
     
@@ -218,6 +218,28 @@ class Performance_Tests(unittest.TestCase):
 
         #0.11 was my final average time.
         self.assertLess(time, 1.1)
+
+    def test_arffreader_performance(self):
+        
+        attributes = "\n".join([f"@attribute {i} {{1,2}}" for i in range(1000)])
+        data_line  = ",".join(["1"]*1000)
+        data_lines = "\n".join([data_line]*700)
+
+        arff = f"{attributes}\n@data\n{data_lines}".split('\n')
+
+        reader = ArffReader()
+        time = timeit.timeit(lambda:list(reader.filter(arff)), number = 1)
+
+        #.045 was my final time
+        self.assertLess(time, 0.45)
+
+    def test_structure_performance(self):
+
+        structure = Structure([None,2])
+        time = timeit.timeit(lambda:list(structure.filter([[0,0,0] for _ in range(100)])), number=1000)
+
+        #.092 was my final time
+        self.assertLess(time, 0.92)
 
 if __name__ == '__main__':
     unittest.main()

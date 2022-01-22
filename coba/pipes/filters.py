@@ -1,6 +1,7 @@
 import json
 import math
 import collections.abc
+import copy
 
 from collections import defaultdict
 from itertools import islice, chain
@@ -254,28 +255,44 @@ class Drop(Filter[Iterable[MutableMap], Iterable[MutableMap]]):
 
 class Structure(Filter[Iterable[MutableMap], Iterable[Any]]):
 
-    def __init__(self, split_cols: Sequence[Any]) -> None:
-        self._col_structure = split_cols
+    def __init__(self, structure: Sequence[Any]) -> None:
+        self._structure = []
+        stack = [structure]
+        while stack:
+            item = stack.pop()
+            if isinstance(item,list):
+                stack.append("LO")
+                stack.extend(item)
+                stack.append("LC")
+            elif isinstance(item,tuple):
+                stack.append("TO")
+                stack.extend(item)
+                stack.append("TC")
+            else:
+                self._structure.insert(0,item)
 
     def filter(self, data: Iterable[MutableMap]) -> Iterable[Any]:
         for row in data:
-            yield self._structure_row(row, self._col_structure)
-
-    def _structure_row(self, row: MutableMap, col_structure: Sequence[Any]):
-        if col_structure is None:
-            return row
-
-        elif isinstance(col_structure,list):            
-            return [ self._structure_row(row, k) for k in col_structure ]
-
-        elif isinstance(col_structure,tuple):
-            return tuple([ self._structure_row(row, k) for k in col_structure ])
-
-        else:
-            if isinstance(row, collections.abc.Mapping):
-                return row.pop(col_structure,0)
-            else:
-                return row.pop(col_structure)
+            stack   = []
+            working = []
+            for item in self._structure:
+                if item in ["LO","TO"]:
+                    stack.append(working)
+                    working = []
+                elif item == "LC":
+                    new_working = stack.pop()
+                    new_working.append(working)
+                    working = new_working
+                elif item == "TC":
+                    new_working = stack.pop()
+                    new_working.append(tuple(working))
+                    working = new_working
+                elif item == None:
+                    working.append(row)
+                else:
+                    working.append(row.pop(item))
+            
+            yield working[0]
 
 class Default(Filter[Iterable[MutableMap], Iterable[MutableMap]]):
 

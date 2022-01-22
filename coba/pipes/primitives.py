@@ -24,4 +24,4 @@ class Sink(ABC, Generic[_T_in]):
 class MutableMap(Protocol):
     def __getitem__(self, key: Any) -> Any: pass
     def __setitem__(self, key: Any, val: Any) -> None: pass
-    def pop( key:Any) -> Any: pass
+    def pop(key:Any) -> Any: pass
