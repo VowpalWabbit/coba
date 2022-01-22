@@ -115,12 +115,14 @@ class ArffReader(Reader):
     #this class has been highly highly optimized. Before modifying anything one should 
     #run Performance_Tests.test_arffreader_performance to get a performance baseline.
 
-    def __init__(self, cat_as_str=False, skip_encoding: bool = False):
+    def __init__(self, cat_as_str=False, skip_encoding: bool = False, lazy_encoding: bool = True, header_indexing: bool = True):
 
-        self._time = 0
-        self._cat_as_str    = cat_as_str 
-        self._skip_encoding = skip_encoding
-        self._quotes        = '"'+"'"
+        self._quotes = '"'+"'"
+
+        self._cat_as_str      = cat_as_str 
+        self._skip_encoding   = skip_encoding
+        self._lazy_encoding   = lazy_encoding
+        self._header_indexing = header_indexing 
 
     def filter(self, source: Iterable[str]) -> Iterable[MutableMap]:
         headers  : List[str    ] = []
@@ -235,8 +237,15 @@ class ArffReader(Reader):
 
             if len(final) != len(headers):
                 raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
-            
-            yield LazyDualDense(final, headers_dict, encoders)
+
+            final_headers  = headers_dict if self._header_indexing else {}
+            final_encoders = encoders if self._lazy_encoding else []
+            final_items    = final if self._lazy_encoding else [ e(f) for e,f in zip(encoders,final)]
+
+            if not self._lazy_encoding and not self._header_indexing:
+                yield final_items
+            else:
+                yield LazyDualDense(final_items, final_headers, final_encoders)
 
     def _parse_sparse_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMap]:
 
@@ -254,8 +263,16 @@ class ArffReader(Reader):
             if max(keys) >= len(headers) or min(keys) < 0:
                 raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
 
-            values = { **defaults_dict, ** dict(zip(keys,vals)) }
-            yield LazyDualSparse(values, headers_dict, encoders_dict)
+            final = { **defaults_dict, ** dict(zip(keys,vals)) }
+
+            final_headers  = headers_dict if self._header_indexing else {}
+            final_encoders = encoders_dict if self._lazy_encoding else {}
+            final_items    = final if self._lazy_encoding else { k:encoders[k](v) for k,v in final.items() }
+
+            if not self._lazy_encoding and not self._header_indexing:
+                yield final_items
+            else:
+                yield LazyDualSparse(final_items, final_headers, final_encoders)
 
     def _pattern_split(self, line: str, pattern: Pattern[str], n=None):
 
@@ -305,7 +322,7 @@ class CsvReader(Reader):
 
         if self._has_header:
             headers = dict(zip(next(lines), count()))
-        
+
         for line in lines:
             yield line if not self._has_header else LazyDualDense(line,headers)
 

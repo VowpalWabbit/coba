@@ -385,8 +385,8 @@ class ArffReader_Tests(unittest.TestCase):
         expected = [
             {0:2, 1:3, 2:(1,0,0,0)},
             {0:1, 1:1, 2:(0,1,0,0)},
-            {1:1, 2:(1,0,0,0)},
-            {0:1,2:(0,0,0,1)}
+            {     1:1, 2:(1,0,0,0)},
+            {0:1,      2:(0,0,0,1)}
         ]
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
@@ -633,6 +633,50 @@ class ArffReader_Tests(unittest.TestCase):
         self.assertEqual("class'B", items[0]['"'])
         self.assertEqual('"class_C"', items[0]["'"])
         self.assertEqual('class",D', items[0][","])
+
+    def test_no_lazy_encoding_no_header_indexes_dense(self):
+        lines = [
+            "@relation news20",
+            "@attribute a numeric",
+            "@attribute b numeric",
+            "@attribute c {class_B, class_C, class_D}",
+            "@data",
+            "1,2,class_B",
+            "2,3,class_C",
+        ]
+
+        expected = [
+            [1,2,(1,0,0)],
+            [2,3,(0,1,0)]
+        ]
+
+        actual = list(ArffReader(lazy_encoding=False,header_indexing=False).filter(lines))
+
+        self.assertEqual(expected, actual)
+        self.assertIsInstance(actual[0], list)
+        self.assertIsInstance(actual[1], list)
+
+    def test_no_lazy_encoding_no_header_indexes_sparse(self):
+        lines = [
+            "@relation news20",
+            "@attribute a numeric",
+            "@attribute b numeric",
+            "@attribute c {class_B, class_C, class_D}",
+            "@data",
+            "{0 1,1 2,2 class_B}",
+            "{0 2,1 3,2 class_C}",
+        ]
+
+        expected = [
+            {0:1, 1:2, 2:(0,1,0,0)},
+            {0:2, 1:3, 2:(0,0,1,0)}
+        ]
+
+        actual = list(ArffReader(lazy_encoding=False,header_indexing=False).filter(lines))
+
+        self.assertEqual(expected, actual)
+        self.assertIsInstance(actual[0], dict)
+        self.assertIsInstance(actual[1], dict)
 
 class LibsvmReader_Tests(unittest.TestCase):
     def test_sparse(self):
