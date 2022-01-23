@@ -254,7 +254,7 @@ class VowpalArgsLearner(Learner):
         adfs    = None if not self._adf else [{'a':self._flat(action)} for action in actions]
 
         if self._adf:
-            self._vw.learn(self._vw.make_examples(context,adfs, labels))
+            self._vw.learn(self._vw.make_examples(context, adfs, labels))
         else:
             self._vw.learn(self._vw.make_example(context, label))
 
@@ -270,7 +270,7 @@ class VowpalArgsLearner(Learner):
         return " ".join(filter(None,[base_learner, self._args]))
 
     def _labels(self,actions,action,reward:float,prob:float) -> Sequence[Optional[str]]:
-        return [ f"{i+1}:{round(1-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
+        return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
 
     def _flat(self,features:Any) -> Any:
         if features is None or isinstance(features,(int,float,str)):

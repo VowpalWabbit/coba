@@ -1,10 +1,10 @@
-import importlib.util
 import unittest
 import unittest.mock
+import importlib.util
 
 from typing import Sequence, cast
 
-from coba.utilities import KeyDefaultDict
+from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.learners import VowpalMediator
 from coba.learners import (
@@ -316,7 +316,6 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         self.assertEqual({'x':{'l_0':0, 'l_1':0, 'l_2':1, 'j':1}}, vw._learn_calls[0].ns)
         self.assertEqual("2:0.5:0.2", vw._learn_calls[0].label)
 
-
     def test_predict_epsilon_not_adf_args_error_1(self):
         learner = VowpalArgsLearner("--cb_explore --epsilon 0.75 --random_seed 20 --quiet")
         learner.predict(None, [1,2,3,4])
@@ -334,6 +333,53 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
             learner.predict(None, [1,2,3])
 
         self.assertTrue("--cb_explore_adf" in str(e.exception))
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
+    def test_cb_adf_learning(self):
+        learner = VowpalArgsLearner()
+
+        n_actions  = 3
+        n_features = 10
+        n_examples = 2000
+
+        rng = CobaRandom(11111)
+
+        contexts = [ rng.randoms(n_features) for _ in range(n_examples) ]
+        
+        pre_learn_rewards = []
+        for context in contexts[:int(.9*n_examples)]:
+
+            actions = [ rng.randoms(n_features) for _ in range(n_actions) ]
+            rewards = [ sum([a*c for a,c in zip(action,context)]) for action in actions ]
+            rewards = [ int(r == max(rewards)) for r in rewards ]
+
+            pre_learn_rewards.append(rng.choice(rewards,learner.predict(context, actions)[0]))
+
+        for context in contexts[:int(.9*n_examples)]:
+
+            actions = [ rng.randoms(n_features) for _ in range(n_actions) ]
+            rewards = [ sum([a*c for a,c in zip(action,context)]) for action in actions ]
+            rewards = [ int(r == max(rewards)) for r in rewards ]
+
+            probs,info = learner.predict(context, actions)
+            choice = rng.choice(list(range(3)), probs)
+
+            learner.learn(context, actions[choice], rewards[choice], probs[choice], info)
+
+        post_learn_rewards = []
+
+        for context in contexts[int(.9*n_examples):]:
+            actions = [ rng.randoms(n_features) for _ in range(n_actions) ]
+            rewards = [ sum([a*c for a,c in zip(action,context)]) for action in actions ]
+            rewards = [ int(r == max(rewards)) for r in rewards ]
+
+            post_learn_rewards.append(rng.choice(rewards,learner.predict(context, actions)[0]))
+
+        average_pre_learn_reward  = sum(pre_learn_rewards)/len(pre_learn_rewards)
+        average_post_learn_reward = sum(post_learn_rewards)/len(post_learn_rewards)
+
+        self.assertAlmostEqual(.33, average_pre_learn_reward, places=2)
+        self.assertAlmostEqual(.78, average_post_learn_reward, places=2)
 
 @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
 class VowpalMediator_Tests(unittest.TestCase):
@@ -494,7 +540,7 @@ class VowpalMediator_Tests(unittest.TestCase):
         
         with self.assertRaises(CobaException) as ex:
             vw.init_learner("--cb_explore_adf --epsilon .1 --quiet", 4)
-        
+
     def test_predict(self):
 
         vw = VowpalMediator()
@@ -512,6 +558,41 @@ class VowpalMediator_Tests(unittest.TestCase):
         ex = vw.make_examples({}, [{'a':1}, {'a':2}], ["0:.5:1", ""])
 
         vw.learn(ex)
+
+    def test_regression_learning(self):
+        vw = VowpalMediator().init_learner("--quiet", 0)
+
+        n_features = 10
+        n_examples = 1000
+
+        rng = CobaRandom(1)
+
+        weights = rng.randoms(n_features)
+        rows    = [ rng.randoms(n_features) for _ in range(n_examples) ]
+        labels  = [ sum([w*r for w,r in zip(weights,row)]) for row in rows ]
+
+        examples = list(zip(rows,labels))
+
+        self.assertEqual(0,vw.predict(vw.make_example({'x': rows[0]}, None)))
+
+        pred_errs = []
+        for row,label in examples[int(.9*n_examples):]:
+            pred_errs.append(vw.predict(vw.make_example({"x": row}, None))-label)
+
+        pre_learn_mse = sum([e**2 for e in pred_errs])//len(pred_errs)
+
+        for row,label in examples[0:int(.9*n_examples)]:
+            vw.learn(vw.make_example({"x": row}, str(label)))
+
+        pred_errs = []
+
+        for row,label in examples[int(.9*n_examples):]:
+            pred_errs.append(vw.predict(vw.make_example({"x": row}, None))-label)
+
+        post_learn_mse = sum([e**2 for e in pred_errs])/len(pred_errs)
+
+        self.assertNotAlmostEqual(0,pre_learn_mse)
+        self.assertAlmostEqual(0,post_learn_mse)
 
 if __name__ == '__main__':
     unittest.main()
