@@ -137,8 +137,9 @@ class Environments:
         """Convert an environment from a dense representation to sparse. This has little utility beyond debugging."""
         return self.filter(Sparse(context,action))
 
-    def shuffle(self, seeds: Sequence[int]) -> 'Environments':
+    def shuffle(self, seeds: Union[Sequence[int],int] = 1) -> 'Environments':
         """Shuffle the order of the interactions in the Environments."""
+        if isinstance(seeds,int): seeds = [seeds]
         return self.filter([Shuffle(seed) for seed in seeds])
 
     def cycle(self, after: int) -> 'Environments':
