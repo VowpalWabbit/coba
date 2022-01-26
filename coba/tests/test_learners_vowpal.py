@@ -281,7 +281,7 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
 
         self.assertEqual({'x':None }, vw._learn_calls[0][0].ns[0])
         self.assertEqual({'a':'yes'}, vw._learn_calls[0][0].ns[1])
-        self.assertEqual("1:0:0.2"  , vw._learn_calls[0][0].label)
+        self.assertEqual("1:-1:0.2"  , vw._learn_calls[0][0].label)
 
         self.assertEqual({'x':None }, vw._learn_calls[0][1].ns[0])
         self.assertEqual({'a':'no'} , vw._learn_calls[0][1].ns[1])
@@ -298,7 +298,7 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         self.assertIsInstance(vw._learn_calls[0], VowpalExampleMock)
 
         self.assertEqual({'x':None}, vw._learn_calls[0].ns)
-        self.assertEqual("2:0.5:0.2", vw._learn_calls[0].label)
+        self.assertEqual("2:-0.5:0.2", vw._learn_calls[0].label)
 
     def test_flatten_tuples(self):
 
@@ -314,7 +314,7 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         self.assertEqual(None, vw._predict_calls[0].label)
 
         self.assertEqual({'x':{'l_0':0, 'l_1':0, 'l_2':1, 'j':1}}, vw._learn_calls[0].ns)
-        self.assertEqual("2:0.5:0.2", vw._learn_calls[0].label)
+        self.assertEqual("2:-0.5:0.2", vw._learn_calls[0].label)
 
     def test_predict_epsilon_not_adf_args_error_1(self):
         learner = VowpalArgsLearner("--cb_explore --epsilon 0.75 --random_seed 20 --quiet")
@@ -591,8 +591,8 @@ class VowpalMediator_Tests(unittest.TestCase):
 
         post_learn_mse = sum([e**2 for e in pred_errs])/len(pred_errs)
 
-        self.assertNotAlmostEqual(0,pre_learn_mse)
-        self.assertAlmostEqual(0,post_learn_mse)
+        self.assertNotAlmostEqual(0,pre_learn_mse, places=2)
+        self.assertAlmostEqual(0,post_learn_mse, places=2)
 
 if __name__ == '__main__':
     unittest.main()

@@ -10,11 +10,11 @@ from coba.environments import Context, Action
 
 from coba.learners.primitives import Learner, Probs, Info
 
-Coba_Feature      = Union[str,int,float]
-Coba_Features     = Union[Coba_Feature, Sequence[Coba_Feature], Dict[str,Coba_Feature]]
-Coba_Namespaces   = Dict[str,Coba_Features]
-Vowpal_Features   = Sequence[Union[str,int,Tuple[str,float],Tuple[int,float]]]
-Vowpal_Namespaces = Dict[str,Vowpal_Features]
+Feature       = Union[str,int,float]
+Features      = Union[Feature, Sequence[Feature], Dict[str,Feature]]
+Namespaces    = Dict[str,Features]
+VW_Features   = Sequence[Union[str,int,Tuple[str,float],Tuple[int,float]]]
+VW_Namespaces = Dict[str,VW_Features]
 
 class VowpalMediator:
     """A class to handle all communication between Coba and VW."""
@@ -75,7 +75,7 @@ class VowpalMediator:
         self._vw.learn(example)
         self._vw.finish_example(example)
 
-    def make_example(self, namespaces:Vowpal_Namespaces, label:Optional[str]) -> Any:
+    def make_example(self, namespaces: Namespaces, label:Optional[str]) -> Any:
         """Create a VW example.
         
         Args:
@@ -93,7 +93,7 @@ class VowpalMediator:
 
         return ex
 
-    def make_examples(self, shared:Vowpal_Namespaces, separates:Sequence[Vowpal_Namespaces], labels:Optional[Sequence[str]]) -> Sequence[Any]:
+    def make_examples(self, shared: Namespaces, separates: Sequence[Namespaces], labels:Optional[Sequence[str]]) -> Sequence[Any]:
         """Create a list of VW examples.
         
         Args:
@@ -117,7 +117,7 @@ class VowpalMediator:
 
         return examples
 
-    def _prep_namespaces(self, namespaces: Coba_Namespaces) -> Vowpal_Namespaces:
+    def _prep_namespaces(self, namespaces: Namespaces) -> VW_Namespaces:
         """Turn a collection of coba formatted namespaces into VW format."""        
 
         #the strange type checks below were faster than traditional methods when performance testing
