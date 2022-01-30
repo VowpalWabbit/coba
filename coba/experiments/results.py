@@ -249,8 +249,8 @@ class InteractionsTable(Table):
         """Return expanding or exponential averages for col grouped by learner and possibly environment.
 
         Args:
-            span: If span is None return an expanding average (i.e., progressive validation). If span is not
-                none calculate an expontial moving average identical to Pandas df.ewm(span=span).mean().
+            span: If span is None return an expanding average (i.e., progressive validation). If span is not none
+                calculate a simple moving average with window size of span (window will be smaller than span initially).
             each: If true the group by learner and environment (as in each environment). If each is false
                 then only group by learner.
             ord_col: The column which indicates the order in which averaging is calculated on the val_col.
@@ -276,9 +276,23 @@ class InteractionsTable(Table):
                 cumdivisor = [1]*len(cumwindow)
 
             else:
-                alpha = 2/(1+span)
-                cumwindow  = list(accumulate(values          , lambda a,c: c + (1-alpha)*a))
-                cumdivisor = list(accumulate([1.]*len(values), lambda a,c: c + (1-alpha)*a)) #type: ignore
+                moving_sum = 0
+                cumwindow  = []
+                cumdivisor = []
+                for index in range(len(values)):
+                    sub_i = index-span
+                    add_i = index
+
+                    moving_sum += values[add_i]
+                    moving_sum -= values[sub_i] if sub_i >= 0 else 0
+
+                    cumwindow.append(moving_sum)
+                    cumdivisor.append(min(span,add_i+1))
+
+                #highly-performant way to calucate exponential moving average identical to Pandas df.ewm(span=span).mean()
+                #alpha = 2/(1+span)
+                #cumwindow  = list(accumulate(values          , lambda a,c: c + (1-alpha)*a))
+                #cumdivisor = list(accumulate([1.]*len(values), lambda a,c: c + (1-alpha)*a)) #type: ignore
 
             lrn_sim_rows.append([interactions["learner_id"], interactions["environment_id"], *list(map(truediv, cumwindow, cumdivisor))])
 
@@ -309,8 +323,8 @@ class InteractionsTable(Table):
         """Return expanding or exponential averages for yaxis grouped by learner and possibly environment.
 
         Args:
-            span: If span is None return an expanding average (i.e., progressive validation). If span is not
-                none calculate an expontial moving average identical to Pandas df.ewm(span=span).mean().
+            span: If span is None return an expanding average (i.e., progressive validation). If span is not none
+                calculate a simple moving average with window size of span (window will be smaller than span initially).
             each: If true the group by learner and environment (as in each environment). If each is false
                 then only group by learner.
             ord_col: The column which indicates the order in which averaging is calculated on the val_col.
@@ -622,6 +636,7 @@ class Result:
         err  : Optional[Literal['se','sd']] = None,
         each : bool = False,
         filename: str = None,
+        sort : Literal['name',"id","reward"] = "name",
         ax = None) -> None:
         """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected 
             performance for different learners across independent environments. This plot is valuable in gaining 
@@ -630,9 +645,8 @@ class Result:
         Args:
             xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
-            span: In general this indicates how many previous evaluations to average together. In practice this works
-                identically to ewm span value in the Pandas API. Additionally, if span equals None then all previous 
-                rewards are averaged together vs span = 1 WHERE the instantaneous reward is plotted for each interaction.
+            span: If span is None return an expanding average (i.e., progressive validation). If span is not none
+                calculate a simple moving average with window size of span (window will be smaller than span initially).
             err: This determines what kind of error bars to plot (if any). Valid types are `None`, 'se', and 'sd'. If `None`
                 then no bars are plotted, if 'se' the standard error is shown, and if 'sd' the standard deviation is shown.
             each: This determines whether each evaluated environment used to estimate mean performance is also plotted.
@@ -645,7 +659,7 @@ class Result:
 
         show = ax is None
 
-        for label, X, Y, yerr, Z in self._plot_learners_data(xlim,span,err):
+        for label, X, Y, yerr, Z in self._plot_learners_data(xlim,span,err,sort):
 
             ax = ax or plt.figure(figsize=(10,6)).add_subplot(111) #type: ignore
 
@@ -694,7 +708,11 @@ class Result:
                 plt.savefig(filename, dpi=300)
                 plt.close()
 
-    def _plot_learners_data(self, xlim: Tuple[Number,Number] = None, span: int = None, err: Literal['se','sd'] = None):
+    def _plot_learners_data(self, 
+        xlim: Tuple[Number,Number] = None, 
+        span: int = None, 
+        err : Literal['se','sd'] = None,
+        sort: Literal['name',"id","reward"] = "name"):
 
         if xlim and xlim[0] >= xlim[1]:
             CobaContext.logger.log("The given x-limit end is less than the x-limit start. Plotting is impossible.")
@@ -706,7 +724,16 @@ class Result:
 
         if progressives and (not xlim or xlim[0] < xlim[1]):
 
-            for learner_id in sorted(self.learners.keys, key=lambda id: self.learners[id]["full_name"]):
+            if sort == "name":
+                sort_func = lambda id: self.learners[id]["full_name"]
+            
+            if sort == "reward":
+                sort_func = lambda id: -sum(list(zip(*progressives[id]))[-1])
+            
+            if sort == "id":
+                sort_func = lambda id: id
+
+            for learner_id in sorted(self.learners.keys, key=sort_func):
 
                 label = self._learners[learner_id]["full_name"]
                 Z     = list(zip(*progressives[learner_id]))

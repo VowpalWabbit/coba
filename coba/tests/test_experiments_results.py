@@ -359,7 +359,7 @@ class InteractionTable_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "_packed": {"reward":[1,2,3]}},
             {"environment_id":1, "learner_id":0, "_packed": {"reward":[2,4,6]}},
         ])
-        expected = [[0,0,1,1.75,2.6152],[0,1,2,3.5,5.2307]]
+        expected = [[0,0,1,3/2,5/2],[0,1,2,6/2,10/2]]
         actual   = table.to_progressive_lists(each=True,span=2)
 
         self.assertEqual(len(expected), len(actual))
@@ -874,6 +874,33 @@ class Result_Tests(unittest.TestCase):
 
         self.assertEqual(expected_length, len(plot_learners_data))
         self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
+
+    def test_plot_learners_data_sort(self):
+        
+        lrns = {1:{ 'full_name':'learner_2'}, 2:{'full_name':'learner_1'}}
+        ints = {
+            (0,1): {"_packed":{"reward":[1,2]}},
+            (1,1): {"_packed":{"reward":[2,3]}},
+            (0,2): {"_packed":{"reward":[1,3]}},
+            (1,2): {"_packed":{"reward":[2,4]}}
+        }
+
+        result = Result(None, None, {}, lrns, ints)
+
+        plot_learners_data = list(result._plot_learners_data(sort="name"))
+        self.assertEqual(2, len(plot_learners_data))
+        self.assertEqual( ('learner_1', [1,2], [3/2,5/2], 0, [(1.,2.),(4/2,6/2)]), plot_learners_data[0])
+        self.assertEqual( ('learner_2', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[1])
+
+        plot_learners_data = list(result._plot_learners_data(sort="id"))
+        self.assertEqual(2, len(plot_learners_data))
+        self.assertEqual( ('learner_2', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[0])
+        self.assertEqual( ('learner_1', [1,2], [3/2,5/2], 0, [(1.,2.),(4/2,6/2)]), plot_learners_data[1])
+
+        plot_learners_data = list(result._plot_learners_data(sort="reward"))
+        self.assertEqual(2, len(plot_learners_data))
+        self.assertEqual( ('learner_1', [1,2], [3/2,5/2], 0, [(1.,2.),(4/2,6/2)]), plot_learners_data[0])
+        self.assertEqual( ('learner_2', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[1])
 
     @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib is not installed so we must skip plotting tests")
     def test_plot_learners_not_each(self):
