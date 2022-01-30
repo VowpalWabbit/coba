@@ -60,8 +60,10 @@ class VowpalMediator:
         if self._vw is not None:
             raise CobaException("We cannot initilaize a VW learner twice in a single mediator.")
 
+        self._version = __version__
         self._vw = pyvw.Workspace(args) if __version__[0] == '9' else pyvw.vw(args)
         self._label_type = pyvw.LabelType(label_type) if __version__[0] == '9' else label_type
+        self._example_type = pyvw.Example if __version__[0] == '9' else pyvw.example
 
         return self
 
@@ -83,10 +85,8 @@ class VowpalMediator:
             ns: The features grouped by namespace in this example.
             label: An optional label (required if this example will be used for learning).
         """
-        from vowpalwabbit.pyvw import Example
-
         ns = dict(self._prep_namespaces(namespaces))
-        ex = Example(self._vw, ns, self._label_type)
+        ex = self._example_type(self._vw, ns, self._label_type)
         if label is not None: ex.set_label_string(label)
 
         ex.setup_example()
@@ -100,15 +100,14 @@ class VowpalMediator:
             shared: The features grouped by namespace in this example.
             label: An optional label (required if this example will be used for learning).
         """
-        from vowpalwabbit.pyvw import Example
 
         labels       = repeat(None) if labels is None else labels
         vw_shared    = dict(self._prep_namespaces(shared))
         vw_separates = list(map(dict,map(self._prep_namespaces,separates)))
 
-        examples: List[Example] = []
+        examples = []
         for vw_separate, label in zip(vw_separates,labels):
-            ex = Example(self._vw, {**vw_shared, **vw_separate}, self._label_type)
+            ex = self._example_type(self._vw, {**vw_shared, **vw_separate}, self._label_type)
             if label: ex.set_label_string(label)
             ex.setup_example()
             examples.append(ex)
