@@ -476,14 +476,14 @@ class VowpalMediator_Tests(unittest.TestCase):
 
     def test_make_example_label(self):
 
-        from vowpalwabbit.pyvw import example, cbandits_label
+        from vowpalwabbit.pyvw import Example, LabelType
 
         vw = VowpalMediator()
         vw.init_learner("--cb_explore 2 --noconstant --quiet",4)
-        ex = cast(example,vw.make_example({'x':1}, "0:.5:1"))
+        ex = cast(Example,vw.make_example({'x':1}, "0:.5:1"))
 
         self.assertEqual(4, ex.labelType)
-        self.assertEqual("0:0.5:1.0", str(cbandits_label(ex)))
+        self.assertEqual("0:0.5:1.0", str(ex.get_label(LabelType.CONTEXTUAL_BANDIT)))
 
     def test_make_examples_setup_done(self):
         vw = VowpalMediator()
@@ -517,16 +517,16 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual(expected_1,list(ex[1].iter_features()))
 
     def test_make_examples_labels(self):
-        from vowpalwabbit.pyvw import example, cbandits_label
+        from vowpalwabbit.pyvw import Example, LabelType
 
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet", 4)
-        exs = cast(Sequence[example],vw.make_examples({'x':1}, [{'a':1},{'a':2}], ["0:.5:1",""]))
+        exs = cast(Sequence[Example],vw.make_examples({'x':1}, [{'a':1},{'a':2}], ["0:.5:1",""]))
 
         self.assertEqual(4, exs[0].labelType)
         self.assertEqual(4, exs[1].labelType)
-        self.assertEqual("0:0.5:1.0", str(cbandits_label(exs[0])) )
-        self.assertEqual("", str(cbandits_label(exs[1])) )
+        self.assertEqual("0:0.5:1.0", str(exs[0].get_label(LabelType.CONTEXTUAL_BANDIT)) )
+        self.assertEqual("", str(exs[1].get_label(LabelType.CONTEXTUAL_BANDIT)) )
 
     def test_init_learner(self):
         vw = VowpalMediator()
@@ -560,7 +560,7 @@ class VowpalMediator_Tests(unittest.TestCase):
         vw.learn(ex)
 
     def test_regression_learning(self):
-        vw = VowpalMediator().init_learner("--quiet", 0)
+        vw = VowpalMediator().init_learner("--quiet", 1)
 
         n_features = 10
         n_examples = 1000

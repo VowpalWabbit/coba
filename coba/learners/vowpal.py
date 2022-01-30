@@ -1,3 +1,4 @@
+from cProfile import label
 import re
 
 from itertools import repeat
@@ -37,12 +38,11 @@ class VowpalMediator:
         Args:
             args: The command line arg string to use for VW learner creation.
             label_type: The label type this VW learner will take.
-                - 0 : `simple`__
-                - 1 : binary
+                - 1 : `simple`__
                 - 2 : `multiclass`__
                 - 3 : `cost sensitive`__
                 - 4 : `contextual bandit`__
-                - 5 : max
+                - 5 : max (deprecated)
                 - 6 : `conditional contextual bandit`__
                 - 7 : `slates`__
                 - 8 : `continuous actions`__
@@ -55,13 +55,13 @@ class VowpalMediator:
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Slates#text-format
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/CATS,-CATS-pdf-for-Continuous-Actions#vw-text-format
         """
-        from vowpalwabbit import pyvw
+        from vowpalwabbit import pyvw, __version__
         
         if self._vw is not None:
             raise CobaException("We cannot initilaize a VW learner twice in a single mediator.")
 
-        self._vw = pyvw.vw(args)
-        self._label_type = label_type
+        self._vw = pyvw.Workspace(args) if __version__[0] == '9' else pyvw.vw(args)
+        self._label_type = pyvw.LabelType(label_type) if __version__[0] == '9' else label_type
 
         return self
 
@@ -83,10 +83,10 @@ class VowpalMediator:
             ns: The features grouped by namespace in this example.
             label: An optional label (required if this example will be used for learning).
         """
-        from vowpalwabbit.pyvw import example
+        from vowpalwabbit.pyvw import Example
 
         ns = dict(self._prep_namespaces(namespaces))
-        ex = example(self._vw, ns, self._label_type)
+        ex = Example(self._vw, ns, self._label_type)
         if label is not None: ex.set_label_string(label)
 
         ex.setup_example()
@@ -100,15 +100,15 @@ class VowpalMediator:
             shared: The features grouped by namespace in this example.
             label: An optional label (required if this example will be used for learning).
         """
-        from vowpalwabbit.pyvw import example
+        from vowpalwabbit.pyvw import Example
 
         labels       = repeat(None) if labels is None else labels
         vw_shared    = dict(self._prep_namespaces(shared))
         vw_separates = list(map(dict,map(self._prep_namespaces,separates)))
 
-        examples: List[example] = []
+        examples: List[Example] = []
         for vw_separate, label in zip(vw_separates,labels):
-            ex = example(self._vw, {**vw_shared, **vw_separate}, self._label_type)
+            ex = Example(self._vw, {**vw_shared, **vw_separate}, self._label_type)
             if label: ex.set_label_string(label)
             ex.setup_example()
             examples.append(ex)
