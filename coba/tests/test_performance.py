@@ -148,8 +148,8 @@ class Performance_Tests(unittest.TestCase):
         ns = { 'x': list(map(str,range(1000))) }
         time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))            
 
-        #.030 was my final average time
-        self.assertLess(time, .3)
+        #.029 was my final average time
+        self.assertLess(time, .29)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
     def test_vowpal_mediator_make_example_highly_sparse_performance(self):
@@ -160,7 +160,7 @@ class Performance_Tests(unittest.TestCase):
         ns = { 'x': [1]+[0]*1000  }
         time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))            
 
-        #.005 was my final average time
+        #.0044 was my final average time
         self.assertLess(time, .05)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
@@ -172,8 +172,8 @@ class Performance_Tests(unittest.TestCase):
         ns = { 'x': list(range(1000)) }
         time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=30, number=100))            
 
-        #.034 was my final average time
-        self.assertLess(time, .34)
+        #.023 was my final average time
+        self.assertLess(time, .23)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
     def test_vowpal_mediator_make_example_sequence_dict_performance(self):
@@ -184,8 +184,8 @@ class Performance_Tests(unittest.TestCase):
         ns = { 'x': dict(zip(map(str,range(1000)), range(1000))) }
         time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))            
 
-        #.035 was my final average time
-        self.assertLess(time, .35)
+        #.024 was my final average time
+        self.assertLess(time, .24)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
     def test_vowpal_mediator_make_examples_sequence_int_performance(self):
@@ -197,8 +197,8 @@ class Performance_Tests(unittest.TestCase):
         distincts = [{ 'x': list(range(500)) }, { 'x': list(range(500)) }]
         time = statistics.mean(timeit.repeat(lambda:vw.make_examples(shared, distincts, None), repeat=10, number=100))            
 
-        #.057 was my final average time
-        self.assertLess(time, .57)
+        #.042 was my final average time
+        self.assertLess(time, .42)
 
     def test_reservoir_performance(self):
 

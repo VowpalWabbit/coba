@@ -13,7 +13,7 @@ from coba.learners.primitives import Learner, Probs, Info
 Feature       = Union[str,int,float]
 Features      = Union[Feature, Sequence[Feature], Dict[str,Feature]]
 Namespaces    = Dict[str,Features]
-VW_Features   = Sequence[Union[str,int,Tuple[str,float],Tuple[int,float]]]
+VW_Features   = Sequence[Union[str,int,Tuple[str,Union[int,float]],Tuple[int,Union[int,float]]]]
 VW_Namespaces = Dict[str,VW_Features]
 
 class VowpalMediator:
@@ -23,6 +23,8 @@ class VowpalMediator:
         self._vw = None
         self._ns_offsets: Dict[str,int] = {}
         self._curr_ns_offset = 0
+
+        PackageChecker.vowpalwabbit('VowpalMediator.__init__')
 
     @property
     def is_initialized(self) -> bool:
@@ -53,7 +55,6 @@ class VowpalMediator:
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Slates#text-format
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/CATS,-CATS-pdf-for-Continuous-Actions#vw-text-format
         """
-        PackageChecker.vowpalwabbit('VowpalMediator.make_learner')
         from vowpalwabbit import pyvw
         
         if self._vw is not None:
@@ -82,7 +83,6 @@ class VowpalMediator:
             ns: The features grouped by namespace in this example.
             label: An optional label (required if this example will be used for learning).
         """
-        PackageChecker.vowpalwabbit('VowpalMediator.make_example')
         from vowpalwabbit.pyvw import example
 
         ns = dict(self._prep_namespaces(namespaces))
@@ -100,8 +100,6 @@ class VowpalMediator:
             shared: The features grouped by namespace in this example.
             label: An optional label (required if this example will be used for learning).
         """
-
-        PackageChecker.vowpalwabbit('VowpalMediator.make_examples')
         from vowpalwabbit.pyvw import example
 
         labels       = repeat(None) if labels is None else labels
@@ -127,10 +125,10 @@ class VowpalMediator:
             elif feats.__class__ is str:
                 yield (ns, [f"{self._get_ns_offset(ns,1)}={feats}"])
             elif feats.__class__ is int or feats.__class__ is float:
-                yield (ns, [(self._get_ns_offset(ns,1), float(feats))])
+                yield (ns, [(self._get_ns_offset(ns,1), feats)])
             else:
                 feats = feats.items() if feats.__class__ is dict else enumerate(feats,self._get_ns_offset(ns,len(feats)))
-                yield (ns, [f"{k}={v}" if v.__class__ is str else (k, float(v)) for k,v in feats if v!= 0])
+                yield (ns, [f"{k}={v}" if v.__class__ is str else (k, v) for k,v in feats if v!= 0])
 
     def _get_ns_offset(self, namespace:str, length:int) -> Sequence[int]:
         value = self._ns_offsets.setdefault(namespace, self._curr_ns_offset)
