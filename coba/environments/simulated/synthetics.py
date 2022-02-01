@@ -85,13 +85,8 @@ class LambdaSimulation(SimulatedEnvironment):
 
         def __init__(self, interactions, _params, _str, _name) -> None:
             type(self).__name__ = _name
-            self._params        = _params
             self._str           = _str
-            super().__init__(interactions)
-
-        @property
-        def params(self) -> Dict[str, Any]:
-            return self._params
+            super().__init__(interactions, _params)
 
         def read(self):
             return self._interactions
