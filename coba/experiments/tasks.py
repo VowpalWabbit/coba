@@ -1,5 +1,7 @@
+import time
 import collections
 import collections.abc
+
 
 from abc import ABC, abstractmethod
 from statistics import median
@@ -73,13 +75,15 @@ class AssertDictQueueIO(QueueIO[Dict[str,Any]]):
 class OnlineOnPolicyEvalTask(EvaluationTask):
     """Evaluate a Learner on a SimulatedEnvironment."""
 
-    def __init__(self, seed:int = 1) -> None:
+    def __init__(self, time:bool = True, seed:int = 1) -> None:
         """Instantiate an OnlineOnPolicyEvalTask.
 
         Args:
+            time: Indicator for whether learner predict and learn times should be recorded. 
             seed: A random seed which determines which action is taken given predictions.        
         """
         self._seed = seed
+        self._time = time
 
     def process(self, learner: Learner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
 
@@ -95,13 +99,17 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
             context = interaction.context
             actions = interaction.actions
 
+            start_time = time.time()
             probs,info = learner.predict(context, actions)
+            predict_time = time.time() - start_time
 
             action = random.choice(actions, probs)
             reveal = interaction.kwargs.get("reveals", interaction.kwargs.get("rewards"))[actions.index(action)]
             prob   = probs[actions.index(action)]
 
+            start_time = time.time()
             learner.learn(context, action, reveal, prob, info)
+            learn_time = time.time() - start_time
 
             learner_info  = { k:v for item in LearnerContext.logger.read() for k,v in item.items() }
             interaction_info = {}
@@ -112,13 +120,21 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
                 else:
                     interaction_info[k] = v
 
-            yield {**interaction_info, **learner_info}
+            time_info = {"predict_time": predict_time, "learn_time": learn_time} if self._time else {}
+
+            yield {**interaction_info, **learner_info, **time_info}
 
 class OnlineOffPolicyEvalTask(EvaluationTask):
     """Evaluate a Learner on a LoggedEnvironment."""
 
+    def __init__(self, time:bool = True) -> None:
+        self._time = time
+
     def process(self, learner: Learner, interactions: Iterable[LoggedInteraction]) -> Iterable[Dict[Any,Any]]:
         LearnerContext.logger = AssertDictQueueIO(block=False)
+
+        learn_time = 0
+        predict_time = 0
 
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
@@ -131,12 +147,14 @@ class OnlineOffPolicyEvalTask(EvaluationTask):
 
             if "actions" in interaction.kwargs:
                 actions          = list(interaction.kwargs["actions"])
+                start_time       = time.time()
                 probs,info       = learner.predict(interaction.context, actions)
+                predict_time     = time.time()-start_time
                 interaction_info = {}
 
             if len(interaction.kwargs.keys() & {"probability", "actions", "reward"}) == 3:
                 ratio            = probs[actions.index(interaction.action)] / interaction.kwargs["probability"]
-                interaction_info = { 'reward': ratio*interaction.kwargs['reward'] }
+                interaction_info = {'reward': ratio*interaction.kwargs['reward']}
 
             for k,v in interaction.kwargs.items():
                 if k not in ["probability", "actions", "reward"]:
@@ -144,22 +162,27 @@ class OnlineOffPolicyEvalTask(EvaluationTask):
 
             reveal = interaction.kwargs.get("reveal", interaction.kwargs.get("reward"))
             prob   = interaction.kwargs.get("probability")
+            
+            start_time = time.time()
             learner.learn(interaction.context, interaction.action, reveal, prob, info)
+            learn_time = time.time()-start_time
 
             learner_info  = { k:v for item in LearnerContext.logger.read() for k,v in item.items() }
+            time_info     = {"predict_time": predict_time, "learn_time": learn_time} if self._time else {}
 
-            yield {**interaction_info, **learner_info}
+            yield {**interaction_info, **learner_info, **time_info}
 
 class OnlineWarmStartEvalTask(EvaluationTask):
     """Evaluate a Learner on a WarmStartEnvironment."""
     
-    def __init__(self, seed: int = 1) -> None:
+    def __init__(self, time:bool = True, seed:int = 1) -> None:
         """Instantiate an OnlineOnPolicyEvalTask.
 
         Args:
             seed: A random seed which determines which action is taken given predictions.        
         """        
         self._seed = seed
+        self._time = time
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
 
@@ -171,10 +194,10 @@ class OnlineWarmStartEvalTask(EvaluationTask):
         logged_interactions    = takewhile(lambda i: isinstance(i,LoggedInteraction), separable_interactions)
         simulated_interactions = separable_interactions
 
-        for row in OnlineOffPolicyEvalTask().process(learner, logged_interactions):
+        for row in OnlineOffPolicyEvalTask(self._time).process(learner, logged_interactions):
             yield row
 
-        for row in OnlineOnPolicyEvalTask(self._seed).process(learner, simulated_interactions):
+        for row in OnlineOnPolicyEvalTask(self._time, self._seed).process(learner, simulated_interactions):
             yield row
 
     def _repeat_first_simulated_interaction(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:

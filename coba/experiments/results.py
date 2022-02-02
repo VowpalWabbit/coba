@@ -177,7 +177,7 @@ class Table:
     def to_tuples(self) -> Sequence[Tuple[Any,...]]:
         """Turn the Table into a sequence of tuples."""
 
-        tooples = []
+        tuples = []
 
         for key in self.keys:
 
@@ -185,11 +185,11 @@ class Table:
             pack = self._rows_pack[key]
 
             if not pack:
-                tooples.append(tuple(flat.get(col,self._default(col)) for col in self.columns))
+                tuples.append(tuple(flat.get(col,self._default(col)) for col in self.columns))
             else:
-                tooples.extend(list(zip(*[pack.get(col,repeat(flat.get(col,self._default(col)))) for col in self.columns])))
+                tuples.extend(list(zip(*[pack.get(col,repeat(flat.get(col,self._default(col)))) for col in self.columns])))
 
-        return tooples
+        return tuples
 
     def _default(self, column:str) -> Any:
         return [1] if column == "index" else None

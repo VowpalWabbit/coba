@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import cast
 
 from coba.environments import Environment, LambdaSimulation
+from coba.experiments.tasks import OnlineOnPolicyEvalTask
 from coba.pipes import Source, ListIO
 from coba.learners import Learner
 from coba.contexts import CobaContext, LearnerContext, CobaContext, IndentLogger, BasicLogger, NullLogger
@@ -127,7 +128,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_sim(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
-        experiment = Experiment([sim1], [learner])
+        experiment = Experiment([sim1], [learner], evaluation_task=OnlineOnPolicyEvalTask(False))
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_tuples()
@@ -146,7 +147,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
-        experiment = Experiment([sim1,sim2], [learner])
+        experiment = Experiment([sim1,sim2], [learner], evaluation_task=OnlineOnPolicyEvalTask(False))
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_tuples()
@@ -165,12 +166,12 @@ class Experiment_Single_Tests(unittest.TestCase):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = ModuloLearner("0") #type: ignore
         learner2   = ModuloLearner("1") #type: ignore
-        experiment = Experiment([sim], [learner1, learner2])
+        experiment = Experiment([sim], [learner1, learner2], evaluation_task=OnlineOnPolicyEvalTask(False))
 
         actual_result       = experiment.evaluate()
         actual_learners     = actual_result._learners.to_tuples()
         actual_environments = actual_result._environments.to_tuples()
-        actual_interactions = actual_result._interactions.to_tuples()
+        actual_interactions = actual_result.interactions.to_tuples()
 
         expected_learners     = [(0, "Modulo", "Modulo(p=0)", '0'), (1, "Modulo", "Modulo(p=1)", '1')]
         expected_environments = [(0, 'LambdaSimulation')]
@@ -183,12 +184,12 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_learn_info_learners(self):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = LearnInfoLearner("0") #type: ignore
-        experiment = Experiment([sim],[learner1])
+        experiment = Experiment([sim],[learner1], evaluation_task=OnlineOnPolicyEvalTask(False))
 
         actual_result       = experiment.evaluate()
         actual_learners     = actual_result._learners.to_tuples()
         actual_environments = actual_result._environments.to_tuples()
-        actual_interactions = actual_result._interactions.to_tuples()
+        actual_interactions = actual_result.interactions.to_tuples()
 
         expected_learners       = [(0, "Modulo", "Modulo(p=0)", '0')]
         expected_environments   = [(0, 'LambdaSimulation')]
@@ -206,12 +207,12 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_predict_info_learners(self):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = PredictInfoLearner("0") #type: ignore
-        experiment = Experiment([sim],[learner1])
+        experiment = Experiment([sim],[learner1],evaluation_task=OnlineOnPolicyEvalTask(False))
 
         actual_result       = experiment.evaluate()
         actual_learners     = actual_result._learners.to_tuples()
         actual_environments = actual_result._environments.to_tuples()
-        actual_interactions = actual_result._interactions.to_tuples()
+        actual_interactions = actual_result.interactions.to_tuples()
 
         expected_learners       = [(0, "Modulo", "Modulo(p=0)", '0')]
         expected_environments   = [(0, 'LambdaSimulation')]
@@ -234,8 +235,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         #the second Experiment shouldn't ever call broken_factory() because
         #we're resuming from the first experiment's transaction.log
         try:
-            first_result  = Experiment([sim],[working_learner]).evaluate("coba/tests/.temp/transactions.log")
-            second_result = Experiment([sim],[broken_learner] ).evaluate("coba/tests/.temp/transactions.log")
+            first_result  = Experiment([sim],[working_learner],evaluation_task=OnlineOnPolicyEvalTask(False)).evaluate("coba/tests/.temp/transactions.log")
+            second_result = Experiment([sim],[broken_learner ],evaluation_task=OnlineOnPolicyEvalTask(False)).evaluate("coba/tests/.temp/transactions.log")
 
             actual_learners     = second_result.learners.to_tuples()
             actual_environments = second_result.environments.to_tuples()
@@ -259,7 +260,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
-        experiment = Experiment([sim1,sim2], [ModuloLearner(), BrokenLearner()])
+        experiment = Experiment([sim1,sim2], [ModuloLearner(), BrokenLearner()],evaluation_task=OnlineOnPolicyEvalTask(False))
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_tuples()
