@@ -1,4 +1,3 @@
-
 import collections.abc
 
 from itertools import product

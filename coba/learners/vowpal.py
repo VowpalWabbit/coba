@@ -1,4 +1,3 @@
-from cProfile import label
 import re
 
 from itertools import repeat

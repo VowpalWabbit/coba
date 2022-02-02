@@ -1,5 +1,4 @@
 
-from sys import stderr
 import time
 import traceback
 import pickle

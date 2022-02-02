@@ -321,7 +321,6 @@ class IndentLogger_Tests(unittest.TestCase):
         #I don't think it should ever fail, but if it does
         #try running it again and see if it works that time.
 
-
         sink   = ListIO()
         logger = IndentLogger(sink)
         logs   = sink.items

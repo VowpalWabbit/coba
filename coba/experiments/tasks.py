@@ -2,7 +2,6 @@ import time
 import collections
 import collections.abc
 
-
 from abc import ABC, abstractmethod
 from statistics import median
 from itertools import takewhile
