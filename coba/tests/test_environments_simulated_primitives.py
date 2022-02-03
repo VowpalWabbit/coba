@@ -95,7 +95,7 @@ class MemorySimulation_Tests(unittest.TestCase):
         self.assertEqual(interactions[1], interactions[1])
 
     def test_params(self):
-        simulation = MemorySimulation([],parameters={'a','b'})
+        simulation = MemorySimulation([],params={'a','b'})
         self.assertEqual({'a','b'}, simulation.params)
 
     def test_str(self):

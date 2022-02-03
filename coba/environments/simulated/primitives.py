@@ -106,18 +106,18 @@ class SimulatedEnvironment(Environment):
 class MemorySimulation(SimulatedEnvironment):
     """A simulation implementation created from in memory sequences of contexts, actions and rewards."""
 
-    def __init__(self, interactions: Sequence[SimulatedInteraction], parameters: Dict[str, Any] = {}) -> None:
+    def __init__(self, interactions: Sequence[SimulatedInteraction], params: Dict[str, Any] = {}) -> None:
         """Instantiate a MemorySimulation.
 
         Args:
             interactions: The sequence of interactions in this simulation.
         """
         self._interactions = interactions
-        self._parameters = parameters
+        self._params = params
 
     @property
     def params(self) -> Dict[str, Any]:
-        return self._parameters
+        return self._params
 
     def read(self) -> Iterable[SimulatedInteraction]:
         return self._interactions

@@ -4,7 +4,7 @@ import requests.exceptions
 
 from pathlib import Path
 
-from coba.pipes import DiskIO, ListIO, QueueIO, NullIO, ConsoleIO, HttpIO, IdentityIO
+from coba.pipes import DiskIO, ListIO, QueueIO, NullIO, ConsoleIO, HttpIO, IdentityIO, LambdaIO
 from coba.contexts import NullLogger, CobaContext
 
 CobaContext.logger = NullLogger()
@@ -147,6 +147,20 @@ class IdentityIO_Tests(unittest.TestCase):
         io = IdentityIO()
         io.write("a")
         self.assertEqual("a", io.read())
+
+class LambdaIO_Tests(unittest.TestCase):
+
+    def test_read(self):
+        io = LambdaIO(lambda:"a",None)
+        self.assertEqual("a",io.read())
+        self.assertEqual("a",io.read())
+
+    def test_write(self):
+        writes = []
+        io = LambdaIO(None, writes.append)
+        io.write("a")
+        io.write("b")
+        self.assertEqual(writes,["a","b"])
 
 if __name__ == '__main__':
     unittest.main()

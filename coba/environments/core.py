@@ -1,17 +1,18 @@
 import collections.abc
 
-from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional
+from itertools import islice
+from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Dict
 from coba.backports import Literal
 
-from coba.pipes import Source, DiskIO, JsonDecode, Reader, CsvReader
+from coba.pipes import Source, Sink, DiskIO, JsonDecode, Reader, CsvReader, IO, JsonEncode
 
 from coba.environments.filters     import FilteredEnvironment, EnvironmentFilter
 from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
-from coba.environments          .primitives import Environment
+from coba.environments          .primitives import Environment, Interaction
 from coba.environments.logged   .primitives import LoggedEnvironment
-from coba.environments.simulated.primitives import SimulatedEnvironment
+from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
 from coba.environments.warmstart.primitives import WarmStartEnvironment
 
 from coba.environments.simulated.synthetics import LinearSyntheticSimulation, LocalSyntheticSimulation

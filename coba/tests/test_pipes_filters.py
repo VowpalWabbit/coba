@@ -259,6 +259,11 @@ class JsonEncode_Tests(unittest.TestCase):
 
     def test_list_list_minified(self):
         self.assertEqual('[1,[2,[1,2]]]',JsonEncode().filter([1,[2.,[1,2.]]]))
+    
+    def test_list_tuple_minified(self):
+        data = [(1,0),(0,1)]
+        self.assertEqual('[[1,0],[0,1]]',JsonEncode().filter(data))
+        self.assertEqual([(1,0),(0,1)],data)
 
     def test_tuple_minified(self):
         self.assertEqual('[1,2]',JsonEncode().filter((1,2.)))

@@ -216,8 +216,8 @@ class Performance_Tests(unittest.TestCase):
 
         time = statistics.mean(timeit.repeat(lambda:encoder.filter(x), repeat=5, number=100))
 
-        #0.11 was my final average time.
-        self.assertLess(time, 1.1)
+        #0.15 was my final average time.
+        self.assertLess(time, 1.5)
 
     def test_arffreader_performance(self):
         

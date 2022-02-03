@@ -3,7 +3,7 @@ import gzip
 
 from collections.abc import Iterator
 from queue import Queue
-from typing import Iterable, Sequence, TypeVar, Any, Generic
+from typing import Callable, Iterable, Sequence, TypeVar, Any, Generic
 
 from coba.pipes.primitives import Sink, Source
 
@@ -141,3 +141,15 @@ class IdentityIO(IO[_T,_T], Generic[_T]):
 
     def write(self, item: _T) -> None:
         self.item = item
+
+class LambdaIO(IO[Iterable[_T], _T], Generic[_T]):
+
+    def __init__(self, read: Callable[[],Iterable[_T]], write: Callable[[_T],None]):
+        self._read = read
+        self._write = write
+
+    def read(self) -> Iterable[_T]:
+        return self._read()
+    
+    def write(self, item: _T_in) -> None:
+        return self._write(item)

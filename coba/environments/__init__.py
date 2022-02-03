@@ -16,6 +16,7 @@ from coba.environments.simulated import SimulatedInteraction, SimulatedEnvironme
 from coba.environments.simulated import MemorySimulation, LambdaSimulation
 from coba.environments.simulated import LinearSyntheticSimulation, LocalSyntheticSimulation
 from coba.environments.simulated import OpenmlSimulation, SupervisedSimulation
+from coba.environments.simulated import SerializedSimulation
 
 from coba.environments.logged.primitives import LoggedInteraction, LoggedEnvironment
 from coba.environments.warmstart.primitives import WarmStartEnvironment
@@ -37,6 +38,7 @@ __all__ = [
     'SupervisedSimulation',
     'LinearSyntheticSimulation',
     'LocalSyntheticSimulation',
+    'SerializedSimulation',
     'EnvironmentFilter',
     'Sort',
     'Scale',

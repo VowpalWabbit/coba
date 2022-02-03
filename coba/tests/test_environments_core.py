@@ -1,9 +1,10 @@
 import unittest
 import unittest.mock
+
 from pathlib import Path
 
 from coba.pipes import DiskIO
-from coba.environments import Environments, Environment, Shuffle, Take
+from coba.environments import Environments, Environment, Shuffle, Take, MemorySimulation
 
 class TestEnvironment(Environment):
 

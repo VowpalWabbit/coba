@@ -1,6 +1,5 @@
 import json
 import math
-import collections.abc
 import copy
 
 from collections import defaultdict
@@ -136,7 +135,7 @@ class JsonEncode(Filter[Any, str]):
                 if v.is_integer():
                     obj[k] = int(v) 
                 elif math.isnan(v) or math.isinf(v):
-                    obj[k] = v                    
+                    obj[k] = v 
                 else: 
                     #rounding by any means is considerably slower than this crazy method
                     #we format as a truncated string and then manually remove the string
@@ -155,8 +154,8 @@ class JsonEncode(Filter[Any, str]):
         else:
             self._encoder = CobaJsonEncoder()
 
-    def filter(self, item: Any) -> str:        
-        return self._encoder.encode(self._min([item])[0] if self._minify else item).replace('"|',"").replace('|"',"")
+    def filter(self, item: Any) -> str:
+        return self._encoder.encode(self._min(copy.deepcopy([item]))[0] if self._minify else item).replace('"|',"").replace('|"',"")
 
 class JsonDecode(Filter[str, Any]):
     def __init__(self, decoder: json.decoder.JSONDecoder = CobaJsonDecoder()) -> None:
