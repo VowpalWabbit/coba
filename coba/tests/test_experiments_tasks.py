@@ -317,8 +317,8 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
 
         task_results = list(task.process(learner, interactions))
 
-        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=3)
-        self.assertAlmostEqual(0, task_results[0]["learn_time"], places=3)
+        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=2)
+        self.assertAlmostEqual(0, task_results[0]["learn_time"  ], places=2)
 
 class OffPolicyEvaluationTask_Tests(unittest.TestCase):
 
@@ -418,8 +418,8 @@ class OffPolicyEvaluationTask_Tests(unittest.TestCase):
 
         task_results = list(task.process(learner, interactions))
 
-        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=3)
-        self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=3)
+        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=2)
+        self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=2)
 
 class WarmStartEvaluationTask_Tests(unittest.TestCase):
 
