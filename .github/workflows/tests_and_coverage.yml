@@ -25,6 +25,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: 'pip'
+          cache-dependency-path: '**/tests/requirements.txt'
       - run: python --version
       - run: pip install wheel
       - run: pip install jupyterlab
