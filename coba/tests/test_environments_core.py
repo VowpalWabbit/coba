@@ -1,10 +1,12 @@
 import unittest
 import unittest.mock
+import requests
 
 from pathlib import Path
 
-from coba.pipes import DiskIO
-from coba.environments import Environments, Environment, Shuffle, Take, MemorySimulation
+from coba.exceptions import CobaException
+from coba.pipes import DiskIO, HttpIO
+from coba.environments import Environments, Environment, Shuffle, Take, SerializedSimulation
 
 class TestEnvironment(Environment):
 
@@ -17,6 +19,17 @@ class TestEnvironment(Environment):
 
     def read(self):
         return []
+
+class MockResponse:
+    def __init__(self, status_code, content):
+        self.status_code = status_code
+        self.content     = content
+
+    def __enter__(self, *args, **kwargs):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        pass    
 
 class Environments_Tests(unittest.TestCase):
     def test_from_definition_path(self):
@@ -52,6 +65,44 @@ class Environments_Tests(unittest.TestCase):
         finally:
             if Path("coba/tests/.temp/from_file.env").exists():
                 Path("coba/tests/.temp/from_file.env").unlink()
+
+    def test_from_prebuilt_recognized_name(self):
+
+        index_url = "https://github.com/mrucker/coba_prebuilds/blob/main/test/index.json?raw=True"
+        simulation_url = "https://github.com/mrucker/coba_prebuilds/blob/main/test/test.json?raw=True"
+
+        def mocked_requests_get(*args, **kwargs):
+
+            if args[0] == index_url:
+                return MockResponse(200, b'{ "environments": { "SerializedSimulation": "./test.json" } }')
+
+            return MockResponse(None, 404, [])
+
+        with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
+            envs = Environments.from_prebuilt("test")
+
+        self.assertEqual(1, len(envs))
+        self.assertIsInstance(envs[0], SerializedSimulation)
+        self.assertIsInstance(envs[0]._source, HttpIO)
+        self.assertEqual(simulation_url, envs[0]._source._url)
+
+    def test_from_prebuilt_unrecognized_name(self):
+
+        root_directory_url = "https://api.github.com/repos/mrucker/coba_prebuilds/contents/"
+
+        def mocked_requests_get(*args, **kwargs):
+
+            if args[0] == root_directory_url:
+                return MockResponse(200, b'[{ "name":"test"}]')
+
+            return MockResponse(404, None)
+
+        with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
+            with self.assertRaises(CobaException) as e:
+                envs = Environments.from_prebuilt("nada")
+
+            self.assertIn('nada', str(e.exception) )
+            self.assertIn('test', str(e.exception) )
 
     def test_from_linear_synthetic(self):
         env = Environments.from_linear_synthetic(100,2,3,3,0,["xa"],2)

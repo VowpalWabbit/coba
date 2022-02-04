@@ -1,20 +1,33 @@
 import collections.abc
 
 from itertools import product
-from typing import Sequence, Dict, Any
+from typing import Sequence, Any, overload, Iterable
+from coba.pipes.io import DiskIO
 
 from coba.registry import CobaRegistry
-from coba.pipes import Filter
+from coba.pipes import Source, JsonDecode
 from coba.exceptions import CobaException
 
 from coba.environments.filters import FilteredEnvironment
-from coba.environments.simulated import SimulatedEnvironment
+from coba.environments.primitives import Environment
 
-class EnvironmentDefinitionFileV1(Filter[Dict[str,Any], Sequence[SimulatedEnvironment]]):
+class EnvironmentDefinitionFileV1(Source[Sequence[Environment]]):
 
-    def filter(self, config: Dict[str,Any]) -> Sequence[SimulatedEnvironment]:
+    @overload
+    def __init__(self, filesource:Source[Iterable[str]]) -> None: ...
 
-        variables = { k: CobaRegistry.construct(v) for k,v in config.get("variables",{}).items() }
+    @overload
+    def __init__(self, filename:str) -> None: ...
+
+    def __init__(self,arg) -> None:
+
+        self._source = DiskIO(arg) if isinstance(arg,str) else arg
+
+    def read(self) -> Sequence[Environment]:
+
+        definitions: dict = JsonDecode().filter('\n'.join(self._source.read()))
+
+        variables = { k: CobaRegistry.construct(v) for k,v in definitions.get("variables",{}).items() }
 
         def _construct(item:Any) -> Sequence[Any]:
             result = None
@@ -41,6 +54,6 @@ class EnvironmentDefinitionFileV1(Filter[Dict[str,Any], Sequence[SimulatedEnviro
 
             return result if isinstance(result, collections.abc.Sequence) else [result]
 
-        if not isinstance(config['environments'], list): config['environments'] = [config['environments']]
+        if not isinstance(definitions['environments'], list): definitions['environments'] = [definitions['environments']]
 
-        return [ environment for recipe in config['environments'] for environment in _construct(recipe)]
+        return [ environment for recipe in definitions['environments'] for environment in _construct(recipe)]

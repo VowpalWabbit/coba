@@ -1,18 +1,18 @@
 import collections.abc
 
-from itertools import islice
-from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Dict
+from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional
 from coba.backports import Literal
 
-from coba.pipes import Source, Sink, DiskIO, JsonDecode, Reader, CsvReader, IO, JsonEncode
+from coba.pipes import Source, Reader, CsvReader, HttpIO, ListIO, JsonDecode
+from coba.exceptions import CobaException
 
 from coba.environments.filters     import FilteredEnvironment, EnvironmentFilter
 from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
-from coba.environments          .primitives import Environment, Interaction
+from coba.environments          .primitives import Environment
 from coba.environments.logged   .primitives import LoggedEnvironment
-from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
+from coba.environments.simulated.primitives import SimulatedEnvironment
 from coba.environments.warmstart.primitives import WarmStartEnvironment
 
 from coba.environments.simulated.synthetics import LinearSyntheticSimulation, LocalSyntheticSimulation
@@ -33,13 +33,28 @@ class Environments:
     @staticmethod
     def from_file(arg) -> 'Environments':
         """Instantiate Environments from an environments definition file."""
-        
-        if isinstance(arg,str):
-            content = '\n'.join(DiskIO(arg).read())
-        else:
-            content = '\n'.join(arg.read())
+        return Environments(*EnvironmentDefinitionFileV1(arg).read())
 
-        return Environments(*EnvironmentDefinitionFileV1().filter(JsonDecode().filter(content)))
+    @staticmethod
+    def from_prebuilt(name:str) -> 'Environments':
+        """Instantiate Environments from a pre-built definition made for diagnostics and comparisons across projects."""
+
+        repo_url       = "https://github.com/mrucker/coba_prebuilds/blob/main"
+        definition_url = f"{repo_url}/{name}/index.json?raw=True"
+
+        definition_rsp = HttpIO(definition_url).read()
+
+        if definition_rsp.status_code == 404:
+            root_dir_text = HttpIO("https://api.github.com/repos/mrucker/coba_prebuilds/contents/").read().content.decode('utf-8')
+            root_dir_json = JsonDecode().filter(root_dir_text)
+            known_names   = [ obj['name'] for obj in root_dir_json if obj['name'] != "README.md" ]
+            raise CobaException(f"The given prebuilt name, {name}, couldn't be found. Known names are: {known_names}")
+
+        definition_txt = definition_rsp.content.decode('utf-8')
+        definition_txt = definition_txt.replace('"./', f'"{repo_url}/{name}/')
+        definition_txt = definition_txt.replace('.json"', '.json?raw=True"')
+
+        return Environments.from_file(ListIO([definition_txt]))
 
     @staticmethod
     def from_linear_synthetic(
@@ -51,7 +66,7 @@ class Environments:
         cross_terms: Sequence[str] = ["a","xa"],
         seed: int = 1) -> 'Environments':
         """A simple simulation useful for debugging learning algorithms. 
-        
+
         The simulation's rewards are linear with respect to the given features and their cross terms. In the case 
         that no context or action features are requested interaction terms are calculted by assuming actions or 
         contexts have a constant feature of 1.
@@ -118,7 +133,7 @@ class Environments:
 
     def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
         """Instantiate an Environments class.
-        
+
         Args:
             *environments: The base environments to initialize the class.        
         """

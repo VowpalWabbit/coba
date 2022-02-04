@@ -3,7 +3,8 @@ import gzip
 
 from collections.abc import Iterator
 from queue import Queue
-from typing import Callable, Iterable, Sequence, TypeVar, Any, Generic
+from typing import Callable, Iterable, Sequence, TypeVar, Any, Generic, Union
+from coba.backports import Literal
 
 from coba.pipes.primitives import Sink, Source
 
@@ -121,12 +122,14 @@ class QueueIO(IO[Iterable[_T], _T], Generic[_T]):
     def __len__(self) -> int:
         return self._queue.qsize()
 
-class HttpIO(IO[requests.Response, Any]):
-    def __init__(self, url: str) -> None:
+class HttpIO(IO[Union[requests.Response, Iterable[str]], Any]):
+    def __init__(self, url: str, mode: Literal["response","lines"] = "response") -> None:
         self._url = url
+        self._mode = mode
 
-    def read(self) -> requests.Response:
-        return requests.get(self._url, stream=True) #by default sends accept-encoding gzip and deflate
+    def read(self) -> Union[requests.Response, Iterable[str]]:
+        response = requests.get(self._url, stream=True) #by default this includes the header accept-encoding gzip and deflate
+        return response if self._mode == "response" else response.iter_lines(decode_unicode=True)
 
     def write(self, item: Any) -> None:
         raise NotImplementedError()

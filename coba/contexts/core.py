@@ -84,7 +84,7 @@ class CobaContext_meta(type):
             if isinstance(item, dict):
                 cls._resolve_and_expand_paths(item, current_dir)
 
-            if isinstance(item,str) and item.strip().startswith("~"):
+            if isinstance(item,str) and item.strip().startswith("~/"):
                 config_dict[key] = str(Path(item).expanduser().resolve())
 
             if isinstance(item,str) and (item.strip().startswith("../") or item.strip().startswith("./")):
