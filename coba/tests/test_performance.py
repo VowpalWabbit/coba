@@ -136,8 +136,18 @@ class Performance_Tests(unittest.TestCase):
         
         time = min(timeit.repeat(lambda:coba.random.randoms(5000), repeat=100, number=1))
 
-        #best observed 0.0025
-        self.assertLess(time,.025)
+        #best observed 0.0017
+        print(time)
+        self.assertLess(time,.017)
+
+    def test_gausses_performance(self):
+
+        time = min(timeit.repeat(lambda:coba.random.gausses(5000,0,1), repeat=10, number=3))
+        
+        #best observed 0.01
+        print(coba.random._random._times)
+        print(time)
+        self.assertLess(time,.1)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
     def test_vowpal_mediator_make_example_sequence_str_performance(self):

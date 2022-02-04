@@ -11,28 +11,29 @@ Remarks:
     could always change in the future, making randomization by seed potentially non-fixed.
 """
 
-import random as std_random
+import math
 import itertools
+import time
 
 from typing import Optional, Sequence, Any, List
 
 class CobaRandom:
-    """A random number generator via a linear congruential generator."""
+    """A random number generator that is consistent across python implementations."""
 
-    def __init__(self, seed: Optional[int] = None) -> None:
+    def __init__(self, seed: Optional[float] = None) -> None:
         """Instantiate a CobaRandom.
 
         Args:
-            seed: the seed to start random number generation.
+            seed: The seed to use when starting random number generation.
 
         Remarks:
-            The values for a,c,m below are taken from L’ecuyer (1999). In this paper he notes that
+            The values for a,c,m below are taken from L'ecuyer (1999). In this paper he notes that
             these values for LCG should have an overall period of m though the period of lower bits 
             will be much shorter. A solution he offers to this problem is to use much larger m (e.g., 
             2**128) and then only use the the top n most significant digits. For now, we aren't doing that.
-        
+
         References:
-            L’ecuyer, Pierre. "Tables of linear congruential generators of different sizes 
+            L'ecuyer, Pierre. "Tables of linear congruential generators of different sizes 
             and good lattice structure." Mathematics of Computation 68.225 (1999): 249-260.
         """
 
@@ -40,12 +41,17 @@ class CobaRandom:
         self._a = 116646453
         self._c = 9
 
+        self._times = [0,0,0]
+
         self._m_is_power_of_2 = (self._m % 2) == 0
         self._m_minus_1       = self._m-1
 
-        self._seed: int = std_random.randint(0,self._m_minus_1) if seed is None else seed
+        if isinstance(seed,int) or (isinstance(seed,float) and seed.is_integer()):
+            self._seed = int(seed)
+        else:
+            self._seed = int.from_bytes(str(seed or time.time()).encode('utf-8'),"big") % 2**20
 
-    def randoms(self, n:int=1) -> Sequence[float]:
+    def randoms(self, n:int) -> Sequence[float]:
         """Generate `n` uniform random numbers in [0,1].
 
         Args:
@@ -56,6 +62,14 @@ class CobaRandom:
         """
 
         return [number/self._m_minus_1 for number in self._next(n)]
+
+    def random(self) -> float:
+        """Generate a uniform random number in [0,1].
+
+        Returns:
+            The generated random number in [0,1].
+        """
+        return self.randoms(1)[0]
 
     def shuffle(self, sequence: Sequence[Any]) -> Sequence[Any]:
         """Shuffle the order of items in a sequence.
@@ -79,22 +93,14 @@ class CobaRandom:
 
             j = int(i + (r[i] * (n-i))) # i <= j <= n
             j = min(j, n-1)             # i <= j <= n-1 (min handles the edge case of r[i]==1 which would make j=n)
-            
+
             l[i], l[j] = l[j], l[i]
 
         return l
 
-    def random(self) -> float:
-        """Generate a uniform random number in [0,1].
-
-        Returns:
-            The generated random number in [0,1].
-        """
-        return self.randoms(1)[0]
-
     def randint(self, a:int, b:int) -> int:
         """Generate a uniform random integer in [a, b].
-        
+
         Args:
             a: The inclusive lower bound for the random integer.
             b: The inclusive upper bound for the random integer.
@@ -104,12 +110,12 @@ class CobaRandom:
 
     def choice(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Any:
         """Choose a random item from the given sequence.
-        
+
         Args:
             seq: The sequence to pick randomly from.
             weights: The proportion by which seq is selected from.
         """
-        
+
         if weights is None:
             return seq[self.randint(0, len(seq)-1)]
         else:
@@ -122,6 +128,30 @@ class CobaRandom:
 
             return seq[[ rng <= c for c in cdf].index(True)]
 
+    def gauss(self, mu:float, sigma:float) -> float:
+        return self.gausses(1, mu, sigma)[0]
+
+    def gausses(self, n:int, mu:float, sigma:float) -> Sequence[float]:
+
+        #Box-muller transform. 
+        #Generates pairs of independent random variables.
+        
+        if n == 0: return []
+
+        generate_n_pairs = math.ceil(n/2)
+
+        Rs = [math.sqrt(-2*math.log(u)) for u in self.randoms(generate_n_pairs)]
+        Ss = [2*math.pi*u               for u in self.randoms(generate_n_pairs)]
+
+        Ns = []
+        for R,S in zip(Rs,Ss):
+            Ns.append(mu+sigma*R*math.cos(S))
+            Ns.append(mu+sigma*R*math.sin(S))
+
+        if len(Ns) > n: Ns.pop()
+
+        return Ns
+
     def _next(self, n: int) -> Sequence[int]:
         """Generate `n` uniform random numbers in [0,m-1]
 
@@ -133,7 +163,7 @@ class CobaRandom:
         Returns:
             The `n` generated random numbers in [0,m-1].
         """
-        
+
         if n < 0 or not isinstance(n, int):
             raise ValueError("n must be an integer greater than or equal 0")
 
@@ -153,9 +183,9 @@ class CobaRandom:
 
 _random = CobaRandom()
 
-def seed(seed: Optional[int]) -> None:
+def seed(seed: Optional[float]) -> None:
     """Set the seed for generating random numbers in this module.
-    
+
     Args:
         seed: The seed for generating random numbers.
 
@@ -178,29 +208,47 @@ def randoms(n: int) -> Sequence[float]:
         n: How many random numbers should be generated.
 
     Returns:
-        The `n` generated random numbers in [0,1].
+        The `n` uniform random numbers in [0,1].
     """
 
     return _random.randoms(n)
 
+def gauss(mu:float, sigma:float) -> float:
+    """Generate a random number from N(mu,sigma)."""
+    return _random.gauss(mu,sigma)
+
+def gausses(n:int, mu:float, sigma:float) -> Sequence[float]:
+    """Generate `n` independent random numbers from N(mu,sigma).
+
+    Args:
+        n: How many random numbers should be generated
+        mu: The expectation of the distribution we are drawing from.
+        sigma: The standard deviation of the distribution we are drawing form.
+
+    Returns:
+        The `n` random numbers drawn from N(mu,sigma).
+
+    """
+    return _random.gausses(n,mu,sigma)
+
 def randint(a:int, b:int) -> int:
     """Generate a uniform random integer in [a, b].
-    
+
     Args:
         a: The inclusive lower bound for the random integer.
         b: The inclusive upper bound for the random integer.
     """
-    
+
     return _random.randint(a,b)
 
 def choice(seq: Sequence[Any], weights:Sequence[float]=None) -> Any:
     """Choose a random item from the given sequence.
-    
+
     Args:
         seq: The sequence to pick randomly from.
         weights: The proportion by which seq is selected from.
     """
-    
+
     return _random.choice(seq, weights)
 
 def shuffle(array_like: Sequence[Any]) -> Sequence[Any]:
