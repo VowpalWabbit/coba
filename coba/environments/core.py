@@ -60,8 +60,8 @@ class Environments:
     def from_linear_synthetic(
         n_interactions: int,
         n_actions:int = 10,
-        n_context_feats: int = 5,
-        n_action_feats: int = 5,
+        n_context_features: int = 5,
+        n_action_features: int = 5,
         reward_features: Sequence[str] = ["a","xa"],
         seed: int = 1) -> 'Environments':
         """A synthetic simulation whose rewards are linear with respect to the given reward features.
@@ -72,7 +72,7 @@ class Environments:
         """
 
         return Environments([
-            LinearSyntheticSimulation(n_interactions, n_actions, n_context_feats, n_action_feats, reward_features, seed)
+            LinearSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, reward_features, seed)
         ])
 
     @staticmethod

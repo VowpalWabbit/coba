@@ -744,8 +744,7 @@ class Result:
                 Y     = [ sum(z)/len(z) for z in Z ]
                 X     = list(range(1,len(Y)+1))
 
-                start = xlim[0] if xlim else int(.05*len(X))
-                end   = xlim[1] if xlim else len(X)
+                start,end = xlim if xlim else (1,len(X))
 
                 X = X[start:end]
                 Y = Y[start:end]

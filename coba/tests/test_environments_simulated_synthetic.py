@@ -140,7 +140,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
 class LinearSyntheticSimulation_Tests(unittest.TestCase):
     def test_simple_action_features(self):
         
-        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_feats=3,n_action_feats=4,reward_features=["a","xa"])
+        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4,reward_features=["a","xa"])
         interactions = list(simulation.read())
 
         self.assertEqual(500, len(interactions))
@@ -152,7 +152,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
 
     def test_simple_no_action_features(self):
         
-        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_feats=3,n_action_feats=0,reward_features=["a","xa"])
+        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=0,reward_features=["a","xa"])
         interactions = list(simulation.read())
 
         self.assertEqual(500, len(interactions))
@@ -165,6 +165,22 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(4, len(simulation._action_weights[0]))
         self.assertEqual(4, len(simulation._action_weights[1]))
 
+    def test_simple_no_context_and_no_action_features(self):
+        
+        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=0,reward_features=["a","xa"])
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(None, interactions[0].context)
+        self.assertEqual(2, len(interactions[0].actions))        
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
+        self.assertEqual(2, len(simulation._action_weights))
+        self.assertEqual(1, len(simulation._action_weights[0]))
+        self.assertEqual(1, len(simulation._action_weights[1]))
+
+
+
     def test_params(self):
         env = LinearSyntheticSimulation(100,reward_features=["xa"],seed=2)
         self.assertEqual(['xa'], env.params['reward_features'])
@@ -174,7 +190,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual("LinearSynth(A=2,c=3,a=4,R=['xa'],seed=2)", str(LinearSyntheticSimulation(100,2,3,4,["xa"],2)))
 
     def test_pickle(self):
-        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_feats=3,n_action_feats=4,reward_features=["a","xa"], seed=2)
+        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4,reward_features=["a","xa"], seed=2)
         simulation = pickle.loads(pickle.dumps(simulation))
         
         interactions = list(simulation.read())
@@ -193,7 +209,7 @@ class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
 
     def test_simple_action_features(self):
 
-        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_feats=3,n_action_feats=4,n_neighborhoods=10)
+        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_features=3,n_action_features=4,n_neighborhoods=10)
         interactions = list(simulation.read())
 
         self.assertEqual(20, len(interactions))
@@ -204,7 +220,7 @@ class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
 
     def test_simple_no_action_features(self):
 
-        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_feats=3,n_action_feats=0,n_neighborhoods=10)
+        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_features=3,n_action_features=0,n_neighborhoods=10)
         interactions = list(simulation.read())
 
         self.assertEqual(20, len(interactions))
@@ -226,7 +242,7 @@ class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
 
     def test_pickle(self):
         
-        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_feats=3,n_action_feats=0,n_neighborhoods=10)
+        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_features=3,n_action_features=0,n_neighborhoods=10)
         simulation = pickle.loads(pickle.dumps(simulation))
         interactions = list(simulation.read())
 

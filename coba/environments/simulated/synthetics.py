@@ -122,8 +122,8 @@ class LinearSyntheticSimulation(LambdaSimulation):
     def __init__(self, 
         n_interactions:int, 
         n_actions:int = 10,
-        n_context_feats:int = 10,
-        n_action_feats:int = 10,
+        n_context_features:int = 10,
+        n_action_features:int = 10,
         reward_features:Sequence[str] = ["a","xa"],
         seed:int = 1) -> None:
         """Instantiate a LinearSyntheticSimulation.
@@ -131,17 +131,17 @@ class LinearSyntheticSimulation(LambdaSimulation):
         Args:
             n_interactions: The number of interactions the simulation should have.
             n_actions: The number of actions each interaction should have.
-            n_context_feats: The number of features each context should have.
-            n_action_feats: The number of features each action should have.
+            n_context_features: The number of features each context should have.
+            n_action_features: The number of features each action should have.
             reward_features: The features in the simulation's linear reward function.
             seed: The random number seed used to generate all features, weights and noise in the simulation.
         """
 
-        self._args = (n_interactions, n_actions, n_context_feats, n_action_feats, reward_features, seed)
+        self._args = (n_interactions, n_actions, n_context_features, n_action_features, reward_features, seed)
 
         self._n_actions          = n_actions
-        self._n_context_features = n_context_feats
-        self._n_action_features  = n_action_feats
+        self._n_context_features = n_context_features
+        self._n_action_features  = n_action_features
         self._reward_features    = reward_features
         self._seed               = seed
 
@@ -156,20 +156,26 @@ class LinearSyntheticSimulation(LambdaSimulation):
         var = sig**2
         mu  = -var/2 #this makes the mean of our log-normal distribution 1
 
-        feature_count = len(feat_encoder.encode(x=[1]*(n_context_feats or 1),a=[1]*(n_action_feats or 1)))
+        if n_action_features or n_context_features:
+            feature_count = len(feat_encoder.encode(x=[1]*(n_context_features or 1),a=[1]*(n_action_features or 1)))
+        else:
+            feature_count = 1
 
-        if n_action_feats > 0:
+        if n_action_features > 0:
             #there is only one partition in this case because of action overlap
             action_weights = [ rng.randoms(feature_count) ]
         else:
             #there is a partition per action because actions will never overlap
             action_weights = [ rng.randoms(feature_count) for _ in range(n_actions) ]
 
-        action_weights = [ [ w/sum(weights) for w in weights] for weights in action_weights ] #normalize to preserve mean
+        if n_action_features or n_context_features:
+            #normalize to make final expectation more stable
+            action_weights = [ [ w/sum(weights) for w in weights] for weights in action_weights ] 
+        
         self._action_weights = action_weights
 
-        action_gen  = lambda: list(map(math.exp, rng.gausses(n_action_feats,mu,sig))) if n_action_feats else 1
-        context_gen = lambda: list(map(math.exp, rng.gausses(n_context_feats,mu,sig))) if n_context_feats else 1
+        action_gen  = lambda: list(map(math.exp, rng.gausses(n_action_features,mu,sig))) if n_action_features else 1
+        context_gen = lambda: list(map(math.exp, rng.gausses(n_context_features,mu,sig))) if n_context_features else 1
 
         rs = []
         for feats in (feat_encoder.encode(x=context_gen(),a=action_gen()) for _ in range(10000)):
@@ -180,27 +186,34 @@ class LinearSyntheticSimulation(LambdaSimulation):
         r_means = [ mean(r) for r in zip(*rs)    ]
 
         def context(index:int, rng: CobaRandom) -> Context:
-            return tuple(map(math.exp, rng.gausses(n_context_feats,mu,sig))) if n_context_feats else None
+            return tuple(map(math.exp, rng.gausses(n_context_features,mu,sig))) if n_context_features else None
 
         def actions(index:int, context: Context, rng: CobaRandom) -> Sequence[Action]:
-            if n_action_feats:
-                return  [ tuple(map(math.exp, rng.gausses(n_action_feats,mu,sig))) for _ in range(n_actions)] 
+            if n_action_features:
+                return  [ tuple(map(math.exp, rng.gausses(n_action_features,mu,sig))) for _ in range(n_actions)] 
             else:
                 return OneHotEncoder().fit_encodes(range(n_actions))
 
         def reward(index:int, context:Context, action:Action, rng: CobaRandom) -> float:
 
-            X = context if n_context_feats else [1]
-            A = action if n_action_feats else [1] 
-            F = feat_encoder.encode(x=X,a=A)
-            W = action_weights[0 if n_action_feats else action.index(1)]
-            V = r_vars[0 if n_action_feats else action.index(1)]
-            E = r_means[0 if n_action_feats else action.index(1)]
+            X = context if n_context_features else [1]
+            A = action  if n_action_features  else [1] 
+            
+            if n_action_features or n_context_features:
+                F = feat_encoder.encode(x=X,a=A)
+            else:
+                F = [1]
+            
+            W = action_weights[0 if n_action_features else action.index(1)]
+            V = r_vars[0 if n_action_features else action.index(1)]
+            E = r_means[0 if n_action_features else action.index(1)]
 
-            scalar = 1/(5*math.sqrt(V))
-            bias   = 0.5 - E*scalar
             r = sum([w*f for w,f in zip(W,F)])
-            r = bias + scalar*r
+
+            if V != 0:
+                scalar = 1/(5*math.sqrt(V))
+                bias   = 0.5 - E*scalar
+                r      = bias + scalar*r
 
             return r
 
@@ -227,8 +240,8 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
     def __init__(self,
         n_interactions:int,
         n_actions:int = 10,
-        n_context_feats:int = 10,
-        n_action_feats:int = 10,
+        n_context_features:int = 10,
+        n_action_features:int = 10,
         n_neighborhoods:int = 10,
         seed: int = 1) -> None:
         """Instantiate a NeighborsSyntheticSimulation.
@@ -236,31 +249,31 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
         Args:
             n_interactions: The number of interactions the simulation should have.
             n_actions: The number of actions each interaction should have.
-            n_context_feats: The number of features each context should have.
-            n_action_feats: The number of features each action should have.
+            n_context_features: The number of features each context should have.
+            n_action_features: The number of features each action should have.
             n_neighborhoods: The number of neighborhoods the simulation should have.
             seed: The random number seed used to generate all contexts and action rewards.
         """
 
-        self._args = (n_interactions, n_actions, n_context_feats, n_action_feats, n_neighborhoods, seed)
+        self._args = (n_interactions, n_actions, n_context_features, n_action_features, n_neighborhoods, seed)
 
         self._n_interactions  = n_interactions
         self._n_actions       = n_actions
-        self._n_context_feats = n_context_feats
-        self._n_action_feats  = n_action_feats
+        self._n_context_feats = n_context_features
+        self._n_action_feats  = n_action_features
         self._n_neighborhoods = n_neighborhoods
         self._seed            = seed
 
         rng = CobaRandom(self._seed)
 
         def context_gen():
-            return tuple(rng.gausses(n_context_feats,0,1))
+            return tuple(rng.gausses(n_context_features,0,1))
 
         def actions_gen():
-            if not n_action_feats:
+            if not n_action_features:
                 return OneHotEncoder().fit_encodes(range(n_actions))
             else:
-                return [ tuple(rng.gausses(n_action_feats,0,1)) for _ in range(n_actions) ]
+                return [ tuple(rng.gausses(n_action_features,0,1)) for _ in range(n_actions) ]
 
         contexts               = [ context_gen() for _ in range(self._n_neighborhoods) ]
         context_actions        = { c: actions_gen() for c in contexts }

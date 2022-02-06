@@ -793,7 +793,7 @@ class Result_Tests(unittest.TestCase):
 
         result = Result(None, None, {}, lrns, ints)
 
-        plot_learners_data = list(result._plot_learners_data())
+        plot_learners_data = list(result._plot_learners_data(xlim=(0,2)))
 
         self.assertEqual(2, len(plot_learners_data))
         self.assertEqual( ('learner_1', [1,2], [1.,3/2], 0, [(1.,),(3/2,)]), plot_learners_data[0])
@@ -811,7 +811,7 @@ class Result_Tests(unittest.TestCase):
 
         result = Result(None, None, {}, lrns, ints)
 
-        plot_learners_data = list(result._plot_learners_data())
+        plot_learners_data = list(result._plot_learners_data(xlim=(0,2)))
 
         self.assertEqual(2, len(plot_learners_data))
         self.assertEqual( ('learner_1', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[0])
@@ -846,7 +846,7 @@ class Result_Tests(unittest.TestCase):
 
         result = Result(None, None, {}, lrns, ints)
 
-        plot_learners_data = list(result._plot_learners_data(err='sd'))
+        plot_learners_data = list(result._plot_learners_data(xlim=(0,2),err='sd'))
 
         self.assertEqual(2, len(plot_learners_data))
         self.assertEqual( ('learner_1', [1,2], [3/2,4/2], [1/2,1/2], [(1.,2.),(3/2,5/2)]), plot_learners_data[0])
@@ -887,17 +887,17 @@ class Result_Tests(unittest.TestCase):
 
         result = Result(None, None, {}, lrns, ints)
 
-        plot_learners_data = list(result._plot_learners_data(sort="name"))
+        plot_learners_data = list(result._plot_learners_data(xlim=(0,2),sort="name"))
         self.assertEqual(2, len(plot_learners_data))
         self.assertEqual( ('learner_1', [1,2], [3/2,5/2], 0, [(1.,2.),(4/2,6/2)]), plot_learners_data[0])
         self.assertEqual( ('learner_2', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[1])
 
-        plot_learners_data = list(result._plot_learners_data(sort="id"))
+        plot_learners_data = list(result._plot_learners_data(xlim=(0,2),sort="id"))
         self.assertEqual(2, len(plot_learners_data))
         self.assertEqual( ('learner_2', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[0])
         self.assertEqual( ('learner_1', [1,2], [3/2,5/2], 0, [(1.,2.),(4/2,6/2)]), plot_learners_data[1])
 
-        plot_learners_data = list(result._plot_learners_data(sort="reward"))
+        plot_learners_data = list(result._plot_learners_data(xlim=(0,2),sort="reward"))
         self.assertEqual(2, len(plot_learners_data))
         self.assertEqual( ('learner_1', [1,2], [3/2,5/2], 0, [(1.,2.),(4/2,6/2)]), plot_learners_data[0])
         self.assertEqual( ('learner_2', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[1])
@@ -921,7 +921,7 @@ class Result_Tests(unittest.TestCase):
                     mock_ax.get_xticks.return_value = [1,2]
                     mock_ax.get_xlim.return_value   = [2,2]
 
-                    Result(None, None, {}, lrns, ints).plot_learners()
+                    Result(None, None, {}, lrns, ints).plot_learners(xlim=(0,2))
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -995,7 +995,7 @@ class Result_Tests(unittest.TestCase):
                     mock_ax.get_xticks.return_value = [1,2]
                     mock_ax.get_xlim.return_value   = [2,2]
 
-                    Result(None, None, {}, lrns, ints).plot_learners(filename='abc')
+                    Result(None, None, {}, lrns, ints).plot_learners(xlim=(0,2),filename='abc')
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -1031,7 +1031,7 @@ class Result_Tests(unittest.TestCase):
                 mock_ax.get_xticks.return_value = [1,2]
                 mock_ax.get_xlim.return_value   = [2,2]
 
-                Result(None, None, {}, lrns, ints).plot_learners(ax=mock_ax)
+                Result(None, None, {}, lrns, ints).plot_learners(ax=mock_ax,xlim=(0,2))
 
                 self.assertEqual(0, plt_figure().add_subplot.call_count)
 
