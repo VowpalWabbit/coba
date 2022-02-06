@@ -129,7 +129,7 @@ class ChunkBySource_Tests(unittest.TestCase):
         self.assertEqual(groups[3], [tasks[2],tasks[7]])
 
     def test_pipe_four_groups(self):
-        sim1 = Environments(LinearSyntheticSimulation()).shuffle([1,2])._environments
+        sim1 = Environments(LinearSyntheticSimulation(500)).shuffle([1,2])._environments
         sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
 
         tasks = [

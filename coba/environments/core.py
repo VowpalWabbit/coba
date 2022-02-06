@@ -15,7 +15,7 @@ from coba.environments.logged   .primitives import LoggedEnvironment
 from coba.environments.simulated.primitives import SimulatedEnvironment
 from coba.environments.warmstart.primitives import WarmStartEnvironment
 
-from coba.environments.simulated.synthetics import LinearSyntheticSimulation, LocalSyntheticSimulation
+from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
 
@@ -58,40 +58,40 @@ class Environments:
 
     @staticmethod
     def from_linear_synthetic(
-        n_interactions: int = 500,
-        n_actions: int = 3,
-        n_context_features: int = 2,
-        n_action_features: int = 2,
-        r_noise_var: float = 1/1000,
-        cross_terms: Sequence[str] = ["a","xa"],
+        n_interactions: int,
+        n_actions:int = 10,
+        n_context_feats: int = 5,
+        n_action_feats: int = 5,
+        reward_features: Sequence[str] = ["a","xa"],
         seed: int = 1) -> 'Environments':
-        """A simple simulation useful for debugging learning algorithms. 
+        """A synthetic simulation whose rewards are linear with respect to the given reward features.
 
-        The simulation's rewards are linear with respect to the given features and their cross terms. In the case 
-        that no context or action features are requested interaction terms are calculted by assuming actions or 
-        contexts have a constant feature of 1.
+        The simulation's rewards are determined via a linear function with respect to the given reward features. When 
+        no context or action features are requested reward features are calculted using a constant feature of 1 for 
+        non-existant features.
         """
 
         return Environments([
-            LinearSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, r_noise_var, cross_terms, seed)
+            LinearSyntheticSimulation(n_interactions, n_actions, n_context_feats, n_action_feats, reward_features, seed)
         ])
 
     @staticmethod
-    def from_local_synthetic(
-        n_interactions: int = 500, 
-        n_actions: int = 3, 
-        n_context_features: int = 2, 
-        n_contexts: int = 200, 
+    def from_neighbors_synthetic(
+        n_interactions: int, 
+        n_actions: int = 2, 
+        n_context_features: int = 5, 
+        n_action_features: int = 5,
+        n_neighborhoods: int = 30, 
         seed: int = 1) -> 'Environments':
-        """A simple synthetic simulation useful for debugging learning algorithms. 
-                
-        The simulation's rewards are linear with respect to the given features and their cross terms. In the case 
-        that no context or action features are requested interaction terms are calculted by assuming actions or 
-        contexts have a constant feature of 1.
+        """A synthetic simulation whose reward values are determined by neighborhoodS. 
+
+        The simulation's rewards are determined by the location of given context and action pairs. These locations
+        indicate which neighborhood the context action pair belongs to. Neighborhood rewards are determined by 
+        random assignment.
         """
 
         return Environments([
-            LocalSyntheticSimulation(n_interactions, n_contexts, n_context_features, n_actions, seed)
+            NeighborsSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, n_neighborhoods, seed)
         ])
 
     @staticmethod

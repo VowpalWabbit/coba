@@ -12,7 +12,7 @@ from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 
 class Performance_Tests(unittest.TestCase):
-    
+
     def test_numeric_encode_performance_small(self):
 
         encoder   = NumericEncoder()
@@ -128,25 +128,22 @@ class Performance_Tests(unittest.TestCase):
         to_shuffle = list(range(5000))
 
         time = min(timeit.repeat(lambda:coba.random.shuffle(to_shuffle), repeat=10, number=3))
-        
+
         #best observed 0.01
         self.assertLess(time,.1)
 
     def test_randoms_performance(self):
-        
+
         time = min(timeit.repeat(lambda:coba.random.randoms(5000), repeat=100, number=1))
 
         #best observed 0.0017
-        print(time)
         self.assertLess(time,.017)
 
     def test_gausses_performance(self):
 
         time = min(timeit.repeat(lambda:coba.random.gausses(5000,0,1), repeat=10, number=3))
-        
+
         #best observed 0.01
-        print(coba.random._random._times)
-        print(time)
         self.assertLess(time,.1)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")

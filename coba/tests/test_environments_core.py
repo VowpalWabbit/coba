@@ -6,7 +6,8 @@ from pathlib import Path
 
 from coba.exceptions import CobaException
 from coba.pipes import DiskIO, HttpIO
-from coba.environments import Environments, Environment, Shuffle, Take, SerializedSimulation
+from coba.environments import Environments, Environment, Shuffle, Take
+from coba.environments import SerializedSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 
 class TestEnvironment(Environment):
 
@@ -105,26 +106,34 @@ class Environments_Tests(unittest.TestCase):
             self.assertIn('test', str(e.exception) )
 
     def test_from_linear_synthetic(self):
-        env = Environments.from_linear_synthetic(100,2,3,3,0,["xa"],2)
+        envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
+        env  = envs[0]
 
-        self.assertEqual(1     , len(env))
-        self.assertEqual(100   , len(list(env[0].read())))
-        self.assertEqual(2     , env[0].params['n_A'])
-        self.assertEqual(3     , env[0].params['n_C_phi'])
-        self.assertEqual(3     , env[0].params['n_A_phi'])
-        self.assertEqual(0     , env[0].params['r_noise'])
-        self.assertEqual(['xa'], env[0].params['X'])
-        self.assertEqual(2     , env[0].params['seed'])
+        self.assertIsInstance(env, LinearSyntheticSimulation)
+        interactions = list(env.read())
+        
+        self.assertEqual(1     , len(envs))
+        self.assertEqual(100   , len(interactions))
+        self.assertEqual(2     , len(interactions[0].actions))
+        self.assertEqual(3     , len(interactions[0].context))
+        self.assertEqual(4     , len(interactions[0].actions[0]))
+        self.assertEqual(['xa'], env.params['reward_features'])
+        self.assertEqual(5     , env.params['seed'])
 
     def test_from_local_synthetic(self):
-        env = Environments.from_local_synthetic(100,2,1,10,2)
+        envs = Environments.from_neighbors_synthetic(100,2,3,4,10,5)
+        env  = envs[0]
 
-        self.assertEqual(1  , len(env))
-        self.assertEqual(100, len(list(env[0].read())))
-        self.assertEqual(2  , env[0].params['n_A'])
-        self.assertEqual(10 , env[0].params['n_C'])
-        self.assertEqual(1  , env[0].params['n_C_phi'])
-        self.assertEqual(2  , env[0].params['seed'])
+        self.assertIsInstance(env, NeighborsSyntheticSimulation)
+        interactions = list(env.read())
+        
+        self.assertEqual(1  , len(envs))
+        self.assertEqual(100, len(interactions))
+        self.assertEqual(2  , len(interactions[0].actions))
+        self.assertEqual(3  , len(interactions[0].context))
+        self.assertEqual(4  , len(interactions[0].actions[0]))
+        self.assertEqual(10 , env.params['n_neighborhoods'])
+        self.assertEqual(5  , env.params['seed'])
 
     def test_from_supervised(self):
         X = [1,2]

@@ -1,6 +1,7 @@
 import math
 
-from itertools import count, repeat, islice
+from statistics import variance, mean
+from itertools import count, islice, cycle
 from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Iterable
 
 from coba.exceptions import CobaException
@@ -112,158 +113,178 @@ class LambdaSimulation(SimulatedEnvironment):
             raise CobaException(message)
 
 class LinearSyntheticSimulation(LambdaSimulation):
-    """A simple synthetic simulation useful for debugging learning algorithms. 
-            
-    The simulation's rewards are linear with respect to the given features and their cross terms. In the case 
-    that no context or action features are requested interaction terms are calculted by assuming actions or 
-    contexts have a constant feature of 1.
+    """A synthetic simulation whose rewards are linear with respect to the given reward features.
+
+    The simulation's rewards are linear with respect to the given reward features. When no context or action 
+    features are requested reward features are calculted using a constant feature of 1 for non-existant features.
     """
 
     def __init__(self, 
-        n_interactions: int = 500, 
-        n_actions: int = 10, 
-        n_context_feats:int = 10, 
-        n_action_feats:int = 10, 
-        r_noise_var:float = 1/1000,
-        cross_terms: Sequence[str] = ["a","xa"],
-        seed:int=1) -> None:
+        n_interactions:int, 
+        n_actions:int = 10,
+        n_context_feats:int = 10,
+        n_action_feats:int = 10,
+        reward_features:Sequence[str] = ["a","xa"],
+        seed:int = 1) -> None:
         """Instantiate a LinearSyntheticSimulation.
-        
+
         Args:
             n_interactions: The number of interactions the simulation should have.
             n_actions: The number of actions each interaction should have.
-            n_context_feats: The number of features each interaction context should have.
+            n_context_feats: The number of features each context should have.
             n_action_feats: The number of features each action should have.
-            r_noise_var: The variance of the noise term added to the expected reward value.
-            cross_terms: The action and context feature cross products to calculate expected reward value.
-            seed: The random number seed used to generate all features, weights and noise in the simulation. 
+            reward_features: The features in the simulation's linear reward function.
+            seed: The random number seed used to generate all features, weights and noise in the simulation.
         """
 
-        self._args = (n_interactions, n_actions, n_context_feats, n_action_feats, r_noise_var, cross_terms, seed)
+        self._args = (n_interactions, n_actions, n_context_feats, n_action_feats, reward_features, seed)
 
         self._n_actions          = n_actions
         self._n_context_features = n_context_feats
         self._n_action_features  = n_action_feats
+        self._reward_features    = reward_features
         self._seed               = seed
-        self._r_noise_var        = r_noise_var
-        self._X                  = cross_terms
 
-        rng = CobaRandom(seed)
-        X_encoder = InteractionsEncoder(self._X)
+        rng          = CobaRandom(seed)
+        feat_encoder = InteractionsEncoder(reward_features)
 
-        dummy_context = list(range(max(1,n_context_feats)))
-        dummy_action  = list(range(n_action_feats)) if n_action_feats else list(range(n_actions))
-        feature_count = len(X_encoder.encode(x=dummy_context,a=dummy_action))
+        # we use a log-normal distribution for features because their product will also be log-normal
+        # We use a feature distribution with E of 1. This gives a more stable E[reward] though it still isn't fixed.
+        # To deal with shifting means and variance we estimate these statistic for reward distribution and control for them.
 
-        normalize = lambda X: [ rng.random()*x/sum(X) for x in X]
-        identity  = lambda n: OneHotEncoder().fit_encodes(range(n))
+        sig = 1/3
+        var = sig**2
+        mu  = -var/2 #this makes the mean of our log-normal distribution 1
 
-        weights = normalize(rng.randoms(feature_count)) # we normalize weights so that reward will be in [0,1]
-        actions = ( [rng.randoms(n_action_feats) for _ in range(n_actions)] for _ in count()) if n_actions else repeat(identity(n_actions))
-        A_ident = None if n_action_feats else identity(n_actions)
+        feature_count = len(feat_encoder.encode(x=[1]*(n_context_feats or 1),a=[1]*(n_action_feats or 1)))
+
+        if n_action_feats > 0:
+            #there is only one partition in this case because of action overlap
+            action_weights = [ rng.randoms(feature_count) ]
+        else:
+            #there is a partition per action because actions will never overlap
+            action_weights = [ rng.randoms(feature_count) for _ in range(n_actions) ]
+
+        action_weights = [ [ w/sum(weights) for w in weights] for weights in action_weights ] #normalize to preserve mean
+        self._action_weights = action_weights
+
+        action_gen  = lambda: list(map(math.exp, rng.gausses(n_action_feats,mu,sig))) if n_action_feats else 1
+        context_gen = lambda: list(map(math.exp, rng.gausses(n_context_feats,mu,sig))) if n_context_feats else 1
+
+        rs = []
+        for feats in (feat_encoder.encode(x=context_gen(),a=action_gen()) for _ in range(10000)):
+            rs.append([sum([w*f for w,f in zip(weights,feats)]) for weights in action_weights])
+
+        #estimate via MC methods. Analytical solutions are too complex due to RV correlations.
+        r_vars  = [ variance(r) for r in zip(*rs)] 
+        r_means = [ mean(r) for r in zip(*rs)    ]
 
         def context(index:int, rng: CobaRandom) -> Context:
-            return rng.randoms(n_context_feats) if n_context_feats else None
+            return tuple(map(math.exp, rng.gausses(n_context_feats,mu,sig))) if n_context_feats else None
 
         def actions(index:int, context: Context, rng: CobaRandom) -> Sequence[Action]:
-            return  [rng.randoms(n_action_feats) for _ in range(n_actions)] if n_action_feats else A_ident
+            if n_action_feats:
+                return  [ tuple(map(math.exp, rng.gausses(n_action_feats,mu,sig))) for _ in range(n_actions)] 
+            else:
+                return OneHotEncoder().fit_encodes(range(n_actions))
 
         def reward(index:int, context:Context, action:Action, rng: CobaRandom) -> float:
 
-            W = weights
-            X = context or [1]
-            A = action
-            F = X_encoder.encode(x=X,a=A)
+            X = context if n_context_feats else [1]
+            A = action if n_action_feats else [1] 
+            F = feat_encoder.encode(x=X,a=A)
+            W = action_weights[0 if n_action_feats else action.index(1)]
+            V = r_vars[0 if n_action_feats else action.index(1)]
+            E = r_means[0 if n_action_feats else action.index(1)]
 
+            scalar = 1/(5*math.sqrt(V))
+            bias   = 0.5 - E*scalar
             r = sum([w*f for w,f in zip(W,F)])
-            e = (rng.random()-1/2)*math.sqrt(12)*math.sqrt(self._r_noise_var)
-            
-            return min(1,max(0,r+e))
+            r = bias + scalar*r
+
+            return r
 
         super().__init__(n_interactions, context, actions, reward, seed)
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { 
-            "n_A"    : self._n_actions,
-            "n_C_phi": self._n_context_features,
-            "n_A_phi": self._n_action_features,
-            "r_noise": self._r_noise_var,
-            "X"      : self._X,
-            "seed"   : self._seed
-        }
+        return {"reward_features": self._reward_features, "seed" : self._seed}
 
     def __reduce__(self) -> Tuple[object, ...]:
         return (LinearSyntheticSimulation, self._args)
 
     def __str__(self) -> str:
-        return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},X={self._X},seed={self._seed})"
+        return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},R={self._reward_features},seed={self._seed})"
 
-class LocalSyntheticSimulation(LambdaSimulation):
-    """A simple simulation useful for debugging learning algorithms. 
-        
-        The simulation's rewards are determined by the location of given context and action pairs with respect to a 
-        small set of pre-generated exemplar context,action pairs. Location is currently defined as equality though 
-        it could potentially be extended to support any number of metric based similarity kernels. The "local" in 
-        the name is due to its close relationship to 'local regression'.
+class NeighborsSyntheticSimulation(LambdaSimulation):
+    """A synthetic simulation whose reward values are determined by neighborhoodS. 
+
+    The simulation's rewards are determined by the location of given context and action pairs. These locations
+    indicate which neighborhood the context action pair belongs to. Neighborhood rewards are determined by 
+    random assignment.
     """
 
     def __init__(self,
-        n_interactions: int = 500,
-        n_contexts: int = 200,
-        n_context_feats: int = 2,
-        n_actions: int = 10,
+        n_interactions:int,
+        n_actions:int = 10,
+        n_context_feats:int = 10,
+        n_action_feats:int = 10,
+        n_neighborhoods:int = 10,
         seed: int = 1) -> None:
-        """Instantiate a LocalSyntheticSimulation.
-        
+        """Instantiate a NeighborsSyntheticSimulation.
+
         Args:
             n_interactions: The number of interactions the simulation should have.
-            n_contexts: The number of unique contexts the simulation should contain.
-            n_context_feats: The number of features each interaction context should have.
             n_actions: The number of actions each interaction should have.
+            n_context_feats: The number of features each context should have.
+            n_action_feats: The number of features each action should have.
+            n_neighborhoods: The number of neighborhoods the simulation should have.
             seed: The random number seed used to generate all contexts and action rewards.
         """
 
-        self._args = (n_interactions, n_contexts, n_context_feats, n_actions, seed)
+        self._args = (n_interactions, n_actions, n_context_feats, n_action_feats, n_neighborhoods, seed)
 
-        self._n_interactions     = n_interactions
-        self._n_context_features = n_context_feats
-        self._n_contexts         = n_contexts
-        self._n_actions          = n_actions
-        self._seed               = seed
+        self._n_interactions  = n_interactions
+        self._n_actions       = n_actions
+        self._n_context_feats = n_context_feats
+        self._n_action_feats  = n_action_feats
+        self._n_neighborhoods = n_neighborhoods
+        self._seed            = seed
 
         rng = CobaRandom(self._seed)
 
-        contexts = [ tuple(rng.randoms(n_context_feats)) for _ in range(self._n_contexts) ]        
-        actions  = OneHotEncoder().fit_encodes(range(n_actions))
-        rewards  = {}
+        def context_gen():
+            return tuple(rng.gausses(n_context_feats,0,1))
 
-        for context in contexts:
-            for action in actions:
-                rewards[(context,action)] = rng.random()
+        def actions_gen():
+            if not n_action_feats:
+                return OneHotEncoder().fit_encodes(range(n_actions))
+            else:
+                return [ tuple(rng.gausses(n_action_feats,0,1)) for _ in range(n_actions) ]
+
+        contexts               = [ context_gen() for _ in range(self._n_neighborhoods) ]
+        context_actions        = { c: actions_gen() for c in contexts }
+        context_action_rewards = { (c,a):rng.random() for c in contexts for a in context_actions[c] }
+
+        context_iter = iter(islice(cycle(contexts),n_interactions))
 
         def context_generator(index:int, rng: CobaRandom):
-            return rng.choice(contexts)
+            return next(context_iter)
 
         def action_generator(index:int, context:Tuple[float,...], rng: CobaRandom):
-            return actions
+            return context_actions[context]
 
         def reward_function(index:int, context:Tuple[float,...], action: Tuple[int,...], rng: CobaRandom):
-            return rewards[(context,action)]
+            return context_action_rewards[(context,action)]
 
         return super().__init__(self._n_interactions, context_generator, action_generator, reward_function, seed)
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { 
-            "n_A"    : self._n_actions,
-            "n_C"    : self._n_contexts,
-            "n_C_phi": self._n_context_features,
-            "seed"   : self._seed
-        }
+        return { "n_neighborhoods": self._n_neighborhoods,"seed": self._seed }
 
     def __str__(self) -> str:
-        return f"LocalSynth(A={self._n_actions},C={self._n_contexts},c={self._n_context_features},seed={self._seed})"
+        return f"NeighborsSynth(A={self._n_actions},c={self._n_context_feats},a={self._n_action_feats},N={self._n_neighborhoods},seed={self._seed})"
 
     def __reduce__(self) -> Tuple[object, ...]:
-        return (LocalSyntheticSimulation, self._args)
+        return (NeighborsSyntheticSimulation, self._args)

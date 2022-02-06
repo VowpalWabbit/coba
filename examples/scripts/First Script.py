@@ -21,12 +21,12 @@ if __name__ == '__main__':
     #First, we define the learners that we want to test
     learners = [
         RandomLearner(),
-        VowpalEpsilonLearner(),
+        VowpalEpsilonLearner(interactions=[]),
         VowpalSquarecbLearner()
     ]
 
     #Next we create the environments we'd like evaluate against
-    environments = Environments.from_linear_synthetic(1000).shuffle([0,1,2]).binary()
+    environments = Environments.from_linear_synthetic(1000).shuffle([0,1,2])
 
     #We then create and evaluate our experiment from our environments and learners 
     result = Experiment(environments,learners).evaluate()

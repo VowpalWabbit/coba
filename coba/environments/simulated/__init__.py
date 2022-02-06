@@ -11,7 +11,7 @@ from coba.environments.simulated.primitives import SimulatedInteraction, Simulat
 from coba.environments.simulated.primitives import MemorySimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation, OpenmlSource
-from coba.environments.simulated.synthetics import LambdaSimulation, LinearSyntheticSimulation, LocalSyntheticSimulation
+from coba.environments.simulated.synthetics import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.simulated.serialized import SerializedSimulation
 
 __all__ = [
@@ -22,7 +22,7 @@ __all__ = [
     'OpenmlSimulation',
     'OpenmlSource',
     'LinearSyntheticSimulation',
-    'LocalSyntheticSimulation',
+    'NeighborsSyntheticSimulation',
     'SupervisedSimulation',
     'SerializedSimulation'
 ]

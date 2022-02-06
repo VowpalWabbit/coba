@@ -5,7 +5,7 @@ from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.contexts import CobaContext, NullLogger
 
-from coba.environments import LambdaSimulation, LinearSyntheticSimulation, LocalSyntheticSimulation
+from coba.environments import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 
 CobaContext.logger = NullLogger()
 
@@ -138,59 +138,105 @@ class LambdaSimulation_Tests(unittest.TestCase):
         self.assertIn("pickle", str(e.exception))
 
 class LinearSyntheticSimulation_Tests(unittest.TestCase):
-    def test_simple(self):
-        self.assertEqual(500, len(list(LinearSyntheticSimulation().read())))
-
-    def test_params(self):
-        env = LinearSyntheticSimulation(100,2,3,4,0,["xa"],2)
-
-        self.assertEqual(2     , env.params['n_A'])
-        self.assertEqual(3     , env.params['n_C_phi'])
-        self.assertEqual(4     , env.params['n_A_phi'])
-        self.assertEqual(0     , env.params['r_noise'])
-        self.assertEqual(['xa'], env.params['X'])
-        self.assertEqual(2     , env.params['seed'])
-
-    def test_str(self):
-        self.assertEqual("LinearSynth(A=2,c=3,a=4,X=['xa'],seed=2)", str(LinearSyntheticSimulation(100,2,3,4,0,["xa"],2)))
-
-    def test_pickle(self):
-        env = pickle.loads(pickle.dumps(LinearSyntheticSimulation(2000,2,3,4,0,["xa"],2)))
-
-        self.assertEqual(2     , env.params['n_A'])
-        self.assertEqual(3     , env.params['n_C_phi'])
-        self.assertEqual(4     , env.params['n_A_phi'])
-        self.assertEqual(0     , env.params['r_noise'])
-        self.assertEqual(['xa'], env.params['X'])
-        self.assertEqual(2     , env.params['seed'])
-        self.assertEqual("LinearSynth(A=2,c=3,a=4,X=['xa'],seed=2)", str(env))
-        self.assertEqual(2000, len(list(env.read())))
-
-class LocalSyntheticSimulation_Tests(unittest.TestCase):
-
-    def test_simple(self):
-        self.assertEqual(500, len(list(LocalSyntheticSimulation().read())))
-
-    def test_params(self):
-        env = LocalSyntheticSimulation(100,100,3,4,2)
-
-        self.assertEqual(4  , env.params['n_A'])
-        self.assertEqual(100, env.params['n_C'])
-        self.assertEqual(3  , env.params['n_C_phi'])
-        self.assertEqual(2  , env.params['seed'])
-
-    def test_str(self):
-        self.assertEqual("LocalSynth(A=4,C=100,c=3,seed=2)", str(LocalSyntheticSimulation(200,100,3,4,2)))
-
-    def test_pickle(self):
-        env = pickle.loads(pickle.dumps(LocalSyntheticSimulation(2000,2,3,4,5)))
+    def test_simple_action_features(self):
         
-        self.assertEqual(2     , env.params['n_C'])
-        self.assertEqual(3     , env.params['n_C_phi'])
-        self.assertEqual(4     , env.params['n_A'])
-        self.assertEqual(5     , env.params['seed'])
-        self.assertEqual("LocalSynth(A=4,C=2,c=3,seed=5)", str(env))
-        self.assertEqual(2000, len(list(env.read())))
+        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_feats=3,n_action_feats=4,reward_features=["a","xa"])
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(4, len(interactions[0].actions[0]))
+        self.assertEqual(1, len(simulation._action_weights))
+        self.assertEqual(16, len(simulation._action_weights[0]))
+
+    def test_simple_no_action_features(self):
+        
+        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_feats=3,n_action_feats=0,reward_features=["a","xa"])
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
+        self.assertEqual(2, len(simulation._action_weights))
+        self.assertEqual(4, len(simulation._action_weights[0]))
+        self.assertEqual(4, len(simulation._action_weights[1]))
+
+    def test_params(self):
+        env = LinearSyntheticSimulation(100,reward_features=["xa"],seed=2)
+        self.assertEqual(['xa'], env.params['reward_features'])
+        self.assertEqual(2     , env.params['seed'])
+
+    def test_str(self):
+        self.assertEqual("LinearSynth(A=2,c=3,a=4,R=['xa'],seed=2)", str(LinearSyntheticSimulation(100,2,3,4,["xa"],2)))
+
+    def test_pickle(self):
+        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_feats=3,n_action_feats=4,reward_features=["a","xa"], seed=2)
+        simulation = pickle.loads(pickle.dumps(simulation))
+        
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(4, len(interactions[0].actions[0]))
+
+        self.assertEqual(['a', 'xa'], simulation.params['reward_features'])
+        self.assertEqual(2          , simulation.params['seed'])
+
+        self.assertEqual("LinearSynth(A=2,c=3,a=4,R=['a', 'xa'],seed=2)", str(simulation))
+
+class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
+
+    def test_simple_action_features(self):
+
+        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_feats=3,n_action_feats=4,n_neighborhoods=10)
+        interactions = list(simulation.read())
+
+        self.assertEqual(20, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(4, len(interactions[0].actions[0]))
+        self.assertEqual(10,len(set([i.context for i in interactions])))
+
+    def test_simple_no_action_features(self):
+
+        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_feats=3,n_action_feats=0,n_neighborhoods=10)
+        interactions = list(simulation.read())
+
+        self.assertEqual(20, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
+        self.assertEqual(10,len(set([i.context for i in interactions])))
+
+    def test_params(self):
+        env = NeighborsSyntheticSimulation(20,n_neighborhoods=10,seed=2)
+
+        self.assertEqual(10, env.params['n_neighborhoods'])
+        self.assertEqual(2 , env.params['seed'])
+
+    def test_str(self):
+        self.assertEqual("NeighborsSynth(A=2,c=3,a=4,N=5,seed=6)", str(NeighborsSyntheticSimulation(200,2,3,4,5,6)))
+
+    def test_pickle(self):
+        
+        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_feats=3,n_action_feats=0,n_neighborhoods=10)
+        simulation = pickle.loads(pickle.dumps(simulation))
+        interactions = list(simulation.read())
+
+        self.assertEqual(20, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
+        self.assertEqual(10,len(set([i.context for i in interactions])))
 
 if __name__ == '__main__':
     unittest.main()
