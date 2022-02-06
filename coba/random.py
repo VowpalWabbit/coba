@@ -129,19 +129,32 @@ class CobaRandom:
             return seq[[ rng <= c for c in cdf].index(True)]
 
     def gauss(self, mu:float, sigma:float) -> float:
+        """Generate a random number from N(mu,sigma).
+    
+        Returns:
+            A random number drawn from N(mu,sigma).
+        """
         return self.gausses(1, mu, sigma)[0]
 
     def gausses(self, n:int, mu:float, sigma:float) -> Sequence[float]:
+        """Generate `n` independent random numbers from N(mu,sigma).
 
-        #Box-muller transform. 
-        #Generates pairs of independent random variables.
-        
+        Args:
+            n: How many random numbers should be generated
+            mu: The expectation of the distribution we are drawing from.
+            sigma: The standard deviation of the distribution we are drawing form.
+
+        Returns:
+            The `n` random numbers drawn from N(mu,sigma).
+        """
+        #Box-muller transform. Generates independent pseudo-normal random variable pairs.
+
         if n == 0: return []
 
-        generate_n_pairs = math.ceil(n/2)
+        n_pairs_to_generate = math.ceil(n/2)
 
-        Rs = [math.sqrt(-2*math.log(u)) for u in self.randoms(generate_n_pairs)]
-        Ss = [2*math.pi*u               for u in self.randoms(generate_n_pairs)]
+        Rs = [math.sqrt(-2*math.log(u)) for u in self.randoms(n_pairs_to_generate)]
+        Ss = [2*math.pi*u               for u in self.randoms(n_pairs_to_generate)]
 
         Ns = []
         for R,S in zip(Rs,Ss):
@@ -198,7 +211,11 @@ def seed(seed: Optional[float]) -> None:
     _random = CobaRandom(seed)
 
 def random() -> float:
-    """Generate a uniform random number in [0,1]."""
+    """Generate a uniform random number in [0,1].
+    
+    Returns:
+        A uniform random number in [0,1].
+    """
     return _random.random()
 
 def randoms(n: int) -> Sequence[float]:
@@ -214,7 +231,12 @@ def randoms(n: int) -> Sequence[float]:
     return _random.randoms(n)
 
 def gauss(mu:float, sigma:float) -> float:
-    """Generate a random number from N(mu,sigma)."""
+    """Generate a random number from N(mu,sigma).
+    
+    Returns:
+        A random number drawn from N(mu,sigma).
+    """
+
     return _random.gauss(mu,sigma)
 
 def gausses(n:int, mu:float, sigma:float) -> Sequence[float]:
@@ -227,8 +249,8 @@ def gausses(n:int, mu:float, sigma:float) -> Sequence[float]:
 
     Returns:
         The `n` random numbers drawn from N(mu,sigma).
-
     """
+
     return _random.gausses(n,mu,sigma)
 
 def randint(a:int, b:int) -> int:
