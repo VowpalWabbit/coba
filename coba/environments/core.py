@@ -15,7 +15,7 @@ from coba.environments.logged   .primitives import LoggedEnvironment
 from coba.environments.simulated.primitives import SimulatedEnvironment
 from coba.environments.warmstart.primitives import WarmStartEnvironment
 
-from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments.simulated.synthetics import GaussianKernelSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
 
@@ -92,6 +92,22 @@ class Environments:
 
         return Environments([
             NeighborsSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, n_neighborhoods, seed)
+        ])
+
+    @staticmethod
+    def from_gaussian_kernel(
+        n_interactions:int,
+        n_actions:int = 10,
+        n_context_features:int = 10,
+        n_action_features:int = 10,
+        n_exemplar:int = 10,
+        seed: int = 1) -> 'Environments':
+        """
+        TODO: docstring
+        """
+
+        return Environments([
+            GaussianKernelSimulation(n_interactions, n_actions, n_context_features, n_action_features, n_exemplar, seed)
         ])
 
     @staticmethod

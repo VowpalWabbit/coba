@@ -301,3 +301,132 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
 
     def __reduce__(self) -> Tuple[object, ...]:
         return (NeighborsSyntheticSimulation, self._args)
+
+class GaussianKernelSimulation(LambdaSimulation):
+    """
+    TODO: docstring, reward_features, context_gen vs context?
+    """
+
+    def __init__(self,
+        n_interactions:int,
+        n_actions:int = 10,
+        n_context_features:int = 10,
+        n_action_features:int = 10,
+        n_exemplar:int = 10,
+        seed: int = 1) -> None:
+        """Instantiate a LinearSyntheticSimulation.
+
+        Args:
+            n_interactions: The number of interactions the simulation should have.
+            n_actions: The number of actions each interaction should have.
+            n_context_features: The number of features each context should have.
+            n_action_features: The number of features each action should have.
+            reward_features: The features in the simulation's linear reward function.
+            seed: The random number seed used to generate all features, weights and noise in the simulation.
+        """
+
+        self._args = (n_interactions, n_actions, n_context_features, n_action_features, n_exemplar, seed)
+
+        self._n_actions          = n_actions
+        self._n_context_features = n_context_features
+        self._n_action_features  = n_action_features
+        self._n_exemplar         = n_exemplar
+        self._seed               = seed
+
+        rng          = CobaRandom(seed)
+
+        # we use a log-normal distribution for features because their product will also be log-normal
+        # We use a feature distribution with E of 1. This gives a more stable E[reward] though it still isn't fixed.
+        # To deal with shifting means and variance we estimate these statistic for reward distribution and control for them.
+
+        sig = 1/3
+        var = sig**2
+        mu  = -var/2 #this makes the mean of our log-normal distribution 1
+
+        val_gen  = lambda len: list(map(math.exp, rng.gausses(len,mu,sig)))
+
+        # Generate `n_exemplar` random context,action pairs if action_feats greater than 0 otherwise generate `n_exemplar*n_actions` random contexts
+        if n_action_features > 0:
+            a = val_gen(n_exemplar)
+            c = val_gen(n_exemplar)
+            self._exemplars = list(zip(a, c)) 
+        else:
+            self._exemplars = val_gen(n_actions)
+
+        # Generate a random weight for every exemplar you generated in step 1
+        if n_action_features > 0:
+            #there is only one partition in this case because of action overlap
+            action_weights = [ rng.randoms(len(self._exemplars)) ]
+        else:
+            #there is a partition per action because actions will never overlap
+            action_weights = [ rng.randoms(len(self._exemplars)) for _ in range(n_actions) ]
+
+        if n_action_features or n_context_features:
+            #normalize to make final expectation more stable
+            action_weights = [ [ w/sum(weights) for w in weights] for weights in action_weights ] 
+        
+        self._action_weights = action_weights
+
+
+        def K(X, Y=None, gamma=None):
+            """
+            Compute the rbf (gaussian) kernel between X and Y::
+                K(x, y) = exp(-gamma ||x-y||^2)
+            for each pair of rows x in X and y in Y.
+            Read more in the :ref:`User Guide <rbf_kernel>`.
+            Parameters
+            ----------
+            X : ndarray of shape (n_samples_X, n_features)
+            Y : ndarray of shape (n_samples_Y, n_features), default=None
+                If `None`, uses `Y=X`.
+            gamma : float, default=None
+                If None, defaults to 1.0 / n_features.
+            Returns
+            -------
+            kernel_matrix : ndarray of shape (n_samples_X, n_samples_Y)
+            """
+            from sklearn.metrics.pairwise import euclidean_distances
+            from numpy import exp
+            # X, Y = check_pairwise_arrays(X, Y) -> do I need to do this
+            if gamma is None:
+                gamma = 1.0 / X.shape[1]
+
+            K = euclidean_distances(X, Y, squared=True)
+            K *= -gamma
+            exp(K, K)  # exponentiate K in-place
+            return K
+        
+        def context(index:int, rng: CobaRandom) -> Context:
+            return tuple(map(math.exp, rng.gausses(n_context_features,mu,sig))) if n_context_features else None
+
+        def actions(index:int, context: Context, rng: CobaRandom) -> Sequence[Action]:
+            if n_action_features:
+                return  [ tuple(map(math.exp, rng.gausses(n_action_features,mu,sig))) for _ in range(n_actions)] 
+            else:
+                return OneHotEncoder().fit_encodes(range(n_actions))
+
+        def reward(index:int, context:Context, action:Action, rng: CobaRandom) -> float:
+
+            X = context if n_context_features else [1]
+            A = action  if n_action_features  else [1] 
+            
+            if n_action_features or n_context_features:
+                F = (X,A)
+            else:
+                F = [1]
+
+            r = sum([self._action_weights[i]*K(F, self._exemplars[i]) for i in range(len(self._exemplars))])
+
+            return r
+
+        super().__init__(n_interactions, context, actions, reward, seed)
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return {"seed" : self._seed}
+
+    def __reduce__(self) -> Tuple[object, ...]:
+        return (GaussianKernelSimulation, self._args)
+
+    def __str__(self) -> str:
+        return f"GaussianKernel(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},seed={self._seed})"

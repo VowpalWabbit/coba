@@ -26,7 +26,7 @@ if __name__ == '__main__':
     ]
 
     #Next we create the environments we'd like evaluate against
-    environments = Environments.from_linear_synthetic(2000).shuffle([0,1,2])
+    environments = Environments.from_gaussian_kernel(2000).shuffle([0,1,2])
 
     #We then create and evaluate our experiment from our environments and learners 
     result = Experiment(environments,learners).evaluate()
