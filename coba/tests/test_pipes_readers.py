@@ -78,6 +78,10 @@ class LazyHeadedDense_Tests(unittest.TestCase):
         self.assertEqual("[]", a.__repr__())
         self.assertEqual(0, len(a))
 
+        a = LazyHeadedDense(['1','2','3'],dict(zip(['a','b','c'],count())), encoders=[float, str, str])
+        self.assertEqual('3', a.pop(2))
+        self.assertEqual((1,'2'), tuple(a))
+
     def test_str(self):
         self.assertEqual('[1, 2, 3]', str(LazyHeadedDense([1,2,3])))
 
