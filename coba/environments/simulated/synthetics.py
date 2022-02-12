@@ -314,14 +314,14 @@ class GaussianKernelSimulation(LambdaSimulation):
         n_action_features:int = 10,
         n_exemplar:int = 10,
         seed: int = 1) -> None:
-        """Instantiate a LinearSyntheticSimulation.
+        """Instantiate a GaussianKernelSimulation.
 
         Args:
             n_interactions: The number of interactions the simulation should have.
             n_actions: The number of actions each interaction should have.
             n_context_features: The number of features each context should have.
             n_action_features: The number of features each action should have.
-            reward_features: The features in the simulation's linear reward function.
+            n_exemplar: The number of exemplar action, context pairs.
             seed: The random number seed used to generate all features, weights and noise in the simulation.
         """
 
@@ -352,18 +352,14 @@ class GaussianKernelSimulation(LambdaSimulation):
             return tuple(self._rng.randoms(self._n_context_features))
 
         def actions(index:int, context: Context, rng: CobaRandom) -> Sequence[Action]:
-            return tuple(self._rng.randoms(self._n_action_features)) # TODO: Why does this not work properly? it only gives one value
+            return [ tuple(self._rng.randoms(self._n_action_features)) for _ in range(self._n_actions) ]
 
         def reward(index:int, context:Context, action:Action, rng: CobaRandom) -> float:
 
             from sklearn.metrics.pairwise import rbf_kernel
 
             X = context if n_context_features else [1]
-            # related to todo above. Why is action not a tuple of 10 values? I use this workaround currently.
-            A = (1,)
-            for i in range(n_action_features-1):
-                A += (1,)
-            # A = action  if n_action_features  else [1] 
+            A = action  if n_action_features  else [1] 
             
             if n_action_features or n_context_features:
                 F = [A, X]
