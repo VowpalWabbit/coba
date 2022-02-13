@@ -71,7 +71,7 @@ class BasicLogger_Tests(unittest.TestCase):
         sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
-        
+
         with self.assertRaises(Exception):
             with logger.log('a'):
                 logger.log('c')
@@ -128,7 +128,7 @@ class BasicLogger_Tests(unittest.TestCase):
         sink   = ListIO()
         logger = BasicLogger(sink)
         logs   = sink.items
-        
+
         with self.assertRaises(BaseException) as e:
             with logger.time('a'):
                 logger.log('c')
@@ -350,7 +350,7 @@ class IndentLogger_Tests(unittest.TestCase):
         self.assertAlmostEqual(float(logs[0][3:7 ]), 0.15, 1)
         self.assertAlmostEqual(float(logs[2][9:13]), 0.05, 1)
         self.assertAlmostEqual(float(logs[4][9:13]), 0.05, 1)
-    
+
     def test_time_two_separate(self):
 
         #This test is somewhat time dependent.
@@ -366,15 +366,15 @@ class IndentLogger_Tests(unittest.TestCase):
             with logger.time('d'):
                 logger.log('e')
                 time.sleep(0.05)
-        
+
         logger.log('g')
-        
+
         with logger.time('a'):
             time.sleep(0.05)
             with logger.time('d'):
                 logger.log('e')
                 time.sleep(0.05)
-        
+
         self.assertEqual(7, len(logs))
         self.assertRegex(logs[0 ], 'a \\(\\d+\\.\\d+ seconds\\)')
         self.assertRegex(logs[1 ], '  \\* d \\(\\d+\\.\\d+ seconds\\)')
@@ -580,7 +580,7 @@ class ExceptLog_Tests(unittest.TestCase):
 
 
     def test_filter_exception_raise(self):
-        
+
         decorator = ExceptLog()
         exception = Exception("Test Exception")
 
@@ -597,7 +597,7 @@ class ExceptLog_Tests(unittest.TestCase):
             self.assertEqual(log, expected_log)
 
     def test_filter_coba_exception(self):
-        
+
         decorator = ExceptLog()
         exception = CobaException("Test Exception")
 

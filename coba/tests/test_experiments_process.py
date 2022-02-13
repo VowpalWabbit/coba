@@ -136,7 +136,7 @@ class ChunkBySource_Tests(unittest.TestCase):
             WorkItem(None, 0, None, None, None),
             WorkItem(None, 1, None, None, None),
             WorkItem(1, None, sim2, None, None),
-            WorkItem(0, None, sim1[0], None, None),            
+            WorkItem(0, None, sim1[0], None, None),
             WorkItem(0, 0, sim1[0], None, None),
             WorkItem(2, 0, sim1[1], None, None),
             WorkItem(0, 1, sim1[0], None, None),

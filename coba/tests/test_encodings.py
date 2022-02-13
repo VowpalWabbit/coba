@@ -88,7 +88,7 @@ class OneHotEncoder_Tests(unittest.TestCase):
     def test_encode_err_if_unkonwn_true(self):
         with self.assertRaises(CobaException): 
             OneHotEncoder(err_if_unknown=True).fit(["1","1","1","0","0"]).encode("2")
-    
+
     def test_encodes_err_if_unkonwn_true(self):
         with self.assertRaises(CobaException): 
             OneHotEncoder(err_if_unknown=True).fit(["1","1","1","0","0"]).encodes(["2"])
@@ -124,7 +124,7 @@ class FactorEncoder_Tests(unittest.TestCase):
     def test_encode_err_if_unkonwn_true(self):
         with self.assertRaises(CobaException):
             FactorEncoder(err_if_unknown=True).fit(["1","1","1","0","0"]).encode("2")
-    
+
     def test_encodes_err_if_unkonwn_true(self):
         with self.assertRaises(CobaException):
             FactorEncoder(err_if_unknown=True).fit(["1","1","1","0","0"]).encodes(["2"])
@@ -244,14 +244,14 @@ class InteractionsEncoder_Tests(unittest.TestCase):
         interactions = encoder.encode(x=["a","b","c"], a=["d","e"])
 
         self.assertEqual(dict([("a0d",1), ("a1e",1)]), interactions)
-    
+
     def test_string_x(self):
         encoder = InteractionsEncoder(["x"])
 
         interactions = encoder.encode(x=["a","b","c"], a=["d","e"])
 
         self.assertEqual(dict([("x0a",1), ("x1b",1), ("x2c",1)]), interactions)
-    
+
     def test_string_xa(self):
         encoder = InteractionsEncoder(["xa"])
 

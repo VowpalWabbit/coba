@@ -4,7 +4,7 @@ import unittest
 from coba.learners import EpsilonBanditLearner, UcbBanditLearner, RandomLearner, FixedLearner
 
 class EpsilonBanditLearner_Tests(unittest.TestCase):
-    
+
     def test_params(self):
         learner = EpsilonBanditLearner(epsilon=0.5)
         self.assertEqual({"family":"epsilon_bandit", "epsilon":0.5}, learner.params)
@@ -40,7 +40,7 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
 
         self.assertAlmostEqual(.95,pred1)
         self.assertAlmostEqual(.05,pred2)
-    
+
     def test_predict_learn_epsilon_all_equal(self):
         learner = EpsilonBanditLearner(epsilon=0.1)
 
@@ -51,7 +51,7 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
         self.assertEqual([.5,.5],learner.predict(None, [1,2]))
 
 class UcbBanditLearner_Tests(unittest.TestCase):
-    
+
     def test_params(self):
         learner = UcbBanditLearner()
         self.assertEqual({ "family": "UCB_bandit" }, learner.params)
@@ -66,7 +66,7 @@ class UcbBanditLearner_Tests(unittest.TestCase):
 
         self.assertEqual([0,1/2,1/2],learner.predict(None, actions))
         learner.learn(None, actions[1], 0, 0, None)
-        
+
         self.assertEqual([0,  0,  1],learner.predict(None, actions))
         learner.learn(None, actions[2], 0, 0, None)
 
@@ -76,14 +76,14 @@ class UcbBanditLearner_Tests(unittest.TestCase):
     def test_learn_predict_best1(self):
         learner = UcbBanditLearner()
         actions = [1,2,3,4]
-        
+
         learner.predict(None, actions)
         learner.predict(None, actions)
         learner.predict(None, actions)
         learner.predict(None, actions)
 
         learner.learn(None, actions[0], 1, None, None)
-        learner.learn(None, actions[1], 1, None, None)        
+        learner.learn(None, actions[1], 1, None, None)
         learner.learn(None, actions[2], 1, None, None)
         learner.learn(None, actions[3], 1, None, None)
 
@@ -92,12 +92,12 @@ class UcbBanditLearner_Tests(unittest.TestCase):
     def test_learn_predict_best2(self):
         learner = UcbBanditLearner()
         actions = [1,2,3,4]
-        
+
         learner.predict(None, actions)
         learner.predict(None, actions)
         learner.predict(None, actions)
         learner.predict(None, actions)
-        
+
         learner.learn(None, actions[0], 0, None, None)
         learner.learn(None, actions[1], 0, None, None)
         learner.learn(None, actions[2], 0, None, None)
@@ -108,12 +108,12 @@ class UcbBanditLearner_Tests(unittest.TestCase):
     def test_learn_predict_best2(self):
         learner = UcbBanditLearner()
         actions = [1,2,3,4]
-        
+
         learner.predict(None, actions)
         learner.predict(None, actions)
         learner.predict(None, actions)
         learner.predict(None, actions)
-        
+
         learner.learn(None, actions[0], 0, None, None)
         learner.learn(None, actions[1], 0, None, None)
         learner.learn(None, actions[2], 0, None, None)

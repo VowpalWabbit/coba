@@ -175,7 +175,7 @@ class CobaContext_Tests(unittest.TestCase):
 
         with self.assertRaises(CobaExit) as e:
             CobaContext.cacher
-        
+
         lines = str(e.exception).splitlines()
 
         self.assertEqual('', lines[0])

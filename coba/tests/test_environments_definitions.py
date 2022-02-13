@@ -18,12 +18,12 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         CobaRegistry.register("Take", Take)
 
     def test_one_environment(self):
-        
+
         json_txt = """{
             "environments" : [
                 { "OpenmlSimulation": 150 }
             ]
-        }"""        
+        }"""
 
         environments = EnvironmentDefinitionFileV1(ListIO([json_txt])).read()
 
@@ -35,7 +35,6 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
             "environments" : { "OpenmlSimulation": 150 }
         }"""
 
-        
         environments = EnvironmentDefinitionFileV1(ListIO([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)

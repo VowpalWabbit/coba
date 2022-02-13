@@ -748,7 +748,7 @@ class Binary_Tests(unittest.TestCase):
             SimulatedInteraction((1,9), [1,2], rewards=[.1,.5]),
             SimulatedInteraction((8,3), [1,2], rewards=[.5,.2])
         ]
-        
+
         binary_interactions = list(Binary().filter(interactions))
 
         self.assertEqual([0,1], binary_interactions[0].kwargs["rewards"])
@@ -760,7 +760,7 @@ class Binary_Tests(unittest.TestCase):
 
 class Sparse_Tests(unittest.TestCase):
     def test_sparse_simulated_no_context_and_action(self):
-        
+
         sparse_interactions = list(Sparse(action=True).filter([SimulatedInteraction(None, [1,2], rewards=[0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
@@ -817,7 +817,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparse().params)
 
 class ToWarmStart_Tests(unittest.TestCase):
-    
+
     def test_to_warmstart(self):
         interactions = [
             SimulatedInteraction((7,2), [1,2], rewards=[.2,.3], reveals=[1,2]),
