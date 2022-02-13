@@ -1,6 +1,7 @@
 import unittest
 import unittest.mock
 import requests.exceptions
+import pickle
 
 from pathlib import Path
 
@@ -68,6 +69,9 @@ class DiskIO_Tests(unittest.TestCase):
         io.write("c")
         
         self.assertEqual(["a","b","c"], list(io.read()))
+
+    def test_is_picklable(self):
+        pickle.dumps(DiskIO("coba/tests/.temp/test.gz"))
 
 class ListIO_Tests(unittest.TestCase):
     

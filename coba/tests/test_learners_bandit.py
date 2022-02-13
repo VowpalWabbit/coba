@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from coba.learners import EpsilonBanditLearner, UcbBanditLearner, RandomLearner, FixedLearner
@@ -13,6 +14,11 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
 
         self.assertEqual([.25,.25,.25,.25],learner.predict(None, [1,2,3,4]))
         self.assertEqual([.25,.25,.25,.25],learner.predict(None, [1,2,3,4]))
+
+    def test_predict_lots_of_actions(self):
+        learner = EpsilonBanditLearner(epsilon=0.5)
+
+        self.assertTrue(math.isclose(1, sum(learner.predict(None, list(range(993)))), abs_tol=.001))
 
     def test_predict_learn_no_epsilon(self):
         learner = EpsilonBanditLearner(epsilon=0)
@@ -30,7 +36,10 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
         learner.learn(None, 1, 2, None, None)
         learner.learn(None, 2, 1, None, None)
 
-        self.assertEqual([.95,.05],learner.predict(None, [1,2]))
+        pred1,pred2 = tuple(learner.predict(None, [1,2]))
+
+        self.assertAlmostEqual(.95,pred1)
+        self.assertAlmostEqual(.05,pred2)
     
     def test_predict_learn_epsilon_all_equal(self):
         learner = EpsilonBanditLearner(epsilon=0.1)

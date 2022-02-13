@@ -40,15 +40,18 @@ class DiskIO(IO[Iterable[str],str]):
         #in terms of compression since it compresses one line at a time.
         #see https://stackoverflow.com/a/18109797/1066291 for more info.
 
-        gzip_open = lambda filename, mode: gzip.open(filename,mode, compresslevel=6)
-        text_open = lambda filename, mode: open(filename,mode)
-
         self._filename   = filename
-        self._open_func  = gzip_open if ".gz" in filename else text_open
+        self._open_func  = self._gzip_open if ".gz" in filename else self._text_open
         self._open_file  = None
         self._open_count = 0
         self._given_mode = mode is not None
         self._mode       = mode
+
+    def _gzip_open(self, filename:str, mode:str):
+        return gzip.open(filename, mode, compresslevel=6)
+
+    def _text_open(self, filename:str, mode:str):
+        return open(filename, mode)
 
     def __enter__(self) -> 'DiskIO':
         self._open_count += 1
