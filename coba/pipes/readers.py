@@ -353,6 +353,5 @@ class ManikReader(Reader):
     """https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view"""
 
     def filter(self, lines: Iterable[str]) -> Iterable[MutableMap]:
-
         # we skip first line because it just has metadata
         return LibSvmReader().filter(islice(lines,1,None))

@@ -131,10 +131,19 @@ class Scale(EnvironmentFilter):
         scales  : Dict[Hashable,float]     = defaultdict(lambda:1)
         features: Dict[Hashable,List[Any]] = defaultdict(list)
 
+        has_sparse_zero = set()
+
         for interaction in train_interactions:
             for name,value in self._context_as_name_values(interaction.context):
                 if isinstance(value,Number) and not isnan(value):
                     features[name].append(value)
+
+        for interaction in train_interactions:
+            if isinstance(interaction.context,dict):
+                has_sparse_zero |= features.keys() - interaction.context.keys()
+
+        for key in has_sparse_zero:
+            features[key].append(0)
 
         for feat_name, feat_numeric_values in features.items():
 
@@ -193,7 +202,6 @@ class Scale(EnvironmentFilter):
                 yield LoggedInteraction(final_context, interaction.action, **interaction.kwargs)
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
-        
         if isinstance(context,dict ): return context.items()
         if isinstance(context,tuple): return enumerate(context)
         if context is not None      : return [(1,context)]

@@ -450,9 +450,9 @@ class Scale_Tests(unittest.TestCase):
     def test_scale_min_and_minmax_with_dict(self):
 
         interactions = [
-            SimulatedInteraction({0:"A", 1:2  }, [1], rewards=[1]),
-            SimulatedInteraction({0:1  , 1:9  }, [1], rewards=[1]),
-            SimulatedInteraction({0:8  , 1:"B"}, [1], rewards=[1])
+            SimulatedInteraction({0:"A", 1:2       }, [1], rewards=[1]),
+            SimulatedInteraction({0:1  , 1:9  , 2:2}, [1], rewards=[1]),
+            SimulatedInteraction({0:8  , 1:"B", 2:1}, [1], rewards=[1])
         ]
  
         scl_interactions = list(Scale().filter(interactions))
@@ -462,10 +462,11 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual("A", scl_interactions[0].context[0])
         self.assertEqual(0  , scl_interactions[0].context[1])
         
-        self.assertEqual({0:0, 1:1}, scl_interactions[1].context)
+        self.assertEqual({0:0, 1:1, 2:1}, scl_interactions[1].context)
         
         self.assertEqual(1  , scl_interactions[2].context[0])
-        self.assertTrue("B" , scl_interactions[2].context[1])
+        self.assertEqual("B" , scl_interactions[2].context[1])
+        self.assertEqual(.5  , scl_interactions[2].context[2])
 
     def test_scale_min_and_minmax_with_None(self):
 
