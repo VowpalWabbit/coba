@@ -18,7 +18,7 @@ class SupervisedSimulation(SimulatedEnvironment):
     def __init__(self,
         source: Union[str, Source[Any]],
         reader: Reader = CsvReader(), 
-        label_col: Union[int,str] = 0,
+        label_col: Union[int,str] = "label",
         label_type: Literal["C","R"] = "C",
         take: int = None) -> None:
         """Instantiate a SupervisedSimulation.
@@ -59,7 +59,7 @@ class SupervisedSimulation(SimulatedEnvironment):
         if isinstance(args[0],str) or hasattr(args[0], 'read'):
             source     = DiskIO(args[0]) if isinstance(args[0],str) else args[0]
             reader     = args[1] if len(args) > 1 else kwargs.get('reader', CsvReader())
-            label_col  = args[2] if len(args) > 2 else kwargs.get("label_col", 0)
+            label_col  = args[2] if len(args) > 2 else kwargs.get("label_col", "label")
             label_type = args[3] if len(args) > 3 else kwargs.get("label_type", "C")
             take       = args[4] if len(args) > 4 else kwargs.get("take", None)
             params     = {"super_source": args[0] if isinstance(args[0],str) else type(args[0]).__name__}

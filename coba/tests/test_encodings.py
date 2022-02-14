@@ -203,6 +203,13 @@ class InteractionsEncoder_Tests(unittest.TestCase):
 
         self.assertEqual(dict([("x1",1), ("x2",2), ("a1",3), ("a2",4)]), interactions)
 
+    def test_sparse_x_a_numeric_keys(self):
+        encoder = InteractionsEncoder(["x","a"])
+
+        interactions = encoder.encode(x={1:1,2:2}, a={1:3,2:4})
+
+        self.assertEqual(dict([("x1",1), ("x2",2), ("a1",3), ("a2",4)]), interactions)
+
     def test_sparse_xa(self):
         encoder = InteractionsEncoder(["xa"])
 

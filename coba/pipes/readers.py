@@ -338,12 +338,12 @@ class LibSvmReader(Reader):
 
     def filter(self, lines: Iterable[str]) -> Iterable[MutableMap]:
 
-        for line in filter(None,lines):
+        for i,line in enumerate(filter(None,lines)):
 
-            items  = line.strip().split(' ')
-            labels = items[0].split(',')
-            row    = { int(k):float(v) for i in items[1:] for k,v in [i.split(":")] }
-            row[0] = labels
+            items        = line.strip().split(' ')
+            labels       = items[0].split(',')
+            row          = { int(k):float(v) for i in items[1:] for k,v in [i.split(":")] }
+            row["label"] = labels
 
             yield row
 
