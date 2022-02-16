@@ -357,7 +357,18 @@ class GaussianKernelSimulation(LambdaSimulation):
         def reward(index:int, context:Context, action:Action, rng: CobaRandom) -> float:
 
             from sklearn.metrics.pairwise import rbf_kernel
+            import numpy as np
 
+            def reshape_N_array(arr):
+                arr = np.array(arr)
+                
+                try:
+                    arr.shape[1]
+                except:
+                    arr = arr.reshape(-1,1)
+
+                return arr
+                
             X = context if n_context_features else [1]
             A = action  if n_action_features  else [1] 
             
@@ -366,7 +377,15 @@ class GaussianKernelSimulation(LambdaSimulation):
             else:
                 F = [1]
 
-            r = sum([self._action_weights[i]*rbf_kernel(F, self._exemplars[i]) for i in range(len(self._exemplars))])
+
+            F = reshape_N_array(F)
+
+            temp_array = []
+            for i in range(len(self._exemplars)):
+                k_val = rbf_kernel(F, reshape_N_array(self._exemplars[i]))
+                temp_array.append(self._action_weights[i]*k_val)
+
+            r = sum(temp_array)
             return r
 
         super().__init__(n_interactions, context, actions, reward, seed)
