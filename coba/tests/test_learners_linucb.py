@@ -41,7 +41,7 @@ class LinUCBLearner_Tests(unittest.TestCase):
 
         with self.assertRaises(CobaException):
             learner.learn({}, 1, 1, 1/3, None)
-        
+
         with self.assertRaises(CobaException):
             learner.learn(None, {}, 1, 1/3, None)
 

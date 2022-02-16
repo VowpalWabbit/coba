@@ -1,20 +1,19 @@
 import unittest
 from itertools import count
 
-from coba.encodings import NumericEncoder, StringEncoder
 from coba.exceptions import CobaException
 
 from coba.pipes import LibSvmReader, ArffReader, CsvReader, ManikReader
 from coba.contexts import NullLogger, CobaContext
 
-from coba.pipes.readers import LazyDualDense, LazyDualSparse
+from coba.pipes.readers import LazyHeadedDense, LazyHeadedSparse
 
 CobaContext.logger = NullLogger()
 
-class LazyDualDense_Tests(unittest.TestCase):
+class LazyHeadedDense_Tests(unittest.TestCase):
 
     def test_no_headers_no_encoders(self):
-        a = LazyDualDense([1,2])
+        a = LazyHeadedDense([1,2])
 
         self.assertEqual([1,2], a)
         self.assertEqual(2, len(a))
@@ -27,7 +26,7 @@ class LazyDualDense_Tests(unittest.TestCase):
         self.assertEqual([1], a)
 
     def test_headers_no_encoders(self):
-        a = LazyDualDense([1,2,3],dict(zip(['a','b','c'],count())))
+        a = LazyHeadedDense([1,2,3],dict(zip(['a','b','c'],count())))
 
         self.assertEqual([1,2,3], a)
         self.assertEqual(3, len(a))
@@ -48,7 +47,7 @@ class LazyDualDense_Tests(unittest.TestCase):
         self.assertEqual(3, a['c'])
 
     def test_headers_and_encoders(self):
-        a = LazyDualDense(['1','2'],dict(zip(['a','b','c'],count())), encoders=[float, str])
+        a = LazyHeadedDense(['1','2'],dict(zip(['a','b','c'],count())), encoders=[float, str])
 
         self.assertEqual([1,'2'], a)
         self.assertEqual(2, len(a))
@@ -67,18 +66,32 @@ class LazyDualDense_Tests(unittest.TestCase):
 
     def test_insert_not_implemented(self):
         with self.assertRaises(NotImplementedError):
-            LazyDualDense([1,2]).insert(0,1)
+            LazyHeadedDense([1,2]).insert(0,1)
+
+    def test_pop(self):
+        a = LazyHeadedDense(['1','2'],dict(zip(['a','b'],count())), encoders=[float, str])
+
+        self.assertEqual(1, a.pop(0))
+        self.assertEqual('2', a.pop(0))
+
+        self.assertEqual([], list(a))
+        self.assertEqual("[]", a.__repr__())
+        self.assertEqual(0, len(a))
+
+        a = LazyHeadedDense(['1','2','3'],dict(zip(['a','b','c'],count())), encoders=[float, str, str])
+        self.assertEqual('3', a.pop(2))
+        self.assertEqual((1,'2'), tuple(a))
 
     def test_str(self):
-        self.assertEqual('[1, 2, 3]', str(LazyDualDense([1,2,3])))
+        self.assertEqual('[1, 2, 3]', str(LazyHeadedDense([1,2,3])))
 
     def test_repr(self):
-        self.assertEqual('[1, 2, 3]', LazyDualDense([1,2,3]).__repr__())
+        self.assertEqual('[1, 2, 3]', LazyHeadedDense([1,2,3]).__repr__())
 
-class LazyDualSparse_Tests(unittest.TestCase):
+class LazyHeadedSparse_Tests(unittest.TestCase):
 
     def test_no_headers_no_encoders(self):
-        a = LazyDualSparse({'a':1,'b':2})
+        a = LazyHeadedSparse({'a':1,'b':2})
 
         self.assertEqual({'a':1,'b':2}, a)
         self.assertEqual(2, len(a))
@@ -91,7 +104,7 @@ class LazyDualSparse_Tests(unittest.TestCase):
         self.assertEqual({'a':1}, a)
 
     def test_headers_no_encoders(self):
-        a = LazyDualSparse({'a':1,'b':2}, {'aa':'a', 'bb':'b'})
+        a = LazyHeadedSparse({'a':1,'b':2}, {'aa':'a', 'bb':'b'})
 
         self.assertEqual({'a':1,'b':2}, a)
         self.assertEqual(2, len(a))
@@ -108,7 +121,7 @@ class LazyDualSparse_Tests(unittest.TestCase):
         self.assertEqual({'a':1}, a)
 
     def test_headers_and_encoders(self):
-        a = LazyDualSparse({'a':'1','b':'2'}, {'aa':'a', 'bb':'b'}, {'a':float, 'b': str})
+        a = LazyHeadedSparse({'a':'1','b':'2'}, {'aa':'a', 'bb':'b'}, {'a':float, 'b': str})
 
         self.assertEqual({'a':1,'b':'2'}, a)
         self.assertEqual(2, len(a))
@@ -124,11 +137,21 @@ class LazyDualSparse_Tests(unittest.TestCase):
         self.assertEqual(1, len(a))
         self.assertEqual({'a':1}, a)
 
+    def test_pop(self):
+        a = LazyHeadedSparse({'a':'1','b':'2'}, {'aa':'a', 'bb':'b'}, {'a':float, 'b': str})
+
+        self.assertEqual(1, a.pop('a'))
+        self.assertEqual('2', a.pop('b'))
+
+        self.assertEqual({}, dict(a))
+        self.assertEqual("{}", a.__repr__())
+        self.assertEqual(0, len(a))
+
     def test_str(self):
-        self.assertEqual("{'a': 2}", str(LazyDualSparse({'a':2})))
+        self.assertEqual("{'a': 2}", str(LazyHeadedSparse({'a':2})))
 
     def test_repr(self):
-        self.assertEqual("{'a': 2}", LazyDualSparse({'a':2}).__repr__())
+        self.assertEqual("{'a': 2}", LazyHeadedSparse({'a':2}).__repr__())
 
 class CsvReader_Tests(unittest.TestCase):
     def test_dense_with_header(self):
@@ -688,27 +711,27 @@ class LibsvmReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {0:['0'], 1:2, 2:3},
-            {0:['1'], 1:1, 2:1},
-            {0:['2'], 2:1},
-            {0:['1'], 1:1}
+            {"label":['0'], 1:2, 2:3},
+            {"label":['1'], 1:1, 2:1},
+            {"label":['2'], 2:1},
+            {"label":['1'], 1:1}
         ]
         
         self.assertEqual(expected, list(LibSvmReader().filter(lines)))
 
     def test_trailing_whitespace(self):
         lines = [
-            "0 1:2 2:3",
-            "1 1:1 2:1   ",
+            "0 0:2 2:3",
+            "1 0:1 2:1   ",
             "2 2:1",
-            "1 1:1",
+            "1 0:1",
         ]
 
         expected = [
-            {0:['0'], 1:2, 2:3},
-            {0:['1'], 1:1, 2:1},
-            {0:['2'], 2:1},
-            {0:['1'], 1:1}
+            {"label":['0'], 0:2, 2:3},
+            {"label":['1'], 0:1, 2:1},
+            {"label":['2'],      2:1},
+            {"label":['1'], 0:1}
         ]
         
         self.assertEqual(expected, list(LibSvmReader().filter(lines)))
@@ -724,10 +747,10 @@ class ManikReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {0:['0'], 1:2, 2:3},
-            {0:['1'], 1:1, 2:1},
-            {0:['2'], 2:1},
-            {0:['1'], 1:1}
+            {"label":['0'], 1:2, 2:3},
+            {"label":['1'], 1:1, 2:1},
+            {"label":['2'], 2:1},
+            {"label":['1'], 1:1}
         ]
         
         self.assertEqual(expected, list(ManikReader().filter(lines)))
@@ -742,10 +765,10 @@ class ManikReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {0:['0'], 1:2, 2:3},
-            {0:['1'], 1:1, 2:1},
-            {0:['2'], 2:1},
-            {0:['1'], 1:1}
+            {"label":['0'], 1:2, 2:3},
+            {"label":['1'], 1:1, 2:1},
+            {"label":['2'], 2:1},
+            {"label":['1'], 1:1}
         ]
         
         self.assertEqual(expected, list(ManikReader().filter(lines)))

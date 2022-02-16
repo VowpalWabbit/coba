@@ -34,7 +34,7 @@ class EpsilonBanditLearner(Learner):
         prob_selected_randomly = [1/len(actions) * self._epsilon] * len(actions)
         prob_selected_greedily = [ int(i in max_indexes)/len(max_indexes) * (1-self._epsilon) for i in range(len(actions))]
 
-        return [ round(p1+p2,4) for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
+        return [ p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
 
     def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
 

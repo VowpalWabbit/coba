@@ -1,6 +1,7 @@
 import re
 import csv
 import collections.abc
+import operator
 
 from collections import deque, defaultdict
 from itertools import islice, chain, count, product
@@ -11,7 +12,7 @@ from coba.encodings import Encoder, OneHotEncoder
 
 from coba.pipes.primitives import MutableMap, Filter
 
-class LazyDualDense(collections.abc.MutableSequence):
+class LazyHeadedDense(collections.abc.MutableSequence):
     def __init__(self, values: Sequence[Any], headers: Dict[str,int] = {}, encoders: Sequence[Callable[[Any],Any]] = []) -> None:
         self._headers  = headers
         self._encoders = encoders
@@ -36,29 +37,33 @@ class LazyDualDense(collections.abc.MutableSequence):
         self._encoded[index] = True
 
     def __delitem__(self, index: Union[str,int]):
-        index = self._headers[index] if index in self._headers else self._offsets[index] + index
+        old_index = self._headers[index] if index in self._headers else self._offsets[index] + index
+        new_index = self._old_indexes().index(old_index)
 
-        for i in range(index, len(self._values)):
+        self._offsets.pop(new_index)
+
+        for i in range(new_index, len(self._offsets)):
             self._offsets[i] += 1
 
-        self._removed += 1
-
     def __len__(self) -> int:
-        return len(self._values) - self._removed
+        return len(self._offsets)
 
     def insert(self, index: int, value:Any):
         raise NotImplementedError()
+
+    def _old_indexes(self) -> Sequence[int]:
+        return list(map(operator.add,count(),self._offsets))
 
     def __eq__(self, __o: object) -> bool:
         return list(self).__eq__(__o)
 
     def __repr__(self) -> str:
-        return str(list(self._values))
+        return str(list(map(self._values.__getitem__,self._old_indexes())))
 
     def __str__(self) -> str:
-        return str(list(self._values))
+        return str(list(map(self._values.__getitem__,self._old_indexes())))
 
-class LazyDualSparse(collections.abc.MutableMapping):
+class LazyHeadedSparse(collections.abc.MutableMapping):
 
     def __init__(self, values: Dict[Any,str], headers: Dict[str,Any] = {}, encoders: Dict[Any,Callable[[Any],Any]] = {}) -> None:
         self._headers  = headers
@@ -245,7 +250,7 @@ class ArffReader(Reader):
             if not self._lazy_encoding and not self._header_indexing:
                 yield final_items
             else:
-                yield LazyDualDense(final_items, final_headers, final_encoders)
+                yield LazyHeadedDense(final_items, final_headers, final_encoders)
 
     def _parse_sparse_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMap]:
 
@@ -272,7 +277,7 @@ class ArffReader(Reader):
             if not self._lazy_encoding and not self._header_indexing:
                 yield final_items
             else:
-                yield LazyDualSparse(final_items, final_headers, final_encoders)
+                yield LazyHeadedSparse(final_items, final_headers, final_encoders)
 
     def _pattern_split(self, line: str, pattern: Pattern[str], n=None):
 
@@ -324,7 +329,7 @@ class CsvReader(Reader):
             headers = dict(zip(next(lines), count()))
 
         for line in lines:
-            yield line if not self._has_header else LazyDualDense(line,headers)
+            yield line if not self._has_header else LazyHeadedDense(line,headers)
 
 class LibSvmReader(Reader):
 
@@ -333,12 +338,12 @@ class LibSvmReader(Reader):
 
     def filter(self, lines: Iterable[str]) -> Iterable[MutableMap]:
 
-        for line in filter(None,lines):
+        for i,line in enumerate(filter(None,lines)):
 
-            items  = line.strip().split(' ')
-            labels = items[0].split(',')
-            row    = { int(k):float(v) for i in items[1:] for k,v in [i.split(":")] }
-            row[0] = labels
+            items        = line.strip().split(' ')
+            labels       = items[0].split(',')
+            row          = { int(k):float(v) for i in items[1:] for k,v in [i.split(":")] }
+            row["label"] = labels
 
             yield row
 
@@ -348,6 +353,5 @@ class ManikReader(Reader):
     """https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view"""
 
     def filter(self, lines: Iterable[str]) -> Iterable[MutableMap]:
-
         # we skip first line because it just has metadata
         return LibSvmReader().filter(islice(lines,1,None))

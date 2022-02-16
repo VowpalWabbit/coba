@@ -1,3 +1,4 @@
+from math import isclose
 from abc import ABC, abstractmethod
 from numbers import Number
 from typing import Any, Sequence, Dict, Union, Tuple
@@ -95,7 +96,7 @@ class SafeLearner(Learner):
             predict = predict[0]
 
         assert len(predict) == len(actions), "The learner returned an invalid number of probabilities for the actions"
-        assert round(sum(predict),2) == 1 , "The learner returned a pmf which didn't sum to one."
+        assert isclose(sum(predict), 1, abs_tol=.001), "The learner returned a pmf which didn't sum to one."
 
         return (predict,info)
 

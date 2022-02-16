@@ -27,9 +27,9 @@ class RecordingLearner(Learner):
         return {"family": "Recording"}
 
     def predict(self, context, actions):
-        
+
         self._i += 1
-        
+
         if self._with_log:
             LearnerContext.logger.write(predict=self._i)
 
@@ -41,7 +41,7 @@ class RecordingLearner(Learner):
         return self.predict_returns[-1]
 
     def learn(self, context, action, reward, probability, info):
-        
+
         if self._with_log:
             LearnerContext.logger.write(learn=self._i)
 
@@ -121,7 +121,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
 
     @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_sparse(self):
-        
+
         c1 = [{"1":1, "2":2}, "A"]
         c2 = [{"1":3, "2":4}, "B"]
 

@@ -287,7 +287,7 @@ class JsonEncode_Tests(unittest.TestCase):
     def test_not_minified_list(self):
         self.assertEqual('[1.0, 2.0]',JsonEncode(minify=False).filter([1.,2.]))
 
-class Structures_Tests(unittest.TestCase):
+class Structure_Tests(unittest.TestCase):
 
     def test_dense_numeric_row_list_structure(self):
 

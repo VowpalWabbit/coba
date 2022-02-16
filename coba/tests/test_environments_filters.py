@@ -450,9 +450,9 @@ class Scale_Tests(unittest.TestCase):
     def test_scale_min_and_minmax_with_dict(self):
 
         interactions = [
-            SimulatedInteraction({0:"A", 1:2  }, [1], rewards=[1]),
-            SimulatedInteraction({0:1  , 1:9  }, [1], rewards=[1]),
-            SimulatedInteraction({0:8  , 1:"B"}, [1], rewards=[1])
+            SimulatedInteraction({0:"A", 1:2       }, [1], rewards=[1]),
+            SimulatedInteraction({0:1  , 1:9  , 2:2}, [1], rewards=[1]),
+            SimulatedInteraction({0:8  , 1:"B", 2:1}, [1], rewards=[1])
         ]
  
         scl_interactions = list(Scale().filter(interactions))
@@ -462,10 +462,11 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual("A", scl_interactions[0].context[0])
         self.assertEqual(0  , scl_interactions[0].context[1])
         
-        self.assertEqual({0:0, 1:1}, scl_interactions[1].context)
+        self.assertEqual({0:0, 1:1, 2:1}, scl_interactions[1].context)
         
         self.assertEqual(1  , scl_interactions[2].context[0])
-        self.assertTrue("B" , scl_interactions[2].context[1])
+        self.assertEqual("B" , scl_interactions[2].context[1])
+        self.assertEqual(.5  , scl_interactions[2].context[2])
 
     def test_scale_min_and_minmax_with_None(self):
 
@@ -748,7 +749,7 @@ class Binary_Tests(unittest.TestCase):
             SimulatedInteraction((1,9), [1,2], rewards=[.1,.5]),
             SimulatedInteraction((8,3), [1,2], rewards=[.5,.2])
         ]
-        
+
         binary_interactions = list(Binary().filter(interactions))
 
         self.assertEqual([0,1], binary_interactions[0].kwargs["rewards"])
@@ -760,7 +761,7 @@ class Binary_Tests(unittest.TestCase):
 
 class Sparse_Tests(unittest.TestCase):
     def test_sparse_simulated_no_context_and_action(self):
-        
+
         sparse_interactions = list(Sparse(action=True).filter([SimulatedInteraction(None, [1,2], rewards=[0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
@@ -817,7 +818,7 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparse().params)
 
 class ToWarmStart_Tests(unittest.TestCase):
-    
+
     def test_to_warmstart(self):
         interactions = [
             SimulatedInteraction((7,2), [1,2], rewards=[.2,.3], reveals=[1,2]),
