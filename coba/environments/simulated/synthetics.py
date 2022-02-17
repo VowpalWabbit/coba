@@ -303,8 +303,7 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
         return (NeighborsSyntheticSimulation, self._args)
 
 class GaussianKernelSimulation(LambdaSimulation):
-    """
-    TODO: docstring, reward_features, context_gen vs context?
+    """A lambda simulation whose reward values are determined by a Gaussian Kernel. 
     """
 
     def __init__(self,
@@ -362,12 +361,6 @@ class GaussianKernelSimulation(LambdaSimulation):
             def reshape_N_array(arr):
                 arr = np.array(arr)
                 arr = arr.reshape(-1,1)
-                
-                # try:
-                #     arr.shape[1]
-                # except:
-                #     arr = arr.reshape(-1,1)
-
                 return arr
                 
             X = context if n_context_features else [1]
