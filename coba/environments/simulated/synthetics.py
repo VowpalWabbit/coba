@@ -361,11 +361,12 @@ class GaussianKernelSimulation(LambdaSimulation):
 
             def reshape_N_array(arr):
                 arr = np.array(arr)
+                arr = arr.reshape(-1,1)
                 
-                try:
-                    arr.shape[1]
-                except:
-                    arr = arr.reshape(-1,1)
+                # try:
+                #     arr.shape[1]
+                # except:
+                #     arr = arr.reshape(-1,1)
 
                 return arr
                 
@@ -382,10 +383,10 @@ class GaussianKernelSimulation(LambdaSimulation):
 
             temp_array = []
             for i in range(len(self._exemplars)):
-                k_val = rbf_kernel(F, reshape_N_array(self._exemplars[i]))
+                k_val = rbf_kernel(F.T, reshape_N_array(self._exemplars[i]).T)
                 temp_array.append(self._action_weights[i]*k_val)
 
-            r = sum(temp_array)
+            r = sum(temp_array).item()
             return r
 
         super().__init__(n_interactions, context, actions, reward, seed)
