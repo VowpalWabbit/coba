@@ -18,7 +18,7 @@ class SupervisedSimulation(SimulatedEnvironment):
     def __init__(self,
         source: Union[str, Source[Any]],
         reader: Reader = CsvReader(), 
-        label_col: Union[int,str] = "label",
+        label_col: Union[int,str] = None,
         label_type: Literal["C","R"] = "C",
         take: int = None) -> None:
         """Instantiate a SupervisedSimulation.

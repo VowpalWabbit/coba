@@ -17,7 +17,7 @@ class LazyHeadedDense(collections.abc.MutableSequence):
         self._headers  = headers
         self._encoders = encoders
         self._values   = values
-        
+
         self._removed  = 0
         self._offsets  = [0]*len(values)
         self._encoded  = [not encoders]*len(values)
@@ -338,14 +338,13 @@ class LibSvmReader(Reader):
 
     def filter(self, lines: Iterable[str]) -> Iterable[MutableMap]:
 
-        for i,line in enumerate(filter(None,lines)):
+        for line in filter(None,lines):
 
-            items        = line.strip().split(' ')
-            labels       = items[0].split(',')
-            row          = { int(k):float(v) for i in items[1:] for k,v in [i.split(":")] }
-            row["label"] = labels
+            items  = line.strip().split(' ')
+            labels = items[0].split(',')
+            row    = { int(k):float(v) for i in items[1:] for k,v in [i.split(":")] }
 
-            yield row
+            yield [row, labels]
 
 class ManikReader(Reader):
 

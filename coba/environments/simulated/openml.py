@@ -55,10 +55,10 @@ class OpenmlSource(Source[Iterable[Tuple[Any,Any]]]):
 
             source    = IdentityIO(self._get_dataset_lines(dataset_description["file_id"], None))
             reader    = ArffReader(cat_as_str=self._cat_as_str)
-            drops     = Drop(drop_cols=ignore, drop_row=row_has_missing_values)
+            drop      = Drop(drop_cols=ignore, drop_row=row_has_missing_values)
             structure = Structure([None, target])
 
-            return Pipe.join(source, [reader, drops, structure]).read()
+            return Pipe.join(source, [reader, drop, structure]).read()
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt

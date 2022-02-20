@@ -711,10 +711,10 @@ class LibsvmReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {"label":['0'], 1:2, 2:3},
-            {"label":['1'], 1:1, 2:1},
-            {"label":['2'], 2:1},
-            {"label":['1'], 1:1}
+            [{1:2, 2:3} ,['0']],
+            [{1:1, 2:1}, ['1']],
+            [{     2:1}, ['2']],
+            [{1:1     }, ['1']]
         ]
         
         self.assertEqual(expected, list(LibSvmReader().filter(lines)))
@@ -728,10 +728,10 @@ class LibsvmReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {"label":['0'], 0:2, 2:3},
-            {"label":['1'], 0:1, 2:1},
-            {"label":['2'],      2:1},
-            {"label":['1'], 0:1}
+            [{0:2, 2:3}, ['0']],
+            [{0:1, 2:1}, ['1']],
+            [{     2:1}, ['2']],
+            [{0:1     }, ['1']]
         ]
         
         self.assertEqual(expected, list(LibSvmReader().filter(lines)))
@@ -747,10 +747,10 @@ class ManikReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {"label":['0'], 1:2, 2:3},
-            {"label":['1'], 1:1, 2:1},
-            {"label":['2'], 2:1},
-            {"label":['1'], 1:1}
+            [{1:2, 2:3} ,['0']],
+            [{1:1, 2:1}, ['1']],
+            [{     2:1}, ['2']],
+            [{1:1     }, ['1']]
         ]
         
         self.assertEqual(expected, list(ManikReader().filter(lines)))
@@ -765,10 +765,10 @@ class ManikReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {"label":['0'], 1:2, 2:3},
-            {"label":['1'], 1:1, 2:1},
-            {"label":['2'], 2:1},
-            {"label":['1'], 1:1}
+            [{1:2, 2:3}, ['0']],
+            [{1:1, 2:1}, ['1']],
+            [{     2:1}, ['2']],
+            [{1:1     }, ['1']]
         ]
         
         self.assertEqual(expected, list(ManikReader().filter(lines)))

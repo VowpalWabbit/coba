@@ -29,7 +29,7 @@ class Environments:
     @overload
     @staticmethod
     def from_file(filename:str) -> 'Environments': ...
-    
+
     @staticmethod
     def from_file(arg) -> 'Environments':
         """Instantiate Environments from an environments definition file."""
