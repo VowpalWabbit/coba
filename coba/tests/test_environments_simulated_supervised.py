@@ -1,9 +1,9 @@
 import unittest.mock
 import unittest
 
-from coba.pipes        import ArffSource, ListSource
+from coba.pipes        import ListSource
 from coba.contexts     import CobaContext, CobaContext, NullLogger
-from coba.environments import SupervisedSimulation
+from coba.environments import SupervisedSimulation, CsvSource, ArffSource, LibsvmSource, ManikSource
 
 CobaContext.logger = NullLogger()
 
@@ -249,6 +249,78 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         interactions = list(SupervisedSimulation(features, labels).read())
 
         self.assertEqual(len(interactions), 0)
+
+class CsvSource_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        self.assertEqual([["1","2","3"]], list(CsvSource(ListSource(["1,2,3"])).read()))
+        self.assertEqual({}, CsvSource(ListSource(["1,2,3"])).params)
+        self.assertEqual('{},{}', str(CsvSource(ListSource(["1,2,3"]))))
+
+
+class ArffSource_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        lines = [
+            "@relation news20",
+            "@attribute a numeric",
+            "@attribute B numeric",
+            "@data",
+            "1,  2",
+            "2,  3",
+        ]
+
+        expected = [
+            [1, 2],
+            [2, 3]
+        ]
+
+        self.assertEqual(expected, list(ArffSource(ListSource(lines)).read()))
+        self.assertEqual({}, ArffSource(ListSource(lines)).params)
+        self.assertEqual('{},{}', str(ArffSource(ListSource(lines))))
+
+class LibsvmSource_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        lines = [
+            "0 1:2 2:3",
+            "1 1:1 2:1",
+            "2 2:1",
+            "1 1:1",
+        ]
+
+        expected = [
+            ({1:2, 2:3} ,['0']),
+            ({1:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({1:1     }, ['1'])
+        ]
+
+        self.assertEqual(expected, list(LibsvmSource(ListSource(lines)).read()))
+        self.assertEqual({}, LibsvmSource(ListSource(lines)).params)
+        self.assertEqual('{},{}', str(LibsvmSource(ListSource(lines))))
+
+class ManikSource_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        lines = [
+            "meta line",
+            "0 1:2 2:3",
+            "1 1:1 2:1",
+            "2 2:1",
+            "1 1:1",
+        ]
+
+        expected = [
+            ({1:2, 2:3} ,['0']),
+            ({1:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({1:1     }, ['1'])
+        ]
+
+        self.assertEqual(expected, list(ManikSource(ListSource(lines)).read()))
+        self.assertEqual({}, ManikSource(ListSource(lines)).params)
+        self.assertEqual('{},{}', str(ManikSource(ListSource(lines))))
 
 if __name__ == '__main__':
     unittest.main()

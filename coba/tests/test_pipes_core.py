@@ -8,7 +8,6 @@ from coba.exceptions import CobaException
 from coba.pipes import Filter, ListSink, ListSource
 
 from coba.pipes.core import Pipes, Foreach, SourceFilters, FiltersFilter, FiltersSink
-from coba.pipes.core import CsvSource, ArffSource, ManikSource, LibsvmSource
 
 class SingleItemIdentity:
     def filter(self,item):
@@ -25,7 +24,6 @@ class ReprSink(ListSink):
     @property
     def params(self):
         return self._params
-
 
 class ReprSource(ListSource):
     def __str__(self):
@@ -253,69 +251,6 @@ class Pipes_Tests(unittest.TestCase):
 
         with self.assertRaises(CobaException):
             Pipes.join(object())
-
-class CsvSource_Tests(unittest.TestCase):
-
-    def test_simple(self):
-        self.assertEqual([["1","2","3"]], list(CsvSource(ListSource(["1,2,3"])).read()))
-
-class ArffSource_Tests(unittest.TestCase):
-
-    def test_simple(self):
-        lines = [
-            "@relation news20",
-            "@attribute a numeric",
-            "@attribute B numeric",
-            "@data",
-            "1,  2",
-            "2,  3",
-        ]
-
-        expected = [
-            [1, 2],
-            [2, 3]
-        ]
-
-        self.assertEqual(expected, list(ArffSource(ListSource(lines)).read()))
-
-class LibsvmSource_Tests(unittest.TestCase):
-
-    def test_simple(self):
-        lines = [
-            "0 1:2 2:3",
-            "1 1:1 2:1",
-            "2 2:1",
-            "1 1:1",
-        ]
-
-        expected = [
-            ({1:2, 2:3} ,['0']),
-            ({1:1, 2:1}, ['1']),
-            ({     2:1}, ['2']),
-            ({1:1     }, ['1'])
-        ]
-
-        self.assertEqual(expected, list(LibsvmSource(ListSource(lines)).read()))
-
-class ManikSource_Tests(unittest.TestCase):
-
-    def test_simple(self):
-        lines = [
-            "meta line",
-            "0 1:2 2:3",
-            "1 1:1 2:1",
-            "2 2:1",
-            "1 1:1",
-        ]
-
-        expected = [
-            ({1:2, 2:3} ,['0']),
-            ({1:1, 2:1}, ['1']),
-            ({     2:1}, ['2']),
-            ({1:1     }, ['1'])
-        ]
-
-        self.assertEqual(expected, list(ManikSource(ListSource(lines)).read()))
 
 if __name__ == '__main__':
     unittest.main()

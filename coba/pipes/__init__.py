@@ -16,7 +16,7 @@ from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
 from coba.pipes.sources import NullSource, DiskSource, ListSource, QueueSource, HttpSource, LambdaSource, UrlSource
 from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink
 
-from coba.pipes.core import Pipes, Foreach, CsvSource, ArffSource, LibsvmSource, ManikSource, QueueIO
+from coba.pipes.core import Pipes, Foreach, QueueIO
 
 __all__ = [
     "Filter",
@@ -25,10 +25,6 @@ __all__ = [
     "PipeMultiprocessor",
     "Pipes",
     "Foreach",
-    "CsvSource",
-    "ArffSource",
-    "LibsvmSource",
-    "ManikSource",
     "JsonEncode",
     "JsonDecode",
     "CsvReader",

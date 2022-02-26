@@ -1,15 +1,90 @@
 import collections.abc
 
 from itertools import chain, repeat
-from typing import Any, Iterable, Union, Sequence, overload, Dict, Tuple
+from typing import Any, Iterable, Union, Sequence, overload, Dict, Tuple, MutableSequence, MutableMapping
 from coba.backports import Literal
 
 from coba.encodings import OneHotEncoder
 from coba.random import CobaRandom
-from coba.pipes import Pipes, Source, ListSource, Structure, Reservoir
+from coba.pipes import Pipes, Source, ListSource, Structure, Reservoir, UrlSource, CsvReader
+from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 from coba.statistics import percentile
 
 from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
+
+class CsvSource(Source[Iterable[MutableSequence]]):
+
+    def __init__(self, source: Union[str,Source[Iterable[str]]], has_header:bool=False, **dialect) -> None:
+        source = UrlSource(source) if isinstance(source,str) else source
+        reader = CsvReader(has_header, **dialect)
+        self._source = Pipes.join(source, reader)
+
+    def read(self) -> Iterable[MutableSequence]:
+        return self._source.read()
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return self._source.params
+
+    def __str__(self) -> str:
+        return str(self._source)
+
+class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping]]]):
+
+    def __init__(self, 
+        source: Union[str,Source[Iterable[str]]], 
+        cat_as_str: bool = False, 
+        skip_encoding: bool = False, 
+        lazy_encoding: bool = True, 
+        header_indexing: bool = True) -> None:
+
+        source = UrlSource(source) if isinstance(source,str) else source
+        reader = ArffReader(cat_as_str, skip_encoding, lazy_encoding, header_indexing)
+        self._source = Pipes.join(source, reader)
+
+    def read(self) -> Union[Iterable[MutableSequence], Iterable[MutableMapping]]:
+        return self._source.read()
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return self._source.params
+
+    def __str__(self) -> str:
+        return str(self._source)
+
+class LibsvmSource(Source[Iterable[MutableMapping]]):
+
+    def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
+        source = UrlSource(source) if isinstance(source,str) else source
+        reader = LibsvmReader()
+        self._source = Pipes.join(source, reader)
+
+    def read(self) -> Iterable[MutableMapping]:
+        return self._source.read()
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return self._source.params
+
+    def __str__(self) -> str:
+        return str(self._source)
+
+class ManikSource(Source[Iterable[MutableMapping]]):
+
+    def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
+        source = UrlSource(source) if isinstance(source,str) else source
+        reader = ManikReader()
+        self._source = Pipes.join(source, reader)
+
+    def read(self) -> Iterable[MutableMapping]:
+        return self._source.read()
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return self._source.params
+
+    def __str__(self) -> str:
+        return str(self._source)
 
 class SupervisedSimulation(SimulatedEnvironment):
     """Create a contextual bandit simulation using an existing supervised regression or classification dataset."""

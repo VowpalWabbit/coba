@@ -138,41 +138,6 @@ class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
     def __str__(self):
         return str(self._pipe)
 
-class CsvSource(SourceFilters):
-
-    def __init__(self, source: Union[str,Source[Iterable[str]]], has_header:bool=False, **dialect) -> None:
-        source = UrlSource(source) if isinstance(source,str) else source
-        reader = CsvReader(has_header, **dialect)
-        super().__init__(source, reader)
-
-class ArffSource(SourceFilters):
-
-    def __init__(self, 
-        source: Union[str,Source[Iterable[str]]], 
-        cat_as_str: bool = False, 
-        skip_encoding: bool = False, 
-        lazy_encoding: bool = True, 
-        header_indexing: bool = True) -> None:
-
-        source = UrlSource(source) if isinstance(source,str) else source
-        reader = ArffReader(cat_as_str, skip_encoding, lazy_encoding, header_indexing)
-
-        super().__init__(source, reader)
-
-class LibsvmSource(SourceFilters):
-
-    def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
-        source = UrlSource(source) if isinstance(source,str) else source
-        reader = LibsvmReader()
-        super().__init__(source, reader)
-
-class ManikSource(SourceFilters):
-
-    def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
-        source = UrlSource(source) if isinstance(source,str) else source
-        reader = ManikReader()
-        super().__init__(source, reader)
-
 class QueueIO(Source[Iterable[Any]], Sink[Any]):
     def __init__(self, queue:Queue=None, poison:Any=None, block:bool=True) -> None:
         self._queue  = queue or Queue()
