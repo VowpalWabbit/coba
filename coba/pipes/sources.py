@@ -21,36 +21,31 @@ class DiskSource(Source[Iterable[str]]):
         #in terms of compression since it compresses one line at a time.
         #see https://stackoverflow.com/a/18109797/1066291 for more info.
 
-        self._filename   = filename
-        self._open_func  = self._gzip_open if ".gz" in filename else self._text_open
-        self._open_file  = None
-        self._open_count = 0
-        self._given_mode = mode is not None
-        self._mode       = mode
-
-    def _gzip_open(self, filename:str, mode:str):
-        return gzip.open(filename, mode, compresslevel=6)
-
-    def _text_open(self, filename:str, mode:str):
-        return open(filename, mode)
+        self._filename = filename
+        self._file     = None
+        self._count    = 0
+        self._mode     = mode
 
     def __enter__(self) -> 'DiskSource':
-        self._open_count += 1
-        
-        if self._open_file is None:
-            self._open_file = self._open_func(self._filename, f"{self._mode}b")
-        
+        self._count += 1
+
+        if self._file is None:
+            if ".gz" in self._filename:
+                self._file = gzip.open(self._filename, f"{self._mode}b", compresslevel=6)
+            else:
+                self._file = open(self._filename, f"{self._mode}b")                
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self._open_count -= 1
-        if self._open_count == 0 and self._open_file is not None:
-            self._open_file.close()
-            self._open_file = None
+        self._count -= 1
+        if self._count == 0 and self._file is not None:
+            self._file.close()
+            self._file = None
 
     def read(self) -> Iterable[str]:
         with self:
-            for line in self._open_file.__enter__():
+            for line in self._file:
                 yield line.decode('utf-8').rstrip('\r\n')
 
 class QueueSource(Source[Iterable[Any]]):
