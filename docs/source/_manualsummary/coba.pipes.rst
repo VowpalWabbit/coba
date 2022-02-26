@@ -23,21 +23,30 @@ Readers
       
       CsvReader
       ArffReader
-      LibSvmReader
+      LibsvmReader
       ManikReader
       
-Sources/Sinks
+Sources
 ~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
             
-      NullIO
-      ListIO
-      DiskIO
-      HttpIO
-      ConsoleIO
-      QueueIO
-      IdentityIO
+      ListSource
+      DiskSource
+      HttpSource
+      QueueSource
       
+Sinks
+~~~~~~~~~~~~~~~
+
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: class_with_ctor.rst
+            
+      NullSink
+      ListSink
+      DiskSink
+      ConsoleSink
+      QueueSink

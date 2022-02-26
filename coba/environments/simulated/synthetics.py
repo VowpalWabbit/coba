@@ -230,7 +230,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
         return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},R={self._reward_features},seed={self._seed})"
 
 class NeighborsSyntheticSimulation(LambdaSimulation):
-    """A synthetic simulation whose reward values are determined by neighborhoodS. 
+    """A synthetic simulation whose reward values are determined by neighborhoods.
 
     The simulation's rewards are determined by the location of given context and action pairs. These locations
     indicate which neighborhood the context action pair belongs to. Neighborhood rewards are determined by 
