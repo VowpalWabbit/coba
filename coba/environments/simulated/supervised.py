@@ -54,8 +54,8 @@ class SupervisedSimulation(SimulatedEnvironment):
             label_col  = args[1] if len(args) > 1 else kwargs.get("label_col", None)
             label_type = args[2] if len(args) > 2 else kwargs.get("label_type", "C")
             take       = args[3] if len(args) > 3 else kwargs.get("take", None)
-            if take is not None     : source = Pipes.join(source, [Reservoir(take)])
-            if label_col is not None: source = Pipes.join(source, [Structure((None,label_col))])
+            if take is not None     : source = Pipes.join(source, Reservoir(take))
+            if label_col is not None: source = Pipes.join(source, Structure((None,label_col)))
             params = source.params
 
         else:

@@ -144,7 +144,7 @@ class PipesPool:
 
             self._completed = True
 
-        log_thread = Thread(target=Pipes.join(self._stderr, [], Foreach(self._given_stderr)).run)
+        log_thread = Thread(target=Pipes.join(self._stderr, Foreach(self._given_stderr)).run)
         log_thread.daemon = True
         log_thread.start()
 

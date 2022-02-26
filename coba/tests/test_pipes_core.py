@@ -51,7 +51,7 @@ class SourceFilters_Tests(unittest.TestCase):
 
     def test_init_source_filters(self):
 
-        filter = SourceFilters(ReprSource([1,2]), [ReprFilter(), ReprFilter()])
+        filter = SourceFilters(ReprSource([1,2]), ReprFilter(), ReprFilter())
 
         self.assertIsInstance(filter._source, ReprSource)
         self.assertEqual(2, len(filter._filter._filters))
@@ -61,8 +61,8 @@ class SourceFilters_Tests(unittest.TestCase):
 
     def test_sourcefilter_filters(self):
 
-        source = SourceFilters(ReprSource([1,2]), [ReprFilter()])
-        filter = SourceFilters(source, [ReprFilter()])
+        source = SourceFilters(ReprSource([1,2]), ReprFilter())
+        filter = SourceFilters(source, ReprFilter())
 
         self.assertIsInstance(filter._source, ReprSource)
         self.assertEqual(2, len(filter._filter._filters))
@@ -71,14 +71,12 @@ class SourceFilters_Tests(unittest.TestCase):
         self.assertEqual("ReprSource,ReprFilter,ReprFilter", str(filter))
 
     def test_read1(self):
-
-        filter = SourceFilters(ReprSource([1,2]), [ReprFilter(), ReprFilter()])
+        filter = SourceFilters(ReprSource([1,2]), ReprFilter(), ReprFilter())
         self.assertEqual([1,2], list(filter.read()))
 
     def test_read2(self):
-
-        source = SourceFilters(ReprSource([1,2]), [ReprFilter()])
-        filter = SourceFilters(source, [ReprFilter()])
+        source = SourceFilters(ReprSource([1,2]), ReprFilter())
+        filter = SourceFilters(source, ReprFilter())
 
         self.assertEqual([1,2], list(filter.read()))
 
@@ -86,7 +84,7 @@ class FiltersFilter_Tests(unittest.TestCase):
     
     def test_init_filters(self):
 
-        filter = FiltersFilter([ReprFilter(), ReprFilter()])
+        filter = FiltersFilter(ReprFilter(), ReprFilter())
 
         self.assertEqual(2, len(filter._filters))
         self.assertIsInstance(filter._filters[0], ReprFilter)
@@ -95,7 +93,7 @@ class FiltersFilter_Tests(unittest.TestCase):
 
     def test_init_filtersfilter(self):
 
-        filter = FiltersFilter([FiltersFilter([ReprFilter(), ReprFilter()]), ReprFilter()])
+        filter = FiltersFilter(FiltersFilter(ReprFilter(), ReprFilter()), ReprFilter())
 
         self.assertEqual(3, len(filter._filters))
         self.assertIsInstance(filter._filters[0], ReprFilter)
@@ -105,17 +103,17 @@ class FiltersFilter_Tests(unittest.TestCase):
 
     def test_read1(self):
 
-        self.assertEqual([0,1,2], list(FiltersFilter([ReprFilter(), ReprFilter()]).filter(range(3))))
+        self.assertEqual([0,1,2], list(FiltersFilter(ReprFilter(), ReprFilter()).filter(range(3))))
 
     def test_read2(self):
 
-        self.assertEqual([0,1,2], list(FiltersFilter([FiltersFilter([ReprFilter(), ReprFilter()]), ReprFilter()]).filter(range(3))))
+        self.assertEqual([0,1,2], list(FiltersFilter(FiltersFilter(ReprFilter(), ReprFilter()), ReprFilter()).filter(range(3))))
 
 class FiltersSink_Tests(unittest.TestCase):
     
     def test_init_filters_sink(self):
 
-        filter = FiltersSink([ReprFilter(), ReprFilter()], ReprSink())
+        filter = FiltersSink(ReprFilter(), ReprFilter(), ReprSink())
 
         self.assertEqual(2, len(filter._filter._filters))
         self.assertIsInstance(filter._filter._filters[0], ReprFilter)
@@ -125,8 +123,8 @@ class FiltersSink_Tests(unittest.TestCase):
 
     def test_init_filters_filterssink(self):
 
-        sink   = FiltersSink([ReprFilter()], ReprSink())
-        filter = FiltersSink([ReprFilter()], sink)
+        sink   = FiltersSink(ReprFilter(), ReprSink())
+        filter = FiltersSink(ReprFilter(), sink)
 
         self.assertEqual(2, len(filter._filter._filters))
         self.assertIsInstance(filter._filter._filters[0], ReprFilter)
@@ -136,41 +134,43 @@ class FiltersSink_Tests(unittest.TestCase):
 
     def test_write1(self):
 
-        sink = FiltersSink([ReprFilter(), ReprFilter()], ReprSink())
+        sink = FiltersSink(ReprFilter(), ReprFilter(), ReprSink())
         sink.write(1)
         sink.write(2)
         self.assertEqual([1,2], sink._sink.items)
 
     def test_read2(self):
         
-        sink  = FiltersSink([ReprFilter()], ReprSink())
-        sink2 = FiltersSink([ReprFilter()], sink)        
+        sink  = FiltersSink(ReprFilter(), ReprSink())
+        sink2 = FiltersSink(ReprFilter(), sink)        
         sink2.write(1)
         sink2.write(2)
         
         self.assertEqual([1,2], sink._sink.items)
 
-class Pipeline_Tests(unittest.TestCase):
+class PipesLine_Tests(unittest.TestCase):
 
     def test_init_source_sink(self):
         source = ReprSource([1,2])
         sink   = ReprSink()
 
-        pipeline = Pipes(source, [], Foreach(sink))
+        pipeline = Pipes.Line(source, Foreach(sink))
         pipeline.run()
 
         self.assertEqual([1,2], sink.items)
         self.assertEqual("ReprSource,ReprSink", str(pipeline))
+        self.assertEqual({}, pipeline.params)
 
-    def test_init_filters_source_sink(self):
+    def test_init_source_filters_sink(self):
         source = ReprSource([1,2])
         sink   = ReprSink()
 
-        pipeline = Pipes(source, [ReprFilter(), ReprFilter()], Foreach(sink))
+        pipeline = Pipes.Line(source, ReprFilter(), ReprFilter(), Foreach(sink))
         pipeline.run()
 
         self.assertEqual([1,2], sink.items)
         self.assertEqual("ReprSource,ReprFilter,ReprFilter,ReprSink", str(pipeline))
+        self.assertEqual({}, pipeline.params)
 
 class Foreach_Tests(unittest.TestCase):
     
@@ -188,19 +188,19 @@ class Foreach_Tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual({'a':1}, Foreach(ReprSink(params={'a':1})).params)
 
-class Pipe_Tests(unittest.TestCase):
+class Pipes_Tests(unittest.TestCase):
 
     def test_run(self):
         sink   = ListSource(list(range(10)))
         source = ListSink()
 
-        Pipes.join(sink, [ProcessNameFilter()], source).run()
+        Pipes.join(sink, ProcessNameFilter(), source).run()
 
         self.assertEqual(source.items[0], ['MainProcess']*10)
 
     def test_exception(self):
         with self.assertRaises(Exception):
-            Pipes.join(ListSource(list(range(4))), [ExceptionFilter()], ListSink()).run()
+            Pipes.join(ListSource(list(range(4))), ExceptionFilter(), ListSink()).run()
 
     def test_join_source_filters_sink_repr(self):
 
@@ -208,24 +208,28 @@ class Pipe_Tests(unittest.TestCase):
         filters = [ReprFilter(), ReprFilter()]
         sink    = ReprSink()
 
-        self.assertEqual("ReprSource,ReprFilter,ReprFilter,ReprSink", str(Pipes.join(source, filters, sink)))
+        self.assertEqual("ReprSource,ReprFilter,ReprFilter,ReprSink", str(Pipes.join(source, *filters, sink)))
     
     def test_join_source_filters_repr(self):
 
         source  = ReprSource()
         filters = [ReprFilter(), ReprFilter()]
 
-        self.assertEqual("ReprSource,ReprFilter,ReprFilter", str(Pipes.join(source, filters)))
+        self.assertEqual("ReprSource,ReprFilter,ReprFilter", str(Pipes.join(source, *filters)))
+
+    def test_join_source_foreach_filter(self):
+        filter = SourceFilters(ReprSource([1,2]), Foreach(ReprFilter()))
+        self.assertIsInstance(filter, SourceFilters)
 
     def test_join_filters_sink_repr(self):
 
-        filters = [ReprFilter(), ReprFilter()]
+        filters = [ReprFilter(),ReprFilter()]
         sink    = ReprSink()
 
-        self.assertEqual("ReprFilter,ReprFilter,ReprSink", str(Pipes.join(filters, sink)))
+        self.assertEqual("ReprFilter,ReprFilter,ReprSink", str(Pipes.join(*filters, sink)))
 
     def test_join_filters_repr(self):
-        self.assertEqual("ReprFilter,ReprFilter", str(Pipes.join([ReprFilter(), ReprFilter()])))
+        self.assertEqual("ReprFilter,ReprFilter", str(Pipes.join(ReprFilter(), ReprFilter())))
 
     def test_join_source_sink_repr(self):
 
@@ -236,9 +240,9 @@ class Pipe_Tests(unittest.TestCase):
 
     def test_join_flattens_filters(self):
 
-        filter1 = Pipes.join([ReprFilter()])
-        filter2 = Pipes.join([filter1, ReprFilter()])
-        filter3 = Pipes.join([filter2, filter2])
+        filter1 = Pipes.join(ReprFilter())
+        filter2 = Pipes.join(filter1, ReprFilter())
+        filter3 = Pipes.join(filter2, filter2)
 
         self.assertEqual(4, len(filter3._filters))
 
@@ -246,6 +250,9 @@ class Pipe_Tests(unittest.TestCase):
 
         with self.assertRaises(CobaException):
             Pipes.join()
+
+        with self.assertRaises(CobaException):
+            Pipes.join(object())
 
 class CsvSource_Tests(unittest.TestCase):
 

@@ -43,7 +43,7 @@ class EnvironmentDefinitionFileV1(Source[Sequence[Environment]]):
                 pieces = list(map(_construct, item))
                 
                 if hasattr(pieces[0][0],'read'):
-                    result = [ Pipes.join(s, f) for s in pieces[0] for f in product(*pieces[1:])]
+                    result = [ Pipes.join(s,*f) for s in pieces[0] for f in product(*pieces[1:])]
                 else:
                     result = sum(pieces,[])
 

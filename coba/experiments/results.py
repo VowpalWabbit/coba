@@ -374,7 +374,7 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
         if isinstance(self._source, ListSource):
             decoded_source = self._source
         else:
-            decoded_source = Pipes.join(self._source, [Foreach(JsonDecode())])
+            decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
 
         for trx in decoded_source.read():
 
@@ -445,7 +445,7 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
         if isinstance(self._source, ListSource):
             decoded_source = self._source
         else:
-            decoded_source = Pipes.join(self._source, [Foreach(JsonDecode())])
+            decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
 
         for trx in decoded_source.read():
 

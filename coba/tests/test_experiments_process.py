@@ -249,8 +249,8 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         filter = CountFilter()
         src1   = CountReadSimulation()
-        sim1   = Pipes.join(src1, [filter])
-        sim2   = Pipes.join(src1, [filter])
+        sim1   = Pipes.join(src1, filter)
+        sim2   = Pipes.join(src1, filter)
         lrn1   = ModuloLearner("1")
         lrn2   = ModuloLearner("2")
 
@@ -295,8 +295,8 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         filter = CountFilter()
         src1   = CountReadSimulation()
-        sim1   = Pipes.join(src1, [filter])
-        sim2   = Pipes.join(src1, [filter])
+        sim1   = Pipes.join(src1, filter)
+        sim2   = Pipes.join(src1, filter)
 
         task1 = ObserveTask()
         task2 = ObserveTask()

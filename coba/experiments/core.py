@@ -112,12 +112,12 @@ class Experiment:
         sink       = TransactionIO(result_file)
 
         single_process = ProcessWorkItems()
-        multi_process  = Pipes.join([chunk, CobaMultiprocessor(ProcessWorkItems(), mp, mt)])
+        multi_process  = Pipes.join(chunk, CobaMultiprocessor(ProcessWorkItems(), mp, mt))
         process        = multi_process if mp > 1 or mt != 0 else single_process
 
         try:
             if not restored: sink.write(["T0", n_given_learners, n_given_environments])
-            Pipes.join(workitems, [unfinished, process], Foreach(sink)).run()
+            Pipes.join(workitems, unfinished, process, Foreach(sink)).run()
 
         except KeyboardInterrupt as e: # pragma: no cover
             CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")

@@ -62,7 +62,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             drop      = Drop(drop_cols=ignore, drop_row=row_has_missing_values)
             structure = Structure([None, target])
 
-            return Pipes.join(source, [reader, drop, structure]).read()
+            return Pipes.join(source, reader, drop, structure).read()
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt

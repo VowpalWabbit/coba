@@ -184,7 +184,7 @@ class Environments:
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
-        self._environments = [ Pipes.join(e,[f]) for e in self._environments for f in filters ]
+        self._environments = [ Pipes.join(e,f) for e in self._environments for f in filters ]
         return self
 
     def __getitem__(self, index:int) -> Union[SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment]:

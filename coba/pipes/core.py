@@ -1,5 +1,5 @@
 from queue import Queue
-from typing import Sequence, Iterable, Any, overload, Union, Dict
+from typing import Iterable, Any, Union, Dict
 
 from coba.exceptions import CobaException
 
@@ -8,19 +8,29 @@ from coba.pipes.sources    import UrlSource, QueueSource
 from coba.pipes.readers    import ArffReader, ManikReader, CsvReader, LibsvmReader
 from coba.pipes.primitives import Filter, Source, Sink
 
+class SourceFilters(Source):
+    def __init__(self, *pipes: Union[Source,Filter]) -> None:
+        if isinstance(pipes[0], SourceFilters):
+            self._source = pipes[0]._source
+            self._filter = FiltersFilter(*pipes[0]._filter._filters, *pipes[1:])
+        else:
+            self._source = pipes[0]
+            self._filter = FiltersFilter(*pipes[1:])
+
+    @property
+    def params(self) -> Dict[str,Any]:
+        return { **self._source.params, **self._filter.params }
+
+    def read(self) -> Any:
+        return self._filter.filter(self._source.read())
+
+    def __str__(self) -> str:
+        return ",".join(map(str,[self._source, self._filter]))
+
 class FiltersFilter(Filter):
 
-    def __init__(self, filters: Sequence[Filter]):
-
-        def flat_filters(filters: Sequence[Filter]) -> Iterable[Filter]:
-            for filter in filters:
-                if isinstance(filter, FiltersFilter):
-                    for filter in flat_filters(filter._filters):
-                        yield filter
-                else:
-                    yield filter
-
-        self._filters = list(flat_filters(filters))
+    def __init__(self, *pipes: Filter):
+        self._filters = sum([f._filters if isinstance(f, FiltersFilter) else [f] for f in pipes ],[])
 
     @property
     def params(self) -> Dict[str,Any]:
@@ -34,37 +44,19 @@ class FiltersFilter(Filter):
     def __str__(self) -> str:
         return ",".join(map(str,self._filters))
 
-class SourceFilters(Source):
-    def __init__(self, source: Source, filters: Sequence[Filter]) -> None:
-
-        if isinstance(source, SourceFilters):
-            self._source = source._source
-            self._filter = FiltersFilter(source._filter._filters + filters)
-        else:
-            self._source = source
-            self._filter = FiltersFilter(filters)
-
-    @property
-    def params(self) -> Dict[str,Any]:
-        return { **self._source.params, **self._filter.params }
-
-    def read(self) -> Any:
-        return self._filter.filter(self._source.read())
-
-    def __str__(self) -> str:
-        return ",".join(map(str,[self._source, self._filter]))
-
 class FiltersSink(Sink):
 
-    def __init__(self, filters: Sequence[Filter], sink: Sink) -> None:
+    def __init__(self, *pipes: Union[Filter,Sink]) -> None:
 
-        self._filter = FiltersFilter(filters)
+        filters = list(pipes[:-1])
+        sink    = pipes[-1 ]
 
         if isinstance(sink, FiltersSink):
-            self._filter = FiltersFilter([self._filter, sink._filter])
-            self._sink = sink._sink
-        else:
-            self._sink = sink
+            filters += sink._filter._filters
+            sink     = sink._sink
+
+        self._filter = FiltersFilter(*filters)
+        self._sink   = sink
 
     def write(self, items: Iterable[Any]):
         self._sink.write(self._filter.filter(items))
@@ -74,60 +66,57 @@ class FiltersSink(Sink):
 
 class Pipes:
 
-    @overload
+    class Line:
+
+        def __init__(self, *pipes: Union[Source,Filter,Sink]) -> None:
+            self.pipes = list(pipes)
+
+        def run(self) -> None:
+            """Run the pipeline."""
+
+            source  = self.pipes[0   ]
+            filters = self.pipes[1:-1]
+            sink    = self.pipes[-1  ]
+
+            item = source.read()
+
+            for filter in filters:
+                item = filter.filter(item)
+
+            sink.write(item)
+
+        @property
+        def params(self) -> Dict[str, Any]:
+            return { k:v for p in self.pipes for k,v in p.params.items() }
+
+        def __str__(self) -> str:
+            return ",".join(filter(None,map(str,self.pipes)))
+
     @staticmethod
-    def join(source: Source, filters: Sequence[Filter]) -> Source:
-        ...
+    def join(*pipes: Union[Source, Filter, Sink]) -> Union[Source, Filter, Sink, Line]:
 
-    @overload
-    @staticmethod
-    def join(filters: Sequence[Filter], sink: Sink) -> Sink:
-        ...
+        if len(pipes) == 0:
+            raise CobaException("No pipes were passed to join.")
 
-    @overload
-    @staticmethod
-    def join(source: Source, sink: Sink) -> 'Pipes':
-        ...
+        if len(pipes) == 1 and any(hasattr(pipes[0],attr) for attr in ['read','filter','write']):
+            return pipes[0]
 
-    @overload
-    @staticmethod
-    def join(source: Source, filters: Sequence[Filter], sink: Sink) -> 'Pipes':
-        ...
+        first = pipes[0 ] if not isinstance(pipes[0 ], Foreach) else pipes[0 ]._pipe
+        last  = pipes[-1] if not isinstance(pipes[-1], Foreach) else pipes[-1]._pipe
 
-    @overload
-    @staticmethod
-    def join(filters: Sequence[Filter]) -> Filter:
-        ...
+        if hasattr(first,'read') and hasattr(last,'write'):
+            return Pipes.Line(*pipes)
 
-    @staticmethod #type: ignore
-    def join(*args) -> Union[Source, Filter, Sink, 'Pipes']:
+        if hasattr(first,'read') and hasattr(last,'filter'):
+            return SourceFilters(*pipes)
 
-        if len(args) == 3:
-            return Pipes(*args)
+        if hasattr(first,'filter') and hasattr(last,'filter'):
+            return FiltersFilter(*pipes)
+        
+        if hasattr(first,'filter') and hasattr(last,'write'):
+            return FiltersSink(*pipes)
 
-        if len(args) == 2:
-            if hasattr(args[1], '__len__'):
-                return SourceFilters(args[0], args[1])
-            elif hasattr(args[0], '__len__'):
-                return FiltersSink(args[0], args[1])
-            else:
-                return Pipes(args[0], [], args[1])
-
-        if len(args) == 1:
-            return FiltersFilter(args[0])
-
-        raise CobaException("An unknown pipe was joined.")
-
-    def __init__(self, source: Source, filters: Sequence[Filter], sink: Sink) -> None:
-        self._source = source
-        self._filter = Pipes.join(filters)
-        self._sink   = sink
-
-    def run(self) -> None:
-        self._sink.write(self._filter.filter(self._source.read()))
-
-    def __str__(self) -> str:
-        return ",".join(filter(None,map(str,[self._source, self._filter, self._sink])))
+        raise CobaException("An unknown pipe was passed to join.")
 
 class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
 
@@ -154,7 +143,7 @@ class CsvSource(SourceFilters):
     def __init__(self, source: Union[str,Source[Iterable[str]]], has_header:bool=False, **dialect) -> None:
         source = UrlSource(source) if isinstance(source,str) else source
         reader = CsvReader(has_header, **dialect)
-        super().__init__(source, [reader])
+        super().__init__(source, reader)
 
 class ArffSource(SourceFilters):
 
@@ -168,21 +157,21 @@ class ArffSource(SourceFilters):
         source = UrlSource(source) if isinstance(source,str) else source
         reader = ArffReader(cat_as_str, skip_encoding, lazy_encoding, header_indexing)
 
-        super().__init__(source, [reader])
+        super().__init__(source, reader)
 
 class LibsvmSource(SourceFilters):
 
     def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
         source = UrlSource(source) if isinstance(source,str) else source
         reader = LibsvmReader()
-        super().__init__(source, [reader])
+        super().__init__(source, reader)
 
 class ManikSource(SourceFilters):
 
     def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
         source = UrlSource(source) if isinstance(source,str) else source
         reader = ManikReader()
-        super().__init__(source, [reader])
+        super().__init__(source, reader)
 
 class QueueIO(Source[Iterable[Any]], Sink[Any]):
     def __init__(self, queue:Queue=None, poison:Any=None, block:bool=True) -> None:

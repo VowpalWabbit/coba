@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, TypeVar, Generic, Dict
 
-_T_out = TypeVar("_T_out", bound=Any, covariant=True    )
+_T_out = TypeVar("_T_out", bound=Any, covariant    =True)
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
 
 class Pipe:
