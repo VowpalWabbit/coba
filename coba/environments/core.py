@@ -7,7 +7,7 @@ from coba.pipes import Pipes, Source, HttpSource, ListSource, JsonDecode
 from coba.exceptions import CobaException
 
 from coba.environments.filters     import EnvironmentFilter
-from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute
+from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute, Strict
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
 from coba.environments          .primitives import Environment
@@ -180,6 +180,10 @@ class Environments:
         using: Optional[int] = None) -> 'Environments':
         """Impute missing values with a feature statistic using a given number of interactions."""
         return self.filter(Impute(stat, using))
+
+    def strict(self, min_interactions:int = None, max_interactions:int = None) -> 'Environments':
+        """Require environments to satisify strict requirements."""
+        return self.filter(Strict(min_interactions, max_interactions))
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""

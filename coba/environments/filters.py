@@ -346,6 +346,45 @@ class Sort(EnvironmentFilter):
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         return sorted(interactions, key=lambda interaction: tuple(interaction.context[key] for key in self._keys))
 
+class Strict(EnvironmentFilter):
+    """Define strict requirements an Environment must satisfy."""
+
+    def __init__(self, min_interactions: int = None, max_interactions: int = None) -> None:
+        """Instantiate a Strict filter.
+
+        Args:
+            min_interactions: The minimum number of interactions an Environment must have. 
+            max_interactions: The maximum number of interaction an Environent must have.
+        """
+
+        self._min_interactions = min_interactions
+        self._max_interactions = max_interactions
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        params = {}
+
+        if self._min_interactions is not None:
+            params["min_interactions"] = self._min_interactions
+        
+        if self._max_interactions is not None:
+            params["max_interactions"] = self._max_interactions
+
+        return params
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        
+        if self._min_interactions is not None or self._max_interactions is not None:
+            interactions = list(interactions)
+
+        if self._min_interactions is not None and len(interactions) < self._min_interactions:
+            return []
+
+        if self._max_interactions is not None and len(interactions) > self._max_interactions:
+            return []
+
+        return interactions
+
 class WarmStart(EnvironmentFilter):
     """Turn a SimulatedEnvironment into a WarmStartEnvironment."""
 

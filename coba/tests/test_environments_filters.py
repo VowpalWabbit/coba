@@ -4,7 +4,7 @@ from math import isnan
 
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import LoggedInteraction, SimulatedInteraction
-from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, WarmStart, Shuffle, Take, Reservoir
+from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, WarmStart, Shuffle, Take, Reservoir, Strict
 
 class TestEnvironment:
 
@@ -157,6 +157,23 @@ class Take_Tests(unittest.TestCase):
 
     def test_str(self):
         self.assertEqual("{'take': None}", str(Take(None)))
+
+class Strict_Tests(unittest.TestCase):
+
+    def test_filter(self):
+
+        items = [ 1,2,3 ]
+
+        self.assertEqual([]     , list(Strict(max_interactions=1).filter(items)))
+        self.assertEqual([]     , list(Strict(min_interactions=4).filter(items)))
+        self.assertEqual([1,2,3], list(Strict(min_interactions=1).filter(items)))
+        self.assertEqual([1,2,3], list(Strict(                  ).filter(items)))
+
+    def test_params(self):
+        self.assertEqual({'min_interactions':1                      }, Strict(1     ).params)
+        self.assertEqual({'min_interactions':1, 'max_interactions':2}, Strict(1   ,2).params)
+        self.assertEqual({                      'max_interactions':2}, Strict(None,2).params)
+        self.assertEqual({                                          }, Strict(      ).params)
 
 class Resevoir_Tests(unittest.TestCase):
 
