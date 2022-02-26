@@ -4,7 +4,7 @@ from typing import Iterable, Any, Dict
 
 from coba.utilities import coba_exit
 from coba.contexts  import CobaContext, ConcurrentCacher, Logger, Cacher
-from coba.pipes     import Pipe, Filter, Sink, QueueIO, PipeMultiprocessor, Foreach
+from coba.pipes     import Pipes, Filter, Sink, QueueIO, PipeMultiprocessor, Foreach
 
 class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
@@ -55,7 +55,7 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 stdlog = QueueIO(Queue())
                 stderr = CobaMultiprocessor.PipeStderr()                
                 
-                log_thread = Thread(target=Pipe.join(stdlog,[],Foreach(CobaContext.logger.sink)).run)
+                log_thread = Thread(target=Pipes.join(stdlog,[],Foreach(CobaContext.logger.sink)).run)
                 log_thread.daemon = True
                 log_thread.start()
 

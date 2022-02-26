@@ -13,7 +13,7 @@ from coba.backports import Literal
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.pipes import JsonEncode, JsonDecode, DiskIO, ListIO, IO
+from coba.pipes import Pipes, Sink, Source, JsonEncode, JsonDecode, DiskSource, DiskSink, ListSource, ListSink, Foreach
 
 class Table:
     """A container class for storing tabular data."""
@@ -348,19 +348,21 @@ class InteractionsTable(Table):
             n_index = len(data[0][1:])
             return pd.DataFrame(data, columns=["learner_id", *range(1,n_index+1)])
 
-class TransactionIO_V3(IO['Result', Any]):
+class TransactionIO_V3(Source['Result'], Sink[Any]):
 
-    def __init__(self, transaction_log: Optional[str] = None, minify:bool=True) -> None:
+    def __init__(self, log_file: Optional[str] = None, minify:bool = True) -> None:
 
-        self._io = DiskIO(transaction_log) if transaction_log else ListIO()
-        self._minify = minify
+        self._log_file = log_file
+        self._minify   = minify
+        self._source   = DiskSource(log_file) if log_file else ListSource()
+        self._sink     = DiskSink(log_file) if log_file else ListSink(self._source.items)
 
     def write(self, item: Any) -> None:
-        if isinstance(self._io, ListIO):
-            self._io.write(self._encode(item))
+        if isinstance(self._sink, ListSink):
+            self._sink.write(self._encode(item))
         else: 
-            if not Path(self._io._filename).exists():self._io.write('["version",3]')
-            self._io.write(JsonEncode(self._minify).filter(self._encode(item)))
+            if not Path(self._sink._filename).exists():self._sink.write('["version",3]')
+            self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
 
     def read(self) -> 'Result':
         n_lrns   = None
@@ -369,20 +371,25 @@ class TransactionIO_V3(IO['Result', Any]):
         sim_rows = {}
         int_rows = {}
 
-        for trx in self._io.read() if isinstance(self._io, ListIO) else map(JsonDecode().filter,self._io.read()):
+        if isinstance(self._source, ListSource):
+            decoded_source = self._source
+        else:
+            decoded_source = Pipes.join(self._source, [Foreach(JsonDecode())])
+
+        for trx in decoded_source.read():
 
             if not trx: continue
 
             if trx[0] == "benchmark": 
                 n_lrns = trx[1]["n_learners"]
                 n_sims = trx[1]["n_simulations"]
-            
+
             if trx[0] == "S": 
                 sim_rows[trx[1]] = trx[2]
-            
+
             if trx[0] == "L": 
                 lrn_rows[trx[1]] = trx[2]
-            
+
             if trx[0] == "I": 
                 int_rows[tuple(trx[1])] = trx[2]
 
@@ -411,18 +418,21 @@ class TransactionIO_V3(IO['Result', Any]):
 
         return None
 
-class TransactionIO_V4(IO['Result', Any]):
+class TransactionIO_V4(Source['Result'], Sink[Any]):
 
-    def __init__(self, transaction_log: Optional[str] = None, minify:bool=True) -> None:
-        self._io     = DiskIO(transaction_log) if transaction_log else ListIO()
-        self._minify = minify
+    def __init__(self, log_file: Optional[str] = None, minify:bool=True) -> None:
+
+        self._log_file = log_file
+        self._minify   = minify
+        self._source   = DiskSource(log_file) if log_file else ListSource()
+        self._sink     = DiskSink(log_file)   if log_file else ListSink(self._source.items)
 
     def write(self, item: Any) -> None:
-        if isinstance(self._io, ListIO):
-            self._io.write(self._encode(item))
+        if isinstance(self._sink, ListSink):
+            self._sink.write(self._encode(item))
         else: 
-            if not Path(self._io._filename).exists():self._io.write('["version",4]')
-            self._io.write(JsonEncode(self._minify).filter(self._encode(item)))
+            if not Path(self._sink._filename).exists():self._sink.write('["version",4]')
+            self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
 
     def read(self) -> 'Result':
 
@@ -432,20 +442,25 @@ class TransactionIO_V4(IO['Result', Any]):
         env_rows = {}
         int_rows = {}
 
-        for trx in self._io.read() if isinstance(self._io, ListIO) else map(JsonDecode().filter,self._io.read()):
+        if isinstance(self._source, ListSource):
+            decoded_source = self._source
+        else:
+            decoded_source = Pipes.join(self._source, [Foreach(JsonDecode())])
+
+        for trx in decoded_source.read():
 
             if not trx: continue
 
             if trx[0] == "experiment": 
                 n_lrns = trx[1]["n_learners"]
                 n_sims = trx[1]["n_environments"]
-            
+
             if trx[0] == "E": 
                 env_rows[trx[1]] = trx[2]
-            
+
             if trx[0] == "L": 
                 lrn_rows[trx[1]] = trx[2]
-            
+
             if trx[0] == "I": 
                 int_rows[tuple(trx[1])] = trx[2]
 
@@ -474,14 +489,14 @@ class TransactionIO_V4(IO['Result', Any]):
 
         return None
 
-class TransactionIO(IO['Result', Any]):
+class TransactionIO(Source['Result'], Sink[Any]):
 
     def __init__(self, transaction_log: Optional[str] = None) -> None:
 
         if not transaction_log or not Path(transaction_log).exists():
             version = None
         else:
-            version = JsonDecode().filter(next(DiskIO(transaction_log).read()))[1]
+            version = JsonDecode().filter(next(DiskSource(transaction_log).read()))[1]
 
         if version == 3:
             self._transactionIO = TransactionIO_V3(transaction_log)

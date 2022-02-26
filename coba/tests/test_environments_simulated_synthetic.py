@@ -94,7 +94,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
         def R(i:int,c:int,a:int):
             return a-c
 
-        self.assertEqual({}, LambdaSimulation(2,C,A,R).params)
+        self.assertEqual({"type": "LambdaSimulation"}, LambdaSimulation(2,C,A,R).params)
 
     def test_pickle_n_interactions_2(self):
         def C(i:int):
@@ -110,7 +110,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
         interactions = list(simulation.read())
 
         self.assertEqual("LambdaSimulation",str(simulation))
-        self.assertEqual({}, simulation.params)
+        self.assertEqual({"type": "LambdaSimulation"}, simulation.params)
 
         self.assertEqual(len(interactions), 2)
 

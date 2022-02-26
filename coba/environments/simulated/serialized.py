@@ -1,9 +1,8 @@
 from itertools import islice
 from typing import Dict, Any, Iterable, Union
 
-from coba.pipes import Source, JsonDecode, JsonEncode, Sink, LambdaIO
+from coba.pipes import Sink, Source, UrlSource, JsonDecode, JsonEncode, LambdaSource
 from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
-from coba.pipes.io import DiskIO, HttpIO
 
 class SerializedSimulation(SimulatedEnvironment):
 
@@ -20,15 +19,13 @@ class SerializedSimulation(SimulatedEnvironment):
                 kwargs  = json_encoder.filter(interaction.kwargs)
                 yield f"[{context},{actions},{kwargs}]"
 
-        return LambdaIO(read=serialized_generator, write=None)
+        return LambdaSource(serialized_generator)
 
     def __init__(self, source: Union[str, Source[Iterable[str]], SimulatedEnvironment]) -> None:
 
-        if isinstance(source,str) and source.strip()[0:4].lower() == "http":
-            self._source = HttpIO(source, mode="lines")
-        elif isinstance(source,str):
-            self._source = DiskIO(source)
-        elif hasattr(source, "params") or isinstance(source, SimulatedEnvironment):
+        if isinstance(source,str):
+            self._source= UrlSource(source)
+        elif isinstance(source, SimulatedEnvironment):
             self._source = self._make_serialized_source(source)
         else:
             self._source = source

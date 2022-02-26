@@ -4,18 +4,22 @@ import copy
 
 from collections import defaultdict
 from itertools import islice, chain
-from typing import Iterable, Any, Sequence, Dict, Callable, Optional, Union
+from typing import Iterable, Any, Sequence, Dict, Callable, Optional, Union, MutableSequence, MutableMapping
 
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
 
-from coba.pipes.primitives import Filter, MutableMap
+from coba.pipes.primitives import Filter
 
 class Identity(Filter[Any, Any]):
     """Return whatever is given to the filter."""
     def filter(self, item:Any) -> Any:
         return item
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return {}
 
 class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
     """Shuffle a sequence of items."""
@@ -35,6 +39,10 @@ class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
     def filter(self, items: Iterable[Any]) -> Sequence[Any]: 
         return CobaRandom(self._seed).shuffle(list(items))
 
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "shuffle": self._seed }
+
 class Take(Filter[Iterable[Any], Sequence[Any]]):
     """Take a fixed number of items from an iterable."""
 
@@ -51,12 +59,15 @@ class Take(Filter[Iterable[Any], Sequence[Any]]):
         self._count = count
 
     def filter(self, items: Iterable[Any]) -> Sequence[Any]:
-        items =  list(islice(items,self._count))
-        return items if len(items) == self._count else []
+        return list(islice(items,self._count))
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "take": self._count }
 
 class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
     """Take a fixed number of random items from an iterable.
-    
+
     Remarks:
         We use Algorithm L as described by Kim-Hung Li. (1994) to take a random count of items.
 
@@ -65,42 +76,42 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
     """
 
-    def __init__(self, count: Optional[int], seed: int = 1) -> None:
+    def __init__(self, count: Optional[int], seed: float = 1) -> None:
         """Instantiate a Resevoir filter.
 
         Args:
-            count     : The number of items we wish to take from the given iterable.
-            seed      : An optional random seed to determine which random count items to take.
-            keep_first: Indicate whether the first row should be kept as is (useful for files with headers).
+            count: The number of items we wish to take from the given iterable.
+            seed : The seed which determines which random items to take.
         """
 
         if count is not None and (not isinstance(count,int) or count < 0):
-            raise ValueError(f"Invalid parameter for Take: {count}. An optional integer value >= 0 was expected.")
+            raise ValueError(f"Invalid value for Reservoir: {count}. An optional integer value >= 0 was expected.")
 
-        self._count      = count
-        self._seed       = seed
+        self._count = count
+        self._seed  = seed
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "reservoir_count": self._count, "reservoir_seed": self._seed }
 
     def filter(self, items: Iterable[Any]) -> Sequence[Any]:
-
-        if self._count is None:
-            return items
 
         if self._count == 0:
             return []
 
-        items     = iter(items)
-        reservoir = list(islice(items,self._count))
-
-        if len(reservoir) < self._count:
-            return []
+        if self._count == None:
+            return CobaRandom(self._seed).shuffle(list(items))
 
         rng = CobaRandom(self._seed)
         W = 1
 
+        items     = iter(items)
+        reservoir = rng.shuffle(list(islice(items,self._count)))
+
         try:
             while True:
                 [r1,r2,r3] = rng.randoms(3)
-                W = W * math.exp(math.log(r1)/self._count)
+                W = W * math.exp(math.log(r1)/ (self._count or 1) )
                 S = math.floor(math.log(r2)/math.log(1-W))
                 reservoir[int(r3*self._count-.001)] = next(islice(items,S,S+1))
         except StopIteration:
@@ -109,7 +120,7 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         return reservoir
 
 class JsonEncode(Filter[Any, str]):
- 
+
     def _min(self,obj):
         #WARNING: This method doesn't handle primitive types such int, float, or str. We handle this shortcoming
         #WARNING: by making sure no primitive type is passed to this method in filter. Accepting the shortcoming
@@ -133,10 +144,10 @@ class JsonEncode(Filter[Any, str]):
                 obj[k] = v
             elif isinstance(v, float):
                 if v.is_integer():
-                    obj[k] = int(v) 
+                    obj[k] = int(v)
                 elif math.isnan(v) or math.isinf(v):
                     obj[k] = v 
-                else: 
+                else:
                     #rounding by any means is considerably slower than this crazy method
                     #we format as a truncated string and then manually remove the string
                     #indicators from the json via string replace methods
@@ -186,14 +197,14 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
 
             yield row
 
-class Encode(Filter[Iterable[MutableMap], Iterable[MutableMap]]):
+class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
 
     def __init__(self, encoders:Dict[Union[str,int],Encoder], fit_using:int = None, missing_val: str = None):
         self._encoders    = encoders
         self._fit_using   = fit_using
         self._missing_val = missing_val
 
-    def filter(self, items: Iterable[MutableMap]) -> Iterable[MutableMap]:
+    def filter(self, items: Iterable[Union[MutableSequence,MutableMapping]]) -> Iterable[Union[MutableSequence,MutableMapping]]:
 
         items = iter(items) # this makes sure items are pulled out for fitting
 
@@ -237,22 +248,25 @@ class Encode(Filter[Iterable[MutableMap], Iterable[MutableMap]]):
                     item[k] = encoders[k].encode(val) if val not in ['',self._missing_val] else val
             yield item
 
-class Drop(Filter[Iterable[MutableMap], Iterable[MutableMap]]):
+class Drop(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
 
-    def __init__(self, drop_cols: Sequence[int] = [], drop_row: Callable[[MutableMap], bool] = lambda r: False) -> None:
+    def __init__(self, 
+        drop_cols: Sequence[Union[str,int]] = [], 
+        drop_row: Callable[[Union[MutableSequence,MutableMapping]], bool] = None) -> None:
+
         self._drop_cols = sorted(drop_cols, reverse=True)
-        self._drop_row  = drop_row
+        self._drop_row  = drop_row or (lambda r: False)
 
-    def filter(self, data: Iterable[MutableMap]) -> Iterable[MutableMap]:
-        
+    def filter(self, data: Iterable[Union[MutableSequence,MutableMapping]]) -> Iterable[Union[MutableSequence,MutableMapping]]:
+
         keep_row = lambda r: not self._drop_row(r) if self._drop_row else True
-        for row in filter(keep_row, data):            
+        for row in filter(keep_row, data):
             if row is not None:
                 for col in self._drop_cols:
-                    row.pop(col)            
+                    del row[col]
             yield row
 
-class Structure(Filter[Iterable[MutableMap], Iterable[Any]]):
+class Structure(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Any]]):
 
     def __init__(self, structure: Sequence[Any]) -> None:
         self._structure = []
@@ -270,7 +284,7 @@ class Structure(Filter[Iterable[MutableMap], Iterable[Any]]):
             else:
                 self._structure.insert(0,item)
 
-    def filter(self, data: Iterable[MutableMap]) -> Iterable[Any]:
+    def filter(self, data: Iterable[Union[MutableSequence,MutableMapping]]) -> Iterable[Any]:
         for row in data:
             stack   = []
             working = []
@@ -290,15 +304,15 @@ class Structure(Filter[Iterable[MutableMap], Iterable[Any]]):
                     working.append(row)
                 else:
                     working.append(row.pop(item))
-            
+
             yield working[0]
 
-class Default(Filter[Iterable[MutableMap], Iterable[MutableMap]]):
+class Default(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
 
     def __init__(self, defaults: Dict[Any, Any]) -> None:
         self._defaults = defaults
 
-    def filter(self, data: Iterable[MutableMap]) -> Iterable[MutableMap]:
+    def filter(self, data: Iterable[Union[MutableSequence,MutableMapping]]) -> Iterable[Union[MutableSequence,MutableMapping]]:
 
         for row in data:
 

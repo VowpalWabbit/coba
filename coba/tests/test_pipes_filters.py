@@ -1,10 +1,9 @@
 import unittest
 from coba.exceptions import CobaException
 
-from coba.pipes import Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle
+from coba.pipes import Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle, Default, Reservoir
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.contexts import NullLogger, CobaContext
-from coba.pipes.filters import Default, Reservoir
 
 CobaContext.logger = NullLogger()
 
@@ -95,7 +94,7 @@ class Take_Tests(unittest.TestCase):
         take_items = list(Take(4).filter(items))
 
         self.assertEqual(3, len(items))
-        self.assertEqual(0, len(take_items))
+        self.assertEqual(3, len(take_items))
 
 class Resevoir_Tests(unittest.TestCase):
 
@@ -113,13 +112,13 @@ class Resevoir_Tests(unittest.TestCase):
         self.assertLess(0, take_items[1])
 
     def test_take_none_seed(self):
-        self.assertEqual(list(range(10)), list(Reservoir(None,seed=1).filter(range(10))))
+        self.assertEqual([1, 8, 5, 4, 6, 0, 7, 3, 2, 9], list(Reservoir(None,seed=1).filter(range(10))))
 
     def test_take_0_seed(self):
         self.assertEqual(0, len(list(Reservoir(0,seed=1).filter(range(10)))))
 
     def test_take_10_has_5(self):
-        self.assertEqual(0, len(list(Reservoir(10,seed=1).filter(range(5)))))
+        self.assertEqual(5, len(list(Reservoir(10,seed=1).filter(range(5)))))
 
 class Flatten_Tests(unittest.TestCase):
 

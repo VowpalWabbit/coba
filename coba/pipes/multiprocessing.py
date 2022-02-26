@@ -5,15 +5,16 @@ import pickle
 import inspect
 import collections.abc
 
-from itertools import islice
+from itertools       import islice
+from threading       import Thread
 from multiprocessing import current_process, Process, Queue
-from threading import Thread
-from typing import Iterable, Any, List, Optional
+from typing          import Iterable, Any, List, Optional, Dict
+
 from coba.exceptions import CobaException
 
-from coba.pipes.core       import Pipe, Foreach
+from coba.pipes.core       import Pipes, Foreach, QueueIO
 from coba.pipes.primitives import Filter, Source
-from coba.pipes.io         import Sink, QueueIO, ConsoleIO
+from coba.pipes.sinks      import Sink, ConsoleSink
 
 # handle not picklable (this is handled by explicitly pickling)    (TESTED)
 # handle empty list (this is done by PipesPool naturally) (TESTED)
@@ -78,7 +79,7 @@ class PipesPool:
 
         def maintain_pool():
 
-            finished = lambda: self._completed and (len(self._stdin) == 0 or self._terminate)
+            finished = lambda: self._completed and (self._stdin._queue.qsize() == 0 or self._terminate)
 
             while not finished():
 
@@ -143,7 +144,7 @@ class PipesPool:
 
             self._completed = True
 
-        log_thread = Thread(target=Pipe.join(self._stderr, [], Foreach(self._given_stderr)).run)
+        log_thread = Thread(target=Pipes.join(self._stderr, [], Foreach(self._given_stderr)).run)
         log_thread.daemon = True
         log_thread.start()
 
@@ -233,7 +234,7 @@ class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
         filter: Filter[Any, Any],
         n_processes: int = 1,
         maxtasksperchild: int = 0,
-        stderr: Sink = ConsoleIO(),
+        stderr: Sink = ConsoleSink(),
         chunked: bool = True) -> None:
 
         self._filter           = filter
@@ -251,3 +252,7 @@ class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                         yield inner_item
                 else:
                     yield item
+    
+    @property
+    def params(self) -> Dict[str,Any]:
+        return self._filter.params

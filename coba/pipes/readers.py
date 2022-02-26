@@ -5,12 +5,13 @@ import operator
 
 from collections import deque, defaultdict
 from itertools import islice, chain, count, product
-from typing import Iterable, Sequence, List, Dict, Union, Any, Iterator, Pattern, Callable, Set
+from typing import Iterable, Sequence, List, Dict, Union, Any, Iterator, Pattern, Callable, Set, Tuple
+from typing import MutableSequence, MutableMapping
 
 from coba.exceptions import CobaException
 from coba.encodings import Encoder, OneHotEncoder
 
-from coba.pipes.primitives import MutableMap, Filter
+from coba.pipes.primitives import Filter
 
 class LazyHeadedDense(collections.abc.MutableSequence):
     def __init__(self, values: Sequence[Any], headers: Dict[str,int] = {}, encoders: Sequence[Callable[[Any],Any]] = []) -> None:
@@ -108,10 +109,7 @@ class LazyHeadedSparse(collections.abc.MutableMapping):
     def __str__(self) -> str:
         return str(dict(self))
 
-class Reader(Filter[Iterable[str], Iterable[MutableMap]]):
-    pass
-
-class ArffReader(Reader):
+class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMapping]]]):
 
     """
         https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
@@ -120,7 +118,11 @@ class ArffReader(Reader):
     #this class has been highly highly optimized. Before modifying anything one should 
     #run Performance_Tests.test_arffreader_performance to get a performance baseline.
 
-    def __init__(self, cat_as_str=False, skip_encoding: bool = False, lazy_encoding: bool = True, header_indexing: bool = True):
+    def __init__(self, 
+        cat_as_str: bool =False, 
+        skip_encoding: bool = False, 
+        lazy_encoding: bool = True, 
+        header_indexing: bool = True):
 
         self._quotes = '"'+"'"
 
@@ -129,7 +131,7 @@ class ArffReader(Reader):
         self._lazy_encoding   = lazy_encoding
         self._header_indexing = header_indexing 
 
-    def filter(self, source: Iterable[str]) -> Iterable[MutableMap]:
+    def filter(self, source: Iterable[str]) -> Iterable[Union[MutableSequence,MutableMapping]]:
         headers  : List[str    ] = []
         encodings: List[Encoder] = []
 
@@ -200,7 +202,11 @@ class ArffReader(Reader):
             else:
                 raise CobaException(f"An unrecognized encoding was found in the arff attributes: {encoding}.")
 
-    def _parse_dense_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMap]:
+    def _parse_dense_data(self, 
+        lines: Iterable[str], 
+        headers: Sequence[str], 
+        encoders: Sequence[Encoder]) -> Iterable[Union[MutableSequence,MutableMapping]]:
+        
         headers_dict        = dict(zip(headers,count()))
         possible_dialects   = self._possible_dialects()
 
@@ -252,7 +258,10 @@ class ArffReader(Reader):
             else:
                 yield LazyHeadedDense(final_items, final_headers, final_encoders)
 
-    def _parse_sparse_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMap]:
+    def _parse_sparse_data(self, 
+        lines: Iterable[str], 
+        headers: Sequence[str], 
+        encoders: Sequence[Encoder]) -> Iterable[Union[MutableSequence,MutableMapping]]:
 
         headers_dict  = dict(zip(headers,count()))
         defaults_dict = { k:"0" for k in range(len(encoders)) if encoders[k]("0") != 0 }
@@ -315,13 +324,13 @@ class ArffReader(Reader):
             {"delimeter":d, "quotechar": q, "skipinitialspace":True} for d,q in product(legal_delimeters, legal_quotechars) 
         ]
 
-class CsvReader(Reader):
+class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
 
     def __init__(self, has_header: bool=False, **dialect):
         self._dialect    = dialect
         self._has_header = has_header 
 
-    def filter(self, items: Iterable[str]) -> Iterable[MutableMap]:
+    def filter(self, items: Iterable[str]) -> Iterable[MutableSequence]:
 
         lines = iter(csv.reader(iter(filter(None,(i.strip() for i in items))), **self._dialect))
 
@@ -331,12 +340,12 @@ class CsvReader(Reader):
         for line in lines:
             yield line if not self._has_header else LazyHeadedDense(line,headers)
 
-class LibSvmReader(Reader):
+class LibsvmReader(Filter[Iterable[str], Iterable[Tuple[MutableMapping,Any]]]):
 
     """https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/"""
     """https://github.com/cjlin1/libsvm"""
 
-    def filter(self, lines: Iterable[str]) -> Iterable[MutableMap]:
+    def filter(self, lines: Iterable[str]) -> Iterable[Tuple[MutableMapping, Any]]:
 
         for line in filter(None,lines):
 
@@ -344,13 +353,13 @@ class LibSvmReader(Reader):
             labels = items[0].split(',')
             row    = { int(k):float(v) for i in items[1:] for k,v in [i.split(":")] }
 
-            yield [row, labels]
+            yield (row, labels)
 
-class ManikReader(Reader):
+class ManikReader(Filter[Iterable[str], Iterable[Tuple[MutableMapping,Any]]]):
 
     """http://manikvarma.org/downloads/XC/XMLRepository.html"""
     """https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view"""
 
-    def filter(self, lines: Iterable[str]) -> Iterable[MutableMap]:
+    def filter(self, lines: Iterable[str]) -> Iterable[Tuple[MutableMapping, Any]]:
         # we skip first line because it just has metadata
-        return LibSvmReader().filter(islice(lines,1,None))
+        return LibsvmReader().filter(islice(lines,1,None))

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Iterable, Dict, Any, Sequence, Union
 from coba.backports import Literal
 
-from coba.pipes import IO, NullIO
+from coba.pipes import Sink, NullSink
 from coba.exceptions import CobaException
 from coba.registry import CobaRegistry
 from coba.utilities import coba_exit
@@ -53,7 +53,7 @@ class CobaContext_meta(type):
     _cacher       = None
     _logger       = None
     _experiment   = None
-    _search_paths = [Path.home() , Path.cwd(), Path(sys.path[0]) ]
+    _search_paths = [Path.home() , Path.cwd(), Path(sys.path[0])]
     _store        = {}        
 
     def _load_file_configs(cls) -> Dict[str,Any]:
@@ -206,31 +206,27 @@ class CobaContext(metaclass=CobaContext_meta):
     """ #I'm not sure some of the claims in the docstring are still true...
     pass
 
-class LearnerContext_meta(type):
+class InteractionContext_meta(type):
     """Global context scoped to the currently executing learner on a process.
 
-    At this time this exists primarily to allow Learners to log more in-depth information 
-    about their performance for algorithm debugging and analysis.
+    At this time this exists primarily to allow Learners to log more in-depth information about
+    their performance and state for algorithm debugging and analysis after an experiment is finished.
     """
-    _logger = None
+    _learner_info = dict()
 
     @property
-    def logger(cls) -> IO[Iterable[Dict[str,Any]],Dict[str,Any]]:
-        """Log information about a learner.
+    def learner_info(cls) -> Dict[str,Any]:
+        """Information that can be accessed by EvaluationTasks to store information at Interaction granularity.
         
-        These values are stored in the Result.interactions table. This means leaners
-        can log information on each learn/predict call and researchers can access it 
-        after the experiment for in-depth analysis.
+        These values are stored in the Result.interactions table. This means leaners can log information on 
+        each learn/predict call and researchers can access it after the experiment for in-depth analysis.
         """
-        return cls._logger if cls._logger is not None else NullIO[Dict[str,Any]]()
+        return cls._learner_info
 
-    @logger.setter
-    def logger(cls, value: IO[Iterable[Dict[str,Any]],Dict[str,Any]]):
-        cls._logger = value
-
-class LearnerContext(metaclass=LearnerContext_meta):
+class InteractionContext(metaclass=InteractionContext_meta):
     """To support class properties before python 3.9 we must implement our properties directly 
        on a meta class. Using class properties rather than class variables is done to allow 
        lazy loading. Lazy loading moves errors to execution time instead of import time making
        them easier to debug as well as removing the potential for import time circular references.
     """ #I'm not sure some of the claims in the docstring are still true...
+    pass

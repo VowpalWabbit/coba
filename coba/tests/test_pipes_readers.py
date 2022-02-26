@@ -3,7 +3,7 @@ from itertools import count
 
 from coba.exceptions import CobaException
 
-from coba.pipes import LibSvmReader, ArffReader, CsvReader, ManikReader
+from coba.pipes import LibsvmReader, ArffReader, CsvReader, ManikReader
 from coba.contexts import NullLogger, CobaContext
 
 from coba.pipes.readers import LazyHeadedDense, LazyHeadedSparse
@@ -711,13 +711,13 @@ class LibsvmReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            [{1:2, 2:3} ,['0']],
-            [{1:1, 2:1}, ['1']],
-            [{     2:1}, ['2']],
-            [{1:1     }, ['1']]
+            ({1:2, 2:3} ,['0']),
+            ({1:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({1:1     }, ['1'])
         ]
         
-        self.assertEqual(expected, list(LibSvmReader().filter(lines)))
+        self.assertEqual(expected, list(LibsvmReader().filter(lines)))
 
     def test_trailing_whitespace(self):
         lines = [
@@ -728,13 +728,13 @@ class LibsvmReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            [{0:2, 2:3}, ['0']],
-            [{0:1, 2:1}, ['1']],
-            [{     2:1}, ['2']],
-            [{0:1     }, ['1']]
+            ({0:2, 2:3}, ['0']),
+            ({0:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({0:1     }, ['1'])
         ]
         
-        self.assertEqual(expected, list(LibSvmReader().filter(lines)))
+        self.assertEqual(expected, list(LibsvmReader().filter(lines)))
 
 class ManikReader_Tests(unittest.TestCase):
     def test_sparse(self):
@@ -747,10 +747,10 @@ class ManikReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            [{1:2, 2:3} ,['0']],
-            [{1:1, 2:1}, ['1']],
-            [{     2:1}, ['2']],
-            [{1:1     }, ['1']]
+            ({1:2, 2:3} ,['0']),
+            ({1:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({1:1     }, ['1'])
         ]
         
         self.assertEqual(expected, list(ManikReader().filter(lines)))
@@ -765,10 +765,10 @@ class ManikReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            [{1:2, 2:3}, ['0']],
-            [{1:1, 2:1}, ['1']],
-            [{     2:1}, ['2']],
-            [{1:1     }, ['1']]
+            ({1:2, 2:3}, ['0']),
+            ({1:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({1:1     }, ['1'])
         ]
         
         self.assertEqual(expected, list(ManikReader().filter(lines)))

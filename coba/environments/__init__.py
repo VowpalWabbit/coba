@@ -10,7 +10,7 @@ from coba.environments.primitives import Context, Action, Interaction, Environme
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir
 from coba.environments.filters    import Sort, Scale, Cycle, Impute
 from coba.environments.filters    import Binary, WarmStart, Sparse
-from coba.environments.filters    import FilteredEnvironment, EnvironmentFilter
+from coba.environments.filters    import EnvironmentFilter
 
 from coba.environments.simulated import SimulatedInteraction, SimulatedEnvironment
 from coba.environments.simulated import MemorySimulation, LambdaSimulation
@@ -46,7 +46,6 @@ __all__ = [
     'Impute',
     'Binary',
     'WarmStart',
-    'FilteredEnvironment',
     'Shuffle', 
     'Take',
     'Reservoir',

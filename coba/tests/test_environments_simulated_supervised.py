@@ -1,7 +1,7 @@
 import unittest.mock
 import unittest
 
-from coba.pipes        import ArffReader, ListIO
+from coba.pipes        import ArffSource, ListSource
 from coba.contexts     import CobaContext, CobaContext, NullLogger
 from coba.environments import SupervisedSimulation
 
@@ -10,11 +10,11 @@ CobaContext.logger = NullLogger()
 class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_params(self):
-        self.assertEqual({'super_source': "XY", 'super_type':'C'},SupervisedSimulation([1,2],[1,2]).params)
+        self.assertEqual({'source': "[X,Y]", 'label_type':'C'}, SupervisedSimulation([1,2],[1,2]).params)
 
     def test_source_reader_classification(self):
 
-        source = ListIO("""
+        source = ArffSource(ListSource("""
             @relation weather
             
             @attribute pH real
@@ -27,9 +27,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
             8.1,27,1410,2,no
             8.2,29,1180,2,no
             8.3,27,1020,1,yes
-        """.splitlines())
+        """.splitlines()))
 
-        interactions = list(SupervisedSimulation(source, ArffReader(), "coli").read())
+        interactions = list(SupervisedSimulation(source, "coli").read())
 
         self.assertEqual(len(interactions), 3)
 
@@ -53,7 +53,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_source_reader_regression_less_than_10(self):
 
-        source = ListIO("""
+        source = ArffSource(ListSource("""
             @relation weather
 
             @attribute pH real
@@ -66,9 +66,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
             8.1,27,1410,2,no
             8.2,29,1180,2,no
             8.3,27,1020,1,yes
-        """.splitlines())
+        """.splitlines()))
 
-        interactions = list(SupervisedSimulation(source, ArffReader(), "pH", label_type="R").read())
+        interactions = list(SupervisedSimulation(source, "pH", label_type="R").read())
 
         self.assertEqual(len(interactions), 3)
 
@@ -92,7 +92,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_source_reader_too_large_take(self):
 
-        source = ListIO("""
+        source = ArffSource(ListSource("""
             @relation weather
             
             @attribute pH real
@@ -105,11 +105,11 @@ class SupervisedSimulation_Tests(unittest.TestCase):
             8.1,27,1410,2,no
             8.2,29,1180,2,no
             8.3,27,1020,1,yes
-        """.splitlines())
+        """.splitlines()))
 
-        interactions = list(SupervisedSimulation(source, ArffReader(), "coli", take=5).read())
+        interactions = list(SupervisedSimulation(source, "coli", take=5).read())
 
-        self.assertEqual(len(interactions), 0)
+        self.assertEqual(len(interactions), 3)
 
     def test_X_Y_classification(self):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]
@@ -240,7 +240,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
         interactions = list(SupervisedSimulation(features, labels, take=4).read())
 
-        self.assertEqual(len(interactions), 0)
+        self.assertEqual(len(interactions), 3)
 
     def test_X_Y_empty(self):
         features = []

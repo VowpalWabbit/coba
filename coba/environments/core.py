@@ -3,10 +3,10 @@ import collections.abc
 from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional
 from coba.backports import Literal
 
-from coba.pipes import Source, Reader, CsvReader, HttpIO, ListIO, JsonDecode
+from coba.pipes import Pipes, Source, HttpSource, ListSource, JsonDecode
 from coba.exceptions import CobaException
 
-from coba.environments.filters     import FilteredEnvironment, EnvironmentFilter
+from coba.environments.filters     import EnvironmentFilter
 from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
@@ -42,10 +42,10 @@ class Environments:
         repo_url       = "https://github.com/mrucker/coba_prebuilds/blob/main"
         definition_url = f"{repo_url}/{name}/index.json?raw=True"
 
-        definition_rsp = HttpIO(definition_url).read()
+        definition_rsp = HttpSource(definition_url).read()
 
         if definition_rsp.status_code == 404:
-            root_dir_text = HttpIO("https://api.github.com/repos/mrucker/coba_prebuilds/contents/").read().content.decode('utf-8')
+            root_dir_text = HttpSource("https://api.github.com/repos/mrucker/coba_prebuilds/contents/").read().content.decode('utf-8')
             root_dir_json = JsonDecode().filter(root_dir_text)
             known_names   = [ obj['name'] for obj in root_dir_json if obj['name'] != "README.md" ]
             raise CobaException(f"The given prebuilt name, {name}, couldn't be found. Known names are: {known_names}")
@@ -54,7 +54,7 @@ class Environments:
         definition_txt = definition_txt.replace('"./', f'"{repo_url}/{name}/')
         definition_txt = definition_txt.replace('.json"', '.json?raw=True"')
 
-        return Environments.from_file(ListIO([definition_txt]))
+        return Environments.from_file(ListSource([definition_txt]))
 
     @staticmethod
     def from_linear_synthetic(
@@ -108,9 +108,8 @@ class Environments:
     @overload
     @staticmethod
     def from_supervised(
-        source: Union[str, Source[Any]],
-        reader: Reader = CsvReader(), 
-        label_col: Union[int,str] = 0,
+        source: Source,
+        label_col: Union[int,str] = None,
         label_type: Literal["C","R"] = "C",
         take: int = None) -> 'Environments':
         """Create a SimulatedEnvironment from a supervised dataset"""
@@ -121,8 +120,7 @@ class Environments:
     def from_supervised(
         X = Sequence[Any], 
         Y = Sequence[Any],
-        label_type: Literal["C","R"] = "C", 
-        take:int = None) -> 'Environments':
+        label_type: Literal["C","R"] = "C") -> 'Environments':
         """Create a SimulatedEnvironment from a supervised dataset"""
         ...
 
@@ -186,7 +184,7 @@ class Environments:
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
-        self._environments = [ FilteredEnvironment(e,f) for e in self._environments for f in filters ]
+        self._environments = [ Pipes.join(e,[f]) for e in self._environments for f in filters ]
         return self
 
     def __getitem__(self, index:int) -> Union[SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment]:

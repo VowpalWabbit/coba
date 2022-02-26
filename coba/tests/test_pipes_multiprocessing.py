@@ -1,12 +1,12 @@
 import unittest
 import pickle
 
-from queue           import Queue
-from threading       import Thread
-from multiprocessing import current_process, Barrier, Event
-from typing          import Iterable, Any
+from queue                       import Queue
+from threading                   import Thread
+from multiprocessing             import current_process, Event, Barrier
+from typing                      import Iterable, Any
 
-from coba.pipes import Filter, ListIO, Identity, QueueIO, NullIO
+from coba.pipes import Filter, ListSink, Identity, QueueSource, QueueSink, NullSink
 
 from coba.pipes.multiprocessing import PipeMultiprocessor, PipesPool
 
@@ -16,6 +16,14 @@ class NotPicklableFilter(Filter):
 
     def filter(self, item):
         return 'a'
+
+class ParamsFilter(Filter):
+    @property
+    def params(self):
+        return {'param':1}
+    
+    def filter(self, item):
+        pass
 
 class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -49,6 +57,12 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
         items = list(PipeMultiprocessor(Identity(), 1, 1, chunked=False).filter([[0,1,2,3]]))
         self.assertEqual(items, [[0,1,2,3]])
 
+    def test_params(self):
+        expected = ParamsFilter().params
+        actual   = PipeMultiprocessor(ParamsFilter(), 1, 1, chunked=False).params
+        
+        self.assertEqual(expected,actual)
+
     def test_singleprocess_singleperchild(self):
         items = list(PipeMultiprocessor(ProcessNameFilter(), 1, 1).filter([0,1,2,3]))
         self.assertEqual(len(set(items)), 4)
@@ -66,7 +80,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
         self.assertEqual(len(set(items)), 2)
 
     def test_filter_exception(self):
-        stderr_sink = ListIO()
+        stderr_sink = ListSink()
 
         list(PipeMultiprocessor(ExceptionFilter(), 2, 1, stderr_sink).filter(range(4)))
 
@@ -76,7 +90,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
             self.assertIn("Exception Filter", str(item))
 
     def test_items_not_picklable(self):
-        stderr_sink = ListIO()
+        stderr_sink = ListSink()
 
         list(PipeMultiprocessor(ProcessNameFilter(), 2, 1, stderr_sink).filter([NotPicklableFilter()]))
 
@@ -90,7 +104,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
     @unittest.skip("I have been unable to get this to work in the CI tests.")
     def test_class_definitions_not_loaded_in_main(self):
 
-        stderr_sink = ListIO()
+        stderr_sink = ListSink()
 
         global Test
         class Test:
@@ -110,84 +124,84 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
 
     def test_worker_stdin_stdout_no_max(self):
 
-        stdin  = QueueIO(Queue())
-        stdout = QueueIO(Queue())
-        stderr = QueueIO(Queue())
+        stdin  = QueueSource(Queue())
+        stdout = QueueSink(Queue())
+        stderr = QueueSink(Queue())
 
         filter = Identity()
 
-        stdin.write(pickle.dumps(1))
-        stdin.write(pickle.dumps(2))
-        stdin.write(None)
+        stdin._queue.put(pickle.dumps(1))
+        stdin._queue.put(pickle.dumps(2))
+        stdin._queue.put(None)
 
-        self.assertEqual(0,len(stdout))
-        self.assertEqual(0,len(stderr))
+        self.assertEqual(0,stdout._queue.qsize())
+        self.assertEqual(0,stderr._queue.qsize())
         PipesPool.worker(filter, stdin, stdout, stderr, None)
-        self.assertEqual(2,len(stdout))
-        self.assertEqual(1,next(stdout.read()))
-        self.assertEqual(2,next(stdout.read()))
-        self.assertEqual(0,len(stderr))
+        self.assertEqual(2,stdout._queue.qsize())
+        self.assertEqual(1,stdout._queue.get())
+        self.assertEqual(2,stdout._queue.get())
+        self.assertEqual(0,stderr._queue.qsize())
 
     def test_worker_stdin_stdout_max(self):
 
-        stdin  = QueueIO(Queue())
-        stdout = QueueIO(Queue())
-        stderr = QueueIO(Queue())
+        stdin  = QueueSource(Queue())
+        stdout = QueueSink(Queue())
+        stderr = QueueSink(Queue())
 
         filter = Identity()
 
-        stdin.write(pickle.dumps(1))
-        stdin.write(pickle.dumps(2))
-        stdin.write(None)
+        stdin._queue.put(pickle.dumps(1))
+        stdin._queue.put(pickle.dumps(2))
+        stdin._queue.put(None)
 
-        self.assertEqual(0,len(stdout))
-        self.assertEqual(0,len(stderr))
+        self.assertEqual(0,stdout._queue.qsize())
+        self.assertEqual(0,stderr._queue.qsize())
         PipesPool.worker(filter, stdin, stdout, stderr, 1)
-        self.assertEqual(1,len(stdout))
-        self.assertEqual(1,next(stdout.read()))
-        self.assertEqual(0,len(stderr))
+        self.assertEqual(1,stdout._queue.qsize())
+        self.assertEqual(1,stdout._queue.get())
+        self.assertEqual(0,stderr._queue.qsize())
 
     def test_worker_stderr(self):
 
-        stdin  = QueueIO(Queue())
-        stdout = QueueIO(Queue())
-        stderr = QueueIO(Queue())
+        stdin  = QueueSource(Queue())
+        stdout = QueueSink(Queue())
+        stderr = QueueSink(Queue())
 
         filter = ExceptionFilter()
 
-        stdin.write(pickle.dumps(1))
-        stdin.write(None)
+        stdin._queue.put(pickle.dumps(1))
+        stdin._queue.put(None)
 
-        self.assertEqual(0,len(stdout))
-        self.assertEqual(0,len(stderr))
+        self.assertEqual(0,stdout._queue.qsize())
+        self.assertEqual(0,stderr._queue.qsize())
         PipesPool.worker(filter, stdin, stdout, stderr, None)
-        self.assertEqual(0,len(stdout))
-        self.assertEqual(1,len(stderr))
-        self.assertEqual("Exception Filter", str(next(stderr.read())[2]))
+        self.assertEqual(0,stdout._queue.qsize())
+        self.assertEqual(1,stderr._queue.qsize())
+        self.assertEqual("Exception Filter", str(stderr._queue.get()[2]))
 
     def test_worker_iterable_filter_return(self):
 
-        stdin  = QueueIO(Queue())
-        stdout = QueueIO(Queue())
-        stderr = QueueIO(Queue())
+        stdin  = QueueSource(Queue())
+        stdout = QueueSink(Queue())
+        stderr = QueueSink(Queue())
 
         filter = ProcessNameFilter()
 
-        stdin.write(pickle.dumps(1))
-        stdin.write(None)
+        stdin._queue.put(pickle.dumps(1))
+        stdin._queue.put(None)
 
-        self.assertEqual(0,len(stdout))
-        self.assertEqual(0,len(stderr))
+        self.assertEqual(0,stdout._queue.qsize())
+        self.assertEqual(0,stderr._queue.qsize())
         PipesPool.worker(filter, stdin, stdout, stderr, None)
-        self.assertEqual(1,len(stdout))
-        self.assertEqual(1,len(next(stdout.read())))
-        self.assertEqual(0,len(stderr))
+        self.assertEqual(1,stdout._queue.qsize())
+        self.assertEqual(1,len(stdout._queue.get()))
+        self.assertEqual(0,stderr._queue.qsize())
 
     def test_terminate_stops_pipe(self):
 
         init_event = Event()
         term_event = Event()
-        pool       = PipesPool(1,None,NullIO())
+        pool       = PipesPool(1,None,NullSink())
 
         def sleepy_iter():
             yield 1
@@ -198,56 +212,56 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
             list(pool.map(Identity(), sleepy_iter()))
 
         thread = Thread(target=map_pool)
-        
+
         thread.start()
         init_event.wait() #make sure the pool has fully initialized
         pool.terminate()
         thread.join(4)
-        
+
         self.assertFalse(thread.is_alive())
 
     def test_terminate_called_on_exception(self):
 
         with self.assertRaises(Exception):
-            with PipesPool(1,None,NullIO()) as pool:
+            with PipesPool(1,None,NullSink()) as pool:
                 raise Exception()
 
         self.assertTrue(pool.is_terminated)
 
     def test_attribute_error(self):
-        stdin  = QueueIO(Queue())
-        stdout = QueueIO(Queue())
-        stderr = QueueIO(Queue())
+        stdin  = QueueSource(Queue())
+        stdout = QueueSink(Queue())
+        stderr = QueueSink(Queue())
 
         filter = ExceptionFilter(Exception("Can't get attribute"))
 
-        stdin.write(pickle.dumps(1))
-        stdin.write(pickle.dumps(2))
-        stdin.write(None)
+        stdin._queue.put(pickle.dumps(1))
+        stdin._queue.put(pickle.dumps(2))
+        stdin._queue.put(None)
 
-        self.assertEqual(0,len(stdout))
-        self.assertEqual(0,len(stderr))
+        self.assertEqual(0,stdout._queue.qsize())
+        self.assertEqual(0,stderr._queue.qsize())
         PipesPool.worker(filter, stdin, stdout, stderr, None)
-        self.assertEqual(0,len(stdout))
-        self.assertEqual(1,len(stderr))
-        self.assertIn("We attempted to evaluate", next(stderr.read()))
+        self.assertEqual(0,stdout._queue.qsize())
+        self.assertEqual(1,stderr._queue.qsize())
+        self.assertIn("We attempted to evaluate", stderr._queue.get())
 
     def test_keyboard_interrupt(self):
-        stdin  = QueueIO(Queue())
-        stdout = QueueIO(Queue())
-        stderr = QueueIO(Queue())
+        stdin  = QueueSource(Queue())
+        stdout = QueueSink(Queue())
+        stderr = QueueSink(Queue())
 
         filter = ExceptionFilter(KeyboardInterrupt())
 
-        stdin.write(pickle.dumps(1))
-        stdin.write(pickle.dumps(2))
-        stdin.write(None)
+        stdin._queue.put(pickle.dumps(1))
+        stdin._queue.put(pickle.dumps(2))
+        stdin._queue.put(None)
 
-        self.assertEqual(0,len(stdout))
-        self.assertEqual(0,len(stderr))
+        self.assertEqual(0,stdout._queue.qsize())
+        self.assertEqual(0,stderr._queue.qsize())
         PipesPool.worker(filter, stdin, stdout, stderr, None)
-        self.assertEqual(0,len(stdout))
-        self.assertEqual(0,len(stderr))
+        self.assertEqual(0,stdout._queue.qsize())
+        self.assertEqual(0,stderr._queue.qsize())
 
 if __name__ == '__main__':
     unittest.main()

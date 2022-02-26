@@ -7,14 +7,13 @@ from statistics import median
 from itertools import takewhile
 from typing import Iterable, Any, Dict
 
-from coba.pipes import QueueIO
 from coba.exceptions import CobaExit
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker
-from coba.contexts import LearnerContext
-from coba.environments import Environment, FilteredEnvironment, Interaction, SimulatedInteraction, LoggedInteraction
+from coba.contexts import InteractionContext
+from coba.environments import Environment, Interaction, SimulatedInteraction, LoggedInteraction
 
 class LearnerTask(ABC):
     """A task which describes a Learner."""
@@ -63,14 +62,6 @@ class EvaluationTask(ABC):
         """
         ...
 
-class AssertDictQueueIO(QueueIO[Dict[str,Any]]):
-
-    def write(self, item: Dict[str,Any] = {}, **kwargs: Any) -> None:
-
-        assert isinstance(item,dict), "The on-policy LearnerContext.logger was passed a non-dictionary object."
-        item.update(kwargs)
-        return super().write(item)
-
 class OnlineOnPolicyEvalTask(EvaluationTask):
     """Evaluate a Learner on a SimulatedEnvironment."""
 
@@ -88,12 +79,12 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
 
         random = CobaRandom(self._seed)
 
-        LearnerContext.logger = AssertDictQueueIO(block=False)
-
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
 
         for interaction in interactions:
+
+            InteractionContext.learner_info.clear()
 
             context = interaction.context
             actions = interaction.actions
@@ -110,7 +101,7 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
             learner.learn(context, action, reveal, prob, info)
             learn_time = time.time() - start_time
 
-            learner_info  = { k:v for item in LearnerContext.logger.read() for k,v in item.items() }
+            learner_info     = InteractionContext.learner_info
             interaction_info = {}
 
             for k,v in interaction.kwargs.items():
@@ -130,7 +121,6 @@ class OnlineOffPolicyEvalTask(EvaluationTask):
         self._time = time
 
     def process(self, learner: Learner, interactions: Iterable[LoggedInteraction]) -> Iterable[Dict[Any,Any]]:
-        LearnerContext.logger = AssertDictQueueIO(block=False)
 
         learn_time = 0
         predict_time = 0
@@ -139,6 +129,8 @@ class OnlineOffPolicyEvalTask(EvaluationTask):
         if not interactions: return
 
         for interaction in interactions:
+
+            InteractionContext.learner_info.clear()
 
             if "actions" not in interaction.kwargs:
                 info             = None
@@ -166,7 +158,7 @@ class OnlineOffPolicyEvalTask(EvaluationTask):
             learner.learn(interaction.context, interaction.action, reveal, prob, info)
             learn_time = time.time()-start_time
 
-            learner_info  = { k:v for item in LearnerContext.logger.read() for k,v in item.items() }
+            learner_info  = InteractionContext.learner_info
             time_info     = {"predict_time": predict_time, "learn_time": learn_time} if self._time else {}
 
             yield {**interaction_info, **learner_info, **time_info}
@@ -222,11 +214,7 @@ class SimpleEnvironmentTask(EnvironmentTask):
     """Describe an Environment using its Environment and Filter parameters."""
 
     def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
-            return {"type": self._source_name(environment), **environment.params }
-
-    def _source_name(self, env) -> str:
-        base_env = env._source if isinstance(env, FilteredEnvironment) else env
-        return type(base_env).__name__
+        return { k:v for k,v in environment.params.items() if v is not None }
 
 class ClassEnvironmentTask(EnvironmentTask):
     """Describe an Environment made from a Classification dataset.

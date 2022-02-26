@@ -4,7 +4,7 @@ from typing import cast, Iterable
 
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation
-from coba.pipes        import Pipe
+from coba.pipes        import Pipes
 from coba.learners     import Learner
 
 from coba.experiments.results import Result
@@ -249,8 +249,8 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         filter = CountFilter()
         src1   = CountReadSimulation()
-        sim1   = Pipe.join(src1, [filter])
-        sim2   = Pipe.join(src1, [filter])
+        sim1   = Pipes.join(src1, [filter])
+        sim2   = Pipes.join(src1, [filter])
         lrn1   = ModuloLearner("1")
         lrn2   = ModuloLearner("2")
 
@@ -295,8 +295,8 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         filter = CountFilter()
         src1   = CountReadSimulation()
-        sim1   = Pipe.join(src1, [filter])
-        sim2   = Pipe.join(src1, [filter])
+        sim1   = Pipes.join(src1, [filter])
+        sim2   = Pipes.join(src1, [filter])
 
         task1 = ObserveTask()
         task2 = ObserveTask()

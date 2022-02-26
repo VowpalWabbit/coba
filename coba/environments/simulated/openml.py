@@ -1,18 +1,18 @@
 import time
 import json
 
-from typing import Tuple, Sequence, Any, Iterable, Dict
+from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union
 from coba.backports import Literal
 
 from coba.random import random
-from coba.pipes import Pipe, Source, HttpIO, Drop, ArffReader, Identity, IdentityIO, Structure
+from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, ListSource, Structure, Reservoir
 from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 
 from coba.environments.simulated.supervised import SupervisedSimulation
 from coba.pipes.readers import LazyHeadedSparse
 
-class OpenmlSource(Source[Iterable[Tuple[Any,Any]]]):
+class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],Any]]]):
 
     def __init__(self, id:int, problem_type:Literal["C","R"] = "C", cat_as_str:bool=False):
 
@@ -26,6 +26,10 @@ class OpenmlSource(Source[Iterable[Tuple[Any,Any]]]):
             'arff' : f"openml_{id:0>6}_arff",
             'tasks': f"openml_{id:0>6}_tasks",
         }
+
+    @property
+    def params(self) -> Dict[str,Any]:
+        return  { "openml": self._data_id, "cat_as_str": self._cat_as_str }
 
     def read(self) -> Iterable[Tuple[Any, Any]]:
 
@@ -53,12 +57,12 @@ class OpenmlSource(Source[Iterable[Tuple[Any,Any]]]):
                 row_values = row._values.values() if isinstance(row,LazyHeadedSparse) else row._values
                 return "?" in row_values or "" in row_values
 
-            source    = IdentityIO(self._get_dataset_lines(dataset_description["file_id"], None))
+            source    = ListSource(self._get_dataset_lines(dataset_description["file_id"], None))
             reader    = ArffReader(cat_as_str=self._cat_as_str)
             drop      = Drop(drop_cols=ignore, drop_row=row_has_missing_values)
             structure = Structure([None, target])
 
-            return Pipe.join(source, [reader, drop, structure]).read()
+            return Pipes.join(source, [reader, drop, structure]).read()
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
@@ -108,7 +112,7 @@ class OpenmlSource(Source[Iterable[Tuple[Any,Any]]]):
         if srcsema: time.sleep(2*random())
 
         try:
-            with HttpIO(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
+            with HttpSource(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
 
                 if response.status_code == 412:
                     if 'please provide api key' in response.text:
@@ -215,23 +219,11 @@ class OpenmlSimulation(SupervisedSimulation):
 
         Args:
             id: The id given to the openml dataset. This can be found in the url openml.org/d/<id>.
-            take: How many interactions we'd like the simulation to have (these will be selected at random). Indicating
-                how many interactions to take here rather than via filter later offers performance advantages.
+            take: How many interactions we'd like the simulation to have (these will be selected at random).
             label_type: Whether classification or regression openml tasks should be used to create the simulation.
             cat_as_str: True if categorical features should be left as strings, false if they should be one hot encoded.
-
         """
-
-        self._openml_params = { "openml": id, "cat_as_str": cat_as_str, "openml_type": label_type }
-        super().__init__(OpenmlSource(id, label_type, cat_as_str), Identity(), None, label_type, take)
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        
-        super_params = super().params
-        super_params.pop("super_source")
-        
-        return {**super_params, **self._openml_params}
+        super().__init__(OpenmlSource(id, label_type, cat_as_str), None, label_type, take)
 
     def __str__(self) -> str:
         return f"Openml(id={self.params['openml']}, cat_as_str={self.params['cat_as_str']})"

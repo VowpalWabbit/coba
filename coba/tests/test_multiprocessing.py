@@ -7,7 +7,7 @@ from typing import Iterable, Any
 from coba.contexts        import CobaContext, NullLogger 
 from coba.contexts        import NullCacher, MemoryCacher
 from coba.contexts        import IndentLogger, BasicLogger, ExceptLog, StampLog, NameLog, DecoratedLogger
-from coba.pipes           import Filter, ListIO, Identity
+from coba.pipes           import Filter, ListSink, Identity
 from coba.multiprocessing import CobaMultiprocessor
 
 class NotPicklableFilter(Filter):
@@ -41,8 +41,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         CobaContext.logger = NullLogger()
 
     def test_logging(self):
-        
-        logger_sink = ListIO()
+        logger_sink = ListSink()
         logger      = DecoratedLogger([],IndentLogger(logger_sink), [NameLog(), StampLog()])
 
         CobaContext.logger = logger
@@ -55,7 +54,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         self.assertCountEqual(items, [ l.split(' ')[-1] for l in logger_sink.items ] )
 
     def test_filter_exception_logging(self):
-        CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListIO()),[])
+        CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
         CobaContext.cacher = NullCacher()
         
         list(CobaMultiprocessor(ExceptionFilter(), 2, 1).filter(range(4)))
@@ -67,7 +66,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         self.assertIn("Exception Filter", CobaContext.logger.sink.items[3])
 
     def test_read_exception_logging(self):
-        CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListIO()),[])
+        CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
         CobaContext.cacher = NullCacher()
         
         def broken_generator():
@@ -80,7 +79,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         self.assertIn("Generator Exception", CobaContext.logger.sink.items[0])
 
     def test_not_picklable_logging(self):
-        logger_sink = ListIO()
+        logger_sink = ListSink()
         CobaContext.logger = BasicLogger(logger_sink)
         CobaContext.cacher = NullCacher()
 
@@ -91,7 +90,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
 
     def test_double_call(self):
         
-        logger_sink = ListIO()
+        logger_sink = ListSink()
         logger      = DecoratedLogger([],IndentLogger(logger_sink), [NameLog(), StampLog()])
 
         CobaContext.logger = logger
@@ -107,7 +106,7 @@ class CobaMultiprocessor_ProcessFilter_Tests(unittest.TestCase):
 
     def test_coba_config_set_correctly(self):
         
-        log_sink = ListIO()
+        log_sink = ListSink()
 
         CobaContext.logger = NullLogger()
         CobaContext.cacher = NullCacher()
@@ -124,10 +123,10 @@ class CobaMultiprocessor_ProcessFilter_Tests(unittest.TestCase):
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertIsInstance(CobaContext.cacher, MemoryCacher)
         self.assertIsInstance(CobaContext.store , dict)
-        self.assertIsInstance(CobaContext.logger.sink, ListIO)
+        self.assertIsInstance(CobaContext.logger.sink, ListSink)
     
     def test_exception_logged_but_not_thrown(self):
-        log_sink = ListIO()
+        log_sink = ListSink()
 
         CobaContext.logger = NullLogger()
         CobaContext.cacher = NullCacher()

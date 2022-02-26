@@ -2,13 +2,11 @@ import collections.abc
 
 from itertools import product
 from typing import Sequence, Any, overload, Iterable
-from coba.pipes.io import DiskIO
 
 from coba.registry import CobaRegistry
-from coba.pipes import Source, JsonDecode
+from coba.pipes import Source, JsonDecode, UrlSource, Pipes
 from coba.exceptions import CobaException
 
-from coba.environments.filters import FilteredEnvironment
 from coba.environments.primitives import Environment
 
 class EnvironmentDefinitionFileV1(Source[Sequence[Environment]]):
@@ -21,7 +19,7 @@ class EnvironmentDefinitionFileV1(Source[Sequence[Environment]]):
 
     def __init__(self,arg) -> None:
 
-        self._source = DiskIO(arg) if isinstance(arg,str) else arg
+        self._source = UrlSource(arg) if isinstance(arg,str) else arg
 
     def read(self) -> Sequence[Environment]:
 
@@ -45,7 +43,7 @@ class EnvironmentDefinitionFileV1(Source[Sequence[Environment]]):
                 pieces = list(map(_construct, item))
                 
                 if hasattr(pieces[0][0],'read'):
-                    result = [ FilteredEnvironment(s, *f) for s in pieces[0] for f in product(*pieces[1:])]
+                    result = [ Pipes.join(s, f) for s in pieces[0] for f in product(*pieces[1:])]
                 else:
                     result = sum(pieces,[])
 

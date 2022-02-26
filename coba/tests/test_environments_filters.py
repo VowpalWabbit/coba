@@ -4,8 +4,7 @@ from math import isnan
 
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import LoggedInteraction, SimulatedInteraction
-from coba.environments import FilteredEnvironment
-from coba.environments import Identity, Sparse, Sort, Scale, Cycle, Impute, Binary, WarmStart, Shuffle, Take, Reservoir
+from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, WarmStart, Shuffle, Take, Reservoir
 
 class TestEnvironment:
 
@@ -34,36 +33,6 @@ class NoParamIdent:
         return 'NoParamIdent'
 
 CobaContext.logger = NullLogger()
-
-class FilteredEnvironment_Tests(unittest.TestCase):
-
-    def test_environment_no_filters(self):
-        ep = FilteredEnvironment(TestEnvironment("A"))
-
-        self.assertEqual(3, len(ep.read()))
-        self.assertEqual({"id":"A"}, ep.params)
-        self.assertEqual(str({"id":"A"}), str(ep))
-
-    def test_environment_one_filter(self):
-        ep = FilteredEnvironment(TestEnvironment("A"), Take(1))
-
-        self.assertEqual(1, len(list(ep.read())))
-        self.assertEqual({'id':'A', 'take':1}, ep.params)
-        self.assertEqual("{'id': 'A'},{'take': 1}", str(ep))
-
-    def test_environment_ident_filter_removed(self):
-        ep = FilteredEnvironment(TestEnvironment("A"), Identity(), Take(1))
-
-        self.assertEqual(1, len(list(ep.read())))
-        self.assertEqual({'id':'A', 'take':1}, ep.params)
-        self.assertEqual("{'id': 'A'},{'take': 1}", str(ep))
-
-    def test_environment_no_param_ident(self):
-        ep = FilteredEnvironment(TestEnvironment("A"), NoParamIdent())
-
-        self.assertEqual(3, len(list(ep.read())))
-        self.assertEqual({'id':'A'}, ep.params)
-        self.assertEqual("{'id': 'A'},NoParamIdent", str(ep))
 
 class Shuffle_Tests(unittest.TestCase):
 
@@ -180,7 +149,7 @@ class Take_Tests(unittest.TestCase):
         take_items = list(Take(4).filter(items))
 
         self.assertEqual(3, len(items))
-        self.assertEqual(0, len(take_items))
+        self.assertEqual(3, len(take_items))
 
     def test_params(self):
         self.assertEqual({'take':None}, Take(None).params)

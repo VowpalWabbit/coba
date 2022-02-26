@@ -52,7 +52,7 @@ class Cacher(Generic[_K, _V], ABC):
             key: The key to remove from the cache.
         """
         ...
-    
+
     @abstractmethod
     def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
         """Get a key from the cache. 
@@ -64,11 +64,11 @@ class Cacher(Generic[_K, _V], ABC):
             getter: A method for getting the value if necessary.
         """
         ...
-    
+
     @abstractmethod
     def release(self, key: _K) -> None:
         """Release any held resources for the key.
-        
+
         Args:
             key: The key to release resources for.
 
@@ -220,7 +220,7 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
     def release(self, key:str) -> None:
         if key in self._files:
             self._files.pop(key).close()
-            
+
 class ConcurrentCacher(Cacher[_K, _V]):
     """A cacher that is multi-process safe."""
 
@@ -259,7 +259,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
             return False
 
     def _acquire_read_lock(self, key: _K):
-        
+
         if self._has_write_lock(key):
             raise CobaException("The concurrent cacher was asked to enter a race condition.")
 
@@ -309,7 +309,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
     def _release_write_lock(self, key: _K):
         with self._lock:
             self._dict[key] = 0
-        
+
         with self._cond:
             self._cond.notify_all()
 
@@ -370,7 +370,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
 
                 if key not in self:
                     value = self._cache.get_put(key, getter)
-                    
+
                     self._switch_write_to_read_lock(key)
 
                     if inspect.isgenerator(value) or isinstance(value,Iterator):
@@ -378,7 +378,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
                     else:
                         self._release_read_lock(key)
                         return value
-                        
+
                 self._switch_write_to_read_lock(key)
                 value = self.get(key)
 
@@ -390,9 +390,9 @@ class ConcurrentCacher(Cacher[_K, _V]):
 
     def release(self, key:_K) -> None:
         self._cache.release(key)
-        
+
         while self._read_locks[(current_thread().ident,key)] > 0:
             self._release_read_lock(key)
-        
+
         while self._write_locks[(current_thread().ident,key)] > 0:
             self._release_write_lock(key)

@@ -203,10 +203,11 @@ class DiskCacher_Tests(unittest.TestCase):
 
     def test_get_put_multiline_csv_to_cache(self):
         cache = DiskCacher(self.Cache_Test_Dir)
-        self.assertFalse("test.csv" in cache)
-        self.assertEqual(list(cache.get_put("test.csv", lambda: [b"test", b"test2"])), [b"test", b"test2"])
-        self.assertEqual(list(cache.get("test.csv")), [b"test", b"test2"])
-        self.assertEqual(list(cache.get_put("test.csv", lambda: None)), [b"test", b"test2"])
+        self.assertFalse("test.csv.gz" in cache)
+        self.assertEqual(list(cache.get_put("test.csv.gz", lambda: [b"test", b"test2"])), [b"test", b"test2"])
+        self.assertEqual(list(cache.get("test.csv.gz")), [b"test", b"test2"])
+        self.assertEqual(list(cache.get("test.csv.gz")), [b"test", b"test2"])
+        self.assertEqual(list(cache.get_put("test.csv.gz", lambda: None)), [b"test", b"test2"])
 
     def test_get_put_None_cache_dir(self):
         cache = DiskCacher(None)

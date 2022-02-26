@@ -7,8 +7,9 @@ from typing import Iterable, Sequence, Any, Optional, Tuple, Union
 
 from coba.learners import Learner
 from coba.contexts import CobaContext
-from coba.pipes import Source, Filter, SourceFilters
-from coba.environments import SimulatedEnvironment, FilteredEnvironment
+from coba.pipes import Source, Filter
+from coba.pipes.core import SourceFilters
+from coba.environments import SimulatedEnvironment
 
 from coba.experiments.tasks import LearnerTask, EnvironmentTask, EvaluationTask
 from coba.experiments.results import Result
@@ -102,7 +103,7 @@ class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
             yield list(sorted(chunk, key=lambda c: (c.environ_id, -1 if c.learner_id is None else c.learner_id)))
 
     def _get_source(self, env):
-        return env._source if isinstance(env, (FilteredEnvironment, SourceFilters)) else env
+        return env._source if isinstance(env, SourceFilters) else env
 
 class ChunkByTask(Filter[Iterable[WorkItem], Iterable[Iterable[WorkItem]]]):
 
@@ -195,7 +196,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
     def _get_source(self, task:WorkItem) -> SimulatedEnvironment:
         if task.environ is None:
             return None
-        elif isinstance(task.environ, (SourceFilters, FilteredEnvironment)):
+        elif isinstance(task.environ, SourceFilters):
             return task.environ._source 
         else:
             return task.environ
@@ -206,7 +207,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
     def _get_id_filter(self, task:WorkItem) -> Tuple[int, Filter[SimulatedEnvironment,SimulatedEnvironment]]:
         if task.environ is None:
             return (-1,None)
-        elif isinstance(task.environ, (SourceFilters, FilteredEnvironment)):
+        elif isinstance(task.environ, SourceFilters):
             return (task.environ_id, task.environ._filter) 
         else:
             return (task.environ_id, None)

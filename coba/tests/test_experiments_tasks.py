@@ -3,9 +3,10 @@ import unittest
 import unittest.mock
 import importlib.util
 
-from coba.contexts     import LearnerContext
-from coba.environments import SimulatedInteraction, LoggedInteraction, FilteredEnvironment, Shuffle, SupervisedSimulation
+from coba.contexts     import InteractionContext
+from coba.environments import SimulatedInteraction, LoggedInteraction, Shuffle, SupervisedSimulation
 from coba.learners     import Learner
+from coba.pipes        import Pipes
 
 from coba.experiments.tasks import (
     OnlineOnPolicyEvalTask, ClassEnvironmentTask, SimpleEnvironmentTask, OnlineOffPolicyEvalTask, OnlineWarmStartEvalTask
@@ -31,7 +32,7 @@ class RecordingLearner(Learner):
         self._i += 1
 
         if self._with_log:
-            LearnerContext.logger.write(predict=self._i)
+            InteractionContext.learner_info.update(predict=self._i)
 
         action_index = len(self.predict_calls) % len(actions)
         self.predict_calls.append((context, actions))
@@ -43,7 +44,7 @@ class RecordingLearner(Learner):
     def learn(self, context, action, reward, probability, info):
 
         if self._with_log:
-            LearnerContext.logger.write(learn=self._i)
+            InteractionContext.learner_info.update(learn=self._i)
 
         self.learn_calls.append((context, action, reward, probability, info))
 #for testing purposes
@@ -55,14 +56,14 @@ class SimpleEnvironmentTask_Tests(unittest.TestCase):
         env  = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
         task = SimpleEnvironmentTask()
 
-        self.assertEqual({'type': 'SupervisedSimulation', **env.params}, task.process(env,env.read()))
+        self.assertEqual({**env.params}, task.process(env,env.read()))
 
     def test_environment_pipe_statistics_dense(self):
 
-        env  = FilteredEnvironment(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10), Shuffle(1))
+        env  = Pipes.join(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10), [Shuffle(1)])
         task = SimpleEnvironmentTask()
 
-        self.assertEqual({'type':'SupervisedSimulation', **env.params}, task.process(env,env.read()))
+        self.assertEqual({**env.params}, task.process(env,env.read()))
 
 class ClassEnvironmentTask_Tests(unittest.TestCase):
 
