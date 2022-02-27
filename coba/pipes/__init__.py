@@ -1,13 +1,13 @@
-"""This module contains core functionality for defining data and workflows within Coba.
+"""This module contains functionality for defining data and workflows within Coba.
 
-This module contains core functionality for defining jobs and working with datasets in Coba.
-One does not need any understanding of this module to use coba for research. That being said,
-a good understanding of the patterns in coba.pipes will help one understand coba and how to
-best take advantage what it has to offer. 
+This module is primarily intended for internal use within Coba. However, it is documented
+and made public for advanced use cases where existing Environment and Experiment creation
+functionality is not sufficient. That being said, a good understanding of the patterns 
+in coba.pipes can help one understand how to best take advantage what Coba has to offer. 
 """
 
 from coba.pipes.primitives import Filter, Source, Sink
-from coba.pipes.multiprocessing import PipeMultiprocessor
+from coba.pipes.multiprocessing import Multiprocessor
 
 from coba.pipes.filters import Take, Shuffle, Drop, Structure, Identity, Flatten, Default, Reservoir
 from coba.pipes.filters import Encode, JsonDecode, JsonEncode
@@ -22,7 +22,7 @@ __all__ = [
     "Filter",
     "Source",
     "Sink",
-    "PipeMultiprocessor",
+    "Multiprocessor",
     "Pipes",
     "Foreach",
     "JsonEncode",

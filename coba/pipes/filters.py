@@ -13,7 +13,7 @@ from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
 from coba.pipes.primitives import Filter
 
 class Identity(Filter[Any, Any]):
-    """Return whatever is given to the filter."""
+    """A filter which returns what is given."""
     def filter(self, item:Any) -> Any:
         return item
 
@@ -120,6 +120,7 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         return reservoir
 
 class JsonEncode(Filter[Any, str]):
+    """A filter which turn a Python object into JSON strings."""
 
     def _min(self,obj):
         #WARNING: This method doesn't handle primitive types such int, float, or str. We handle this shortcoming
@@ -169,6 +170,8 @@ class JsonEncode(Filter[Any, str]):
         return self._encoder.encode(self._min(copy.deepcopy([item]))[0] if self._minify else item).replace('"|',"").replace('|"',"")
 
 class JsonDecode(Filter[str, Any]):
+    """A filter which turns a JSON string into a Python object."""
+    
     def __init__(self, decoder: json.decoder.JSONDecoder = CobaJsonDecoder()) -> None:
         self._decoder = decoder
 
@@ -176,6 +179,7 @@ class JsonDecode(Filter[str, Any]):
         return self._decoder.decode(item)
 
 class Flatten(Filter[Iterable[Any], Iterable[Any]]):
+    """A filter which flattens rows in table shaped data."""
 
     def filter(self, data: Iterable[Any]) -> Iterable[Any]:
 
@@ -198,8 +202,16 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
             yield row
 
 class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
+    """A filter which encodes features in table shaped data."""
 
     def __init__(self, encoders:Dict[Union[str,int],Encoder], fit_using:int = None, missing_val: str = None):
+        """Instantiate an Encode filter.
+        
+        Args:
+            encoders: A mapping from feature names to the Encoder to be used on the data.
+            fit_using: The number of rows that should be used to fit the encoder.
+            missing_val: The value that should be used when a feature is missing from a row.
+        """
         self._encoders    = encoders
         self._fit_using   = fit_using
         self._missing_val = missing_val
@@ -249,10 +261,17 @@ class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Un
             yield item
 
 class Drop(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
-
+    """A filter which drops rows and columns from in table shaped data."""
+    
     def __init__(self, 
         drop_cols: Sequence[Union[str,int]] = [], 
         drop_row: Callable[[Union[MutableSequence,MutableMapping]], bool] = None) -> None:
+        """Instantiate a Drop filter.
+        
+        Args:
+            drop_cols: Feature names which should be dropped.
+            drop_row: A function that accepts a row and returns True if it should be dropped.
+        """
 
         self._drop_cols = sorted(drop_cols, reverse=True)
         self._drop_row  = drop_row or (lambda r: False)
@@ -267,8 +286,15 @@ class Drop(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Unio
             yield row
 
 class Structure(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Any]]):
-
+    """A filter which restructures rows in table shaped data."""
+    
     def __init__(self, structure: Sequence[Any]) -> None:
+        """Instantiate Structure filter.
+        
+        Args:
+            structure: The structure that each row should be reformed into. Items in the structure should be
+                feature names. A None value indicates the location that all left-over features will be placed.
+        """
         self._structure = []
         stack = [structure]
         while stack:
@@ -308,8 +334,14 @@ class Structure(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable
             yield working[0]
 
 class Default(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
+    """A filter which sets default values for row features in table shaped data."""
 
     def __init__(self, defaults: Dict[Any, Any]) -> None:
+        """Instantiate a Default filter.
+        
+        Args:
+            defaults: A mapping from feature names to their default values.
+        """
         self._defaults = defaults
 
     def filter(self, data: Iterable[Union[MutableSequence,MutableMapping]]) -> Iterable[Union[MutableSequence,MutableMapping]]:

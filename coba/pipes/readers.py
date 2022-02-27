@@ -109,20 +109,53 @@ class LazyHeadedSparse(collections.abc.MutableMapping):
     def __str__(self) -> str:
         return str(dict(self))
 
+class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
+    """A filter capable of parsing CSV formatted data."""
+    
+    def __init__(self, has_header: bool=False, **dialect):
+        """Instantiate a CsvReader.
+        
+        Args:
+            has_header: Indicates if the CSV data has a header row.
+            **dialect: This has the same values as Python's csv.reader dialect.
+        """
+        self._dialect    = dialect
+        self._has_header = has_header 
+
+    def filter(self, items: Iterable[str]) -> Iterable[MutableSequence]:
+
+        lines = iter(csv.reader(iter(filter(None,(i.strip() for i in items))), **self._dialect))
+
+        if self._has_header:
+            headers = dict(zip(next(lines), count()))
+
+        for line in lines:
+            yield line if not self._has_header else LazyHeadedDense(line,headers)
+
 class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMapping]]]):
+    """A filter capable of parsing ARFF formatted data.
 
-    """
-        https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
+    For a complete description of the ARFF format see `here`__.
+
+    __ https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
 
-    #this class has been highly highly optimized. Before modifying anything one should 
-    #run Performance_Tests.test_arffreader_performance to get a performance baseline.
+    #this class has been highly highly optimized. Before modifying anything run 
+    #Performance_Tests.test_arffreader_performance to get a performance baseline.
 
     def __init__(self, 
         cat_as_str: bool =False, 
         skip_encoding: bool = False, 
         lazy_encoding: bool = True, 
         header_indexing: bool = True):
+        """Instantiate an ArffReader.
+        
+        Args:
+            cat_as_str: Indicates that categorical features should be encoded as a string rather than one hot encoded. 
+            skip_encoding: Indicates that features should not be encoded (this means all features will be strings).
+            lazy_encoding: Indicates that features should be encoded lazily (this can save time if rows will be dropped).
+            header_indexing: Indicates that header data should be preserved so rows can be indexed by header name. 
+        """
 
         self._quotes = '"'+"'"
 
@@ -324,27 +357,14 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             {"delimeter":d, "quotechar": q, "skipinitialspace":True} for d,q in product(legal_delimeters, legal_quotechars) 
         ]
 
-class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
-
-    def __init__(self, has_header: bool=False, **dialect):
-        self._dialect    = dialect
-        self._has_header = has_header 
-
-    def filter(self, items: Iterable[str]) -> Iterable[MutableSequence]:
-
-        lines = iter(csv.reader(iter(filter(None,(i.strip() for i in items))), **self._dialect))
-
-        if self._has_header:
-            headers = dict(zip(next(lines), count()))
-
-        for line in lines:
-            yield line if not self._has_header else LazyHeadedDense(line,headers)
-
 class LibsvmReader(Filter[Iterable[str], Iterable[Tuple[MutableMapping,Any]]]):
+    """A filter capable of parsing Libsvm formatted data.
 
-    """https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/"""
-    """https://github.com/cjlin1/libsvm"""
+    For a complete description of the libsvm format see `here`__ and `here`__.
 
+    __ https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/
+    __ https://github.com/cjlin1/libsvm
+    """
     def filter(self, lines: Iterable[str]) -> Iterable[Tuple[MutableMapping, Any]]:
 
         for line in filter(None,lines):
@@ -356,9 +376,13 @@ class LibsvmReader(Filter[Iterable[str], Iterable[Tuple[MutableMapping,Any]]]):
             yield (row, labels)
 
 class ManikReader(Filter[Iterable[str], Iterable[Tuple[MutableMapping,Any]]]):
+    """A filter capable of parsing Manik formatted data.
 
-    """http://manikvarma.org/downloads/XC/XMLRepository.html"""
-    """https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view"""
+    For a complete description of the manik format see `here`__ and `here`__.
+
+    __ http://manikvarma.org/downloads/XC/XMLRepository.html
+    __ https://drive.google.com/file/d/1u7YibXAC_Wz1RDehN1KjB5vu21zUnapV/view
+    """
 
     def filter(self, lines: Iterable[str]) -> Iterable[Tuple[MutableMapping, Any]]:
         # we skip first line because it just has metadata

@@ -228,15 +228,23 @@ class PipesPool:
             #handle the keyboard interrupt correctly.
             pass
 
-class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
-
+class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
+    """Create multiple processes to filter given items."""
     def __init__(self,
         filter: Filter[Any, Any],
         n_processes: int = 1,
         maxtasksperchild: int = 0,
         stderr: Sink = ConsoleSink(),
         chunked: bool = True) -> None:
+        """Instantiate a Multiprocessor.
 
+        Args:
+            filter: The inner pipe that will be executed on multiple processes.
+            n_processes: The number of processes that should be created to filter items.
+            maxtasksperchild: The number of items a process should filter before being restarted.
+            stderr: The sink that all errors on background processes will be written to.
+            chunked: Indicates that the given items have been chunked. Setting this will flatten the return.
+        """
         self._filter           = filter
         self._n_processes      = n_processes
         self._maxtasksperchild = maxtasksperchild
@@ -244,7 +252,6 @@ class PipeMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
         self._chunked          = chunked
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-
         with PipesPool(self._n_processes, self._maxtasksperchild, self._stderr) as pool:
             for item in pool.map(self._filter, items):
                 if self._chunked:

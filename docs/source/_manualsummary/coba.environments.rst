@@ -27,7 +27,7 @@ Interfaces
       WarmStartEnvironment
 
 Interaction Types
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
@@ -37,6 +37,19 @@ Interaction Types
       SimulatedInteraction
       LoggedInteraction
 
+Raw Data Sources
+~~~~~~~~~~~~~~~~
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: class_with_ctor.rst
+
+      CsvSource
+      ArffSource
+      LibsvmSource
+      ManikSource
+      OpenmlSource
+
+      
 Simulated Environments
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -70,3 +83,4 @@ Environment Filters
       Reservoir
       Identity
       Sparse
+      Strict

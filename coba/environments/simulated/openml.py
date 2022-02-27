@@ -13,9 +13,19 @@ from coba.environments.simulated.supervised import SupervisedSimulation
 from coba.pipes.readers import LazyHeadedSparse
 
 class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],Any]]]):
+    """Load a source (local if cached) from openml.
+    
+    This is primarily used by OpenmlSimulation to create Environments for Experiments.
+    """
 
     def __init__(self, id:int, problem_type:Literal["C","R"] = "C", cat_as_str:bool=False):
-
+        """Instantiate an OpenmlSource.
+        
+        Args:
+            id: The data id uniquely identifying the data source on openml (i.e., openml.org/d/{id})
+            problem_type: Indicates if a regression or classification label should be used on the dataset.
+            cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded. 
+        """
         self._data_id      = id
         self._problem_type = problem_type
         self._cat_as_str   = cat_as_str
@@ -29,10 +39,11 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
     @property
     def params(self) -> Dict[str,Any]:
+        """Parameters describing the openml source."""
         return  { "openml": self._data_id, "cat_as_str": self._cat_as_str }
 
     def read(self) -> Iterable[Tuple[Any, Any]]:
-
+        """Read and parse the openml source."""
         try:
             dataset_description  = self._get_dataset_description(self._data_id)
 

@@ -330,7 +330,7 @@ class VowpalSoftmaxLearner(VowpalArgsLearner):
             ignore_linear: A list of namespaces to ignore when learning reward functions.
             seed: The seed used by VW to generate any necessary randomness.
         
-        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms.
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
         """
 
         options = [ "--cb_explore_adf", "--softmax", f"--lambda {softmax}" ]

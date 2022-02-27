@@ -4,8 +4,7 @@ from typing import Iterable, Any, Union, Dict
 from coba.exceptions import CobaException
 
 from coba.pipes.sinks      import QueueSink
-from coba.pipes.sources    import UrlSource, QueueSource
-from coba.pipes.readers    import ArffReader, ManikReader, CsvReader, LibsvmReader
+from coba.pipes.sources    import QueueSource
 from coba.pipes.primitives import Filter, Source, Sink
 
 class SourceFilters(Source):
@@ -65,7 +64,7 @@ class FiltersSink(Sink):
         return ",".join(map(str,[self._filter, self._sink]))
 
 class Pipes:
-
+    """A helper class to compose sequences of pipes."""
     class Line:
 
         def __init__(self, *pipes: Union[Source,Filter,Sink]) -> None:
@@ -94,7 +93,18 @@ class Pipes:
 
     @staticmethod
     def join(*pipes: Union[Source, Filter, Sink]) -> Union[Source, Filter, Sink, Line]:
+        """Join a sequence of pipes into a single pipe.
 
+        Args:
+            pipes: a sequence of pipes.
+
+        Returns:
+            A single pipe that is a composition of the given pipes. The type of pipe returned
+            is determined by the sequence given. A sequence of Filters will return a Filter. A
+            sequence that begins with a Source and is followed by Filters will return a Source.
+            A sequence that starts with Filters and ends with a Sink will return a Sink. A 
+            sequence that begins with a Source and ends with a Sink will return a completed pipe.
+        """
         if len(pipes) == 0:
             raise CobaException("No pipes were passed to join.")
 
@@ -119,15 +129,23 @@ class Pipes:
         raise CobaException("An unknown pipe was passed to join.")
 
 class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
+    """A pipe that wraps an inner pipe and passes items to it one at a time."""
 
-    def __init__(self, pipe: Union[Source[Any],Filter[Any,Any],Sink[Any]]):
+    def __init__(self, pipe: Union[Filter[Any,Any],Sink[Any]]):
+        """Instantiate a Foreach pipe.
+        
+        Args:
+            pipe: The pipe that we wish to pass a sequence of items one at a time.
+        """
         self._pipe = pipe
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        """Filter the items using the inner pipe. This method only works if the inner pipe is a Filter."""
         for item in items:
             yield self._pipe.filter(item)
 
     def write(self, items: Iterable[Any]):
+        """Write the items using the inner pipe. This method only works if the inner pipe is a Sink."""
         for item in items:
             self._pipe.write(item)
 

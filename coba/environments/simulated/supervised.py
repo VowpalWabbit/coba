@@ -13,23 +13,39 @@ from coba.statistics import percentile
 from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
 
 class CsvSource(Source[Iterable[MutableSequence]]):
+    """Load a source (either local or remote) in CSV format.
+    
+    This is primarily used by SupervisedSimulation to create Environments for Experiments.
+    """
 
     def __init__(self, source: Union[str,Source[Iterable[str]]], has_header:bool=False, **dialect) -> None:
+        """Instantiate a CsvSource.
+        
+        Args:
+            source: The data source. Accepts either a string representing the source location or another Source.
+            has_header: Indicates if the CSV files has a header row. 
+        """
         source = UrlSource(source) if isinstance(source,str) else source
         reader = CsvReader(has_header, **dialect)
         self._source = Pipes.join(source, reader)
 
     def read(self) -> Iterable[MutableSequence]:
+        """Read and parse the csv source."""
         return self._source.read()
 
     @property
     def params(self) -> Dict[str, Any]:
+        """Parameters describing the csv source."""
         return self._source.params
 
     def __str__(self) -> str:
         return str(self._source)
 
 class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping]]]):
+    """Load a source (either local or remote) in ARFF format.
+    
+    This is primarily used by SupervisedSimulation to create Environments for Experiments.
+    """
 
     def __init__(self, 
         source: Union[str,Source[Iterable[str]]], 
@@ -37,50 +53,82 @@ class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping
         skip_encoding: bool = False, 
         lazy_encoding: bool = True, 
         header_indexing: bool = True) -> None:
-
+        """Instantiate an ArffSource.
+        
+        Args:
+            source: The data source. Accepts either a string representing the source location or another Source.
+            cat_as_str: Indicates that categorical features should be encoded as a string rather than one hot encoded. 
+            skip_encoding: Indicates that features should not be encoded (this means all features will be strings).
+            lazy_encoding: Indicates that features should be encoded lazily (this can save time if rows will be dropped).
+            header_indexing: Indicates that header data should be preserved so rows can be indexed by header name. 
+        """
         source = UrlSource(source) if isinstance(source,str) else source
         reader = ArffReader(cat_as_str, skip_encoding, lazy_encoding, header_indexing)
         self._source = Pipes.join(source, reader)
 
     def read(self) -> Union[Iterable[MutableSequence], Iterable[MutableMapping]]:
+        """Read and parse the arff source."""
         return self._source.read()
 
     @property
     def params(self) -> Dict[str, Any]:
+        """Parameters describing the arff source."""
         return self._source.params
 
     def __str__(self) -> str:
         return str(self._source)
 
 class LibsvmSource(Source[Iterable[MutableMapping]]):
+    """Load a source (either local or remote) in Libsvm format.
+    
+    This is primarily used by SupervisedSimulation to create Environments for Experiments.
+    """
 
     def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
+        """Instantiate a LibsvmSource.
+        
+        Args:
+            source: The data source. Accepts either a string representing the source location or another Source.
+        """
         source = UrlSource(source) if isinstance(source,str) else source
         reader = LibsvmReader()
         self._source = Pipes.join(source, reader)
 
     def read(self) -> Iterable[MutableMapping]:
+        """Read and parse the libsvm source."""
         return self._source.read()
 
     @property
     def params(self) -> Dict[str, Any]:
+        """Parameters describing the libsvm source."""
         return self._source.params
 
     def __str__(self) -> str:
         return str(self._source)
 
 class ManikSource(Source[Iterable[MutableMapping]]):
+    """Load a source (either local or remote) in Manik format.
+    
+    This is primarily used by SupervisedSimulation to create Environments for Experiments.
+    """
 
     def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
+        """Instantiate a ManikSource.
+        
+        Args:
+            source: The data source. Accepts either a string representing the source location or another Source.
+        """
         source = UrlSource(source) if isinstance(source,str) else source
         reader = ManikReader()
         self._source = Pipes.join(source, reader)
 
     def read(self) -> Iterable[MutableMapping]:
+        """Read and parse the manik source."""
         return self._source.read()
 
     @property
     def params(self) -> Dict[str, Any]:
+        """Parameters describing the manik source."""
         return self._source.params
 
     def __str__(self) -> str:
@@ -149,9 +197,8 @@ class SupervisedSimulation(SimulatedEnvironment):
         return self._params
 
     def read(self) -> Iterable[SimulatedInteraction]:        
-        return self.filter(list(self._source.read()))
-
-    def filter(self, items: Iterable[Tuple[Any,Any]]) -> Iterable[SimulatedInteraction]:
+        
+        items = list(self._source.read())
 
         if not items: return []
 

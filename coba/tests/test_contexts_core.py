@@ -198,7 +198,7 @@ class CobaContext_Tests(unittest.TestCase):
         self.assertIn("TypeError: unsupported operand type(s)", lines[-1])
         self.assertTrue(str(e.exception).endswith("\n"))
 
-class LearnerContext_Tests(unittest.TestCase):
+class InteractionContext_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
         InteractionContext._info = None

@@ -15,18 +15,24 @@ class Pipe:
         return str(self.params)
 
 class Source(ABC, Pipe, Generic[_T_out]):
+    """A pipe that can be read."""
+    
     @abstractmethod
     def read(self) -> _T_out:
         """Read the item."""
         ...
 
-class Filter(ABC, Pipe, Generic[_T_in, _T_out]):    
+class Filter(ABC, Pipe, Generic[_T_in, _T_out]):
+    """A pipe that can modify an item."""
+
     @abstractmethod
     def filter(self, item: _T_in) -> _T_out:
         """Filter the item."""
         ...
 
 class Sink(ABC, Pipe, Generic[_T_in]):
+    """A pipe that writes item."""
+
     @abstractmethod
     def write(self, item: _T_in) -> None:
         """Write the item."""

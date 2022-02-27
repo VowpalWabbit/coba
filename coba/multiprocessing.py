@@ -4,7 +4,7 @@ from typing import Iterable, Any, Dict
 
 from coba.utilities import coba_exit
 from coba.contexts  import CobaContext, ConcurrentCacher, Logger, Cacher
-from coba.pipes     import Pipes, Filter, Sink, QueueIO, PipeMultiprocessor, Foreach
+from coba.pipes     import Pipes, Filter, Sink, QueueIO, Multiprocessor, Foreach
 
 class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
@@ -65,7 +65,7 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
                 filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, stdlog)
 
-                for item in PipeMultiprocessor(filter, self._processes, self._maxtasksperchild, stderr).filter(items):
+                for item in Multiprocessor(filter, self._processes, self._maxtasksperchild, stderr).filter(items):
                     yield item
 
                 stdlog.write(None) #attempt to shutdown the logging process gracefully by sending the poison pill

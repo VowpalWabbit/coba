@@ -15,7 +15,7 @@ from coba.environments.filters    import EnvironmentFilter
 from coba.environments.simulated import SimulatedInteraction, SimulatedEnvironment
 from coba.environments.simulated import MemorySimulation, LambdaSimulation
 from coba.environments.simulated import LinearSyntheticSimulation, NeighborsSyntheticSimulation
-from coba.environments.simulated import OpenmlSimulation
+from coba.environments.simulated import OpenmlSimulation, OpenmlSource
 from coba.environments.simulated import SupervisedSimulation, CsvSource, ArffSource, LibsvmSource, ManikSource
 from coba.environments.simulated import SerializedSimulation
 
@@ -36,6 +36,7 @@ __all__ = [
     'MemorySimulation',
     'LambdaSimulation',
     'OpenmlSimulation',
+    'OpenmlSource',
     'SupervisedSimulation',
     'CsvSource',
     'ArffSource',

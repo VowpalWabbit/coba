@@ -8,7 +8,7 @@ from typing                      import Iterable, Any
 
 from coba.pipes import Filter, ListSink, Identity, QueueSource, QueueSink, NullSink
 
-from coba.pipes.multiprocessing import PipeMultiprocessor, PipesPool
+from coba.pipes.multiprocessing import Multiprocessor, PipesPool
 
 class NotPicklableFilter(Filter):
     def __init__(self):
@@ -54,35 +54,35 @@ class ExceptionFilter(Filter):
 class PipeMultiprocessor_Tests(unittest.TestCase):
 
     def test_foreach_false(self):
-        items = list(PipeMultiprocessor(Identity(), 1, 1, chunked=False).filter([[0,1,2,3]]))
+        items = list(Multiprocessor(Identity(), 1, 1, chunked=False).filter([[0,1,2,3]]))
         self.assertEqual(items, [[0,1,2,3]])
 
     def test_params(self):
         expected = ParamsFilter().params
-        actual   = PipeMultiprocessor(ParamsFilter(), 1, 1, chunked=False).params
+        actual   = Multiprocessor(ParamsFilter(), 1, 1, chunked=False).params
         
         self.assertEqual(expected,actual)
 
     def test_singleprocess_singleperchild(self):
-        items = list(PipeMultiprocessor(ProcessNameFilter(), 1, 1).filter([0,1,2,3]))
+        items = list(Multiprocessor(ProcessNameFilter(), 1, 1).filter([0,1,2,3]))
         self.assertEqual(len(set(items)), 4)
 
     def test_singleprocess_multiperchild(self):
-        items = list(PipeMultiprocessor(ProcessNameFilter(), 1, None).filter(range(4)))
+        items = list(Multiprocessor(ProcessNameFilter(), 1, None).filter(range(4)))
         self.assertEqual(len(set(items)), 1)
 
     def test_multiprocess_singleperchild(self):
-        items = list(PipeMultiprocessor(ProcessNameFilter(), 2, 1).filter(range(4)))
+        items = list(Multiprocessor(ProcessNameFilter(), 2, 1).filter(range(4)))
         self.assertEqual(len(set(items)), 4)
 
     def test_multiprocess_multiperchild(self):
-        items = list(PipeMultiprocessor(BarrierNameFilter(), 2).filter(range(2)))
+        items = list(Multiprocessor(BarrierNameFilter(), 2).filter(range(2)))
         self.assertEqual(len(set(items)), 2)
 
     def test_filter_exception(self):
         stderr_sink = ListSink()
 
-        list(PipeMultiprocessor(ExceptionFilter(), 2, 1, stderr_sink).filter(range(4)))
+        list(Multiprocessor(ExceptionFilter(), 2, 1, stderr_sink).filter(range(4)))
 
         self.assertEqual(len(stderr_sink.items), 4)
 
@@ -92,13 +92,13 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
     def test_items_not_picklable(self):
         stderr_sink = ListSink()
 
-        list(PipeMultiprocessor(ProcessNameFilter(), 2, 1, stderr_sink).filter([NotPicklableFilter()]))
+        list(Multiprocessor(ProcessNameFilter(), 2, 1, stderr_sink).filter([NotPicklableFilter()]))
 
         self.assertEqual(1, len(stderr_sink.items))
         self.assertIn("pickle", stderr_sink.items[0])
 
     def test_empty_list(self):
-        items = list(PipeMultiprocessor(ProcessNameFilter(), 1, 1).filter([]))
+        items = list(Multiprocessor(ProcessNameFilter(), 1, 1).filter([]))
         self.assertEqual(len(items), 0)
 
     @unittest.skip("I have been unable to get this to work in the CI tests.")
@@ -111,7 +111,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
             pass
 
         def test_function():
-            list(PipeMultiprocessor(ProcessNameFilter(), 2, 1, stderr_sink).filter([Test()]*2))
+            list(Multiprocessor(ProcessNameFilter(), 2, 1, stderr_sink).filter([Test()]*2))
 
         t = Thread(target=test_function)
         t.start()
