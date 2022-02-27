@@ -157,10 +157,10 @@ class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
         return str(self._pipe)
 
 class QueueIO(Source[Iterable[Any]], Sink[Any]):
-    def __init__(self, queue:Queue=None, poison:Any=None, block:bool=True) -> None:
+    def __init__(self, queue:Queue=None, block:bool=True, poison:Any=None) -> None:
         self._queue  = queue or Queue()
         self._sink   = QueueSink(queue)
-        self._source = QueueSource(queue, poison, block)
+        self._source = QueueSource(queue, block, poison)
 
     def write(self, item: Any) -> None:
         self._sink.write(item)
