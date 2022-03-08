@@ -10,7 +10,7 @@ from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 
 from coba.environments.simulated.supervised import SupervisedSimulation
-from coba.pipes.readers import LazyHeadedSparse
+from coba.pipes.readers import SparseWithMeta
 
 class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],Any]]]):
     """Load a source (local if cached) from openml.
@@ -65,7 +65,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             if target in ignore: ignore.pop(ignore.index(target))
 
             def row_has_missing_values(row):
-                row_values = row._values.values() if isinstance(row,LazyHeadedSparse) else row._values
+                row_values = row._values.values() if isinstance(row,SparseWithMeta) else row._values
                 return "?" in row_values or "" in row_values
 
             source    = ListSource(self._get_dataset_lines(dataset_description["file_id"], None))

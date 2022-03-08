@@ -13,7 +13,7 @@ from coba.encodings import Encoder, OneHotEncoder
 
 from coba.pipes.primitives import Filter
 
-class LazyHeadedDense(collections.abc.MutableSequence):
+class DenseWithMeta(collections.abc.MutableSequence):
     def __init__(self, values: Sequence[Any], headers: Dict[str,int] = {}, encoders: Sequence[Callable[[Any],Any]] = []) -> None:
         self._headers  = headers
         self._encoders = encoders
@@ -64,7 +64,7 @@ class LazyHeadedDense(collections.abc.MutableSequence):
     def __str__(self) -> str:
         return str(list(map(self._values.__getitem__,self._old_indexes())))
 
-class LazyHeadedSparse(collections.abc.MutableMapping):
+class SparseWithMeta(collections.abc.MutableMapping):
 
     def __init__(self, values: Dict[Any,str], headers: Dict[str,Any] = {}, encoders: Dict[Any,Callable[[Any],Any]] = {}) -> None:
         self._headers  = headers
@@ -130,7 +130,7 @@ class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
             headers = dict(zip(next(lines), count()))
 
         for line in lines:
-            yield line if not self._has_header else LazyHeadedDense(line,headers)
+            yield line if not self._has_header else DenseWithMeta(line,headers)
 
 class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMapping]]]):
     """A filter capable of parsing ARFF formatted data.
@@ -289,7 +289,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             if not self._lazy_encoding and not self._header_indexing:
                 yield final_items
             else:
-                yield LazyHeadedDense(final_items, final_headers, final_encoders)
+                yield DenseWithMeta(final_items, final_headers, final_encoders)
 
     def _parse_sparse_data(self, 
         lines: Iterable[str], 
@@ -319,7 +319,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             if not self._lazy_encoding and not self._header_indexing:
                 yield final_items
             else:
-                yield LazyHeadedSparse(final_items, final_headers, final_encoders)
+                yield SparseWithMeta(final_items, final_headers, final_encoders)
 
     def _pattern_split(self, line: str, pattern: Pattern[str], n=None):
 

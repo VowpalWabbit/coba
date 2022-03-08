@@ -287,19 +287,23 @@ class InteractionsEncoder:
 
         self.n+= 1
 
-        is_sparse_type = lambda f: isinstance(f,dict) or isinstance(f,str)
-        is_sparse_sequ = lambda f: isinstance(f, collections.abc.Sequence) and any(map(is_sparse_type,f))
+        is_str = lambda v: isinstance(v,str)
+        is_seq = lambda v: isinstance(v,collections.abc.Sequence) and not is_str(v)
+        is_map = lambda v: isinstance(v,collections.abc.Mapping)
+
+        is_sparse_type = lambda f: is_map(f) or is_str(f)
+        is_sparse_sequ = lambda f: is_seq(f) and any(map(is_sparse_type,f))
 
         is_sparse = any(is_sparse_type(v) or is_sparse_sequ(v) for v in ns_raw_values.values())
 
         def make_all_dict_values(v) -> Dict[str,Union[str,float]]:
-            return v if isinstance(v,dict) else dict(zip(map(str,count()),v)) if isinstance(v,(list,tuple)) else { "0":v }
+            return v if is_map(v) else dict(zip(map(str,count()),v)) if is_seq(v) else { "0":v }
 
         def make_all_list_values(v) -> Sequence[Union[str,float]]:
-            return v if isinstance(v, (list,tuple)) else [v]
+            return v if is_seq(v) else [v]
 
         def handle_str_values(v: Dict[str,Union[str,float]]) -> Dict[str,float]:
-            return { (f"{x}{y}" if isinstance(y,str) else x):(1 if isinstance(y,str) else y) for x,y in v.items() }
+            return { (f"{x}{y}" if is_str(y) else x):(1 if is_str(y) else y) for x,y in v.items() }
 
         start = time.time()
         if is_sparse:
