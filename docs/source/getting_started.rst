@@ -36,7 +36,8 @@ To begin save the following Python code below to a text file called ``first.py``
     env = Environments.from_linear_synthetic(500)
     lrn = [ RandomLearner(), LinUCBLearner() ]
 
-    Experiment(env, lrn).evaluate().plot_learners()
+    result = Experiment(env, lrn).evaluate()
+    result.plot_learners()
 
 
 Once the file has been saved run the file using python.
@@ -52,19 +53,17 @@ When the code finishes running this exact plot should appear:
   :alt: First experiment plot
 
 And that's it. Just like that we've run an experiment comparing the performance
-of LinUCB to randomly selecting actions. Not only that but we also created three
-shuffles of our data in order to plot the standard error of the mean for average learner
-performance. This is just the tip of the iceberg for what is possible. Before going 
-further though we want to briefly stop to review the four core concepts in the code above.
+of LinUCB to randomly selecting actions. Not only that, but we also created three
+shuffles of our data in order to also estimate the standard error of the mean as shown by 
+the error bars in the plot. This is just the tip of the iceberg for what is possible.
 
-
-Core Concepts
+Key Concepts
 ~~~~~~~~~~~~~
 
-The experiment above introduced us to ``Coba``'s four core concepts.
+The experiment above introduced us to ``Coba``'s four key concepts.
 
 .. note::
-    All of ``Coba`` is organizaed around four core concepts. The four core concepts are
+    All of ``Coba`` is organizaed around four key concepts:
     
     1. Environments -- models of CB problems 
     2. Learners -- solvers of CB problems
