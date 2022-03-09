@@ -33,11 +33,11 @@ To begin save the following Python code below to a text file called ``first.py``
     from coba.learners     import RandomLearner, LinUCBLearner
     from coba.experiments  import Experiment
 
-    env = Environments.from_linear_synthetic(500).shuffle([1,2,3]).binary()
+    env = Environments.from_linear_synthetic(500)
     lrn = [ RandomLearner(), LinUCBLearner() ]
 
-    result = Experiment(env, lrn).evaluate()
-    result.plot_learners(xlim=(0,500), err='se')
+    Experiment(env, lrn).evaluate().plot_learners()
+
 
 Once the file has been saved run the file using python.
 
