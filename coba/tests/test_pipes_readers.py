@@ -716,8 +716,24 @@ class LibsvmReader_Tests(unittest.TestCase):
             ({     2:1}, ['2']),
             ({1:1     }, ['1'])
         ]
-        
+
         self.assertEqual(expected, list(LibsvmReader().filter(lines)))
+
+    def test_no_label_lines(self):
+        lines = [
+            "0 1:2 2:3",
+            "1:1 2:1",
+            "2 2:1",
+            "1:1",
+        ]
+
+        expected = [
+            ({1:2, 2:3} ,['0']),
+            ({     2:1}, ['2']),
+        ]
+
+        self.assertEqual(expected, list(LibsvmReader().filter(lines)))
+
 
     def test_trailing_whitespace(self):
         lines = [
@@ -753,6 +769,22 @@ class ManikReader_Tests(unittest.TestCase):
             ({1:1     }, ['1'])
         ]
         
+        self.assertEqual(expected, list(ManikReader().filter(lines)))
+
+    def test_no_label_lines(self):
+        lines = [
+            "abcde",
+            "0 1:2 2:3",
+            "1:1 2:1",
+            "2 2:1",
+            "1:1",
+        ]
+
+        expected = [
+            ({1:2, 2:3} ,['0']),
+            ({     2:1}, ['2']),
+        ]
+
         self.assertEqual(expected, list(ManikReader().filter(lines)))
 
     def test_trailing_whitespace(self):

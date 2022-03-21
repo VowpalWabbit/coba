@@ -59,10 +59,10 @@ class DenseWithMeta(collections.abc.MutableSequence):
         return list(self).__eq__(__o)
 
     def __repr__(self) -> str:
-        return str(list(map(self._values.__getitem__,self._old_indexes())))
+        return str(list(self))
 
     def __str__(self) -> str:
-        return str(list(map(self._values.__getitem__,self._old_indexes())))
+        return str(list(self))
 
 class SparseWithMeta(collections.abc.MutableMapping):
 
@@ -370,10 +370,13 @@ class LibsvmReader(Filter[Iterable[str], Iterable[Tuple[MutableMapping,Any]]]):
         for line in filter(None,lines):
 
             items  = line.strip().split(' ')
-            labels = items[0].split(',')
-            row    = { int(k):float(v) for i in items[1:] for k,v in [i.split(":")] }
 
-            yield (row, labels)
+            no_label_line = items[0] == '' or ":" in items[0]
+
+            if not no_label_line:
+                labels = items[0].split(',')
+                row    = { int(k):float(v) for i in items[1:] for k,v in [i.split(":")] }
+                yield (row, labels)
 
 class ManikReader(Filter[Iterable[str], Iterable[Tuple[MutableMapping,Any]]]):
     """A filter capable of parsing Manik formatted data.
