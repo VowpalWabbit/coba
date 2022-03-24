@@ -1,5 +1,5 @@
 
-name: tests_and_coverage
+name: test_sans_soft_dependencies
 
 on:
   push:
@@ -27,5 +27,5 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
       - run: pip list
       - run: python setup.py install -f
-      - run: coverage run -m unittest
+      - run: python -m unittest
  

@@ -1,7 +1,7 @@
 # codecov recommends calculating coverage on all configurations and submitting with flags
 # here https://community.codecov.com/t/upload-of-coverage-of-several-python-versions/2349/2
 
-name: tests_and_coverage
+name: test_with_soft_dependencies
 
 on:
   push:
