@@ -154,8 +154,8 @@ class VowpalOffpolicyLearner_Tests(unittest.TestCase):
 class VowpalArgsLearner_Tests(unittest.TestCase):
 
     def test_params(self):
-        
-        learners = VowpalArgsLearner()
+        vw = VowpalMediatorMock()
+        learners = VowpalArgsLearner(vw=vw)
 
         expected_args = [
             "--cb_explore_adf",
@@ -433,6 +433,14 @@ class VowpalMediator_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':[2]}, None)
+
+        self.assertEqual([(ex.get_feature_id("x",0),2)],list(ex.iter_features()))
+
+    def test_make_example_empty_list(self):
+
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
+        ex = vw.make_example({'x':[2], 'y':[]}, None)
 
         self.assertEqual([(ex.get_feature_id("x",0),2)],list(ex.iter_features()))
 
