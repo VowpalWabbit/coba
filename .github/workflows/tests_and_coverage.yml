@@ -30,7 +30,8 @@ jobs:
       - run: pip install wheel
       - run: pip install jupyterlab
         if: ${{ matrix.os == 'ubuntu-latest' }}
-      - run: pip install -r coba/tests/requirements.txt
+      - run: pip install -r coba/tests/hard_requirements.txt
+      - run: pip install -r coba/tests/soft_requirements.txt
       - run: pip list
       - run: python setup.py install -f
       - run: coverage run -m unittest

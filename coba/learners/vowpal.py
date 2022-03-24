@@ -158,8 +158,6 @@ class VowpalArgsLearner(Learner):
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
         """
 
-        PackageChecker.vowpalwabbit("VowpalArgsLearner")
-
         if "--cb" not in args: 
             raise CobaException("VowpalArgsLearner was instantiated without a cb flag. One cb flag must be defined.")
 
