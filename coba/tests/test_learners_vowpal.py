@@ -154,8 +154,8 @@ class VowpalOffpolicyLearner_Tests(unittest.TestCase):
 class VowpalArgsLearner_Tests(unittest.TestCase):
 
     def test_params(self):
-        vw = VowpalMediatorMock()
-        learners = VowpalArgsLearner(vw=vw)
+        
+        learners = VowpalArgsLearner()
 
         expected_args = [
             "--cb_explore_adf",
