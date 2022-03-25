@@ -166,7 +166,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                                 gc.collect()
 
                             if not interactions:
-                                CobaContext.logger.log(f"Environment {env_id} has nothing to evaluate (this is likely due to a 'Where' environments filter).")
+                                CobaContext.logger.log(f"Environment {env_id} has nothing to evaluate (this is likely due to having too few interactions).")
                                 break
 
                         for workitem in work_for_env_filter:
