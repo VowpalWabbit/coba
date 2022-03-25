@@ -4,26 +4,25 @@
 
 # Coba
 
-### What is it?
+ ### What is it?
 
  Coba is a powerful framework built to facilitate research with online contextual bandit (CB) algorithms.
 
-## Documentation
+ ### Documentation
  
  To start using Coba right away we recommend visiting our [documentation](https://coba-docs.readthedocs.io/).
 
- 
-### How do you research?
+ ### How do you research?
 
-Think for a second about the last time you considered evaluating CB methods for a research project
+ Think for a second about the last time you considered evaluating CB methods for a research project
 
  1. Was it easy to incorporate your own data sets during CB analysis?
  2. Was it easy to incorporate the wide array of available CB algorithms?
  3. Was it easy to create, run and share the results of CB experiments?
 
-Coba was built from the ground up to do these three things and more.
+ Coba was built from the ground up to do these three things and more.
 
-### The Coba Way
+ ### The Coba Way
  
  Coba is...
  
