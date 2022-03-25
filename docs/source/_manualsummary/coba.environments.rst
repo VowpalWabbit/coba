@@ -83,4 +83,4 @@ Environment Filters
       Reservoir
       Identity
       Sparse
-      Strict
+      Where

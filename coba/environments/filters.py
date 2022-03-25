@@ -346,44 +346,53 @@ class Sort(EnvironmentFilter):
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         return sorted(interactions, key=lambda interaction: tuple(interaction.context[key] for key in self._keys))
 
-class Strict(EnvironmentFilter):
-    """Define strict requirements an Environment must satisfy."""
+class Where(EnvironmentFilter):
+    """Define Environment selection criteria for an Environments pipe."""
 
-    def __init__(self, min_interactions: int = None, max_interactions: int = None) -> None:
-        """Instantiate a Strict filter.
+    def __init__(self, *, n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> None:
+        """Instantiate a Where filter.
 
         Args:
-            min_interactions: The minimum number of interactions an Environment must have. 
-            max_interactions: The maximum number of interaction an Environent must have.
+            n_interactions: The minimum, maximum or exact number of interactions Environments must have. 
         """
 
-        self._min_interactions = min_interactions
-        self._max_interactions = max_interactions
+        self._n_interactions = n_interactions
 
     @property
     def params(self) -> Dict[str, Any]:
         params = {}
 
-        if self._min_interactions is not None:
-            params["min_interactions"] = self._min_interactions
-        
-        if self._max_interactions is not None:
-            params["max_interactions"] = self._max_interactions
+        if self._n_interactions is not None:
+            params["where_n_interactions"] = self._n_interactions
 
         return params
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         
-        if self._min_interactions is not None or self._max_interactions is not None:
-            interactions = list(interactions)
+        interactions = iter(interactions)
 
-        if self._min_interactions is not None and len(interactions) < self._min_interactions:
+        if self._n_interactions is None or self._n_interactions == (None,None):
+            min_interactions  = None
+            max_interactions  = None
+            take_interactions = 0
+        elif isinstance(self._n_interactions, int):
+            min_interactions  = self._n_interactions
+            max_interactions  = self._n_interactions
+            take_interactions = self._n_interactions+1
+        else:
+            min_interactions  = self._n_interactions[0]
+            max_interactions  = self._n_interactions[1]
+            take_interactions = max(filter(lambda x: x is not None, list(self._n_interactions)))+1
+
+        taken_interactions = list(islice(interactions, take_interactions))
+
+        if max_interactions is not None and len(taken_interactions) > max_interactions:
             return []
 
-        if self._max_interactions is not None and len(interactions) > self._max_interactions:
+        if min_interactions is not None and len(taken_interactions) < min_interactions:
             return []
 
-        return interactions
+        return chain(taken_interactions, interactions)
 
 class WarmStart(EnvironmentFilter):
     """Turn a SimulatedEnvironment into a WarmStartEnvironment."""

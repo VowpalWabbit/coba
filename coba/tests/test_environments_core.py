@@ -299,16 +299,15 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('median', envs[0].params['impute_stat'])
         self.assertEqual(2       , envs[0].params['impute_using'])
 
-    def test_strict(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).strict(1,2)
+    def test_where(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).where(n_interactions = (1,2))
 
-        self.assertEqual(2   , len(envs))
-        self.assertEqual('A' , envs[0].params['id'])
-        self.assertEqual(1   , envs[0].params['min_interactions'])
-        self.assertEqual(2   , envs[0].params['max_interactions'])
-        self.assertEqual('B' , envs[1].params['id'])
-        self.assertEqual(1   , envs[1].params['min_interactions'])
-        self.assertEqual(2   , envs[1].params['max_interactions'])
+        self.assertEqual(2    , len(envs))
+
+        self.assertEqual('A'  , envs[0].params['id'])
+        self.assertEqual((1,2), envs[0].params['where_n_interactions'])
+        self.assertEqual('B'  , envs[1].params['id'])
+        self.assertEqual((1,2), envs[1].params['where_n_interactions'])
 
     def test_singular_filter(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1))

@@ -9,7 +9,7 @@ from coba.environments.core       import Environments
 from coba.environments.primitives import Context, Action, Interaction, Environment
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir
 from coba.environments.filters    import Sort, Scale, Cycle, Impute
-from coba.environments.filters    import Binary, WarmStart, Sparse, Strict
+from coba.environments.filters    import Binary, WarmStart, Sparse, Where
 from coba.environments.filters    import EnvironmentFilter
 
 from coba.environments.simulated import SimulatedInteraction, SimulatedEnvironment
@@ -51,7 +51,7 @@ __all__ = [
     'Cycle',
     'Impute',
     'Binary',
-    'Strict',
+    'Where',
     'WarmStart',
     'Shuffle', 
     'Take',

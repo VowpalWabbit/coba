@@ -1,13 +1,13 @@
 import collections.abc
 
-from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional
+from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple
 from coba.backports import Literal
 
 from coba.pipes import Pipes, Source, HttpSource, ListSource, JsonDecode
 from coba.exceptions import CobaException
 
 from coba.environments.filters     import EnvironmentFilter
-from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute, Strict
+from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute, Where
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
 from coba.environments          .primitives import Environment
@@ -181,9 +181,9 @@ class Environments:
         """Impute missing values with a feature statistic using a given number of interactions."""
         return self.filter(Impute(stat, using))
 
-    def strict(self, min_interactions:int = None, max_interactions:int = None) -> 'Environments':
-        """Require environments to satisify strict requirements."""
-        return self.filter(Strict(min_interactions, max_interactions))
+    def where(self,*,n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> 'Environments':
+        """Only include environments which satisify the given requirements."""
+        return self.filter(Where(n_interactions=n_interactions))
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""

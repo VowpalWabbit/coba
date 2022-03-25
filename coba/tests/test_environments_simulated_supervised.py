@@ -90,7 +90,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([.5, .5, 1], interactions[1].kwargs["rewards"])
         self.assertEqual([1 , 0, .5], interactions[2].kwargs["rewards"])
 
-    def test_source_reader_too_large_take(self):
+    def test_source_reader_too_large_take_no_min(self):
 
         source = ArffSource(ListSource("""
             @relation weather
@@ -107,9 +107,30 @@ class SupervisedSimulation_Tests(unittest.TestCase):
             8.3,27,1020,1,yes
         """.splitlines()))
 
-        interactions = list(SupervisedSimulation(source, "coli", take=5).read())
+        interactions = list(SupervisedSimulation(source, "coli", take=(None,5)).read())
 
         self.assertEqual(len(interactions), 3)
+
+    def test_source_reader_too_large_take_exact_min(self):
+
+        source = ArffSource(ListSource("""
+            @relation weather
+            
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {yes, no}
+            
+            @data
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.3,27,1020,1,yes
+        """.splitlines()))
+
+        interactions = list(SupervisedSimulation(source, "coli", take=(5,5)).read())
+
+        self.assertEqual(len(interactions), 0)
 
     def test_X_Y_classification(self):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]

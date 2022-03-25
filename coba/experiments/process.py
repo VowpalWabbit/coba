@@ -20,14 +20,14 @@ class WorkItem:
         environ_id: Optional[int],
         learner_id: Optional[int],
         environ   : Optional[SimulatedEnvironment],
-        learner   : Optional[Learner],        
+        learner   : Optional[Learner],
         task      : Union[LearnerTask, EnvironmentTask, EvaluationTask]) -> None:
 
         self.learner_id = learner_id
         self.environ_id = environ_id
-        self.learner = learner
-        self.environ = environ
-        self.task    = task
+        self.learner    = learner
+        self.environ    = environ
+        self.task       = task
 
 class CreateWorkItems(Source[Iterable[WorkItem]]):
 
@@ -166,7 +166,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                                 gc.collect()
 
                             if not interactions:
-                                CobaContext.logger.log(f"Environment {env_id} has nothing to evaluate (this is likely due to a Strict environment filter).")
+                                CobaContext.logger.log(f"Environment {env_id} has nothing to evaluate (this is likely due to a 'Where' environments filter).")
                                 break
 
                         for workitem in work_for_env_filter:
@@ -200,7 +200,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
             return task.environ._source 
         else:
             return task.environ
-    
+
     def _get_source_sort(self, task:WorkItem) -> int:
         return self._source_id.get(id(self._get_source(task)),-1)
 

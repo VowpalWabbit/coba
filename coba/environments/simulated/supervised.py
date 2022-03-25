@@ -1,7 +1,7 @@
 import collections.abc
 
 from itertools import chain, repeat
-from typing import Any, Iterable, Union, Sequence, overload, Dict, Tuple, MutableSequence, MutableMapping
+from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping, Tuple, Optional
 from coba.backports import Literal
 
 from coba.encodings import OneHotEncoder
@@ -14,13 +14,13 @@ from coba.environments.simulated.primitives import SimulatedEnvironment, Simulat
 
 class CsvSource(Source[Iterable[MutableSequence]]):
     """Load a source (either local or remote) in CSV format.
-    
+
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
 
     def __init__(self, source: Union[str,Source[Iterable[str]]], has_header:bool=False, **dialect) -> None:
         """Instantiate a CsvSource.
-        
+
         Args:
             source: The data source. Accepts either a string representing the source location or another Source.
             has_header: Indicates if the CSV files has a header row. 
@@ -43,18 +43,18 @@ class CsvSource(Source[Iterable[MutableSequence]]):
 
 class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping]]]):
     """Load a source (either local or remote) in ARFF format.
-    
+
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
 
     def __init__(self, 
-        source: Union[str,Source[Iterable[str]]], 
-        cat_as_str: bool = False, 
-        skip_encoding: bool = False, 
-        lazy_encoding: bool = True, 
+        source: Union[str,Source[Iterable[str]]],
+        cat_as_str: bool = False,
+        skip_encoding: bool = False,
+        lazy_encoding: bool = True,
         header_indexing: bool = True) -> None:
         """Instantiate an ArffSource.
-        
+
         Args:
             source: The data source. Accepts either a string representing the source location or another Source.
             cat_as_str: Indicates that categorical features should be encoded as a string rather than one hot encoded. 
@@ -80,13 +80,13 @@ class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping
 
 class LibsvmSource(Source[Iterable[MutableMapping]]):
     """Load a source (either local or remote) in Libsvm format.
-    
+
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
 
     def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
         """Instantiate a LibsvmSource.
-        
+
         Args:
             source: The data source. Accepts either a string representing the source location or another Source.
         """
@@ -108,13 +108,13 @@ class LibsvmSource(Source[Iterable[MutableMapping]]):
 
 class ManikSource(Source[Iterable[MutableMapping]]):
     """Load a source (either local or remote) in Manik format.
-    
+
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
 
     def __init__(self, source: Union[str,Source[Iterable[str]]]) -> None:
         """Instantiate a ManikSource.
-        
+
         Args:
             source: The data source. Accepts either a string representing the source location or another Source.
         """
@@ -142,7 +142,7 @@ class SupervisedSimulation(SimulatedEnvironment):
         source: Source = None,
         label_col: Union[int,str] = None,
         label_type: Literal["C","R"] = "C",
-        take:int = None) -> None:
+        take: Union[int, Tuple[Optional[int], Optional[int]]] = None) -> None:
         """Instantiate a SupervisedSimulation.
 
         Args:
@@ -177,7 +177,7 @@ class SupervisedSimulation(SimulatedEnvironment):
             label_col  = args[1] if len(args) > 1 else kwargs.get("label_col", None)
             label_type = args[2] if len(args) > 2 else kwargs.get("label_type", "C")
             take       = args[3] if len(args) > 3 else kwargs.get("take", None)
-            if take is not None     : source = Pipes.join(source, Reservoir(take))
+            if take      is not None: source = Pipes.join(source, Reservoir(take))
             if label_col is not None: source = Pipes.join(source, Structure((None,label_col)))
             params = source.params
 
@@ -190,14 +190,14 @@ class SupervisedSimulation(SimulatedEnvironment):
 
         self._label_type = label_type
         self._source     = source
-        self._params = {**params, "label_type": self._label_type }
+        self._params     = {**params, "label_type": self._label_type }
 
     @property
     def params(self) -> Dict[str,Any]:
         return self._params
 
-    def read(self) -> Iterable[SimulatedInteraction]:        
-        
+    def read(self) -> Iterable[SimulatedInteraction]:
+
         items = list(self._source.read())
 
         if not items: return []

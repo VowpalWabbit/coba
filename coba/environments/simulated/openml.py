@@ -1,11 +1,11 @@
 import time
 import json
 
-from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union
+from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, Optional
 from coba.backports import Literal
 
 from coba.random import random
-from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, ListSource, Structure, Reservoir
+from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, ListSource, Structure
 from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 
@@ -225,12 +225,16 @@ class OpenmlSimulation(SupervisedSimulation):
     incorrect lables).
     """
 
-    def __init__(self, id: int, take:int = None, label_type:Literal["C","R"] = "C", cat_as_str:bool = False) -> None:
+    def __init__(self, 
+        id: int, 
+        take: Union[int, Tuple[Optional[int], Optional[int]]] = None, 
+        label_type: Literal["C","R"] = "C", 
+        cat_as_str: bool = False) -> None:
         """Instantiate an OpenmlSimulation.
 
         Args:
             id: The id given to the openml dataset. This can be found in the url openml.org/d/<id>.
-            take: How many interactions we'd like the simulation to have (these will be selected at random).
+            take: The number of interactions we'd like the simulation to have (these will be selected at random).
             label_type: Whether classification or regression openml tasks should be used to create the simulation.
             cat_as_str: True if categorical features should be left as strings, false if they should be one hot encoded.
         """

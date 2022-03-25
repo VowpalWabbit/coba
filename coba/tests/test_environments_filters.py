@@ -4,7 +4,7 @@ from math import isnan
 
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import LoggedInteraction, SimulatedInteraction
-from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, WarmStart, Shuffle, Take, Reservoir, Strict
+from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, WarmStart, Shuffle, Take, Reservoir, Where
 
 class TestEnvironment:
 
@@ -124,6 +124,7 @@ class Sort_Tests(unittest.TestCase):
         self.assertEqual("{'sort': [0]}", str(Sort([0])))
 
 class Take_Tests(unittest.TestCase):
+    
     def test_bad_count(self):
         with self.assertRaises(ValueError):
             Take(-1)
@@ -131,49 +132,56 @@ class Take_Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Take('A')
 
-    def test_take1(self):
+        with self.assertRaises(ValueError):
+            Take((-1,5))
+
+    def test_take_exact_1(self):
 
         items = [ 1,2,3 ]
         take_items = list(Take(1).filter(items))
 
-        self.assertEqual(1, len(take_items))
-        self.assertEqual(items[0], take_items[0])
+        self.assertEqual([1    ], take_items)
+        self.assertEqual([1,2,3], items     )
 
-        self.assertEqual(3, len(items))
-        self.assertEqual(items[0], items[0])
-        self.assertEqual(items[1], items[1])
-        self.assertEqual(items[2], items[2])
+    def test_take_exact_2(self):
+        items = [ 1,2,3 ]
+        take_items = list(Take(2).filter(items))
 
-    def test_take4(self):
+        self.assertEqual([1,2  ], take_items)
+        self.assertEqual([1,2,3], items     )
+
+    def test_take_exact_3(self):
+        items = [ 1,2,3 ]
+        take_items = list(Take(3).filter(items))
+
+        self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
+
+    def test_take_exact_4(self):
         items = [ 1,2,3 ]
         take_items = list(Take(4).filter(items))
 
-        self.assertEqual(3, len(items))
-        self.assertEqual(3, len(take_items))
+        self.assertEqual([]     , take_items)
+        self.assertEqual([1,2,3], items     )
 
-    def test_params(self):
-        self.assertEqual({'take':None}, Take(None).params)
-        self.assertEqual({'take':2}, Take(2).params)
-
-    def test_str(self):
-        self.assertEqual("{'take': None}", str(Take(None)))
-
-class Strict_Tests(unittest.TestCase):
-
-    def test_filter(self):
-
+    def test_take_ranges(self):
         items = [ 1,2,3 ]
 
-        self.assertEqual([]     , list(Strict(max_interactions=1).filter(items)))
-        self.assertEqual([]     , list(Strict(min_interactions=4).filter(items)))
-        self.assertEqual([1,2,3], list(Strict(min_interactions=1).filter(items)))
-        self.assertEqual([1,2,3], list(Strict(                  ).filter(items)))
+        take_items = list(Take((2,5)).filter(items))
+        self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
 
-    def test_params(self):
-        self.assertEqual({'min_interactions':1                      }, Strict(1     ).params)
-        self.assertEqual({'min_interactions':1, 'max_interactions':2}, Strict(1   ,2).params)
-        self.assertEqual({                      'max_interactions':2}, Strict(None,2).params)
-        self.assertEqual({                                          }, Strict(      ).params)
+        take_items = list(Take((2,None)).filter(items))
+        self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
+
+        take_items = list(Take((None,5)).filter(items))
+        self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
+
+        take_items = list(Take((None,None)).filter(items))
+        self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
 
 class Resevoir_Tests(unittest.TestCase):
 
@@ -184,17 +192,73 @@ class Resevoir_Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Reservoir('A')
 
-    def test_take_seed(self):
-        take_items = list(Reservoir(2,seed=1).filter(range(10000)))
-        self.assertEqual(2, len(take_items))
-        self.assertLess(0, take_items[0])
-        self.assertLess(0, take_items[1])
+        with self.assertRaises(ValueError):
+            Reservoir((-1,5))
+
+    def test_take_exacts(self):
+        items = [1,2,3,4,5]
+
+        take_items = list(Reservoir(2,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([4, 2], take_items)
+
+        take_items = list(Reservoir(None,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(5,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(6,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
+        take_items = list(Reservoir(0,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
+    def test_take_ranges(self):
+        items = [1,2,3,4,5]
+
+        take_items = list(Reservoir((1,2),seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([4, 2], take_items)
+
+        take_items = list(Reservoir((None,None),seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir((None,5),seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir((6,None),seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
+class Where_Tests(unittest.TestCase):
+
+    def test_filter(self):
+
+        items = [ 1,2,3 ]
+
+        self.assertEqual([]     , list(Where(n_interactions=2       ).filter(items)))
+        self.assertEqual([]     , list(Where(n_interactions=4       ).filter(items)))
+        self.assertEqual([]     , list(Where(n_interactions=(None,1)).filter(items)))
+        self.assertEqual([]     , list(Where(n_interactions=(4,None)).filter(items)))
+        
+        self.assertEqual([1,2,3], list(Where(n_interactions=(1,None)).filter(items)))
+        self.assertEqual([1,2,3], list(Where(n_interactions=(None,4)).filter(items)))
+        self.assertEqual([1,2,3], list(Where(n_interactions=(1,4)   ).filter(items)))
+        self.assertEqual([1,2,3], list(Where(n_interactions=3       ).filter(items)))
+        self.assertEqual([1,2,3], list(Where(                       ).filter(items)))
 
     def test_params(self):
-        self.assertEqual({"reservoir_count":2, "reservoir_seed":3}, Reservoir(2,3).params)
-    
-    def test_str(self):
-        self.assertEqual(str({"reservoir_count":2, "reservoir_seed":3}), str(Reservoir(2,3)))
+        self.assertEqual({'where_n_interactions':(None,1)}, Where(n_interactions=(None,1)).params)
+        self.assertEqual({'where_n_interactions':(4,None)}, Where(n_interactions=(4,None)).params)
+        self.assertEqual({'where_n_interactions':1       }, Where(n_interactions=1       ).params)
+        self.assertEqual({                               }, Where(                       ).params)
 
 class Scale_Tests(unittest.TestCase):
 
