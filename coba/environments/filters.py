@@ -459,17 +459,22 @@ class CovariateShift(EnvironmentFilter):
         import random
         
         context_feature = len(interactions[0].context)
+        num_sets = int(len(interactions)/(self._covariate_shift_ratio+1))
+        num_remaining = len(interactions) % (self._covariate_shift_ratio+1)
         
         self._keys = [i for i in range(0,context_feature)]
         sorted_interactions = sorted(interactions, key=lambda interaction: tuple(interaction.context[key] for key in self._keys))
-        imbalanced_interactions_context = []
+        covariate_interactions = []
         
-        for i in range(int(len(sorted_interactions)/(self._covariate_shift_ratio+1))):
+        for i in range(num_sets):
             tempArr = sorted_interactions[self._covariate_shift_ratio*i:self._covariate_shift_ratio*(i+1)]
             tempArr.append(sorted_interactions[-1*(i+1)])
             random.shuffle(tempArr)
-            imbalanced_interactions_context += tempArr
+            covariate_interactions += tempArr
+            
+        ind = self._covariate_shift_ratio*(num_sets+1)
+        covariate_interactions += sorted_interactions[ind:ind+num_remaining]
                 
-        sorted_interactions = imbalanced_interactions_context
+        sorted_interactions = covariate_interactions
         
         return sorted_interactions
