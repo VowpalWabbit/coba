@@ -1,14 +1,14 @@
 import collections.abc
 
-from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple
-
+from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable
 from coba.backports import Literal
 
-from coba.pipes import Pipes, Source, HttpSource, ListSource, JsonDecode
+from coba.random     import CobaRandom
+from coba.pipes      import Pipes, Source, HttpSource, ListSource, JsonDecode
 from coba.exceptions import CobaException
 
 from coba.environments.filters     import EnvironmentFilter
-from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute, Where
+from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute, Where, Noise
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
 from coba.environments          .primitives import Environment
@@ -217,6 +217,14 @@ class Environments:
     def where(self,*,n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> 'Environments':
         """Only include environments which satisify the given requirements."""
         return self.filter(Where(n_interactions=n_interactions))
+
+    def noise(self,
+        context: Callable[[CobaRandom, float], float] = None, 
+        action : Callable[[CobaRandom, float], float] = None,
+        reward : Callable[[CobaRandom, float], float] = None,
+        seed   : int = 1) -> 'Environments':
+        """Add noise to an environments context, actions and rewards."""
+        return self.filter(Noise(context,action,reward,seed))
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""

@@ -6,7 +6,7 @@ from abc import abstractmethod, ABC
 from numbers import Number
 from collections import defaultdict
 from itertools import islice, chain
-from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple
+from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
 from coba.backports import Literal
 
 from coba            import pipes
@@ -14,7 +14,7 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 
-from coba.environments.primitives import Interaction
+from coba.environments.primitives import Interaction, Context, Action
 from coba.environments.logged.primitives import LoggedInteraction
 from coba.environments.simulated.primitives import SimulatedInteraction
 
@@ -399,7 +399,7 @@ class WarmStart(EnvironmentFilter):
 
     def __init__(self, n_warmstart:int, seed:int = 1):
         """Instantiate a WarmStart filter.
-        
+
         Args:
             n_warmstart: The number of interactions that should be turned into LoggedInteractions.
             seed: The random number seed that determines the random logging policy for LoggedInteractions.
@@ -424,11 +424,11 @@ class WarmStart(EnvironmentFilter):
     def _to_logged_interaction(self, interaction: SimulatedInteraction) -> LoggedInteraction:
         num_actions   = len(interaction.actions)
         probabilities = [1/num_actions] * num_actions 
-        
+
         selected_index       = self._rng.choice(list(range(num_actions)), probabilities)
         selected_action      = interaction.actions[selected_index]
         selected_probability = probabilities[selected_index]
-        
+
         kwargs = {"probability":selected_probability, "actions":interaction.actions}
 
         if "reveals" in interaction.kwargs:
@@ -478,3 +478,76 @@ class CovariateShift(EnvironmentFilter):
         sorted_interactions = covariate_interactions
         
         return sorted_interactions
+class Noise(EnvironmentFilter):
+    """Introduce noise to an environment."""
+
+    def __init__(self,
+        context: Callable[[CobaRandom, float], float] = None, 
+        action : Callable[[CobaRandom, float], float] = None,
+        reward : Callable[[CobaRandom, float], float] = None,
+        seed   : int = 1) -> None:
+        """Instantiate a Noise EnvironmentFilter.
+
+        Args:
+            context: A noise generator for context features.
+            action: A noise generator for action features.
+            reward: A noise generator for rewards.
+            seed: The seed initializing the random state of the noise generators.
+        """
+
+        self._no_noise = lambda _, x: x
+
+        if context is None and action is None and reward is None:
+            context = lambda rng, x: x+rng.gauss(0,1)
+
+        self._context_noise = context or self._no_noise
+        self._action_noise  = action  or self._no_noise
+        self._reward_noise  = reward  or self._no_noise
+        self._seed          = seed
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        
+        params = {}
+
+        if self._context_noise != self._no_noise: params['context_noise'] = True 
+        if self._action_noise != self._no_noise : params['action_noise' ] = True
+        if self._reward_noise != self._no_noise : params['reward_noise' ] = True
+
+        params['noise_seed'] = self._seed
+
+        return params        
+
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+
+        rng = CobaRandom(self._seed)
+
+        for interaction in interactions:
+
+            if isinstance(interaction, LoggedInteraction):
+                raise CobaException("We do not currently support adding noise to a LoggedInteraction.")
+
+            noisy_context = self._noises(interaction.context, rng, self._context_noise)
+            noisy_actions = [ self._noises(a, rng, self._action_noise) for a in interaction.actions ]
+
+            noisy_kwargs  = {}
+
+            if 'rewards' in interaction.kwargs and self._reward_noise:
+                noisy_kwargs['rewards'] = self._noises(interaction.kwargs['rewards'], rng, self._reward_noise)
+
+            yield SimulatedInteraction(noisy_context, noisy_actions, **noisy_kwargs)
+
+    def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[CobaRandom], float]):
+
+        if isinstance(value, collections.abc.Mapping):
+            #we sort so that noise generation is deterministic with respect to seed
+            return { k:self._noise(v, rng, noiser) for k,v in sorted(value.items()) }
+
+        if isinstance(value, collections.abc.Sequence):
+            return [ self._noise(v, rng, noiser) for v in value ]
+
+        return self._noise(value, rng, noiser)
+
+    def _noise(self, value:Union[None,float,str], rng: CobaRandom, noiser: Callable[[CobaRandom], float]) -> float:
+
+        return value if not isinstance(value,(int,float)) else noiser(rng,value)

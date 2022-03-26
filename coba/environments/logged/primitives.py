@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Sequence, Dict, Any, Iterable, overload, Optional
+from typing import Sequence, Any, Iterable, overload, Optional
 
 from coba.environments.primitives import Context, Action, Environment, Interaction
 
@@ -63,22 +63,16 @@ class LoggedInteraction(Interaction):
 
         self._context     = self._hashable(context)
         self._action      = self._hashable(action)
-        self._kwargs      = kwargs
 
-        if "actions" in self._kwargs:
-            self._kwargs["actions"] = list(map(self._hashable,self._kwargs["actions"]))
+        if "actions" in kwargs:
+            kwargs["actions"] = list(map(self._hashable, kwargs["actions"]))
 
-        super().__init__(self._context)
+        super().__init__(self._context, **kwargs)
 
     @property
     def action(self) -> Action:
         """The action that was taken."""
         return self._action
-
-    @property
-    def kwargs(self) -> Dict[str,Any]:
-        """Additional information associatd with the LoggedInteraction."""
-        return self._kwargs
 
 class LoggedEnvironment(Environment):
     """An Environment made from LoggedInteractions."""
