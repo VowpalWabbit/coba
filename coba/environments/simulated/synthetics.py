@@ -4,6 +4,8 @@ from statistics import variance, mean
 from itertools import count, islice, cycle
 from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Iterable
 
+from sklearn.neural_network import MLPRegressor
+
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.encodings import InteractionsEncoder, OneHotEncoder
@@ -393,3 +395,77 @@ class GaussianKernelSimulation(LambdaSimulation):
 
     def __str__(self) -> str:
         return f"GaussianKernel(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},seed={self._seed})"
+
+class MLPSimulation(LambdaSimulation):
+    """A lambda simulation whose reward values are determined by a MLP Classifier. 
+    """
+
+    def __init__(self,
+        n_interactions:int,
+        n_actions:int = 10,
+        n_context_features:int = 10,
+        n_action_features:int = 10,
+        seed: int = 1) -> None:
+        """Instantiate a MLPSimulation.
+
+        Args:
+            n_interactions: The number of interactions the simulation should have.
+            n_actions: The number of actions each interaction should have.
+            n_context_features: The number of features each context should have.
+            n_action_features: The number of features each action should have.
+            seed: The random number seed used to generate all features, weights and noise in the simulation.
+        """
+
+        from sklearn.neural_network import MLPRegressor
+        self._args = (n_interactions, n_actions, n_context_features, n_action_features, seed)
+
+        self._n_actions          = n_actions
+        self._n_context_features = n_context_features
+        self._n_action_features  = n_action_features
+        self._seed               = seed
+        self._m                  = MLPRegressor(random_state=self._seed)
+
+        self._rng = CobaRandom(self._seed)
+
+        def createReshape_action_context(context, action):
+            import numpy as np
+            X = context if n_context_features else [1]
+            A = action  if n_action_features  else [1] 
+            
+            if n_action_features or n_context_features:
+                F = [A, X]
+            else:
+                F = [1]
+
+            F = np.array(F)
+            F = F.reshape(-1,1)
+            return F.T
+
+        a = tuple(self._rng.randoms(n_action_features))
+        c = tuple(self._rng.randoms(n_context_features))
+        self._m.partial_fit(createReshape_action_context(a, c), [self._rng.random()])
+
+        def context(index:int, rng: CobaRandom) -> Context:
+            return tuple(self._rng.randoms(self._n_context_features))
+
+        def actions(index:int, context: Context, rng: CobaRandom) -> Sequence[Action]:
+            return [ tuple(self._rng.randoms(self._n_action_features)) for _ in range(self._n_actions) ]
+
+        def reward(index:int, context:Context, action:Action, rng: CobaRandom) -> float:
+
+            from sklearn.neural_network import MLPRegressor
+                           
+            r = self._m.predict(createReshape_action_context(context, action))
+            return r[0]
+
+        super().__init__(n_interactions, context, actions, reward, seed)
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return {"seed" : self._seed}
+
+    def __reduce__(self) -> Tuple[object, ...]:
+        return (MLPSimulation, self._args)
+
+    def __str__(self) -> str:
+        return f"MLP(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},seed={self._seed})"

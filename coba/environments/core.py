@@ -1,6 +1,7 @@
 import collections.abc
 
 from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple
+
 from coba.backports import Literal
 
 from coba.pipes import Pipes, Source, HttpSource, ListSource, JsonDecode
@@ -15,7 +16,7 @@ from coba.environments.logged   .primitives import LoggedEnvironment
 from coba.environments.simulated.primitives import SimulatedEnvironment
 from coba.environments.warmstart.primitives import WarmStartEnvironment
 
-from coba.environments.simulated.synthetics import GaussianKernelSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments.simulated.synthetics import GaussianKernelSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation, MLPSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
 
@@ -109,6 +110,22 @@ class Environments:
         return Environments([
             GaussianKernelSimulation(n_interactions, n_actions, n_context_features, n_action_features, n_exemplar, seed)
         ])
+
+    @staticmethod
+    def from_mlp(
+        n_interactions:int,
+        n_actions:int = 10,
+        n_context_features:int = 10,
+        n_action_features:int = 10,
+        seed: int = 1) -> 'Environments':
+        """
+        TODO: docstring
+        """
+
+        return Environments([
+            MLPSimulation(n_interactions, n_actions, n_context_features, n_action_features, seed)
+        ])
+
 
     @staticmethod
     def from_openml(
