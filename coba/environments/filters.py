@@ -438,3 +438,38 @@ class WarmStart(EnvironmentFilter):
             kwargs["reward"] = interaction.kwargs["rewards"][selected_index]
 
         return LoggedInteraction(interaction.context, selected_action, **kwargs)
+
+class CovariateShift(EnvironmentFilter):
+    """Manipulate Interactions in an Environment to simulate Covariate Shift via sorting."""
+
+    def __init__(self, covariate_shift_ratio: int = 3) -> None:
+        """Instantiate a Imbalance filter.
+
+        Args:
+            *keys: The context items that should be sorted on.
+        """
+        self._keys = []
+        self._covariate_shift_ratio = covariate_shift_ratio
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "sort": self._keys }
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        import random
+        
+        context_feature = len(interactions[0].context)
+        
+        self._keys = [i for i in range(0,context_feature)]
+        sorted_interactions = sorted(interactions, key=lambda interaction: tuple(interaction.context[key] for key in self._keys))
+        imbalanced_interactions_context = []
+        
+        for i in range(int(len(sorted_interactions)/(self._covariate_shift_ratio+1))):
+            tempArr = sorted_interactions[self._covariate_shift_ratio*i:self._covariate_shift_ratio*(i+1)]
+            tempArr.append(sorted_interactions[-1*(i+1)])
+            random.shuffle(tempArr)
+            imbalanced_interactions_context += tempArr
+                
+        sorted_interactions = imbalanced_interactions_context
+        
+        return sorted_interactions
