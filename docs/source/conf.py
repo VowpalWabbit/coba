@@ -111,8 +111,8 @@ coba.contexts.core.CobaContext_meta.__name__ = "CobaContext"
 coba.contexts.__dict__['CobaContext'] = coba.contexts.core.CobaContext_meta 
 
 #we have to point to meta because sphinx can't handle class level properties
-coba.contexts.core.LearnerContext_meta.__module__ = "coba.contexts"
-coba.contexts.core.LearnerContext_meta.__name__ = "LearnerContext"
-coba.contexts.__dict__['LearnerContext'] = coba.contexts.core.LearnerContext_meta
+coba.contexts.core.InteractionContext_meta.__module__ = "coba.contexts"
+coba.contexts.core.InteractionContext_meta.__name__ = "InteractionContext"
+coba.contexts.__dict__['InteractionContext'] = coba.contexts.core.InteractionContext_meta
 
 autosummary_generate_overwrite = False

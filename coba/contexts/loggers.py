@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import ContextManager, Iterator, Sequence, Union
 
-from coba.pipes import Pipe, Filter, Sink, NullIO, ConsoleIO
+from coba.pipes import Pipes, Filter, Sink, NullSink, ConsoleSink, Identity
 from coba.exceptions import CobaException
 
 class Logger(ABC):
@@ -52,7 +52,7 @@ class NullLogger(Logger):
     """A logger which writes nothing."""
 
     def __init__(self) -> None:
-        self._sink = NullIO()
+        self._sink = NullSink()
 
     @contextmanager
     def _context(self) -> 'Iterator[Logger]':
@@ -75,7 +75,7 @@ class NullLogger(Logger):
 class BasicLogger(Logger):
     """A Logger with flat hierarchy and separate begin/end messages."""
 
-    def __init__(self, sink: Sink[str] = ConsoleIO()):
+    def __init__(self, sink: Sink[str] = ConsoleSink()):
         """Instantiate a BasicLogger.
         
         Args:
@@ -132,7 +132,7 @@ class BasicLogger(Logger):
 class IndentLogger(Logger):
     """A Logger with indentation hierarchy and a single timed log with total runtime."""
 
-    def __init__(self, sink: Sink[str] = ConsoleIO()):
+    def __init__(self, sink: Sink[str] = ConsoleSink()):
         """Instantiate an IndentLogger.
         
         Args:
@@ -219,11 +219,11 @@ class DecoratedLogger(Logger):
             post_decorators: A sequence of decorators to be applied after the base logger.
         """
 
-        self._pre_decorator   = Pipe.join(pre_decorators)
+        self._pre_decorator   = Pipes.join(*pre_decorators) if pre_decorators else Identity()
         self._post_decorators = post_decorators
         self._logger          = logger
         self._original_sink   = self._logger.sink
-        self._logger.sink     = Pipe.join(post_decorators, self._original_sink)
+        self._logger.sink     = Pipes.join(*post_decorators, self._original_sink)
 
     @property
     def sink(self) -> Sink[str]:
@@ -232,7 +232,7 @@ class DecoratedLogger(Logger):
     @sink.setter
     def sink(self, sink: Sink[str]):
         self._original_sink = sink
-        self._logger.sink   = Pipe.join(self._post_decorators, sink)
+        self._logger.sink   = Pipes.join(*self._post_decorators, sink)
 
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         return self._logger.log(self._pre_decorator.filter(message))

@@ -1,0 +1,31 @@
+
+name: test_sans_soft_dependencies
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        python: ['3.6', '3.7', '3.8', '3.9']
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python --version
+      - run: pip install wheel
+      - run: pip install jupyterlab
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+      - run: pip list
+      - run: python setup.py install -f
+      - run: python -m unittest
+ 

@@ -7,11 +7,11 @@ experience with other frameworks these are similar in kind to ThreadContext, DbC
 
 from coba.contexts.cachers import Cacher, NullCacher, MemoryCacher, DiskCacher, ConcurrentCacher
 from coba.contexts.loggers import Logger, NullLogger, BasicLogger, IndentLogger, ExceptLog, NameLog, StampLog, DecoratedLogger
-from coba.contexts.core    import CobaContext, LearnerContext, ExperimentConfig
+from coba.contexts.core    import CobaContext, InteractionContext, ExperimentConfig
 
 __all__ =[
     'CobaContext',
-    'LearnerContext',
+    'InteractionContext',
     'ExperimentConfig',
     'NullCacher',
     'MemoryCacher',

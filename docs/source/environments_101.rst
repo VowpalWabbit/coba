@@ -1,30 +1,32 @@
 ====================
-Environments
+Environments 101
 ====================
 
-Within ``Coba`` environments are one of the core building blocks for experiments. An environment is a sequence
-of interactions with the world. Interactions represent situations where our Learner must make a decision. They
-are defined in terms of a context, actions and action rewards. 
+Within ``Coba`` environments are one of the core building blocks for experiments. Their primary role is to support 
+the training and evalaution of learner algorithms within experiments. In practical terms, environments are simply 
+sequences of interactions with the world, with each interaction representing an independent instance where a learner 
+must make a decision on how to act and then receive a reward. Natively, Coba provides support and analysis for two types 
+of interactions -- logged interactions (where often times only the reward will only be known for one decision) and simulated 
+interactions (where reward information is known for all potential decisions). By extension then  there also two types
+of environments: ``LoggedEnvironments`` and ``SimulatedEnvironments``.
 
-``Environments`` come in one of three flavors: ``SimulatedEnvironment``, ``LoggedEnvironment``, and ``WarmStartEnvironment``. 
-``SimulatedEnvironments`` contain reward information for each actio, ``LoggedEnvironments`` contain reward information for a single action, 
-and ``WarmStartEnvironments`` start as ``LoggedEnvironments`` in the "warm-start" phase and then turn into ``SimulatedEnvironments``.
 
 The Role of Environments
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Environments are important in ``Coba`` experiments because they allow us to both learn and evaluate how well we are learning. This
-dual purpose is possible because of the online structure in ``Coba`` experiments where we evaluate one interaction at a time rather
-than a batch of interactions. For anyone familiar with this kind of setting ``SimulatedEnvironments`` can generally be thought of as being
-most appropriate for on-policy experiments while ``LoggedEnvironments`` are most appropriate for off-policy experiments (i.e., logged as
-in logged bandit data).
+Environments are important in ``Coba`` experiments because they allow us to both learn policies and evaluate policies. The default 
+evaluation method in Coba uses an online learning architecture to both learn and evaluate in a single pass over an environment without
+having to define train-test splits. Additionally, for those familiar with contextual bandit learning, Coba provides support for on-policy
+and off-policy learning as well as on-policy and off-policy evaluation. In these cases ``SimulatedEnvironments`` can generally be thought 
+of as most appropriate for on-policy experiments while ``LoggedEnvironments`` are generally most appropriate for off-policy experiments.
 
 Friendly Environments API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``coba.environments`` module contains all functionality pertaining to creating and modifying Environments. This functionality can be
-a little overwhelming initially so a more simplified interface has been provided to help one get started called Environments. This can
-be imported as shown below. In the following examples we will demonstrate how to use the friendly API to create and modify environments
+a little overwhelming initially so a more simplified interface, called ``Environments``, has been provided to help one get started. This 
+can be imported as shown below. In what follows examples we are provided to demonstrate how to use the interface to create and modify 
+environments for use in experiments.
 
 .. code-block:: python
 
@@ -60,16 +62,16 @@ with Openml derived simulations. Otherwise ``Coba`` will download the dataset fr
 
 Often times Openml datasets will be larger than we want. In order to deal with this OpenmlSimulations can be told how many interactions to take 
 when creating the simulation. When the take parameter is provided a resevoir sampler will be used to reduce to the given number of examples. We 
-may also want to create multiple openml simulations at once to see how a Learner performs in general. Both of these usedcases are demonstrated below.
+may also want to create multiple openml simulations at once to see how a Learner performs in general. Both of these usecases are demonstrated below.
    
 .. code-block:: python
 
-    from coba.environments import Environments, OpenmlSimulation #Only one of these is needed
+    from coba.environments import Environments, OpenmlSimulation
     
     #Create 5 simulations by selecting 3000 random examples from eacah dataset
     env = Environments.from_openml([3, 44, 46, 151, 180], take=3000)
     
-    #Create 5 simulations by selecting 3000 random examples from eacah dataset
+    #This is equivalent to the Environments interface code immediately above
     env = [ OpenmlSimulation(id,take=3000) for id in [3, 44, 46, 151, 180] ]
 
 
@@ -82,16 +84,15 @@ one of the interfaces needs to be used in practice.
 
 .. code-block:: python
 
-    from coba.pipes import ArffReader
-    from coba.environments import Environments, SupervisedSimulation # Only one of these is needed
+    from coba.environments import Environments, SupervisedSimulation, ArffSource
         
-    #Create a simulation from an arff data set with regression labels at header "my_label"
+    #Create a simulation from an arff data set with regression labels under the header "my_label"
     #The take=1000 is an optional parameter that tells the simulation to only use 1000 randomly
     #selected examples from the data set.
-    env = Environments.from_supervised("path/file.arff", ArffReader(), label_type="R", label_col="my_label", take=1000)
+    env = Environments.from_supervised(ArffSource("path/file.arff"), label_type="R", label_col="my_label", take=1000)
         
     #This is equivalent to the Environments interface code immediately above
-    env = [ SupervisedSimulation("path/file.arff", ArffReader(), label_type="R", label_col="my_label", take=1000) ]
+    env = [ SupervisedSimulation(ArffSource("path/file.arff"), label_type="R", label_col="my_label", take=1000) ]
 
 
 From Synthetic Generation
@@ -105,16 +106,16 @@ we demonstrate below the two interfaces for working with these.
 .. code-block:: python
 
     from coba.environments import Environments, LinearSyntheticSimulation, LocalSyntheticSimulation
-        
-    #cross_terms controls the parameterization of the reward function where this example uses action features, action and context features, and action and context^2 featurs.
-    env = Environments.from_linear_synthetic(n_interactions=1000, n_actions=10, n_context_features=20, n_action_features=2, cross_terms = ["a", "ax", "axx"], r_noise_var=.1)
+
+    #reward_features controls the parameterization of the reward function where this example uses action features, action and context features, and action and context^2 featurs.
+    env = Environments.from_linear_synthetic(n_interactions=1000, n_actions=10, n_context_features=20, n_action_features=2, reward_features = ["a", "ax", "axx"], seed=1)
     
-    #n_contexts indicate the numbe of "exemplar" contexts to create and asign reward values to within the generated space
-    env = Environments.from_local_synthetic(n_interactions=1000, n_actions=10, n_context_features=20, n_contexts=200, seed=3)
+    #n_neighborhoods indicates the number of reward regions to define and asign reward values to within the generated space.
+    env = Environments.from_neighbors_synthetic(n_interactions=1000, n_actions=10, n_context_features=20, n_action_features=2, n_neighborhoods=200, seed=1)
     
-    #As we've demonstrated above here is the alternative interface for creating the synthetic environments
-    env = [ LinearSyntheticSimulation(n_interactions=1000, n_actions=10, n_context_features=20, n_action_features=2, cross_terms = ["a", "ax", "axx"], r_noise_var=.1) ]
-    env = [ LocalSyntheticSimulation(n_interactions=1000, n_actions=10, n_context_features=20, n_contexts=200, seed=3)]
+    #These are equivalent to the two Environments interface examples immediately above
+    env = [ LinearSyntheticSimulation(n_interactions=1000, n_actions=10, n_context_features=20, n_action_features=2, reward_features = ["a", "ax", "axx"], seed=1) ]
+    env = [ LocalSyntheticSimulation(n_interactions=1000, n_actions=10, n_context_features=20, n_neighborhoods=200, seed=1)]
     
 An additional simulation, called LambdaSimulation, is also available if even more control is needed when generating synthetic datasets. The LambdaSimulation is the base class
 of the two synthetic environments mentioned above. The LambdaSimulation allows one to define an environment in terms of three generative functions: a context generator, an
@@ -145,8 +146,8 @@ It is also possible to create a stochastic LambdaSimulation.
     
 .. code-block:: python
     
-   #Here is an example of a stochastic simulation, note the aditional rng parameter provided to the generators
-   #The flag to indicate that the LambdaSimulation is stochastic is the seed parameter when created below
+   #Here is an example of a stochastic simulation, note the additional rng parameter provided to the generators
+   #To indicate that the LambdaSimulation is stochastic the seed parameter must be passed when creating the LambdaSimulation as shown below
     
     contexts = [[1,2],[3,4],[5,6]]
     actions  = [1,4,7]
@@ -160,7 +161,7 @@ It is also possible to create a stochastic LambdaSimulation.
     def reward_generator(index, context, action, rng):
         return sum([ c*a for c,a in zip(context,action ]) + rng.random()/100
         
-    env = [ LambdaSimulation(n_interactions=1000, context_generator, action_generator, reward_generator, seed=2) ]
+    env = [ LambdaSimulation(n_interactions=1000, context_generator, action_generator, reward_generator, seed=1) ]
 
 From Scratch
 -----------------------------------
@@ -198,7 +199,7 @@ examples below. All available filters can be seen in the API Reference.
 
 .. code-block:: python
     
-    from coba.environments import Environments
+    from coba.environments import Environments, ArffSource
 
     #this single lines takes a single synthetic environment and turns it into three 
     #environments with the same three interactions shuffled into different orders.
@@ -212,12 +213,12 @@ examples below. All available filters can be seen in the API Reference.
     
     #when working with real world data sets often times we have features on wildly different scales
     #or we may have to deal with missing data. When these are our problems we can impute and scale.
-    Environments.from_supervised("my_data.arff.gz").impute("mean",1000).scale(shift="med",scale="iqr",using=1000).shuffle([1,2,3]).take(3000)
+    Environments.from_supervised(ArffSource("my_data.arff.gz")).impute("mean",1000).scale(shift="med",scale="iqr",using=1000).shuffle([1,2,3]).take(3000)
 
     #For very lage datasets shuffling and then taking can be problematic because shuffle requires all data to be loaded into memory.
     #To help with this Coba also provides resevoir sampling. This technique is a combination of take and shuffle and doesn't require
     #full data sets to be loaded into memory.
-    Environments.from_supervised("my_data.arff.gz").impute("mean",1000).scale(shift="med",scale="iqr",using=1000).reservoir(3000,[1,2,3]) 
+    Environments.from_supervised(ArffSource("my_data.arff.gz")).impute("mean",1000).scale(shift="med",scale="iqr",using=1000).reservoir(3000,[1,2,3]) 
     
     
 Conclusion

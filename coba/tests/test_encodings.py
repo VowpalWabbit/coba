@@ -1,6 +1,8 @@
 import unittest
 import math
 
+from coba.pipes.readers import DenseWithMeta, SparseWithMeta
+
 from coba.encodings import( 
     IdentityEncoder, StringEncoder, NumericEncoder, 
     OneHotEncoder, FactorEncoder, InteractionsEncoder,
@@ -187,6 +189,13 @@ class InteractionsEncoder_Tests(unittest.TestCase):
 
         self.assertEqual([1,2,3,1,2], interactions)
 
+    def test_dense_meta_x_a(self):
+        encoder = InteractionsEncoder(["x", "a"])
+
+        interactions = encoder.encode(x=DenseWithMeta([1,2,3]), a=[1,2])
+
+        self.assertEqual([1,2,3,1,2], interactions)
+
     def test_dense_x_a_xa_xxa(self):
         encoder = InteractionsEncoder(["x","a","xa","xxa"])
 
@@ -200,6 +209,13 @@ class InteractionsEncoder_Tests(unittest.TestCase):
         encoder = InteractionsEncoder(["x","a"])
 
         interactions = encoder.encode(x={"1":1,"2":2}, a={"1":3,"2":4})
+
+        self.assertEqual(dict([("x1",1), ("x2",2), ("a1",3), ("a2",4)]), interactions)
+
+    def test_sparse_meta_x_a(self):
+        encoder = InteractionsEncoder(["x","a"])
+
+        interactions = encoder.encode(x=SparseWithMeta({"1":1,"2":2}), a={"1":3,"2":4})
 
         self.assertEqual(dict([("x1",1), ("x2",2), ("a1",3), ("a2",4)]), interactions)
 

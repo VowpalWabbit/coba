@@ -4,8 +4,8 @@ import requests
 
 from pathlib import Path
 
+from coba.pipes import DiskSource, UrlSource
 from coba.exceptions import CobaException
-from coba.pipes import DiskIO, HttpIO
 from coba.environments import Environments, Environment, Shuffle, Take
 from coba.environments import SerializedSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 
@@ -57,7 +57,7 @@ class Environments_Tests(unittest.TestCase):
         try:
             Path("coba/tests/.temp/from_file.env").write_text('{ "environments" : { "OpenmlSimulation": 150 } }')
 
-            env = Environments.from_file(DiskIO("coba/tests/.temp/from_file.env"))
+            env = Environments.from_file(DiskSource("coba/tests/.temp/from_file.env"))
 
             self.assertEqual(1    , len(env))
             self.assertEqual(150  , env[0].params['openml'])
@@ -84,7 +84,7 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(envs))
         self.assertIsInstance(envs[0], SerializedSimulation)
-        self.assertIsInstance(envs[0]._source, HttpIO)
+        self.assertIsInstance(envs[0]._source, UrlSource)
         self.assertEqual(simulation_url, envs[0]._source._url)
 
     def test_from_prebuilt_unrecognized_name(self):
@@ -136,24 +136,18 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(5  , env.params['seed'])
 
     def test_from_supervised(self):
-        X = [1,2]
-        Y = [2,3]
-
-        env = Environments.from_supervised([1,2], [2,3], label_type="R", take=2)
+        env = Environments.from_supervised([1,2], [2,3], label_type="R")
         self.assertEqual(1   , len(env))
-        self.assertEqual("XY", env[0].params['super_source'])
-        self.assertEqual("R" , env[0].params['super_type'])
-        self.assertEqual(2   , env[0].params['super_take'])
+        self.assertEqual("[X,Y]", env[0].params['source'])
+        self.assertEqual("R" , env[0].params['label_type'])
 
     def test_from_openml_single(self):
         env = Environments.from_openml(100,100,'R',True)
-
         self.assertEqual(1   , len(env))
         self.assertEqual(100 , env[0].params['openml'])
         self.assertEqual(True, env[0].params['cat_as_str'])
-        self.assertEqual('R' , env[0].params['openml_type'])
-        self.assertEqual('R' , env[0].params['super_type'])
-        self.assertEqual(100 , env[0].params['super_take'])
+        self.assertEqual('R' , env[0].params['label_type'])
+        self.assertEqual(100 , env[0].params['reservoir_count'])
 
     def test_from_openml_multi(self):
         env = Environments.from_openml([100,200],100,'R',True)
@@ -161,14 +155,12 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2   , len(env))
         self.assertEqual(100 , env[0].params['openml'])
         self.assertEqual(True, env[0].params['cat_as_str'])
-        self.assertEqual('R' , env[0].params['openml_type'])
-        self.assertEqual('R' , env[0].params['super_type'])
-        self.assertEqual(100 , env[0].params['super_take'])
+        self.assertEqual('R' , env[0].params['label_type'])
+        self.assertEqual(100 , env[0].params['reservoir_count'])
         self.assertEqual(200 , env[1].params['openml'])
         self.assertEqual(True, env[1].params['cat_as_str'])
-        self.assertEqual('R' , env[1].params['openml_type'])
-        self.assertEqual('R' , env[1].params['super_type'])
-        self.assertEqual(100 , env[1].params['super_take'])
+        self.assertEqual('R' , env[1].params['label_type'])
+        self.assertEqual(100 , env[1].params['reservoir_count'])
 
     def test_init_args(self):
         env = Environments(TestEnvironment('A'), TestEnvironment('B'))
@@ -307,6 +299,15 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('median', envs[0].params['impute_stat'])
         self.assertEqual(2       , envs[0].params['impute_using'])
 
+    def test_where(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).where(n_interactions = (1,2))
+
+        self.assertEqual(2    , len(envs))
+
+        self.assertEqual('A'  , envs[0].params['id'])
+        self.assertEqual((1,2), envs[0].params['where_n_interactions'])
+        self.assertEqual('B'  , envs[1].params['id'])
+        self.assertEqual((1,2), envs[1].params['where_n_interactions'])
 
     def test_singular_filter(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1))

@@ -4,14 +4,12 @@ import timeit
 import importlib.util
 
 from pathlib import Path
-from coba.contexts.core import CobaContext
-from coba.contexts.loggers import IndentLogger
 
+from coba.pipes import ListSink
+from coba.contexts import CobaContext, IndentLogger
 from coba.exceptions import CobaException
-from coba.pipes import DiskIO
 
 from coba.experiments.results import Result, Table, InteractionsTable, TransactionIO, TransactionIO_V3, TransactionIO_V4
-from coba.pipes.io import ListIO
 
 class Table_Tests(unittest.TestCase):
 
@@ -526,10 +524,10 @@ class TransactionIO_Tests(unittest.TestCase):
 
     def test_simple_to_and_from_file_v2(self):
 
-        DiskIO("coba/tests/.temp/transaction.log").write('["version",2]')
+        Path("coba/tests/.temp/transaction.log").write_text('["version",2]')
 
         with self.assertRaises(CobaException):
-            io = TransactionIO("coba/tests/.temp/transaction.log")
+            TransactionIO("coba/tests/.temp/transaction.log")
 
     def test_simple_to_and_from_file_v3(self):
 
@@ -633,7 +631,7 @@ class Result_Tests(unittest.TestCase):
     def test_filter_fin_no_finished(self):
 
         CobaContext.logger = IndentLogger()
-        CobaContext.logger.sink = ListIO()
+        CobaContext.logger.sink = ListSink()
 
         sims = {1:{}, 2:{}}
         lrns = {1:{}, 2:{}}
@@ -671,7 +669,7 @@ class Result_Tests(unittest.TestCase):
     def test_filter_env_no_match(self):
 
         CobaContext.logger = IndentLogger() 
-        CobaContext.logger.sink = ListIO()
+        CobaContext.logger.sink = ListSink()
 
         sims = {1:{}, 2:{}}
         lrns = {1:{}, 2:{}}
@@ -725,8 +723,8 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_lrn_no_match(self):
         
-        CobaContext.logger=IndentLogger() 
-        CobaContext.logger.sink = ListIO()
+        CobaContext.logger = IndentLogger() 
+        CobaContext.logger.sink = ListSink()
 
         sims = {1:{}, 2:{}}
         lrns = {1:{}, 2:{}, 3:{}}
@@ -855,7 +853,7 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_data_bad_xlim(self):
 
         CobaContext.logger = IndentLogger()
-        CobaContext.logger.sink = ListIO()
+        CobaContext.logger.sink = ListSink()
 
         lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
         ints = {
@@ -1056,7 +1054,7 @@ class Result_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 CobaContext.logger = IndentLogger()
-                CobaContext.logger.sink = ListIO()
+                CobaContext.logger.sink = ListSink()
 
                 result = Result(None, None, {}, {}, {})
                 result.plot_learners()

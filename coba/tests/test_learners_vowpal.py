@@ -154,8 +154,8 @@ class VowpalOffpolicyLearner_Tests(unittest.TestCase):
 class VowpalArgsLearner_Tests(unittest.TestCase):
 
     def test_params(self):
-
-        learners = VowpalArgsLearner()
+        vw = VowpalMediatorMock()
+        learners = VowpalArgsLearner(vw=vw)
 
         expected_args = [
             "--cb_explore_adf",
@@ -317,7 +317,9 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         self.assertEqual("2:-0.5:0.2", vw._learn_calls[0].label)
 
     def test_predict_epsilon_not_adf_args_error_1(self):
-        learner = VowpalArgsLearner("--cb_explore --epsilon 0.75 --random_seed 20 --quiet")
+        
+        vw = VowpalMediatorMock()
+        learner = VowpalArgsLearner("--cb_explore --epsilon 0.75 --random_seed 20 --quiet", vw)
         learner.predict(None, [1,2,3,4])
 
         with self.assertRaises(Exception) as e:
@@ -326,7 +328,8 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         self.assertTrue("--cb_explore_adf" in str(e.exception))
 
     def test_predict_epsilon_not_adf_args_error_2(self):
-        learner = VowpalArgsLearner("--cb_explore --epsilon 0.75 --random_seed 20 --quiet")
+        vw = VowpalMediatorMock()
+        learner = VowpalArgsLearner("--cb_explore --epsilon 0.75 --random_seed 20 --quiet",vw)
         learner.predict(None, [1,2,3,4])
 
         with self.assertRaises(Exception) as e:
@@ -430,6 +433,14 @@ class VowpalMediator_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':[2]}, None)
+
+        self.assertEqual([(ex.get_feature_id("x",0),2)],list(ex.iter_features()))
+
+    def test_make_example_empty_list(self):
+
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
+        ex = vw.make_example({'x':[2], 'y':[]}, None)
 
         self.assertEqual([(ex.get_feature_id("x",0),2)],list(ex.iter_features()))
 

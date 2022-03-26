@@ -1,7 +1,7 @@
 # codecov recommends calculating coverage on all configurations and submitting with flags
 # here https://community.codecov.com/t/upload-of-coverage-of-several-python-versions/2349/2
 
-name: tests_and_coverage
+name: test_with_soft_dependencies
 
 on:
   push:
@@ -24,13 +24,15 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
+#caching was causing strange errors on windows-latest so it has been removed
 #          cache: 'pip'
 #          cache-dependency-path: '**/tests/requirements.txt'
       - run: python --version
       - run: pip install wheel
       - run: pip install jupyterlab
         if: ${{ matrix.os == 'ubuntu-latest' }}
-      - run: pip install -r coba/tests/requirements.txt
+      - run: pip install -r coba/tests/soft_dependencies.txt
+      - run: pip install coverage
       - run: pip list
       - run: python setup.py install -f
       - run: coverage run -m unittest

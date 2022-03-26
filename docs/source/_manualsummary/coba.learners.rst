@@ -42,16 +42,22 @@ Contextual Bandit Learners
       :template: class_with_ctor.rst
 
       LinUCBLearner
+
+Vowpal Contextual Bandit Learners
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: class_with_ctor.rst
+
       VowpalArgsLearner
+      VowpalEpsilonLearner
+      VowpalSoftmaxLearner
       VowpalBagLearner
       VowpalCoverLearner
-      VowpalEpsilonLearner
-      VowpalMediator
-      VowpalOffPolicyLearner
       VowpalRegcbLearner
-      VowpalSoftmaxLearner
       VowpalSquarecbLearner
-
+      
 Meta Learners
 ~~~~~~~~~~~~~
 

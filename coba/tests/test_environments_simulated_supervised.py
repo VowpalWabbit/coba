@@ -1,20 +1,20 @@
 import unittest.mock
 import unittest
 
-from coba.pipes        import ArffReader, ListIO
+from coba.pipes        import ListSource
 from coba.contexts     import CobaContext, CobaContext, NullLogger
-from coba.environments import SupervisedSimulation
+from coba.environments import SupervisedSimulation, CsvSource, ArffSource, LibsvmSource, ManikSource
 
 CobaContext.logger = NullLogger()
 
 class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_params(self):
-        self.assertEqual({'super_source': "XY", 'super_type':'C'},SupervisedSimulation([1,2],[1,2]).params)
+        self.assertEqual({'source': "[X,Y]", 'label_type':'C'}, SupervisedSimulation([1,2],[1,2]).params)
 
     def test_source_reader_classification(self):
 
-        source = ListIO("""
+        source = ArffSource(ListSource("""
             @relation weather
             
             @attribute pH real
@@ -27,9 +27,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
             8.1,27,1410,2,no
             8.2,29,1180,2,no
             8.3,27,1020,1,yes
-        """.splitlines())
+        """.splitlines()))
 
-        interactions = list(SupervisedSimulation(source, ArffReader(), "coli").read())
+        interactions = list(SupervisedSimulation(source, "coli").read())
 
         self.assertEqual(len(interactions), 3)
 
@@ -53,7 +53,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_source_reader_regression_less_than_10(self):
 
-        source = ListIO("""
+        source = ArffSource(ListSource("""
             @relation weather
 
             @attribute pH real
@@ -66,9 +66,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
             8.1,27,1410,2,no
             8.2,29,1180,2,no
             8.3,27,1020,1,yes
-        """.splitlines())
+        """.splitlines()))
 
-        interactions = list(SupervisedSimulation(source, ArffReader(), "pH", label_type="R").read())
+        interactions = list(SupervisedSimulation(source, "pH", label_type="R").read())
 
         self.assertEqual(len(interactions), 3)
 
@@ -90,9 +90,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([.5, .5, 1], interactions[1].kwargs["rewards"])
         self.assertEqual([1 , 0, .5], interactions[2].kwargs["rewards"])
 
-    def test_source_reader_too_large_take(self):
+    def test_source_reader_too_large_take_no_min(self):
 
-        source = ListIO("""
+        source = ArffSource(ListSource("""
             @relation weather
             
             @attribute pH real
@@ -105,9 +105,30 @@ class SupervisedSimulation_Tests(unittest.TestCase):
             8.1,27,1410,2,no
             8.2,29,1180,2,no
             8.3,27,1020,1,yes
-        """.splitlines())
+        """.splitlines()))
 
-        interactions = list(SupervisedSimulation(source, ArffReader(), "coli", take=5).read())
+        interactions = list(SupervisedSimulation(source, "coli", take=(None,5)).read())
+
+        self.assertEqual(len(interactions), 3)
+
+    def test_source_reader_too_large_take_exact_min(self):
+
+        source = ArffSource(ListSource("""
+            @relation weather
+            
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {yes, no}
+            
+            @data
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.3,27,1020,1,yes
+        """.splitlines()))
+
+        interactions = list(SupervisedSimulation(source, "coli", take=(5,5)).read())
 
         self.assertEqual(len(interactions), 0)
 
@@ -240,7 +261,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
         interactions = list(SupervisedSimulation(features, labels, take=4).read())
 
-        self.assertEqual(len(interactions), 0)
+        self.assertEqual(len(interactions), 3)
 
     def test_X_Y_empty(self):
         features = []
@@ -249,6 +270,78 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         interactions = list(SupervisedSimulation(features, labels).read())
 
         self.assertEqual(len(interactions), 0)
+
+class CsvSource_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        self.assertEqual([["1","2","3"]], list(CsvSource(ListSource(["1,2,3"])).read()))
+        self.assertEqual({}, CsvSource(ListSource(["1,2,3"])).params)
+        self.assertEqual('{},{}', str(CsvSource(ListSource(["1,2,3"]))))
+
+
+class ArffSource_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        lines = [
+            "@relation news20",
+            "@attribute a numeric",
+            "@attribute B numeric",
+            "@data",
+            "1,  2",
+            "2,  3",
+        ]
+
+        expected = [
+            [1, 2],
+            [2, 3]
+        ]
+
+        self.assertEqual(expected, list(ArffSource(ListSource(lines)).read()))
+        self.assertEqual({}, ArffSource(ListSource(lines)).params)
+        self.assertEqual('{},{}', str(ArffSource(ListSource(lines))))
+
+class LibsvmSource_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        lines = [
+            "0 1:2 2:3",
+            "1 1:1 2:1",
+            "2 2:1",
+            "1 1:1",
+        ]
+
+        expected = [
+            ({1:2, 2:3} ,['0']),
+            ({1:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({1:1     }, ['1'])
+        ]
+
+        self.assertEqual(expected, list(LibsvmSource(ListSource(lines)).read()))
+        self.assertEqual({}, LibsvmSource(ListSource(lines)).params)
+        self.assertEqual('{},{}', str(LibsvmSource(ListSource(lines))))
+
+class ManikSource_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        lines = [
+            "meta line",
+            "0 1:2 2:3",
+            "1 1:1 2:1",
+            "2 2:1",
+            "1 1:1",
+        ]
+
+        expected = [
+            ({1:2, 2:3} ,['0']),
+            ({1:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({1:1     }, ['1'])
+        ]
+
+        self.assertEqual(expected, list(ManikSource(ListSource(lines)).read()))
+        self.assertEqual({}, ManikSource(ListSource(lines)).params)
+        self.assertEqual('{},{}', str(ManikSource(ListSource(lines))))
 
 if __name__ == '__main__':
     unittest.main()

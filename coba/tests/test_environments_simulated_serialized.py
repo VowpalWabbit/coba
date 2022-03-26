@@ -1,9 +1,8 @@
 import unittest
 
-from coba.pipes        import ListIO, HttpIO
+from coba.pipes        import ListSink, ListSource, HttpSource, DiskSource
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import SimulatedInteraction, MemorySimulation, SerializedSimulation
-from coba.pipes.io import DiskIO
 
 CobaContext.logger = NullLogger()
 
@@ -22,20 +21,20 @@ class SerializedSimulation_Tests(unittest.TestCase):
 
     def test_http_url(self):
         env = SerializedSimulation("https://github.com")
-        self.assertIsInstance(env._source, HttpIO)
+        self.assertIsInstance(env._source._source, HttpSource)
         self.assertEqual("https://github.com", env._source._url)
 
     def test_filepath(self):
         env = SerializedSimulation("C:/test")
-        self.assertIsInstance(env._source, DiskIO)
-        self.assertEqual("C:/test", env._source._filename)
+        self.assertIsInstance(env._source._source, DiskSource)
+        self.assertEqual("C:/test", env._source._source._filename)
 
     def test_sim_write_read_simple(self):
-        expected_env = MemorySimulation(params={}, interactions=[SimulatedInteraction(1,[1,2],rewards=[2,3])])
-        serial_IO    = ListIO()
-        actual_env   = SerializedSimulation(serial_IO)
+        sink = ListSink()
 
-        SerializedSimulation(expected_env).write(serial_IO)
+        expected_env = MemorySimulation(params={}, interactions=[SimulatedInteraction(1,[1,2],rewards=[2,3])])
+        SerializedSimulation(expected_env).write(sink)
+        actual_env = SerializedSimulation(ListSource(sink.items))
 
         self.assertEqual(expected_env.params, actual_env.params)
         self.assertEqual(len(list(expected_env.read())), len(list(actual_env.read())))        
@@ -45,11 +44,11 @@ class SerializedSimulation_Tests(unittest.TestCase):
             self.assertEqual(e_interaction.kwargs , a_interaction.kwargs )
 
     def test_sim_write_read_with_params_and_none_context(self):
-        expected_env = MemorySimulation(params={'a':1}, interactions=[SimulatedInteraction(None,[1,2],rewards=[2,3])])
-        serial_IO    = ListIO()
-        actual_env   = SerializedSimulation(serial_IO)
+        sink = ListSink()
 
-        SerializedSimulation(expected_env).write(serial_IO)
+        expected_env = MemorySimulation(params={'a':1}, interactions=[SimulatedInteraction(None,[1,2],rewards=[2,3])])
+        SerializedSimulation(expected_env).write(sink)
+        actual_env = SerializedSimulation(ListSource(sink.items))
 
         self.assertEqual(expected_env.params, actual_env.params)
         self.assertEqual(len(list(expected_env.read())), len(list(actual_env.read())))        
@@ -59,11 +58,11 @@ class SerializedSimulation_Tests(unittest.TestCase):
             self.assertEqual(e_interaction.kwargs , a_interaction.kwargs )
 
     def test_sim_write_read_with_params_and_action_tuple(self):
+        sink = ListSink()
+        
         expected_env = MemorySimulation(params={'a':1}, interactions=[SimulatedInteraction(None,[(1,0),(0,1)],rewards=[2,3])])
-        serial_IO    = ListIO()
-        actual_env   = SerializedSimulation(serial_IO)
-
-        SerializedSimulation(expected_env).write(serial_IO)
+        SerializedSimulation(expected_env).write(sink)
+        actual_env = SerializedSimulation(ListSource(sink.items))
 
         self.assertEqual(expected_env.params, actual_env.params)
         self.assertEqual(len(list(expected_env.read())), len(list(actual_env.read())))        

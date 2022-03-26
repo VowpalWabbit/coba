@@ -14,7 +14,40 @@ Interfaces
       Filter
       Sink
 
-Readers
+Core
+~~~~
+
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: class_with_ctor.rst
+      
+      Pipes
+
+Execution Pipes
+~~~~~~~~~~~~~~~~~
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: class_with_ctor.rst
+
+      Foreach
+      Multiprocessor
+
+      
+Sources
+~~~~~~~~~~~~~~~
+
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: class_with_ctor.rst
+            
+      ListSource
+      DiskSource
+      HttpSource
+      QueueSource
+      UrlSource
+
+
+Reader Filters
 ~~~~~~~~~~~~~~
 
    .. autosummary::
@@ -23,21 +56,45 @@ Readers
       
       CsvReader
       ArffReader
-      LibSvmReader
+      LibsvmReader
       ManikReader
       
-Sources/Sinks
+Table Filters
+~~~~~~~~~~~~~~~~~
+
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: class_with_ctor.rst
+
+      Structure      
+      Flatten
+      Default
+      Encode
+
+Utility Filters
+~~~~~~~~~~~~~~~~~
+
+   .. autosummary::
+      :toctree: ../_autosummary
+      :template: class_with_ctor.rst
+            
+      Take
+      Shuffle
+      Identity
+      Default
+      Reservoir
+      JsonDecode
+      JsonEncode
+      
+Sinks
 ~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
             
-      NullIO
-      ListIO
-      DiskIO
-      HttpIO
-      ConsoleIO
-      QueueIO
-      IdentityIO
-      
+      NullSink
+      ListSink
+      DiskSink
+      ConsoleSink
+      QueueSink

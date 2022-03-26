@@ -1,34 +1,43 @@
-"""This module contains core functionality for defining data and workflows within Coba.
+"""This module contains functionality for defining data and workflows within Coba.
 
-This module contains core functionality for defining jobs and working with datasets in Coba.
-One does not need any understanding of this module to use coba for research. That being said,
-a good understanding of the patterns in coba.pipes will help one understand coba and how to
-best take advantage what it has to offer. 
+This module is primarily intended for internal use within Coba. However, it is documented
+and made public for advanced use cases where existing Environment and Experiment creation
+functionality is not sufficient. That being said, a good understanding of the patterns 
+in coba.pipes can help one understand how to best take advantage what Coba has to offer. 
 """
 
 from coba.pipes.primitives import Filter, Source, Sink
-from coba.pipes.core import Pipe, Foreach, SourceFilters, FiltersFilter
-from coba.pipes.multiprocessing import PipeMultiprocessor
+from coba.pipes.multiprocessing import Multiprocessor
 
 from coba.pipes.filters import Take, Shuffle, Drop, Structure, Identity, Flatten, Default, Reservoir
 from coba.pipes.filters import Encode, JsonDecode, JsonEncode
 
-from coba.pipes.readers import Reader, ManikReader, LibSvmReader, CsvReader, ArffReader
+from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
+from coba.pipes.sources import NullSource, DiskSource, ListSource, QueueSource, HttpSource, LambdaSource, UrlSource
+from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink
 
-from coba.pipes.io import NullIO, ConsoleIO, DiskIO, ListIO, QueueIO, HttpIO, IdentityIO, LambdaIO, IO
+from coba.pipes.core import Pipes, Foreach, QueueIO
 
 __all__ = [
-    "Pipe",
     "Filter",
     "Source",
     "Sink",
+    "Multiprocessor",
+    "Pipes",
     "Foreach",
     "JsonEncode",
     "JsonDecode",
-    "ArffReader",
     "CsvReader",
-    "LibSvmReader",
+    "ArffReader",
+    "LibsvmReader",
     "ManikReader",
+    "UrlSource",
+    "NullSource",
+    "DiskSource",
+    "ListSource",
+    "QueueSource",
+    "HttpSource",
+    "LambdaSource",
     "Encode",
     "Flatten",
     "Default",
@@ -38,20 +47,11 @@ __all__ = [
     "Take",
     "Reservoir",
     "Shuffle",
-    "PipeMultiprocessor",
-    "LambdaIO",
-    "NullIO",
-    "ConsoleIO",
-    "DiskIO",
-    "ListIO",
-    "QueueIO",
-    "HttpIO",
-    "IdentityIO",
-    "LambdaIO",
-    "Foreach",
-    "IO",
-    "SourceFilters", 
-    "FiltersFilter", 
-    "FiltersSink",
-    "Reader"
+    "NullSink",
+    "ConsoleSink",
+    "DiskSink",
+    "ListSink",
+    "QueueSink",
+    "LambdaSink",
+    "QueueIO"
 ]

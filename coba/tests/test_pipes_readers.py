@@ -3,17 +3,17 @@ from itertools import count
 
 from coba.exceptions import CobaException
 
-from coba.pipes import LibSvmReader, ArffReader, CsvReader, ManikReader
+from coba.pipes import LibsvmReader, ArffReader, CsvReader, ManikReader
 from coba.contexts import NullLogger, CobaContext
 
-from coba.pipes.readers import LazyHeadedDense, LazyHeadedSparse
+from coba.pipes.readers import DenseWithMeta, SparseWithMeta
 
 CobaContext.logger = NullLogger()
 
-class LazyHeadedDense_Tests(unittest.TestCase):
+class MetaDense_Tests(unittest.TestCase):
 
     def test_no_headers_no_encoders(self):
-        a = LazyHeadedDense([1,2])
+        a = DenseWithMeta([1,2])
 
         self.assertEqual([1,2], a)
         self.assertEqual(2, len(a))
@@ -26,7 +26,7 @@ class LazyHeadedDense_Tests(unittest.TestCase):
         self.assertEqual([1], a)
 
     def test_headers_no_encoders(self):
-        a = LazyHeadedDense([1,2,3],dict(zip(['a','b','c'],count())))
+        a = DenseWithMeta([1,2,3],dict(zip(['a','b','c'],count())))
 
         self.assertEqual([1,2,3], a)
         self.assertEqual(3, len(a))
@@ -47,7 +47,7 @@ class LazyHeadedDense_Tests(unittest.TestCase):
         self.assertEqual(3, a['c'])
 
     def test_headers_and_encoders(self):
-        a = LazyHeadedDense(['1','2'],dict(zip(['a','b','c'],count())), encoders=[float, str])
+        a = DenseWithMeta(['1','2'],dict(zip(['a','b','c'],count())), encoders=[float, str])
 
         self.assertEqual([1,'2'], a)
         self.assertEqual(2, len(a))
@@ -66,10 +66,10 @@ class LazyHeadedDense_Tests(unittest.TestCase):
 
     def test_insert_not_implemented(self):
         with self.assertRaises(NotImplementedError):
-            LazyHeadedDense([1,2]).insert(0,1)
+            DenseWithMeta([1,2]).insert(0,1)
 
     def test_pop(self):
-        a = LazyHeadedDense(['1','2'],dict(zip(['a','b'],count())), encoders=[float, str])
+        a = DenseWithMeta(['1','2'],dict(zip(['a','b'],count())), encoders=[float, str])
 
         self.assertEqual(1, a.pop(0))
         self.assertEqual('2', a.pop(0))
@@ -78,20 +78,20 @@ class LazyHeadedDense_Tests(unittest.TestCase):
         self.assertEqual("[]", a.__repr__())
         self.assertEqual(0, len(a))
 
-        a = LazyHeadedDense(['1','2','3'],dict(zip(['a','b','c'],count())), encoders=[float, str, str])
+        a = DenseWithMeta(['1','2','3'],dict(zip(['a','b','c'],count())), encoders=[float, str, str])
         self.assertEqual('3', a.pop(2))
         self.assertEqual((1,'2'), tuple(a))
 
     def test_str(self):
-        self.assertEqual('[1, 2, 3]', str(LazyHeadedDense([1,2,3])))
+        self.assertEqual('[1, 2, 3]', str(DenseWithMeta([1,2,3])))
 
     def test_repr(self):
-        self.assertEqual('[1, 2, 3]', LazyHeadedDense([1,2,3]).__repr__())
+        self.assertEqual('[1, 2, 3]', DenseWithMeta([1,2,3]).__repr__())
 
-class LazyHeadedSparse_Tests(unittest.TestCase):
+class MetaSparse_Tests(unittest.TestCase):
 
     def test_no_headers_no_encoders(self):
-        a = LazyHeadedSparse({'a':1,'b':2})
+        a = SparseWithMeta({'a':1,'b':2})
 
         self.assertEqual({'a':1,'b':2}, a)
         self.assertEqual(2, len(a))
@@ -104,7 +104,7 @@ class LazyHeadedSparse_Tests(unittest.TestCase):
         self.assertEqual({'a':1}, a)
 
     def test_headers_no_encoders(self):
-        a = LazyHeadedSparse({'a':1,'b':2}, {'aa':'a', 'bb':'b'})
+        a = SparseWithMeta({'a':1,'b':2}, {'aa':'a', 'bb':'b'})
 
         self.assertEqual({'a':1,'b':2}, a)
         self.assertEqual(2, len(a))
@@ -121,7 +121,7 @@ class LazyHeadedSparse_Tests(unittest.TestCase):
         self.assertEqual({'a':1}, a)
 
     def test_headers_and_encoders(self):
-        a = LazyHeadedSparse({'a':'1','b':'2'}, {'aa':'a', 'bb':'b'}, {'a':float, 'b': str})
+        a = SparseWithMeta({'a':'1','b':'2'}, {'aa':'a', 'bb':'b'}, {'a':float, 'b': str})
 
         self.assertEqual({'a':1,'b':'2'}, a)
         self.assertEqual(2, len(a))
@@ -138,7 +138,7 @@ class LazyHeadedSparse_Tests(unittest.TestCase):
         self.assertEqual({'a':1}, a)
 
     def test_pop(self):
-        a = LazyHeadedSparse({'a':'1','b':'2'}, {'aa':'a', 'bb':'b'}, {'a':float, 'b': str})
+        a = SparseWithMeta({'a':'1','b':'2'}, {'aa':'a', 'bb':'b'}, {'a':float, 'b': str})
 
         self.assertEqual(1, a.pop('a'))
         self.assertEqual('2', a.pop('b'))
@@ -148,10 +148,10 @@ class LazyHeadedSparse_Tests(unittest.TestCase):
         self.assertEqual(0, len(a))
 
     def test_str(self):
-        self.assertEqual("{'a': 2}", str(LazyHeadedSparse({'a':2})))
+        self.assertEqual("{'a': 2}", str(SparseWithMeta({'a':2})))
 
     def test_repr(self):
-        self.assertEqual("{'a': 2}", LazyHeadedSparse({'a':2}).__repr__())
+        self.assertEqual("{'a': 2}", SparseWithMeta({'a':2}).__repr__())
 
 class CsvReader_Tests(unittest.TestCase):
     def test_dense_with_header(self):
@@ -711,13 +711,29 @@ class LibsvmReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {"label":['0'], 1:2, 2:3},
-            {"label":['1'], 1:1, 2:1},
-            {"label":['2'], 2:1},
-            {"label":['1'], 1:1}
+            ({1:2, 2:3} ,['0']),
+            ({1:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({1:1     }, ['1'])
         ]
-        
-        self.assertEqual(expected, list(LibSvmReader().filter(lines)))
+
+        self.assertEqual(expected, list(LibsvmReader().filter(lines)))
+
+    def test_no_label_lines(self):
+        lines = [
+            "0 1:2 2:3",
+            "1:1 2:1",
+            "2 2:1",
+            "1:1",
+        ]
+
+        expected = [
+            ({1:2, 2:3} ,['0']),
+            ({     2:1}, ['2']),
+        ]
+
+        self.assertEqual(expected, list(LibsvmReader().filter(lines)))
+
 
     def test_trailing_whitespace(self):
         lines = [
@@ -728,13 +744,13 @@ class LibsvmReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {"label":['0'], 0:2, 2:3},
-            {"label":['1'], 0:1, 2:1},
-            {"label":['2'],      2:1},
-            {"label":['1'], 0:1}
+            ({0:2, 2:3}, ['0']),
+            ({0:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({0:1     }, ['1'])
         ]
         
-        self.assertEqual(expected, list(LibSvmReader().filter(lines)))
+        self.assertEqual(expected, list(LibsvmReader().filter(lines)))
 
 class ManikReader_Tests(unittest.TestCase):
     def test_sparse(self):
@@ -747,12 +763,28 @@ class ManikReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {"label":['0'], 1:2, 2:3},
-            {"label":['1'], 1:1, 2:1},
-            {"label":['2'], 2:1},
-            {"label":['1'], 1:1}
+            ({1:2, 2:3} ,['0']),
+            ({1:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({1:1     }, ['1'])
         ]
         
+        self.assertEqual(expected, list(ManikReader().filter(lines)))
+
+    def test_no_label_lines(self):
+        lines = [
+            "abcde",
+            "0 1:2 2:3",
+            "1:1 2:1",
+            "2 2:1",
+            "1:1",
+        ]
+
+        expected = [
+            ({1:2, 2:3} ,['0']),
+            ({     2:1}, ['2']),
+        ]
+
         self.assertEqual(expected, list(ManikReader().filter(lines)))
 
     def test_trailing_whitespace(self):
@@ -765,10 +797,10 @@ class ManikReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {"label":['0'], 1:2, 2:3},
-            {"label":['1'], 1:1, 2:1},
-            {"label":['2'], 2:1},
-            {"label":['1'], 1:1}
+            ({1:2, 2:3}, ['0']),
+            ({1:1, 2:1}, ['1']),
+            ({     2:1}, ['2']),
+            ({1:1     }, ['1'])
         ]
         
         self.assertEqual(expected, list(ManikReader().filter(lines)))

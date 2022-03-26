@@ -1,10 +1,8 @@
 import unittest
 
 from statistics import mean
-from typing import Dict, Any
 
-from coba.pipes import ListIO, NullIO
-from coba.contexts import LearnerContext
+from coba.contexts import InteractionContext
 from coba.random import CobaRandom
 from coba.learners import CorralLearner, FixedLearner, LinUCBLearner
 
@@ -17,7 +15,7 @@ class ReceivedLearnFixedLearner(FixedLearner):
 
     def learn(self, context, action, reward, probability, info) -> None:
         self.received_learn = (context, action, reward, probability)
-        LearnerContext.logger.write({self.key:1})
+        InteractionContext.learner_info.update({self.key:1})
 
 class FamilyLearner:
     def __init__(self, family):
@@ -75,10 +73,8 @@ class CorralLearner_Tests(unittest.TestCase):
         probability = predict[0]
         reward      = 1
 
-        LearnerContext.logger = ListIO[Dict[str,Any]]()
         learner.learn(None, action, reward, probability, info)
-        info = { k:v for item in LearnerContext.logger.read() for k,v in item.items() }
-        LearnerContext.logger = NullIO()
+        info = InteractionContext.learner_info
 
         self.assertDictEqual({'a':1,'b':1, **info}, info)
         self.assertEqual((None, action, reward, predict[0]), base1.received_learn)

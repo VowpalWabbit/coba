@@ -9,91 +9,38 @@ from itertools import islice, chain
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple
 from coba.backports import Literal
 
-from coba import pipes
-from coba.random import CobaRandom
+from coba            import pipes
+from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 
-from coba.environments.primitives import Environment, Interaction
+from coba.environments.primitives import Interaction
 from coba.environments.logged.primitives import LoggedInteraction
 from coba.environments.simulated.primitives import SimulatedInteraction
 
 class EnvironmentFilter(pipes.Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
     """A filter that can be applied to an Environment."""
 
-    @property
-    @abstractmethod
-    def params(self) -> Dict[str, Any]:
-        """Parameters that describe the filter."""
-        ...
-
     @abstractmethod
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         """Apply a filter to an Environment's interactions."""
         ...
 
-    def __str__(self) -> str:
-        return str(self.params) if self.params else self.__class__.__name__
-
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""
+    pass
 
-    @property
-    def params(self) -> Dict[str, Any]:
-        return {}
+class Take(pipes.Take, EnvironmentFilter):
+    """Take a fixed number of interactions from an Environment."""
+    pass
 
-    def __str__(self) -> str:
-        return "{ Identity }"
+class Shuffle(pipes.Shuffle, EnvironmentFilter):
+    """Shuffle a sequence of Interactions in an Environment."""
+    pass
 
-class FilteredEnvironment(Environment):
-    """An Environment with a sequence of filters to apply."""
-
-    def __init__(self, environment: Environment, *filters: EnvironmentFilter):
-        """Instantiate a FilteredEnvironment.
-
-        Args:
-            environment: The environment to apply filters to.
-            *filters: The sequence of filters to apply to the environment. 
-        """
-
-        if isinstance(environment, FilteredEnvironment):
-            self._source = environment._source
-            self._filter = pipes.Pipe.join([environment._filter] + list(filters))
-        elif len(filters) > 0:
-            self._source  = environment
-            self._filter = pipes.Pipe.join(list(filters))
-        else:
-            self._source = environment
-            self._filter = Identity()
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        params = self._safe_params(self._source)
-        params.update(self._safe_params(self._filter))
-        return params
-
-    def read(self) -> Iterable[Interaction]:
-        return self._filter.filter(self._source.read())
-
-    def _safe_params(self, obj) -> Dict[str, Any]:
-        
-        if hasattr(obj, 'params'):
-            return obj.params
-
-        if hasattr(obj, '_filters'):
-            params = {}
-            for filter in obj._filters:
-                params.update(self._safe_params(filter))
-            return params
-
-        return {}
-
-    def __str__(self) -> str:
-
-        str_source = str(self._source)
-        str_filter = str(self._filter)
-
-        return ','.join(filter(None,[str_source,str_filter])).replace('{ Identity }','').replace(',,',',').strip(',')
+class Reservoir(pipes.Reservoir, EnvironmentFilter):
+    """Take a fixed number of random Interactions from an Environment."""
+    pass
 
 class Scale(EnvironmentFilter):
     """Shift and scale features to precondition them before learning."""
@@ -375,53 +322,6 @@ class Binary(EnvironmentFilter):
 
             yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
 
-class Take(pipes.Take, EnvironmentFilter):
-    """Take a fixed number of interactions from an Environment."""
-    
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { "take": self._count }
-
-    def __str__(self) -> str:
-        return str(self.params)
-
-class Reservoir(pipes.Reservoir, EnvironmentFilter):
-    """Take a fixed number of random interactions from an Environment.
-    
-    Remarks:
-        We use Algorithm L as described by Kim-Hung Li. (1994) to take a fixed number of random items.
-
-    References:
-        Kim-Hung Li. 1994. Reservoir-sampling algorithms of time complexity O(n(1 + log(N/n))). 
-        ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
-    """
-
-    def __init__(self, count: Optional[int], seed:int=1)-> None:
-        """Instantiate a Reservoir filter.
-
-        Args:
-            count: The number of random interactions we'd like to take.
-            seed: A random seed that controls which interactions are taken.
-        """
-        super().__init__(count, seed)
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { "reservoir_count": self._count, "reservoir_seed": self._seed }
-
-    def __str__(self) -> str:
-        return str(self.params)
-
-class Shuffle(pipes.Shuffle, EnvironmentFilter):
-    """Shuffle a sequence of Interactions in an Environment."""
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return { "shuffle": self._seed }
-
-    def __str__(self) -> str:
-        return str(self.params)
-
 class Sort(EnvironmentFilter):
     """Sort a sequence of Interactions in an Environment."""
 
@@ -445,6 +345,54 @@ class Sort(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         return sorted(interactions, key=lambda interaction: tuple(interaction.context[key] for key in self._keys))
+
+class Where(EnvironmentFilter):
+    """Define Environment selection criteria for an Environments pipe."""
+
+    def __init__(self, *, n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> None:
+        """Instantiate a Where filter.
+
+        Args:
+            n_interactions: The minimum, maximum or exact number of interactions Environments must have. 
+        """
+
+        self._n_interactions = n_interactions
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        params = {}
+
+        if self._n_interactions is not None:
+            params["where_n_interactions"] = self._n_interactions
+
+        return params
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        
+        interactions = iter(interactions)
+
+        if self._n_interactions is None or self._n_interactions == (None,None):
+            min_interactions  = None
+            max_interactions  = None
+            take_interactions = 0
+        elif isinstance(self._n_interactions, int):
+            min_interactions  = self._n_interactions
+            max_interactions  = self._n_interactions
+            take_interactions = self._n_interactions+1
+        else:
+            min_interactions  = self._n_interactions[0]
+            max_interactions  = self._n_interactions[1]
+            take_interactions = max(filter(lambda x: x is not None, list(self._n_interactions)))+1
+
+        taken_interactions = list(islice(interactions, take_interactions))
+
+        if max_interactions is not None and len(taken_interactions) > max_interactions:
+            return []
+
+        if min_interactions is not None and len(taken_interactions) < min_interactions:
+            return []
+
+        return chain(taken_interactions, interactions)
 
 class WarmStart(EnvironmentFilter):
     """Turn a SimulatedEnvironment into a WarmStartEnvironment."""

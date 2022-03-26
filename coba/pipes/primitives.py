@@ -1,28 +1,39 @@
 from abc import ABC, abstractmethod
-from ast import Call
+from typing import Any, TypeVar, Generic, Dict
 
-from typing import Any, Iterable, TypeVar, Generic, Generator, Callable
-from coba.backports import Protocol
-
-_T_out = TypeVar("_T_out", bound=Any, covariant=True    )
+_T_out = TypeVar("_T_out", bound=Any, covariant    =True)
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
 
-class Source(ABC, Generic[_T_out]):
+class Pipe:
+
+    @property
+    def params(self) -> Dict[str,Any]:
+        """Parameters describing the pipe."""
+        return { }
+
+    def __str__(self) -> str:
+        return str(self.params)
+
+class Source(ABC, Pipe, Generic[_T_out]):
+    """A pipe that can be read."""
+    
     @abstractmethod
     def read(self) -> _T_out:
+        """Read the item."""
         ...
 
-class Filter(ABC, Generic[_T_in, _T_out]):
+class Filter(ABC, Pipe, Generic[_T_in, _T_out]):
+    """A pipe that can modify an item."""
+
     @abstractmethod
     def filter(self, item: _T_in) -> _T_out:
+        """Filter the item."""
         ...
 
-class Sink(ABC, Generic[_T_in]):
+class Sink(ABC, Pipe, Generic[_T_in]):
+    """A pipe that writes item."""
 
     @abstractmethod
     def write(self, item: _T_in) -> None:
+        """Write the item."""
         ...
-class MutableMap(Protocol):
-    def __getitem__(self, key: Any) -> Any: pass
-    def __setitem__(self, key: Any, val: Any) -> None: pass
-    def pop(key:Any) -> Any: pass

@@ -4,9 +4,8 @@ import os
 from pathlib import Path
 
 from coba.exceptions import CobaExit
-from coba.pipes import JsonEncode
-from coba.contexts import LearnerContext, CobaContext, DiskCacher, IndentLogger, NullLogger
-from coba.pipes.io import ConsoleIO, DiskIO, ListIO, NullIO
+from coba.pipes import JsonEncode, ConsoleSink, DiskSink, ListSink, NullSink
+from coba.contexts import InteractionContext, CobaContext, DiskCacher, IndentLogger, NullLogger
 
 class CobaContext_Tests(unittest.TestCase):
 
@@ -31,7 +30,7 @@ class CobaContext_Tests(unittest.TestCase):
 
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertIsInstance(CobaContext.logger, IndentLogger)
-        self.assertIsInstance(CobaContext.logger.sink, ConsoleIO)
+        self.assertIsInstance(CobaContext.logger.sink, ConsoleSink)
 
         self.assertEqual(CobaContext.cacher.cache_directory, None)
         self.assertEqual(CobaContext.experiment.processes, 1)
@@ -44,11 +43,11 @@ class CobaContext_Tests(unittest.TestCase):
 
         CobaContext.search_paths = ["coba/tests/.temp/"]
 
-        DiskIO("coba/tests/.temp/.coba").write(JsonEncode().filter({"cacher": { "DiskCacher": "~"}}))
+        DiskSink("coba/tests/.temp/.coba").write(JsonEncode().filter({"cacher": { "DiskCacher": "~"}}))
 
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertIsInstance(CobaContext.logger, IndentLogger)
-        self.assertIsInstance(CobaContext.logger.sink, ConsoleIO)
+        self.assertIsInstance(CobaContext.logger.sink, ConsoleSink)
 
         self.assertEqual(CobaContext.cacher.cache_directory, str(Path("~").expanduser()))
         self.assertEqual(CobaContext.experiment.processes, 1)
@@ -61,11 +60,11 @@ class CobaContext_Tests(unittest.TestCase):
 
         CobaContext.search_paths = ["coba/tests/.temp/"]
 
-        DiskIO("coba/tests/.temp/.coba").write(JsonEncode().filter({"cacher": { "DiskCacher": "~/"}}))
+        DiskSink("coba/tests/.temp/.coba").write(JsonEncode().filter({"cacher": { "DiskCacher": "~/"}}))
 
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertIsInstance(CobaContext.logger, IndentLogger)
-        self.assertIsInstance(CobaContext.logger.sink, ConsoleIO)
+        self.assertIsInstance(CobaContext.logger.sink, ConsoleSink)
 
         self.assertEqual(CobaContext.cacher.cache_directory, str(Path("~/").expanduser()))
         self.assertEqual(CobaContext.experiment.processes, 1)
@@ -78,11 +77,11 @@ class CobaContext_Tests(unittest.TestCase):
 
         CobaContext.search_paths = ["coba/tests/.temp/"]
 
-        DiskIO("coba/tests/.temp/.coba").write(JsonEncode().filter({"cacher": { "DiskCacher": "./"}}))
+        DiskSink("coba/tests/.temp/.coba").write(JsonEncode().filter({"cacher": { "DiskCacher": "./"}}))
 
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertIsInstance(CobaContext.logger, IndentLogger)
-        self.assertIsInstance(CobaContext.logger.sink, ConsoleIO)
+        self.assertIsInstance(CobaContext.logger.sink, ConsoleSink)
 
         self.assertEqual(CobaContext.cacher.cache_directory, str(Path("coba/tests/.temp").resolve()))
         self.assertEqual(CobaContext.experiment.processes, 1)
@@ -95,11 +94,11 @@ class CobaContext_Tests(unittest.TestCase):
 
         CobaContext.search_paths = ["coba/tests/.temp/"]
 
-        DiskIO("coba/tests/.temp/.coba").write(JsonEncode().filter({"cacher": { "DiskCacher": "../"}}))
+        DiskSink("coba/tests/.temp/.coba").write(JsonEncode().filter({"cacher": { "DiskCacher": "../"}}))
 
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertIsInstance(CobaContext.logger, IndentLogger)
-        self.assertIsInstance(CobaContext.logger.sink, ConsoleIO)
+        self.assertIsInstance(CobaContext.logger.sink, ConsoleSink)
 
         self.assertEqual(CobaContext.cacher.cache_directory, str(Path("coba/tests/").resolve()))
         self.assertEqual(CobaContext.experiment.processes, 1)
@@ -112,11 +111,11 @@ class CobaContext_Tests(unittest.TestCase):
 
         CobaContext.search_paths = ["coba/tests/.temp/"]
 
-        DiskIO("coba/tests/.temp/.coba").write(JsonEncode().filter({"logger": "NullLogger"}))
+        DiskSink("coba/tests/.temp/.coba").write(JsonEncode().filter({"logger": "NullLogger"}))
 
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertIsInstance(CobaContext.logger, NullLogger)
-        self.assertIsInstance(CobaContext.logger.sink, NullIO)
+        self.assertIsInstance(CobaContext.logger.sink, NullSink)
 
         self.assertEqual(CobaContext.cacher.cache_directory, None)
         self.assertEqual(CobaContext.experiment.processes, 1)
@@ -129,11 +128,11 @@ class CobaContext_Tests(unittest.TestCase):
 
         CobaContext.search_paths = ["coba/tests/.temp/"]
 
-        DiskIO("coba/tests/.temp/.coba").write(JsonEncode().filter({"experiment": {"processes":2, "maxtasksperchild":3, "chunk_by": "task"}}))
+        DiskSink("coba/tests/.temp/.coba").write(JsonEncode().filter({"experiment": {"processes":2, "maxtasksperchild":3, "chunk_by": "task"}}))
 
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertIsInstance(CobaContext.logger, IndentLogger)
-        self.assertIsInstance(CobaContext.logger.sink, ConsoleIO)
+        self.assertIsInstance(CobaContext.logger.sink, ConsoleSink)
 
         self.assertEqual(CobaContext.cacher.cache_directory, None)
         self.assertEqual(CobaContext.experiment.processes, 2)
@@ -155,7 +154,7 @@ class CobaContext_Tests(unittest.TestCase):
     def test_bad_config_file1(self):
         CobaContext.search_paths = ["coba/tests/.temp/"]
 
-        DiskIO("coba/tests/.temp/.coba").write('{ "cacher": { "DiskCacher": "~"')
+        DiskSink("coba/tests/.temp/.coba").write('{ "cacher": { "DiskCacher": "~"')
 
         with self.assertRaises(CobaExit) as e:
             CobaContext.cacher
@@ -171,7 +170,7 @@ class CobaContext_Tests(unittest.TestCase):
     def test_bad_config_file2(self):
         CobaContext.search_paths = ["coba/tests/.temp/"]
 
-        DiskIO("coba/tests/.temp/.coba").write('[1,2,3]')
+        DiskSink("coba/tests/.temp/.coba").write('[1,2,3]')
 
         with self.assertRaises(CobaExit) as e:
             CobaContext.cacher
@@ -199,21 +198,16 @@ class CobaContext_Tests(unittest.TestCase):
         self.assertIn("TypeError: unsupported operand type(s)", lines[-1])
         self.assertTrue(str(e.exception).endswith("\n"))
 
-class LearnerContext_Tests(unittest.TestCase):
+class InteractionContext_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
-        LearnerContext._logger = None
+        InteractionContext._info = None
 
     def tearDown(self) -> None:
-        LearnerContext._logger = None
+        InteractionContext._info = None
 
-    def test_logger_default(self):
-        self.assertIsInstance(LearnerContext.logger, NullIO)
-
-    def test_logger_setter(self):
-        self.assertIsInstance(LearnerContext.logger, NullIO)
-        LearnerContext.logger = ListIO()
-        self.assertIsInstance(LearnerContext.logger, ListIO)
+    def test_learn_info_default(self):
+        self.assertIsInstance(InteractionContext.learner_info, dict)
 
 if __name__ == '__main__':
     unittest.main()

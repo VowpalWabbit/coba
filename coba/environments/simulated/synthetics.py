@@ -59,11 +59,11 @@ class LambdaSimulation(SimulatedEnvironment):
         self._reward         = reward
         self._seed           = seed
 
-        self._params = {} if seed is None else {"lambda_seed": seed}
-
     @property
     def params(self) -> Dict[str, Any]:
-        return dict(self._params)
+        params = { "type": "LambdaSimulation" }
+        if self._seed is not None: params = { **params, "seed": self._seed }
+        return params 
 
     def read(self) -> Iterable[SimulatedInteraction]:
         rng = None if self._seed is None else CobaRandom(self._seed)
@@ -221,7 +221,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
 
     @property
     def params(self) -> Dict[str, Any]:
-        return {"reward_features": self._reward_features, "seed" : self._seed}
+        return {**super().params, "type":"LinearSynthetic", "reward_features": self._reward_features }
 
     def __reduce__(self) -> Tuple[object, ...]:
         return (LinearSyntheticSimulation, self._args)
@@ -230,7 +230,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
         return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},R={self._reward_features},seed={self._seed})"
 
 class NeighborsSyntheticSimulation(LambdaSimulation):
-    """A synthetic simulation whose reward values are determined by neighborhoodS. 
+    """A synthetic simulation whose reward values are determined by neighborhoods.
 
     The simulation's rewards are determined by the location of given context and action pairs. These locations
     indicate which neighborhood the context action pair belongs to. Neighborhood rewards are determined by 
@@ -294,7 +294,7 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { "n_neighborhoods": self._n_neighborhoods,"seed": self._seed }
+        return {**super().params, "type": "NeighborsSynthetic", "n_neighborhoods": self._n_neighborhoods }
 
     def __str__(self) -> str:
         return f"NeighborsSynth(A={self._n_actions},c={self._n_context_feats},a={self._n_action_feats},N={self._n_neighborhoods},seed={self._seed})"

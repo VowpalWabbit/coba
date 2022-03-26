@@ -6,7 +6,7 @@ from coba.backports import Literal
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.environments import Context, Action
-from coba.contexts import LearnerContext
+from coba.contexts import InteractionContext
 
 from coba.learners.primitives import Learner, SafeLearner, Probs, Info
 
@@ -151,7 +151,7 @@ class CorralLearner(Learner):
         base_pbar_data    = { f"pbar_{i}"   : self._p_bars[i]             for i in range(len(self._base_learners)) }
         predict_data      = { "predict"     : probability, **base_predict_data, **base_pbar_data }
 
-        LearnerContext.logger.write({**predict_data, **base_predict_data, **base_pbar_data})
+        InteractionContext.learner_info.update({**predict_data, **base_predict_data, **base_pbar_data})
 
     @staticmethod
     def _log_barrier_omd(ps, losses, etas) -> Sequence[float]:

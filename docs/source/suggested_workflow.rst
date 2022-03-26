@@ -43,7 +43,7 @@ Example Code Changes
     ##################################################
     result.plot_learners(xlim=(0,500), err='se')
 
-While the simplicity of the above script is nice a lot is sacraficed for simplicity. By adding just a little complexity 
+While the simplicity of the above script is nice, a lot is sacraficed for simplicity. By adding just a little complexity 
 the naive workflow can be modified to the suggested workflow. These changes are shown below and all modified lines are
 highlighted for easy comparison.
 

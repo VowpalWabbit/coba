@@ -9,7 +9,7 @@ to do so.
 
 from coba.environments.simulated.primitives import SimulatedInteraction, SimulatedEnvironment
 from coba.environments.simulated.primitives import MemorySimulation
-from coba.environments.simulated.supervised import SupervisedSimulation
+from coba.environments.simulated.supervised import SupervisedSimulation, CsvSource, ArffSource, LibsvmSource, ManikSource
 from coba.environments.simulated.openml     import OpenmlSimulation, OpenmlSource
 from coba.environments.simulated.synthetics import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.simulated.serialized import SerializedSimulation
@@ -24,5 +24,9 @@ __all__ = [
     'LinearSyntheticSimulation',
     'NeighborsSyntheticSimulation',
     'SupervisedSimulation',
+    'CsvSource',
+    'ArffSource',
+    'LibsvmSource',
+    'ManikSource',
     'SerializedSimulation'
 ]

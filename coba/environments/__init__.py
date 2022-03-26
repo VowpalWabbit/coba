@@ -9,13 +9,14 @@ from coba.environments.core       import Environments
 from coba.environments.primitives import Context, Action, Interaction, Environment
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir
 from coba.environments.filters    import Sort, Scale, Cycle, Impute
-from coba.environments.filters    import Binary, WarmStart, Sparse
-from coba.environments.filters    import FilteredEnvironment, EnvironmentFilter
+from coba.environments.filters    import Binary, WarmStart, Sparse, Where
+from coba.environments.filters    import EnvironmentFilter
 
 from coba.environments.simulated import SimulatedInteraction, SimulatedEnvironment
 from coba.environments.simulated import MemorySimulation, LambdaSimulation
 from coba.environments.simulated import LinearSyntheticSimulation, NeighborsSyntheticSimulation
-from coba.environments.simulated import OpenmlSimulation, SupervisedSimulation
+from coba.environments.simulated import OpenmlSimulation, OpenmlSource
+from coba.environments.simulated import SupervisedSimulation, CsvSource, ArffSource, LibsvmSource, ManikSource
 from coba.environments.simulated import SerializedSimulation
 
 from coba.environments.logged.primitives import LoggedInteraction, LoggedEnvironment
@@ -35,7 +36,12 @@ __all__ = [
     'MemorySimulation',
     'LambdaSimulation',
     'OpenmlSimulation',
+    'OpenmlSource',
     'SupervisedSimulation',
+    'CsvSource',
+    'ArffSource',
+    'LibsvmSource',
+    'ManikSource',
     'LinearSyntheticSimulation',
     'NeighborsSyntheticSimulation',
     'SerializedSimulation',
@@ -45,8 +51,8 @@ __all__ = [
     'Cycle',
     'Impute',
     'Binary',
+    'Where',
     'WarmStart',
-    'FilteredEnvironment',
     'Shuffle', 
     'Take',
     'Reservoir',

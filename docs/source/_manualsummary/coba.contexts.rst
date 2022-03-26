@@ -13,7 +13,7 @@ Core
       :template: class_with_ctor.rst
 
       CobaContext
-      LearnerContext
+      InteractionContext
 
 Interfaces
 ~~~~~~~~~~

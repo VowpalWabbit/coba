@@ -1,10 +1,9 @@
 import unittest
 from coba.exceptions import CobaException
 
-from coba.pipes import Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle
+from coba.pipes import Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle, Default, Reservoir
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.contexts import NullLogger, CobaContext
-from coba.pipes.filters import Default, Reservoir
 
 CobaContext.logger = NullLogger()
 
@@ -50,52 +49,56 @@ class Take_Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Take('A')
 
-    def test_take1(self):
+        with self.assertRaises(ValueError):
+            Take((-1,5))
+
+    def test_take_exact_1(self):
 
         items = [ 1,2,3 ]
         take_items = list(Take(1).filter(items))
 
-        self.assertEqual(1, len(take_items))
-        self.assertEqual(items[0], take_items[0])
+        self.assertEqual([1    ], take_items)
+        self.assertEqual([1,2,3], items     )
 
-        self.assertEqual(3, len(items))
-        self.assertEqual(items[0], items[0])
-        self.assertEqual(items[1], items[1])
-        self.assertEqual(items[2], items[2])
-
-    def test_take2(self):
+    def test_take_exact_2(self):
         items = [ 1,2,3 ]
         take_items = list(Take(2).filter(items))
 
-        self.assertEqual(2, len(take_items))
-        self.assertEqual(items[0], take_items[0])
-        self.assertEqual(items[1], take_items[1])
+        self.assertEqual([1,2  ], take_items)
+        self.assertEqual([1,2,3], items     )
 
-        self.assertEqual(3, len(items))
-        self.assertEqual(items[0], items[0])
-        self.assertEqual(items[1], items[1])
-        self.assertEqual(items[2], items[2])
-
-    def test_take3(self):
+    def test_take_exact_3(self):
         items = [ 1,2,3 ]
         take_items = list(Take(3).filter(items))
 
-        self.assertEqual(3, len(take_items))
-        self.assertEqual(items[0], take_items[0])
-        self.assertEqual(items[1], take_items[1])
-        self.assertEqual(items[2], take_items[2])
+        self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
 
-        self.assertEqual(3, len(items))
-        self.assertEqual(items[0], items[0])
-        self.assertEqual(items[1], items[1])
-        self.assertEqual(items[2], items[2])
-
-    def test_take4(self):
+    def test_take_exact_4(self):
         items = [ 1,2,3 ]
         take_items = list(Take(4).filter(items))
 
-        self.assertEqual(3, len(items))
-        self.assertEqual(0, len(take_items))
+        self.assertEqual([]     , take_items)
+        self.assertEqual([1,2,3], items     )
+
+    def test_take_ranges(self):
+        items = [ 1,2,3 ]
+
+        take_items = list(Take((2,5)).filter(items))
+        self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
+
+        take_items = list(Take((2,None)).filter(items))
+        self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
+
+        take_items = list(Take((None,5)).filter(items))
+        self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
+
+        take_items = list(Take((None,None)).filter(items))
+        self.assertEqual([1,2,3], take_items)
+        self.assertEqual([1,2,3], items     )
 
 class Resevoir_Tests(unittest.TestCase):
 
@@ -106,20 +109,50 @@ class Resevoir_Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Reservoir('A')
 
-    def test_take_seed(self):
-        take_items = list(Reservoir(2,seed=1).filter(range(10000)))
-        self.assertEqual(2, len(take_items))
-        self.assertLess(0, take_items[0])
-        self.assertLess(0, take_items[1])
+        with self.assertRaises(ValueError):
+            Reservoir((-1,5))
 
-    def test_take_none_seed(self):
-        self.assertEqual(list(range(10)), list(Reservoir(None,seed=1).filter(range(10))))
+    def test_take_exacts(self):
+        items = [1,2,3,4,5]
 
-    def test_take_0_seed(self):
-        self.assertEqual(0, len(list(Reservoir(0,seed=1).filter(range(10)))))
+        take_items = list(Reservoir(2,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([4, 2], take_items)
 
-    def test_take_10_has_5(self):
-        self.assertEqual(0, len(list(Reservoir(10,seed=1).filter(range(5)))))
+        take_items = list(Reservoir(None,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(5,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir(6,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
+        take_items = list(Reservoir(0,seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
+
+    def test_take_ranges(self):
+        items = [1,2,3,4,5]
+
+        take_items = list(Reservoir((1,2),seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([4, 2], take_items)
+
+        take_items = list(Reservoir((None,None),seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir((None,5),seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([1,5,4,3,2], take_items)
+
+        take_items = list(Reservoir((6,None),seed=1).filter(items))
+        self.assertEqual([1,2,3,4,5], items)
+        self.assertEqual([]         , take_items)
 
 class Flatten_Tests(unittest.TestCase):
 

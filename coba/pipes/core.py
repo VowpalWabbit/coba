@@ -1,39 +1,39 @@
-import collections.abc
-from typing import Sequence, Iterable, Any, overload, Union
+from queue import Queue
+from typing import Iterable, Any, Union, Dict
 
 from coba.exceptions import CobaException
+
+from coba.pipes.sinks      import QueueSink
+from coba.pipes.sources    import QueueSource
 from coba.pipes.primitives import Filter, Source, Sink
 
-class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
+class SourceFilters(Source):
+    def __init__(self, *pipes: Union[Source,Filter]) -> None:
+        if isinstance(pipes[0], SourceFilters):
+            self._source = pipes[0]._source
+            self._filter = FiltersFilter(*pipes[0]._filter._filters, *pipes[1:])
+        else:
+            self._source = pipes[0]
+            self._filter = FiltersFilter(*pipes[1:])
 
-    def __init__(self, pipe: Union[Source[Any],Filter[Any,Any],Sink[Any]], poison=None):
-        self._pipe = pipe
-        self._poison = poison
+    @property
+    def params(self) -> Dict[str,Any]:
+        return { **self._source.params, **self._filter.params }
 
-    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        for item in items:
-            yield self._pipe.filter(item)
+    def read(self) -> Any:
+        return self._filter.filter(self._source.read())
 
-    def write(self, items: Iterable[Any]):
-        for item in items:
-            self._pipe.write(item)
-    
-    def __str__(self):
-        return str(self._pipe)
+    def __str__(self) -> str:
+        return ",".join(map(str,[self._source, self._filter]))
 
 class FiltersFilter(Filter):
 
-    def __init__(self, filters: Sequence[Filter]):
+    def __init__(self, *pipes: Filter):
+        self._filters = sum([f._filters if isinstance(f, FiltersFilter) else [f] for f in pipes ],[])
 
-        def flat_filters(filters: Sequence[Filter]) -> Iterable[Filter]:
-            for filter in filters:
-                if isinstance(filter, FiltersFilter):
-                    for filter in flat_filters(filter._filters):
-                        yield filter
-                else:
-                    yield filter
-
-        self._filters = list(flat_filters(filters))
+    @property
+    def params(self) -> Dict[str,Any]:
+        return { k:v for f in self._filters for k,v in f.params.items() }
 
     def filter(self, items: Any) -> Any:
         for filter in self._filters:
@@ -43,32 +43,19 @@ class FiltersFilter(Filter):
     def __str__(self) -> str:
         return ",".join(map(str,self._filters))
 
-class SourceFilters(Source):
-    def __init__(self, source: Source, filters: Sequence[Filter]) -> None:
-        
-        if isinstance(source, SourceFilters):
-            self._source = source._source
-            self._filter = FiltersFilter(source._filter._filters + filters)
-        else:
-            self._source = source
-            self._filter = FiltersFilter(filters)
-
-    def read(self) -> Any:
-        return self._filter.filter(self._source.read())
-
-    def __str__(self) -> str:
-        return ",".join(map(str,[self._source, self._filter]))
-
 class FiltersSink(Sink):
-    def __init__(self, filters: Sequence[Filter], sink: Sink) -> None:
 
-        self._filter = FiltersFilter(filters)
+    def __init__(self, *pipes: Union[Filter,Sink]) -> None:
+
+        filters = list(pipes[:-1])
+        sink    = pipes[-1 ]
 
         if isinstance(sink, FiltersSink):
-            self._filter = FiltersFilter([self._filter, sink._filter])
-            self._sink = sink._sink
-        else:
-            self._sink = sink
+            filters += sink._filter._filters
+            sink     = sink._sink
+
+        self._filter = FiltersFilter(*filters)
+        self._sink   = sink
 
     def write(self, items: Iterable[Any]):
         self._sink.write(self._filter.filter(items))
@@ -76,61 +63,107 @@ class FiltersSink(Sink):
     def __str__(self) -> str:
         return ",".join(map(str,[self._filter, self._sink]))
 
-class Pipeline:
-    
-    def __init__(self, source: Source, filters: Sequence[Filter], sink: Sink) -> None:
-        self._source = source
-        self._filter = Pipe.join(filters)
-        self._sink   = sink
+class Pipes:
+    """A helper class to compose sequences of pipes."""
+    class Line:
 
-    def run(self) -> None:
-        self._sink.write(self._filter.filter(self._source.read()))
+        def __init__(self, *pipes: Union[Source,Filter,Sink]) -> None:
+            self.pipes = list(pipes)
 
-    def __str__(self) -> str:
-        return ",".join(filter(None,map(str,[self._source, self._filter, self._sink])))
+        def run(self) -> None:
+            """Run the pipeline."""
 
-class Pipe:
+            source  = self.pipes[0   ]
+            filters = self.pipes[1:-1]
+            sink    = self.pipes[-1  ]
 
-    @overload
+            item = source.read()
+
+            for filter in filters:
+                item = filter.filter(item)
+
+            sink.write(item)
+
+        @property
+        def params(self) -> Dict[str, Any]:
+            return { k:v for p in self.pipes for k,v in p.params.items() }
+
+        def __str__(self) -> str:
+            return ",".join(filter(None,map(str,self.pipes)))
+
     @staticmethod
-    def join(source: Source, filters: Sequence[Filter]) -> Source:
-        ...
+    def join(*pipes: Union[Source, Filter, Sink]) -> Union[Source, Filter, Sink, Line]:
+        """Join a sequence of pipes into a single pipe.
 
-    @overload
-    @staticmethod
-    def join(filters: Sequence[Filter], sink: Sink) -> Sink:
-        ...
+        Args:
+            pipes: a sequence of pipes.
 
-    @overload
-    @staticmethod
-    def join(source: Source, sink: Sink) -> Pipeline:
-        ...
+        Returns:
+            A single pipe that is a composition of the given pipes. The type of pipe returned
+            is determined by the sequence given. A sequence of Filters will return a Filter. A
+            sequence that begins with a Source and is followed by Filters will return a Source.
+            A sequence that starts with Filters and ends with a Sink will return a Sink. A 
+            sequence that begins with a Source and ends with a Sink will return a completed pipe.
+        """
+        if len(pipes) == 0:
+            raise CobaException("No pipes were passed to join.")
 
-    @overload
-    @staticmethod
-    def join(source: Source, filters: Sequence[Filter], sink: Sink) -> Pipeline:
-        ...
+        if len(pipes) == 1 and any(hasattr(pipes[0],attr) for attr in ['read','filter','write']):
+            return pipes[0]
 
-    @overload
-    @staticmethod
-    def join(filters: Sequence[Filter]) -> Filter:
-        ...
+        first = pipes[0 ] if not isinstance(pipes[0 ], Foreach) else pipes[0 ]._pipe
+        last  = pipes[-1] if not isinstance(pipes[-1], Foreach) else pipes[-1]._pipe
 
-    @staticmethod #type: ignore
-    def join(*args) -> Union[Source, Filter, Sink, Pipeline]:
+        if hasattr(first,'read') and hasattr(last,'write'):
+            return Pipes.Line(*pipes)
 
-        if len(args) == 3:
-            return Pipeline(*args)
+        if hasattr(first,'read') and hasattr(last,'filter'):
+            return SourceFilters(*pipes)
 
-        if len(args) == 2:
-            if isinstance(args[1], collections.abc.Sequence):
-                return SourceFilters(args[0], args[1])
-            elif isinstance(args[0], collections.abc.Sequence):
-                return FiltersSink(args[0], args[1])
-            else:
-                return Pipeline(args[0], [], args[1])
+        if hasattr(first,'filter') and hasattr(last,'filter'):
+            return FiltersFilter(*pipes)
         
-        if len(args) == 1:
-            return FiltersFilter(args[0])
+        if hasattr(first,'filter') and hasattr(last,'write'):
+            return FiltersSink(*pipes)
 
-        raise CobaException("An unknown pipe was joined.")
+        raise CobaException("An unknown pipe was passed to join.")
+
+class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
+    """A pipe that wraps an inner pipe and passes items to it one at a time."""
+
+    def __init__(self, pipe: Union[Filter[Any,Any],Sink[Any]]):
+        """Instantiate a Foreach pipe.
+        
+        Args:
+            pipe: The pipe that we wish to pass a sequence of items one at a time.
+        """
+        self._pipe = pipe
+
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        """Filter the items using the inner pipe. This method only works if the inner pipe is a Filter."""
+        for item in items:
+            yield self._pipe.filter(item)
+
+    def write(self, items: Iterable[Any]):
+        """Write the items using the inner pipe. This method only works if the inner pipe is a Sink."""
+        for item in items:
+            self._pipe.write(item)
+
+    @property
+    def params(self) -> Dict[str,Any]:
+        return self._pipe.params
+
+    def __str__(self):
+        return str(self._pipe)
+
+class QueueIO(Source[Iterable[Any]], Sink[Any]):
+    def __init__(self, queue:Queue=None, block:bool=True, poison:Any=None) -> None:
+        self._queue  = queue or Queue()
+        self._sink   = QueueSink(queue)
+        self._source = QueueSource(queue, block, poison)
+
+    def write(self, item: Any) -> None:
+        self._sink.write(item)
+
+    def read(self) -> Iterable[Any]:
+        return self._source.read()
