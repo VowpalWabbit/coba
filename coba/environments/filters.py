@@ -446,7 +446,7 @@ class CovariateShift(EnvironmentFilter):
         """Instantiate a Imbalance filter.
 
         Args:
-            *keys: The context items that should be sorted on.
+            covariate_shift_ratio: The number of interactions in the first "class" for every one represented from the second "class".
         """
         self._keys = []
         self._covariate_shift_ratio = covariate_shift_ratio
