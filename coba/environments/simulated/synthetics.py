@@ -4,8 +4,6 @@ from statistics import variance, mean
 from itertools import count, islice, cycle
 from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Iterable
 
-from sklearn.neural_network import MLPRegressor
-
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.encodings import InteractionsEncoder, OneHotEncoder
