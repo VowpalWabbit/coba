@@ -75,9 +75,8 @@ class SimulatedInteraction(Interaction):
 
         self._raw_actions  = actions
         self._hash_actions = None
-        self._kwargs       = kwargs
 
-        super().__init__(context)
+        super().__init__(context, **kwargs)
 
     @property
     def actions(self) -> Sequence[Action]:
@@ -86,10 +85,6 @@ class SimulatedInteraction(Interaction):
             self._hash_actions = list(map(self._hashable,self._raw_actions))
 
         return self._hash_actions
-
-    @property
-    def kwargs(self) -> Dict[str,Any]:
-        return self._kwargs
 
 class SimulatedEnvironment(Environment):
     """An environment made from SimulatedInteractions."""

@@ -13,15 +13,16 @@ Context = Union[None, str, Number, tuple, HashableDict]
 class Interaction:
     """An individual interaction that occurs in an Environment."""
 
-    def __init__(self, context: Context) -> None:
+    def __init__(self, context: Context, **kwargs) -> None:
         """Instantiate an Interaction.
 
         Args:
             context: The context in which the interaction occured.
         """
 
-        self._raw_context = context
+        self._raw_context  = context
         self._hash_context = None
+        self._kwargs       = kwargs
 
     @property
     def context(self) -> Context:
@@ -30,6 +31,11 @@ class Interaction:
             self._hash_context = self._hashable(self._raw_context)
 
         return self._hash_context
+
+    @property
+    def kwargs(self) -> Dict[str,Any]:
+        """Additional information associatd with the Interaction."""
+        return self._kwargs
 
     def _hashable(self, feats):
 

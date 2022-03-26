@@ -3,8 +3,9 @@ import unittest
 from math import isnan
 
 from coba.contexts     import CobaContext, NullLogger
+from coba.exceptions   import CobaException
 from coba.environments import LoggedInteraction, SimulatedInteraction
-from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, WarmStart, Shuffle, Take, Reservoir, Where
+from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, WarmStart, Shuffle, Take, Reservoir, Where, Noise
 
 class TestEnvironment:
 
@@ -903,6 +904,165 @@ class ToWarmStart_Tests(unittest.TestCase):
 
     def test_params(self):
         self.assertEqual({"n_warmstart": 10}, WarmStart(10).params)
+
+class Noise_Tests(unittest.TestCase):
+
+    def test_default_noise(self):
+        
+        interactions = [
+            SimulatedInteraction((7,), [1,2], rewards=[.2,.3]),
+            SimulatedInteraction((1,), [2,3], rewards=[.1,.5]),
+        ]
+
+        actual_interactions = list(Noise().filter(interactions))
+
+        self.assertEqual(2, len(actual_interactions))
+
+        self.assertEqual((7.625980571131966,), actual_interactions[0].context)
+        self.assertEqual([1,2]               , actual_interactions[0].actions)
+        self.assertEqual([.2,.3]             , actual_interactions[0].kwargs["rewards"])
+
+        self.assertEqual((1.613090568018391,), actual_interactions[1].context)
+        self.assertEqual([2,3]               , actual_interactions[1].actions)
+        self.assertEqual([.1,.5]             , actual_interactions[1].kwargs["rewards"])
+
+    def test_context_noise1(self):
+
+        interactions = [
+            SimulatedInteraction((7,5), [1,2], rewards=[.2,.3]),
+            SimulatedInteraction((1,6), [2,3], rewards=[.1,.5]),
+        ]
+
+        actual_interactions = list(Noise(context=lambda r,v: v+r.randint(0,1), seed=5).filter(interactions))
+
+        self.assertEqual(2      , len(actual_interactions))
+        self.assertEqual((8,5)  , actual_interactions[0].context)
+        self.assertEqual([1,2]  , actual_interactions[0].actions)
+        self.assertEqual([.2,.3], actual_interactions[0].kwargs["rewards"])
+        self.assertEqual((2,7)  , actual_interactions[1].context)
+        self.assertEqual([2,3]  , actual_interactions[1].actions)
+        self.assertEqual([.1,.5], actual_interactions[1].kwargs["rewards"])
+
+    def test_context_noise2(self):
+
+        interactions = [
+            SimulatedInteraction(None, [1,2], rewards=[.2,.3]),
+            SimulatedInteraction(None, [2,3], rewards=[.1,.5]),
+        ]
+
+        actual_interactions = list(Noise(context=lambda r,v: v+r.randint(0,1), seed=5).filter(interactions))
+
+        self.assertEqual(2      , len(actual_interactions))
+        self.assertEqual(None   , actual_interactions[0].context)
+        self.assertEqual([1,2]  , actual_interactions[0].actions)
+        self.assertEqual([.2,.3], actual_interactions[0].kwargs["rewards"])
+        self.assertEqual(None   , actual_interactions[1].context)
+        self.assertEqual([2,3]  , actual_interactions[1].actions)
+        self.assertEqual([.1,.5], actual_interactions[1].kwargs["rewards"])
+
+    def test_context_noise_sparse(self):
+
+        interactions = [
+            SimulatedInteraction({'a':7, 'b':5}, [1,2], rewards=[.2,.3]),
+            SimulatedInteraction({'a':1, 'b':6}, [2,3], rewards=[.1,.5]),
+        ]
+
+        actual_interactions = list(Noise(context=lambda r,v: v+r.randint(0,1), seed=5).filter(interactions))
+
+        self.assertEqual(2             , len(actual_interactions))
+        self.assertEqual({'a':8, 'b':5}, actual_interactions[0].context)
+        self.assertEqual([1,2]         , actual_interactions[0].actions)
+        self.assertEqual([.2,.3]       , actual_interactions[0].kwargs["rewards"])
+        self.assertEqual({'a':2, 'b':7}, actual_interactions[1].context)
+        self.assertEqual([2,3]         , actual_interactions[1].actions)
+        self.assertEqual([.1,.5]       , actual_interactions[1].kwargs["rewards"])
+
+    def test_action_noise1(self):
+
+        interactions = [
+            SimulatedInteraction((7,), [1,2], rewards=[.2,.3]),
+            SimulatedInteraction((1,), [2,3], rewards=[.1,.5]),
+        ]
+
+        actual_interactions = list(Noise(action=lambda r,v: v+r.randint(0,1), seed=5).filter(interactions))
+
+        self.assertEqual(2      , len(actual_interactions))
+        self.assertEqual((7,)   , actual_interactions[0].context)
+        self.assertEqual([2,2]  , actual_interactions[0].actions)
+        self.assertEqual([.2,.3], actual_interactions[0].kwargs["rewards"])
+        self.assertEqual((1,)   , actual_interactions[1].context)
+        self.assertEqual([3,4]  , actual_interactions[1].actions)
+        self.assertEqual([.1,.5], actual_interactions[1].kwargs["rewards"])
+
+    def test_action_noise2(self):
+
+        interactions = [
+            SimulatedInteraction((7,), [(1,),(2,)], rewards=[.2,.3]),
+            SimulatedInteraction((1,), [(2,),(3,)], rewards=[.1,.5]),
+        ]
+
+        actual_interactions = list(Noise(action=lambda r,v: v+r.randint(0,1), seed=5).filter(interactions))
+
+        self.assertEqual(2      , len(actual_interactions))
+        self.assertEqual((7,)   , actual_interactions[0].context)
+        self.assertEqual([(2,),(2,)]  , actual_interactions[0].actions)
+        self.assertEqual([.2,.3], actual_interactions[0].kwargs["rewards"])
+        self.assertEqual((1,)   , actual_interactions[1].context)
+        self.assertEqual([(3,),(4,)]  , actual_interactions[1].actions)
+        self.assertEqual([.1,.5], actual_interactions[1].kwargs["rewards"])
+
+    def test_reward_noise(self):
+
+        interactions = [
+            SimulatedInteraction((7,), [1,2], rewards=[.2,.3]),
+            SimulatedInteraction((1,), [2,3], rewards=[.1,.5]),
+        ]
+
+        actual_interactions = list(Noise(reward=lambda rng,v: v+rng.randint(0,1), seed=5).filter(interactions))
+
+        self.assertEqual(2        , len(actual_interactions))
+        self.assertEqual((7,)     , actual_interactions[0].context)
+        self.assertEqual([1,2]    , actual_interactions[0].actions)
+        self.assertEqual([1.2,.3] , actual_interactions[0].kwargs["rewards"])
+        self.assertEqual((1,)     , actual_interactions[1].context)
+        self.assertEqual([2,3]    , actual_interactions[1].actions)
+        self.assertEqual([1.1,1.5], actual_interactions[1].kwargs["rewards"])
+
+    def test_noise_repeatable(self):
+        
+        interactions = [
+            SimulatedInteraction((7,), [1,2], rewards=[.2,.3]),
+            SimulatedInteraction((1,), [2,3], rewards=[.1,.5]),
+        ]
+
+        noise_filter = Noise(action=lambda r,v: v+r.randint(0,1), seed=5)
+
+        actual_interactions = list(noise_filter.filter(interactions))
+
+        self.assertEqual(2      , len(actual_interactions))
+        self.assertEqual((7,)   , actual_interactions[0].context)
+        self.assertEqual([2,2]  , actual_interactions[0].actions)
+        self.assertEqual([.2,.3], actual_interactions[0].kwargs["rewards"])
+        self.assertEqual((1,)   , actual_interactions[1].context)
+        self.assertEqual([3,4]  , actual_interactions[1].actions)
+        self.assertEqual([.1,.5], actual_interactions[1].kwargs["rewards"])
+
+        actual_interactions = list(noise_filter.filter(interactions))
+
+        self.assertEqual(2      , len(actual_interactions))
+        self.assertEqual((7,)   , actual_interactions[0].context)
+        self.assertEqual([2,2]  , actual_interactions[0].actions)
+        self.assertEqual([.2,.3], actual_interactions[0].kwargs["rewards"])
+        self.assertEqual((1,)   , actual_interactions[1].context)
+        self.assertEqual([3,4]  , actual_interactions[1].actions)
+        self.assertEqual([.1,.5], actual_interactions[1].kwargs["rewards"])
+
+    def test_noise_error(self):
+        with self.assertRaises(CobaException):
+            list(Noise().filter([LoggedInteraction((7,), 1, reward=1)]))
+
+    def test_params(self):
+        self.assertEqual({"context_noise": True, "noise_seed":1}, Noise().params)
 
 if __name__ == '__main__':
     unittest.main()

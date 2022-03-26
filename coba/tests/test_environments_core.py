@@ -309,6 +309,16 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B'  , envs[1].params['id'])
         self.assertEqual((1,2), envs[1].params['where_n_interactions'])
 
+    def test_noise(self):
+        envs = Environments(TestEnvironment('A')).noise(1,2,3,4)
+
+        self.assertEqual(1, len(envs))
+
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(True, envs[0].params['context_noise'])
+        self.assertEqual(True, envs[0].params['action_noise'])
+        self.assertEqual(True, envs[0].params['context_noise'])
+
     def test_singular_filter(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1))
 
