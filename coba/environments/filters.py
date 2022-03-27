@@ -1,5 +1,7 @@
-import collections.abc
+import pickle
 import warnings
+import collections.abc
+
 
 from math import isnan
 from statistics import mean, median, stdev, mode
@@ -460,9 +462,9 @@ class Noise(EnvironmentFilter):
     """Introduce noise to an environment."""
 
     def __init__(self,
-        context: Callable[[CobaRandom, float], float] = None, 
-        action : Callable[[CobaRandom, float], float] = None,
-        reward : Callable[[CobaRandom, float], float] = None,
+        context: Callable[[float,CobaRandom], float] = None, 
+        action : Callable[[float,CobaRandom], float] = None,
+        reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> None:
         """Instantiate a Noise EnvironmentFilter.
 
@@ -473,15 +475,29 @@ class Noise(EnvironmentFilter):
             seed: The seed initializing the random state of the noise generators.
         """
 
-        self._no_noise = lambda _, x: x
+        self._args = (context,action,reward,seed)
+        self._no_noise = lambda x, _: x
 
         if context is None and action is None and reward is None:
-            context = lambda rng, x: x+rng.gauss(0,1)
+            context = lambda x, rng: x+rng.gauss(0,1)
 
         self._context_noise = context or self._no_noise
         self._action_noise  = action  or self._no_noise
         self._reward_noise  = reward  or self._no_noise
         self._seed          = seed
+
+    def __reduce__(self) -> tuple:
+        try:
+            pickle.dumps(self._args)
+        except Exception:
+            message = (
+                "We were unable to pickle the Noise filter. This is likely due to using lambda functions for noise generation. "
+                "To work around this we recommend you first define your lambda functions as a named function and then pass the "
+                "named function to Noise."
+            )
+            raise CobaException(message)
+        else:
+            return (Noise, self._args)
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -515,7 +531,7 @@ class Noise(EnvironmentFilter):
 
             yield SimulatedInteraction(noisy_context, noisy_actions, **noisy_kwargs)
 
-    def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[CobaRandom], float]):
+    def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
 
         if isinstance(value, collections.abc.Mapping):
             #we sort so that noise generation is deterministic with respect to seed
@@ -526,6 +542,6 @@ class Noise(EnvironmentFilter):
 
         return self._noise(value, rng, noiser)
 
-    def _noise(self, value:Union[None,float,str], rng: CobaRandom, noiser: Callable[[CobaRandom], float]) -> float:
+    def _noise(self, value:Union[None,float,str], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]) -> float:
 
-        return value if not isinstance(value,(int,float)) else noiser(rng,value)
+        return value if not isinstance(value,(int,float)) else noiser(value, rng)

@@ -122,12 +122,12 @@ class PipesPool:
                         if "pickle" in str(e) or "Pickling" in str(e):
 
                             message = str(e) if isinstance(e,CobaException) else (
-                                str(e) + ". We attempted to process your code on multiple processes but the named class could not "
-                                "be pickled. This problem can be fixed in one of two ways: 1) evaluate the experiment in question "
-                                "on a single process with no limit on the tasks per child or 2) modify the named class to be "
-                                "picklable. The easiest way to make a given class picklable is to add `def __reduce__ (self) return "
-                                "(<the class in question>, (<tuple of constructor arguments>))` to the class. For more information "
-                                "see https://docs.python.org/3/library/pickle.html#object.__reduce__."
+                                f"We attempted to process your code on multiple processes but were unable to do so due to a pickle "
+                                f"error. The exact error received was '{str(e)}'. Errors this kind can often be fixed in one of two "
+                                f"ways: 1) evaluate the experiment in question on a single process with no limit on the tasks per child "
+                                f"or 2) modify the named class to be picklable. The easiest way to make a given class picklable is to "
+                                f"add `def __reduce__(self): return (<the class in question>, (<tuple of constructor arguments>))` to "
+                                f"the class. For more information see https://docs.python.org/3/library/pickle.html#object.__reduce__."
                             )
 
                             self._stderr.write(message)

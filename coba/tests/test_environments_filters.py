@@ -1,5 +1,5 @@
+import pickle
 import unittest
-import warnings
 
 from math import isnan
 
@@ -957,7 +957,7 @@ class Noise_Tests(unittest.TestCase):
             SimulatedInteraction((1,6), [2,3], rewards=[.1,.5]),
         ]
 
-        actual_interactions = list(Noise(context=lambda r,v: v+r.randint(0,1), seed=5).filter(interactions))
+        actual_interactions = list(Noise(context=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
         self.assertEqual(2      , len(actual_interactions))
         self.assertEqual((8,5)  , actual_interactions[0].context)
@@ -974,7 +974,7 @@ class Noise_Tests(unittest.TestCase):
             SimulatedInteraction(None, [2,3], rewards=[.1,.5]),
         ]
 
-        actual_interactions = list(Noise(context=lambda r,v: v+r.randint(0,1), seed=5).filter(interactions))
+        actual_interactions = list(Noise(context=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
         self.assertEqual(2      , len(actual_interactions))
         self.assertEqual(None   , actual_interactions[0].context)
@@ -991,7 +991,7 @@ class Noise_Tests(unittest.TestCase):
             SimulatedInteraction({'a':1, 'b':6}, [2,3], rewards=[.1,.5]),
         ]
 
-        actual_interactions = list(Noise(context=lambda r,v: v+r.randint(0,1), seed=5).filter(interactions))
+        actual_interactions = list(Noise(context=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
         self.assertEqual(2             , len(actual_interactions))
         self.assertEqual({'a':8, 'b':5}, actual_interactions[0].context)
@@ -1008,7 +1008,7 @@ class Noise_Tests(unittest.TestCase):
             SimulatedInteraction((1,), [2,3], rewards=[.1,.5]),
         ]
 
-        actual_interactions = list(Noise(action=lambda r,v: v+r.randint(0,1), seed=5).filter(interactions))
+        actual_interactions = list(Noise(action=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
         self.assertEqual(2      , len(actual_interactions))
         self.assertEqual((7,)   , actual_interactions[0].context)
@@ -1025,7 +1025,7 @@ class Noise_Tests(unittest.TestCase):
             SimulatedInteraction((1,), [(2,),(3,)], rewards=[.1,.5]),
         ]
 
-        actual_interactions = list(Noise(action=lambda r,v: v+r.randint(0,1), seed=5).filter(interactions))
+        actual_interactions = list(Noise(action=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
         self.assertEqual(2      , len(actual_interactions))
         self.assertEqual((7,)   , actual_interactions[0].context)
@@ -1042,7 +1042,7 @@ class Noise_Tests(unittest.TestCase):
             SimulatedInteraction((1,), [2,3], rewards=[.1,.5]),
         ]
 
-        actual_interactions = list(Noise(reward=lambda rng,v: v+rng.randint(0,1), seed=5).filter(interactions))
+        actual_interactions = list(Noise(reward=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
         self.assertEqual(2        , len(actual_interactions))
         self.assertEqual((7,)     , actual_interactions[0].context)
@@ -1059,7 +1059,7 @@ class Noise_Tests(unittest.TestCase):
             SimulatedInteraction((1,), [2,3], rewards=[.1,.5]),
         ]
 
-        noise_filter = Noise(action=lambda r,v: v+r.randint(0,1), seed=5)
+        noise_filter = Noise(action=lambda v,r: v+r.randint(0,1), seed=5)
 
         actual_interactions = list(noise_filter.filter(interactions))
 
@@ -1087,6 +1087,13 @@ class Noise_Tests(unittest.TestCase):
 
     def test_params(self):
         self.assertEqual({"context_noise": True, "noise_seed":1}, Noise().params)
+
+    def test_pickle_default(self):
+        self.assertEqual({"context_noise": True, "noise_seed":1}, pickle.loads(pickle.dumps(Noise())).params)
+
+    def test_pickle_failure(self):
+        with self.assertRaises(CobaException):
+            pickle.dumps(Noise(lambda x,_: x))
 
 if __name__ == '__main__':
     unittest.main()
