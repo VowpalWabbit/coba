@@ -208,6 +208,11 @@ class LinearSyntheticSimulation(LambdaSimulation):
             V = r_vars[0 if n_action_features else action.index(1)]
             E = r_means[0 if n_action_features else action.index(1)]
 
+            #note, the sum of lognormal distributions is not itself
+            #lognormal. However, when testing, using lognormal features
+            #still gave a more stable r when summed than alternative
+            #feature distributions. For more on the sum of lognormals
+            #see: https://stats.stackexchange.com/q/238529/133603
             r = sum([w*f for w,f in zip(W,F)])
 
             if V != 0:

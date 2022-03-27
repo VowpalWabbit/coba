@@ -1,4 +1,5 @@
 import unittest
+import warnings
 
 from math import isnan
 
@@ -545,9 +546,9 @@ class Cycle_Tests(unittest.TestCase):
     def test_after_0(self):
 
         interactions = [
-            SimulatedInteraction((7,2), [1,2], rewards=[1,3]),
-            SimulatedInteraction((1,9), [1,2], rewards=[1,4]),
-            SimulatedInteraction((8,3), [1,2], rewards=[1,5])
+            SimulatedInteraction((7,2), [(1,0),(0,1)], rewards=[1,3]),
+            SimulatedInteraction((1,9), [(1,0),(0,1)], rewards=[1,4]),
+            SimulatedInteraction((8,3), [(1,0),(0,1)], rewards=[1,5])
         ]
 
         mem_interactions = interactions
@@ -572,9 +573,9 @@ class Cycle_Tests(unittest.TestCase):
     def test_after_1(self):
 
         interactions = [
-            SimulatedInteraction((7,2), [1,2], rewards=[1,3]),
-            SimulatedInteraction((1,9), [1,2], rewards=[1,4]),
-            SimulatedInteraction((8,3), [1,2], rewards=[1,5])
+            SimulatedInteraction((7,2), [(1,0),(0,1)], rewards=[1,3]),
+            SimulatedInteraction((1,9), [(1,0),(0,1)], rewards=[1,4]),
+            SimulatedInteraction((8,3), [(1,0),(0,1)], rewards=[1,5])
         ]
 
         mem_interactions = interactions
@@ -593,9 +594,9 @@ class Cycle_Tests(unittest.TestCase):
     def test_after_2(self):
 
         interactions = [
-            SimulatedInteraction((7,2), [1,2], rewards=[1,3]),
-            SimulatedInteraction((1,9), [1,2], rewards=[1,4]),
-            SimulatedInteraction((8,3), [1,2], rewards=[1,5])
+            SimulatedInteraction((7,2), [(1,0),(0,1)], rewards=[1,3]),
+            SimulatedInteraction((1,9), [(1,0),(0,1)], rewards=[1,4]),
+            SimulatedInteraction((8,3), [(1,0),(0,1)], rewards=[1,5])
         ]
 
         mem_interactions = interactions
@@ -614,9 +615,9 @@ class Cycle_Tests(unittest.TestCase):
     def test_after_10(self):
 
         interactions = [
-            SimulatedInteraction((7,2), [1,2], rewards=[1,3]),
-            SimulatedInteraction((1,9), [1,2], rewards=[1,4]),
-            SimulatedInteraction((8,3), [1,2], rewards=[1,5])
+            SimulatedInteraction((7,2), [(1,0),(0,1)], rewards=[1,3]),
+            SimulatedInteraction((1,9), [(1,0),(0,1)], rewards=[1,4]),
+            SimulatedInteraction((8,3), [(1,0),(0,1)], rewards=[1,5])
         ]
 
         mem_interactions = interactions
@@ -631,6 +632,29 @@ class Cycle_Tests(unittest.TestCase):
         self.assertEqual([1,3], cyc_interactions[0].kwargs["rewards"])
         self.assertEqual([1,4], cyc_interactions[1].kwargs["rewards"])
         self.assertEqual([1,5], cyc_interactions[2].kwargs["rewards"])
+
+    def test_with_action_features(self):
+
+        interactions = [
+            SimulatedInteraction((7,2), [1,2], rewards=[1,3]),
+            SimulatedInteraction((1,9), [1,2], rewards=[1,4]),
+            SimulatedInteraction((8,3), [1,2], rewards=[1,5])
+        ]
+
+        with self.assertWarns(Warning):
+
+            mem_interactions = interactions
+            cyc_interactions = list(Cycle(after=0).filter(mem_interactions))
+
+            self.assertEqual([1,3], mem_interactions[0].kwargs["rewards"])
+            self.assertEqual([1,4], mem_interactions[1].kwargs["rewards"])
+            self.assertEqual([1,5], mem_interactions[2].kwargs["rewards"])
+
+            self.assertEqual(3, len(cyc_interactions))
+
+            self.assertEqual([1,3], cyc_interactions[0].kwargs["rewards"])
+            self.assertEqual([1,4], cyc_interactions[1].kwargs["rewards"])
+            self.assertEqual([1,5], cyc_interactions[2].kwargs["rewards"])
 
     def test_params(self):
         self.assertEqual({"cycle_after":0 }, Cycle().params)

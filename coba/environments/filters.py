@@ -1,4 +1,5 @@
 import collections.abc
+import warnings
 
 from math import isnan
 from statistics import mean, median, stdev, mode
@@ -276,13 +277,13 @@ class Sparse(EnvironmentFilter):
 
 class Cycle(EnvironmentFilter):
     """Cycle all rewards associated with actions by one place.
-    
+
     This filter is useful for testing an algorithms response to a non-stationary shock.
     """
 
     def __init__(self, after:int = 0):
         """Instantiate a Cycle filter.
-        
+
         Args:
             after: How many interactions should be seen before applying the cycle filter.
         """
@@ -301,9 +302,25 @@ class Cycle(EnvironmentFilter):
         for interaction in sans_cycle_interactions:
             yield interaction
 
-        for interaction in with_cycle_interactions:
-            kwargs = {k:v[1:]+v[:1] for k,v in interaction.kwargs.items()}
-            yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
+        try:
+            first_interaction = next(with_cycle_interactions)
+
+            action_set              = set(first_interaction.actions)
+            n_actions               = len(action_set)
+            featureless_actions     = [tuple([0]*n+[1]+[0]*(n_actions-n-1)) for n in range(n_actions)]
+            with_cycle_interactions = chain([first_interaction], with_cycle_interactions)
+
+            if len(set(action_set) & set(featureless_actions)) != len(action_set):
+                warnings.warn("Cycle only works for environments without action features. It will be ignored in this case.")
+                for interaction in with_cycle_interactions:
+                    yield interaction
+            else:
+                for interaction in with_cycle_interactions:
+                    kwargs = interaction.kwargs.copy()
+                    kwargs['rewards'] = kwargs['rewards'][-1:] + kwargs['rewards'][:-1]
+                    yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
+        except StopIteration:
+            pass
 
 class Binary(EnvironmentFilter):
     """Binarize all rewards to either 1 (max rewards) or 0 (all others)."""
@@ -468,7 +485,7 @@ class Noise(EnvironmentFilter):
 
     @property
     def params(self) -> Dict[str, Any]:
-        
+
         params = {}
 
         if self._context_noise != self._no_noise: params['context_noise'] = True 
@@ -477,7 +494,7 @@ class Noise(EnvironmentFilter):
 
         params['noise_seed'] = self._seed
 
-        return params        
+        return params
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
 
