@@ -156,6 +156,47 @@ class Resevoir_Tests(unittest.TestCase):
 
 class Flatten_Tests(unittest.TestCase):
 
+    def test_number_flatten(self):
+
+        given_row0 = 1
+        given_row1 = 'abc'
+        given_row2 = None
+
+        expected_row0 = 1
+        expected_row1 = 'abc'
+        expected_row2 = None
+
+        given    = [given_row0, given_row1, given_row2]
+        expected = [expected_row0, expected_row1, expected_row2]
+
+        self.assertEqual( expected, list(Flatten().filter(given)) )
+
+    def test_dense_list_numeric_flatten(self):
+
+        given_row0 = (1,2)
+        given_row1 = (4,3)
+
+        expected_row0 = (1,2)
+        expected_row1 = (4,3)
+
+        given    = [given_row0, given_row1]
+        expected = [expected_row0, expected_row1]
+
+        self.assertEqual(expected, list(Flatten().filter(given)) )
+
+    def test_dense_tuple_onehot_row_flatten(self):
+
+        given_row0 = ((0,1), 1)
+        given_row1 = ((1,0), 2)
+
+        expected_row0 = (0, 1, 1)
+        expected_row1 = (1, 0, 2)
+
+        given    = [given_row0   , given_row1   ]
+        expected = [expected_row0, expected_row1]
+
+        self.assertEqual(expected, list(Flatten().filter(given)) )
+
     def test_dense_numeric_row_flatten_1(self):
 
         given_row0 = [1,2,3]
@@ -181,7 +222,6 @@ class Flatten_Tests(unittest.TestCase):
         expected = [expected_row0, expected_row1]
 
         self.assertEqual( expected, list(Flatten().filter(given)) )
-
 
     def test_dense_onehot_row_flatten(self):
 
@@ -214,8 +254,8 @@ class Flatten_Tests(unittest.TestCase):
         given_row0 = {0: (0,1), 1:1 }
         given_row1 = {0: (1,0), 1:1 }
 
-        expected_row0 = { (0,0): 0, (0,1): 1, 1:1}
-        expected_row1 = { (0,0): 1, (0,1): 0, 1:1}
+        expected_row0 = { '0_0': 0, '0_1': 1, 1:1}
+        expected_row1 = { '0_0': 1, '0_1': 0, 1:1}
 
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
@@ -230,11 +270,6 @@ class Flatten_Tests(unittest.TestCase):
         expected = [ expected_row0 ]
 
         self.assertEqual(expected, list(Flatten().filter(given)) )
-
-    def test_bad_data(self):
-
-        with self.assertRaises(CobaException):
-            list(Flatten().filter(['abc']))
 
 class Encode_Tests(unittest.TestCase):
 

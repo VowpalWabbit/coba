@@ -4,6 +4,7 @@ from itertools import repeat
 from typing import Any, Dict, Union, Sequence, Optional, Tuple, List
 from coba.backports import Literal
 
+from coba.pipes import Flatten
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
@@ -266,20 +267,8 @@ class VowpalArgsLearner(Learner):
     def _labels(self,actions,action,reward:float,prob:float) -> Sequence[Optional[str]]:
         return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
 
-    def _flat(self,features:Any) -> Any:
-        if features is None or isinstance(features,(int,float,str)):
-            return features
-        elif isinstance(features,dict):
-            new_items = {}
-            for k,v in features.items():
-                if v is None or isinstance(v, (int,float,str)):
-                    new_items[str(k)] = v
-                else:
-                    new_items.update( (f"{k}_{i}",f)  for i,f in enumerate(v))
-            return new_items
-
-        else:
-            return [ff for f in features for ff in (f if isinstance(f,tuple) else [f]) ]
+    def _flat(self,features:Any) -> Any:        
+        return list(Flatten().filter([features]))[0]
 
 class VowpalEpsilonLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 

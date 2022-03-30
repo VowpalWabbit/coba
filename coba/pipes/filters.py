@@ -119,7 +119,7 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
             return []
 
         if self._max_count == None:
-            return Take(self._count).filter(rng.shuffle(list(items)))            
+            return Take(self._count).filter(rng.shuffle(list(items)))
 
         W         = 1
         items     = iter(items)
@@ -188,7 +188,7 @@ class JsonEncode(Filter[Any, str]):
 
 class JsonDecode(Filter[str, Any]):
     """A filter which turns a JSON string into a Python object."""
-    
+
     def __init__(self, decoder: json.decoder.JSONDecoder = CobaJsonDecoder()) -> None:
         self._decoder = decoder
 
@@ -203,18 +203,25 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
         for row in data:
 
             if isinstance(row,dict):
+                row = dict(row)
                 for k in list(row.keys()):
                     if isinstance(row[k],(list,tuple)):
-                        row.update([((k,i), v) for i,v in enumerate(row.pop(k))])
+                        row.update([(f"{k}_{i}", v) for i,v in enumerate(row.pop(k))])
 
             elif isinstance(row,list):
+                row = list(row)
                 for k in reversed(range(len(row))):
                     if isinstance(row[k],(list,tuple)):
                         for v in reversed(row.pop(k)):
-                            row.insert(k,v) 
+                            row.insert(k,v)
 
-            else:
-                raise CobaException(f"Unrecognized type ({type(row).__name__}) passed to Flattens.")
+            elif isinstance(row,tuple):
+                row = list(row)
+                for k in reversed(range(len(row))):
+                    if isinstance(row[k],(list,tuple)):
+                        for v in reversed(row.pop(k)):
+                            row.insert(k,v)
+                row = tuple(row)
 
             yield row
 
@@ -223,7 +230,7 @@ class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Un
 
     def __init__(self, encoders:Dict[Union[str,int],Encoder], fit_using:int = None, missing_val: str = None):
         """Instantiate an Encode filter.
-        
+
         Args:
             encoders: A mapping from feature names to the Encoder to be used on the data.
             fit_using: The number of rows that should be used to fit the encoder.
@@ -243,7 +250,7 @@ class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Un
         except StopIteration:
             return []
 
-        is_dense = not isinstance(first_item,dict) 
+        is_dense = not isinstance(first_item,dict)
 
         if not is_dense:
             encoders = self._encoders
@@ -279,12 +286,12 @@ class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Un
 
 class Drop(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
     """A filter which drops rows and columns from in table shaped data."""
-    
+
     def __init__(self, 
         drop_cols: Sequence[Union[str,int]] = [], 
         drop_row: Callable[[Union[MutableSequence,MutableMapping]], bool] = None) -> None:
         """Instantiate a Drop filter.
-        
+
         Args:
             drop_cols: Feature names which should be dropped.
             drop_row: A function that accepts a row and returns True if it should be dropped.
@@ -304,10 +311,10 @@ class Drop(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Unio
 
 class Structure(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Any]]):
     """A filter which restructures rows in table shaped data."""
-    
+
     def __init__(self, structure: Sequence[Any]) -> None:
         """Instantiate Structure filter.
-        
+
         Args:
             structure: The structure that each row should be reformed into. Items in the structure should be
                 feature names. A None value indicates the location that all left-over features will be placed.
@@ -355,7 +362,7 @@ class Default(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[U
 
     def __init__(self, defaults: Dict[Any, Any]) -> None:
         """Instantiate a Default filter.
-        
+
         Args:
             defaults: A mapping from feature names to their default values.
         """
