@@ -277,7 +277,6 @@ class CobaJsonDecoder(json.JSONDecoder):
 class InteractionsEncoder:
     
     def __init__(self, interactions: Sequence[str]) -> None:
-
         self.times       = [0,0,0,0]
         self.n           = 0
         self._cross_pows = OrderedDict(zip(interactions,map(OrderedDict,map(Counter,interactions))))
@@ -296,21 +295,21 @@ class InteractionsEncoder:
 
         is_sparse = any(is_sparse_type(v) or is_sparse_sequ(v) for v in ns_raw_values.values())
 
-        def make_all_dict_values(v) -> Dict[str,Union[str,float]]:
+        def make_dict(v) -> Dict[str,Union[str,float]]:
             return v if is_map(v) else dict(zip(map(str,count()),v)) if is_seq(v) else { "0":v }
 
-        def make_all_list_values(v) -> Sequence[Union[str,float]]:
+        def make_list(v) -> Sequence[Union[str,float]]:
             return v if is_seq(v) else [v]
 
-        def handle_str_values(v: Dict[str,Union[str,float]]) -> Dict[str,float]:
+        def handle_str(v: Dict[str,Union[str,float]]) -> Dict[str,float]:
             return { (f"{x}{y}" if is_str(y) else x):(1 if is_str(y) else y) for x,y in v.items() }
 
         start = time.time()
         if is_sparse:
-            ns_values = {ns:handle_str_values(make_all_dict_values(v)) for ns,v in ns_raw_values.items()}
-            ns_values = {ns:{f"{ns}{k}":v for k,v in values.items()}   for ns,values in ns_values.items() }
+            ns_values = { ns:handle_str(make_dict(V))            for ns,V in ns_raw_values.items() if ns in self._ns_max_pow }
+            ns_values = { ns:{f"{ns}{k}":v for k,v in V.items()} for ns,V in ns_values.items()     if ns in self._ns_max_pow }
         else:
-            ns_values = {ns:make_all_list_values(v) for ns,v in ns_raw_values.items()}
+            ns_values = { ns:make_list(v) for ns,v in ns_raw_values.items() if ns in self._ns_max_pow}
         self.times[0] += time.time()-start
 
         if is_sparse:
