@@ -202,7 +202,7 @@ class Environments:
         return self.filter([Reservoir(n_interactions,seed) for seed in seeds])
 
     def scale(self,
-        shift: Union[float,Literal["min","mean","med"]] ="min", 
+        shift: Union[float,Literal["min","mean","med"]] =0, 
         scale: Union[float,Literal["minmax","std","iqr"]]="minmax", 
         using: Optional[int] = None) -> 'Environments':
         """Apply an affine shift and scaling factor to precondition environments."""

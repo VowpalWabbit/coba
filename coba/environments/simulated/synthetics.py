@@ -96,10 +96,10 @@ class LambdaSimulation(SimulatedEnvironment):
             return self._str
 
     def __reduce__(self) -> Tuple[object, ...]:
-        if self._n_interactions is not None and self._n_interactions < 1000:
-            #This is an interesting idea but maybe too wink-wink nudge-nudge in practice. It causes weird flow
-            #in the logs that looks like bugs and lags because IO is happening at strange places in a manner that
-            #can cause thread locks.
+        if self._n_interactions is not None and self._n_interactions < 5000:
+            #This is an interesting idea but maybe too wink-wink nudge-nudge in practice. It causes a weird flow
+            #in the logs that look like bugs. It also causes unexpected lags because IO is happening at strange 
+            #places and in a manner that can cause thread locks.
             return (LambdaSimulation.Spoof, (list(self.read()), self.params, str(self), type(self).__name__ ))
         else:
             message = (
@@ -208,6 +208,11 @@ class LinearSyntheticSimulation(LambdaSimulation):
             V = r_vars[0 if n_action_features else action.index(1)]
             E = r_means[0 if n_action_features else action.index(1)]
 
+            #note, the sum of lognormal distributions is not itself
+            #lognormal. However, when testing, using lognormal features
+            #still gave a more stable r when summed than alternative
+            #feature distributions. For more on the sum of lognormals
+            #see: https://stats.stackexchange.com/q/238529/133603
             r = sum([w*f for w,f in zip(W,F)])
 
             if V != 0:

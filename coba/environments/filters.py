@@ -1,3 +1,5 @@
+import pickle
+import warnings
 import collections.abc
 
 from math import isnan
@@ -46,11 +48,11 @@ class Scale(EnvironmentFilter):
     """Shift and scale features to precondition them before learning."""
 
     def __init__(self, 
-        shift: Union[Number,Literal["min","mean","med"]] ="min", 
-        scale: Union[Number,Literal["minmax","std","iqr"]]="minmax", 
+        shift: Union[Number,Literal["min","mean","med"]] = 0, 
+        scale: Union[Number,Literal["minmax","std","iqr"]] = "minmax", 
         using: Optional[int] = None):
         """Instantiate a Scale filter.
-        
+
         Args:
             shift: The statistic to use to shift each context feature.
             scale: The statistic to use to scale each context feature.
@@ -70,22 +72,41 @@ class Scale(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        iter_interactions  = iter(interactions)
-        train_interactions = list(islice(iter_interactions,self._using))
-        test_interactions  = chain.from_iterable([train_interactions, iter_interactions])
-        
+        iter_interactions    = iter(interactions)
+        fitting_interactions = list(islice(iter_interactions,self._using))
+
         shifts  : Dict[Hashable,float]     = defaultdict(lambda:0)
         scales  : Dict[Hashable,float]     = defaultdict(lambda:1)
         features: Dict[Hashable,List[Any]] = defaultdict(list)
 
-        has_sparse_zero = set()
+        if any([isinstance(i.context,dict) for i in fitting_interactions]) and self._shift != 0:
+            raise CobaException("When scaling a sparse environment shift must be 0. If it is not the environment will become dense.")
 
-        for interaction in train_interactions:
-            for name,value in self._context_as_name_values(interaction.context):
-                if isinstance(value,Number) and not isnan(value):
+        mixed = []
+        had_non_numeric = []
+
+        for interaction in fitting_interactions:
+            for name,value in self._feature_pairs(interaction.context):
+
+                if name in mixed: continue
+
+                is_numeric = isinstance(value,Number)
+                is_nan     = is_numeric and isnan(value)
+
+                if (not is_numeric and name in features) or (is_numeric and name in had_non_numeric) :
+                    mixed.append(name)
+                    if name in features:del features[name]
+                    if name in had_non_numeric:had_non_numeric.remove(name)
+                elif not is_numeric:
+                    had_non_numeric.append(name)
+                elif is_numeric and not is_nan:
                     features[name].append(value)
 
-        for interaction in train_interactions:
+        if mixed: warnings.warn(f"Some features were not scaled due to having mixed types: {mixed}. ")
+
+        has_sparse_zero = set()
+
+        for interaction in fitting_interactions:
             if isinstance(interaction.context,dict):
                 has_sparse_zero |= features.keys() - interaction.context.keys()
 
@@ -109,7 +130,7 @@ class Scale(EnvironmentFilter):
             if isinstance(self._scale, Number):
                 num = self._scale
                 den = 1
-   
+
             if self._scale == "std":
                 num = 1
                 den = stdev(feat_numeric_values)
@@ -122,13 +143,13 @@ class Scale(EnvironmentFilter):
                 num = 1
                 den = iqr(feat_numeric_values)
 
-            scales[feat_name] = num/den if round(den,50) != 0 else 1
+            scales[feat_name] = num/den if round(den,10) != 0 else 1
 
-        for interaction in test_interactions:
+        for interaction in chain(fitting_interactions, iter_interactions):
 
             kv_scaled_context = {}
 
-            for name,value in self._context_as_name_values(interaction.context):
+            for name,value in self._feature_pairs(interaction.context):
                 if isinstance(value,Number):
                     kv_scaled_context[name] = (value-shifts[name])*scales[name]
                 else:
@@ -139,7 +160,7 @@ class Scale(EnvironmentFilter):
             elif isinstance(interaction.context,dict):
                 final_context = kv_scaled_context
             elif isinstance(interaction.context,tuple):
-                final_context = tuple(kv_scaled_context[k] for k,_ in self._context_as_name_values(interaction.context))
+                final_context = tuple(kv_scaled_context[k] for k,_ in self._feature_pairs(interaction.context))
             else:
                 final_context = kv_scaled_context[1]
 
@@ -148,7 +169,7 @@ class Scale(EnvironmentFilter):
             except:
                 yield LoggedInteraction(final_context, interaction.action, **interaction.kwargs)
 
-    def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
+    def _feature_pairs(self,context) -> Sequence[Tuple[Hashable,Any]]:
         if isinstance(context,dict ): return context.items()
         if isinstance(context,tuple): return enumerate(context)
         if context is not None      : return [(1,context)]
@@ -182,7 +203,7 @@ class Impute(EnvironmentFilter):
         iter_interactions  = iter(interactions)
         train_interactions = list(islice(iter_interactions,self._using))
         test_interactions  = chain.from_iterable([train_interactions, iter_interactions])
-        
+
         stats   : Dict[Hashable,float]        = defaultdict(int)
         features: Dict[Hashable,List[Number]] = defaultdict(list)
 
@@ -226,7 +247,7 @@ class Impute(EnvironmentFilter):
                 raise CobaException("Unknown interactions were given to the Impute filter.") 
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
-        
+
         if isinstance(context,dict ): return context.items()
         if isinstance(context,tuple): return enumerate(context)
         if context is not None      : return [(1,context)]
@@ -235,7 +256,7 @@ class Impute(EnvironmentFilter):
 
 class Sparse(EnvironmentFilter):
     """Sparsify an environment's feature representation. 
-    
+
     This has little utility beyond debugging.
     """
 
@@ -246,7 +267,7 @@ class Sparse(EnvironmentFilter):
             context: If True then contexts should be made sparse otherwise leave them alone.
             action: If True then actions should be made sparse otherwise leave them alone.
         """
-        
+
         self._context = context
         self._action  = action
 
@@ -276,13 +297,13 @@ class Sparse(EnvironmentFilter):
 
 class Cycle(EnvironmentFilter):
     """Cycle all rewards associated with actions by one place.
-    
+
     This filter is useful for testing an algorithms response to a non-stationary shock.
     """
 
     def __init__(self, after:int = 0):
         """Instantiate a Cycle filter.
-        
+
         Args:
             after: How many interactions should be seen before applying the cycle filter.
         """
@@ -301,9 +322,25 @@ class Cycle(EnvironmentFilter):
         for interaction in sans_cycle_interactions:
             yield interaction
 
-        for interaction in with_cycle_interactions:
-            kwargs = {k:v[1:]+v[:1] for k,v in interaction.kwargs.items()}
-            yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
+        try:
+            first_interaction = next(with_cycle_interactions)
+
+            action_set              = set(first_interaction.actions)
+            n_actions               = len(action_set)
+            featureless_actions     = [tuple([0]*n+[1]+[0]*(n_actions-n-1)) for n in range(n_actions)]
+            with_cycle_interactions = chain([first_interaction], with_cycle_interactions)
+
+            if len(set(action_set) & set(featureless_actions)) != len(action_set):
+                warnings.warn("Cycle only works for environments without action features. It will be ignored in this case.")
+                for interaction in with_cycle_interactions:
+                    yield interaction
+            else:
+                for interaction in with_cycle_interactions:
+                    kwargs = interaction.kwargs.copy()
+                    kwargs['rewards'] = kwargs['rewards'][-1:] + kwargs['rewards'][:-1]
+                    yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
+        except StopIteration:
+            pass
 
 class Binary(EnvironmentFilter):
     """Binarize all rewards to either 1 (max rewards) or 0 (all others)."""
@@ -317,7 +354,7 @@ class Binary(EnvironmentFilter):
         for interaction in interactions:
             kwargs  = interaction.kwargs.copy()
             max_rwd = max(kwargs["rewards"])
-            
+
             kwargs["rewards"] = [int(r==max_rwd) for r in kwargs["rewards"]]
 
             yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
@@ -332,7 +369,7 @@ class Sort(EnvironmentFilter):
             *keys: The context items that should be sorted on.
         """
         self._keys = []
-        
+
         for key in keys:
             if not isinstance(key, collections.abc.Sequence) or isinstance(key,str):
                 self._keys.append(key)
@@ -368,7 +405,7 @@ class Where(EnvironmentFilter):
         return params
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        
+
         interactions = iter(interactions)
 
         if self._n_interactions is None or self._n_interactions == (None,None):
@@ -482,9 +519,9 @@ class Noise(EnvironmentFilter):
     """Introduce noise to an environment."""
 
     def __init__(self,
-        context: Callable[[CobaRandom, float], float] = None, 
-        action : Callable[[CobaRandom, float], float] = None,
-        reward : Callable[[CobaRandom, float], float] = None,
+        context: Callable[[float,CobaRandom], float] = None, 
+        action : Callable[[float,CobaRandom], float] = None,
+        reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> None:
         """Instantiate a Noise EnvironmentFilter.
 
@@ -495,19 +532,33 @@ class Noise(EnvironmentFilter):
             seed: The seed initializing the random state of the noise generators.
         """
 
-        self._no_noise = lambda _, x: x
+        self._args = (context,action,reward,seed)
+        self._no_noise = lambda x, _: x
 
         if context is None and action is None and reward is None:
-            context = lambda rng, x: x+rng.gauss(0,1)
+            context = lambda x, rng: x+rng.gauss(0,1)
 
         self._context_noise = context or self._no_noise
         self._action_noise  = action  or self._no_noise
         self._reward_noise  = reward  or self._no_noise
         self._seed          = seed
 
+    def __reduce__(self) -> tuple:
+        try:
+            pickle.dumps(self._args)
+        except Exception:
+            message = (
+                "We were unable to pickle the Noise filter. This is likely due to using lambda functions for noise generation. "
+                "To work around this we recommend you first define your lambda functions as a named function and then pass the "
+                "named function to Noise."
+            )
+            raise CobaException(message)
+        else:
+            return (Noise, self._args)
+
     @property
     def params(self) -> Dict[str, Any]:
-        
+
         params = {}
 
         if self._context_noise != self._no_noise: params['context_noise'] = True 
@@ -516,7 +567,7 @@ class Noise(EnvironmentFilter):
 
         params['noise_seed'] = self._seed
 
-        return params        
+        return params
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
 
@@ -537,7 +588,7 @@ class Noise(EnvironmentFilter):
 
             yield SimulatedInteraction(noisy_context, noisy_actions, **noisy_kwargs)
 
-    def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[CobaRandom], float]):
+    def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
 
         if isinstance(value, collections.abc.Mapping):
             #we sort so that noise generation is deterministic with respect to seed
@@ -548,6 +599,6 @@ class Noise(EnvironmentFilter):
 
         return self._noise(value, rng, noiser)
 
-    def _noise(self, value:Union[None,float,str], rng: CobaRandom, noiser: Callable[[CobaRandom], float]) -> float:
+    def _noise(self, value:Union[None,float,str], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]) -> float:
 
-        return value if not isinstance(value,(int,float)) else noiser(rng,value)
+        return value if not isinstance(value,(int,float)) else noiser(value, rng)

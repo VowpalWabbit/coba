@@ -3,6 +3,7 @@ from typing import Any, Dict, Sequence
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
+from coba.pipes import Flatten
 from coba.encodings import InteractionsEncoder
 
 from coba.learners.primitives import Probs, Info, Learner
@@ -62,6 +63,7 @@ class LinUCBLearner(Learner):
         if isinstance(actions[0], dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this algorithm.")
 
+        context = list(Flatten().filter([list(context)]))[0]
         features: np.ndarray = np.array([self._X_encoder.encode(x=context,a=action) for action in actions]).T
 
         if(self._A_inv is None):
@@ -83,7 +85,8 @@ class LinUCBLearner(Learner):
         if isinstance(action, dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this algorithm.")
 
-        features = np.array(self._X_encoder.encode(x=context,a=action)).T
+        context = list(Flatten().filter([list(context)]))[0]
+        features: np.ndarray = np.array(self._X_encoder.encode(x=context,a=action)).T
 
         if(self._A_inv is None):
             self._theta = np.zeros((features.shape[0]))
