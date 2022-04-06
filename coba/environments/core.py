@@ -61,7 +61,7 @@ class Environments:
     @staticmethod
     def from_linear_synthetic(
         n_interactions: int,
-        n_actions:int = 10,
+        n_actions:int = 5,
         n_context_features: int = 5,
         n_action_features: int = 5,
         reward_features: Sequence[str] = ["a","xa"],

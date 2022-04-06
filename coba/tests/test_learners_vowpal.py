@@ -55,7 +55,7 @@ class VowpalEpsilonLearner_Tests(unittest.TestCase):
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalEpsilonLearner()
-        mock.assert_called_once_with("--cb_explore_adf --epsilon 0.1 --interactions ax --interactions axx --ignore_linear x --random_seed 1")
+        mock.assert_called_once_with("--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1")
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_specifics(self, mock) -> None:

@@ -278,7 +278,7 @@ class VowpalEpsilonLearner(VowpalArgsLearner):
     """
 
     def __init__(self,
-        epsilon: float = 0.10,
+        epsilon: float = 0.05,
         features: Sequence[str] = ['a','ax','axx'],
         seed: Optional[int] = 1,
         **kwargs) -> None:

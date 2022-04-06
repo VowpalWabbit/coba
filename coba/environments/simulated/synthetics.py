@@ -160,11 +160,14 @@ class LinearSyntheticSimulation(LambdaSimulation):
         #we center our context and action features on 1 and give them
         #a very small amount of variance. Then in post processing we
         #shift and re-scale our variance
-        feat_gen        = lambda n: tuple(rng.gausses(n,mu=1,sigma=1/10))
+        max_degree      = max([len(f) for f in reward_features]) if reward_features else 1
+        feat_gen        = lambda n: tuple(rng.gausses(n,mu=1,sigma=1/max_degree))
         feature_count   = len(feat_encoder.encode(x=[1]*n_context_features,a=[1]*n_action_features))
         one_hot_actions = OneHotEncoder().fit_encodes(range(n_actions))
 
         self._weights = [ rng.randoms(feature_count or 1) for _ in range(1 if n_action_features else n_actions) ]
+        self._weights = [ [w/sum(W) if len(W) > 1 else w for w in W] for W in self._weights ]        
+        
         self._bias    = 0
         self._clip    = False
 

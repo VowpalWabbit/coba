@@ -33,7 +33,7 @@ To begin save the following Python code below to a text file called ``first.py``
     from coba.learners     import RandomLearner, LinUCBLearner
     from coba.experiments  import Experiment
 
-    env = Environments.from_linear_synthetic(500)
+    env = Environments.from_linear_synthetic(500,seed=5)
     lrn = [ RandomLearner(), LinUCBLearner() ]
 
     result = Experiment(env, lrn).evaluate()

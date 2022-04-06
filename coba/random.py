@@ -128,7 +128,7 @@ class CobaRandom:
 
             return seq[[ rng <= c for c in cdf].index(True)]
 
-    def gauss(self, mu:float, sigma:float) -> float:
+    def gauss(self, mu:float=0, sigma:float=1) -> float:
         """Generate a random number from N(mu,sigma).
     
         Returns:
@@ -136,7 +136,7 @@ class CobaRandom:
         """
         return self.gausses(1, mu, sigma)[0]
 
-    def gausses(self, n:int, mu:float, sigma:float) -> Sequence[float]:
+    def gausses(self, n:int, mu:float=0, sigma:float=1) -> Sequence[float]:
         """Generate `n` independent random numbers from N(mu,sigma).
 
         Args:
@@ -230,7 +230,7 @@ def randoms(n: int) -> Sequence[float]:
 
     return _random.randoms(n)
 
-def gauss(mu:float, sigma:float) -> float:
+def gauss(mu:float=0, sigma:float=1) -> float:
     """Generate a random number from N(mu,sigma).
     
     Returns:
@@ -239,7 +239,7 @@ def gauss(mu:float, sigma:float) -> float:
 
     return _random.gauss(mu,sigma)
 
-def gausses(n:int, mu:float, sigma:float) -> Sequence[float]:
+def gausses(n:int, mu:float=0, sigma:float=1) -> Sequence[float]:
     """Generate `n` independent random numbers from N(mu,sigma).
 
     Args:
