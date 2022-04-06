@@ -8,7 +8,7 @@ from coba.pipes      import Pipes, Source, HttpSource, ListSource, JsonDecode
 from coba.exceptions import CobaException
 
 from coba.environments.filters     import EnvironmentFilter
-from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute, Where, Noise
+from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute, Where, Noise, Riffle
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
 from coba.environments          .primitives import Environment
@@ -196,6 +196,10 @@ class Environments:
         if isinstance(seeds,int): seeds = [seeds]
         return self.filter([Shuffle(seed) for seed in seeds])
 
+    def riffle(self, spacing: int, seed: int = 1) -> 'Environments':
+        """Riffle shuffle by evenly spacing interactions at the end of an environment into the beginning."""
+        return self.filter(Riffle(spacing, seed))
+
     def cycle(self, after: int) -> 'Environments':
         """Cycle all rewards associated with actions by one place."""
         return self.filter(Cycle(after))
@@ -226,9 +230,9 @@ class Environments:
         return self.filter(Where(n_interactions=n_interactions))
 
     def noise(self,
-        context: Callable[[CobaRandom, float], float] = None, 
-        action : Callable[[CobaRandom, float], float] = None,
-        reward : Callable[[CobaRandom, float], float] = None,
+        context: Callable[[float,CobaRandom], float] = None, 
+        action : Callable[[float,CobaRandom], float] = None,
+        reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> 'Environments':
         """Add noise to an environments context, actions and rewards."""
         return self.filter(Noise(context,action,reward,seed))

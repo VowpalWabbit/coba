@@ -342,7 +342,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual((1,2), envs[1].params['where_n_interactions'])
 
     def test_noise(self):
-        envs = Environments(TestEnvironment('A')).noise(1,2,3,4)
+        envs = Environments(TestEnvironment('A')).noise(lambda x,r: x+1, lambda x,r: x+2, lambda x,r: x+3, lambda x,r: x+4)
 
         self.assertEqual(1, len(envs))
 
@@ -350,6 +350,15 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(True, envs[0].params['context_noise'])
         self.assertEqual(True, envs[0].params['action_noise'])
         self.assertEqual(True, envs[0].params['context_noise'])
+
+    def test_riffle(self):
+        envs = Environments(TestEnvironment('A')).riffle(2,1)
+
+        self.assertEqual(1, len(envs))
+
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(2, envs[0].params['riffle_spacing'])
+        self.assertEqual(1, envs[0].params['riffle_seed'])
 
     def test_singular_filter(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1))

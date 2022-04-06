@@ -8,7 +8,7 @@ from coba.exceptions   import CobaException
 from coba.environments import LoggedInteraction, SimulatedInteraction
 
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary
-from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, CovariateShift
+from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle
 
 class TestEnvironment:
 
@@ -1126,8 +1126,8 @@ class Noise_Tests(unittest.TestCase):
         with self.assertRaises(CobaException):
             pickle.dumps(Noise(lambda x,_: x))
 
-class CovariateShift_Tests(unittest.TestCase):
-    def test_shift1(self):
+class Riffle_Tests(unittest.TestCase):
+    def test_riffle0(self):
 
         interactions = [
             SimulatedInteraction((7,2), [1], rewards=[1]),
@@ -1136,18 +1136,66 @@ class CovariateShift_Tests(unittest.TestCase):
         ]
 
         mem_interactions = interactions
-        cov_interactions = list(CovariateShift(1).filter(mem_interactions))
+        cov_interactions = list(Riffle(0).filter(mem_interactions))
+
+        self.assertEqual((7,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((8,3), mem_interactions[2].context)
+
+        self.assertEqual((7,2), cov_interactions[0].context)
+        self.assertEqual((1,9), cov_interactions[1].context)
+        self.assertEqual((8,3), cov_interactions[2].context)
+
+    def test_riffle1(self):
+
+        interactions = [
+            SimulatedInteraction((7,2), [1], rewards=[1]),
+            SimulatedInteraction((1,9), [1], rewards=[1]),
+            SimulatedInteraction((8,3), [1], rewards=[1])
+        ]
+
+        mem_interactions = interactions
+        cov_interactions = list(Riffle(1,seed=5).filter(mem_interactions))
+
+        self.assertEqual((7,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((8,3), mem_interactions[2].context)
+
+        self.assertEqual((7,2), cov_interactions[0].context)
+        self.assertEqual((8,3), cov_interactions[1].context)
+        self.assertEqual((1,9), cov_interactions[2].context)
+
+        cov_interactions = list(Riffle(1,seed=4).filter(mem_interactions))
 
         self.assertEqual((7,2), mem_interactions[0].context)
         self.assertEqual((1,9), mem_interactions[1].context)
         self.assertEqual((8,3), mem_interactions[2].context)
 
         self.assertEqual((8,3), cov_interactions[0].context)
+        self.assertEqual((7,2), cov_interactions[1].context)
+        self.assertEqual((1,9), cov_interactions[2].context)
+
+    def test_riffle5(self):
+
+        interactions = [
+            SimulatedInteraction((7,2), [1], rewards=[1]),
+            SimulatedInteraction((1,9), [1], rewards=[1]),
+            SimulatedInteraction((8,3), [1], rewards=[1])
+        ]
+
+        mem_interactions = interactions
+        cov_interactions = list(Riffle(5).filter(mem_interactions))
+
+        self.assertEqual((7,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((8,3), mem_interactions[2].context)
+
+        self.assertEqual((7,2), cov_interactions[0].context)
         self.assertEqual((1,9), cov_interactions[1].context)
-        self.assertEqual((7,2), cov_interactions[2].context)
+        self.assertEqual((8,3), cov_interactions[2].context)
 
     def test_params(self):        
-        self.assertEqual({'covariate_shift_ratio':2}, CovariateShift(2).params)
+        self.assertEqual({'riffle_spacing':2, 'riffle_seed':3}, Riffle(2,3).params)
 
 if __name__ == '__main__':
     unittest.main()

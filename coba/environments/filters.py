@@ -502,31 +502,30 @@ class Warm(EnvironmentFilter):
 
         return LoggedInteraction(interaction.context, selected_action, **kwargs)
 
-class CovariateShift(EnvironmentFilter):
-    """Manipulate Interactions in an Environment to simulate Covariate Shift via sorting."""
+class Riffle(EnvironmentFilter):
+    """Riffle shuffle Interactions by taking actions from the end and evenly distributing into the beginning."""
 
-    def __init__(self, covariate_shift_ratio: int = 3) -> None:
-        """Instantiate a CovariateShift filter.
+    def __init__(self, spacing: int = 3, seed=1) -> None:
+        """Instantiate a Riffle filter.
 
         Args:
-            covariate_shift_ratio: The number of interactions in the first "class" for every one represented from the second "class".
+            spacing: The number of interactions from the beginning between each interaction shuffled in from the end.
+            seed: The seed used to determine the location of each ending interaction when placed within its beginning space.
         """
-        self._covariate_shift_ratio = covariate_shift_ratio
+        self._spacing = spacing
+        self._seed = seed
 
     @property
     def params(self) -> Dict[str, Any]:
-        return {"covariate_shift_ratio": self._covariate_shift_ratio}
+        return {"riffle_spacing": self._spacing, "riffle_seed": self._seed}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        rng       = CobaRandom(1)
-        set_count = self._covariate_shift_ratio+1
-        set_size  = int(len(interactions)/(set_count))
+        rng          = CobaRandom(self._seed)
+        interactions = list(interactions)
 
-        interactions = list(Sort().filter(interactions))
-
-        for i in range(set_size):
-            interactions.insert(i*self._covariate_shift_ratio+rng.randint(0,3), interactions.pop())
+        for i in range(int(len(interactions)/(self._spacing+1))):
+            interactions.insert(i*self._spacing+rng.randint(0,self._spacing), interactions.pop())
 
         return interactions
 
