@@ -15,8 +15,9 @@ from coba            import pipes
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
+from coba.pipes      import Flatten
 
-from coba.environments.primitives import Interaction, Context, Action
+from coba.environments.primitives import Interaction
 from coba.environments.logged.primitives import LoggedInteraction
 from coba.environments.simulated.primitives import SimulatedInteraction
 
@@ -47,60 +48,73 @@ class Reservoir(pipes.Reservoir, EnvironmentFilter):
 class Scale(EnvironmentFilter):
     """Shift and scale features to precondition them before learning."""
 
-    def __init__(self, 
+    def __init__(self,
         shift: Union[Number,Literal["min","mean","med"]] = 0, 
         scale: Union[Number,Literal["minmax","std","iqr"]] = "minmax", 
-        using: Optional[int] = None):
+        using: Optional[int] = None,
+        target: Literal["features","rewards"] = "features"):
         """Instantiate a Scale filter.
 
         Args:
             shift: The statistic to use to shift each context feature.
             scale: The statistic to use to scale each context feature.
             using: The number of interactions to use when calculating the necessary statistics.
+            target: The target data we wish to scale in the environment.
         """
 
         assert isinstance(shift,Number) or shift in ["min","mean","med"]
         assert isinstance(scale,Number) or scale in ["minmax","std","iqr"]
 
-        self._shift = shift
-        self._scale = scale
-        self._using = using
+        self._shift  = shift
+        self._scale  = scale
+        self._using  = using
+        self._target = target
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { "scale_shift": self._shift, "scale_scale":self._scale, "scale_using":self._using }
+        return {
+            "scale_shift": self._shift,
+            "scale_scale": self._scale,
+            "scale_using": self._using,
+            "scale_target": self._target
+        }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         iter_interactions    = iter(interactions)
         fitting_interactions = list(islice(iter_interactions,self._using))
 
-        shifts  : Dict[Hashable,float]     = defaultdict(lambda:0)
-        scales  : Dict[Hashable,float]     = defaultdict(lambda:1)
-        features: Dict[Hashable,List[Any]] = defaultdict(list)
+        shifts: Dict[Hashable,float]     = defaultdict(lambda:0)
+        scales: Dict[Hashable,float]     = defaultdict(lambda:1)
+        unscaled_values: Dict[Hashable,List[Any]] = defaultdict(list)
 
         if any([isinstance(i.context,dict) for i in fitting_interactions]) and self._shift != 0:
-            raise CobaException("When scaling a sparse environment shift must be 0. If it is not the environment will become dense.")
+            raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
 
         mixed = []
         had_non_numeric = []
 
         for interaction in fitting_interactions:
-            for name,value in self._feature_pairs(interaction.context):
+            
+            if self._target == "features":
+                for name,value in self._feature_pairs(interaction.context):
 
-                if name in mixed: continue
+                    if name in mixed: continue
 
-                is_numeric = isinstance(value,Number)
-                is_nan     = is_numeric and isnan(value)
+                    is_numeric = isinstance(value,Number)
+                    is_nan     = is_numeric and isnan(value)
 
-                if (not is_numeric and name in features) or (is_numeric and name in had_non_numeric) :
-                    mixed.append(name)
-                    if name in features:del features[name]
-                    if name in had_non_numeric:had_non_numeric.remove(name)
-                elif not is_numeric:
-                    had_non_numeric.append(name)
-                elif is_numeric and not is_nan:
-                    features[name].append(value)
+                    if (not is_numeric and name in unscaled_values) or (is_numeric and name in had_non_numeric) :
+                        mixed.append(name)
+                        if name in unscaled_values: del unscaled_values[name]
+                        if name in had_non_numeric: had_non_numeric.remove(name)
+                    elif not is_numeric:
+                        had_non_numeric.append(name)
+                    elif is_numeric and not is_nan:
+                        unscaled_values[name].append(value)
+            
+            if self._target == "rewards":
+                unscaled_values["rewards"].extend(interaction.kwargs["rewards"])
 
         if mixed: warnings.warn(f"Some features were not scaled due to having mixed types: {mixed}. ")
 
@@ -108,24 +122,24 @@ class Scale(EnvironmentFilter):
 
         for interaction in fitting_interactions:
             if isinstance(interaction.context,dict):
-                has_sparse_zero |= features.keys() - interaction.context.keys()
+                has_sparse_zero |= unscaled_values.keys() - interaction.context.keys() - {"rewards"}
 
         for key in has_sparse_zero:
-            features[key].append(0)
+            unscaled_values[key].append(0)
 
-        for feat_name, feat_numeric_values in features.items():
+        for name, values in unscaled_values.items():
 
             if isinstance(self._shift, Number):
-                shifts[feat_name] = self._shift
+                shifts[name] = self._shift
 
             if self._shift == "min":
-                shifts[feat_name] = min(feat_numeric_values)
+                shifts[name] = min(values)
 
             if self._shift == "mean":
-                shifts[feat_name] = mean(feat_numeric_values)
+                shifts[name] = mean(values)
 
             if self._shift == "med":
-                shifts[feat_name] = median(feat_numeric_values)
+                shifts[name] = median(values)
 
             if isinstance(self._scale, Number):
                 num = self._scale
@@ -133,40 +147,47 @@ class Scale(EnvironmentFilter):
 
             if self._scale == "std":
                 num = 1
-                den = stdev(feat_numeric_values)
+                den = stdev(values)
 
             if self._scale == "minmax":
                 num = 1
-                den = max(feat_numeric_values)-min(feat_numeric_values)
+                den = max(values)-min(values)
 
             if self._scale == "iqr":
                 num = 1
-                den = iqr(feat_numeric_values)
+                den = iqr(values)
 
-            scales[feat_name] = num/den if round(den,10) != 0 else 1
+            scales[name] = num/den if round(den,10) != 0 else 1
 
         for interaction in chain(fitting_interactions, iter_interactions):
 
-            kv_scaled_context = {}
+            scaled_values = {}
 
-            for name,value in self._feature_pairs(interaction.context):
-                if isinstance(value,Number):
-                    kv_scaled_context[name] = (value-shifts[name])*scales[name]
+            final_context = interaction.context
+            final_kwargs  = interaction.kwargs.copy()
+
+            if self._target == "features":
+                for name,value in self._feature_pairs(interaction.context):
+                    if isinstance(value,Number):
+                        scaled_values[name] = (value-shifts[name])*scales[name]
+                    else:
+                        scaled_values[name] = value
+
+                if interaction.context is None:
+                    final_context = None
+                elif isinstance(interaction.context,dict):
+                    final_context = scaled_values
+                elif isinstance(interaction.context,tuple):
+                    final_context = tuple(scaled_values[k] for k,_ in self._feature_pairs(interaction.context))
                 else:
-                    kv_scaled_context[name] = value
+                    final_context = scaled_values[1]
 
-            if interaction.context is None:
-                final_context = None
-            elif isinstance(interaction.context,dict):
-                final_context = kv_scaled_context
-            elif isinstance(interaction.context,tuple):
-                final_context = tuple(kv_scaled_context[k] for k,_ in self._feature_pairs(interaction.context))
-            else:
-                final_context = kv_scaled_context[1]
+            if self._target == "rewards":
+                final_kwargs['rewards'] = [ (r-shifts['rewards'])*scales['rewards'] for r in interaction.kwargs['rewards'] ]
 
             try:
-                yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
-            except:
+                yield SimulatedInteraction(final_context, interaction.actions, **final_kwargs)
+            except AttributeError:
                 yield LoggedInteraction(final_context, interaction.action, **interaction.kwargs)
 
     def _feature_pairs(self,context) -> Sequence[Tuple[Hashable,Any]]:
@@ -368,20 +389,25 @@ class Sort(EnvironmentFilter):
         Args:
             *keys: The context items that should be sorted on.
         """
-        self._keys = []
 
-        for key in keys:
-            if not isinstance(key, collections.abc.Sequence) or isinstance(key,str):
-                self._keys.append(key)
-            else:
-                self._keys.extend(key)
+        self._keys = list(Flatten().filter([list(keys)]))[0]
 
     @property
     def params(self) -> Dict[str, Any]:
         return { "sort": self._keys }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        return sorted(interactions, key=lambda interaction: tuple(interaction.context[key] for key in self._keys))
+
+        full_sorter = lambda interaction: tuple(interaction.context                                 ) 
+        list_sorter = lambda interaction: tuple(interaction.context[key]       for key in self._keys)
+        dict_sorter = lambda interaction: tuple(interaction.context.get(key,0) for key in self._keys)
+
+        interactions = list(interactions)
+        is_sparse    = isinstance(interactions[0].context,dict)
+        
+        sorter = full_sorter if not self._keys else dict_sorter if is_sparse else list_sorter
+
+        return sorted(interactions, key=sorter)
 
 class Where(EnvironmentFilter):
     """Define Environment selection criteria for an Environments pipe."""
@@ -431,29 +457,29 @@ class Where(EnvironmentFilter):
 
         return chain(taken_interactions, interactions)
 
-class WarmStart(EnvironmentFilter):
+class Warm(EnvironmentFilter):
     """Turn a SimulatedEnvironment into a WarmStartEnvironment."""
 
-    def __init__(self, n_warmstart:int, seed:int = 1):
-        """Instantiate a WarmStart filter.
+    def __init__(self, n_warm:int, seed:int = 1):
+        """Instantiate a Warm filter.
 
         Args:
-            n_warmstart: The number of interactions that should be turned into LoggedInteractions.
+            n_warm: The number of interactions that should be turned into LoggedInteractions.
             seed: The random number seed that determines the random logging policy for LoggedInteractions.
         """
-        self._n_warmstart = n_warmstart
+        self._n_warm = n_warm
         self._seed = seed
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { "n_warmstart": self._n_warmstart }
+        return { "n_warm": self._n_warm }
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Interaction]:
 
         self._rng = CobaRandom(self._seed)
 
         underlying_iterable    = iter(interactions)
-        logged_interactions    = map(self._to_logged_interaction, islice(underlying_iterable, self._n_warmstart))
+        logged_interactions    = map(self._to_logged_interaction, islice(underlying_iterable, self._n_warm))
         simulated_interactions = underlying_iterable
 
         return chain(logged_interactions, simulated_interactions)
@@ -475,6 +501,33 @@ class WarmStart(EnvironmentFilter):
             kwargs["reward"] = interaction.kwargs["rewards"][selected_index]
 
         return LoggedInteraction(interaction.context, selected_action, **kwargs)
+
+class Riffle(EnvironmentFilter):
+    """Riffle shuffle Interactions by taking actions from the end and evenly distributing into the beginning."""
+
+    def __init__(self, spacing: int = 3, seed=1) -> None:
+        """Instantiate a Riffle filter.
+
+        Args:
+            spacing: The number of interactions from the beginning between each interaction shuffled in from the end.
+            seed: The seed used to determine the location of each ending interaction when placed within its beginning space.
+        """
+        self._spacing = spacing
+        self._seed = seed
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return {"riffle_spacing": self._spacing, "riffle_seed": self._seed}
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        rng          = CobaRandom(self._seed)
+        interactions = list(interactions)
+
+        for i in range(int(len(interactions)/(self._spacing+1))):
+            interactions.insert(i*self._spacing+rng.randint(0,self._spacing), interactions.pop())
+
+        return interactions
 
 class Noise(EnvironmentFilter):
     """Introduce noise to an environment."""

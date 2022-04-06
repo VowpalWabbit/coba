@@ -13,8 +13,18 @@ class LinUCBLearner_Tests(unittest.TestCase):
         probs   = learner.predict([1,2,3], [1,1,1])
 
         self.assertEqual(probs, [1/3,1/3,1/3])
-        self.assertEqual(learner._theta.shape, (4,))
-        self.assertEqual(learner._A_inv.shape, (4,4))
+        self.assertEqual(learner._theta.shape, (5,))
+        self.assertEqual(learner._A_inv.shape, (5,5))
+
+    def test_none_context(self):
+
+        learner = LinUCBLearner()
+        probs   = learner.predict(None, [1,1,1])
+        learner.learn(None, 1, 1, .5, None)
+
+        self.assertEqual(probs, [1/3,1/3,1/3])
+        self.assertEqual(learner._theta.shape, (2,))
+        self.assertEqual(learner._A_inv.shape, (2,2))
 
     def test_exploration_bound(self):
 
@@ -31,8 +41,8 @@ class LinUCBLearner_Tests(unittest.TestCase):
         learner = LinUCBLearner(alpha=0.2)
         learner.learn([1,2,3], 1, 1, 1/3, None)
 
-        self.assertEqual(learner._theta.shape, (4,))
-        self.assertEqual(learner._A_inv.shape, (4,4))
+        self.assertEqual(learner._theta.shape, (5,))
+        self.assertEqual(learner._A_inv.shape, (5,5))
         self.assertTrue(not (learner._theta == 0).any())
         self.assertTrue(not (learner._A_inv == 0).any())
 

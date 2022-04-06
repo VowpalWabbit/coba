@@ -286,6 +286,8 @@ class InteractionsEncoder:
 
         self.n+= 1
 
+        ns_raw_values = { k:v if v is not None else [] for k,v in ns_raw_values.items() }
+
         is_str = lambda v: isinstance(v,str)
         is_seq = lambda v: isinstance(v,collections.abc.Sequence) and not is_str(v)
         is_map = lambda v: isinstance(v,collections.abc.Mapping)
@@ -344,8 +346,11 @@ class InteractionsEncoder:
             return encoded
 
     def _pows(self, values, degree):
-        #WARNING: This function has been extremely optimized. Test speed before and after making any changes.
-        #WARNING: Look in test_performance for three existing performance tests.
+        #WARNING: This function has been extremely optimized. Please baseline performance before and after making any changes.
+        #WARNING: You can find three existing performance tests in test_performance.
+ 
+        if values in [[],{}]: return []
+        
         starts = [1]*len(values)
         terms  = [['']] if isinstance(values[0],str) else [[1]]
 
@@ -362,6 +367,8 @@ class InteractionsEncoder:
     def _cross(self, ns_pows, cross_pow):
         #WARNING: This function has been extremely optimized. Test speed before and after making any changes.
         #WARNING: Look in test_performance for three existing performance tests.
+
+        if any(ns_pows[k] == [] for k in cross_pow.keys()): return []
 
         values = [ ns_pows[ns][p] for ns,p in cross_pow.items() ]
         cross  = values[0]

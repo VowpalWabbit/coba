@@ -1,4 +1,3 @@
-import json
 import unittest
 
 from coba.pipes import ListSource
@@ -6,8 +5,7 @@ from coba.registry import CobaRegistry
 from coba.exceptions import CobaException
 
 from coba.environments.definitions import EnvironmentDefinitionFileV1
-from coba.environments.simulated   import OpenmlSimulation
-from coba.environments.filters     import Take
+from coba.environments import OpenmlSimulation, Take
 
 SimulatedEnvironment = OpenmlSimulation
 

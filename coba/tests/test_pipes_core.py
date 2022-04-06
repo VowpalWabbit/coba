@@ -30,8 +30,10 @@ class ReprSource(ListSource):
         return "ReprSource"
 
 class ReprFilter(Filter):
+    def __init__(self,id=""):
+        self._id = id
     def __str__(self):
-        return "ReprFilter"
+        return f"ReprFilter{self._id}"
     
     def filter(self, item: Any) -> Any:
         return item
@@ -82,12 +84,12 @@ class FiltersFilter_Tests(unittest.TestCase):
     
     def test_init_filters(self):
 
-        filter = FiltersFilter(ReprFilter(), ReprFilter())
+        filter = FiltersFilter(ReprFilter("1"), ReprFilter("2"))
 
         self.assertEqual(2, len(filter._filters))
         self.assertIsInstance(filter._filters[0], ReprFilter)
         self.assertIsInstance(filter._filters[1], ReprFilter)
-        self.assertEqual("ReprFilter,ReprFilter", str(filter))
+        self.assertEqual("ReprFilter1,ReprFilter2", str(filter))
 
     def test_init_filtersfilter(self):
 
@@ -189,12 +191,26 @@ class Foreach_Tests(unittest.TestCase):
 class Pipes_Tests(unittest.TestCase):
 
     def test_run(self):
-        sink   = ListSource(list(range(10)))
-        source = ListSink()
+        source = ListSource(list(range(10)))
+        sink   = ListSink()
 
-        Pipes.join(sink, ProcessNameFilter(), source).run()
+        Pipes.join(source, ProcessNameFilter(), sink).run()
 
-        self.assertEqual(source.items[0], ['MainProcess']*10)
+        self.assertEqual(sink.items[0], ['MainProcess']*10)
+
+    def test_filter_order(self):
+
+        class AddFilter:
+            def filter(self,items):
+                for item in items:
+                    yield item+1
+
+        class MultFilter:
+            def filter(self,items):
+                for item in items:
+                    yield item*2
+
+        self.assertEqual([4,6], list(Pipes.join(AddFilter(), MultFilter()).filter([1,2])))
 
     def test_exception(self):
         with self.assertRaises(Exception):

@@ -6,6 +6,7 @@ from coba.exceptions import CobaException
 from coba.contexts import CobaContext, NullLogger
 
 from coba.environments import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments import KernelSyntheticSimulation, MLPSyntheticSimulation
 
 CobaContext.logger = NullLogger()
 
@@ -138,8 +139,9 @@ class LambdaSimulation_Tests(unittest.TestCase):
         self.assertIn("pickle", str(e.exception))
 
 class LinearSyntheticSimulation_Tests(unittest.TestCase):
-    def test_simple_action_features(self):
-        
+    
+    def test_simple_context_action_features(self):
+
         simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4,reward_features=["a","xa"])
         interactions = list(simulation.read())
 
@@ -147,11 +149,16 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(2, len(interactions[0].actions))
         self.assertEqual(3, len(interactions[0].context))
         self.assertEqual(4, len(interactions[0].actions[0]))
-        self.assertEqual(1, len(simulation._action_weights))
-        self.assertEqual(16, len(simulation._action_weights[0]))
 
-    def test_simple_no_action_features(self):
-        
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+
+    def test_simple_context_no_action_features(self):
+
         simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=0,reward_features=["a","xa"])
         interactions = list(simulation.read())
 
@@ -161,12 +168,33 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(2, len(interactions[0].actions[0]))
         self.assertEqual((1,0), interactions[0].actions[0])
         self.assertEqual((0,1), interactions[0].actions[1])
-        self.assertEqual(2, len(simulation._action_weights))
-        self.assertEqual(4, len(simulation._action_weights[0]))
-        self.assertEqual(4, len(simulation._action_weights[1]))
+
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+
+    def test_simple_no_context_action_features(self):
+
+        simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=4,reward_features=["a","xa"])
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(None, interactions[0].context)
+        self.assertEqual(4, len(interactions[0].actions[0]))
+
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_no_context_and_no_action_features(self):
-        
+
         simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=0,reward_features=["a","xa"])
         interactions = list(simulation.read())
 
@@ -175,11 +203,14 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(2, len(interactions[0].actions))        
         self.assertEqual((1,0), interactions[0].actions[0])
         self.assertEqual((0,1), interactions[0].actions[1])
-        self.assertEqual(2, len(simulation._action_weights))
-        self.assertEqual(1, len(simulation._action_weights[0]))
-        self.assertEqual(1, len(simulation._action_weights[1]))
 
-
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertEqual(interactions[0].kwargs['rewards'], interactions[1].kwargs['rewards'])
 
     def test_params(self):
         env = LinearSyntheticSimulation(100,reward_features=["xa"],seed=2)
@@ -192,7 +223,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
     def test_pickle(self):
         simulation = LinearSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4,reward_features=["a","xa"], seed=2)
         simulation = pickle.loads(pickle.dumps(simulation))
-        
+
         interactions = list(simulation.read())
 
         self.assertEqual(500, len(interactions))
@@ -207,7 +238,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
 
 class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
 
-    def test_simple_action_features(self):
+    def test_simple_context_action_features(self):
 
         simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_features=3,n_action_features=4,n_neighborhoods=10)
         interactions = list(simulation.read())
@@ -218,7 +249,7 @@ class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(4, len(interactions[0].actions[0]))
         self.assertEqual(10,len(set([i.context for i in interactions])))
 
-    def test_simple_no_action_features(self):
+    def test_simple_context_no_action_features(self):
 
         simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_features=3,n_action_features=0,n_neighborhoods=10)
         interactions = list(simulation.read())
@@ -230,6 +261,28 @@ class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual((1,0), interactions[0].actions[0])
         self.assertEqual((0,1), interactions[0].actions[1])
         self.assertEqual(10,len(set([i.context for i in interactions])))
+
+    def test_simple_no_context_action_features(self):
+
+        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_features=0,n_action_features=4,n_neighborhoods=10)
+        interactions = list(simulation.read())
+
+        self.assertEqual(20, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(None,  interactions[0].context)
+        self.assertEqual(4, len(interactions[0].actions[0]))
+        self.assertEqual(1,len(set([i.context for i in interactions])))
+
+    def test_simple_no_context_no_action_features(self):
+
+        simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_features=0,n_action_features=0,n_neighborhoods=10)
+        interactions = list(simulation.read())
+
+        self.assertEqual(20, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(None,  interactions[0].context)
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual(1,len(set([i.context for i in interactions])))
 
     def test_params(self):
         env = NeighborsSyntheticSimulation(20,n_neighborhoods=10,seed=2)
@@ -253,6 +306,262 @@ class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual((1,0), interactions[0].actions[0])
         self.assertEqual((0,1), interactions[0].actions[1])
         self.assertEqual(10,len(set([i.context for i in interactions])))
+
+class KernelSyntheticSimulation_Tests(unittest.TestCase):
+
+    def test_simple_context_action_features(self):
+
+        simulation = KernelSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4,n_exemplars=10)
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(4, len(interactions[0].actions[0]))
+
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+
+    def test_simple_no_action_features(self):
+
+        simulation = KernelSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=0,n_exemplars=10)
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
+
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+
+    def test_simple_no_context_action_features(self):
+
+        simulation = KernelSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=4,n_exemplars=10)
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(None, interactions[0].context)
+        self.assertEqual(4, len(interactions[0].actions[0]))
+
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+
+    def test_simple_no_context_no_action_features(self):
+
+        simulation = KernelSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=0,n_exemplars=10)
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(None, interactions[0].context)
+        self.assertEqual(2, len(interactions[0].actions[0]))
+
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+
+    def test_linear_kernel(self):
+
+        simulation = KernelSyntheticSimulation(2,n_actions=2,n_context_features=3,n_action_features=0,n_exemplars=10,kernel='linear')
+        interactions = list(simulation.read())
+
+        self.assertEqual(2, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
+
+    def test_polynomial_kernel(self):
+
+        simulation = KernelSyntheticSimulation(2,n_actions=2,n_context_features=3,n_action_features=0,n_exemplars=10,kernel='polynomial')
+        interactions = list(simulation.read())
+
+        self.assertEqual(2, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
+
+    def test_exponential_kernel(self):
+
+        simulation = KernelSyntheticSimulation(2,n_actions=2,n_context_features=3,n_action_features=0,n_exemplars=10,kernel='exponential')
+        interactions = list(simulation.read())
+
+        self.assertEqual(2, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
+
+    def test_exponential_params(self):
+
+        env = KernelSyntheticSimulation(20,n_exemplars=10,seed=2)
+
+        expected = {
+            'type'       : "KernelSynthetic",
+            'seed'       : 2,
+            'n_exemplars': 10,
+            'kernel'     : 'exponential',
+            'gamma'      : 1
+        }
+
+        self.assertDictEqual(expected, env.params)
+
+    def test_polynomial_params(self):
+
+        env = KernelSyntheticSimulation(20,n_exemplars=10,seed=2,kernel='polynomial',degree=3)
+
+        expected = {
+            'type'       : "KernelSynthetic",
+            'seed'       : 2,
+            'n_exemplars': 10,
+            'kernel'     : 'polynomial',
+            'degree'     : 3
+        }
+
+        self.assertDictEqual(expected, env.params)
+
+    def test_linear_params(self):
+        
+        env = KernelSyntheticSimulation(20,n_exemplars=10,seed=2,kernel='linear')
+
+        expected = {
+            'type'       : "KernelSynthetic",
+            'seed'       : 2,
+            'n_exemplars': 10,
+            'kernel'     : 'linear',
+        }
+
+        self.assertDictEqual(expected, env.params)
+
+    def test_str(self):
+        self.assertEqual("KernelSynth(A=2,c=3,a=4,E=5,K=exponential,seed=6)", str(KernelSyntheticSimulation(200,2,3,4,5,kernel='exponential',seed=6)))
+
+    def test_pickle(self):
+        
+        simulation = KernelSyntheticSimulation(20,n_actions=2,n_context_features=3,n_action_features=0,n_exemplars=10)
+        simulation = pickle.loads(pickle.dumps(simulation))
+        interactions = list(simulation.read())
+
+        self.assertEqual(20, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
+
+class MLPSyntheticSimulation_Tests(unittest.TestCase):
+
+    def test_simple_context_action_features(self):
+
+        simulation = MLPSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4)
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(4, len(interactions[0].actions[0]))
+
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+
+    def test_simple_context_no_action_features(self):
+        simulation = MLPSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=0)
+        interactions = list(simulation.read())
+
+        self.assertEqual(500, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
+
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+
+    def test_simple_no_context_action_features(self):
+
+        simulation = MLPSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=4)
+        interactions = list(simulation.read())
+
+        self.assertEqual(500 , len(interactions))
+        self.assertEqual(2   , len(interactions[0].actions))
+        self.assertEqual(None, interactions[0].context)
+        self.assertEqual(4   , len(interactions[0].actions[0]))
+
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+
+    def test_simple_no_context_no_action_features(self):
+
+        simulation = MLPSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=0)
+        interactions = list(simulation.read())
+
+        self.assertEqual(500 , len(interactions))
+        self.assertEqual(2   , len(interactions[0].actions))
+        self.assertEqual(None, interactions[0].context)
+        self.assertEqual(2   , len(interactions[0].actions[0]))
+
+        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        self.assertLess(max(rewards),1.1)
+        self.assertGreater(max(rewards),.75)
+        self.assertLess(min(rewards),.25)
+        self.assertGreater(min(rewards),-.1)
+        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+
+    def test_params(self):
+        env = MLPSyntheticSimulation(20,seed=2)
+        self.assertEqual(2 , env.params['seed'])
+
+    def test_str(self):
+        self.assertEqual("MLPSynth(A=2,c=3,a=4,seed=6)", str(MLPSyntheticSimulation(200,2,3,4,6)))
+
+    def test_pickle(self):
+        
+        simulation = MLPSyntheticSimulation(20,n_actions=2,n_context_features=3,n_action_features=0)
+        simulation = pickle.loads(pickle.dumps(simulation))
+        interactions = list(simulation.read())
+
+        self.assertEqual(20, len(interactions))
+        self.assertEqual(2, len(interactions[0].actions))
+        self.assertEqual(3, len(interactions[0].context))
+        self.assertEqual(2, len(interactions[0].actions[0]))
+        self.assertEqual((1,0), interactions[0].actions[0])
+        self.assertEqual((0,1), interactions[0].actions[1])
 
 if __name__ == '__main__':
     unittest.main()

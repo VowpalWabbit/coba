@@ -36,3 +36,4 @@ if __name__ == '__main__':
 
     #We can also create a plot examining how specific learners did across each shuffle of our environments
     result.filter_lrn(full_name="vw").plot_learners(err='sd',each=True)
+    

@@ -30,7 +30,7 @@ class LinUCBLearner(Learner):
     __ https://research.navigating-the-edge.net/assets/publications/linucb_alternate_formulation.pdf
     """
 
-    def __init__(self, alpha: float = 0.2, X: Sequence[str] = ['a', 'ax']) -> None:
+    def __init__(self, alpha: float = 1, X: Sequence[str] = ['a', 'ax']) -> None:
         """Instantiate a LinUCBLearner.
 
         Args:
@@ -63,8 +63,11 @@ class LinUCBLearner(Learner):
         if isinstance(actions[0], dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this algorithm.")
 
-        context = list(Flatten().filter([list(context)]))[0]
-        features: np.ndarray = np.array([self._X_encoder.encode(x=context,a=action) for action in actions]).T
+        if not context:
+            self._X_encoder = InteractionsEncoder(list(set(filter(None,[ f.replace('x','') for f in self._X]))))
+ 
+        context = list(Flatten().filter([list(context)]))[0] if context else []
+        features: np.ndarray = np.array([[1]+self._X_encoder.encode(x=context,a=action) for action in actions]).T
 
         if(self._A_inv is None):
             self._theta = np.zeros(features.shape[0])
@@ -85,8 +88,11 @@ class LinUCBLearner(Learner):
         if isinstance(action, dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this algorithm.")
 
-        context = list(Flatten().filter([list(context)]))[0]
-        features: np.ndarray = np.array(self._X_encoder.encode(x=context,a=action)).T
+        if not context:
+            self._X_encoder = InteractionsEncoder(list(set(filter(None,[ f.replace('x','') for f in self._X]))))
+
+        context = list(Flatten().filter([list(context)]))[0] if context else []
+        features: np.ndarray = np.array([1]+self._X_encoder.encode(x=context,a=action)).T
 
         if(self._A_inv is None):
             self._theta = np.zeros((features.shape[0]))

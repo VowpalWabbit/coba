@@ -10,7 +10,7 @@ from coba.learners.primitives import Learner, Probs, Info
 class EpsilonBanditLearner(Learner):
     """A bandit learner using epsilon-greedy for exploration."""
 
-    def __init__(self, epsilon: float) -> None:
+    def __init__(self, epsilon: float=.05) -> None:
         """Instantiate an EpsilonBanditLearner.
 
         Args:

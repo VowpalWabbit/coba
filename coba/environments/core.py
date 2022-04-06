@@ -8,7 +8,7 @@ from coba.pipes      import Pipes, Source, HttpSource, ListSource, JsonDecode
 from coba.exceptions import CobaException
 
 from coba.environments.filters     import EnvironmentFilter
-from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute, Where, Noise
+from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute, Where, Noise, Riffle
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
 from coba.environments          .primitives import Environment
@@ -17,6 +17,7 @@ from coba.environments.simulated.primitives import SimulatedEnvironment
 from coba.environments.warmstart.primitives import WarmStartEnvironment
 
 from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
 
@@ -78,21 +79,59 @@ class Environments:
 
     @staticmethod
     def from_neighbors_synthetic(
-        n_interactions: int, 
-        n_actions: int = 2, 
-        n_context_features: int = 5, 
+        n_interactions: int,
+        n_actions: int = 2,
+        n_context_features: int = 5,
         n_action_features: int = 5,
-        n_neighborhoods: int = 30, 
+        n_neighborhoods: int = 30,
         seed: int = 1) -> 'Environments':
-        """A synthetic simulation whose reward values are determined by neighborhoodS. 
+        """A synthetic simulation whose reward values are determined by neighborhoods. 
 
-        The simulation's rewards are determined by the location of given context and action pairs. These locations
-        indicate which neighborhood the context action pair belongs to. Neighborhood rewards are determined by 
-        random assignment.
+        The simulation's rewards are determined by the neighborhood (location) of given 
+        context and action pairs. A neighborhood's reward is determined by random assignment.
         """
 
         return Environments([
             NeighborsSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, n_neighborhoods, seed)
+        ])
+
+    @staticmethod
+    def from_kernel_synthetic(
+        n_interactions:int,
+        n_actions:int = 10,
+        n_context_features:int = 10,
+        n_action_features:int = 10,
+        n_exemplar:int = 10,
+        kernel: Literal['linear','polynomial','exponential'] = 'exponential',
+        degree: int = 2,
+        gamma: float = 1,
+        seed: int = 1) -> 'Environments':
+        """A synthetic simulation whose reward function is created from kernel basis functions.
+
+        To create random kernel functions exemplar points are generated at initialization and fixed for all time.
+        """
+
+        return Environments([
+            KernelSyntheticSimulation(
+                n_interactions, n_actions, n_context_features, n_action_features, n_exemplar, kernel, degree, gamma,seed
+            )
+        ])
+
+    @staticmethod
+    def from_mlp_synthetic(
+        n_interactions:int,
+        n_actions:int = 10,
+        n_context_features:int = 10,
+        n_action_features:int = 10,
+        seed: int = 1) -> 'Environments':
+        """A synthetic simulation whose reward function belongs to the MLP family.
+
+        The MLP architecture has a single hidden layer with sigmoid activation and one output
+        value calculated from a random linear combination of the hidden layer's output.        
+        """
+
+        return Environments([
+            MLPSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, seed)
         ])
 
     @staticmethod
@@ -157,6 +196,10 @@ class Environments:
         if isinstance(seeds,int): seeds = [seeds]
         return self.filter([Shuffle(seed) for seed in seeds])
 
+    def riffle(self, spacing: int, seed: int = 1) -> 'Environments':
+        """Riffle shuffle by evenly spacing interactions at the end of an environment into the beginning."""
+        return self.filter(Riffle(spacing, seed))
+
     def cycle(self, after: int) -> 'Environments':
         """Cycle all rewards associated with actions by one place."""
         return self.filter(Cycle(after))
@@ -187,9 +230,9 @@ class Environments:
         return self.filter(Where(n_interactions=n_interactions))
 
     def noise(self,
-        context: Callable[[CobaRandom, float], float] = None, 
-        action : Callable[[CobaRandom, float], float] = None,
-        reward : Callable[[CobaRandom, float], float] = None,
+        context: Callable[[float,CobaRandom], float] = None, 
+        action : Callable[[float,CobaRandom], float] = None,
+        reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> 'Environments':
         """Add noise to an environments context, actions and rewards."""
         return self.filter(Noise(context,action,reward,seed))
