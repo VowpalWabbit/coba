@@ -6,7 +6,9 @@ from math import isnan
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.environments import LoggedInteraction, SimulatedInteraction
-from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, WarmStart, Shuffle, Take, Reservoir, Where, Noise
+
+from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary
+from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, CovariateShift
 
 class TestEnvironment:
 
@@ -117,8 +119,10 @@ class Sort_Tests(unittest.TestCase):
         self.assertEqual((1,2), srt_interactions[0].context)
         self.assertEqual((1,3), srt_interactions[1].context)
         self.assertEqual((1,9), srt_interactions[2].context)
-    
+
     def test_params(self):
+        self.assertEqual({'sort':[]}, Sort().params)
+        self.assertEqual({'sort':[0]}, Sort(0).params)
         self.assertEqual({'sort':[0]}, Sort([0]).params)
         self.assertEqual({'sort':[1,2]}, Sort([1,2]).params)
 
@@ -919,7 +923,7 @@ class Sparse_Tests(unittest.TestCase):
     def test_params(self):
         self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparse().params)
 
-class ToWarmStart_Tests(unittest.TestCase):
+class Warm_Tests(unittest.TestCase):
 
     def test_to_warmstart(self):
         interactions = [
@@ -928,7 +932,7 @@ class ToWarmStart_Tests(unittest.TestCase):
             SimulatedInteraction((8,3), [1,2], rewards=[.5,.2], reveals=[5,6])
         ]
 
-        warmstart_interactions = list(WarmStart(2).filter(interactions))
+        warmstart_interactions = list(Warm(2).filter(interactions))
 
         self.assertIsInstance(warmstart_interactions[0], LoggedInteraction)
         self.assertIsInstance(warmstart_interactions[1], LoggedInteraction)
@@ -954,7 +958,7 @@ class ToWarmStart_Tests(unittest.TestCase):
         self.assertEqual([5,6], warmstart_interactions[2].kwargs["reveals"])
 
     def test_params(self):
-        self.assertEqual({"n_warmstart": 10}, WarmStart(10).params)
+        self.assertEqual({"n_warm": 10}, Warm(10).params)
 
 class Noise_Tests(unittest.TestCase):
 
@@ -1121,6 +1125,29 @@ class Noise_Tests(unittest.TestCase):
     def test_pickle_failure(self):
         with self.assertRaises(CobaException):
             pickle.dumps(Noise(lambda x,_: x))
+
+class CovariateShift_Tests(unittest.TestCase):
+    def test_shift1(self):
+
+        interactions = [
+            SimulatedInteraction((7,2), [1], rewards=[1]),
+            SimulatedInteraction((1,9), [1], rewards=[1]),
+            SimulatedInteraction((8,3), [1], rewards=[1])
+        ]
+
+        mem_interactions = interactions
+        cov_interactions = list(CovariateShift(1).filter(mem_interactions))
+
+        self.assertEqual((7,2), mem_interactions[0].context)
+        self.assertEqual((1,9), mem_interactions[1].context)
+        self.assertEqual((8,3), mem_interactions[2].context)
+
+        self.assertEqual((8,3), cov_interactions[0].context)
+        self.assertEqual((1,9), cov_interactions[1].context)
+        self.assertEqual((7,2), cov_interactions[2].context)
+
+    def test_params(self):        
+        self.assertEqual({'covariate_shift_ratio':2}, CovariateShift(2).params)
 
 if __name__ == '__main__':
     unittest.main()

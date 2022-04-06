@@ -15,6 +15,7 @@ from coba            import pipes
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
+from coba.pipes      import Flatten
 
 from coba.environments.primitives import Interaction
 from coba.environments.logged.primitives import LoggedInteraction
@@ -388,20 +389,25 @@ class Sort(EnvironmentFilter):
         Args:
             *keys: The context items that should be sorted on.
         """
-        self._keys = []
 
-        for key in keys:
-            if not isinstance(key, collections.abc.Sequence) or isinstance(key,str):
-                self._keys.append(key)
-            else:
-                self._keys.extend(key)
+        self._keys = list(Flatten().filter([list(keys)]))[0]
 
     @property
     def params(self) -> Dict[str, Any]:
         return { "sort": self._keys }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        return sorted(interactions, key=lambda interaction: tuple(interaction.context[key] for key in self._keys))
+
+        full_sorter = lambda interaction: tuple(interaction.context                                 ) 
+        list_sorter = lambda interaction: tuple(interaction.context[key]       for key in self._keys)
+        dict_sorter = lambda interaction: tuple(interaction.context.get(key,0) for key in self._keys)
+
+        interactions = list(interactions)
+        is_sparse    = isinstance(interactions[0].context,dict)
+        
+        sorter = full_sorter if not self._keys else dict_sorter if is_sparse else list_sorter
+
+        return sorted(interactions, key=sorter)
 
 class Where(EnvironmentFilter):
     """Define Environment selection criteria for an Environments pipe."""
@@ -451,29 +457,29 @@ class Where(EnvironmentFilter):
 
         return chain(taken_interactions, interactions)
 
-class WarmStart(EnvironmentFilter):
+class Warm(EnvironmentFilter):
     """Turn a SimulatedEnvironment into a WarmStartEnvironment."""
 
-    def __init__(self, n_warmstart:int, seed:int = 1):
-        """Instantiate a WarmStart filter.
+    def __init__(self, n_warm:int, seed:int = 1):
+        """Instantiate a Warm filter.
 
         Args:
-            n_warmstart: The number of interactions that should be turned into LoggedInteractions.
+            n_warm: The number of interactions that should be turned into LoggedInteractions.
             seed: The random number seed that determines the random logging policy for LoggedInteractions.
         """
-        self._n_warmstart = n_warmstart
+        self._n_warm = n_warm
         self._seed = seed
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { "n_warmstart": self._n_warmstart }
+        return { "n_warm": self._n_warm }
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Interaction]:
 
         self._rng = CobaRandom(self._seed)
 
         underlying_iterable    = iter(interactions)
-        logged_interactions    = map(self._to_logged_interaction, islice(underlying_iterable, self._n_warmstart))
+        logged_interactions    = map(self._to_logged_interaction, islice(underlying_iterable, self._n_warm))
         simulated_interactions = underlying_iterable
 
         return chain(logged_interactions, simulated_interactions)
@@ -500,41 +506,30 @@ class CovariateShift(EnvironmentFilter):
     """Manipulate Interactions in an Environment to simulate Covariate Shift via sorting."""
 
     def __init__(self, covariate_shift_ratio: int = 3) -> None:
-        """Instantiate a Imbalance filter.
+        """Instantiate a CovariateShift filter.
 
         Args:
             covariate_shift_ratio: The number of interactions in the first "class" for every one represented from the second "class".
         """
-        self._keys = []
         self._covariate_shift_ratio = covariate_shift_ratio
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { "sort": self._keys }
+        return {"covariate_shift_ratio": self._covariate_shift_ratio}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        import random
-        
-        context_feature = len(interactions[0].context)
-        num_sets = int(len(interactions)/(self._covariate_shift_ratio+1))
-        num_remaining = len(interactions) % (self._covariate_shift_ratio+1)
-        
-        self._keys = [i for i in range(0,context_feature)]
-        sorted_interactions = sorted(interactions, key=lambda interaction: tuple(interaction.context[key] for key in self._keys))
-        covariate_interactions = []
-        
-        for i in range(num_sets):
-            tempArr = sorted_interactions[self._covariate_shift_ratio*i:self._covariate_shift_ratio*(i+1)]
-            tempArr.append(sorted_interactions[-1*(i+1)])
-            random.shuffle(tempArr)
-            covariate_interactions += tempArr
-            
-        ind = self._covariate_shift_ratio*(num_sets+1)
-        covariate_interactions += sorted_interactions[ind:ind+num_remaining]
-                
-        sorted_interactions = covariate_interactions
-        
-        return sorted_interactions
+
+        rng       = CobaRandom(1)
+        set_count = self._covariate_shift_ratio+1
+        set_size  = int(len(interactions)/(set_count))
+
+        interactions = list(Sort().filter(interactions))
+
+        for i in range(set_size):
+            interactions.insert(i*self._covariate_shift_ratio+rng.randint(0,3), interactions.pop())
+
+        return interactions
+
 class Noise(EnvironmentFilter):
     """Introduce noise to an environment."""
 
