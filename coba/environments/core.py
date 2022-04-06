@@ -16,7 +16,8 @@ from coba.environments.logged   .primitives import LoggedEnvironment
 from coba.environments.simulated.primitives import SimulatedEnvironment
 from coba.environments.warmstart.primitives import WarmStartEnvironment
 
-from coba.environments.simulated.synthetics import GaussianKernelSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation, MLPSimulation
+from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
 
@@ -78,17 +79,16 @@ class Environments:
 
     @staticmethod
     def from_neighbors_synthetic(
-        n_interactions: int, 
-        n_actions: int = 2, 
-        n_context_features: int = 5, 
+        n_interactions: int,
+        n_actions: int = 2,
+        n_context_features: int = 5,
         n_action_features: int = 5,
-        n_neighborhoods: int = 30, 
+        n_neighborhoods: int = 30,
         seed: int = 1) -> 'Environments':
-        """A synthetic simulation whose reward values are determined by neighborhoodS. 
+        """A synthetic simulation whose reward values are determined by neighborhoods. 
 
-        The simulation's rewards are determined by the location of given context and action pairs. These locations
-        indicate which neighborhood the context action pair belongs to. Neighborhood rewards are determined by 
-        random assignment.
+        The simulation's rewards are determined by the neighborhood (location) of given 
+        context and action pairs. A neighborhood's reward is determined by random assignment.
         """
 
         return Environments([
@@ -96,36 +96,43 @@ class Environments:
         ])
 
     @staticmethod
-    def from_gaussian_kernel(
+    def from_kernel_synthetic(
         n_interactions:int,
         n_actions:int = 10,
         n_context_features:int = 10,
         n_action_features:int = 10,
         n_exemplar:int = 10,
+        kernel: Literal['linear','polynomial','exponential'] = 'exponential',
+        degree: int = 2,
+        gamma: float = 1,
         seed: int = 1) -> 'Environments':
-        """
-        TODO: docstring
+        """A synthetic simulation whose reward function is created from kernel basis functions.
+
+        To create random kernel functions exemplar points are generated at initialization and fixed for all time.
         """
 
         return Environments([
-            GaussianKernelSimulation(n_interactions, n_actions, n_context_features, n_action_features, n_exemplar, seed)
+            KernelSyntheticSimulation(
+                n_interactions, n_actions, n_context_features, n_action_features, n_exemplar, kernel, degree, gamma,seed
+            )
         ])
 
     @staticmethod
-    def from_mlp(
+    def from_mlp_synthetic(
         n_interactions:int,
         n_actions:int = 10,
         n_context_features:int = 10,
         n_action_features:int = 10,
         seed: int = 1) -> 'Environments':
-        """
-        TODO: docstring
+        """A synthetic simulation whose reward function belongs to the MLP family.
+
+        The MLP architecture has a single hidden layer with sigmoid activation and one output
+        value calculated from a random linear combination of the hidden layer's output.        
         """
 
         return Environments([
-            MLPSimulation(n_interactions, n_actions, n_context_features, n_action_features, seed)
+            MLPSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, seed)
         ])
-
 
     @staticmethod
     def from_openml(

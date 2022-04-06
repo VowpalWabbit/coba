@@ -16,7 +16,7 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 
-from coba.environments.primitives import Interaction, Context, Action
+from coba.environments.primitives import Interaction
 from coba.environments.logged.primitives import LoggedInteraction
 from coba.environments.simulated.primitives import SimulatedInteraction
 
@@ -47,60 +47,73 @@ class Reservoir(pipes.Reservoir, EnvironmentFilter):
 class Scale(EnvironmentFilter):
     """Shift and scale features to precondition them before learning."""
 
-    def __init__(self, 
+    def __init__(self,
         shift: Union[Number,Literal["min","mean","med"]] = 0, 
         scale: Union[Number,Literal["minmax","std","iqr"]] = "minmax", 
-        using: Optional[int] = None):
+        using: Optional[int] = None,
+        target: Literal["features","rewards"] = "features"):
         """Instantiate a Scale filter.
 
         Args:
             shift: The statistic to use to shift each context feature.
             scale: The statistic to use to scale each context feature.
             using: The number of interactions to use when calculating the necessary statistics.
+            target: The target data we wish to scale in the environment.
         """
 
         assert isinstance(shift,Number) or shift in ["min","mean","med"]
         assert isinstance(scale,Number) or scale in ["minmax","std","iqr"]
 
-        self._shift = shift
-        self._scale = scale
-        self._using = using
+        self._shift  = shift
+        self._scale  = scale
+        self._using  = using
+        self._target = target
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { "scale_shift": self._shift, "scale_scale":self._scale, "scale_using":self._using }
+        return {
+            "scale_shift": self._shift,
+            "scale_scale": self._scale,
+            "scale_using": self._using,
+            "scale_target": self._target
+        }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         iter_interactions    = iter(interactions)
         fitting_interactions = list(islice(iter_interactions,self._using))
 
-        shifts  : Dict[Hashable,float]     = defaultdict(lambda:0)
-        scales  : Dict[Hashable,float]     = defaultdict(lambda:1)
-        features: Dict[Hashable,List[Any]] = defaultdict(list)
+        shifts: Dict[Hashable,float]     = defaultdict(lambda:0)
+        scales: Dict[Hashable,float]     = defaultdict(lambda:1)
+        unscaled_values: Dict[Hashable,List[Any]] = defaultdict(list)
 
         if any([isinstance(i.context,dict) for i in fitting_interactions]) and self._shift != 0:
-            raise CobaException("When scaling a sparse environment shift must be 0. If it is not the environment will become dense.")
+            raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
 
         mixed = []
         had_non_numeric = []
 
         for interaction in fitting_interactions:
-            for name,value in self._feature_pairs(interaction.context):
+            
+            if self._target == "features":
+                for name,value in self._feature_pairs(interaction.context):
 
-                if name in mixed: continue
+                    if name in mixed: continue
 
-                is_numeric = isinstance(value,Number)
-                is_nan     = is_numeric and isnan(value)
+                    is_numeric = isinstance(value,Number)
+                    is_nan     = is_numeric and isnan(value)
 
-                if (not is_numeric and name in features) or (is_numeric and name in had_non_numeric) :
-                    mixed.append(name)
-                    if name in features:del features[name]
-                    if name in had_non_numeric:had_non_numeric.remove(name)
-                elif not is_numeric:
-                    had_non_numeric.append(name)
-                elif is_numeric and not is_nan:
-                    features[name].append(value)
+                    if (not is_numeric and name in unscaled_values) or (is_numeric and name in had_non_numeric) :
+                        mixed.append(name)
+                        if name in unscaled_values: del unscaled_values[name]
+                        if name in had_non_numeric: had_non_numeric.remove(name)
+                    elif not is_numeric:
+                        had_non_numeric.append(name)
+                    elif is_numeric and not is_nan:
+                        unscaled_values[name].append(value)
+            
+            if self._target == "rewards":
+                unscaled_values["rewards"].extend(interaction.kwargs["rewards"])
 
         if mixed: warnings.warn(f"Some features were not scaled due to having mixed types: {mixed}. ")
 
@@ -108,24 +121,24 @@ class Scale(EnvironmentFilter):
 
         for interaction in fitting_interactions:
             if isinstance(interaction.context,dict):
-                has_sparse_zero |= features.keys() - interaction.context.keys()
+                has_sparse_zero |= unscaled_values.keys() - interaction.context.keys() - {"rewards"}
 
         for key in has_sparse_zero:
-            features[key].append(0)
+            unscaled_values[key].append(0)
 
-        for feat_name, feat_numeric_values in features.items():
+        for name, values in unscaled_values.items():
 
             if isinstance(self._shift, Number):
-                shifts[feat_name] = self._shift
+                shifts[name] = self._shift
 
             if self._shift == "min":
-                shifts[feat_name] = min(feat_numeric_values)
+                shifts[name] = min(values)
 
             if self._shift == "mean":
-                shifts[feat_name] = mean(feat_numeric_values)
+                shifts[name] = mean(values)
 
             if self._shift == "med":
-                shifts[feat_name] = median(feat_numeric_values)
+                shifts[name] = median(values)
 
             if isinstance(self._scale, Number):
                 num = self._scale
@@ -133,40 +146,47 @@ class Scale(EnvironmentFilter):
 
             if self._scale == "std":
                 num = 1
-                den = stdev(feat_numeric_values)
+                den = stdev(values)
 
             if self._scale == "minmax":
                 num = 1
-                den = max(feat_numeric_values)-min(feat_numeric_values)
+                den = max(values)-min(values)
 
             if self._scale == "iqr":
                 num = 1
-                den = iqr(feat_numeric_values)
+                den = iqr(values)
 
-            scales[feat_name] = num/den if round(den,10) != 0 else 1
+            scales[name] = num/den if round(den,10) != 0 else 1
 
         for interaction in chain(fitting_interactions, iter_interactions):
 
-            kv_scaled_context = {}
+            scaled_values = {}
 
-            for name,value in self._feature_pairs(interaction.context):
-                if isinstance(value,Number):
-                    kv_scaled_context[name] = (value-shifts[name])*scales[name]
+            final_context = interaction.context
+            final_kwargs  = interaction.kwargs.copy()
+
+            if self._target == "features":
+                for name,value in self._feature_pairs(interaction.context):
+                    if isinstance(value,Number):
+                        scaled_values[name] = (value-shifts[name])*scales[name]
+                    else:
+                        scaled_values[name] = value
+
+                if interaction.context is None:
+                    final_context = None
+                elif isinstance(interaction.context,dict):
+                    final_context = scaled_values
+                elif isinstance(interaction.context,tuple):
+                    final_context = tuple(scaled_values[k] for k,_ in self._feature_pairs(interaction.context))
                 else:
-                    kv_scaled_context[name] = value
+                    final_context = scaled_values[1]
 
-            if interaction.context is None:
-                final_context = None
-            elif isinstance(interaction.context,dict):
-                final_context = kv_scaled_context
-            elif isinstance(interaction.context,tuple):
-                final_context = tuple(kv_scaled_context[k] for k,_ in self._feature_pairs(interaction.context))
-            else:
-                final_context = kv_scaled_context[1]
+            if self._target == "rewards":
+                final_kwargs['rewards'] = [ (r-shifts['rewards'])*scales['rewards'] for r in interaction.kwargs['rewards'] ]
 
             try:
-                yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
-            except:
+                yield SimulatedInteraction(final_context, interaction.actions, **final_kwargs)
+            except AttributeError:
                 yield LoggedInteraction(final_context, interaction.action, **interaction.kwargs)
 
     def _feature_pairs(self,context) -> Sequence[Tuple[Hashable,Any]]:

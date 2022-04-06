@@ -7,7 +7,8 @@ from pathlib import Path
 from coba.pipes import DiskSource, UrlSource
 from coba.exceptions import CobaException
 from coba.environments import Environments, Environment, Shuffle, Take
-from coba.environments import SerializedSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments import SerializedSimulation, LinearSyntheticSimulation
+from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
 
 class TestEnvironment(Environment):
 
@@ -120,7 +121,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(['xa'], env.params['reward_features'])
         self.assertEqual(5     , env.params['seed'])
 
-    def test_from_local_synthetic(self):
+    def test_from_neighbors_synthetic(self):
         envs = Environments.from_neighbors_synthetic(100,2,3,4,10,5)
         env  = envs[0]
 
@@ -134,6 +135,37 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(4  , len(interactions[0].actions[0]))
         self.assertEqual(10 , env.params['n_neighborhoods'])
         self.assertEqual(5  , env.params['seed'])
+
+    def test_from_kernel_synthetic(self):
+        envs = Environments.from_kernel_synthetic(100,2,3,4,5,kernel='polynomial',degree=3,seed=5)
+        env  = envs[0]
+
+        self.assertIsInstance(env, KernelSyntheticSimulation)
+        interactions = list(env.read())
+        
+        self.assertEqual(1           , len(envs))
+        self.assertEqual(100         , len(interactions))
+        self.assertEqual(2           , len(interactions[0].actions))
+        self.assertEqual(3           , len(interactions[0].context))
+        self.assertEqual(4           , len(interactions[0].actions[0]))
+        self.assertEqual(5           , env.params['n_exemplars'])
+        self.assertEqual('polynomial', env.params['kernel'])
+        self.assertEqual(3           , env.params['degree'])
+        self.assertEqual(5           , env.params['seed'])
+
+    def test_from_mlp_synthetic(self):
+        envs = Environments.from_mlp_synthetic(100,2,3,4,5)
+        env  = envs[0]
+
+        self.assertIsInstance(env, MLPSyntheticSimulation)
+        interactions = list(env.read())
+        
+        self.assertEqual(1           , len(envs))
+        self.assertEqual(100         , len(interactions))
+        self.assertEqual(2           , len(interactions[0].actions))
+        self.assertEqual(3           , len(interactions[0].context))
+        self.assertEqual(4           , len(interactions[0].actions[0]))
+        self.assertEqual(5           , env.params['seed'])
 
     def test_from_supervised(self):
         env = Environments.from_supervised([1,2], [2,3], label_type="R")

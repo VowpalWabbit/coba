@@ -165,7 +165,6 @@ class InteractionsEncoder_Tests(unittest.TestCase):
 
     def test_dense_a(self):
         encoder = InteractionsEncoder(["a"])
-
         interactions = encoder.encode(x=[1,2,3], a=[1,2])
 
         self.assertEqual([1,2], interactions)
@@ -184,14 +183,12 @@ class InteractionsEncoder_Tests(unittest.TestCase):
 
     def test_dense_x_a(self):
         encoder = InteractionsEncoder(["x", "a"])
-
         interactions = encoder.encode(x=[1,2,3], a=[1,2])
 
         self.assertEqual([1,2,3,1,2], interactions)
 
     def test_dense_meta_x_a(self):
         encoder = InteractionsEncoder(["x", "a"])
-
         interactions = encoder.encode(x=DenseWithMeta([1,2,3]), a=[1,2])
 
         self.assertEqual([1,2,3,1,2], interactions)
@@ -207,70 +204,60 @@ class InteractionsEncoder_Tests(unittest.TestCase):
 
     def test_sparse_x_a(self):
         encoder = InteractionsEncoder(["x","a"])
-
         interactions = encoder.encode(x={"1":1,"2":2}, a={"1":3,"2":4})
 
         self.assertEqual(dict([("x1",1), ("x2",2), ("a1",3), ("a2",4)]), interactions)
 
     def test_sparse_meta_x_a(self):
         encoder = InteractionsEncoder(["x","a"])
-
         interactions = encoder.encode(x=SparseWithMeta({"1":1,"2":2}), a={"1":3,"2":4})
 
         self.assertEqual(dict([("x1",1), ("x2",2), ("a1",3), ("a2",4)]), interactions)
 
     def test_sparse_x_a_numeric_keys(self):
         encoder = InteractionsEncoder(["x","a"])
-
         interactions = encoder.encode(x={1:1,2:2}, a={1:3,2:4})
 
         self.assertEqual(dict([("x1",1), ("x2",2), ("a1",3), ("a2",4)]), interactions)
 
     def test_sparse_xa(self):
         encoder = InteractionsEncoder(["xa"])
-
         interactions = encoder.encode(x={"1":1,"2":2}, a={"1":3,"2":4})
 
         self.assertEqual(dict([("x1a1",3), ("x1a2",4), ("x2a1",6), ("x2a2",8)]), interactions)
 
     def test_sparse_xa_is_string(self):
         encoder = InteractionsEncoder(["xa"])
-
         interactions = encoder.encode(x={"1":1,"2":2}, a="a")
 
         self.assertEqual(dict([("x1a0a",1), ("x2a0a",2)]), interactions)
 
     def test_sparse_xa_with_numeric_keys(self):
         encoder = InteractionsEncoder(["xa"])
-
         interactions = encoder.encode(x={1:"z",2:2}, a={1:3,2:4})
 
         self.assertEqual(dict([("x1za1",3), ("x1za2",4), ("x2a1",6), ("x2a2",8)]), interactions)
 
     def test_sparse_xa_with_strings(self):
         encoder = InteractionsEncoder(["xa"])
-
         interactions = encoder.encode(x={"1":"z","2":2}, a={"1":3,"2":4})
 
         self.assertEqual(dict([("x1za1",3), ("x1za2",4), ("x2a1",6), ("x2a2",8)]), interactions)
 
     def test_sparse_xxa(self):
         encoder = InteractionsEncoder(["xxa"])
-
         interactions = encoder.encode(x={"1":1,"2":2}, a={"1":3,"2":4})
 
         self.assertEqual(dict([("x1x1a1",3), ("x1x1a2",4), ("x1x2a1",6), ("x1x2a2",8), ("x2x2a1",12), ("x2x2a2",16)]), interactions)
 
     def test_string_a(self):
         encoder = InteractionsEncoder(["a"])
-
         interactions = encoder.encode(x=["a","b","c"], a=["d","e"])
 
         self.assertEqual(dict([("a0d",1), ("a1e",1)]), interactions)
 
     def test_string_x(self):
         encoder = InteractionsEncoder(["x"])
-
         interactions = encoder.encode(x=["a","b","c"], a=["d","e"])
 
         self.assertEqual(dict([("x0a",1), ("x1b",1), ("x2c",1)]), interactions)
@@ -284,21 +271,18 @@ class InteractionsEncoder_Tests(unittest.TestCase):
 
     def test_string_numeric_xa(self):
         encoder = InteractionsEncoder(["xa"])
-
         interactions = encoder.encode(x=[2], a=["d","e"])
 
         self.assertEqual(dict([("x0a0d",2), ("x0a1e",2)]), interactions)
 
     def test_singular_string_a(self):
         encoder = InteractionsEncoder(["a"])
-
         interactions = encoder.encode(x=["a"], a="d")
 
         self.assertEqual(dict([("a0d",1)]), interactions)
 
     def test_singular_string_xa(self):
         encoder = InteractionsEncoder(["xa"])
-
         interactions = encoder.encode(x="abc", a="dbc")
 
         self.assertEqual(dict([("x0abca0dbc",1)]), interactions)
@@ -327,6 +311,44 @@ class InteractionsEncoder_Tests(unittest.TestCase):
         interactions = encoder.encode(a=2, b=3, c=4)
 
         self.assertEqual([24], interactions)
+
+    def test_multiple_dense_with_empty_and_non_empty(self):
+        encoder = InteractionsEncoder(['ab', 'abc'])
+
+        interactions = encoder.encode(a=2, b=3, c=None)
+
+        self.assertEqual([6], interactions)
+
+    def test_multiple_dense_with_only_empty(self):
+        encoder = InteractionsEncoder(['ab', 'abc'])
+
+        interactions = encoder.encode(a=2, b=None, c=None)
+
+        self.assertEqual([], interactions)
+
+    def test_multiple_sparse_with_empty_and_non_empty(self):
+        encoder = InteractionsEncoder(['ab', 'abc'])
+
+        interactions = encoder.encode(a={'A':2}, b='b', c=None)
+
+        self.assertEqual({'aAb0b':2}, interactions)
+
+    def test_multiple_sparse_with_only_empty(self):
+        encoder = InteractionsEncoder(['ab', 'abc'])
+
+        interactions = encoder.encode(a={'A':2}, b=None, c=None)
+
+        self.assertEqual({}, interactions)
+
+    def test_empty_interactions_sparse(self):
+        encoder = InteractionsEncoder([])
+        interactions = encoder.encode(a={'A':2}, b=None, c=None)
+        self.assertEqual({}, interactions)
+
+    def test_empty_interactions_dense(self):
+        encoder = InteractionsEncoder([])
+        interactions = encoder.encode(a=2, b=None, c=None)
+        self.assertEqual([], interactions)
 
 if __name__ == '__main__':
     unittest.main()

@@ -542,11 +542,31 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(None, scl_interactions[0].context)
         self.assertEqual(None, scl_interactions[1].context)
         self.assertEqual(None, scl_interactions[2].context)
-        
+
+    def test_scale_mean_and_minmax_target_rewards(self):
+
+        interactions = [
+            SimulatedInteraction(None, [1,2], rewards=[1,3]),
+            SimulatedInteraction(None, [1,2], rewards=[1,3]),
+            SimulatedInteraction(None, [1,2], rewards=[1,3])
+        ]
+ 
+        scl_interactions = list(Scale("mean","minmax", target="rewards").filter(interactions))
+
+        self.assertEqual(3, len(scl_interactions))
+
+        self.assertEqual(None, scl_interactions[0].context)
+        self.assertEqual(None, scl_interactions[1].context)
+        self.assertEqual(None, scl_interactions[2].context)
+
+        self.assertEqual([-1/2,1/2], scl_interactions[0].kwargs["rewards"])
+        self.assertEqual([-1/2,1/2], scl_interactions[1].kwargs["rewards"])
+        self.assertEqual([-1/2,1/2], scl_interactions[2].kwargs["rewards"])
+
     def test_params(self):
-        self.assertEqual({"scale_shift":"mean","scale_scale":"std","scale_using":None}, Scale(shift="mean",scale="std").params)
-        self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":None}, Scale(shift=2,scale=1/2).params)
-        self.assertEqual({"scale_shift":2,"scale_scale":1/2,"scale_using":10}, Scale(shift=2,scale=1/2,using=10).params)
+        self.assertEqual({"scale_shift":"mean","scale_scale":"std","scale_using":None,"scale_target":"features"}, Scale(shift="mean",scale="std").params)
+        self.assertEqual({"scale_shift":2     ,"scale_scale":1/2  ,"scale_using":None,"scale_target":"features"}, Scale(shift=2,scale=1/2).params)
+        self.assertEqual({"scale_shift":2     ,"scale_scale":1/2  ,"scale_using":10  ,"scale_target":"features"}, Scale(shift=2,scale=1/2,using=10).params)
 
 class Cycle_Tests(unittest.TestCase):
 

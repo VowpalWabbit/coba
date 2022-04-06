@@ -146,7 +146,7 @@ class VowpalArgsLearner(Learner):
     __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
 
-    def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions xxa --interactions xa --ignore_linear x --random_seed 1", vw: VowpalMediator = None) -> None:
+    def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1", vw: VowpalMediator = None) -> None:
         """Instantiate a VowpalArgsLearner.
 
         Args:
@@ -278,21 +278,21 @@ class VowpalEpsilonLearner(VowpalArgsLearner):
     """
 
     def __init__(self,
-        epsilon: float = 0.05,
-        interactions: Sequence[str] = ["xxa","xa"],
-        ignore_linear: Sequence[str] = ["x"],
+        epsilon: float = 0.10,
+        features: Sequence[str] = ['a','ax','axx'],
         seed: Optional[int] = 1,
         **kwargs) -> None:
         """Instantiate a VowpalEpsilonLearner.
 
         Args:
             epsilon: The probability that we will explore instead of exploit.
-            interactions: A list of namespace interactions to use when learning reward functions.
-            ignore_linear: A list of namespaces to ignore when learning reward functions.
+            features: A list of namespaces and interactions  to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
         options = [ "--cb_explore_adf", f"--epsilon {epsilon}" ]
+        ignore_linear = set(['x','a'])-set(features)
+        interactions  = [f for f in features if len(f) > 1]
         super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalSoftmaxLearner(VowpalArgsLearner):
@@ -304,8 +304,7 @@ class VowpalSoftmaxLearner(VowpalArgsLearner):
 
     def __init__(self,
         softmax: float=10,
-        interactions: Sequence[str] = ["xxa","xa"],
-        ignore_linear: Sequence[str] = ["x"],
+        features: Sequence[str] = ['a','ax','axx'],
         seed: Optional[int] = 1,
         **kwargs) -> None:
         """Instantiate a VowpalSoftmaxLearner.
@@ -313,14 +312,15 @@ class VowpalSoftmaxLearner(VowpalArgsLearner):
         Args:
             softmax: An exploration parameter with 0 indicating predictions should be completely random
                 and infinity indicating that predictions should be greedy. For more information see `lambda`__.
-            interactions: A list of namespace interactions to use when learning reward functions.
-            ignore_linear: A list of namespaces to ignore when learning reward functions.
+            features: A list of namespaces and interactions  to use when learning reward functions.
             seed: The seed used by VW to generate any necessary randomness.
         
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
         """
 
         options = [ "--cb_explore_adf", "--softmax", f"--lambda {softmax}" ]
+        ignore_linear = set(['x','a'])-set(features)
+        interactions  = [f for f in features if len(f) > 1] 
         super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalBagLearner(VowpalArgsLearner):
@@ -332,9 +332,8 @@ class VowpalBagLearner(VowpalArgsLearner):
 
     def __init__(self,
         bag: int = 5,
-        interactions: Sequence[str] = ["xxa","xa"],
-        ignore_linear: Sequence[str] = ["x"],
-        seed: Optional[int] = 1, 
+        features: Sequence[str] = ['a','ax','axx'],
+        seed: Optional[int] = 1,
         **kwargs) -> None:
         """Instantiate a VowpalBagLearner.
 
@@ -342,12 +341,13 @@ class VowpalBagLearner(VowpalArgsLearner):
             bag: This value determines the number of policies which will be learned and must be greater
                 than 0. Each policy is trained using bootstrap aggregation, making each policy unique. During
                 prediction a random policy will be selected according to a uniform distribution and followed.
-            interactions: A list of namespace interactions to use when learning reward functions.
-            ignore_linear: A list of namespaces to ignore when learning reward functions.
+            features: A list of namespaces and interactions  to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
         options = [ "--cb_explore_adf", f"--bag {bag}" ]
+        ignore_linear = set(['x','a'])-set(features)
+        interactions  = [f for f in features if len(f) > 1]
         super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalCoverLearner(VowpalArgsLearner):
@@ -366,20 +366,20 @@ class VowpalCoverLearner(VowpalArgsLearner):
 
     def __init__(self, 
         cover: int = 5,
-        interactions: Sequence[str] = ["xxa","xa"],
-        ignore_linear: Sequence[str] = ["x"],
-        seed: Optional[int] = 1, 
+        features: Sequence[str] = ['a','ax','axx'],
+        seed: Optional[int] = 1,
         **kwargs) -> None:
         """Instantiate a VowpalCoverLearner.
 
         Args:
             cover: The number of policies which will be learned (must be greater than 0).
-            interactions: A list of namespace interactions to use when learning reward functions.
-            ignore_linear: A list of namespaces to ignore when learning reward functions.
+            features: A list of namespaces and interactions  to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
         options = [ "--cb_explore_adf", f"--cover {cover}" ]
+        ignore_linear = set(['x','a'])-set(features)
+        interactions  = [f for f in features if len(f) > 1]
         super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalRegcbLearner(VowpalArgsLearner):
@@ -396,8 +396,7 @@ class VowpalRegcbLearner(VowpalArgsLearner):
 
     def __init__(self,
         mode: Literal["optimistic","elimination"] = "elimination",
-        interactions: Sequence[str] = ["xxa","xa"],
-        ignore_linear: Sequence[str] = ["x"],
+        features: Sequence[str] = ['a','ax','axx'],
         seed: Optional[int] = 1,
         **kwargs) -> None:
         """Instantiate a VowpalRegcbLearner.
@@ -406,12 +405,13 @@ class VowpalRegcbLearner(VowpalArgsLearner):
             mode: Indicates whether exploration should only predict the optimal upper bound action or
                 should use an elimination technique to remove actions that no longer seem plausible
                 and pick randomly from the remaining actions.
-            interactions: A list of namespace interactions to use when learning reward functions.
-            ignore_linear: A list of namespaces to ignore when learning reward functions.
+            features: A list of namespaces and interactions  to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
         options = [ "--cb_explore_adf", "--regcb" if mode=="elimination" else "--regcbopt" ]
+        ignore_linear = set(['x','a'])-set(features)
+        interactions  = [f for f in features if len(f) > 1]
         super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalSquarecbLearner(VowpalArgsLearner):
@@ -429,8 +429,7 @@ class VowpalSquarecbLearner(VowpalArgsLearner):
     def __init__(self,
         mode: Literal["standard","elimination"] = "standard",
         gamma_scale: float = 10,
-        interactions: Sequence[str] = ["xxa","xa"],
-        ignore_linear: Sequence[str] = ["x"],
+        features: Sequence[str] = ['a','ax','axx'],
         seed: Optional[int] = 1,
         **kwargs) -> None:
         """Instantiate a VowpalSquarecbLearner.
@@ -441,8 +440,7 @@ class VowpalSquarecbLearner(VowpalArgsLearner):
             gamma_scale: Controls how quickly squarecb exploration converges to a greedy policy. The larger the
                 gamma_scale the faster the algorithm will converge to a greedy policy. This value is the same
                 as gamma in the original paper.
-            interactions: A list of namespace interactions to use when learning reward functions.
-            ignore_linear: A list of namespaces to ignore when learning reward functions.
+            features: A list of namespaces and interactions  to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
@@ -452,7 +450,9 @@ class VowpalSquarecbLearner(VowpalArgsLearner):
             f"--gamma_scale {gamma_scale}",
             "" if mode != "elimination" else "--elim"
         ]
-
+        
+        ignore_linear = set(['x','a'])-set(features)
+        interactions  = [f for f in features if len(f) > 1]
         super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalOffPolicyLearner(VowpalArgsLearner):
@@ -467,17 +467,17 @@ class VowpalOffPolicyLearner(VowpalArgsLearner):
     """
 
     def __init__(self,
-        interactions: Sequence[str] = ["xxa","xa"],
-        ignore_linear: Sequence[str] = ["x"],
+        features: Sequence[str] = ['a','ax','axx'],
         seed: Optional[int] = 1,
         **kwargs) -> None:
         """Instantiate a VowpalOffPolicyLearner.
 
         Args:
-            interactions: A list of namespace interactions to use when learning reward functions.
-            ignore_linear: A list of namespaces to ignore when learning reward functions.
+            features: A list of namespaces and interactions  to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
         options = ["--cb_adf"]
+        ignore_linear = set(['x','a'])-set(features)
+        interactions  = [f for f in features if len(f) > 1]
         super().__init__(VowpalArgsLearner.make_args(options, interactions, ignore_linear, seed, **kwargs))

@@ -16,12 +16,12 @@ class Performance_Tests(unittest.TestCase):
     def test_numeric_encode_performance_small(self):
 
         encoder   = NumericEncoder()
-        many_ones = ["1"]*100
+        many_ones = ["1"]*500
         
         time = min(timeit.repeat(lambda:encoder.encodes(many_ones), repeat=1000, number=4))
         
-        #was approximately .000122
-        self.assertLess(time, .0012)
+        #was approximately .0003
+        self.assertLess(time, .003)
 
     def test_numeric_encode_performance_large(self):
 
@@ -30,8 +30,8 @@ class Performance_Tests(unittest.TestCase):
         
         time = min(timeit.repeat(lambda:encoder.encodes(many_ones), repeat=25, number=1))
         
-        #was approximately .019
-        self.assertLess(time, .19)
+        #was approximately .018
+        self.assertLess(time, .18)
 
     def test_onehot_fit_performance(self):
 
@@ -69,8 +69,8 @@ class Performance_Tests(unittest.TestCase):
         
         time = timeit.timeit(lambda: encoder.encode(x=x), number=100)
         
-        #best observed was 0.025
-        self.assertLess(time, 0.25)
+        #best observed was 0.03
+        self.assertLess(time, 0.3)
 
     def test_sparse_interaction_xx_encode_performance(self):
         encoder = InteractionsEncoder(["xx"])
@@ -102,8 +102,8 @@ class Performance_Tests(unittest.TestCase):
 
         time = timeit.timeit(lambda: encoder.encode(a=a, b=b, c=c), number=25)
         
-        #best observed was 0.15
-        self.assertLess(time, 1.5)
+        #best observed was 0.17
+        self.assertLess(time, 1.7)
 
     def test_interaction_context_performance(self):
 
