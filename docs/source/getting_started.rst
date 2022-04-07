@@ -53,9 +53,8 @@ When the code finishes running this exact plot should appear:
   :alt: First experiment plot
 
 And that's it. Just like that we've run an experiment comparing the performance
-of LinUCB to randomly selecting actions. Not only that, but we also created three
-shuffles of our data in order to also estimate the standard error of the mean as shown by 
-the error bars in the plot. This is just the tip of the iceberg for what is possible.
+of LinUCB to randomly selecting actions. This is just the tip of the iceberg for 
+what is possible.
 
 Key Concepts
 ~~~~~~~~~~~~~
