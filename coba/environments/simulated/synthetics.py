@@ -166,7 +166,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
         one_hot_actions = OneHotEncoder().fit_encodes(range(n_actions))
 
         self._weights = [ rng.randoms(feature_count or 1) for _ in range(1 if n_action_features else n_actions) ]
-        self._weights = [ [w/sum(W) if len(W) > 1 else w for w in W] for W in self._weights ]        
+        self._weights = [ [w/sum(W) if len(W) > 1 else w for w in W] for W in self._weights ]
         
         self._bias    = 0
         self._clip    = False
@@ -322,10 +322,11 @@ class KernelSyntheticSimulation(LambdaSimulation):
         rng = CobaRandom(seed)
 
         #if there are no features then we can't define exemplars
-        if n_action_features + n_context_features == 0: n_exemplars = 1
+        if n_action_features + n_context_features == 0: n_exemplars = 0
 
-        self._exemplars = [ rng.randoms(n_action_features+n_context_features) for _ in range(n_exemplars)  ]
-        self._weights   = [ rng.randoms(n_exemplars) for _ in range(1 if n_action_features else n_actions) ]
+        self._exemplars = [ rng.randoms(n_action_features+n_context_features) for _ in range(n_exemplars)       ]
+        self._weights   = [ rng.randoms(n_exemplars or 1) for _ in range(1 if n_action_features else n_actions) ]
+        self._weights   = [ [w/sum(W) if len(W) > 1 else w for w in W] for W in self._weights                   ]
         self._bias      = 0
 
         if kernel == 'polynomial':
@@ -345,7 +346,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
 
         def reward(index:int, context:Context, action:Action) -> float:
 
-            if not n_context_features and not n_action_features:
+            if n_exemplars == 0:
                 return self._bias + self._weights[action.index(1)][0]
 
             #handles None context
@@ -413,7 +414,6 @@ class MLPSyntheticSimulation(LambdaSimulation):
     value calculated from a random linear combination of the hidden layer's output.        
     """
 
-
     def __init__(self,
         n_interactions:int,
         n_actions:int = 10,
@@ -442,18 +442,23 @@ class MLPSyntheticSimulation(LambdaSimulation):
         input_layer_size  = n_context_features+n_action_features
         hidden_layer_size = 50
 
-        hidden_activation = lambda x: 1/(1+math.exp(-x)) #sigmoid activation
-        hidden_weights    = [ rng.randoms(input_layer_size) for _ in range(hidden_layer_size) ]
-        hidden_output     = lambda inputs,weights: hidden_activation(sum([ i*w for i,w in zip(inputs,weights)]))
-        self._weights     = [ rng.randoms(hidden_layer_size) for _ in range(1 if n_action_features else n_actions) ]
-        self._bias        = 0
+        self._bias = 0
+
+        if n_action_features or n_context_features:
+            hidden_weights       = [ rng.gausses(input_layer_size) for _ in range(hidden_layer_size) ]
+            hidden_activation    = lambda x: 1/(1+math.exp(-x)) #sigmoid activation
+            hidden_output        = lambda inputs,weights: hidden_activation(sum([ i*w for i,w in zip(inputs,weights)]))
+            self._output_weights = [ rng.randoms(hidden_layer_size) for _ in range(1 if n_action_features else n_actions) ]
+            self._output_weights = [ [w/sum(W) if len(W) > 1 else w for w in W] for W in self._output_weights             ]
+        else:
+            self._output_weights = [ [rng.random()] for _ in range(n_actions) ]            
 
         def context(index:int) -> Context:
-            return tuple(rng.randoms(n_context_features)) if n_context_features else None
+            return tuple(rng.gausses(n_context_features)) if n_context_features else None
 
         def actions(index:int, context: Context) -> Sequence[Action]:
             if n_action_features:
-                return [ (rng.randoms(n_action_features)) for _ in range(n_actions)] 
+                return [ (rng.gausses(n_action_features)) for _ in range(n_actions)] 
             else:
                 return OneHotEncoder().fit_encodes(range(n_actions))
 
@@ -462,12 +467,14 @@ class MLPSyntheticSimulation(LambdaSimulation):
             #handles None context
             context = context or []
 
+            if not n_action_features and not n_context_features:
+                return self._bias + self._output_weights[action.index(1)][0]
             if n_action_features:
                 I = list(context)+list(action)
-                W = self._weights[0]
+                W = self._output_weights[0]
             else:
                 I = list(context)
-                W = self._weights[action.index(1)]
+                W = self._output_weights[action.index(1)]
 
             hidden_outputs = [ hidden_output(I,hw) for hw in hidden_weights]
 
@@ -478,8 +485,8 @@ class MLPSyntheticSimulation(LambdaSimulation):
         m = mean(rewards)
         s = (max(rewards)-min(rewards)) or 1
 
-        self._bias    = 0.5-m/s
-        self._weights = [ [w/s for w in W] for W in self._weights ]
+        self._bias = 0.5-m/s
+        self._output_weights = [ [w/s for w in W] for W in self._output_weights ]
 
         super().__init__(n_interactions, context, actions, reward)
 

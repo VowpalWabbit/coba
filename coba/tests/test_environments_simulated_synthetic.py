@@ -328,7 +328,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
 
     def test_simple_no_action_features(self):
 
-        simulation = KernelSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=0,n_exemplars=10)
+        simulation = KernelSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=0,n_exemplars=10,seed=2)
         interactions = list(simulation.read())
 
         self.assertEqual(500, len(interactions))
@@ -492,7 +492,7 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
         self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_context_no_action_features(self):
-        simulation = MLPSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=0)
+        simulation = MLPSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=0,seed=2)
         interactions = list(simulation.read())
 
         self.assertEqual(500, len(interactions))
