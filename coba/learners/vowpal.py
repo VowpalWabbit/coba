@@ -134,6 +134,9 @@ class VowpalMediator:
         self._curr_ns_offset += length
         return value
 
+    def __reduce__(self):
+        return (VowpalMediator, ())
+
 class VowpalArgsLearner(Learner):
     """A friendly wrapper around Vowpal Wabbit's python interface to support CB learning.
     
@@ -284,6 +287,9 @@ class VowpalArgsLearner(Learner):
 
     def _flat(self,features:Any) -> Any:        
         return list(Flatten().filter([features]))[0]
+
+    def __reduce__(self):
+        return (VowpalArgsLearner, (self._args, self._vw) )
 
 class VowpalEpsilonLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more 

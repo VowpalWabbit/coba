@@ -1,6 +1,7 @@
 import unittest
 import unittest.mock
 import importlib.util
+import pickle
 
 from typing import Sequence, cast
 
@@ -389,6 +390,10 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
 
         self.assertAlmostEqual(.33, average_pre_learn_reward, places=2)
         self.assertAlmostEqual(.78, average_post_learn_reward, places=2)
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
+    def test_picklable(self):
+        pickle.dumps(VowpalArgsLearner())
 
 @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
 class VowpalMediator_Tests(unittest.TestCase):

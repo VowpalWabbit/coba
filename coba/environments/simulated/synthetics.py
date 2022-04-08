@@ -158,8 +158,8 @@ class LinearSyntheticSimulation(LambdaSimulation):
 
         #to try and make sure high-order polynomials are well behaved
         #we center our context and action features on 1 and give them
-        #a very small amount of variance. Then in post processing we
-        #shift and re-scale our variance
+        #a very small amount of variance. Then, in post processing, we
+        #shift and re-scale our reward to center and fill in [0,1].
         max_degree      = max([len(f) for f in reward_features]) if reward_features else 1
         feat_gen        = lambda n: tuple(rng.gausses(n,mu=1,sigma=1/max_degree))
         feature_count   = len(feat_encoder.encode(x=[1]*n_context_features,a=[1]*n_action_features))
