@@ -50,7 +50,7 @@ class Scale(EnvironmentFilter):
 
     def __init__(self,
         shift: Union[Number,Literal["min","mean","med"]] = 0, 
-        scale: Union[Number,Literal["minmax","std","iqr"]] = "minmax", 
+        scale: Union[Number,Literal["minmax","std","iqr",'maxabs']] = "minmax", 
         using: Optional[int] = None,
         target: Literal["features","rewards"] = "features"):
         """Instantiate a Scale filter.
@@ -63,7 +63,7 @@ class Scale(EnvironmentFilter):
         """
 
         assert isinstance(shift,Number) or shift in ["min","mean","med"]
-        assert isinstance(scale,Number) or scale in ["minmax","std","iqr"]
+        assert isinstance(scale,Number) or scale in ["minmax","std","iqr",'maxabs']
 
         self._shift  = shift
         self._scale  = scale
@@ -130,34 +130,39 @@ class Scale(EnvironmentFilter):
         for name, values in unscaled_values.items():
 
             if isinstance(self._shift, Number):
-                shifts[name] = self._shift
+                shift = self._shift
 
             if self._shift == "min":
-                shifts[name] = min(values)
+                shift = min(values)
 
             if self._shift == "mean":
-                shifts[name] = mean(values)
+                shift = mean(values)
 
             if self._shift == "med":
-                shifts[name] = median(values)
+                shift = median(values)
 
             if isinstance(self._scale, Number):
-                num = self._scale
-                den = 1
+                scale_num = self._scale
+                scale_den = 1
 
             if self._scale == "std":
-                num = 1
-                den = stdev(values)
+                scale_num = 1
+                scale_den = stdev(values)
 
             if self._scale == "minmax":
-                num = 1
-                den = max(values)-min(values)
+                scale_num = 1
+                scale_den = max(values)-min(values)
 
             if self._scale == "iqr":
-                num = 1
-                den = iqr(values)
+                scale_num = 1
+                scale_den = iqr(values)
 
-            scales[name] = num/den if round(den,10) != 0 else 1
+            if self._scale == "maxabs":
+                scale_num = 1
+                scale_den = max([abs(v-shift) for v in values])
+
+            shifts[name] = shift
+            scales[name] = scale_num/scale_den if round(scale_den,10) != 0 else 1
 
         for interaction in chain(fitting_interactions, iter_interactions):
 
