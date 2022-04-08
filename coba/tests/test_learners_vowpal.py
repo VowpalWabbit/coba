@@ -203,7 +203,7 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         VowpalArgsLearner("--cb_explore", vw).predict(None, ['yes','no'])
         self.assertEqual(("--cb_explore 2", 4), vw._init_learner_calls[0])
     
-    def test_init_learner_cb_explore_action_infer(self):
+    def test_init_learner_cb_action_infer(self):
         vw = VowpalMediatorMocked()
         
         VowpalArgsLearner("--cb", vw).predict(None, ['yes','no'])
