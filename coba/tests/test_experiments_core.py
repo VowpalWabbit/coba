@@ -11,6 +11,16 @@ from coba.learners import Learner
 from coba.contexts import CobaContext, InteractionContext, CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment
 
+class NoParamsLearner:
+    def predict(self, context, actions):
+        return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
+    def learn(self, context, action, reward, probability, info):
+        pass
+
+class NoParamsEnvironment:
+    def read(self):
+        return LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a)).read()
+
 class ModuloLearner(Learner):
     def __init__(self, param:str="0"):
         self._param = param
@@ -249,6 +259,24 @@ class Experiment_Single_Tests(unittest.TestCase):
             raise
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
+
+        self.assertCountEqual(actual_learners, expected_learners)
+        self.assertCountEqual(actual_environments, expected_environments)
+        self.assertCountEqual(actual_interactions, expected_interactions)
+
+    def test_no_params(self):
+        sim1       = NoParamsEnvironment()
+        learner    = NoParamsLearner()
+        experiment = Experiment([sim1], [learner], evaluation_task=OnlineOnPolicyEvalTask(False))
+
+        result              = experiment.evaluate()
+        actual_learners     = result.learners.to_tuples()
+        actual_environments = result.environments.to_tuples()
+        actual_interactions = result.interactions.to_tuples()
+
+        expected_learners     = [(0, 'NoParamsLearner', 'NoParamsLearner')]
+        expected_environments = [(0, 'NoParamsEnvironment')]
+        expected_interactions = [(0,0,1,0), (0,0,2,1)]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)

@@ -240,5 +240,9 @@ class OpenmlSimulation(SupervisedSimulation):
         """
         super().__init__(OpenmlSource(id, label_type, cat_as_str), None, label_type, take)
 
+    @property
+    def params(self) -> Dict[str, Any]:
+        return {**super().params, "type": "OpenmlSimulation" }
+
     def __str__(self) -> str:
         return f"Openml(id={self.params['openml']}, cat_as_str={self.params['cat_as_str']})"

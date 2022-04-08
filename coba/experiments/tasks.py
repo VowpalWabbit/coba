@@ -13,7 +13,7 @@ from coba.learners import Learner, SafeLearner
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker
 from coba.contexts import InteractionContext
-from coba.environments import Environment, Interaction, SimulatedInteraction, LoggedInteraction
+from coba.environments import Environment, Interaction, SimulatedInteraction, LoggedInteraction, SafeEnvironment
 
 class LearnerTask(ABC):
     """A task which describes a Learner."""
@@ -214,6 +214,7 @@ class SimpleEnvironmentTask(EnvironmentTask):
     """Describe an Environment using its Environment and Filter parameters."""
 
     def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
+        if not isinstance(environment, SafeEnvironment): environment = SafeEnvironment(environment)
         return { k:v for k,v in environment.params.items() if v is not None }
 
 class ClassEnvironmentTask(EnvironmentTask):

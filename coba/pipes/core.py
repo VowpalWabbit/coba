@@ -18,7 +18,13 @@ class SourceFilters(Source):
 
     @property
     def params(self) -> Dict[str,Any]:
-        return { **self._source.params, **self._filter.params }
+
+        try:
+            source_params = self._source.params
+        except:
+            source_params = {}
+
+        return { **source_params, **self._filter.params }
 
     def read(self) -> Any:
         return self._filter.filter(self._source.read())
@@ -33,7 +39,7 @@ class FiltersFilter(Filter):
 
     @property
     def params(self) -> Dict[str,Any]:
-        return { k:v for f in self._filters for k,v in f.params.items() }
+        return { k:v for f in self._filters if hasattr(f,'params') for k,v in f.params.items() }
 
     def filter(self, items: Any) -> Any:
         for filter in self._filters:
@@ -56,6 +62,16 @@ class FiltersSink(Sink):
 
         self._filter = FiltersFilter(*filters)
         self._sink   = sink
+
+    @property
+    def params(self) -> Dict[str,Any]:
+
+        try:
+            sink_params = self._sink.params
+        except:
+            sink_params = {}
+
+        return { **self._filter.params, **sink_params }
 
     def write(self, items: Iterable[Any]):
         self._sink.write(self._filter.filter(items))
@@ -86,7 +102,7 @@ class Pipes:
 
         @property
         def params(self) -> Dict[str, Any]:
-            return { k:v for p in self.pipes for k,v in p.params.items() }
+            return { k:v for p in self.pipes if hasattr(p,'params') for k,v in p.params.items() }
 
         def __str__(self) -> str:
             return ",".join(filter(None,map(str,self.pipes)))

@@ -190,7 +190,7 @@ class SupervisedSimulation(SimulatedEnvironment):
 
         self._label_type = label_type
         self._source     = source
-        self._params     = {**params, "label_type": self._label_type }
+        self._params     = {**params, "label_type": self._label_type, "type": "SupervisedSimulation" }
 
     @property
     def params(self) -> Dict[str,Any]:

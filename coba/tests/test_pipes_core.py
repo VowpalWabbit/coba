@@ -32,11 +32,48 @@ class ReprSource(ListSource):
 class ReprFilter(Filter):
     def __init__(self,id=""):
         self._id = id
+
     def __str__(self):
         return f"ReprFilter{self._id}"
     
     def filter(self, item: Any) -> Any:
         return item
+
+class ParamsSource:
+    @property
+    def params(self):
+        return {'source':"ParamsSource"}
+
+    def read(self):
+        return 1
+
+class NoParamsSource:
+    def read(self):
+        return 1
+
+class ParamsFilter:
+    @property
+    def params(self):
+        return {'filter':"ParamsFilter"}
+
+    def filter(self,item):
+        return item
+
+class NoParamsFilter:
+    def filter(self,item):
+        return item
+
+class ParamsSink:
+    @property
+    def params(self):
+        return {'sink':"ParamsSink"}
+
+    def write(self, item):
+        pass
+
+class NoParamsSink:
+    def write(self, item):
+        pass
 
 class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
@@ -80,6 +117,19 @@ class SourceFilters_Tests(unittest.TestCase):
 
         self.assertEqual([1,2], list(filter.read()))
 
+    def test_params(self):
+        source = SourceFilters(NoParamsSource(), NoParamsFilter())
+        self.assertEqual({}, source.params)
+
+        source = SourceFilters(NoParamsSource(), ParamsFilter())
+        self.assertEqual({'filter':'ParamsFilter'}, source.params)
+
+        source = SourceFilters(NoParamsSource(), NoParamsFilter(), ParamsFilter())
+        self.assertEqual({'filter':'ParamsFilter'}, source.params)
+
+        source = SourceFilters(ParamsSource(), NoParamsFilter(), ParamsFilter())
+        self.assertEqual({'source':'ParamsSource','filter':'ParamsFilter'}, source.params)
+
 class FiltersFilter_Tests(unittest.TestCase):
     
     def test_init_filters(self):
@@ -108,6 +158,16 @@ class FiltersFilter_Tests(unittest.TestCase):
     def test_read2(self):
 
         self.assertEqual([0,1,2], list(FiltersFilter(FiltersFilter(ReprFilter(), ReprFilter()), ReprFilter()).filter(range(3))))
+
+    def test_params(self):
+        source = FiltersFilter(NoParamsFilter(), NoParamsFilter())
+        self.assertEqual({}, source.params)
+
+        source = FiltersFilter(NoParamsFilter(), ParamsFilter())
+        self.assertEqual({'filter':'ParamsFilter'}, source.params)
+
+        source = FiltersFilter(ParamsFilter(), NoParamsFilter())
+        self.assertEqual({'filter':'ParamsFilter'}, source.params)
 
 class FiltersSink_Tests(unittest.TestCase):
     
@@ -148,6 +208,19 @@ class FiltersSink_Tests(unittest.TestCase):
         
         self.assertEqual([1,2], sink._sink.items)
 
+    def test_params(self):
+        sink = FiltersSink(NoParamsFilter(), NoParamsSink())
+        self.assertEqual({}, sink.params)
+
+        sink = FiltersSink(ParamsFilter(), NoParamsSink())
+        self.assertEqual({'filter':'ParamsFilter'}, sink.params)
+
+        sink = FiltersSink(NoParamsFilter(), ParamsFilter(), NoParamsSink())
+        self.assertEqual({'filter':'ParamsFilter'}, sink.params)
+
+        sink = FiltersSink(NoParamsFilter(), ParamsFilter(), ParamsSink())
+        self.assertEqual({'sink':'ParamsSink','filter':'ParamsFilter'}, sink.params)
+
 class PipesLine_Tests(unittest.TestCase):
 
     def test_init_source_sink(self):
@@ -171,6 +244,20 @@ class PipesLine_Tests(unittest.TestCase):
         self.assertEqual([1,2], sink.items)
         self.assertEqual("ReprSource,ReprFilter,ReprFilter,ReprSink", str(pipeline))
         self.assertEqual({}, pipeline.params)
+
+    def test_params(self):
+        line = Pipes.join(NoParamsSource(), NoParamsFilter(), NoParamsSink())
+        self.assertEqual({}, line.params)
+
+        line = Pipes.join(NoParamsSource(), ParamsFilter(), NoParamsSink())
+        self.assertEqual({'filter':'ParamsFilter'}, line.params)
+
+        line = Pipes.join(NoParamsSource(), NoParamsFilter(), ParamsFilter(), NoParamsSink())
+        self.assertEqual({'filter':'ParamsFilter'}, line.params)
+
+        line = Pipes.join(ParamsSource(), ParamsFilter(), ParamsSink())
+        self.assertEqual({'source':'ParamsSource','sink':'ParamsSink','filter':'ParamsFilter'}, line.params)
+
 
 class Foreach_Tests(unittest.TestCase):
     

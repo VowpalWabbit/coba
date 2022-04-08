@@ -5,7 +5,7 @@ from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Dict
 
 from coba.utilities import HashableDict
-from coba.pipes import Source
+from coba.pipes import Source, SourceFilters
 
 Action  = Union[str, Number, tuple, HashableDict]
 Context = Union[None, str, Number, tuple, HashableDict]
@@ -51,14 +51,13 @@ class Environment(Source[Iterable[Interaction]], ABC):
     """An Environment that produces Contextual Bandit data"""
 
     @property
-    @abstractmethod
-    def params(self) -> Dict[str,Any]:
+    def params(self) -> Dict[str,Any]: # pragma: no cover
         """Paramaters describing the simulation.
 
         Remarks:
-            These will become columns in the environment table of an experiment result.
+            These will become columns in the environments table of experiment results.
         """
-        ...
+        return {}
 
     @abstractmethod
     def read(self) -> Iterable[Interaction]:
@@ -71,3 +70,43 @@ class Environment(Source[Iterable[Interaction]], ABC):
 
     def __str__(self) -> str:
         return str(self.params) if self.params else self.__class__.__name__
+
+class SafeEnvironment(Environment):
+    """A wrapper for environment-likes that guarantees interface consistency."""
+
+    def __init__(self, environment: Environment) -> None:
+        """Instantiate a SafeEnvironment.
+
+        Args:
+            environment: The environment we wish to make sure has the expected interface
+        """
+
+        self._environment = environment if not isinstance(environment, SafeEnvironment) else environment._environment
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        try:
+            params = self._environment.params
+        except AttributeError:
+            params = {}
+
+        if "type" not in params:
+
+            if isinstance(self._environment, SourceFilters):
+                params["type"] = self._environment._source.__class__.__name__
+            else:
+                params["type"] = self._environment.__class__.__name__
+
+        return params
+
+    def read(self) -> Iterable[Interaction]:
+        return self._environment.read()
+
+    def __str__(self) -> str:
+        params = dict(self.params)
+        tipe   = params.pop("type")
+
+        if len(params) > 0:
+            return f"{tipe}({','.join(f'{k}={v}' for k,v in params.items())})"
+        else:
+            return tipe

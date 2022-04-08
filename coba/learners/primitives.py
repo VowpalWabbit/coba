@@ -12,10 +12,13 @@ class Learner(ABC):
     """The Learner interface."""
 
     @property
-    @abstractmethod
-    def params(self) -> Dict[str,Any]:
-        """Parameters describing the learner (used for descriptive purposes only)."""
-        ...
+    def params(self) -> Dict[str,Any]: # pragma: no cover
+        """Parameters describing the learner (used for descriptive purposes only).
+                
+        Remarks:
+            These will become columns in the learners table of experiment results.
+        """
+        return {}
 
     @abstractmethod
     def predict(self, context: Context, actions: Sequence[Action]) -> Union[Probs,Tuple[Probs,Info]]:
@@ -52,7 +55,7 @@ class SafeLearner(Learner):
 
     def __init__(self, learner: Learner) -> None:
         """Instantiate a SafeLearner.
-        
+
         Args:
             learner: The learner we wish to make sure has the expected interface
         """
