@@ -146,31 +146,13 @@ class VowpalArgsLearner(Learner):
     __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
 
-    def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1", vw: VowpalMediator = None) -> None:
-        """Instantiate a VowpalArgsLearner.
-
-        Args:
-            args: Command line arguments to instantiate a Vowpal Wabbit contextual bandit learner. For 
-                examples and documentation on how to instantiate VW learners from command line arguments 
-                see `here`__. We require that either cb, cb_adf, cb_explore, or cb_explore_adf is used. 
-                When we format examples for VW context features are placed in the 'x' namespace and action 
-                features, when relevant, are placed in the 'a' namespace.
-            vw: A mediator able to communicate with VW. This should not need to ever be changed. 
-        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
-        """
-
-        if "--cb" not in args: 
-            raise CobaException("VowpalArgsLearner was instantiated without a cb flag. One cb flag must be defined.")
-
-        self._exp  = "--cb_explore" in args
-        self._adf  = "--cb_adf"     in args or "--cb_explore_adf" in args
-        self._args = re.sub("--cb[^-]*", '', args, count=1)
-
-        self._actions: Sequence[Action] = []
-        self._vw                        = vw if vw is not None else VowpalMediator()
-
     @staticmethod
-    def make_args(options: Sequence[str], interactions: Sequence[str], ignore_linear:Sequence[str], seed: Optional[int], **kwargs) -> str:
+    def make_args(
+        options: Sequence[str], 
+        interactions: Sequence[str], 
+        ignore_linear:Sequence[str], 
+        seed: Optional[int], 
+        **kwargs) -> str:
         """Turn specific settings into a VW command line arg string.
 
         Args:
@@ -192,46 +174,89 @@ class VowpalArgsLearner(Learner):
         if seed is not None:
             options.append(f"--random_seed {seed}")
 
+        kwargs['quiet'] = kwargs.get('quiet',True)
+
         for k,v in kwargs.items():
-            k = ("-" if len(k)==1 else "--") + k
-            options.append(k if v is None else f"{k} {v}")
+            if v is not False:
+                k = ("-" if len(k)==1 else "--") + k
+                options.append(k if (v is None or v == True) else f"{k} {v}")
 
         return " ".join(options)
 
+    def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet", vw: VowpalMediator = None) -> None:
+        """Instantiate a VowpalArgsLearner.
+
+        Args:
+            args: Command line arguments to instantiate a Vowpal Wabbit contextual bandit learner. For 
+                examples and documentation on how to instantiate VW learners from command line arguments 
+                see `here`__. We require that either cb, cb_adf, cb_explore, or cb_explore_adf is used. 
+                When we format examples for VW context features are placed in the 'x' namespace and action 
+                features, when relevant, are placed in the 'a' namespace.
+            vw: A mediator able to communicate with VW. This should not need to ever be changed. 
+        __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
+        """
+
+        if "--cb" not in args: 
+            raise CobaException("VowpalArgsLearner was instantiated without a cb flag. One of the cb flags must be defined.")
+
+        self._args    = args
+        self._explore = "--cb_explore" in args
+        self._adf     = "--cb_adf"     in args or "--cb_explore_adf" in args
+
+        self._n_actions = None
+        self._actions   = None
+
+        try:
+            self._n_actions = int(re.match("--cb.*?\s+(\d*)\s*-?.*$", args).group(1))
+        except:
+            pass
+
+        self._vw = vw or VowpalMediator()
+
+        if self._adf or self._n_actions is not None:
+            self._vw.init_learner(args, 4)
+
     @property
     def params(self) -> Dict[str, Any]:
-        return {"family": "vw", 'args': self._cli_args(None)}
+        return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
 
-        if not self._vw.is_initialized:
-            self._vw.init_learner(self._cli_args(actions) + " --quiet", 4)
+        if not self._adf and not self._actions:
+            self._actions = actions
 
-            if not self._adf:
-                self._actions = actions
+        if not self._vw.is_initialized: #this should only be true for not adf with no actions given
+            self._n_actions = len(actions)
+            args            = self._args.replace('--cb_explore','').replace('--cb','')
+            args            = f"--cb_explore {len(actions)} " if self._explore else f"--cb {len(actions)} " + args
+            args            = args.strip()
+            self._vw.init_learner(args,4)
 
-        if not self._adf and (len(actions) != len(self._actions) or set(self._actions) != set(actions)):
-            raise CobaException("Actions are only allowed to change between predictions with `--cb_explore_adf`.")
+        if not self._adf and actions != self._actions:
+            raise CobaException("Actions are only allowed to change between predictions when using `adf`.")
+
+        if not self._adf and len(actions) != self._n_actions:
+            raise CobaException("The number of actions doesn't match the `--cb` action count given in args.")
 
         info = (actions if self._adf else self._actions)
 
         context = {'x':self._flat(context)}
         adfs    = None if not self._adf else [{'a':self._flat(action)} for action in actions]
 
-        if self._adf and self._exp:
+        if self._adf and self._explore:
             probs = self._vw.predict(self._vw.make_examples(context, adfs, None))
 
-        if self._adf and not self._exp:
+        if self._adf and not self._explore:
             losses    = self._vw.predict(self._vw.make_examples(context,adfs, None))
             min_loss  = min(losses)
             min_bools = [s == min_loss for s in losses]
             min_count = sum(min_bools)
             probs     = [ int(min_indicator)/min_count for min_indicator in min_bools ]
         
-        if not self._adf and self._exp:
+        if not self._adf and self._explore:
             probs = self._vw.predict(self._vw.make_example(context, None))
             
-        if not self._adf and not self._exp:
+        if not self._adf and not self._explore:
             index = self._vw.predict(self._vw.make_example(context, None))
             probs = [ int(i==index) for i in range(1,len(actions)+1) ]
 
@@ -239,7 +264,8 @@ class VowpalArgsLearner(Learner):
 
     def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
 
-        assert self._vw.is_initialized, "You must call predict before learn in order to initialize the VW learner"
+        if not self._vw.is_initialized:
+            raise CobaException("When using `cb  without `adf` predict must be called before learn to initialize the vw learner")
 
         actions = info
         labels  = self._labels(actions, action, reward, probability)
@@ -252,17 +278,6 @@ class VowpalArgsLearner(Learner):
             self._vw.learn(self._vw.make_examples(context, adfs, labels))
         else:
             self._vw.learn(self._vw.make_example(context, label))
-
-    def _cli_args(self, actions: Optional[Sequence[Action]]) -> str:
-
-        base_learner = "--cb"
-
-        if self._exp: base_learner += "_explore"
-        if self._adf: base_learner += "_adf"
-        
-        if not self._adf: base_learner += f" {len(actions) if actions else ''}"
-
-        return " ".join(filter(None,[base_learner, self._args]))
 
     def _labels(self,actions,action,reward:float,prob:float) -> Sequence[Optional[str]]:
         return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
@@ -306,6 +321,7 @@ class VowpalSoftmaxLearner(VowpalArgsLearner):
         softmax: float=10,
         features: Sequence[str] = ['a','ax','axx'],
         seed: Optional[int] = 1,
+
         **kwargs) -> None:
         """Instantiate a VowpalSoftmaxLearner.
 
