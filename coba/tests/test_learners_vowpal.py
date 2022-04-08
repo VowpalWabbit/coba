@@ -196,23 +196,21 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
     def test_init_learner_cb_adf(self):
         l = VowpalArgsLearner("--cb_adf",VowpalMediatorMocked())
         self.assertEqual(("--cb_adf", 4), l._vw._init_learner_calls[0])
-    
+
     def test_init_learner_cb_explore_action_infer(self):
         vw = VowpalMediatorMocked()
-
         VowpalArgsLearner("--cb_explore", vw).predict(None, ['yes','no'])
         self.assertEqual(("--cb_explore 2", 4), vw._init_learner_calls[0])
-    
+
     def test_init_learner_cb_action_infer(self):
         vw = VowpalMediatorMocked()
-        
         VowpalArgsLearner("--cb", vw).predict(None, ['yes','no'])
         self.assertEqual(("--cb 2", 4), vw._init_learner_calls[0])
 
     def test_predict_cb_explore_adf(self):
 
         vw = VowpalMediatorMocked([.25, .75])
-        p = VowpalArgsLearner("--cb_explore_adf",vw).predict(None, ['yes','no'])[0]
+        p  = VowpalArgsLearner("--cb_explore_adf",vw).predict(None, ['yes','no'])[0]
 
         self.assertEqual(2, len(vw._predict_calls[0]))
 
@@ -263,10 +261,10 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         self.assertEqual([0,1], p)
 
     def test_learn_cb_adf(self):
-        
+
         vw = VowpalMediatorMocked()
         learner = VowpalArgsLearner("--cb_explore_adf",vw)
-        
+
         learner.predict(None, ['yes','no'])
         learner.learn(None, 'yes', 1, 0.2, ['yes','no'])
 
@@ -356,7 +354,7 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         rng = CobaRandom(11111)
 
         contexts = [ rng.randoms(n_features) for _ in range(n_examples) ]
-        
+
         pre_learn_rewards = []
         for context in contexts[:int(.9*n_examples)]:
 
@@ -533,7 +531,7 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual(4, exs[0].labelType)
         self.assertEqual(4, exs[1].labelType)
 
-        if __version__[0] == '9': 
+        if __version__[0] == '9':
             self.assertEqual("0:0.5:1.0", str(exs[0].get_label(pyvw.LabelType.CONTEXTUAL_BANDIT)))
             self.assertEqual("", str(exs[1].get_label(pyvw.LabelType.CONTEXTUAL_BANDIT)))
         else:
@@ -549,7 +547,7 @@ class VowpalMediator_Tests(unittest.TestCase):
     def test_init_twice_exception(self):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --epsilon .1 --quiet", 4)
-        
+
         with self.assertRaises(CobaException) as ex:
             vw.init_learner("--cb_explore_adf --epsilon .1 --quiet", 4)
 
