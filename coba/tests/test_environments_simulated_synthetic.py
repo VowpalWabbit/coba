@@ -151,11 +151,11 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(4, len(interactions[0].actions[0]))
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_context_no_action_features(self):
 
@@ -170,11 +170,11 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual((0,1), interactions[0].actions[1])
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_no_context_action_features(self):
 
@@ -187,11 +187,11 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(4, len(interactions[0].actions[0]))
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_no_context_and_no_action_features(self):
 
@@ -205,11 +205,11 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual((0,1), interactions[0].actions[1])
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
         self.assertEqual(interactions[0].kwargs['rewards'], interactions[1].kwargs['rewards'])
 
     def test_params(self):
@@ -311,7 +311,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
 
     def test_simple_context_action_features(self):
 
-        simulation = KernelSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4,n_exemplars=10)
+        simulation = KernelSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=4,n_exemplars=10,seed=2)
         interactions = list(simulation.read())
 
         self.assertEqual(500, len(interactions))
@@ -320,11 +320,11 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(4, len(interactions[0].actions[0]))
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_no_action_features(self):
 
@@ -339,15 +339,15 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual((0,1), interactions[0].actions[1])
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_no_context_action_features(self):
 
-        simulation = KernelSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=4,n_exemplars=10)
+        simulation = KernelSyntheticSimulation(500,n_actions=2,n_context_features=0,n_action_features=4,n_exemplars=10,seed=2)
         interactions = list(simulation.read())
 
         self.assertEqual(500, len(interactions))
@@ -356,11 +356,11 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(4, len(interactions[0].actions[0]))
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_no_context_no_action_features(self):
 
@@ -373,11 +373,11 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(2, len(interactions[0].actions[0]))
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_linear_kernel(self):
 
@@ -485,11 +485,11 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(4, len(interactions[0].actions[0]))
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_context_no_action_features(self):
         simulation = MLPSyntheticSimulation(500,n_actions=2,n_context_features=3,n_action_features=0,seed=2)
@@ -503,11 +503,11 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual((0,1), interactions[0].actions[1])
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_no_context_action_features(self):
 
@@ -520,11 +520,11 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(4   , len(interactions[0].actions[0]))
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_simple_no_context_no_action_features(self):
 
@@ -537,11 +537,11 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(2   , len(interactions[0].actions[0]))
 
         rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
-        self.assertLess(max(rewards),1.1)
+        self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
-        self.assertGreater(min(rewards),-.1)
-        self.assertGreater(.02, abs(.5-sum(rewards)/len(rewards)))
+        self.assertGreater(min(rewards),-.2)
+        self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
 
     def test_params(self):
         env = MLPSyntheticSimulation(20,seed=2)

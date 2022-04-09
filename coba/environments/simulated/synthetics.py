@@ -5,7 +5,6 @@ from itertools import count, islice, cycle
 from typing import Sequence, Dict, Tuple, Any, Callable, Optional, overload, Iterable
 from coba.backports import Literal
 
-from coba.pipes import Pipes
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.encodings import InteractionsEncoder, OneHotEncoder
@@ -160,14 +159,16 @@ class LinearSyntheticSimulation(LambdaSimulation):
         #we center our context and action features on 1 and give them
         #a very small amount of variance. Then, in post processing, we
         #shift and re-scale our reward to center and fill in [0,1].
-        max_degree      = max([len(f) for f in reward_features]) if reward_features else 1
-        feat_gen        = lambda n: tuple(rng.gausses(n,mu=1,sigma=1/max_degree))
-        feature_count   = len(feat_encoder.encode(x=[1]*n_context_features,a=[1]*n_action_features))
-        one_hot_actions = OneHotEncoder().fit_encodes(range(n_actions))
+        max_degree   = max([len(f) for f in reward_features]) if reward_features else 1
+        feat_gen     = lambda n: tuple([g*rng.choice([1,-1]) for g in rng.gausses(n,mu=1,sigma=1/(2*max_degree))])
+        one_hot_acts = OneHotEncoder().fit_encodes(range(n_actions))
 
-        self._weights = [ rng.randoms(feature_count or 1) for _ in range(1 if n_action_features else n_actions) ]
-        self._weights = [ [w/sum(W) if len(W) > 1 else w for w in W] for W in self._weights ]
-        
+        feature_count = len(feat_encoder.encode(x=[1]*n_context_features,a=[1]*n_action_features))
+        weight_parts  = 1 if n_action_features  else n_actions
+        weight_count  = 1 if feature_count == 0 else feature_count
+
+        self._weights = [ [ 1-2*w for w in rng.randoms(weight_count) ] for _ in range(weight_parts) ]
+
         self._bias    = 0
         self._clip    = False
 
@@ -175,7 +176,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
             return feat_gen(n_context_features) if n_context_features else None
 
         def actions(index:int,context: Context) -> Sequence[Action]:
-            return  [feat_gen(n_action_features) if n_action_features else one_hot_actions[i] for i in range(n_actions)]
+            return [ feat_gen(n_action_features) for _ in range(n_actions) ] if n_action_features else one_hot_acts
 
         def reward(index:int,context:Context, action:Action) -> float:
 
@@ -184,7 +185,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
 
             return self._bias+sum([w*f for w,f in zip(W,F)])
 
-        rewards = [ reward(i,c,a) for i in range(1000) for c in [ context(i)] for a in actions(i,c) ]
+        rewards = [ reward(i,c,a) for i in range(100) for c in [ context(i)] for a in actions(i,c) ]
 
         m = mean(rewards)
         s = (max(rewards)-min(rewards)) or 1
@@ -321,62 +322,63 @@ class KernelSyntheticSimulation(LambdaSimulation):
 
         rng = CobaRandom(seed)
 
-        #if there are no features then we can't define exemplars
+        #if there are no features then we are unable to define exemplars
         if n_action_features + n_context_features == 0: n_exemplars = 0
 
-        self._exemplars = [ rng.randoms(n_action_features+n_context_features) for _ in range(n_exemplars)       ]
-        self._weights   = [ rng.randoms(n_exemplars or 1) for _ in range(1 if n_action_features else n_actions) ]
-        self._weights   = [ [w/sum(W) if len(W) > 1 else w for w in W] for W in self._weights                   ]
+        feat_gen = lambda n: tuple(rng.gausses(n,0,.75))
+        one_hot_acts = OneHotEncoder().fit_encodes(range(n_actions))
+
+        self._exemplars = [ [ feat_gen(n_action_features+n_context_features) for _ in range(n_exemplars)] for _ in range(1 if n_action_features else n_actions) ]
+        weight_count    = n_actions if n_exemplars == 0 else n_exemplars
+        self._weights   = [ 1-2*w for w in rng.randoms(weight_count) ]
+
         self._bias      = 0
 
         if kernel == 'polynomial':
             #this ensures the dot-product between F and an exemplar is in [0,upper_bound]
-            #we do this because higher-order polynomials can become very unstable otherwise
-            upper_bound = 8**(1/degree)-1
-            self._exemplars   = [ [ upper_bound*e/sum(E) for e in E] for E in self._exemplars]
+            #This ensures that higher-order polynomials will remain reasonably well behaved
+            upper_bound = (1.5)**(1/degree)-1
+            self._exemplars = [ [ [ upper_bound*ee/sum(e) for ee in e] for e in E] for E in self._exemplars]
 
         def context(index:int) -> Context:
-            return tuple(rng.randoms(n_context_features)) if n_context_features else None
+            return feat_gen(n_context_features) if n_context_features else None
 
         def actions(index:int, context: Context) -> Sequence[Action]:
-            if n_action_features:
-                return [ (rng.randoms(n_action_features)) for _ in range(n_actions)] 
-            else:
-                return OneHotEncoder().fit_encodes(range(n_actions))
+            return [ feat_gen(n_action_features) for _ in range(n_actions) ] if n_action_features else one_hot_acts
 
         def reward(index:int, context:Context, action:Action) -> float:
 
             if n_exemplars == 0:
-                return self._bias + self._weights[action.index(1)][0]
+                return self._bias + self._weights[action.index(1)]
 
             #handles None context
             context = context or []
 
             if n_action_features:
                 f = list(context)+list(action)
-                W = self._weights[0]
-                E = self._exemplars
+                W = self._weights
+                E = self._exemplars[0]
             else:
                 f = list(context)
-                W = self._weights[action.index(1)]
-                E = self._exemplars
+                W = self._weights
+                E = self._exemplars[action.index(1)]
 
             if kernel == "linear":
                 K = lambda x1,x2: self._linear_kernel(x1,x2)
             if kernel == "polynomial":
                 K = lambda x1,x2: self._polynomial_kernel(x1,x2,self._degree)
             if kernel == "exponential":
-                K = lambda x1,x2: self._gaussian_kernel(x1,x2,self._gamma)
+                K = lambda x1,x2: self._exponential_kernel(x1,x2,self._gamma)
 
             return self._bias + sum([w*K(e,f) for w,e in zip(W, E)])
 
-        rewards = [ reward(i,c,a) for i in range(1000) for c in [ context(i)] for a in actions(i,c) ]
+        rewards = [ reward(i,c,a) for i in range(100) for c in [context(i)] for a in actions(i,c)]
 
         m = mean(rewards)
         s = (max(rewards)-min(rewards)) or 1
 
         self._bias    = 0.5-m/s
-        self._weights = [ [w/s for w in W] for W in self._weights ]
+        self._weights = [w/s for w in self._weights] 
 
         super().__init__(n_interactions, context, actions, reward)
 
@@ -404,8 +406,8 @@ class KernelSyntheticSimulation(LambdaSimulation):
     def _polynomial_kernel(self, F1: Sequence[float], F2: Sequence[float], degree:int) -> float:
         return (self._linear_kernel(F1,F2)+1)**degree
 
-    def _gaussian_kernel(self, F1: Sequence[float], F2: Sequence[float], gamma:float) -> float:
-        return math.exp(-gamma*sum([(f1-f2)**2 for f1,f2 in zip(F1,F2)]))
+    def _exponential_kernel(self, F1: Sequence[float], F2: Sequence[float], gamma:float) -> float:
+        return math.exp(-math.sqrt(sum([(f1-f2)**2 for f1,f2 in zip(F1,F2)]))/gamma)
 
 class MLPSyntheticSimulation(LambdaSimulation):
     """A synthetic simulation whose reward function belongs to the MLP family.
@@ -444,14 +446,13 @@ class MLPSyntheticSimulation(LambdaSimulation):
 
         self._bias = 0
 
-        if n_action_features or n_context_features:
-            hidden_weights       = [ rng.gausses(input_layer_size) for _ in range(hidden_layer_size) ]
+        if input_layer_size:
+            hidden_weights       = [ [ rng.gausses(input_layer_size,0,1.5) for _ in range(hidden_layer_size) ] for _ in range(1 if n_action_features else n_actions) ]
             hidden_activation    = lambda x: 1/(1+math.exp(-x)) #sigmoid activation
             hidden_output        = lambda inputs,weights: hidden_activation(sum([ i*w for i,w in zip(inputs,weights)]))
-            self._output_weights = [ rng.randoms(hidden_layer_size) for _ in range(1 if n_action_features else n_actions) ]
-            self._output_weights = [ [w/sum(W) if len(W) > 1 else w for w in W] for W in self._output_weights             ]
+            self._output_weights = rng.gausses(hidden_layer_size)
         else:
-            self._output_weights = [ [rng.random()] for _ in range(n_actions) ]            
+            self._output_weights = rng.gausses(n_actions)
 
         def context(index:int) -> Context:
             return tuple(rng.gausses(n_context_features)) if n_context_features else None
@@ -468,25 +469,28 @@ class MLPSyntheticSimulation(LambdaSimulation):
             context = context or []
 
             if not n_action_features and not n_context_features:
-                return self._bias + self._output_weights[action.index(1)][0]
+                return self._bias + self._output_weights[action.index(1)]
+            
             if n_action_features:
                 I = list(context)+list(action)
-                W = self._output_weights[0]
+                W = self._output_weights
+                H = hidden_weights[0]
             else:
                 I = list(context)
-                W = self._output_weights[action.index(1)]
+                W = self._output_weights
+                H = hidden_weights[action.index(1)]
 
-            hidden_outputs = [ hidden_output(I,hw) for hw in hidden_weights]
+            hidden_outputs = [ hidden_output(I,h) for h in H]
 
             return self._bias + sum([w*hout for w,hout in zip(W, hidden_outputs) ])
 
-        rewards = [ reward(i,c,a) for i in range(1000) for c in [ context(i)] for a in actions(i,c) ]
+        rewards = [ reward(i,c,a) for i in range(100) for c in [ context(i)] for a in actions(i,c) ]
 
         m = mean(rewards)
         s = (max(rewards)-min(rewards)) or 1
 
         self._bias = 0.5-m/s
-        self._output_weights = [ [w/s for w in W] for W in self._output_weights ]
+        self._output_weights = [ w/s for w in self._output_weights ]
 
         super().__init__(n_interactions, context, actions, reward)
 

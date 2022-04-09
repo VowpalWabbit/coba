@@ -7,7 +7,7 @@ import coba.random
 
 from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
-from coba.environments import SimulatedInteraction
+from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 
@@ -247,6 +247,13 @@ class Performance_Tests(unittest.TestCase):
 
         #.092 was my final time
         self.assertLess(time, 0.92)
+
+    def test_linear_synthetic(self):
+
+        time = timeit.timeit(lambda:list(LinearSyntheticSimulation(100).read()), number=1)
+
+        #.22 was my final time
+        self.assertLess(time, 2.2)
 
 if __name__ == '__main__':
     unittest.main()

@@ -65,7 +65,7 @@ class Environments:
         n_context_features: int = 5,
         n_action_features: int = 5,
         reward_features: Sequence[str] = ["a","xa"],
-        seed: int = 1) -> 'Environments':
+        seed: Union[int,Sequence[int]] = 1) -> 'Environments':
         """A synthetic simulation whose rewards are linear with respect to the given reward features.
 
         The simulation's rewards are determined via a linear function with respect to the given reward features. When 
@@ -73,9 +73,10 @@ class Environments:
         non-existant features.
         """
 
-        return Environments([
-            LinearSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, reward_features, seed)
-        ])
+        seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
+        args = (n_interactions, n_actions, n_context_features, n_action_features, reward_features)
+
+        return Environments([LinearSyntheticSimulation(*args, s) for s in seed])
 
     @staticmethod
     def from_neighbors_synthetic(
@@ -91,9 +92,10 @@ class Environments:
         context and action pairs. A neighborhood's reward is determined by random assignment.
         """
 
-        return Environments([
-            NeighborsSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, n_neighborhoods, seed)
-        ])
+        seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
+        args = (n_interactions, n_actions, n_context_features, n_action_features, n_neighborhoods)
+
+        return Environments([NeighborsSyntheticSimulation(*args, s) for s in seed])
 
     @staticmethod
     def from_kernel_synthetic(
@@ -101,21 +103,17 @@ class Environments:
         n_actions:int = 10,
         n_context_features:int = 10,
         n_action_features:int = 10,
-        n_exemplar:int = 10,
+        n_exemplars:int = 10,
         kernel: Literal['linear','polynomial','exponential'] = 'exponential',
-        degree: int = 2,
+        degree: int = 3,
         gamma: float = 1,
         seed: int = 1) -> 'Environments':
-        """A synthetic simulation whose reward function is created from kernel basis functions.
+        """A synthetic simulation whose reward function is created from kernel basis functions."""
 
-        To create random kernel functions exemplar points are generated at initialization and fixed for all time.
-        """
-
-        return Environments([
-            KernelSyntheticSimulation(
-                n_interactions, n_actions, n_context_features, n_action_features, n_exemplar, kernel, degree, gamma,seed
-            )
-        ])
+        seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
+        args = (n_interactions, n_actions, n_context_features, n_action_features, n_exemplars, kernel, degree, gamma)
+        
+        return Environments([KernelSyntheticSimulation(*args, s) for s in seed])
 
     @staticmethod
     def from_mlp_synthetic(
@@ -130,9 +128,10 @@ class Environments:
         value calculated from a random linear combination of the hidden layer's output.        
         """
 
-        return Environments([
-            MLPSyntheticSimulation(n_interactions, n_actions, n_context_features, n_action_features, seed)
-        ])
+        seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
+        args = (n_interactions, n_actions, n_context_features, n_action_features)
+
+        return Environments([MLPSyntheticSimulation(*args, s) for s in seed])
 
     @staticmethod
     def from_openml(
