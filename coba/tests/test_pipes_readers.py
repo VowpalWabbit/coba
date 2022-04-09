@@ -634,7 +634,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
-    def test_quotes_from_hell_dense_cat_as_str_true(self):
+    def test_quotes_from_hell_dense_cat_as_str_true_good_categories(self):
         lines = [
             "@relation news20",
             "@attribute 'A  a' numeric",
@@ -656,6 +656,20 @@ class ArffReader_Tests(unittest.TestCase):
         self.assertEqual("class'B", items[0]['"'])
         self.assertEqual('"class_C"', items[0]["'"])
         self.assertEqual('class",D', items[0][","])
+
+    def test_quotes_from_hell_dense_cat_as_str_true_bad_categories(self):
+        lines = [
+            "@relation news20",
+            "@attribute 'A  a' numeric",
+            "@attribute '\"' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
+            "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
+            "@attribute ',' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
+            "@data",
+            "1,    'class\'B', '\"class_C\"', 'class\",G'",
+        ]
+
+        with self.assertRaises(CobaException):
+            list(ArffReader(cat_as_str=True,lazy_encoding=False).filter(lines))
 
     def test_quotes_from_hell_dense_cat_as_str_false(self):
         lines = [

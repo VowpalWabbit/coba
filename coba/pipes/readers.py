@@ -198,7 +198,6 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
     def _encoders(self, encodings: Sequence[str], is_dense:bool) -> Encoder:
         numeric_types = ('numeric', 'integer', 'real')
         string_types  = ("string", "date", "relational")
-        cat_as_str    = self._cat_as_str
         r_comma       = None
         identity      = lambda x: None if x=="?" else x.strip()
 
@@ -211,41 +210,39 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             elif encoding.startswith(string_types):
                 yield identity
             elif encoding.startswith('{'):
-                if cat_as_str:
-                    yield identity
-                else:
-                    r_comma = r_comma or re.compile("(,)")
-                    categories = list(self._pattern_split(encoding[1:-1], r_comma))
-                    
-                    if not is_dense:
-                        #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the 
-                        #actual data because it is encoded as 0. Therefore, our ARFF reader automatically adds a 0 value 
-                        #to all sparse categorical one-hot encoders to protect against this.
-                        categories = ["0"] + categories
+                r_comma = r_comma or re.compile("(,)")
+                categories = list(self._pattern_split(encoding[1:-1], r_comma))
+                
+                if not is_dense:
+                    #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the 
+                    #actual data because it is encoded as 0. Therefore, our ARFF reader automatically adds a 0 value 
+                    #to all sparse categorical one-hot encoders to protect against this.
+                    categories = ["0"] + categories
 
-                    def encoder(x:str,cats=categories,get=OneHotEncoder(categories)._onehots.__getitem__):
-                        x=x.strip()
+                def encoder(x:str,cats=categories,get=OneHotEncoder(categories)._onehots.__getitem__):
 
-                        if x =="?":
-                            return None
+                    x=x.strip()
 
-                        if x not in cats and x[0] in self._quotes and x[0]==x[-1] and len(x) > 1:
-                            x = x[1:-1]
+                    if x =="?":
+                        return None
 
-                        if x not in cats:
-                            raise CobaException("We were unable to find one of the categorical values in the arff data.")
-                        
-                        return get(x)
-                    
-                    yield encoder
+                    if x not in cats and x[0] in self._quotes and x[0]==x[-1] and len(x) > 1:
+                        x = x[1:-1]
+
+                    if x not in cats:
+                        raise CobaException("We were unable to find one of the categorical values in the arff data.")
+
+                    return x if self._cat_as_str else get(x)
+
+                yield encoder
             else:
                 raise CobaException(f"An unrecognized encoding was found in the arff attributes: {encoding}.")
 
-    def _parse_dense_data(self, 
-        lines: Iterable[str], 
-        headers: Sequence[str], 
+    def _parse_dense_data(self,
+        lines: Iterable[str],
+        headers: Sequence[str],
         encoders: Sequence[Encoder]) -> Iterable[Union[MutableSequence,MutableMapping]]:
-        
+
         headers_dict        = dict(zip(headers,count()))
         possible_dialects   = self._possible_dialects()
 
