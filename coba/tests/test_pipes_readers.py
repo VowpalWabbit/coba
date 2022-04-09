@@ -634,7 +634,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
-    def test_quotes_from_hell_dense(self):
+    def test_quotes_from_hell_dense_cat_as_str_true(self):
         lines = [
             "@relation news20",
             "@attribute 'A  a' numeric",
@@ -656,6 +656,48 @@ class ArffReader_Tests(unittest.TestCase):
         self.assertEqual("class'B", items[0]['"'])
         self.assertEqual('"class_C"', items[0]["'"])
         self.assertEqual('class",D', items[0][","])
+
+    def test_quotes_from_hell_dense_cat_as_str_false(self):
+        lines = [
+            "@relation news20",
+            "@attribute 'A  a' numeric",
+            "@attribute '\"' {0, \"class'B\", '\"class_C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
+            "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
+            "@attribute ','  {0, \"class'B\", '\"class_C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
+            "@data",
+            "1,    'class\\'B', '\"class_C\"', 'class\",D'",
+        ]
+
+        expected = [
+            [1, (0,1,0,0,0,0),(0,0,1,0,0,0),(0,0,0,1,0,0)]
+        ]
+
+        items = list(ArffReader(cat_as_str=False).filter(lines))
+
+        self.assertEqual(expected, items)
+        self.assertEqual(1, items[0]['A  a'])
+        self.assertEqual((0,1,0,0,0,0), items[0]['"'])
+        self.assertEqual((0,0,1,0,0,0), items[0]["'"])
+        self.assertEqual((0,0,0,1,0,0), items[0][","])
+
+    def test_quotes_with_csv(self):
+        lines = [
+            "@relation news20",
+            "@attribute 'value' numeric",
+            "@attribute 'class' {'0','1'}",
+            "@data",
+            "1,'0'",
+        ]
+
+        expected = [
+            [1, (1,0)]
+        ]
+
+        items = list(ArffReader(cat_as_str=False).filter(lines))
+
+        self.assertEqual(expected, items)
+        self.assertEqual(1    , items[0]['value'])
+        self.assertEqual((1,0), items[0]['class'])
 
     def test_no_lazy_encoding_no_header_indexes_dense(self):
         lines = [

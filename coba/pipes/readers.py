@@ -214,21 +214,27 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
                 if cat_as_str:
                     yield identity
                 else:
-                    #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the 
-                    #actual data because it is encoded as 0. Therefore our ARFF reader automatically adds a 0 value 
-                    #to all sparse categorical one-hot encoders to protect against this.
                     r_comma = r_comma or re.compile("(,)")
                     categories = list(self._pattern_split(encoding[1:-1], r_comma))
                     
-                    if not is_dense: 
+                    if not is_dense:
+                        #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the 
+                        #actual data because it is encoded as 0. Therefore, our ARFF reader automatically adds a 0 value 
+                        #to all sparse categorical one-hot encoders to protect against this.
                         categories = ["0"] + categories
 
-                    def encoder(x,cats=categories,get=OneHotEncoder(categories, err_if_unknown=True)._onehots.__getitem__):
+                    def encoder(x:str,cats=categories,get=OneHotEncoder(categories)._onehots.__getitem__):
                         x=x.strip()
+
                         if x =="?":
                             return None
+
+                        if x not in cats and x[0] in self._quotes and x[0]==x[-1] and len(x) > 1:
+                            x = x[1:-1]
+
                         if x not in cats:
                             raise CobaException("We were unable to find one of the categorical values in the arff data.")
+                        
                         return get(x)
                     
                     yield encoder
@@ -269,15 +275,15 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
                 final = []
 
                 while line:
-                    item = line.popleft()
+                    item = line.popleft().lstrip()
 
-                    if "'" in item or '"' in item:
-                        quotechar = item[min(i for i in [item.find("'"), item.find('"')] if i >= 0)]
-                        while item.rstrip()[-1] != quotechar and item.rstrip()[-2] != "\\":
+                    if item[0] in self._quotes:
+                        quotechar = item[0]
+                        while item.rstrip()[-1] != quotechar or item.rstrip()[-2] == "\\":
                             item += "," + line.popleft()
                         item = item.strip()[1:-1]
 
-                    final.append(item)
+                    final.append(item.replace('\\',''))
 
             if len(final) != len(headers):
                 raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
@@ -339,7 +345,8 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
                     break
 
                 if item[0] in quotes:
-                    while item.strip()[-1] not in quotes:
+                    q  = item[0]
+                    while item.rstrip()[-1] != q or item.rstrip()[-2]=="\\":
                         item += next(items)
                     item = item.rstrip()[1:-1]
 
