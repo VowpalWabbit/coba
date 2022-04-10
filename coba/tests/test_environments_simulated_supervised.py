@@ -3,7 +3,7 @@ import unittest
 
 from coba.pipes        import ListSource
 from coba.contexts     import CobaContext, CobaContext, NullLogger
-from coba.environments import SupervisedSimulation, CsvSource, ArffSource, LibsvmSource, ManikSource
+from coba.environments import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
 
 CobaContext.logger = NullLogger()
 
@@ -318,9 +318,9 @@ class LibsvmSource_Tests(unittest.TestCase):
             ({1:1     }, ['1'])
         ]
 
-        self.assertEqual(expected, list(LibsvmSource(ListSource(lines)).read()))
-        self.assertEqual({}, LibsvmSource(ListSource(lines)).params)
-        self.assertEqual('{},{}', str(LibsvmSource(ListSource(lines))))
+        self.assertEqual(expected, list(LibSvmSource(ListSource(lines)).read()))
+        self.assertEqual({}, LibSvmSource(ListSource(lines)).params)
+        self.assertEqual('{},{}', str(LibSvmSource(ListSource(lines))))
 
 class ManikSource_Tests(unittest.TestCase):
 

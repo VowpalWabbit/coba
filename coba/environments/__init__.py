@@ -17,7 +17,7 @@ from coba.environments.simulated.synthetics import MemorySimulation, LambdaSimul
 from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.environments.simulated.openml import OpenmlSimulation, OpenmlSource
-from coba.environments.simulated.supervised import SupervisedSimulation, CsvSource, ArffSource, LibsvmSource, ManikSource
+from coba.environments.simulated.supervised import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
 from coba.environments.simulated.serialized import SerializedSimulation
 
 from coba.environments.logged.primitives import LoggedInteraction, LoggedEnvironment
@@ -41,7 +41,7 @@ __all__ = [
     'SupervisedSimulation',
     'CsvSource',
     'ArffSource',
-    'LibsvmSource',
+    'LibSvmSource',
     'ManikSource',
     'LinearSyntheticSimulation',
     'NeighborsSyntheticSimulation',

@@ -78,8 +78,8 @@ class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping
     def __str__(self) -> str:
         return str(self._source)
 
-class LibsvmSource(Source[Iterable[MutableMapping]]):
-    """Load a source (either local or remote) in Libsvm format.
+class LibSvmSource(Source[Iterable[MutableMapping]]):
+    """Load a source (either local or remote) in libsvm format.
 
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """

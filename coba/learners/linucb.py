@@ -54,7 +54,7 @@ class LinUCBLearner(Learner):
 
     @property
     def params(self) -> Dict[str, Any]:
-        return {'family': 'LinUCB', 'alpha': self._alpha, 'X': self._X}
+        return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
 
