@@ -4,6 +4,7 @@ import json
 import time
 import collections.abc
 
+from numbers import Number
 from collections import Counter, OrderedDict, defaultdict
 from itertools import count, accumulate, chain
 from abc import ABC, abstractmethod
@@ -276,11 +277,15 @@ class CobaJsonDecoder(json.JSONDecoder):
 
 class InteractionsEncoder:
     
-    def __init__(self, interactions: Sequence[str]) -> None:
+    def __init__(self, interactions: Sequence[Union[str,float]]) -> None:
+        str_interactions = [i for i in interactions if isinstance(i,str)   ]
+        num_interactions = [i for i in interactions if isinstance(i,Number)]
+
         self.times       = [0,0,0,0]
         self.n           = 0
-        self._cross_pows = OrderedDict(zip(interactions,map(OrderedDict,map(Counter,interactions))))
-        self._ns_max_pow = { n:max(p.get(n,0) for p in self._cross_pows.values()) for n in set(''.join(interactions)) }
+        self._constant   = sum(num_interactions)
+        self._cross_pows = OrderedDict(zip(interactions,map(OrderedDict,map(Counter,str_interactions))))
+        self._ns_max_pow = { n:max(p.get(n,0) for p in self._cross_pows.values()) for n in set(''.join(str_interactions)) }
 
     def encode(self, **ns_raw_values: Union[str, float, Sequence[Union[str,float]], Dict[Union[str,int],Union[str,float]]]) -> Union[Sequence[float], Dict[str,float]]:
 
@@ -329,6 +334,8 @@ class InteractionsEncoder:
             encoded = dict(zip(chain.from_iterable(key_crosses), chain.from_iterable(val_crosses)))
             self.times[3] += time.time()-start
 
+            if self._constant: encoded['const'] = self._constant
+
             return encoded
         else:
             start = time.time()
@@ -342,6 +349,8 @@ class InteractionsEncoder:
             start = time.time()
             encoded = sum(val_crosses,[])
             self.times[3] += time.time()-start
+
+            if self._constant: encoded = [self._constant] + encoded
 
             return encoded
 

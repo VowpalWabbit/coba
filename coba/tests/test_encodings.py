@@ -187,6 +187,12 @@ class InteractionsEncoder_Tests(unittest.TestCase):
 
         self.assertEqual([1,2,3,1,2], interactions)
 
+    def test_dense_x_a_with_const(self):
+        encoder = InteractionsEncoder(["x", "a", 1, 2])
+        interactions = encoder.encode(x=[1,2,3], a=[1,2])
+
+        self.assertEqual([3, 1,2,3,1,2], interactions)
+
     def test_dense_meta_x_a(self):
         encoder = InteractionsEncoder(["x", "a"])
         interactions = encoder.encode(x=DenseWithMeta([1,2,3]), a=[1,2])
@@ -207,6 +213,12 @@ class InteractionsEncoder_Tests(unittest.TestCase):
         interactions = encoder.encode(x={"1":1,"2":2}, a={"1":3,"2":4})
 
         self.assertEqual(dict([("x1",1), ("x2",2), ("a1",3), ("a2",4)]), interactions)
+
+    def test_sparse_x_a_with_const(self):
+        encoder = InteractionsEncoder([1,2,"x","a"])
+        interactions = encoder.encode(x={"1":1,"2":2}, a={"1":3,"2":4})
+
+        self.assertEqual(dict([('const',3),("x1",1), ("x2",2), ("a1",3), ("a2",4)]), interactions)
 
     def test_sparse_meta_x_a(self):
         encoder = InteractionsEncoder(["x","a"])
