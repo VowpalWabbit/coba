@@ -106,7 +106,7 @@ class Environments:
         n_exemplars:int = 10,
         kernel: Literal['linear','polynomial','exponential'] = 'exponential',
         degree: int = 3,
-        gamma: float = .5,
+        gamma: float = 1,
         seed: int = 1) -> 'Environments':
         """A synthetic simulation whose reward function is created from kernel basis functions."""
 

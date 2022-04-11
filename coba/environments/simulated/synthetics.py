@@ -293,7 +293,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
         n_exemplars:int = 10,
         kernel: Literal['linear','polynomial','exponential'] = 'exponential',
         degree: int = 2,
-        gamma: float = .5,
+        gamma: float = 1,
         seed: int = 1) -> None:
         """Instantiate a KernelSyntheticSimulation.
 
