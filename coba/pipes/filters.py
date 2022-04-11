@@ -87,7 +87,7 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
     """
 
-    def __init__(self, count: Optional[int], seed: float = 1) -> None:
+    def __init__(self, count: Union[Optional[int],Tuple[int,Optional[int]]], seed: float = 1) -> None:
         """Instantiate a Resevoir filter.
 
         Args:
