@@ -293,7 +293,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
         n_exemplars:int = 10,
         kernel: Literal['linear','polynomial','exponential'] = 'exponential',
         degree: int = 2,
-        gamma: float = 1,
+        gamma: float = .5,
         seed: int = 1) -> None:
         """Instantiate a KernelSyntheticSimulation.
 
@@ -338,7 +338,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
             #this ensures the dot-product between F and an exemplar is in [0,upper_bound]
             #This ensures that higher-order polynomials will remain reasonably well behaved
             upper_bound = (1.5)**(1/degree)-1
-            self._exemplars = [ [ [ upper_bound*ee/sum(e) for ee in e] for e in E] for E in self._exemplars]
+            self._exemplars = [ [ [ upper_bound*ee/sum(e) if len(e) > 1 else ee for ee in e] for e in E] for E in self._exemplars]
 
         def context(index:int) -> Context:
             return feat_gen(n_context_features) if n_context_features else None
