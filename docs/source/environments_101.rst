@@ -2,31 +2,31 @@
 Environments 101
 ====================
 
-Within ``Coba`` environments are one of the core building blocks for experiments. Their primary role is to support
-the training and evaluation of learner algorithms within experiments. In practical terms, environments are simply
-sequences of interactions with the world, with each interaction representing an independent instance where a learner
-must make a decision on how to act and then receive a reward. Natively, Coba provides support and analysis for two types
-of interactions -- logged interactions (where often times only the reward will only be known for one decision) and simulated
-interactions (where reward information is known for all potential decisions). By extension then  there also two types
-of environments: ``LoggedEnvironments`` and ``SimulatedEnvironments``.
+``Coba`` environments are one of the core building blocks for experiments. Their primary role is to support
+the training and evaluation of learner algorithms. In practical terms, an environment is nothing more than a
+sequences of interactions with a world where each interaction is an independent instance in which a learner must 
+decide how to act and then receive a reward. Out of the box Coba provides support for two types of interactions -- 
+logged interactions (where reward information is known for only one action) and simulated interactions (where reward 
+information is known for all actions). By extension there are also two types of environments: ``LoggedEnvironments``
+and ``SimulatedEnvironments``.
 
 
 The Role of Environments
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Environments are important in ``Coba`` experiments because they allow us to both learn policies and evaluate policies. The default
-evaluation method in Coba uses an online learning architecture to both learn and evaluate in a single pass over an environment without
-having to define train-test splits. Additionally, for those familiar with contextual bandit learning, Coba provides support for on-policy
-and off-policy learning as well as on-policy and off-policy evaluation. In these cases ``SimulatedEnvironments`` can generally be thought
-of as most appropriate for on-policy experiments while ``LoggedEnvironments`` are generally most appropriate for off-policy experiments.
+Environments are used in ``Coba`` to learn and evaluate policies. The default learning/evaluation method in ``Coba`` uses online learning 
+to both learn and evaluate in a single pass without having to define a train-test split. Additionally, for those familiar with contextual 
+bandit learning, Coba provides support for both on-policy and off-policy learning as well as on-policy and off-policy evaluation. In these 
+cases ``SimulatedEnvironments`` can generally be thought of as most appropriate for on-policy experiments while ``LoggedEnvironments`` can 
+generally be considered most appropriate for off-policy experiments.
 
 Friendly Environments API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``coba.environments`` module contains all functionality pertaining to creating and modifying Environments. This functionality can be
-a little overwhelming initially so a more simplified interface, called ``Environments``, has been provided to help one get started. This
-can be imported as shown below. In what follows examples we are provided to demonstrate how to use the interface to create and modify
-environments for use in experiments.
+a little overwhelming so a simplified interface, called ``Environments``, has been provided to help one get started. This can be imported 
+as shown below. In what follows, examples are provided which use the simplified interface to create and modify environments for use in 
+experiments.
 
 .. code-block:: python
 
@@ -60,9 +60,9 @@ with Openml derived simulations. Otherwise ``Coba`` will download the dataset fr
     #Create a simulation from covertype https://www.openml.org/d/180 by direct instantiation
     env = [ OpenmlSimulation(180) ]
 
-Often times Openml datasets will be larger than we want. In order to deal with this OpenmlSimulations can be told how many interactions to take
+Often Openml datasets will be larger than we want. In order to deal with this OpenmlSimulations can be told how many interactions to take
 when creating the simulation. When the take parameter is provided a reservoir sampler will be used to reduce to the given number of examples. We
-may also want to create multiple openml simulations at once to see how a Learner performs in general. Both of these use-cases are demonstrated below.
+may also want to create multiple openml simulations at once to see how a Learner performs in general. Both use-cases are demonstrated below.
 
 .. code-block:: python
 
@@ -98,9 +98,9 @@ one of the interfaces needs to be used in practice.
 From Synthetic Generation
 -----------------------------------
 For the case where one wants to have complete control over the characteristics of a SimulatedEnvironment used in an Experiment Coba provides two
-synethic environments: LinearSyntheticSimulation and LocalSyntheticSimulation. The linear synthetic simulation follows traditional linear contextual
+synthetic environments: LinearSyntheticSimulation and LocalSyntheticSimulation. The linear synthetic simulation follows traditional linear contextual
 bandit assumptions where each action's expected reward has a linear relationship to the action and context features. Local synthetic on the other
-hand creates local exemplars and calculates reward based on the locaion of a context and action feature set with respect to the exemplars. As above
+hand creates local exemplars and calculates reward based on the location of a context and action feature set with respect to the exemplars. As above
 we demonstrate below the two interfaces for working with these.
 
 .. code-block:: python
@@ -166,7 +166,7 @@ It is also possible to create a stochastic LambdaSimulation.
 From Scratch
 -----------------------------------
 
-Finally if all the provide simulations above still do not meet the needs of your research you can easily create your own SimulatedEnvironment
+Finally, if all the provide simulations above still do not meet the needs of your research you can easily create your own SimulatedEnvironment
 from scratch. Coba uses duck typing for SimulatedEnvironments so no inheritance or dependencies are needed. One only needs to implement the
 protocol. Below is a very simple example.
 
@@ -192,7 +192,7 @@ protocol. Below is a very simple example.
 Filtering Environments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Once an environment has been created we often want to modify it in some way. In ``Coba`` a modification to an environment is called a "filter".
+Once an environment has been created, we often want to modify it in some way. In ``Coba`` a modification to an environment is called a "filter".
 This language is adopted because applying a series of modifications to an environment is viewed as a pipeline. Using pipelines many environments
 can be made very quickly from a handful of base environments. Modifying environments is where the Environments API really shines. We share a few
 examples below. All available filters can be seen in the API Reference.
