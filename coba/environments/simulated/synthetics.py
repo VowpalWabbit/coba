@@ -113,99 +113,6 @@ class LambdaSimulation(SimulatedEnvironment):
                 "allows us to create the interactions in memory ahead of time and convert to a MemorySimulation when pickling).")
             raise CobaException(message)
 
-class LinearSyntheticSimulation(LambdaSimulation):
-    """A synthetic simulation whose rewards are linear with respect to the given reward features.
-
-    The simulation's rewards are linear with respect to the requrested reward features. When no context 
-    or action features are requested these terms are removed from the requested reward features.
-    """
-
-    def __init__(self, 
-        n_interactions:int, 
-        n_actions:int = 10,
-        n_context_features:int = 10,
-        n_action_features:int = 10,
-        reward_features:Sequence[str] = ["a","xa"],
-        seed:int = 1) -> None:
-        """Instantiate a LinearSyntheticSimulation.
-
-        Args:
-            n_interactions: The number of interactions the simulation should have.
-            n_actions: The number of actions each interaction should have.
-            n_context_features: The number of features each context should have.
-            n_action_features: The number of features each action should have.
-            reward_features: The features in the simulation's linear reward function.
-            seed: The random number seed used to generate all features, weights and noise in the simulation.
-        """
-
-        self._args = (n_interactions, n_actions, n_context_features, n_action_features, reward_features, seed)
-
-        self._n_actions          = n_actions
-        self._n_context_features = n_context_features
-        self._n_action_features  = n_action_features
-        self._reward_features    = reward_features
-        self._seed               = seed
-
-        if not self._n_context_features:
-            reward_features = list(set(filter(None,[ f.replace('x','') for f in reward_features])))
-
-        if not self._n_action_features:
-            reward_features = list(set(filter(None,[ f.replace('a','') for f in reward_features])))
-
-        rng          = CobaRandom(seed)
-        feat_encoder = InteractionsEncoder(reward_features)
-
-        #to try and make sure high-order polynomials are well behaved
-        #we center our context and action features on 1 and give them
-        #a very small amount of variance. Then, in post processing, we
-        #shift and re-scale our reward to center and fill in [0,1].
-        max_degree   = max([len(f) for f in reward_features]) if reward_features else 1
-        feat_gen     = lambda n: tuple([g*rng.choice([1,-1]) for g in rng.gausses(n,mu=1,sigma=1/(2*max_degree))])
-        one_hot_acts = OneHotEncoder().fit_encodes(range(n_actions))
-
-        feature_count = len(feat_encoder.encode(x=[1]*n_context_features,a=[1]*n_action_features))
-        weight_parts  = 1 if n_action_features  else n_actions
-        weight_count  = 1 if feature_count == 0 else feature_count
-
-        self._weights = [ [ 1-2*w for w in rng.randoms(weight_count) ] for _ in range(weight_parts) ]
-
-        self._bias    = 0
-        self._clip    = False
-
-        def context(index:int) -> Context:
-            return feat_gen(n_context_features) if n_context_features else None
-
-        def actions(index:int,context: Context) -> Sequence[Action]:
-            return [ feat_gen(n_action_features) for _ in range(n_actions) ] if n_action_features else one_hot_acts
-
-        def reward(index:int,context:Context, action:Action) -> float:
-
-            F = feat_encoder.encode(x=context,a=action) or [1]
-            W = self._weights[0 if n_action_features else action.index(1)]
-
-            return self._bias+sum([w*f for w,f in zip(W,F)])
-
-        rewards = [ reward(i,c,a) for i in range(100) for c in [ context(i)] for a in actions(i,c) ]
-
-        m = mean(rewards)
-        s = (max(rewards)-min(rewards)) or 1
-
-        self._bias    = 0.5-m/s
-        self._weights = [ [w/s for w in W] for W in self._weights ]
-        self._clip    = True
-
-        super().__init__(n_interactions, context, actions, reward)
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return {**super().params, "type":"LinearSynthetic", "reward_features": self._reward_features }
-
-    def __reduce__(self) -> Tuple[object, ...]:
-        return (LinearSyntheticSimulation, self._args)
-
-    def __str__(self) -> str:
-        return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},R={self._reward_features},seed={self._seed})"
-
 class NeighborsSyntheticSimulation(LambdaSimulation):
     """A synthetic simulation whose reward values are determined by neighborhoods.
 
@@ -279,10 +186,104 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
     def __reduce__(self) -> Tuple[object, ...]:
         return (NeighborsSyntheticSimulation, self._args)
 
+class LinearSyntheticSimulation(LambdaSimulation):
+    """A synthetic simulation whose rewards are linear with respect to the given reward features.
+
+    The simulation's rewards are linear with respect to the requrested reward features. When no context 
+    or action features are requested these terms are removed from the requested reward features.
+    """
+
+    def __init__(self, 
+        n_interactions:int, 
+        n_actions:int = 10,
+        n_context_features:int = 10,
+        n_action_features:int = 10,
+        reward_features:Sequence[str] = ["a","xa"],
+        seed:int = 1) -> None:
+        """Instantiate a LinearSyntheticSimulation.
+
+        Args:
+            n_interactions: The number of interactions the simulation should have.
+            n_actions: The number of actions each interaction should have.
+            n_context_features: The number of features each context should have.
+            n_action_features: The number of features each action should have.
+            reward_features: The features in the simulation's linear reward function.
+            seed: The random number seed used to generate all features, weights and noise in the simulation.
+        """
+
+        if n_actions < 2:
+            raise CobaException("Linear synthetic environments must have at least two actions")
+
+        self._args = (n_interactions, n_actions, n_context_features, n_action_features, reward_features, seed)
+
+        self._n_actions          = n_actions
+        self._n_context_features = n_context_features
+        self._n_action_features  = n_action_features
+        self._reward_features    = reward_features
+        self._seed               = seed
+
+        if not self._n_context_features:
+            reward_features = list(set(filter(None,[ f.replace('x','') for f in reward_features])))
+
+        if not self._n_action_features:
+            reward_features = list(set(filter(None,[ f.replace('a','') for f in reward_features])))
+
+        rng           = CobaRandom(seed)
+        feats_encoder = InteractionsEncoder(reward_features)
+
+        feats_gen     = lambda n: tuple(rng.randoms(n,-1.5,1.5))
+        one_hot_acts = OneHotEncoder().fit_encodes(range(n_actions))
+
+        feature_count = len(feats_encoder.encode(x=[1]*n_context_features,a=[1]*n_action_features))
+        weight_parts  = n_actions if n_context_features and not n_action_features else 1
+        weight_count  = feature_count or n_actions
+
+        self._weights = [ rng.gausses(weight_count,0,1) for _ in range(weight_parts) ]
+        self._biases  = [ 0 ] * weight_parts
+
+        def context(index:int) -> Context:
+            return feats_gen(n_context_features) if n_context_features else None
+
+        def actions(index:int,context: Context) -> Sequence[Action]:
+            return [ feats_gen(n_action_features) for _ in range(n_actions) ] if n_action_features else one_hot_acts
+
+        def reward(index:int,context:Context, action:Action) -> float:
+
+            F = feats_encoder.encode(x=context,a=action) if feature_count else action
+            W = self._weights[0 if weight_parts==1 else action.index(1)]
+            b = self._biases [0 if weight_parts==1 else action.index(1)]
+
+            return b+sum([w*f for w,f in zip(W,F)])
+
+        interaction_rewards = [ [reward(i,c,a) for a in actions(i,c)] for i in range(100) for c in [ context(i)] ]
+
+        parts_rewards  = [sum(interaction_rewards,[])] if weight_parts == 1 else list(zip(*interaction_rewards))
+        global_rewards = sum(interaction_rewards,[])
+        global_scale   = max(global_rewards)-min(global_rewards)
+
+        is_global_scale = weight_count == 1 
+
+        for i, part_rewards in enumerate(parts_rewards):
+            scale            = global_scale if is_global_scale else (max(part_rewards)-min(part_rewards)) or 1
+            self._weights[i] = [w/scale for w in self._weights[i]]
+            self._biases[i]  = 0.5-mean(part_rewards)/scale
+
+        super().__init__(n_interactions, context, actions, reward)
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return {**super().params, "type":"LinearSynthetic", "reward_features": self._reward_features }
+
+    def __reduce__(self) -> Tuple[object, ...]:
+        return (LinearSyntheticSimulation, self._args)
+
+    def __str__(self) -> str:
+        return f"LinearSynth(A={self._n_actions},c={self._n_context_features},a={self._n_action_features},R={self._reward_features},seed={self._seed})"
+
 class KernelSyntheticSimulation(LambdaSimulation):
     """A synthetic simulation whose reward function is created from kernel basis functions.
 
-    To create random kernel functions exemplar points are generated at initialization and fixed for all time.
+    Kernel functions are created using random exemplar points generated at initialization and fixed for all time.
     """
 
     def __init__(self,
@@ -291,7 +292,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
         n_context_features:int = 10,
         n_action_features:int = 10,
         n_exemplars:int = 10,
-        kernel: Literal['linear','polynomial','exponential'] = 'exponential',
+        kernel: Literal['linear','polynomial','exponential','gaussian'] = 'gaussian',
         degree: int = 2,
         gamma: float = 1,
         seed: int = 1) -> None:
@@ -302,12 +303,18 @@ class KernelSyntheticSimulation(LambdaSimulation):
             n_actions: The number of actions each interaction should have.
             n_context_features: The number of features each context should have.
             n_action_features: The number of features each action should have.
-            n_exemplars: The number of exemplar action, context pairs.
+            n_exemplars: The number of exemplar context-action pairs.
             kernel: The family of the kernel basis functions.
             degree: This argument is only relevant when using polynomial kernels.
             gamma: This argument is only relevant when using exponential kernels. 
             seed: The random number seed used to generate all features, weights and noise in the simulation.
         """
+
+        if n_actions < 2:
+            raise CobaException("Kernel synthetic environments must have at least two actions.")
+
+        if n_exemplars < 1:
+            raise CobaException("Kernel synthetic environments must have at least one exemplar.")
 
         self._args = (n_interactions, n_actions, n_context_features, n_action_features, n_exemplars, kernel, degree, gamma, seed)
 
@@ -322,46 +329,34 @@ class KernelSyntheticSimulation(LambdaSimulation):
 
         rng = CobaRandom(seed)
 
-        #if there are no features then we are unable to define exemplars
-        if n_action_features + n_context_features == 0: n_exemplars = 0
+        exemplar_parts = n_actions if not n_action_features and n_context_features else 1
+        exemplar_count = n_exemplars
+        exemplar_feats = (n_action_features+n_context_features) or n_actions
 
-        feat_gen = lambda n: tuple(rng.gausses(n,0,.75))
         one_hot_acts = OneHotEncoder().fit_encodes(range(n_actions))
+        feature_gen  = lambda n: tuple(rng.randoms(n,-1.5,1.5))
+        exemplar_gen = lambda n: [ feature_gen(exemplar_feats) for _ in range(n)]
 
-        self._exemplars = [ [ feat_gen(n_action_features+n_context_features) for _ in range(n_exemplars)] for _ in range(1 if n_action_features else n_actions) ]
-        weight_count    = n_actions if n_exemplars == 0 else n_exemplars
-        self._weights   = [ 1-2*w for w in rng.randoms(weight_count) ]
-
-        self._bias      = 0
-
-        if kernel == 'polynomial':
-            #this ensures the dot-product between F and an exemplar is in [0,upper_bound]
-            #This ensures that higher-order polynomials will remain reasonably well behaved
-            upper_bound = (1.5)**(1/degree)-1
-            self._exemplars = [ [ [ upper_bound*ee/sum(e) if len(e) > 1 else ee for ee in e] for e in E] for E in self._exemplars]
+        self._exemplars = [ exemplar_gen(exemplar_count) for _ in range(exemplar_parts) ]
+        self._weights   = [ rng.gausses(exemplar_count, 0, 1) for _ in range(exemplar_parts) ]
+        self._biases    = [ 0 ] * exemplar_parts
 
         def context(index:int) -> Context:
-            return feat_gen(n_context_features) if n_context_features else None
+            return feature_gen(n_context_features) if n_context_features else None
 
         def actions(index:int, context: Context) -> Sequence[Action]:
-            return [ feat_gen(n_action_features) for _ in range(n_actions) ] if n_action_features else one_hot_acts
+            return [ feature_gen(n_action_features) for _ in range(n_actions) ] if n_action_features else one_hot_acts
 
         def reward(index:int, context:Context, action:Action) -> float:
 
-            if n_exemplars == 0:
-                return self._bias + self._weights[action.index(1)]
+            part_index = action.index(1) if exemplar_parts > 1                           else 0
+            context    = context         if n_context_features                           else []
+            action     = action          if n_action_features or not n_context_features  else []
 
-            #handles None context
-            context = context or []
-
-            if n_action_features:
-                f = list(context)+list(action)
-                W = self._weights
-                E = self._exemplars[0]
-            else:
-                f = list(context)
-                W = self._weights
-                E = self._exemplars[action.index(1)]
+            f = list(context)+list(action)
+            E = self._exemplars[part_index]
+            W = self._weights  [part_index]
+            b = self._biases   [part_index]
 
             if kernel == "linear":
                 K = lambda x1,x2: self._linear_kernel(x1,x2)
@@ -369,16 +364,23 @@ class KernelSyntheticSimulation(LambdaSimulation):
                 K = lambda x1,x2: self._polynomial_kernel(x1,x2,self._degree)
             if kernel == "exponential":
                 K = lambda x1,x2: self._exponential_kernel(x1,x2,self._gamma)
+            if kernel == "gaussian":
+                K = lambda x1,x2: self._gaussian_kernel(x1,x2,self._gamma)
 
-            return self._bias + sum([w*K(e,f) for w,e in zip(W, E)])
+            return b + sum([w*K(e,f) for w,e in zip(W, E)])
 
-        rewards = [ reward(i,c,a) for i in range(100) for c in [context(i)] for a in actions(i,c)]
+        interaction_rewards = [ [reward(i,c,a) for a in actions(i,c)] for i in range(200) for c in [ context(i)] ]
 
-        m = mean(rewards)
-        s = (max(rewards)-min(rewards)) or 1
+        parts_rewards  = [sum(interaction_rewards,[])] if exemplar_parts == 1 else list(zip(*interaction_rewards))
+        global_rewards = sum(interaction_rewards,[])
+        global_scale   = max(global_rewards)-min(global_rewards)
 
-        self._bias    = 0.5-m/s
-        self._weights = [w/s for w in self._weights] 
+        is_global_scale = (kernel == 'linear' or kernel=='polynomial' and degree==1) and exemplar_feats==1
+
+        for i, part_rewards in enumerate(parts_rewards):
+            scale            = global_scale if is_global_scale else (max(part_rewards)-min(part_rewards)) or 1
+            self._weights[i] = [w/scale for w in self._weights[i]]
+            self._biases[i]  = 0.5-mean(part_rewards)/scale
 
         super().__init__(n_interactions, context, actions, reward)
 
@@ -389,7 +391,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
         if self._kernel == "polynomial":
             params['degree'] = self._degree
 
-        if self._kernel == "exponential":
+        if self._kernel in ["exponential","gaussian"]:
             params['gamma'] = self._gamma
 
         return params
@@ -408,6 +410,9 @@ class KernelSyntheticSimulation(LambdaSimulation):
 
     def _exponential_kernel(self, F1: Sequence[float], F2: Sequence[float], gamma:float) -> float:
         return math.exp(-math.sqrt(sum([(f1-f2)**2 for f1,f2 in zip(F1,F2)]))/gamma)
+    
+    def _gaussian_kernel(self, F1: Sequence[float], F2: Sequence[float], gamma:float) -> float:
+        return math.exp(-sum([(f1-f2)**2 for f1,f2 in zip(F1,F2)])/gamma)
 
 class MLPSyntheticSimulation(LambdaSimulation):
     """A synthetic simulation whose reward function belongs to the MLP family.
@@ -431,6 +436,10 @@ class MLPSyntheticSimulation(LambdaSimulation):
             n_action_features: The number of features each action should have.
             seed: The random number seed used to generate all features, weights and noise in the simulation.
         """
+
+        if n_actions < 2:
+            raise CobaException("MLP synthetic environments must have at least two actions.")
+
 
         self._args = (n_interactions, n_actions, n_context_features, n_action_features, seed)
 

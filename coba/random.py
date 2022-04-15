@@ -51,25 +51,31 @@ class CobaRandom:
         else:
             self._seed = int.from_bytes(str(seed or time.time()).encode('utf-8'),"big") % 2**20
 
-    def randoms(self, n:int) -> Sequence[float]:
-        """Generate `n` uniform random numbers in [0,1].
+    def randoms(self, n:int, min:float=0, max:float=1) -> Sequence[float]:
+        """Generate `n` uniform random numbers in [`min`,`max`].
 
         Args:
             n: How many random numbers should be generated.
+            min: The minimum value for the random numbers.
+            max: The maximum value for the random numbers.
 
         Returns:
-            The `n` generated random numbers in [0,1].
+            The `n` generated random numbers in [`min`,`max`].
         """
 
-        return [number/self._m_minus_1 for number in self._next(n)]
+        return [min+(max-min)*number/self._m_minus_1 for number in self._next(n)]
 
-    def random(self) -> float:
-        """Generate a uniform random number in [0,1].
+    def random(self, min:float=0, max:float=1) -> float:
+        """Generate a uniform random number in [`min`,`max`].
+
+        Args:
+            min: The minimum value for the random numbers.
+            max: The maximum value for the random numbers.
 
         Returns:
-            The generated random number in [0,1].
+            The generated random number in [`min`,`max`].
         """
-        return self.randoms(1)[0]
+        return self.randoms(1,min,max)[0]
 
     def shuffle(self, sequence: Sequence[Any]) -> Sequence[Any]:
         """Shuffle the order of items in a sequence.
@@ -210,25 +216,31 @@ def seed(seed: Optional[float]) -> None:
 
     _random = CobaRandom(seed)
 
-def random() -> float:
-    """Generate a uniform random number in [0,1].
+def random(min:float=0, max:float=1) -> float:
+    """Generate a uniform random number in [`min`,`max`].
     
-    Returns:
-        A uniform random number in [0,1].
-    """
-    return _random.random()
+    Args:
+        min: The minimum value for the random numbers.
+        max: The maximum value for the random numbers.
 
-def randoms(n: int) -> Sequence[float]:
-    """Generate `n` uniform random numbers in [0,1].
+    Returns:
+        A uniform random number in [`min`,`max`].
+    """
+    return _random.random(min,max)
+
+def randoms(n: int, min:float=0, max:float=1) -> Sequence[float]:
+    """Generate `n` uniform random numbers in [`min`,`max`].
 
     Args:
-        n: How many random numbers should be generated.
+        n: How many uniform random numbers should be generated.
+        min: The minimum value for the random numbers.
+        max: The maximum value for the random numbers.
 
     Returns:
-        The `n` uniform random numbers in [0,1].
+        The `n` uniform random numbers in [`min`,`max`].
     """
 
-    return _random.randoms(n)
+    return _random.randoms(n,min,max)
 
 def gauss(mu:float=0, sigma:float=1) -> float:
     """Generate a random number from N(mu,sigma).

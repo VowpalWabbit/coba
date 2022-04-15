@@ -104,7 +104,7 @@ class Environments:
         n_context_features:int = 10,
         n_action_features:int = 10,
         n_exemplars:int = 10,
-        kernel: Literal['linear','polynomial','exponential'] = 'exponential',
+        kernel: Literal['linear','polynomial','exponential','gaussian'] = 'gaussian',
         degree: int = 3,
         gamma: float = 1,
         seed: int = 1) -> 'Environments':
