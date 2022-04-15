@@ -20,9 +20,9 @@ if __name__ == '__main__':
 
     #First, we define the learners that we want to test
     learners = [
-        RandomLearner(),
-        EpsilonBanditLearner(),
         VowpalEpsilonLearner(),
+        EpsilonBanditLearner(),
+        RandomLearner(),
     ]
 
     #Next we create the environments we'd like evaluate against
@@ -32,8 +32,8 @@ if __name__ == '__main__':
     result = Experiment(environments,learners).evaluate()
 
     #After evaluating can create a quick summary plot to get a sense of how the learners performed
-    result.plot_learners(err='se')
+    result.plot_learners(err='se',sort='id')
 
     #We can also create a plot examining how specific learners did across each shuffle of our environments
-    result.filter_lrn(full_name="vw").plot_learners(err='se',each=True)
+    result.filter_lrn(full_name="vw").plot_learners(each=True,err='se',sort='id')
     
