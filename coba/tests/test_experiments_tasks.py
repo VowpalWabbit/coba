@@ -154,9 +154,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         task         = OnlineOnPolicyEvalTask(time=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
-            SimulatedInteraction(None,[1,2,3],rewards=[7,8,9]),
-            SimulatedInteraction(None,[4,5,6],rewards=[4,5,6]),
-            SimulatedInteraction(None,[7,8,9],rewards=[1,2,3]),
+            SimulatedInteraction(None,[1,2,3],[7,8,9]),
+            SimulatedInteraction(None,[4,5,6],[4,5,6]),
+            SimulatedInteraction(None,[7,8,9],[1,2,3]),
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -164,7 +164,11 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
-        expected_task_results    = [{"rewards":7,"max_reward":9},{"rewards":5,"max_reward":6},{"rewards":3,"max_reward":3}]
+        expected_task_results    = [
+            {"reward":7,"max_reward":9,'min_reward':7,'rank':3,'n_actions':3},
+            {"reward":5,"max_reward":6,'min_reward':4,'rank':2,'n_actions':3},
+            {"reward":3,"max_reward":3,'min_reward':1,'rank':1,'n_actions':3}
+        ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
@@ -176,8 +180,8 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         task         = OnlineOnPolicyEvalTask(time=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
-            SimulatedInteraction({'c':1},[{'a':1},{'a':2}],rewards=[7,8]),
-            SimulatedInteraction({'c':2},[{'a':4},{'a':5}],rewards=[4,5]),
+            SimulatedInteraction({'c':1},[{'a':1},{'a':2}],[7,8]),
+            SimulatedInteraction({'c':2},[{'a':4},{'a':5}],[4,5]),
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -185,7 +189,10 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_calls   = [({'c':1},[{'a':1},{'a':2}]),({'c':2},[{'a':4},{'a':5}])]
         expected_predict_returns = [[1,0],[0,1]]
         expected_learn_calls     = [({'c':1},{'a':1},7,1,None),({'c':2},{'a':5},5,1,None)]
-        expected_task_results    = [{"rewards":7,'max_reward':8},{"rewards":5,'max_reward':5}]
+        expected_task_results    = [
+            {"reward":7,"max_reward":8,'min_reward':7,'rank':2,'n_actions':2},
+            {"reward":5,"max_reward":5,'min_reward':4,'rank':1,'n_actions':2},
+        ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
@@ -197,53 +204,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         task         = OnlineOnPolicyEvalTask(time=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
-            SimulatedInteraction(1,[1,2,3],rewards=[7,8,9]),
-            SimulatedInteraction(2,[4,5,6],rewards=[4,5,6]),
-            SimulatedInteraction(3,[7,8,9],rewards=[1,2,3]),
-        ]
-
-        task_results = list(task.process(learner, interactions))
-
-        expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
-        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(1,1,7,1,None),(2,5,5,1,None),(3,9,3,1,None)]
-        expected_task_results    = [{"rewards":7,'max_reward':9},{"rewards":5,'max_reward':6},{"rewards":3,'max_reward':3}]
-
-        self.assertEqual(expected_predict_calls, learner.predict_calls)
-        self.assertEqual(expected_predict_returns, learner.predict_returns)
-        self.assertEqual(expected_learn_calls, learner.learn_calls)
-        self.assertEqual(expected_task_results, task_results)
-
-    def test_process_reveals_no_info_no_logs_no_kwargs(self):
-
-        task         = OnlineOnPolicyEvalTask(time=False)
-        learner      = RecordingLearner(with_info=False, with_log=False)
-        interactions = [
-            SimulatedInteraction(1,[1,2,3],reveals=[7,8,9]),
-            SimulatedInteraction(2,[4,5,6],reveals=[4,5,6]),
-            SimulatedInteraction(3,[7,8,9],reveals=[1,2,3]),
-        ]
-
-        task_results = list(task.process(learner, interactions))
-
-        expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
-        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(1,1,7,1,None),(2,5,5,1,None),(3,9,3,1,None)]
-        expected_task_results    = [{"reveals":7,},{"reveals":5},{"reveals":3}]
-
-        self.assertEqual(expected_predict_calls, learner.predict_calls)
-        self.assertEqual(expected_predict_returns, learner.predict_returns)
-        self.assertEqual(expected_learn_calls, learner.learn_calls)
-        self.assertEqual(expected_task_results, task_results)
-
-    def test_process_reveals_rewards_no_info_no_logs_no_kwargs(self):
-
-        task         = OnlineOnPolicyEvalTask(time=False)
-        learner      = RecordingLearner(with_info=False, with_log=False)
-        interactions = [
-            SimulatedInteraction(1,[1,2,3],reveals=[7,8,9],rewards=[1,3,5]),
-            SimulatedInteraction(2,[4,5,6],reveals=[4,5,6],rewards=[2,4,6]),
-            SimulatedInteraction(3,[7,8,9],reveals=[1,2,3],rewards=[3,5,7]),
+            SimulatedInteraction(1,[1,2,3],[7,8,9]),
+            SimulatedInteraction(2,[4,5,6],[4,5,6]),
+            SimulatedInteraction(3,[7,8,9],[1,2,3]),
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -252,9 +215,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(1,1,7,1,None),(2,5,5,1,None),(3,9,3,1,None)]
         expected_task_results    = [
-            {"reveals":7,"rewards":1,'max_reward':5},
-            {"reveals":5,"rewards":4,'max_reward':6},
-            {"reveals":3,"rewards":7,'max_reward':7}
+            {"reward":7,"max_reward":9,'min_reward':7,'rank':3,'n_actions':3},
+            {"reward":5,"max_reward":6,'min_reward':4,'rank':2,'n_actions':3},
+            {"reward":3,"max_reward":3,'min_reward':1,'rank':1,'n_actions':3}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -267,9 +230,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         task         = OnlineOnPolicyEvalTask(time=False)
         learner      = RecordingLearner(with_info=True, with_log=True)
         interactions = [
-            SimulatedInteraction(1,[1,2,3],rewards=[7,8,9],letters=['a','b','c'],I=1),
-            SimulatedInteraction(2,[4,5,6],rewards=[4,5,6],letters=['d','e','f'],I=2),
-            SimulatedInteraction(3,[7,8,9],rewards=[1,2,3],letters=['g','h','i'],I=3),
+            SimulatedInteraction(1,[1,2,3],[7,8,9],letters=['a','b','c'],I=1),
+            SimulatedInteraction(2,[4,5,6],[4,5,6],letters=['d','e','f'],I=2),
+            SimulatedInteraction(3,[7,8,9],[1,2,3],letters=['g','h','i'],I=3),
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -278,9 +241,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
         expected_learn_calls     = [(1,1,7,1,1),(2,5,5,1,2),(3,9,3,1,3)]
         expected_task_results    = [
-            {"rewards":7,"letters":'a','learn':1,'predict':1,'I':1,'max_reward':9},
-            {"rewards":5,'letters':'e','learn':2,'predict':2,'I':2,'max_reward':6},
-            {"rewards":3,'letters':'i','learn':3,'predict':3,'I':3,'max_reward':3}
+            {"reward":7,"letters":'a','learn':1,'predict':1,'I':1,'max_reward':9,'min_reward':7,'rank':3,'n_actions':3},
+            {"reward":5,'letters':'e','learn':2,'predict':2,'I':2,'max_reward':6,'min_reward':4,'rank':2,'n_actions':3},
+            {"reward":3,'letters':'i','learn':3,'predict':3,'I':3,'max_reward':3,'min_reward':1,'rank':1,'n_actions':3}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -293,9 +256,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         task         = OnlineOnPolicyEvalTask(time=False)
         learner      = RecordingLearner(with_info=True, with_log=True)
         interactions = [
-            SimulatedInteraction(1,[1,2,3],rewards=[7,8,9]),
-            SimulatedInteraction(2,[4,5,6],rewards=[4,5,6],letters=['d','e','f']),
-            SimulatedInteraction(3,[7,8,9],rewards=[1,2,3],letters=['g','h','i']),
+            SimulatedInteraction(1,[1,2,3],[7,8,9]),
+            SimulatedInteraction(2,[4,5,6],[4,5,6],letters=['d','e','f']),
+            SimulatedInteraction(3,[7,8,9],[1,2,3],letters=['g','h','i']),
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -304,9 +267,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
         expected_learn_calls     = [(1,1,7,1,1),(2,5,5,1,2),(3,9,3,1,3)]
         expected_task_results    = [
-            {"rewards":7,'learn':1,'predict':1,              'max_reward':9},
-            {"rewards":5,'learn':2,'predict':2,'letters':'e','max_reward':6},
-            {"rewards":3,'learn':3,'predict':3,'letters':'i','max_reward':3}
+            {"reward":7,'learn':1,'predict':1,              'max_reward':9,'min_reward':7,'rank':3,'n_actions':3},
+            {"reward":5,'learn':2,'predict':2,'letters':'e','max_reward':6,'min_reward':4,'rank':2,'n_actions':3},
+            {"reward":3,'learn':3,'predict':3,'letters':'i','max_reward':3,'min_reward':1,'rank':1,'n_actions':3}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -318,7 +281,7 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 
         task         = OnlineOnPolicyEvalTask(time=True)
         learner      = RecordingLearner()
-        interactions = [SimulatedInteraction(1,[1,2,3],rewards=[7,8,9])]
+        interactions = [SimulatedInteraction(1,[1,2,3],[7,8,9])]
 
         task_results = list(task.process(learner, interactions))
 
@@ -331,9 +294,9 @@ class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
         task    = OnlineOffPolicyEvalTask(time=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
-            LoggedInteraction(1, 2, reward=3),
-            LoggedInteraction(2, 3, reward=4),
-            LoggedInteraction(3, 4, reward=5)
+            LoggedInteraction(1, 2, 3),
+            LoggedInteraction(2, 3, 4),
+            LoggedInteraction(3, 4, 5)
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -352,9 +315,9 @@ class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
         task    = OnlineOffPolicyEvalTask(time=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
-            LoggedInteraction(1, 2, reward=3, actions=[2,5,8]),
-            LoggedInteraction(2, 3, reward=4, actions=[3,6,9]),
-            LoggedInteraction(3, 4, reward=5, actions=[4,7,0])
+            LoggedInteraction(1, 2, 3, actions=[2,5,8]),
+            LoggedInteraction(2, 3, 4, actions=[3,6,9]),
+            LoggedInteraction(3, 4, 5, actions=[4,7,0])
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -373,9 +336,9 @@ class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
         task    = OnlineOffPolicyEvalTask(time=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
-            LoggedInteraction(1, 2, reward=3, actions=[2,5,8], probability=.2),
-            LoggedInteraction(2, 3, reward=4, actions=[3,6,9], probability=.3),
-            LoggedInteraction(3, 4, reward=5, actions=[4,7,0], probability=.4)
+            LoggedInteraction(1, 2, 3, .2, [2,5,8]),
+            LoggedInteraction(2, 3, 4, .3, [3,6,9]),
+            LoggedInteraction(3, 4, 5, .4, [4,7,0])
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -394,9 +357,9 @@ class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
         task    = OnlineOffPolicyEvalTask(time=False)
         learner = RecordingLearner(with_info=True,with_log=True)
         interactions = [
-            LoggedInteraction(1, 2, reward=3, actions=[2,5,8], probability=.2, L='a'),
-            LoggedInteraction(2, 3, reward=4, actions=[3,6,9], probability=.3, L='b'),
-            LoggedInteraction(3, 4, reward=5, actions=[4,7,0], probability=.4, L='c')
+            LoggedInteraction(1, 2, 3, .2, [2,5,8], L='a'),
+            LoggedInteraction(2, 3, 4, .3, [3,6,9], L='b'),
+            LoggedInteraction(3, 4, 5, .4, [4,7,0], L='c')
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -419,7 +382,7 @@ class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
 
         task         = OnlineOffPolicyEvalTask(time=True)
         learner      = RecordingLearner()
-        interactions = [LoggedInteraction(1, 2, reward=3, actions=[2,5,8], probability=.2)]
+        interactions = [LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.2)]
 
         task_results = list(task.process(learner, interactions))
 
@@ -432,12 +395,12 @@ class OnlineWarmStartEvaluationTask_Tests(unittest.TestCase):
         task         = OnlineWarmStartEvalTask(time=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
-            LoggedInteraction(1, 2, reward=3),
-            LoggedInteraction(2, 3, reward=4),
-            LoggedInteraction(3, 4, reward=5),
-            SimulatedInteraction(None,[1,2,3],rewards=[7,8,9]),
-            SimulatedInteraction(None,[4,5,6],rewards=[4,5,6]),
-            SimulatedInteraction(None,[7,8,9],rewards=[1,2,3]),
+            LoggedInteraction(1, 2, 3),
+            LoggedInteraction(2, 3, 4),
+            LoggedInteraction(3, 4, 5),
+            SimulatedInteraction(None,[1,2,3],[7,8,9]),
+            SimulatedInteraction(None,[4,5,6],[4,5,6]),
+            SimulatedInteraction(None,[7,8,9],[1,2,3]),
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -445,7 +408,14 @@ class OnlineWarmStartEvaluationTask_Tests(unittest.TestCase):
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(1,2,3,None,None),(2,3,4,None,None),(3,4,5,None,None),(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
-        expected_task_results    = [{},{},{},{"rewards":7,'max_reward':9},{"rewards":5,'max_reward':6},{"rewards":3,'max_reward':3}]
+        expected_task_results    = [
+            {},
+            {},
+            {},
+            {"reward":7,'max_reward':9,'min_reward':7,'rank':3,'n_actions':3},
+            {"reward":5,'max_reward':6,'min_reward':4,'rank':2,'n_actions':3},
+            {"reward":3,'max_reward':3,'min_reward':1,'rank':1,'n_actions':3}
+        ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)

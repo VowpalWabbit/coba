@@ -84,9 +84,9 @@ class Scale(EnvironmentFilter):
         iter_interactions    = iter(interactions)
         fitting_interactions = list(islice(iter_interactions,self._using))
 
-        shifts: Dict[Hashable,float]     = defaultdict(lambda:0)
-        scales: Dict[Hashable,float]     = defaultdict(lambda:1)
-        unscaled_values: Dict[Hashable,List[Any]] = defaultdict(list)
+        shifts  : Dict[Hashable,float]     = defaultdict(lambda:0)
+        scales  : Dict[Hashable,float]     = defaultdict(lambda:1)
+        unscaled: Dict[Hashable,List[Any]] = defaultdict(list)
 
         if any([isinstance(i.context,dict) for i in fitting_interactions]) and self._shift != 0:
             raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
@@ -104,17 +104,17 @@ class Scale(EnvironmentFilter):
                     is_numeric = isinstance(value,Number)
                     is_nan     = is_numeric and isnan(value)
 
-                    if (not is_numeric and name in unscaled_values) or (is_numeric and name in had_non_numeric) :
+                    if (not is_numeric and name in unscaled) or (is_numeric and name in had_non_numeric) :
                         mixed.append(name)
-                        if name in unscaled_values: del unscaled_values[name]
+                        if name in unscaled: del unscaled[name]
                         if name in had_non_numeric: had_non_numeric.remove(name)
                     elif not is_numeric:
                         had_non_numeric.append(name)
                     elif is_numeric and not is_nan:
-                        unscaled_values[name].append(value)
+                        unscaled[name].append(value)
             
             if self._target == "rewards":
-                unscaled_values["rewards"].extend(interaction.kwargs["rewards"])
+                unscaled["rewards"].extend(interaction.rewards)
 
         if mixed: warnings.warn(f"Some features were not scaled due to having mixed types: {mixed}. ")
 
@@ -122,12 +122,12 @@ class Scale(EnvironmentFilter):
 
         for interaction in fitting_interactions:
             if isinstance(interaction.context,dict):
-                has_sparse_zero |= unscaled_values.keys() - interaction.context.keys() - {"rewards"}
+                has_sparse_zero |= unscaled.keys() - interaction.context.keys() - {"rewards"}
 
         for key in has_sparse_zero:
-            unscaled_values[key].append(0)
+            unscaled[key].append(0)
 
-        for name, values in unscaled_values.items():
+        for name, values in unscaled.items():
 
             if isinstance(self._shift, Number):
                 shift = self._shift
@@ -169,6 +169,7 @@ class Scale(EnvironmentFilter):
             scaled_values = {}
 
             final_context = interaction.context
+            final_rewards = None
             final_kwargs  = interaction.kwargs.copy()
 
             if self._target == "features":
@@ -188,12 +189,28 @@ class Scale(EnvironmentFilter):
                     final_context = scaled_values[1]
 
             if self._target == "rewards":
-                final_kwargs['rewards'] = [ (r-shifts['rewards'])*scales['rewards'] for r in interaction.kwargs['rewards'] ]
+                final_rewards = [ (r-shifts['rewards'])*scales['rewards'] for r in interaction.rewards ]
 
-            try:
-                yield SimulatedInteraction(final_context, interaction.actions, **final_kwargs)
-            except AttributeError:
-                yield LoggedInteraction(final_context, interaction.action, **interaction.kwargs)
+            if isinstance(interaction, SimulatedInteraction):
+                yield SimulatedInteraction(
+                    final_context, 
+                    interaction.actions, 
+                    final_rewards or interaction.rewards, 
+                    **interaction.kwargs
+                )
+            
+            elif isinstance(interaction, LoggedInteraction):
+                yield LoggedInteraction(
+                    final_context, 
+                    interaction.action, 
+                    interaction.reward,
+                    interaction.probability,
+                    interaction.actions,
+                    **interaction.kwargs
+                )
+            
+            else: #pragma: no cover
+                raise CobaException("Unknown interactions were given to Scale.") 
 
     def _feature_pairs(self,context) -> Sequence[Tuple[Hashable,Any]]:
         if isinstance(context,dict ): return context.items()
@@ -265,12 +282,24 @@ class Impute(EnvironmentFilter):
             else:
                 final_context = kv_imputed_context[1]
 
-            if isinstance(interaction, SimulatedInteraction):
-                yield SimulatedInteraction(final_context, interaction.actions, **interaction.kwargs)
+            if isinstance(interaction, SimulatedInteraction):                
+                yield SimulatedInteraction(
+                    final_context, 
+                    interaction.actions, 
+                    interaction.rewards,
+                    **interaction.kwargs
+                )
+
             elif isinstance(interaction, LoggedInteraction):
-                yield LoggedInteraction(final_context, interaction.action, **interaction.kwargs)
-            else:#pragma: no cover
-                raise CobaException("Unknown interactions were given to the Impute filter.") 
+                yield LoggedInteraction(
+                    final_context, 
+                    interaction.action, 
+                    interaction.reward,
+                    **interaction.kwargs
+                )
+
+            else: #pragma: no cover
+                raise CobaException("Unknown interactions were given to Impute.") 
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
 
@@ -307,12 +336,29 @@ class Sparse(EnvironmentFilter):
 
             sparse_context = self._make_sparse(interaction.context) if self._context else interaction.context
 
-            if hasattr(interaction, 'actions'):
+            if isinstance(interaction, SimulatedInteraction):
                 sparse_actions = list(map(self._make_sparse,interaction.actions)) if self._action else interaction.actions
-                yield SimulatedInteraction(sparse_context, sparse_actions, **interaction.kwargs)
-            else:
+                
+                yield SimulatedInteraction(
+                    sparse_context, 
+                    sparse_actions, 
+                    interaction.rewards
+                )
+            
+            elif isinstance(interaction, LoggedInteraction):
                 sparse_action = self._make_sparse(interaction.action) if self._action else interaction.action
-                yield LoggedInteraction(sparse_context, sparse_action, **interaction.kwargs)
+                
+                yield LoggedInteraction(
+                    sparse_context, 
+                    sparse_action, 
+                    interaction.reward,
+                    interaction.probability,
+                    interaction.actions,
+                    **interaction.kwargs
+                )
+            
+            else: #pragma: no cover
+                raise CobaException("Unknown interactions were given to Sparse.") 
 
     def _make_sparse(self, value) -> Optional[dict]:
         if isinstance(value,dict) or value is None:
@@ -362,9 +408,8 @@ class Cycle(EnvironmentFilter):
                     yield interaction
             else:
                 for interaction in with_cycle_interactions:
-                    kwargs = interaction.kwargs.copy()
-                    kwargs['rewards'] = kwargs['rewards'][-1:] + kwargs['rewards'][:-1]
-                    yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
+                    rewards = interaction.rewards[-1:] + interaction.rewards[:-1]
+                    yield SimulatedInteraction(interaction.context, interaction.actions, rewards, **interaction.kwargs)
         except StopIteration:
             pass
 
@@ -378,12 +423,11 @@ class Binary(EnvironmentFilter):
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
 
         for interaction in interactions:
-            kwargs  = interaction.kwargs.copy()
-            max_rwd = max(kwargs["rewards"])
 
-            kwargs["rewards"] = [int(r==max_rwd) for r in kwargs["rewards"]]
+            max_rwd = max(interaction.rewards)
+            rewards = [int(r==max_rwd) for r in interaction.rewards]
 
-            yield SimulatedInteraction(interaction.context, interaction.actions, **kwargs)
+            yield SimulatedInteraction(interaction.context, interaction.actions, rewards, **interaction.kwargs)
 
 class Sort(EnvironmentFilter):
     """Sort a sequence of Interactions in an Environment."""
@@ -493,19 +537,13 @@ class Warm(EnvironmentFilter):
         num_actions   = len(interaction.actions)
         probabilities = [1/num_actions] * num_actions 
 
-        selected_index       = self._rng.choice(list(range(num_actions)), probabilities)
-        selected_action      = interaction.actions[selected_index]
-        selected_probability = probabilities[selected_index]
+        idx     = self._rng.choice(list(range(num_actions)), probabilities)
+        actions = interaction.actions 
+        action  = interaction.actions[idx]
+        prob    = probabilities[idx]
+        reward  = interaction.rewards[idx]
 
-        kwargs = {"probability":selected_probability, "actions":interaction.actions}
-
-        if "reveals" in interaction.kwargs:
-            kwargs["reveal"] = interaction.kwargs["reveals"][selected_index]
-
-        if "rewards" in interaction.kwargs:
-            kwargs["reward"] = interaction.kwargs["rewards"][selected_index]
-
-        return LoggedInteraction(interaction.context, selected_action, **kwargs)
+        return LoggedInteraction(interaction.context, action, reward, prob, actions)
 
 class Riffle(EnvironmentFilter):
     """Riffle shuffle Interactions by taking actions from the end and evenly distributing into the beginning."""
@@ -546,9 +584,9 @@ class Noise(EnvironmentFilter):
 
         Args:
             context: A noise generator for context features.
-            action: A noise generator for action features.
-            reward: A noise generator for rewards.
-            seed: The seed initializing the random state of the noise generators.
+            action : A noise generator for action features.
+            reward : A noise generator for rewards.
+            seed   : The seed initializing the random state of the noise generators.
         """
 
         self._args = (context,action,reward,seed)
@@ -599,13 +637,9 @@ class Noise(EnvironmentFilter):
 
             noisy_context = self._noises(interaction.context, rng, self._context_noise)
             noisy_actions = [ self._noises(a, rng, self._action_noise) for a in interaction.actions ]
+            noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in interaction.rewards ]
 
-            noisy_kwargs  = {}
-
-            if 'rewards' in interaction.kwargs and self._reward_noise:
-                noisy_kwargs['rewards'] = self._noises(interaction.kwargs['rewards'], rng, self._reward_noise)
-
-            yield SimulatedInteraction(noisy_context, noisy_actions, **noisy_kwargs)
+            yield SimulatedInteraction(noisy_context, noisy_actions, noisy_rewards, **interaction.kwargs)
 
     def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
 

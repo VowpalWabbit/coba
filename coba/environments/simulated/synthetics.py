@@ -78,7 +78,7 @@ class LambdaSimulation(SimulatedEnvironment):
             actions  = _actions(i, context)
             rewards  = [ _reward(i, context, action) for action in actions]
 
-            yield SimulatedInteraction(context, actions, rewards=rewards)
+            yield SimulatedInteraction(context, actions, rewards)
 
     def __str__(self) -> str:
         return "LambdaSimulation"

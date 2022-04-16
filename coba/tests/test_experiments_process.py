@@ -48,7 +48,7 @@ class CountReadSimulation:
         self._reads = 0
 
     def read(self) -> Iterable[SimulatedInteraction]:
-        yield SimulatedInteraction(self._reads, [0,1], rewards=[0,1])
+        yield SimulatedInteraction(self._reads, [0,1], [0,1])
         self._reads += 1
 
 class ExceptionSimulation:
@@ -61,7 +61,7 @@ class CountFilter:
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
         for interaction in interactions:
-            yield SimulatedInteraction((interaction.context, self._count), interaction.actions, **interaction.kwargs)
+            yield SimulatedInteraction((interaction.context, self._count), interaction.actions, interaction.rewards, **interaction.kwargs)
 
         self._count += 1
 #for testing purposes

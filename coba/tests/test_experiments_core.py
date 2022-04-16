@@ -141,13 +141,20 @@ class Experiment_Single_Tests(unittest.TestCase):
         experiment = Experiment([sim1], [learner], evaluation_task=OnlineOnPolicyEvalTask(False))
 
         result              = experiment.evaluate()
-        actual_learners     = result.learners.to_tuples()
-        actual_environments = result.environments.to_tuples()
-        actual_interactions = result.interactions.to_tuples()
+        actual_learners     = result.learners.to_dicts()
+        actual_environments = result.environments.to_dicts()
+        actual_interactions = result.interactions.to_dicts()
 
-        expected_learners     = [(0, "Modulo","Modulo(p=0)",'0')]
-        expected_environments = [(0, 'LambdaSimulation')]
-        expected_interactions = [(0,0,1,0,2), (0,0,2,1,2)]
+        expected_learners     = [
+            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'LambdaSimulation'}
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3}
+        ]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -160,13 +167,24 @@ class Experiment_Single_Tests(unittest.TestCase):
         experiment = Experiment([sim1,sim2], [learner], evaluation_task=OnlineOnPolicyEvalTask(False))
 
         result              = experiment.evaluate()
-        actual_learners     = result.learners.to_tuples()
-        actual_environments = result.environments.to_tuples()
-        actual_interactions = result.interactions.to_tuples()
+        actual_learners     = result.learners.to_dicts()
+        actual_environments = result.environments.to_dicts()
+        actual_interactions = result.interactions.to_dicts()
 
-        expected_learners     = [(0,"Modulo","Modulo(p=0)",'0')]
-        expected_environments = [(0, 'LambdaSimulation'), (1, 'LambdaSimulation')]
-        expected_interactions = [(0,0,1,0,2), (0,0,2,1,2), (1,0,1,3,5), (1,0,2,4,5), (1,0,3,5,5)]
+        expected_learners     = [
+            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'LambdaSimulation'},
+            {"environment_id":1, "type":'LambdaSimulation'}
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":1, "reward":3, "min_reward":3, "max_reward":5, "rank":3, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":2, "reward":4, "min_reward":3, "max_reward":5, "rank":2, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":3, "reward":5, "min_reward":3, "max_reward":5, "rank":1, "n_actions":3}
+        ]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -178,64 +196,79 @@ class Experiment_Single_Tests(unittest.TestCase):
         learner2   = ModuloLearner("1") #type: ignore
         experiment = Experiment([sim], [learner1, learner2], evaluation_task=OnlineOnPolicyEvalTask(False))
 
+        expected_learners     = [
+            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'},
+            {"learner_id":1, "family":"Modulo", "full_name":"Modulo(p=1)", "p":'1'}
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'LambdaSimulation'},
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+            {"environment_id":0, "learner_id":1, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":1, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+
+        ]
+
         actual_result       = experiment.evaluate()
-        actual_learners     = actual_result._learners.to_tuples()
-        actual_environments = actual_result._environments.to_tuples()
-        actual_interactions = actual_result.interactions.to_tuples()
+        actual_learners     = actual_result._learners.to_dicts()
+        actual_environments = actual_result._environments.to_dicts()
+        actual_interactions = actual_result.interactions.to_dicts()
 
-        expected_learners     = [(0, "Modulo", "Modulo(p=0)", '0'), (1, "Modulo", "Modulo(p=1)", '1')]
-        expected_environments = [(0, 'LambdaSimulation')]
-        expected_interactions = [(0,0,1,0,2),(0,0,2,1,2),(0,1,1,0,2),(0,1,2,1,2)]
+        self.assertEqual(actual_learners, expected_learners)
+        self.assertEqual(actual_environments, expected_environments)
+        self.assertEqual(actual_interactions, expected_interactions)
 
-        self.assertCountEqual(actual_learners, expected_learners)
-        self.assertCountEqual(actual_environments, expected_environments)
-        self.assertCountEqual(actual_interactions, expected_interactions)
-
-    def test_learn_info_learners(self):
+    def test_learner_info(self):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = LearnInfoLearner("0") #type: ignore
         experiment = Experiment([sim],[learner1], evaluation_task=OnlineOnPolicyEvalTask(False))
 
         actual_result       = experiment.evaluate()
-        actual_learners     = actual_result._learners.to_tuples()
-        actual_environments = actual_result._environments.to_tuples()
-        actual_interactions = actual_result.interactions.to_tuples()
+        actual_learners     = actual_result._learners.to_dicts()
+        actual_environments = actual_result._environments.to_dicts()
+        actual_interactions = actual_result.interactions.to_dicts()
 
-        expected_learners       = [(0, "Modulo", "Modulo(p=0)", '0')]
-        expected_environments   = [(0, 'LambdaSimulation')]
-        expected_interactions_1 = [(0,0,1,0,'0',2),(0,0,2,1,'0',2)]
-        expected_interactions_2 = [(0,0,1,'0',0,2),(0,0,2,'0',1,2)]
+        expected_learners     = [
+            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'LambdaSimulation'},
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3, "Modulo":"0"},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3, "Modulo":"0"},
+        ]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
-        
-        try:
-            self.assertCountEqual(actual_interactions, expected_interactions_1)
-        except:
-            self.assertCountEqual(actual_interactions, expected_interactions_2)
+        self.assertCountEqual(actual_interactions, expected_interactions)
 
-    def test_predict_info_learners(self):
+    def test_predict_info(self):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = PredictInfoLearner("0") #type: ignore
         experiment = Experiment([sim],[learner1],evaluation_task=OnlineOnPolicyEvalTask(False))
 
         actual_result       = experiment.evaluate()
-        actual_learners     = actual_result._learners.to_tuples()
-        actual_environments = actual_result._environments.to_tuples()
-        actual_interactions = actual_result.interactions.to_tuples()
+        actual_learners     = actual_result._learners.to_dicts()
+        actual_environments = actual_result._environments.to_dicts()
+        actual_interactions = actual_result.interactions.to_dicts()
 
-        expected_learners       = [(0, "Modulo", "Modulo(p=0)", '0')]
-        expected_environments   = [(0, 'LambdaSimulation')]
-        expected_interactions_1 = [(0,0,1,0,2),(0,0,2,1,2)]
-        expected_interactions_2 = [(0,0,1,0,2),(0,0,2,1,2)]
+        expected_learners     = [
+            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'LambdaSimulation'},
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+        ]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
-        
-        try:
-            self.assertCountEqual(actual_interactions, expected_interactions_1)
-        except:
-            self.assertCountEqual(actual_interactions, expected_interactions_2)
+        self.assertCountEqual(actual_interactions, expected_interactions)
 
     def test_transaction_resume_1(self):
         sim             = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -247,18 +280,23 @@ class Experiment_Single_Tests(unittest.TestCase):
         try:
             first_result  = Experiment([sim],[working_learner],evaluation_task=OnlineOnPolicyEvalTask(False)).evaluate("coba/tests/.temp/transactions.log")
             second_result = Experiment([sim],[broken_learner ],evaluation_task=OnlineOnPolicyEvalTask(False)).evaluate("coba/tests/.temp/transactions.log")
-
-            actual_learners     = second_result.learners.to_tuples()
-            actual_environments = second_result.environments.to_tuples()
-            actual_interactions = second_result.interactions.to_tuples()
-            
-            expected_learners     = [(0,"Modulo","Modulo(p=0)",'0')]
-            expected_environments = [(0,'LambdaSimulation')]
-            expected_interactions = [(0,0,1,0,2),(0,0,2,1,2)]
-        except Exception as e:
-            raise
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
+
+        actual_learners     = second_result.learners.to_dicts()
+        actual_environments = second_result.environments.to_dicts()
+        actual_interactions = second_result.interactions.to_dicts()
+
+        expected_learners     = [
+            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'LambdaSimulation'},
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+        ]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -270,13 +308,20 @@ class Experiment_Single_Tests(unittest.TestCase):
         experiment = Experiment([sim1], [learner], evaluation_task=OnlineOnPolicyEvalTask(False))
 
         result              = experiment.evaluate()
-        actual_learners     = result.learners.to_tuples()
-        actual_environments = result.environments.to_tuples()
-        actual_interactions = result.interactions.to_tuples()
+        actual_learners     = result.learners.to_dicts()
+        actual_environments = result.environments.to_dicts()
+        actual_interactions = result.interactions.to_dicts()
 
-        expected_learners     = [(0, 'NoParamsLearner', 'NoParamsLearner')]
-        expected_environments = [(0, 'NoParamsEnvironment')]
-        expected_interactions = [(0,0,1,0,2),(0,0,2,1,2)]
+        expected_learners     = [
+            {"learner_id":0, "family":"NoParamsLearner", "full_name":"NoParamsLearner" }
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'NoParamsEnvironment'},
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+        ]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -291,21 +336,34 @@ class Experiment_Single_Tests(unittest.TestCase):
         experiment = Experiment([sim1,sim2], [ModuloLearner(), BrokenLearner()],evaluation_task=OnlineOnPolicyEvalTask(False))
 
         result              = experiment.evaluate()
-        actual_learners     = result.learners.to_tuples()
-        actual_environments = result.environments.to_tuples()
-        actual_interactions = result.interactions.to_tuples()
+        actual_learners     = result.learners.to_dicts()
+        actual_environments = result.environments.to_dicts()
+        actual_interactions = result.interactions.to_dicts()
 
         expected_learners     = [(0,"Modulo","Modulo(p=0)",'0'),(1,"Broken","Broken",float('nan'))]
         expected_environments = [(0,'LambdaSimulation'), (1,'LambdaSimulation')]
         expected_interactions = [(0,0,1,0,2),(0,0,2,1,2),(1,0,1,3,5),(1,0,2,4,5),(1,0,3,5,5)]
 
+        expected_learners     = [
+            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'},
+            {"learner_id":1, "family":"Broken", "full_name":"Broken", "p":None    }
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'LambdaSimulation'},
+            {"environment_id":1, "type":'LambdaSimulation'},
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":1, "reward":3, "min_reward":3, "max_reward":5, "rank":3, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":2, "reward":4, "min_reward":3, "max_reward":5, "rank":2, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":3, "reward":5, "min_reward":3, "max_reward":5, "rank":1, "n_actions":3},
+        ]
+
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertEqual(2, sum([int("Unexpected exception:" in item) for item in CobaContext.logger.sink.items]))
 
-        self.assertCountEqual(actual_learners[0], expected_learners[0])
-        self.assertCountEqual(actual_learners[1][:3], expected_learners[1][:3])
-        self.assertTrue(math.isnan(expected_learners[1][3]))
-
+        self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
 

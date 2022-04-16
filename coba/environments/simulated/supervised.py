@@ -237,4 +237,4 @@ class SupervisedSimulation(SimulatedEnvironment):
         rewards  = [ [ reward(action,label) for action in actions ] for label in labels ]
 
         for c,a,r in zip(contexts, repeat(actions), rewards):
-            yield SimulatedInteraction(c,a,rewards=r)
+            yield SimulatedInteraction(c,a,r)

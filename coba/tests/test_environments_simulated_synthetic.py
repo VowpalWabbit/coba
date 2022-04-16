@@ -30,11 +30,11 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(1      , interactions[0].context)
         self.assertEqual([1,2,3], interactions[0].actions)
-        self.assertEqual([0,1,2], interactions[0].kwargs["rewards"])
+        self.assertEqual([0,1,2], interactions[0].rewards)
 
         self.assertEqual(2      , interactions[1].context)
         self.assertEqual([4,5,6], interactions[1].actions)
-        self.assertEqual([2,3,4], interactions[1].kwargs["rewards"])
+        self.assertEqual([2,3,4], interactions[1].rewards)
 
     def test_n_interactions_none_seed_none(self):
         def C(i:int):
@@ -53,13 +53,13 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(1      , interaction.context)
         self.assertEqual([1,2,3], interaction.actions)
-        self.assertEqual([0,1,2], interaction.kwargs["rewards"])
+        self.assertEqual([0,1,2], interaction.rewards)
 
         interaction = next(interactions)
 
         self.assertEqual(2      , interaction.context)
         self.assertEqual([4,5,6], interaction.actions)
-        self.assertEqual([2,3,4], interaction.kwargs["rewards"])
+        self.assertEqual([2,3,4], interaction.rewards)
 
     def test_n_interactions_2_seed_1(self):
         
@@ -79,11 +79,11 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(1      , interactions[0].context)
         self.assertEqual([1,2,3], interactions[0].actions)
-        self.assertEqual([0,1,2], interactions[0].kwargs["rewards"])
+        self.assertEqual([0,1,2], interactions[0].rewards)
 
         self.assertEqual(2      , interactions[1].context)
         self.assertEqual([4,5,6], interactions[1].actions)
-        self.assertEqual([2,3,4], interactions[1].kwargs["rewards"])
+        self.assertEqual([2,3,4], interactions[1].rewards)
 
     def test_params(self):
         def C(i:int):
@@ -117,11 +117,11 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(1      , interactions[0].context)
         self.assertEqual([1,2,3], interactions[0].actions)
-        self.assertEqual([0,1,2], interactions[0].kwargs["rewards"])
+        self.assertEqual([0,1,2], interactions[0].rewards)
 
         self.assertEqual(2      , interactions[1].context)
         self.assertEqual([4,5,6], interactions[1].actions)
-        self.assertEqual([2,3,4], interactions[1].kwargs["rewards"])
+        self.assertEqual([2,3,4], interactions[1].rewards)
 
     def test_pickle_n_interactions_none(self):
         def C(i:int):
@@ -150,7 +150,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(1, len(interactions[0].context))
         self.assertEqual(2, len(interactions[0].actions[0]))
 
-        rewards = interactions[0].kwargs['rewards']
+        rewards = interactions[0].rewards
         self.assertNotAlmostEqual(rewards[0],rewards[1])
 
     def test_simple_context_action_features(self):
@@ -163,7 +163,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(3, len(interactions[0].context))
         self.assertEqual(4, len(interactions[0].actions[0]))
 
-        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        rewards = [ r for i in interactions for r in i.rewards ]
         self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
@@ -182,7 +182,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual((1,0), interactions[0].actions[0])
         self.assertEqual((0,1), interactions[0].actions[1])
 
-        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        rewards = [ r for i in interactions for r in i.rewards ]
         self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
@@ -199,7 +199,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(None, interactions[0].context)
         self.assertEqual(4, len(interactions[0].actions[0]))
 
-        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        rewards = [ r for i in interactions for r in i.rewards ]
         self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
@@ -217,13 +217,13 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual((1,0), interactions[0].actions[0])
         self.assertEqual((0,1), interactions[0].actions[1])
 
-        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        rewards = [ r for i in interactions for r in i.rewards ]
         self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
         self.assertGreater(min(rewards),-.2)
         self.assertGreater(.05, abs(.5-sum(rewards)/len(rewards)))
-        self.assertEqual(interactions[0].kwargs['rewards'], interactions[1].kwargs['rewards'])
+        self.assertEqual(interactions[0].rewards, interactions[1].rewards)
 
     def test_params(self):
         env = LinearSyntheticSimulation(100,reward_features=["xa"],seed=2)
@@ -336,7 +336,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(1, len(interactions[0].context))
         self.assertEqual(2, len(interactions[0].actions[0]))
 
-        rewards = interactions[0].kwargs['rewards']
+        rewards = interactions[0].rewards
         self.assertNotAlmostEqual(rewards[0],rewards[1])
 
     def test_single_polynomial_degree1_feature(self):
@@ -349,7 +349,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(1, len(interactions[0].context))
         self.assertEqual(2, len(interactions[0].actions[0]))
 
-        rewards = interactions[0].kwargs['rewards']
+        rewards = interactions[0].rewards
         self.assertNotAlmostEqual(rewards[0],rewards[1])
 
     def test_simple_context_action_features(self):
@@ -363,7 +363,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
             self.assertEqual(3, len(interactions[0].context))
             self.assertEqual(4, len(interactions[0].actions[0]))
 
-            rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+            rewards = [ r for i in interactions for r in i.rewards ]
             self.assertLess(max(rewards),1.2)
             self.assertGreater(max(rewards),.75)
             self.assertLess(min(rewards),.25)
@@ -383,7 +383,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
             self.assertEqual((1,0), interactions[0].actions[0])
             self.assertEqual((0,1), interactions[0].actions[1])
 
-            rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+            rewards = [ r for i in interactions for r in i.rewards ]
             self.assertLess(max(rewards),1.2)
             self.assertGreater(max(rewards),.75)
             self.assertLess(min(rewards),.25)
@@ -401,7 +401,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
             self.assertEqual(None, interactions[0].context)
             self.assertEqual(4, len(interactions[0].actions[0]))
 
-            rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+            rewards = [ r for i in interactions for r in i.rewards ]
             self.assertLess(max(rewards),1.2)
             self.assertGreater(max(rewards),.75)
             self.assertLess(min(rewards),.25)
@@ -420,7 +420,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
             self.assertEqual(None, interactions[0].context)
             self.assertEqual(2, len(interactions[0].actions[0]))
 
-            rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+            rewards = [ r for i in interactions for r in i.rewards ]
             self.assertLess(max(rewards),1.2)
             self.assertGreater(max(rewards),.75)
             self.assertLess(min(rewards),.25)
@@ -516,7 +516,7 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(3, len(interactions[0].context))
         self.assertEqual(4, len(interactions[0].actions[0]))
 
-        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        rewards = [ r for i in interactions for r in i.rewards ]
         self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
@@ -534,7 +534,7 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual((1,0), interactions[0].actions[0])
         self.assertEqual((0,1), interactions[0].actions[1])
 
-        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        rewards = [ r for i in interactions for r in i.rewards ]
         self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
@@ -551,7 +551,7 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(None, interactions[0].context)
         self.assertEqual(4   , len(interactions[0].actions[0]))
 
-        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        rewards = [ r for i in interactions for r in i.rewards ]
         self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
@@ -568,7 +568,7 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(None, interactions[0].context)
         self.assertEqual(2   , len(interactions[0].actions[0]))
 
-        rewards = [ r for i in interactions for r in i.kwargs['rewards'] ]
+        rewards = [ r for i in interactions for r in i.rewards ]
         self.assertLess(max(rewards),1.2)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)

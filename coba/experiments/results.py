@@ -174,10 +174,10 @@ class Table:
 
         return pd.DataFrame(col_numpy, columns=self.columns)
 
-    def to_tuples(self) -> Sequence[Tuple[Any,...]]:
+    def to_dicts(self) -> Sequence[Dict[str,Any]]:
         """Turn the Table into a sequence of tuples."""
 
-        tuples = []
+        dicts = []
 
         for key in self.keys:
 
@@ -185,11 +185,12 @@ class Table:
             pack = self._rows_pack[key]
 
             if not pack:
-                tuples.append(tuple(flat.get(col,self._default(col)) for col in self.columns))
+                dicts.append( { col:flat.get(col,self._default(col)) for col in self.columns } )
             else:
-                tuples.extend(list(zip(*[pack.get(col,repeat(flat.get(col,self._default(col)))) for col in self.columns])))
+                tuples = list(zip(*[pack.get(col,repeat(flat.get(col,self._default(col)))) for col in self.columns]))
+                dicts.extend([ dict(zip(self.columns,t)) for t in tuples ])
 
-        return tuples
+        return dicts
 
     def _default(self, column:str) -> Any:
         return [1] if column == "index" else None
@@ -245,7 +246,11 @@ class Table:
 
 class InteractionsTable(Table):
 
-    def to_progressive_lists(self, span: int = None, each: bool = False, ord_col: str = "index", val_col: str = "reward"):
+    def to_progressive_lists(self,
+        span: int = None,
+        each: bool = False,
+        order: str = "index",
+        value: Literal['reward','reward_pct','rank','rank_pct','regret','regret_pct'] = "reward"):
         """Return expanding or exponential averages for col grouped by learner and possibly environment.
 
         Args:
@@ -261,10 +266,19 @@ class InteractionsTable(Table):
         """
         lrn_sim_rows = []
 
+        value_functions = {
+            'reward'    : lambda interactions: interactions['reward'],
+            'reward_pct': lambda interactions: [r/m for r,m in zip(interactions['reward'],interactions['max_reward'])],
+            'rank'      : lambda interactions: interactions['rank'],
+            'rank_pct'  : lambda interactions: [(r-1)/(m-1) for r,m in zip(interactions['rank'],interactions['n_actions'])],
+            'regret'    : lambda interactions: [m-r for r,m in zip(interactions['reward'],interactions['max_reward'])],
+            'regret_pct': lambda interactions: [(u-r)/(u-l) for r,l,u in zip(interactions['reward'],interactions['min_reward'],interactions['max_reward'])],
+        }
+
         for interactions in self:
 
-            values = interactions[val_col]
-            orders = interactions[ord_col]
+            values = value_functions[value](interactions)
+            orders = interactions[order]
             values = [ v[1] for v in sorted(zip(orders,values)) ]
 
             if span is None or span >= len(values):
@@ -644,7 +658,8 @@ class Result:
 
         return new_result
 
-    def plot_learners(self, 
+    def plot_learners(self,
+        y    : Literal['reward','reward_pct','rank','rank_pct','regret','regret_pct'] = "reward",
         xlim : Optional[Tuple[Number,Number]] = None,
         ylim : Optional[Tuple[Number,Number]] = None,
         span : int = None,
@@ -658,6 +673,8 @@ class Result:
             insight into how various learners perform in comparison to one another. 
 
         Args:
+            y: The value to plot on the y-axis: `reward` plots the reward obtained on each interaction, `pct_reward` 
+                plots the percentage of the optimal possible reward obtained on each interaction.
             xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             span: If span is None return an expanding average (i.e., progressive validation). If span is not none
@@ -674,7 +691,7 @@ class Result:
 
         show = ax is None
 
-        for label, X, Y, yerr, Z in self._plot_learners_data(xlim,span,err,sort):
+        for label, X, Y, yerr, Z in self._plot_learners_data(y,xlim,span,err,sort):
 
             ax = ax or plt.figure(figsize=(10,6)).add_subplot(111) #type: ignore
 
@@ -703,7 +720,7 @@ class Result:
                 ax.set_ylim(ylim[0]-y_pad, ylim[1]+y_pad)
 
             ax.set_title(("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward", loc='left',pad=15)
-            ax.set_ylabel("Reward")
+            ax.set_ylabel(y.capitalize().replace("_pct"," Percent"))
             ax.set_xlabel("Interactions")
 
             if ax.get_legend() is None:
@@ -723,7 +740,8 @@ class Result:
                 plt.savefig(filename, dpi=300)
                 plt.close()
 
-    def _plot_learners_data(self, 
+    def _plot_learners_data(self,
+        y   : Literal['reward','reward_pct','rank','rank_pct','regret','regret_pct'] = "reward",
         xlim: Tuple[Number,Number] = None, 
         span: int = None, 
         err : Literal['se','sd'] = None,
@@ -734,7 +752,7 @@ class Result:
 
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
-        for progressive in self.interactions.to_progressive_lists(span=span, each=True, ord_col="index", val_col="reward"):
+        for progressive in self.interactions.to_progressive_lists(span=span, each=True, order="index", value=y):
             progressives[progressive[0]].append(progressive[2:])
 
         if progressives and (not xlim or xlim[0] < xlim[1]):

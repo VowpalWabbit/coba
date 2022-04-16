@@ -16,8 +16,9 @@ class SerializedSimulation(SimulatedEnvironment):
             for interaction in sim.read():
                 context = json_encoder.filter(interaction.context)
                 actions = json_encoder.filter(interaction.actions)
+                rewards = json_encoder.filter(interaction.rewards) 
                 kwargs  = json_encoder.filter(interaction.kwargs)
-                yield f"[{context},{actions},{kwargs}]"
+                yield f"[{context},{actions},{rewards},{kwargs}]"
 
         return LambdaSource(serialized_generator)
 
@@ -29,7 +30,7 @@ class SerializedSimulation(SimulatedEnvironment):
             self._source = self._make_serialized_source(source)
         else:
             self._source = source
-        
+
         self._decoder = JsonDecode()
 
     @property
@@ -38,8 +39,8 @@ class SerializedSimulation(SimulatedEnvironment):
 
     def read(self) -> Iterable[SimulatedInteraction]:
         for interaction_json in islice(self._source.read(), 1, None):
-            deocded_interaction = self._decoder.filter(interaction_json)
-            yield SimulatedInteraction(deocded_interaction[0], deocded_interaction[1], **deocded_interaction[2])
+            context,actions,rewards,kwargs = tuple(self._decoder.filter(interaction_json))
+            yield SimulatedInteraction(context,actions,rewards,**kwargs)
 
     def write(self, sink: Sink[str]):
         for line in self._source.read():

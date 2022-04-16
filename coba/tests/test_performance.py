@@ -107,7 +107,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_interaction_context_performance(self):
 
-        interaction = SimulatedInteraction([1,2,3]*100, (1,2,3), rewards=(4,5,6))
+        interaction = SimulatedInteraction([1,2,3]*100, (1,2,3), (4,5,6))
 
         time = timeit.timeit(lambda: interaction.context, number=10000)
 

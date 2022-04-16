@@ -48,9 +48,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([(0,1),(1,0)], interactions[1].actions)
         self.assertEqual([(0,1),(1,0)], interactions[2].actions)
 
-        self.assertEqual([0,1], interactions[0].kwargs["rewards"])
-        self.assertEqual([0,1], interactions[1].kwargs["rewards"])
-        self.assertEqual([1,0], interactions[2].kwargs["rewards"])
+        self.assertEqual([0,1], interactions[0].rewards)
+        self.assertEqual([0,1], interactions[1].rewards)
+        self.assertEqual([1,0], interactions[2].rewards)
 
     def test_source_reader_regression_less_than_10(self):
 
@@ -87,9 +87,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([(0,0,1),(1,0,0),(0,1,0)], interactions[1].actions)
         self.assertEqual([(0,0,1),(1,0,0),(0,1,0)], interactions[2].actions)
 
-        self.assertEqual([0 , 1, .5], interactions[0].kwargs["rewards"])
-        self.assertEqual([.5, .5, 1], interactions[1].kwargs["rewards"])
-        self.assertEqual([1 , 0, .5], interactions[2].kwargs["rewards"])
+        self.assertEqual([0 , 1, .5], interactions[0].rewards)
+        self.assertEqual([.5, .5, 1], interactions[1].rewards)
+        self.assertEqual([1 , 0, .5], interactions[2].rewards)
 
     def test_source_reader_too_large_take_no_min(self):
 
@@ -155,9 +155,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([1,2], interactions[1].actions)
         self.assertEqual([1,2], interactions[2].actions)
 
-        self.assertEqual([0,1], interactions[0].kwargs["rewards"])
-        self.assertEqual([0,1], interactions[1].kwargs["rewards"])
-        self.assertEqual([1,0], interactions[2].kwargs["rewards"])
+        self.assertEqual([0,1], interactions[0].rewards)
+        self.assertEqual([0,1], interactions[1].rewards)
+        self.assertEqual([1,0], interactions[2].rewards)
 
     def test_X_Y_multiclass_classification(self):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]
@@ -181,9 +181,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([1,2], interactions[1].actions)
         self.assertEqual([1,2], interactions[2].actions)
 
-        self.assertEqual([0,1], interactions[0].kwargs["rewards"])
-        self.assertEqual([0,1], interactions[1].kwargs["rewards"])
-        self.assertEqual([1,0], interactions[2].kwargs["rewards"])
+        self.assertEqual([0,1], interactions[0].rewards)
+        self.assertEqual([0,1], interactions[1].rewards)
+        self.assertEqual([1,0], interactions[2].rewards)
 
     def test_X_Y_multilabel_classification(self):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]
@@ -207,9 +207,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([1,4,3,2], interactions[1].actions)
         self.assertEqual([1,4,3,2], interactions[2].actions)
 
-        self.assertEqual([1,1,1,1], interactions[0].kwargs["rewards"])
-        self.assertEqual([1,0,0,1], interactions[1].kwargs["rewards"])
-        self.assertEqual([1,0,0,0], interactions[2].kwargs["rewards"])
+        self.assertEqual([1,1,1,1], interactions[0].rewards)
+        self.assertEqual([1,0,0,1], interactions[1].rewards)
+        self.assertEqual([1,0,0,0], interactions[2].rewards)
 
     def test_X_Y_regression_more_than_10(self):
         features = list(range(12))
@@ -254,7 +254,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual(actions, interactions[11].actions)
 
         for i in range(12):
-            self.assertEqual([1-(abs((a.index(1)+1)/11-i/11)) for a in interactions[i].actions], interactions[i].kwargs["rewards"])
+            self.assertEqual([1-(abs((a.index(1)+1)/11-i/11)) for a in interactions[i].actions], interactions[i].rewards)
 
     def test_X_Y_too_large_take(self):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]

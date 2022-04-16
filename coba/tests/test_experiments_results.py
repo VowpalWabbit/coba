@@ -35,8 +35,7 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(table['A'], {'a':'A', 'b':'B'})
 
         self.assertEqual(2, len(table))
-
-        self.assertEqual([('A', 'B'),('a', 'B')], list(table.to_tuples()))
+        self.assertEqual([{'a':'A', 'b':'B'},{'a':'a', 'b':'B'}], list(table.to_dicts()))
 
     def test_missing_columns(self):
         table = Table("test", ['a'], [{'a':'A', 'b':'B'}, {'a':'a', 'c':'C'}])
@@ -48,40 +47,37 @@ class Table_Tests(unittest.TestCase):
         self.assertEqual(table['a'], {'a':'a', 'c':'C'})
 
         self.assertEqual(2, len(table))
-
-        expected = [('A', 'B', None), ('a', None, 'C')]
-        actual   = table.to_tuples()
-
-        self.assertEqual(expected, actual)
+        self.assertEqual([{'a':'A', 'b':'B', 'c':None}, {'a':'a', 'b':None, 'c':'C'}], table.to_dicts())
 
     def test_tuples_with_array_column(self):
 
         table = Table("test", ['a'], [dict(a='A', b='B', c=[1,2], d='d'), dict(a='B', e='E') ])
 
-        expected_tuples = [ ('A', 'B', [1,2], 'd', None), ('B', None, None, None, 'E') ]
-        actual_tuples = table.to_tuples()
+        expected = [{'a':'A','b':'B','c':[1,2],'d':'d','e':None},{'a':'B','b':None,'c':None,'d':None,'e':'E'}]
+        actual = table.to_dicts()
 
-        self.assertEqual(expected_tuples, actual_tuples)
+        self.assertEqual(expected, actual)
 
     def test_tuples_with_dict_column(self):
 
         table = Table("test", ['a'], [dict(a='A',b='B',c={'z':5},d='d'), dict(a='B',e='E')])
 
-        expected_tuples = [ ('A', 'B', {'z':5}, 'd', None), ('B', None, None, None, 'E') ]
-        actual_tuples = table.to_tuples()
+        expected = [{'a':'A','b':'B','c':{'z':5},'d':'d','e':None},{'a':'B','b':None,'c':None,'d':None,'e':'E'} ]
+        actual = table.to_dicts()
 
-        self.assertEqual(expected_tuples, actual_tuples)
+        self.assertEqual(expected, actual)
 
     def test_two_packed_items(self):
         table = Table("test", ['a'], [dict(a='A', c=1, _packed=dict(b=['B','b'],d=['D','d']))])
 
         self.assertTrue('A' in table)
-
         self.assertEqual(table['A'], {'a':'A', 'index':[1,2], 'b':['B','b'], 'c':1, 'd':['D','d']})
-
         self.assertEqual(2, len(table))
 
-        self.assertEqual([('A', 1, 'B', 1, 'D'), ('A', 2, 'b', 1, 'd')], list(table.to_tuples()))
+        expected = [{'a':'A','index':1,'b':'B','c':1,'d':'D'},{'a':'A','index':2,'b':'b','c':1,'d':'d'}]
+        actual = table.to_dicts()
+
+        self.assertEqual(expected,actual)
 
     def test_unequal_pack_exception(self):
         with self.assertRaises(Exception):
@@ -94,10 +90,10 @@ class Table_Tests(unittest.TestCase):
         filtered_table = table.filter(b="B")
 
         self.assertEqual(2, len(table))
-        self.assertEqual([('A', 'B'),('a', 'b')], list(table.to_tuples()))
+        self.assertEqual([{'a':'A', 'b':'B'},{'a':'a', 'b':'b'}], table.to_dicts())
 
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([('A', 'B')], list(filtered_table.to_tuples()))
+        self.assertEqual([{'a':'A', 'b':'B'}], filtered_table.to_dicts())
 
     def test_filter_kwarg_int_1(self):
         table = Table("test", ['a'], [{'a':'1', 'b':'b'}, {'a':'12', 'b':'B'}])
@@ -105,21 +101,21 @@ class Table_Tests(unittest.TestCase):
         filtered_table = table.filter(a=1)
 
         self.assertEqual(2, len(table))
-        self.assertEqual([('1', 'b'),('12', 'B')], list(table.to_tuples()))
+        self.assertEqual([{'a':'1','b':'b'},{'a':'12','b':'B'}], table.to_dicts())
 
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([('1', 'b')], list(filtered_table.to_tuples()))
-    
+        self.assertEqual([{'a':'1','b':'b'}], filtered_table.to_dicts())
+
     def test_filter_kwarg_int_2(self):
         table = Table("test", ['a'], [{'a':1, 'b':'b'}, {'a':12, 'b':'B'}])
 
         filtered_table = table.filter(a=1)
 
         self.assertEqual(2, len(table))
-        self.assertEqual([(1, 'b'),(12, 'B')], list(table.to_tuples()))
+        self.assertEqual([{'a':1,'b':'b'},{'a':12,'b':'B'}], table.to_dicts())
 
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([(1, 'b')], list(filtered_table.to_tuples()))
+        self.assertEqual([{'a':1, 'b':'b'}], filtered_table.to_dicts())
 
     def test_filter_kwarg_pred(self):
         table = Table("test", ['a'], [{'a':'1', 'b':'b'}, {'a':'12', 'b':'B'}])
@@ -127,10 +123,10 @@ class Table_Tests(unittest.TestCase):
         filtered_table = table.filter(a= lambda a: a =='1')
 
         self.assertEqual(2, len(table))
-        self.assertEqual([('1', 'b'),('12', 'B')], list(table.to_tuples()))
+        self.assertEqual([{'a':'1','b':'b'},{'a':'12','b':'B'}], table.to_dicts())
 
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([('1', 'b')], list(filtered_table.to_tuples()))
+        self.assertEqual([{'a':'1','b':'b'}], filtered_table.to_dicts())
 
     def test_filter_kwarg_multi(self):
         table = Table("test", ['a'], [
@@ -144,7 +140,7 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(4, len(table))
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([('2', 'b', "C")], list(filtered_table.to_tuples()))
+        self.assertEqual([{'a':'2','b':'b','c':"C"}], filtered_table.to_dicts())
 
     def test_filter_pred(self):
         table = Table("test", ['a'], [{'a':'a', 'b':'b'}, {'a':'A', 'b':'B'}])
@@ -152,10 +148,10 @@ class Table_Tests(unittest.TestCase):
         filtered_table = table.filter(lambda row: row["b"]=="B")
 
         self.assertEqual(2, len(table))
-        self.assertEqual([('A', 'B'),('a', 'b')], list(table.to_tuples()))
+        self.assertEqual([{'a':'A','b':'B'},{'a':'a','b':'b'}], table.to_dicts())
 
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([('A', 'B')], list(filtered_table.to_tuples()))
+        self.assertEqual([{'a':'A','b':'B'}], filtered_table.to_dicts())
 
     def test_filter_sequence_1(self):
         table = Table("test", ['a'], [{'a':'a', 'b':'b'}, {'a':'A', 'b':'B'}, {'a':'1', 'b':'C'}])
@@ -163,10 +159,10 @@ class Table_Tests(unittest.TestCase):
         filtered_table = table.filter(a=['a','1'])
 
         self.assertEqual(3, len(table))
-        self.assertCountEqual([('A', 'B'),('a', 'b'),('1','C')], list(table.to_tuples()))
+        self.assertCountEqual([{'a':'A','b':'B'},{'a':'a','b':'b'},{'a':'1','b':'C'}], table.to_dicts())
 
         self.assertEqual(2, len(filtered_table))
-        self.assertCountEqual([('a', 'b'),('1','C')], list(filtered_table.to_tuples()))
+        self.assertCountEqual([{'a':'a','b':'b'},{'a':'1','b':'C'}], filtered_table.to_dicts())
 
     def test_filter_sequence_2(self):
         table = Table("test", ['a'], [{'a':'1', 'b':'b'}, {'a':'2', 'b':'B'}, {'a':'3', 'b':'C'}])
@@ -174,10 +170,10 @@ class Table_Tests(unittest.TestCase):
         filtered_table = table.filter(a=[1,2])
 
         self.assertEqual(3, len(table))
-        self.assertCountEqual([('1', 'b'),('2', 'B'),('3','C')], list(table.to_tuples()))
+        self.assertCountEqual([{'a':'1','b':'b'},{'a':'2','b':'B'},{'a':'3','b':'C'}], table.to_dicts())
 
         self.assertEqual(2, len(filtered_table))
-        self.assertCountEqual([('1', 'b'),('2','B')], list(filtered_table.to_tuples()))
+        self.assertCountEqual([{'a':'1','b':'b'},{'a':'2','b':'B'}], filtered_table.to_dicts())
 
     def test_filter_table_contains(self):
         table = Table("test", ['a'], [{'a':'a', 'b':'b'}, {'a':'A', 'b':'B'}])
@@ -185,7 +181,7 @@ class Table_Tests(unittest.TestCase):
         filtered_table = table.filter(lambda row: row["b"]=="B")
 
         self.assertEqual(2, len(table))
-        self.assertEqual([('A', 'B'),('a', 'b')], list(table.to_tuples()))
+        self.assertEqual([{'a':'A','b':'B'},{'a':'a','b':'b'}], table.to_dicts())
 
         self.assertNotIn("a", filtered_table)
 
@@ -195,7 +191,7 @@ class Table_Tests(unittest.TestCase):
         filtered_table = table.filter(b="B")
 
         self.assertEqual(2, len(table))
-        self.assertEqual([('A',None),('a', 'B')], list(table.to_tuples()))
+        self.assertEqual([{'a':'A','b':None},{'a':'a','b':'B'}], table.to_dicts())
 
         self.assertNotIn("A", filtered_table)
         self.assertIn("a", filtered_table)
@@ -206,7 +202,7 @@ class Table_Tests(unittest.TestCase):
         filtered_table = table.filter(b=None)
 
         self.assertEqual(2, len(table))
-        self.assertEqual([('A',None),('a', 'B')], list(table.to_tuples()))
+        self.assertEqual([{'a':'A','b':None},{'a':'a','b':'B'}], table.to_dicts())
 
         self.assertNotIn("a", filtered_table)
         self.assertIn("A", filtered_table)
@@ -215,7 +211,7 @@ class Table_Tests(unittest.TestCase):
 class Table_Pandas_Tests(unittest.TestCase):
 
     def test_pandas(self):
-        
+
         import pandas as pd #type: ignore
         import pandas.testing #type: ignore
 
@@ -298,7 +294,7 @@ class Table_Pandas_Tests(unittest.TestCase):
         rows  = [dict(environment_id=i,learner_id=2,C=5,A=5,N=1,_packed=dict(reward=[2]*9000)) for i in range(2) ]
         table = Table("test", ['environment_id', 'learner_id'], rows)
         time = min(timeit.repeat(lambda:table.to_pandas(), repeat=6, number=1))
-        
+
         #best time on my laptop was 0.15
         self.assertLess(time,1)
 
@@ -416,14 +412,14 @@ class TransactionIO_V3_Tests(unittest.TestCase):
         io.write(["T0",1,2])
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
 
         result = io.read()
 
-        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-        self.assertEqual([(1,"test")], result.environments.to_tuples())
-        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
     def test_simple_to_and_from_memory(self):
         io = TransactionIO_V3()
@@ -431,14 +427,14 @@ class TransactionIO_V3_Tests(unittest.TestCase):
         io.write(["T0",1,2])
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
 
         result = io.read()
 
-        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-        self.assertEqual([(1,"test")], result.environments.to_tuples())
-        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
     def test_simple_to_and_from_memory_unknown_transaction(self):
         io = TransactionIO_V3()
@@ -447,14 +443,14 @@ class TransactionIO_V3_Tests(unittest.TestCase):
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
         io.write(["T4",'UNKNOWN'])
-        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
 
         result = io.read()
 
-        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-        self.assertEqual([(1,"test")], result.environments.to_tuples())
-        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
 class TransactionIO_V4_Tests(unittest.TestCase):
 
@@ -472,14 +468,14 @@ class TransactionIO_V4_Tests(unittest.TestCase):
         io.write(["T0",1,2])
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
 
         result = io.read()
 
-        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-        self.assertEqual([(1,"test")], result.environments.to_tuples())
-        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
     def test_simple_to_and_from_memory(self):
         io = TransactionIO_V4()
@@ -487,14 +483,14 @@ class TransactionIO_V4_Tests(unittest.TestCase):
         io.write(["T0",1,2])
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
 
         result = io.read()
 
-        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-        self.assertEqual([(1,"test")], result.environments.to_tuples())
-        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
     def test_simple_to_and_from_memory_unknown_transaction(self):
         io = TransactionIO_V4()
@@ -503,14 +499,14 @@ class TransactionIO_V4_Tests(unittest.TestCase):
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
         io.write(["T4",'UNKNOWN'])
-        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
 
         result = io.read()
 
-        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-        self.assertEqual([(1,"test")], result.environments.to_tuples())
-        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
 class TransactionIO_Tests(unittest.TestCase):
 
@@ -536,29 +532,29 @@ class TransactionIO_Tests(unittest.TestCase):
         io.write(["T0",1,2])
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
 
         result = TransactionIO("coba/tests/.temp/transaction.log").read()
 
-        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-        self.assertEqual([(1,"test")], result.environments.to_tuples())
-        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
     def test_simple_to_and_from_file_v4(self):
-        io = TransactionIO("coba/tests/.temp/transaction.log")
+        io = TransactionIO_V4("coba/tests/.temp/transaction.log")
 
         io.write(["T0",1,2])
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
 
         result = io.read()
 
-        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-        self.assertEqual([(1,"test")], result.environments.to_tuples())
-        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
     def test_simple_to_and_from_memory(self):
         io = TransactionIO()
@@ -566,14 +562,14 @@ class TransactionIO_Tests(unittest.TestCase):
         io.write(["T0",1,2])
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
 
         result = io.read()
 
-        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-        self.assertEqual([(1,"test")], result.environments.to_tuples())
-        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
     def test_simple_resume(self):
         io = TransactionIO("coba/tests/.temp/transaction.log")
@@ -581,14 +577,14 @@ class TransactionIO_Tests(unittest.TestCase):
         io.write(["T0",1,2])
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[0,1], [{"reward":3},{"reward":4}]])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
 
         result = TransactionIO("coba/tests/.temp/transaction.log").read()
 
-        self.assertEqual(result.experiment, {"n_learners":1, "n_environments":2})
-        self.assertEqual([(0,"lrn1")], result.learners.to_tuples())
-        self.assertEqual([(1,"test")], result.environments.to_tuples())
-        self.assertEqual([(0,1,1,3),(0,1,2,4)], result.interactions.to_tuples())
+        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
 class Result_Tests(unittest.TestCase):
 
@@ -1015,7 +1011,7 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_ax_provided(self):
         with unittest.mock.patch('matplotlib.pyplot.show') as show:
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
-                
+
                 mock_ax = unittest.mock.MagicMock()
 
                 lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }

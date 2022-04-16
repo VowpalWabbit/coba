@@ -9,7 +9,7 @@ CobaContext.logger = NullLogger()
 class SerializedSimulation_Tests(unittest.TestCase):
 
     def test_sim_source(self):
-        expected_env = MemorySimulation(params={}, interactions=[SimulatedInteraction(1,[1,2],rewards=[2,3])])
+        expected_env = MemorySimulation(params={}, interactions=[SimulatedInteraction(1,[1,2],[2,3])])
         actual_env = SerializedSimulation(expected_env)
 
         self.assertEqual(expected_env.params, actual_env.params)
@@ -32,7 +32,8 @@ class SerializedSimulation_Tests(unittest.TestCase):
     def test_sim_write_read_simple(self):
         sink = ListSink()
 
-        expected_env = MemorySimulation(params={}, interactions=[SimulatedInteraction(1,[1,2],rewards=[2,3])])
+        expected_env = MemorySimulation(params={}, interactions=[SimulatedInteraction(1,[1,2],[2,3])])
+        
         SerializedSimulation(expected_env).write(sink)
         actual_env = SerializedSimulation(ListSource(sink.items))
 
@@ -46,7 +47,7 @@ class SerializedSimulation_Tests(unittest.TestCase):
     def test_sim_write_read_with_params_and_none_context(self):
         sink = ListSink()
 
-        expected_env = MemorySimulation(params={'a':1}, interactions=[SimulatedInteraction(None,[1,2],rewards=[2,3])])
+        expected_env = MemorySimulation(params={'a':1}, interactions=[SimulatedInteraction(None,[1,2],[2,3])])
         SerializedSimulation(expected_env).write(sink)
         actual_env = SerializedSimulation(ListSource(sink.items))
 
@@ -60,7 +61,7 @@ class SerializedSimulation_Tests(unittest.TestCase):
     def test_sim_write_read_with_params_and_action_tuple(self):
         sink = ListSink()
         
-        expected_env = MemorySimulation(params={'a':1}, interactions=[SimulatedInteraction(None,[(1,0),(0,1)],rewards=[2,3])])
+        expected_env = MemorySimulation(params={'a':1}, interactions=[SimulatedInteraction(None,[(1,0),(0,1)],[2,3])])
         SerializedSimulation(expected_env).write(sink)
         actual_env = SerializedSimulation(ListSource(sink.items))
 

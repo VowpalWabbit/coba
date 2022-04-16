@@ -69,11 +69,11 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
         """Instantiate an OnlineOnPolicyEvalTask.
 
         Args:
-            time: Indicator for whether learner predict and learn times should be recorded. 
-            seed: A random seed which determines which action is taken given predictions.        
+            seed: A random seed which determines which action is taken given predictions.
+
         """
-        self._seed = seed
         self._time = time
+        self._seed = seed
 
     def process(self, learner: Learner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
 
@@ -89,33 +89,35 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
             context = interaction.context
             actions = interaction.actions
 
-            start_time = time.time()
-            probs,info = learner.predict(context, actions)
-            predict_time = time.time() - start_time
+            start_time         = time.time()
+            probabilities,info = learner.predict(context, actions)
+            predict_time       = time.time() - start_time
 
-            action = random.choice(actions, probs)
-            reveal = interaction.kwargs.get("reveals", interaction.kwargs.get("rewards"))[actions.index(action)]
-            prob   = probs[actions.index(action)]
+            action       = random.choice(actions, probabilities)
+            action_index = actions.index(action)
+            reward       = interaction.rewards[action_index]
+            probability  = probabilities[action_index]
 
             start_time = time.time()
-            learner.learn(context, action, reveal, prob, info)
+            learner.learn(context, action, reward, probability, info)
             learn_time = time.time() - start_time
 
             learner_info     = InteractionContext.learner_info
-            interaction_info = {}
+            interaction_info = { k:v[action_index] if isinstance(v,(list,tuple)) else v for k,v in interaction.kwargs.items() }
 
-            for k,v in interaction.kwargs.items():
-                if isinstance(v,collections.abc.Sequence) and not isinstance(v,str):
-                    interaction_info[k] = v[actions.index(action)]
-                else:
-                    interaction_info[k] = v
+            evaluation_info  = {
+                'reward'      : reward,
+                'max_reward'  : max(interaction.rewards),
+                'min_reward'  : min(interaction.rewards),
+                'rank'        : 1+sorted(interaction.rewards,reverse=True).index(reward),
+                'n_actions'   : len(interaction.actions),
+            }
 
-            if "rewards" in interaction.kwargs: 
-                interaction_info['max_reward'] = max(interaction.kwargs['rewards'])
+            if self._time:
+                evaluation_info["predict_time"] = predict_time
+                evaluation_info["learn_time"  ] = learn_time
 
-            time_info = {"predict_time": predict_time, "learn_time": learn_time} if self._time else {}
-
-            yield {**interaction_info, **learner_info, **time_info}
+            yield {**interaction_info, **learner_info, **evaluation_info}
 
 class OnlineOffPolicyEvalTask(EvaluationTask):
     """Evaluate a Learner on a LoggedEnvironment."""
@@ -135,28 +137,27 @@ class OnlineOffPolicyEvalTask(EvaluationTask):
 
             InteractionContext.learner_info.clear()
 
-            if "actions" not in interaction.kwargs:
+            if not interaction.actions:
                 info             = None
                 interaction_info = {}
 
-            if "actions" in interaction.kwargs:
-                actions          = list(interaction.kwargs["actions"])
+            if interaction.actions:
+                actions          = list(interaction.actions)
                 start_time       = time.time()
                 probs,info       = learner.predict(interaction.context, actions)
                 predict_time     = time.time()-start_time
                 interaction_info = {}
 
-            if len(interaction.kwargs.keys() & {"probability", "actions", "reward"}) == 3:
-                ratio            = probs[actions.index(interaction.action)] / interaction.kwargs["probability"]
-                interaction_info = {'reward': ratio*interaction.kwargs['reward']}
+            if interaction.probability and interaction.actions:
+                ratio            = probs[actions.index(interaction.action)] / interaction.probability
+                interaction_info = {'reward': ratio*interaction.reward}
 
             for k,v in interaction.kwargs.items():
-                if k not in ["probability", "actions", "reward"]:
-                    interaction_info[k] = v
+                interaction_info[k] = v
 
-            reveal = interaction.kwargs.get("reveal", interaction.kwargs.get("reward"))
-            prob   = interaction.kwargs.get("probability")
-            
+            reveal = interaction.reward
+            prob   = interaction.probability
+
             start_time = time.time()
             learner.learn(interaction.context, interaction.action, reveal, prob, info)
             learn_time = time.time()-start_time
@@ -168,13 +169,13 @@ class OnlineOffPolicyEvalTask(EvaluationTask):
 
 class OnlineWarmStartEvalTask(EvaluationTask):
     """Evaluate a Learner on a WarmStartEnvironment."""
-    
+
     def __init__(self, time:bool = True, seed:int = 1) -> None:
         """Instantiate an OnlineOnPolicyEvalTask.
 
         Args:
             seed: A random seed which determines which action is taken given predictions.        
-        """        
+        """
         self._seed = seed
         self._time = time
 
@@ -222,7 +223,7 @@ class SimpleEnvironmentTask(EnvironmentTask):
 
 class ClassEnvironmentTask(EnvironmentTask):
     """Describe an Environment made from a Classification dataset.
-    
+
     In addition to the Environment's parameters this task also calculates a number
     of classification statistics which can be used to analyze the performance of learners
     after an Experiment has finished. To make the most of this Task sklearn should be installed.
@@ -230,7 +231,7 @@ class ClassEnvironmentTask(EnvironmentTask):
 
     def process(self, environment: Environment, interactions: Iterable[SimulatedInteraction]) -> Dict[Any,Any]:
 
-        contexts,actions,rewards = zip(*[ (i.context, i.actions, i.kwargs["rewards"]) for i in interactions ])
+        contexts,actions,rewards = zip(*[ (i.context, i.actions, i.rewards) for i in interactions ])
         env_statistics = {}
 
         try:
@@ -259,7 +260,7 @@ class ClassEnvironmentTask(EnvironmentTask):
                 env_statistics["bayes_rate_avg"] = round(scores.mean(),4)
                 env_statistics["bayes_rate_iqr"] = round(st.iqr(scores),4)
 
-            svd = TruncatedSVD(n_components=8) if sp.issparse(X) else PCA()                    
+            svd = TruncatedSVD(n_components=8) if sp.issparse(X) else PCA()
             svd.fit(X)
             env_statistics["PcaVarExplained"] = svd.explained_variance_ratio_[:8].tolist()
 

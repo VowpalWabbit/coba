@@ -1,90 +1,52 @@
-from abc import abstractmethod
-from typing import Sequence, Dict, Any, Iterable, overload
+import collections.abc
 
+from abc import abstractmethod
+from typing import Sequence, Dict, Any, Iterable
+
+from coba.exceptions import CobaException
 from coba.environments.primitives import Context, Action, Environment, Interaction
 
 class SimulatedInteraction(Interaction):
     """Simulated data that describes an interaction where the choice is up to you."""
 
-    @overload
     def __init__(self,
-        context: Context,
-        actions: Sequence[Action],
-        *,
-        rewards: Sequence[float],
-        **kwargs) -> None:
-        ...
-        """Instantiate SimulatedInteraction.
-
-        Args
-            context : Features describing the interaction's context. This should be `None` for multi-armed bandit simulations.
-            actions : Features describing available actions in the interaction.
-            rewards : The reward that will be revealed to learners based on the taken action. We require len(rewards) == len(actions).
-            **kwargs: Additional information that should be recorded in the interactions table of an experiment result. If any
-                data is a sequence with length equal to actions only the data at the selected action index will be recorded.
-        """
-
-    @overload
-    def __init__(self,
-        context: Context,
-        actions: Sequence[Action], 
-        *,
-        reveals: Sequence[Any],
-        **kwargs) -> None:
-        ...
-        """Instantiate SimulatedInteraction.
-
-        Args
-            context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
-            actions : Features describing available actions in the interaction.
-            reveals : The data that will be revealed to learners based on the selected action. We require len(reveals) == len(actions).
-                When working with non-scalar data use "reveals" instead of "rewards" to make it clear to Coba the data is non-scalar.
-            **kwargs: Additional information that should be recorded in the interactions table of an experiment result. If any
-                data is a sequence with length equal to actions only the data at the selected action index will be recorded.
-        """
-
-    @overload
-    def __init__(self, 
-        context: Context, 
-        actions: Sequence[Action], 
-        *,
+        context : Context,
+        actions : Sequence[Action],
         rewards : Sequence[float],
-        reveals : Sequence[Any],
         **kwargs) -> None:
         ...
         """Instantiate SimulatedInteraction.
 
         Args
-            context : Features describing the interaction's context. Will be `None` for multi-armed bandit simulations.
-            actions : Features describing available actions in the interaction.
-            rewards : A sequence of scalar values representing reward. When both rewards and reveals are provided only 
-                reveals will be shown to the learner when an action is selected. The reward values will only be used 
-                by Coba when plotting experimental results. We require that len(rewards) == len(actions).
-            reveals : The data that will be revealed to learners based on the selected action. We require len(reveals) == len(actions).
-                When working with non-scalar data use "reveals" instead of "rewards" to make it clear to Coba the data is non-scalar.
+            context : Features describing the interaction's context.
+            actions : Features describing available actions during the interaction.
+            rewards : The reward for each action in the interaction.
             **kwargs: Additional information that should be recorded in the interactions table of an experiment result. If any
                 data is a sequence with length equal to actions only the data at the selected action index will be recorded.
         """
 
-    def __init__(self, context: Context, actions: Sequence[Action], **kwargs) -> None:
+        if rewards and len(rewards) != len(actions):
+            raise CobaException("Interaction reward counts must equal action counts.")
 
-        assert kwargs.keys() & {"rewards", "reveals"}, "Interaction requires either a rewards or reveals keyword warg."
-
-        assert "rewards" not in kwargs or len(actions) == len(kwargs["rewards"]), "Interaction rewards must match action length."
-        assert "reveals" not in kwargs or len(actions) == len(kwargs["reveals"]), "Interaction reveals must match action length."
-
-        self._raw_actions  = actions
-        self._hash_actions = None
+        self._actions  = actions
+        self._rewards = rewards
 
         super().__init__(context, **kwargs)
 
     @property
     def actions(self) -> Sequence[Action]:
         """The interaction's available actions."""
-        if self._hash_actions is None:
-            self._hash_actions = list(map(self._hashable,self._raw_actions))
 
-        return self._hash_actions
+        if not isinstance(self._actions[0], collections.abc.Hashable):
+            self._actions = list(map(self._make_hashable,self._actions))
+
+        return self._actions
+
+    @property
+    def rewards(self) -> Sequence[float]:
+        """The reward for each action in the interaction."""
+        return self._rewards
+
 
 class SimulatedEnvironment(Environment):
     """An environment made from SimulatedInteractions."""

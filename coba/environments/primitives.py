@@ -20,24 +20,22 @@ class Interaction:
             context: The context in which the interaction occured.
         """
 
-        self._raw_context  = context
-        self._hash_context = None
-        self._kwargs       = kwargs
+        self._context = context
+        self._kwargs  = kwargs
 
     @property
     def context(self) -> Context:
         """The context in which the interaction occured."""
-        if self._hash_context is None:
-            self._hash_context = self._hashable(self._raw_context)
-
-        return self._hash_context
+        if not isinstance(self._context, collections.abc.Hashable):
+            self._context = self._make_hashable(self._context)
+        return self._context
 
     @property
     def kwargs(self) -> Dict[str,Any]:
         """Additional information associatd with the Interaction."""
         return self._kwargs
 
-    def _hashable(self, feats):
+    def _make_hashable(self, feats):
 
         if isinstance(feats, collections.abc.Mapping):
             return HashableDict(feats)

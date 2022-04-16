@@ -1389,9 +1389,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual(["1","2"], interactions[1].actions)
         self.assertEqual(["1","2"], interactions[2].actions)
 
-        self.assertEqual([0,1], interactions[0].kwargs["rewards"])
-        self.assertEqual([0,1], interactions[1].kwargs["rewards"])
-        self.assertEqual([1,0], interactions[2].kwargs["rewards"])
+        self.assertEqual([0,1], interactions[0].rewards)
+        self.assertEqual([0,1], interactions[1].rewards)
+        self.assertEqual([1,0], interactions[2].rewards)
 
     def test_simple_openml_source_regression_offline(self) -> None:
 
@@ -1471,9 +1471,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[1].actions)
         self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[2].actions)
 
-        self.assertEqual([0 ,  1, .5], [ round(r,2) for r in interactions[0].kwargs["rewards"]])
-        self.assertEqual([.5, .5,  1], [ round(r,2) for r in interactions[1].kwargs["rewards"]])
-        self.assertEqual([1 ,  0, .5], [ round(r,2) for r in interactions[2].kwargs["rewards"]])
+        self.assertEqual([0 ,  1, .5], [ round(r,2) for r in interactions[0].rewards])
+        self.assertEqual([.5, .5,  1], [ round(r,2) for r in interactions[1].rewards])
+        self.assertEqual([1 ,  0, .5], [ round(r,2) for r in interactions[2].rewards])
 
     def test_str(self):
         self.assertEqual('Openml(id=150, cat_as_str=False)', str(OpenmlSimulation(150)))
