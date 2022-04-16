@@ -110,6 +110,9 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
                 else:
                     interaction_info[k] = v
 
+            if "rewards" in interaction.kwargs: 
+                interaction_info['max_reward'] = max(interaction.kwargs['rewards'])
+
             time_info = {"predict_time": predict_time, "learn_time": learn_time} if self._time else {}
 
             yield {**interaction_info, **learner_info, **time_info}

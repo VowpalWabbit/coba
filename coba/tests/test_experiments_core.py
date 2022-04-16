@@ -147,7 +147,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         expected_learners     = [(0, "Modulo","Modulo(p=0)",'0')]
         expected_environments = [(0, 'LambdaSimulation')]
-        expected_interactions = [(0,0,1,0), (0,0,2,1)]
+        expected_interactions = [(0,0,1,0,2), (0,0,2,1,2)]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -166,7 +166,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         expected_learners     = [(0,"Modulo","Modulo(p=0)",'0')]
         expected_environments = [(0, 'LambdaSimulation'), (1, 'LambdaSimulation')]
-        expected_interactions = [(0,0,1,0), (0,0,2,1), (1,0,1,3), (1,0,2,4), (1,0,3,5)]
+        expected_interactions = [(0,0,1,0,2), (0,0,2,1,2), (1,0,1,3,5), (1,0,2,4,5), (1,0,3,5,5)]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -185,7 +185,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         expected_learners     = [(0, "Modulo", "Modulo(p=0)", '0'), (1, "Modulo", "Modulo(p=1)", '1')]
         expected_environments = [(0, 'LambdaSimulation')]
-        expected_interactions = [(0,0,1,0),(0,0,2,1),(0,1,1,0),(0,1,2,1)]
+        expected_interactions = [(0,0,1,0,2),(0,0,2,1,2),(0,1,1,0,2),(0,1,2,1,2)]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -203,8 +203,8 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         expected_learners       = [(0, "Modulo", "Modulo(p=0)", '0')]
         expected_environments   = [(0, 'LambdaSimulation')]
-        expected_interactions_1 = [(0,0,1,0,'0'),(0,0,2,1,'0')]
-        expected_interactions_2 = [(0,0,1,'0',0),(0,0,2,'0',1)]
+        expected_interactions_1 = [(0,0,1,0,'0',2),(0,0,2,1,'0',2)]
+        expected_interactions_2 = [(0,0,1,'0',0,2),(0,0,2,'0',1,2)]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -226,8 +226,8 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         expected_learners       = [(0, "Modulo", "Modulo(p=0)", '0')]
         expected_environments   = [(0, 'LambdaSimulation')]
-        expected_interactions_1 = [(0,0,1,0),(0,0,2,1)]
-        expected_interactions_2 = [(0,0,1,0),(0,0,2,1)]
+        expected_interactions_1 = [(0,0,1,0,2),(0,0,2,1,2)]
+        expected_interactions_2 = [(0,0,1,0,2),(0,0,2,1,2)]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -254,7 +254,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             
             expected_learners     = [(0,"Modulo","Modulo(p=0)",'0')]
             expected_environments = [(0,'LambdaSimulation')]
-            expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 1)]
+            expected_interactions = [(0,0,1,0,2),(0,0,2,1,2)]
         except Exception as e:
             raise
         finally:
@@ -276,7 +276,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         expected_learners     = [(0, 'NoParamsLearner', 'NoParamsLearner')]
         expected_environments = [(0, 'NoParamsEnvironment')]
-        expected_interactions = [(0,0,1,0), (0,0,2,1)]
+        expected_interactions = [(0,0,1,0,2),(0,0,2,1,2)]
 
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -297,7 +297,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         expected_learners     = [(0,"Modulo","Modulo(p=0)",'0'),(1,"Broken","Broken",float('nan'))]
         expected_environments = [(0,'LambdaSimulation'), (1,'LambdaSimulation')]
-        expected_interactions = [(0, 0, 1, 0), (0, 0, 2, 1), (1, 0, 1, 3), (1, 0, 2, 4), (1, 0, 3, 5)]
+        expected_interactions = [(0,0,1,0,2),(0,0,2,1,2),(1,0,1,3,5),(1,0,2,4,5),(1,0,3,5,5)]
 
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertEqual(2, sum([int("Unexpected exception:" in item) for item in CobaContext.logger.sink.items]))

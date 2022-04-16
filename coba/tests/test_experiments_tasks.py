@@ -147,7 +147,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
 
         json.dumps(row)
 
-class OnPolicyEvaluationTask_Tests(unittest.TestCase):
+class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_none_rewards_no_info_no_logs_no_kwargs(self):
 
@@ -164,7 +164,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
-        expected_task_results    = [{"rewards":7},{"rewards":5},{"rewards":3}]
+        expected_task_results    = [{"rewards":7,"max_reward":9},{"rewards":5,"max_reward":6},{"rewards":3,"max_reward":3}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
@@ -185,7 +185,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_calls   = [({'c':1},[{'a':1},{'a':2}]),({'c':2},[{'a':4},{'a':5}])]
         expected_predict_returns = [[1,0],[0,1]]
         expected_learn_calls     = [({'c':1},{'a':1},7,1,None),({'c':2},{'a':5},5,1,None)]
-        expected_task_results    = [{"rewards":7},{"rewards":5}]
+        expected_task_results    = [{"rewards":7,'max_reward':8},{"rewards":5,'max_reward':5}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
@@ -207,7 +207,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(1,1,7,1,None),(2,5,5,1,None),(3,9,3,1,None)]
-        expected_task_results    = [{"rewards":7},{"rewards":5},{"rewards":3}]
+        expected_task_results    = [{"rewards":7,'max_reward':9},{"rewards":5,'max_reward':6},{"rewards":3,'max_reward':3}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
@@ -229,7 +229,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(1,1,7,1,None),(2,5,5,1,None),(3,9,3,1,None)]
-        expected_task_results    = [{"reveals":7},{"reveals":5},{"reveals":3}]
+        expected_task_results    = [{"reveals":7,},{"reveals":5},{"reveals":3}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
@@ -251,7 +251,11 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(1,1,7,1,None),(2,5,5,1,None),(3,9,3,1,None)]
-        expected_task_results    = [{"reveals":7,"rewards":1},{"reveals":5,"rewards":4}, {"reveals":3,"rewards":7}]
+        expected_task_results    = [
+            {"reveals":7,"rewards":1,'max_reward':5},
+            {"reveals":5,"rewards":4,'max_reward':6},
+            {"reveals":3,"rewards":7,'max_reward':7}
+        ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
@@ -274,9 +278,9 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
         expected_learn_calls     = [(1,1,7,1,1),(2,5,5,1,2),(3,9,3,1,3)]
         expected_task_results    = [
-            {"rewards":7,"letters":'a','learn':1,'predict':1,'I':1},
-            {"rewards":5,'letters':'e','learn':2,'predict':2,'I':2},
-            {"rewards":3,'letters':'i','learn':3,'predict':3,'I':3}
+            {"rewards":7,"letters":'a','learn':1,'predict':1,'I':1,'max_reward':9},
+            {"rewards":5,'letters':'e','learn':2,'predict':2,'I':2,'max_reward':6},
+            {"rewards":3,'letters':'i','learn':3,'predict':3,'I':3,'max_reward':3}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -300,9 +304,9 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
         expected_learn_calls     = [(1,1,7,1,1),(2,5,5,1,2),(3,9,3,1,3)]
         expected_task_results    = [
-            {"rewards":7,'learn':1,'predict':1},
-            {"rewards":5,'learn':2,'predict':2,'letters':'e'},
-            {"rewards":3,'learn':3,'predict':3,'letters':'i'}
+            {"rewards":7,'learn':1,'predict':1,              'max_reward':9},
+            {"rewards":5,'learn':2,'predict':2,'letters':'e','max_reward':6},
+            {"rewards":3,'learn':3,'predict':3,'letters':'i','max_reward':3}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -321,7 +325,7 @@ class OnPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertAlmostEqual(0, task_results[0]["predict_time"], places=2)
         self.assertAlmostEqual(0, task_results[0]["learn_time"  ], places=2)
 
-class OffPolicyEvaluationTask_Tests(unittest.TestCase):
+class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_reward_no_actions_no_probability_no_info_no_logs(self):
         task    = OnlineOffPolicyEvalTask(time=False)
@@ -422,7 +426,7 @@ class OffPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertAlmostEqual(0, task_results[0]["predict_time"], places=2)
         self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=2)
 
-class WarmStartEvaluationTask_Tests(unittest.TestCase):
+class OnlineWarmStartEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_reward_no_actions_no_probability_no_info_no_logs(self):
         task         = OnlineWarmStartEvalTask(time=False)
@@ -441,7 +445,7 @@ class WarmStartEvaluationTask_Tests(unittest.TestCase):
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(1,2,3,None,None),(2,3,4,None,None),(3,4,5,None,None),(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
-        expected_task_results    = [{},{},{},{"rewards":7},{"rewards":5},{"rewards":3}]
+        expected_task_results    = [{},{},{},{"rewards":7,'max_reward':9},{"rewards":5,'max_reward':6},{"rewards":3,'max_reward':3}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
