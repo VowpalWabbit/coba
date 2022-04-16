@@ -666,7 +666,7 @@ class Result:
         err  : Optional[Literal['se','sd']] = None,
         each : bool = False,
         filename: str = None,
-        sort : Literal['name',"id","reward"] = "name",
+        sort : Literal["name","id","y"] = "y",
         ax = None) -> None:
         """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected 
             performance for different learners across independent environments. This plot is valuable in gaining 
@@ -683,6 +683,7 @@ class Result:
                 then no bars are plotted, if 'se' the standard error is shown, and if 'sd' the standard deviation is shown.
             each: This determines whether each evaluated environment used to estimate mean performance is also plotted.
             filename: Provide a filename to write plot image to disk.
+            sort: Indicate how learner names should be sorted in the legend.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
@@ -719,8 +720,10 @@ class Result:
                 y_pad = padding*(ylim[1]-ylim[0])
                 ax.set_ylim(ylim[0]-y_pad, ylim[1]+y_pad)
 
-            ax.set_title(("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + " Reward", loc='left',pad=15)
-            ax.set_ylabel(y.capitalize().replace("_pct"," Percent"))
+            y_label = y.capitalize().replace("_pct"," Percent")
+
+            ax.set_title(("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + f" {y_label}", loc='left',pad=15)
+            ax.set_ylabel(y_label)
             ax.set_xlabel("Interactions")
 
             if ax.get_legend() is None:
@@ -745,7 +748,7 @@ class Result:
         xlim: Tuple[Number,Number] = None, 
         span: int = None, 
         err : Literal['se','sd'] = None,
-        sort: Literal['name',"id","reward"] = "name"):
+        sort: Literal['name',"id","y"] = "y"):
 
         if xlim and xlim[0] >= xlim[1]:
             CobaContext.logger.log("The given x-limit end is less than the x-limit start. Plotting is impossible.")
@@ -760,7 +763,7 @@ class Result:
             if sort == "name":
                 sort_func = lambda id: self.learners[id]["full_name"]
             
-            if sort == "reward":
+            if sort == "y":
                 sort_func = lambda id: -sum(list(zip(*progressives[id]))[-1])
             
             if sort == "id":

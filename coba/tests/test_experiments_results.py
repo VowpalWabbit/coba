@@ -891,7 +891,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual( ('learner_2', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[0])
         self.assertEqual( ('learner_1', [1,2], [3/2,5/2], 0, [(1.,2.),(4/2,6/2)]), plot_learners_data[1])
 
-        plot_learners_data = list(result._plot_learners_data(xlim=(0,2),sort="reward"))
+        plot_learners_data = list(result._plot_learners_data(xlim=(0,2),sort="y"))
         self.assertEqual(2, len(plot_learners_data))
         self.assertEqual( ('learner_1', [1,2], [3/2,5/2], 0, [(1.,2.),(4/2,6/2)]), plot_learners_data[0])
         self.assertEqual( ('learner_2', [1,2], [3/2,4/2], 0, [(1.,2.),(3/2,5/2)]), plot_learners_data[1])

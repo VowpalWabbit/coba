@@ -26,14 +26,13 @@ if __name__ == '__main__':
     ]
 
     #Next we create the environments we'd like evaluate against
-    environments = Environments.from_linear_synthetic(1000, n_action_features=0).shuffle([0,1,2])
+    environments = Environments.from_linear_synthetic(1000, n_action_features=0).shuffle([1,2,3])
 
     #We then create and evaluate our experiment from our environments and learners 
     result = Experiment(environments,learners).evaluate()
 
     #After evaluating can create a quick summary plot to get a sense of how the learners performed
-    result.plot_learners(err='se',sort='id')
+    result.plot_learners(y='regret_pct',err='se')
 
     #We can also create a plot examining how specific learners did across each shuffle of our environments
-    result.filter_lrn(full_name="vw").plot_learners(each=True,err='se',sort='id')
-    
+    result.filter_lrn(full_name="vw").plot_learners(y='regret_pct',err='se',each=True)
