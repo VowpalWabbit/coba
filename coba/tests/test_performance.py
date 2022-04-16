@@ -111,8 +111,8 @@ class Performance_Tests(unittest.TestCase):
 
         time = timeit.timeit(lambda: interaction.context, number=10000)
 
-        #best observed was 0.0015
-        self.assertLess(time, .015)
+        #best observed was 0.0075
+        self.assertLess(time, .075)
 
     def test_hashable_dict_performance(self):
 
