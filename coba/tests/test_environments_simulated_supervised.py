@@ -11,7 +11,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_params(self):
         expected_params = {'source': "[X,Y]", 'label_type':'C', "type": "SupervisedSimulation"}
-        self.assertEqual(expected_params, SupervisedSimulation([1,2],[1,2]).params)
+        self.assertEqual(expected_params, SupervisedSimulation([1,2],[1,2],label_type="C").params)
 
     def test_source_reader_classification(self):
 
@@ -137,7 +137,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]
         labels   = [2,2,1]
 
-        interactions = list(SupervisedSimulation(features, labels).read())
+        interactions = list(SupervisedSimulation(features, labels, label_type='C').read())
 
         self.assertEqual(len(interactions), 3)
 
@@ -163,7 +163,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]
         labels   = [2,2,1]
 
-        interactions = list(SupervisedSimulation(features, labels).read())
+        interactions = list(SupervisedSimulation(features, labels, label_type="C").read())
 
         self.assertEqual(len(interactions), 3)
 

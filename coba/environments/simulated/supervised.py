@@ -141,7 +141,7 @@ class SupervisedSimulation(SimulatedEnvironment):
     def __init__(self,
         source: Source = None,
         label_col: Union[int,str] = None,
-        label_type: Literal["C","R"] = "C",
+        label_type: Literal["C","R"] = None,
         take: Union[int, Tuple[Optional[int], Optional[int]]] = None) -> None:
         """Instantiate a SupervisedSimulation.
 
@@ -150,7 +150,8 @@ class SupervisedSimulation(SimulatedEnvironment):
             label_col: The header name or index which identifies the label feature in each example. If
                 label_col is None the source must return an iterable of tuple pairs where the first item
                 are the features and the second item is the label.
-            label_type: Indicates whether the label column is a classification or regression value.
+            label_type: Indicates whether the label column is a classification or regression value. If an explicit
+                label_type is not provided then the label_type will be inferred based on the data source.
             take: The number of random examples you'd like to draw from the given data set for the environment.
         """
         ...
@@ -159,7 +160,7 @@ class SupervisedSimulation(SimulatedEnvironment):
     def __init__(self,
         X: Sequence[Any],
         Y: Sequence[Any],
-        label_type: Literal["C","R"] = "C") -> None:
+        label_type: Literal["C","R"] = None) -> None:
         """Instantiate a SupervisedSimulation.
 
         Args:
@@ -175,7 +176,7 @@ class SupervisedSimulation(SimulatedEnvironment):
         if 'source' in kwargs or (args and hasattr(args[0], 'read')):
             source     = args[0] if len(args) > 0 else kwargs['source']
             label_col  = args[1] if len(args) > 1 else kwargs.get("label_col", None)
-            label_type = args[2] if len(args) > 2 else kwargs.get("label_type", "C")
+            label_type = args[2] if len(args) > 2 else kwargs.get("label_type", None)
             take       = args[3] if len(args) > 3 else kwargs.get("take", None)
             if take      is not None: source = Pipes.join(source, Reservoir(take))
             if label_col is not None: source = Pipes.join(source, Structure((None,label_col)))
@@ -184,7 +185,7 @@ class SupervisedSimulation(SimulatedEnvironment):
         else:
             X          = args[0]
             Y          = args[1]
-            label_type = args[2] if len(args) > 2 else kwargs.get("label_type", "C")
+            label_type = args[2] if len(args) > 2 else kwargs.get("label_type", None)
             source     = ListSource(list(zip(X,Y)))
             params     = {"source": "[X,Y]"}
 
@@ -203,6 +204,9 @@ class SupervisedSimulation(SimulatedEnvironment):
         if not items: return []
 
         features,labels = zip(*items)
+
+        self._label_type = self._label_type or ("R" if isinstance(labels[0], (int,float)) else "C")
+        self._params['label_type'] = self._label_type
 
         if self._label_type == "R":
             max_n_actions = 10

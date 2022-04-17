@@ -55,15 +55,17 @@ class SimpleEnvironmentTask_Tests(unittest.TestCase):
 
         env  = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
         task = SimpleEnvironmentTask()
+        ints = list(env.read())
 
-        self.assertEqual({**env.params}, task.process(env,env.read()))
+        self.assertEqual({**env.params}, task.process(env,ints))
 
     def test_environment_pipe_statistics_dense(self):
 
         env  = Pipes.join(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10), Shuffle(1))
         task = SimpleEnvironmentTask()
+        ints = list(env.read())
 
-        self.assertEqual({**env.params}, task.process(env,env.read()))
+        self.assertEqual({**env.params}, task.process(env,ints))
 
 class ClassEnvironmentTask_Tests(unittest.TestCase):
 
