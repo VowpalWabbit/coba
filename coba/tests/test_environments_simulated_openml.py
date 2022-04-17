@@ -117,7 +117,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        features,labels = list(zip(*OpenmlSource(42693).read()))
+        features,labels = list(zip(*OpenmlSource(42693,label_type="C").read()))
 
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels), 5)
@@ -215,7 +215,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693,label_type="C").read()))
 
         self.assertEqual(len(feature_rows), 3)
         self.assertEqual(len(label_col), 3)
@@ -286,7 +286,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, cat_as_str=True).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, label_type="C", cat_as_str=True).read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -421,7 +421,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         with self.assertRaises(Exception) as e:
-            feature_rows, label_col = OpenmlSource(42693).read()
+            feature_rows, label_col = OpenmlSource(42693, label_type="C").read()
 
         self.assertTrue("does not appear" in str(e.exception))
 
@@ -466,7 +466,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         with self.assertRaises(Exception) as e:
-            feature_rows, label_col = OpenmlSource(42693).read()
+            feature_rows, label_col = OpenmlSource(42693, label_type="C").read()
 
         self.assertTrue("does not appear" in str(e.exception))
 
@@ -504,7 +504,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         with self.assertRaises(CobaException) as e:
-            feature_rows, label_col = OpenmlSource(42693).read()
+            feature_rows, label_col = OpenmlSource(42693, label_type="C").read()
 
         self.assertTrue("does not appear" in str(e.exception))
 
@@ -566,7 +566,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, label_type="C").read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -641,7 +641,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, label_type="C").read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -716,7 +716,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, label_type="C").read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -791,7 +791,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, label_type="C").read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -875,7 +875,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_001594_arff', data_set_arff.encode().splitlines())
         CobaContext.cacher.put('openml_001594_tasks', json.dumps(data_set_tasks).encode().splitlines())
 
-        feature_rows, label_col = list(zip(*OpenmlSource(1594).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(1594, label_type="C").read()))
 
         self.assertEqual(len(feature_rows), 4)
         self.assertEqual(len(label_col   ), 4)
@@ -1001,7 +1001,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
         with self.assertRaises(KeyboardInterrupt) as e:
-            feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+            feature_rows, label_col = list(zip(*OpenmlSource(42693, label_type="C").read()))
 
         self.assertIn('openml_042693_descr', CobaContext.cacher)
         self.assertIn('openml_042693_feats', CobaContext.cacher)
@@ -1154,7 +1154,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             return MockResponse(None, 404, [])
 
         with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
-            feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+            feature_rows, label_col = list(zip(*OpenmlSource(42693, label_type="C").read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -1243,7 +1243,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
             for _ in range(2):
-                feature_rows, label_col = list(zip(*OpenmlSource(42693).read()))
+                feature_rows, label_col = list(zip(*OpenmlSource(42693, label_type="C").read()))
 
                 self.assertEqual(len(feature_rows), 5)
                 self.assertEqual(len(label_col), 5)

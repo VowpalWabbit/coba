@@ -18,7 +18,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     This is primarily used by OpenmlSimulation to create Environments for Experiments.
     """
 
-    def __init__(self, data_id:int, label_type:Literal["C","R"] = "C", cat_as_str:bool=False):
+    def __init__(self, data_id:int, label_type:Literal["C","R"] = None, cat_as_str:bool=False):
         """Instantiate an OpenmlSource.
         
         Args:
@@ -45,13 +45,11 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     def read(self) -> Iterable[Tuple[Any, Any]]:
         """Read and parse the openml source."""
         try:
+            
             dataset_description  = self._get_dataset_description(self._data_id)
 
             if dataset_description['status'] == 'deactivated':
                 raise CobaException(f"Openml {self._data_id} has been deactivated. This is often due to flags on the data.")
-
-            feature_descriptions = self._get_feature_descriptions(self._data_id)
-            task_descriptions    = self._get_task_descriptions(self._data_id)
 
             is_ignore = lambda r: (
                 r['is_ignore'        ] == 'true' or
@@ -59,8 +57,12 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
                 r['data_type'        ] not in ['numeric', 'nominal']
             )
 
-            ignore = [ self._name_cleaning(f['name']) for f in feature_descriptions if is_ignore(f)]
-            target = self._name_cleaning(self._get_target_for_problem_type(task_descriptions))
+            ignore = [ self._clean_name(f['name']) for f in self._get_feature_descriptions(self._data_id) if is_ignore(f)]
+            
+            if self._label_type is not None:
+                target = self._clean_name(self._get_target_for_problem_type(self._get_task_descriptions(self._data_id)))
+            else:
+                target = dataset_description["default_target_attribute"]
 
             if target in ignore: ignore.pop(ignore.index(target))
 
@@ -88,7 +90,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             self._clear_cache()
             raise
 
-    def _name_cleaning(self, name: str) -> str:
+    def _clean_name(self, name: str) -> str:
         return name.strip().strip('\'"').replace('\\','')
 
     def _get_data(self, url:str, key:str, checksum:str=None) -> Iterable[str]:
@@ -228,7 +230,7 @@ class OpenmlSimulation(SupervisedSimulation):
     def __init__(self, 
         data_id: int, 
         take: Union[int, Tuple[Optional[int], Optional[int]]] = None, 
-        label_type: Literal["C","R"] = "C", 
+        label_type: Literal["C","R"] = None, 
         cat_as_str: bool = False) -> None:
         """Instantiate an OpenmlSimulation.
 
