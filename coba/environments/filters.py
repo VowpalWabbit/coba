@@ -443,7 +443,7 @@ class Sort(EnvironmentFilter):
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { "sort": self._keys }
+        return { "sort": self._keys or '*' }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 

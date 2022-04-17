@@ -8,7 +8,8 @@ from coba.pipes      import Pipes, Source, HttpSource, ListSource, JsonDecode
 from coba.exceptions import CobaException
 
 from coba.environments.filters     import EnvironmentFilter
-from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Impute, Where, Noise, Riffle
+from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
+from coba.environments.filters     import Impute, Where, Noise, Riffle, Sort
 from coba.environments.definitions import EnvironmentDefinitionFileV1
 
 from coba.environments          .primitives import Environment
@@ -112,7 +113,7 @@ class Environments:
 
         seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
         args = (n_interactions, n_actions, n_context_features, n_action_features, n_exemplars, kernel, degree, gamma)
-        
+
         return Environments([KernelSyntheticSimulation(*args, s) for s in seed])
 
     @staticmethod
@@ -194,6 +195,10 @@ class Environments:
         """Shuffle the order of the interactions in the Environments."""
         if isinstance(seeds,int): seeds = [seeds]
         return self.filter([Shuffle(seed) for seed in seeds])
+
+    def sort(self, *keys: Union[str,int,Sequence[Union[str,int]]]) -> 'Environments':
+        """Sort Environment interactions according to the context values indicated by keys."""
+        return self.filter(Sort(*keys))
 
     def riffle(self, spacing: int, seed: int = 1) -> 'Environments':
         """Riffle shuffle by evenly spacing interactions at the end of an environment into the beginning."""

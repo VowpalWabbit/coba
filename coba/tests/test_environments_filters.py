@@ -121,7 +121,7 @@ class Sort_Tests(unittest.TestCase):
         self.assertEqual((1,9), srt_interactions[2].context)
 
     def test_params(self):
-        self.assertEqual({'sort':[]}, Sort().params)
+        self.assertEqual({'sort':'*'}, Sort().params)
         self.assertEqual({'sort':[0]}, Sort(0).params)
         self.assertEqual({'sort':[0]}, Sort([0]).params)
         self.assertEqual({'sort':[1,2]}, Sort([1,2]).params)
