@@ -22,7 +22,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         """Instantiate an OpenmlSource.
         
         Args:
-            id: The data id uniquely identifying the data source on openml (i.e., openml.org/d/{id})
+            data_id: The data id uniquely identifying the data source on openml (i.e., openml.org/d/{id})
             label_type: Indicates if a regression or classification label should be used on the dataset.
             cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded. 
         """
@@ -45,7 +45,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     def read(self) -> Iterable[Tuple[Any, Any]]:
         """Read and parse the openml source."""
         try:
-            
+
             dataset_description  = self._get_dataset_description(self._data_id)
 
             if dataset_description['status'] == 'deactivated':
@@ -217,14 +217,9 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             CobaContext.cacher.rmv(key)
 
 class OpenmlSimulation(SupervisedSimulation):
-    """A simulation created from openml data with features and labels.
+    """A supervised simulation created from an openml dataset.
 
-    OpenmlSimulation turns labeled observations from a classification data set,
-    into interactions. For each interaction the feature set becomes the context and 
-    all possible labels become the actions. Rewards for each interaction are created by 
-    assigning a reward of 1 for taking the correct action (i.e., choosing the correct
-    label) and a reward of 0 for taking any other action (i.e., choosing any of the
-    incorrect lables).
+    Download a dataset from openml.org and create a SupervisedSimulation.
     """
 
     def __init__(self, 
