@@ -142,7 +142,7 @@ class SupervisedSimulation(SimulatedEnvironment):
         source: Source = None,
         label_col: Union[int,str] = None,
         label_type: Literal["C","R"] = None,
-        take: Union[int, Tuple[Optional[int], Optional[int]]] = None) -> None:
+        take: int = None) -> None:
         """Instantiate a SupervisedSimulation.
 
         Args:

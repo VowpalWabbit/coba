@@ -224,7 +224,7 @@ class OpenmlSimulation(SupervisedSimulation):
 
     def __init__(self, 
         data_id: int, 
-        take: Union[int, Tuple[Optional[int], Optional[int]]] = None, 
+        take: int = None, 
         label_type: Literal["C","R"] = None, 
         cat_as_str: bool = False) -> None:
         """Instantiate an OpenmlSimulation.

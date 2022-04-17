@@ -1,14 +1,12 @@
 import json
 import math
 import copy
-import collections.abc
 
 from collections import defaultdict
 from itertools import islice, chain
-from typing import Iterable, Any, Sequence, Dict, Callable, Optional, Union, MutableSequence, MutableMapping, Tuple
+from typing import Iterable, Any, Sequence, Dict, Callable, Optional, Union, MutableSequence, MutableMapping
 
 from coba.random import CobaRandom
-from coba.exceptions import CobaException
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
 
 from coba.pipes.primitives import Filter
@@ -47,30 +45,22 @@ class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
 class Take(Filter[Iterable[Any], Sequence[Any]]):
     """Take a fixed number of items from an iterable."""
 
-    def __init__(self, count:Union[Optional[int], Tuple[Optional[int],Optional[int]]] ) -> None:
+    def __init__(self, count: Optional[int] ) -> None:
         """Instantiate a Take filter.
 
         Args:
-            count: The number of items we wish to take from an iterable (expressed as either an exact value or range).
+            count: The number of items we wish to take from an iterable.
         """
 
-        is_valid = lambda x: x is None or (isinstance(x,int) and x >= 0)
+        is_valid_count = (count is None) or (isinstance(count,int) and count >= 0)
 
-        is_valid_exact_count = not isinstance(count,collections.abc.Sequence) and is_valid(count)
-        is_valid_range_count =     isinstance(count,collections.abc.Sequence) and all(map(is_valid,count)) and len(count)==2
+        if not is_valid_count:
+            raise ValueError(f"Invalid value for Take: {count}. A positive integer or None was expected.")
 
-        if not is_valid_exact_count and not is_valid_range_count:
-            raise ValueError(f"Invalid value for Take: {count}. An optional positive integer or range was expected.")
-
-        self._count     = count
-        self._min_count = (count if not isinstance(count, collections.abc.Sequence) else count[0]) or 0
-        self._max_count =  count if not isinstance(count, collections.abc.Sequence) else count[1]
+        self._count = count
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        items       = iter(items)
-        check_items = list(islice(items, self._min_count))
-
-        return [] if len(check_items) < self._min_count else islice(chain(check_items, items), self._max_count)
+        return islice(items, self._count)
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -87,25 +77,21 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
     """
 
-    def __init__(self, count: Union[Optional[int],Tuple[int,Optional[int]]], seed: float = 1) -> None:
-        """Instantiate a Resevoir filter.
+    def __init__(self, count: Optional[int], seed: float = 1) -> None:
+        """Instantiate a Reservoir filter.
 
         Args:
             count: The number of items we wish to sample from an iterable (expressed as either an exact value or range).
             seed : The seed which determines which random items to take.
         """
 
-        is_valid = lambda x: x is None or (isinstance(x,int) and x >= 0)
+        is_valid_count = (count is None) or (isinstance(count,int) and count >= 0)
 
-        is_valid_exact_count = not isinstance(count,collections.abc.Sequence) and is_valid(count)
-        is_valid_range_count =     isinstance(count,collections.abc.Sequence) and all(map(is_valid,count)) and len(count)==2
+        if not is_valid_count:
+            raise ValueError(f"Invalid value for Reservoir: {count}. A positive integer or None was expected.")
 
-        if not is_valid_exact_count and not is_valid_range_count:
-            raise ValueError(f"Invalid value for Reservoir: {count}. An optional positive integer or range was expected.")
-
-        self._count     = count
-        self._seed      = seed
-        self._max_count = count if not isinstance(count,collections.abc.Sequence) else count[1]
+        self._count = count
+        self._seed  = seed
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -115,22 +101,22 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
 
         rng = CobaRandom(self._seed)
 
-        if self._max_count == 0:
+        if self._count == 0:
             return []
 
-        if self._max_count == None:
-            return Take(self._count).filter(rng.shuffle(list(items)))
+        if self._count is None:
+            return rng.shuffle(items)
 
         W         = 1
         items     = iter(items)
-        reservoir = rng.shuffle(list(islice(items,self._max_count)))
+        reservoir = rng.shuffle(list(islice(items,self._count)))
 
         try:
             while True:
                 [r1,r2,r3] = rng.randoms(3)
-                W = W * math.exp(math.log(r1)/ (self._max_count or 1) )
+                W = W * math.exp(math.log(r1)/ (self._count or 1) )
                 S = math.floor(math.log(r2)/math.log(1-W))
-                reservoir[int(r3*self._max_count-.001)] = next(islice(items,S,S+1))
+                reservoir[int(r3*self._count-.001)] = next(islice(items,S,S+1))
         except StopIteration:
             pass
 

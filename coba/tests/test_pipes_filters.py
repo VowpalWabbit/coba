@@ -78,25 +78,6 @@ class Take_Tests(unittest.TestCase):
         items = [ 1,2,3 ]
         take_items = list(Take(4).filter(items))
 
-        self.assertEqual([]     , take_items)
-        self.assertEqual([1,2,3], items     )
-
-    def test_take_ranges(self):
-        items = [ 1,2,3 ]
-
-        take_items = list(Take((2,5)).filter(items))
-        self.assertEqual([1,2,3], take_items)
-        self.assertEqual([1,2,3], items     )
-
-        take_items = list(Take((2,None)).filter(items))
-        self.assertEqual([1,2,3], take_items)
-        self.assertEqual([1,2,3], items     )
-
-        take_items = list(Take((None,5)).filter(items))
-        self.assertEqual([1,2,3], take_items)
-        self.assertEqual([1,2,3], items     )
-
-        take_items = list(Take((None,None)).filter(items))
         self.assertEqual([1,2,3], take_items)
         self.assertEqual([1,2,3], items     )
 
@@ -129,28 +110,9 @@ class Resevoir_Tests(unittest.TestCase):
 
         take_items = list(Reservoir(6,seed=1).filter(items))
         self.assertEqual([1,2,3,4,5], items)
-        self.assertEqual([]         , take_items)
+        self.assertEqual([1,5,4,3,2], take_items)
 
         take_items = list(Reservoir(0,seed=1).filter(items))
-        self.assertEqual([1,2,3,4,5], items)
-        self.assertEqual([]         , take_items)
-
-    def test_take_ranges(self):
-        items = [1,2,3,4,5]
-
-        take_items = list(Reservoir((1,2),seed=1).filter(items))
-        self.assertEqual([1,2,3,4,5], items)
-        self.assertEqual([4, 2], take_items)
-
-        take_items = list(Reservoir((None,None),seed=1).filter(items))
-        self.assertEqual([1,2,3,4,5], items)
-        self.assertEqual([1,5,4,3,2], take_items)
-
-        take_items = list(Reservoir((None,5),seed=1).filter(items))
-        self.assertEqual([1,2,3,4,5], items)
-        self.assertEqual([1,5,4,3,2], take_items)
-
-        take_items = list(Reservoir((6,None),seed=1).filter(items))
         self.assertEqual([1,2,3,4,5], items)
         self.assertEqual([]         , take_items)
 
