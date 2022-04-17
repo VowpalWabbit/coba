@@ -1,7 +1,7 @@
 import time
 import json
 
-from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, Optional
+from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union
 from coba.backports import Literal
 
 from coba.random import random
