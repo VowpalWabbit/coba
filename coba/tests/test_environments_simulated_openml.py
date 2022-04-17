@@ -361,7 +361,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
         CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(42693, problem_type="regression").read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(42693, label_type="regression").read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)

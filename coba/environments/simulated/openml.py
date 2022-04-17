@@ -18,23 +18,23 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     This is primarily used by OpenmlSimulation to create Environments for Experiments.
     """
 
-    def __init__(self, id:int, problem_type:Literal["C","R"] = "C", cat_as_str:bool=False):
+    def __init__(self, data_id:int, label_type:Literal["C","R"] = "C", cat_as_str:bool=False):
         """Instantiate an OpenmlSource.
         
         Args:
             id: The data id uniquely identifying the data source on openml (i.e., openml.org/d/{id})
-            problem_type: Indicates if a regression or classification label should be used on the dataset.
+            label_type: Indicates if a regression or classification label should be used on the dataset.
             cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded. 
         """
-        self._data_id      = id
-        self._problem_type = problem_type
-        self._cat_as_str   = cat_as_str
-        self._cache_keys   = {
-            'descr': f"openml_{id:0>6}_descr",
-            'feats': f"openml_{id:0>6}_feats",
-            'csv'  : f"openml_{id:0>6}_csv",
-            'arff' : f"openml_{id:0>6}_arff",
-            'tasks': f"openml_{id:0>6}_tasks",
+        self._data_id    = data_id
+        self._label_type = label_type
+        self._cat_as_str = cat_as_str
+        self._cache_keys = {
+            'descr': f"openml_{data_id:0>6}_descr",
+            'feats': f"openml_{data_id:0>6}_feats",
+            'csv'  : f"openml_{data_id:0>6}_csv",
+            'arff' : f"openml_{data_id:0>6}_arff",
+            'tasks': f"openml_{data_id:0>6}_tasks",
         }
 
     @property
@@ -93,8 +93,8 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
     def _get_data(self, url:str, key:str, checksum:str=None) -> Iterable[str]:
 
-        # This can't reasonably be done in a streaming manner unless cacher is persistent.
-        # For now we don't require cacher to be consistent so I'm commenting out for now. 
+        # This can't be done in a streaming manner unless there is a persistent cacher.
+        # Because we don't require cacher this means this may not be possible with streaming. 
         # if checksum is not None and md5(bites).hexdigest() != checksum:
         #     #if the cache has become corrupted we need to clear it
         #     CobaContext.cacher.rmv(key)
@@ -199,7 +199,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
     def _get_target_for_problem_type(self, tasks: Sequence[Dict[str,Any]]):
 
-        task_type_id = 1 if self._problem_type == "C" else 2
+        task_type_id = 1 if self._label_type == "C" else 2
 
         for task in tasks:
             if task["task_type_id"] == task_type_id:
@@ -207,7 +207,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
                     if input['name'] == 'target_feature':
                         return input['value'] # just take the first one
 
-        raise CobaException(f"Openml {self._data_id} does not appear to be a {self._problem_type} dataset")
+        raise CobaException(f"Openml {self._data_id} does not appear to be a {self._label_type} dataset")
 
     def _clear_cache(self) -> None:
         for key in self._cache_keys.values():
@@ -226,19 +226,19 @@ class OpenmlSimulation(SupervisedSimulation):
     """
 
     def __init__(self, 
-        id: int, 
+        data_id: int, 
         take: Union[int, Tuple[Optional[int], Optional[int]]] = None, 
         label_type: Literal["C","R"] = "C", 
         cat_as_str: bool = False) -> None:
         """Instantiate an OpenmlSimulation.
 
         Args:
-            id: The id given to the openml dataset. This can be found in the url openml.org/d/<id>.
+            data_id: The id for an openml dataset. This can be found, for example, in the url https://openml.org/d/<id>.
             take: The number of interactions we'd like the simulation to have (these will be selected at random).
             label_type: Whether classification or regression openml tasks should be used to create the simulation.
             cat_as_str: True if categorical features should be left as strings, false if they should be one hot encoded.
         """
-        super().__init__(OpenmlSource(id, label_type, cat_as_str), None, label_type, take)
+        super().__init__(OpenmlSource(data_id, label_type, cat_as_str), None, label_type, take)
 
     @property
     def params(self) -> Dict[str, Any]:
