@@ -1,4 +1,0 @@
-vowpalwabbit # optional
-sklearn # optional
-pandas # optional
-matplotlib # optional

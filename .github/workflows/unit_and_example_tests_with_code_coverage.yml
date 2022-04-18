@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         # macos-latest took at least 20 minutes to complete so I've removed it for now
-        # windows-latest takes about 1:30 minutes longer than ubuntu to complete so I've removed it for now
+        # windows-latest took about 1:30 minutes longer than ubuntu so I've removed it for now
         os: [ubuntu-latest]
         python: ['3.6.x', '3.7.x', '3.8.x', '3.9.x']
     steps:
@@ -28,6 +28,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: 'pip'
+          cache-dependency-path: |
+            coba/tests/requirements-soft.txt
+            coba/tests/requirements-test.txt
       - run: python --version
       - name: Min Dependency Installs
         run: | 
@@ -37,9 +40,8 @@ jobs:
         run: python -m unittest
       - name: Max Dependency Installs 
         run: | 
-          pip install coverage
-          pip install wheel
-          pip install -r coba/tests/soft_dependencies.txt
+          pip install -r coba/tests/requirements-soft.txt
+          pip install -r coba/tests/requirements-test.txt
           pip list
       - name: Max Dependency Unit Tests with Coverage
         run: |
@@ -52,8 +54,6 @@ jobs:
       - name: Example Tests
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
-          pip install jupyterlab
-          pip list
           python "examples/scripts/First Script.py"
           jupyter nbconvert --execute "examples/notebooks/First Experiment.ipynb" --inplace
           jupyter nbconvert --execute "examples/notebooks/Results.ipynb" --inplace
