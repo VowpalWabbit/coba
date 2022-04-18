@@ -47,7 +47,6 @@ jobs:
         run: |
           pip install jupyterlab
           pip list
-        run: |
           python "examples/scripts/First Script.py"
           jupyter nbconvert --execute "examples/notebooks/First Experiment.ipynb" --inplace
           jupyter nbconvert --execute "examples/notebooks/Results.ipynb" --inplace
