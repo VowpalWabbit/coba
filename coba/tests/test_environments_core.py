@@ -173,16 +173,16 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual("[X,Y]", env[0].params['source'])
         self.assertEqual("R" , env[0].params['label_type'])
 
-    def test_from_openml_single(self):
-        env = Environments.from_openml(100,100,'R',True)
+    def test_from_openml_data_id(self):
+        env = Environments.from_openml(100,'R',True,100)
         self.assertEqual(1   , len(env))
         self.assertEqual(100 , env[0].params['openml'])
         self.assertEqual(True, env[0].params['cat_as_str'])
         self.assertEqual('R' , env[0].params['label_type'])
         self.assertEqual(100 , env[0].params['reservoir_count'])
 
-    def test_from_openml_multi(self):
-        env = Environments.from_openml([100,200],100,'R',True)
+    def test_from_openml_data_ids(self):
+        env = Environments.from_openml([100,200],'R',True,100)
 
         self.assertEqual(2   , len(env))
         self.assertEqual(100 , env[0].params['openml'])
@@ -193,6 +193,25 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(True, env[1].params['cat_as_str'])
         self.assertEqual('R' , env[1].params['label_type'])
         self.assertEqual(100 , env[1].params['reservoir_count'])
+
+    def test_from_openml_task_id(self):
+        env = Environments.from_openml(task_id=100,cat_as_str=True,take=100)
+        self.assertEqual(1     , len(env))
+        self.assertEqual('T100', env[0].params['openml'])
+        self.assertEqual(True  , env[0].params['cat_as_str'])
+        self.assertEqual(None  , env[0].params['label_type'])
+        self.assertEqual(100   , env[0].params['reservoir_count'])
+
+    def test_from_openml_task_ids(self):
+        env = Environments.from_openml(task_id=[100,200],cat_as_str=True,take=100)
+
+        self.assertEqual(2     , len(env))
+        self.assertEqual("T100", env[0].params['openml'])
+        self.assertEqual(True  , env[0].params['cat_as_str'])
+        self.assertEqual(100   , env[0].params['reservoir_count'])
+        self.assertEqual("T200", env[1].params['openml'])
+        self.assertEqual(True  , env[1].params['cat_as_str'])
+        self.assertEqual(100   , env[1].params['reservoir_count'])
 
     def test_init_args(self):
         env = Environments(TestEnvironment('A'), TestEnvironment('B'))

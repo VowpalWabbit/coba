@@ -1,7 +1,7 @@
 import time
 import json
 
-from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload, Optional
+from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
 from coba.backports import Literal
 
 from coba.random import random
@@ -51,7 +51,10 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     @property
     def params(self) -> Dict[str,Any]:
         """Parameters describing the openml source."""
-        return  { "openml": self._data_id, "cat_as_str": self._cat_as_str }
+        if not self._task_id:
+            return  { "openml": self._data_id, "cat_as_str": self._cat_as_str }
+        else:
+            return  { "openml": f"T{self._task_id}", "cat_as_str": self._cat_as_str }
 
     def read(self) -> Iterable[Tuple[Any, Any]]:
         """Read and parse the openml source."""
@@ -264,21 +267,33 @@ class OpenmlSimulation(SupervisedSimulation):
     Download a dataset from openml.org and create a SupervisedSimulation.
     """
 
-    def __init__(self, 
-        data_id: int, 
-        label_type: Literal["C","R"] = None, 
-        cat_as_str: bool = False,
-        take: int = None) -> None:
+    @overload
+    def __init__(self, data_id: int, label_type: Literal["C","R"] = None, cat_as_str: bool = False, take: int = None):
+        """Instantiate an OpenmlSimulation.
+        
+        Args:
+            data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
+            label_type: Indicates if a regression or classification label should be used on the dataset.
+            cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded.
+            take: The number of interactions we'd like the simulation to have (these will be selected at random).
+        """
+        ...
+
+    @overload
+    def __init__(self, *, task_id: int, cat_as_str: bool = False, take: int=None):
         """Instantiate an OpenmlSimulation.
 
         Args:
-            data_id: The id for an openml dataset. This can be found, for example, in the url https://openml.org/d/<id>.
-            label_type: Whether classification or regression openml tasks should be used to create the simulation.
-            cat_as_str: True if categorical features should be left as strings, false if they should be one hot encoded.
+            task_id: The openml task id which identifies the dataset to use from openml along with its label
+            cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded.
             take: The number of interactions we'd like the simulation to have (these will be selected at random).
         """
-        source = OpenmlSource(data_id=data_id, label_type=label_type, cat_as_str=cat_as_str)
-        super().__init__(source, None, label_type, take)
+        ...
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Instantiate an OpenmlSimulation."""
+        kwargs.update(zip(['data_id','label_type','cat_as_str','take'], args))
+        super().__init__(OpenmlSource(**kwargs), None, kwargs.get('label_type',None), kwargs.get('take',None))
 
     @property
     def params(self) -> Dict[str, Any]:

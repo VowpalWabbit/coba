@@ -134,16 +134,37 @@ class Environments:
 
         return Environments([MLPSyntheticSimulation(*args, s) for s in seed])
 
+    @overload
     @staticmethod
-    def from_openml(
-        openml_ids: Union[int, Sequence[int]], 
-        take: int = None,
-        type: Literal["C", "R"] = "C",
-        cat_as_str:bool = False) -> 'Environments':
+    def from_openml(data_id: Union[int,Sequence[int]],
+        label_type: Literal["C","R"] = "C", 
+        cat_as_str: bool = False, 
+        take: int = None) -> 'Environments':
+        ...
+
+    @overload
+    @staticmethod
+    def from_openml(*,task_id: Union[int,Sequence[int]], 
+        cat_as_str: bool = False, 
+        take: int = None) -> 'Environments':
+        ...
+
+    @staticmethod
+    def from_openml(*args,**kwargs) -> 'Environments':
         """Create a SimulatedEnvironment from datasets available on openml."""
 
-        if isinstance(openml_ids, int): openml_ids = [openml_ids]
-        return Environments(*[OpenmlSimulation(id, type, cat_as_str, take) for id in openml_ids])
+        kwargs.update(zip(['data_id','label_type','cat_as_str','take'], args))
+
+        if 'data_id' in kwargs and isinstance(kwargs['data_id'],int):
+            kwargs['data_id'] = [kwargs['data_id']]
+
+        if 'task_id' in kwargs and isinstance(kwargs['task_id'],int):
+            kwargs['task_id'] = [kwargs['task_id']]
+
+        if 'data_id' in kwargs:
+            return Environments(*[OpenmlSimulation(data_id=id, **kwargs) for id in kwargs.pop('data_id')])
+        else:
+            return Environments(*[OpenmlSimulation(task_id=id, **kwargs) for id in kwargs.pop('task_id')])
 
     @overload
     @staticmethod
