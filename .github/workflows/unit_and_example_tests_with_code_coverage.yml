@@ -49,6 +49,7 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           pip install nbconvert
+          pip install notebook
           pip list
           python "examples/scripts/First Script.py"
           jupyter nbconvert --execute "examples/notebooks/First Experiment.ipynb" --inplace
