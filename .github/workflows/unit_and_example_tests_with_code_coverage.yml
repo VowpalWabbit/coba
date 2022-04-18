@@ -1,6 +1,8 @@
 # codecov recommends calculating coverage on all configurations and submitting with flags
 # here https://community.codecov.com/t/upload-of-coverage-of-several-python-versions/2349/2
 
+#dependency caching does not appear to be working currently. All install steps take the same amount of time with and without dependency cahcing. 
+
 name: unit_and_example_tests_with_code_coverage
 
 on:
@@ -36,6 +38,7 @@ jobs:
       - name: Max Dependency Installs 
         run: | 
           pip install coverage
+          pip install wheel
           pip install -r coba/tests/soft_dependencies.txt
           pip list
       - name: Max Dependency Unit Tests with Coverage
