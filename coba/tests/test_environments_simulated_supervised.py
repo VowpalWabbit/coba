@@ -138,6 +138,32 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([0,1], interactions[1].rewards)
         self.assertEqual([1,0], interactions[2].rewards)
 
+    def test_X_Y_string_classification(self):
+        features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]
+        labels   = ['1','-1','1']
+
+        interactions = list(SupervisedSimulation(features, labels, label_type='C').read())
+
+        self.assertEqual(len(interactions), 3)
+
+        for rnd in interactions:
+
+            hash(rnd.context)    #make sure these are hashable
+            hash(rnd.actions[0]) #make sure these are hashable
+            hash(rnd.actions[1]) #make sure these are hashable
+
+        self.assertEqual((8.1,27,1410,(0,1)), interactions[0].context)
+        self.assertEqual((8.2,29,1180,(0,1)), interactions[1].context)
+        self.assertEqual((8.3,27,1020,(1,0)), interactions[2].context)
+
+        self.assertEqual(['-1','1'], interactions[0].actions)
+        self.assertEqual(['-1','1'], interactions[1].actions)
+        self.assertEqual(['-1','1'], interactions[2].actions)
+
+        self.assertEqual([0,1], interactions[0].rewards)
+        self.assertEqual([1,0], interactions[1].rewards)
+        self.assertEqual([0,1], interactions[2].rewards)
+
     def test_X_Y_multiclass_classification(self):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]
         labels   = [2,2,1]

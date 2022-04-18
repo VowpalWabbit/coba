@@ -233,7 +233,7 @@ class SupervisedSimulation(SimulatedEnvironment):
                 actions = list(labels)
 
             is_label      = lambda action,label: action == label
-            in_multilabel = lambda action,label: isinstance(label,collections.abc.Sequence) and action in label
+            in_multilabel = lambda action,label: isinstance(label,collections.abc.Sequence) and not isinstance(label,str) and action in label
             reward        = lambda action,label: int(is_label(action,label) or in_multilabel(action,label))
 
         contexts = features
