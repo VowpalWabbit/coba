@@ -1,5 +1,4 @@
 vowpalwabbit # optional
-wheel # optional & needed for sklearn CI install
 sklearn # optional
 pandas # optional
 matplotlib # optional

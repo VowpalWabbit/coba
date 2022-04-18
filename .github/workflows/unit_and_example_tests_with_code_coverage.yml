@@ -17,7 +17,8 @@ jobs:
     strategy:
       matrix:
         # macos-latest took at least 20 minutes to complete so I've removed it for now
-        os: [windows-latest, ubuntu-latest]
+        # windows-latest takes about 1:30 minutes longer than ubuntu to complete so I've removed it for now
+        os: [ubuntu-latest]
         python: ['3.6.x', '3.7.x', '3.8.x', '3.9.x']
     steps:
       - uses: actions/checkout@v3
@@ -47,7 +48,7 @@ jobs:
       - name: Example Tests
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
-          pip install jupyterlab
+          pip install nbconvert
           pip list
           python "examples/scripts/First Script.py"
           jupyter nbconvert --execute "examples/notebooks/First Experiment.ipynb" --inplace
