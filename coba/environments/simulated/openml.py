@@ -1,7 +1,7 @@
 import time
 import json
 
-from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union
+from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload, Optional
 from coba.backports import Literal
 
 from coba.random import random
@@ -18,24 +18,35 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     This is primarily used by OpenmlSimulation to create Environments for Experiments.
     """
 
-    def __init__(self, data_id:int, label_type:Literal["C","R"] = None, cat_as_str:bool=False):
+    @overload
+    def __init__(self, *, data_id:int, label_type:Literal["C","R"]=None, cat_as_str:bool=False):
         """Instantiate an OpenmlSource.
         
         Args:
-            data_id: The data id uniquely identifying the data source on openml (i.e., openml.org/d/{id})
+            data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
             label_type: Indicates if a regression or classification label should be used on the dataset.
             cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded. 
         """
-        self._data_id    = data_id
-        self._label_type = label_type
-        self._cat_as_str = cat_as_str
-        self._cache_keys = {
-            'descr': f"openml_{data_id:0>6}_descr",
-            'feats': f"openml_{data_id:0>6}_feats",
-            'csv'  : f"openml_{data_id:0>6}_csv",
-            'arff' : f"openml_{data_id:0>6}_arff",
-            'tasks': f"openml_{data_id:0>6}_tasks",
-        }
+        ...
+
+    @overload
+    def __init__(self, *, task_id:int, cat_as_str:bool=False):
+        """Instantiate an OpenmlSource.
+
+        Args:
+            task_id: The openml task id which identifies the dataset to use from openml along with its label
+            cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded. 
+        """
+        ...
+
+    def __init__(self, **kwargs):
+        """Instantiate an OpenmlSource."""
+
+        self._data_id    = kwargs.get('data_id',None)
+        self._task_id    = kwargs.get('task_id',None)
+        self._label_type = kwargs.get('label_type',None)
+        self._cat_as_str = kwargs.get('cat_as_str',False)
+        self._cache_keys = {}
 
     @property
     def params(self) -> Dict[str,Any]:
@@ -46,10 +57,32 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         """Read and parse the openml source."""
         try:
 
-            dataset_description  = self._get_dataset_description(self._data_id)
+            data_id    = self._data_id
+            label_type = self._label_type
+            task_id    = self._task_id
+            target     = None
+
+            if task_id is not None:
+                self._cache_keys['task'] = f"openml_{task_id:0>6}_task"
+                task   = self._get_task_description(task_id)
+                source = ([i for i in task["input"] if i.get('name',None) == 'source_data'] + [None])[0]
+                
+                if source:
+                    data_id = source["data_set"]["data_set_id"]
+                    target  = source["data_set"]["target_feature"]
+                else:
+                    raise CobaException(f"Openml task {task_id} does not appear to have an associated data source.")
+
+            self._cache_keys['descr'] = f"openml_{data_id:0>6}_descr"
+            self._cache_keys['feats'] = f"openml_{data_id:0>6}_feats"
+            self._cache_keys['csv'  ] = f"openml_{data_id:0>6}_csv"
+            self._cache_keys['arff' ] = f"openml_{data_id:0>6}_arff"
+            self._cache_keys['tasks'] = f"openml_{data_id:0>6}_tasks"
+
+            dataset_description  = self._get_dataset_description(data_id)
 
             if dataset_description['status'] == 'deactivated':
-                raise CobaException(f"Openml {self._data_id} has been deactivated. This is often due to flags on the data.")
+                raise CobaException(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
 
             is_ignore = lambda r: (
                 r['is_ignore'        ] == 'true' or
@@ -57,14 +90,16 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
                 r['data_type'        ] not in ['numeric', 'nominal']
             )
 
-            ignore = [ self._clean_name(f['name']) for f in self._get_feature_descriptions(self._data_id) if is_ignore(f)]
-            
-            if self._label_type is not None:
-                target = self._clean_name(self._get_target_for_problem_type(self._get_task_descriptions(self._data_id)))
-            else:
-                target = dataset_description["default_target_attribute"]
+            ignore = [ self._clean_name(f['name']) for f in self._get_feature_descriptions(data_id) if is_ignore(f)]
 
-            if target in ignore: ignore.pop(ignore.index(target))
+            if not target and label_type is not None:
+                target = self._clean_name(self._get_target_for_problem_type(data_id, label_type))
+            
+            if not target and label_type is None:
+                target = self._clean_name(dataset_description["default_target_attribute"])
+
+            if target in ignore: 
+                ignore.pop(ignore.index(target))
 
             def row_has_missing_values(row):
                 row_values = row._values.values() if isinstance(row,SparseWithMeta) else row._values
@@ -189,6 +224,13 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         except CobaException:
             return []
 
+    def _get_task_description(self, task_id) -> Dict[str,Any]:
+        
+        description_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/task/{task_id}', self._cache_keys['task']))
+        description_obj = json.loads(description_txt)['task']
+        
+        return description_obj
+
     def _get_dataset_lines(self, file_id:str, md5_checksum:str) -> Iterable[str]:
 
             arff_url = f"https://www.openml.org/data/v1/download/{file_id}"
@@ -199,17 +241,17 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             if csv_key in CobaContext.cacher: CobaContext.cacher.rmv(csv_key)
             return self._get_data(arff_url, arff_key, md5_checksum)
 
-    def _get_target_for_problem_type(self, tasks: Sequence[Dict[str,Any]]):
+    def _get_target_for_problem_type(self, data_id:int, label_type:str):
 
-        task_type_id = 1 if self._label_type == "C" else 2
+        task_type_id = 1 if label_type == "C" else 2
 
-        for task in tasks:
+        for task in self._get_task_descriptions(data_id):
             if task["task_type_id"] == task_type_id:
                 for input in task['input']:
                     if input['name'] == 'target_feature':
                         return input['value'] # just take the first one
 
-        raise CobaException(f"Openml {self._data_id} does not appear to be a {self._label_type} dataset")
+        raise CobaException(f"Openml {data_id} does not appear to be a {label_type} dataset")
 
     def _clear_cache(self) -> None:
         for key in self._cache_keys.values():
@@ -224,18 +266,19 @@ class OpenmlSimulation(SupervisedSimulation):
 
     def __init__(self, 
         data_id: int, 
-        take: int = None, 
         label_type: Literal["C","R"] = None, 
-        cat_as_str: bool = False) -> None:
+        cat_as_str: bool = False,
+        take: int = None) -> None:
         """Instantiate an OpenmlSimulation.
 
         Args:
             data_id: The id for an openml dataset. This can be found, for example, in the url https://openml.org/d/<id>.
-            take: The number of interactions we'd like the simulation to have (these will be selected at random).
             label_type: Whether classification or regression openml tasks should be used to create the simulation.
             cat_as_str: True if categorical features should be left as strings, false if they should be one hot encoded.
+            take: The number of interactions we'd like the simulation to have (these will be selected at random).
         """
-        super().__init__(OpenmlSource(data_id, label_type, cat_as_str), None, label_type, take)
+        source = OpenmlSource(data_id=data_id, label_type=label_type, cat_as_str=cat_as_str)
+        super().__init__(source, None, label_type, take)
 
     @property
     def params(self) -> Dict[str, Any]:

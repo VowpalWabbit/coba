@@ -143,7 +143,7 @@ class Environments:
         """Create a SimulatedEnvironment from datasets available on openml."""
 
         if isinstance(openml_ids, int): openml_ids = [openml_ids]
-        return Environments(*[OpenmlSimulation(id, take, type, cat_as_str) for id in openml_ids])
+        return Environments(*[OpenmlSimulation(id, type, cat_as_str, take) for id in openml_ids])
 
     @overload
     @staticmethod
