@@ -223,6 +223,24 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
+    def test_dense_with_spaces_after_tabs(self):
+        lines = [
+            "@relation news20",
+            "@attribute a numeric",
+            "@attribute B numeric",
+            "@attribute c {class_B, class_C, class_D}",
+            "@data",
+            "1\t  2\t  class_B",
+            "2\t  3\t  class_C",
+        ]
+
+        expected = [
+            [1,2,(1,0,0)],
+            [2,3,(0,1,0)]
+        ]
+
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
     def test_dense_sans_empty_lines(self):
         lines = [
             "@relation news20",
@@ -487,9 +505,9 @@ class ArffReader_Tests(unittest.TestCase):
     def test_tab_delimieted_attributes(self):
         lines = [
             "@relation news20",
-            "@attribute a	string",
-            '@attribute b	string',
-            "@attribute c	{class_B, class_C, class_D}",
+            "@attribute a\tstring",
+            '@attribute b\tstring',
+            "@attribute c\t{class_B, class_C, class_D}",
             "@data",
             "1,2,class_B",
         ]
@@ -642,7 +660,7 @@ class ArffReader_Tests(unittest.TestCase):
             "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
             "@attribute ',' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
             "@data",
-            "1,    'class\'B', '\"class_C\"', 'class\",D'",
+            "1,    'class\\'B', '\"class_C\"', \"class\\\",D\"",
         ]
 
         expected = [
@@ -665,7 +683,7 @@ class ArffReader_Tests(unittest.TestCase):
             "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
             "@attribute ',' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
             "@data",
-            "1,    'class\'B', '\"class_C\"', 'class\",G'",
+            "1,    'class\\'B', '\"class_C\"', 'class\",G'",
         ]
 
         with self.assertRaises(CobaException):

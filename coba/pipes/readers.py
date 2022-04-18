@@ -73,7 +73,7 @@ class SparseWithMeta(collections.abc.MutableMapping):
 
         self._removed: Set[Any] = set()
         self._encoded: Dict[Any,bool] = defaultdict(bool)
-    
+
     def __getitem__(self, index: Union[str,int]) -> Any:
         index = self._headers[index] if index in self._headers else index
         if index in self._removed: raise KeyError(index)
@@ -111,10 +111,10 @@ class SparseWithMeta(collections.abc.MutableMapping):
 
 class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
     """A filter capable of parsing CSV formatted data."""
-    
+
     def __init__(self, has_header: bool=False, **dialect):
         """Instantiate a CsvReader.
-        
+
         Args:
             has_header: Indicates if the CSV data has a header row.
             **dialect: This has the same values as Python's csv.reader dialect.
@@ -140,16 +140,16 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
     __ https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
     """
 
-    #this class has been highly highly optimized. Before modifying anything run 
+    #this class has been highly highly optimized. Before modifying anything run
     #Performance_Tests.test_arffreader_performance to get a performance baseline.
 
     def __init__(self, 
-        cat_as_str: bool =False, 
-        skip_encoding: bool = False, 
-        lazy_encoding: bool = True, 
+        cat_as_str: bool =False,
+        skip_encoding: bool = False,
+        lazy_encoding: bool = True,
         header_indexing: bool = True):
         """Instantiate an ArffReader.
-        
+
         Args:
             cat_as_str: Indicates that categorical features should be encoded as a string rather than one hot encoded. 
             skip_encoding: Indicates that features should not be encoded (this means all features will be strings).
@@ -221,13 +221,11 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
 
                 def encoder(x:str,cats=categories,get=OneHotEncoder(categories)._onehots.__getitem__):
 
-                    x=x.strip()
-
                     if x =="?":
                         return None
 
-                    if x not in cats and x[0] in self._quotes and x[0]==x[-1] and len(x) > 1:
-                        x = x[1:-1]
+                    #if x not in cats and x[0] in self._quotes and x[0]==x[-1] and len(x) > 1:
+                    #    x = x[1:-1]
 
                     if x not in cats:
                         raise CobaException("We were unable to find one of the categorical values in the arff data.")
@@ -238,30 +236,39 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             else:
                 raise CobaException(f"An unrecognized encoding was found in the arff attributes: {encoding}.")
 
-    def _parse_dense_data(self,
-        lines: Iterable[str],
-        headers: Sequence[str],
-        encoders: Sequence[Encoder]) -> Iterable[Union[MutableSequence,MutableMapping]]:
+    def _parse_dense_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableSequence]:
 
-        headers_dict        = dict(zip(headers,count()))
-        possible_dialects   = self._possible_dialects()
+        headers_dict = dict(zip(headers,count()))
 
-        dialect             = possible_dialects.pop()
         fallback_delimieter = None
+
+        quotechars   = {'"',"'"}
+        quotechar    = None
+        delimiter    = None
+        use_advanced = False
+        base_dialect = dict(skipinitialspace=True,escapechar="\\",doublequote=False)
 
         for i,line in enumerate(lines):
 
-            if dialect is not None:
-                final = next(csv.reader([line], dialect=dialect))
+            if not use_advanced:
+                for quote in quotechars-{quotechar}:
+                    if quote in line:
+                        quotechar = quotechar or quote
+                        use_advanced = quotechar != quote
 
-                while len(final) != len(headers) and possible_dialects:
-                    dialect = possible_dialects.pop()
-                    final   = next(csv.reader([line], dialect=dialect))
+            if not use_advanced and not delimiter:
+                if len(next(csv.reader([line], ))) == len(headers):
+                    delimiter = ','
+                elif len(next(csv.reader([line], quotechar=(quotechar or '"'), delimiter='\t', **base_dialect))) == len(headers):
+                    delimiter = '\t'
+                else:
+                    use_advanced = True
 
-                if len(final) != len(headers): dialect = None
-
-            if dialect is None:
-                #None of the csv dialects we tried were successful at parsing
+            if not use_advanced:
+                final = next(csv.reader([line], quotechar=(quotechar or '"'), delimiter=delimiter, **base_dialect))
+            
+            else:
+                #the file does not appear to follow a readable csv.reader dialect
                 #we fall back now to a slightly slower, but more flexible, parser
 
                 if fallback_delimieter is None:
@@ -275,8 +282,8 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
                     item = line.popleft().lstrip()
 
                     if item[0] in self._quotes:
-                        quotechar = item[0]
-                        while item.rstrip()[-1] != quotechar or item.rstrip()[-2] == "\\":
+                        possible_quotechar = item[0]
+                        while item.rstrip()[-1] != possible_quotechar or item.rstrip()[-2] == "\\":
                             item += "," + line.popleft()
                         item = item.strip()[1:-1]
 
@@ -294,10 +301,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             else:
                 yield DenseWithMeta(final_items, final_headers, final_encoders)
 
-    def _parse_sparse_data(self, 
-        lines: Iterable[str], 
-        headers: Sequence[str], 
-        encoders: Sequence[Encoder]) -> Iterable[Union[MutableSequence,MutableMapping]]:
+    def _parse_sparse_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMapping]:
 
         headers_dict  = dict(zip(headers,count()))
         defaults_dict = { k:"0" for k in range(len(encoders)) if encoders[k]("0") != 0 }
@@ -352,14 +356,6 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             yield "".join(items).strip()
         except StopIteration:
             pass
-
-    def _possible_dialects(self):
-        legal_quotechars = ['"', "'"]
-        legal_delimeters = [",", "\t"]
-
-        return [
-            {"delimeter":d, "quotechar": q, "skipinitialspace":True} for d,q in product(legal_delimeters, legal_quotechars) 
-        ]
 
 class LibsvmReader(Filter[Iterable[str], Iterable[Tuple[MutableMapping,Any]]]):
     """A filter capable of parsing Libsvm formatted data.
