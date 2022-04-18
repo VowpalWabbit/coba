@@ -25,6 +25,7 @@ jobs:
       - uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python }}
+          cache: 'pip'
       - run: python --version
       - name: Min Dependency Installs
         run: | 
@@ -48,8 +49,7 @@ jobs:
       - name: Example Tests
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
-          pip install nbconvert
-          pip install notebook
+          pip install jupyterlab
           pip list
           python "examples/scripts/First Script.py"
           jupyter nbconvert --execute "examples/notebooks/First Experiment.ipynb" --inplace
