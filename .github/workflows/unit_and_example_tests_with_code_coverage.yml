@@ -25,18 +25,20 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python --version
-      #- run: pip install wheel
-      - name: Min Dependency Unit Tests
+      - name: Min Dependency Installs
         run: | 
           python setup.py install -f
           pip list
-          python -m unittest
-      - name: Max Depdency Unit Tests with Coverage
+      - name: Min Dependency Unit Tests
+        run: python -m unittest
+      - name: Max Dependency Installs 
         run: | 
           pip install coverage
           pip install -r coba/tests/soft_dependencies.txt
           pip list
-          coverage run --debug=callers -m unittest
+      - name: Max Dependency Unit Tests with Coverage
+        run: |
+          coverage run -m unittest
           coverage xml
       - name: Report Coverage to Codecov
         uses: codecov/codecov-action@v2
