@@ -284,24 +284,20 @@ class ClassEnvironmentTask(EnvironmentTask):
         except CobaExit:
             pass
 
-        labels     = set()
         features   = set()
-        feat_cnts  = []
+        nz_feats   = []
         label_cnts = collections.defaultdict(int)
 
-        for c,a,f in zip(contexts,actions,rewards):
+        for c,a,r in zip(contexts,actions,rewards):
 
-            inter_label = a[f.index(1)]
-            inter_feats = c.keys() if isinstance(c,dict) else range(len(c))
+            feats = c.keys() if isinstance(c,dict) else range(len(c))
+            features.update(feats)
+            nz_feats.append(len(feats))
+            label_cnts[list(zip(*sorted(zip(r,a))))[1][-1]] += 1
 
-            labels.add(inter_label)
-            features.update(inter_feats)
-            feat_cnts.append(len(inter_feats))
-            label_cnts[inter_label] += 1
-
-        env_statistics["action_cardinality"] = len(labels)
-        env_statistics["context_dimensions"] = len(features)
-        env_statistics["context_median_nz" ] = median(feat_cnts)
+        env_statistics["action_cardinality"] = median([len(a) for a in actions])
+        env_statistics["context_dimensions"] = len(features) 
+        env_statistics["context_median_nz" ] = median(nz_feats)
         env_statistics["imbalance_ratio"   ] = round(max(label_cnts.values())/min(label_cnts.values()),4)
 
         return { **SimpleEnvironmentTask().process(environment, interactions), **env_statistics }

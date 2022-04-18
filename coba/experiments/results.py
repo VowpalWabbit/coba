@@ -5,6 +5,7 @@ import collections.abc
 from copy import copy
 from pathlib import Path
 from numbers import Number
+from statistics import mean
 from operator import truediv
 from itertools import chain, repeat, accumulate
 from typing import Any, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Set, Callable
@@ -267,9 +268,7 @@ class InteractionsTable(Table):
         lrn_sim_rows = []
 
         value_functions = {
-            'reward'    : lambda interactions: interactions['reward'],
             'reward_pct': lambda interactions: [r/m for r,m in zip(interactions['reward'],interactions['max_reward'])],
-            'rank'      : lambda interactions: interactions['rank'],
             'rank_pct'  : lambda interactions: [(r-1)/(m-1) for r,m in zip(interactions['rank'],interactions['n_actions'])],
             'regret'    : lambda interactions: [m-r for r,m in zip(interactions['reward'],interactions['max_reward'])],
             'regret_pct': lambda interactions: [(u-r)/(u-l) for r,l,u in zip(interactions['reward'],interactions['min_reward'],interactions['max_reward'])],
@@ -277,7 +276,7 @@ class InteractionsTable(Table):
 
         for interactions in self:
 
-            values = value_functions[value](interactions)
+            values = value_functions.get(value, lambda interactions: interactions[value])(interactions)
             orders = interactions[order]
             values = [ v[1] for v in sorted(zip(orders,values)) ]
 
@@ -691,6 +690,7 @@ class Result:
         import matplotlib.pyplot as plt #type: ignore
 
         show = ax is None
+        n_environments = []
 
         for label, X, Y, yerr, Z in self._plot_learners_data(y,xlim,span,err,sort):
 
@@ -699,6 +699,8 @@ class Result:
             color = next(ax._get_lines.prop_cycler)['color']
 
             ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), label=label, color=color)
+
+            n_environments.append(len(Z[0]))
 
             if each:
                 for Y in list(zip(*Z)):
@@ -722,7 +724,7 @@ class Result:
 
             y_label = y.capitalize().replace("_pct"," Percent")
 
-            ax.set_title(("Instantaneous" if span == 1 else "Progressive" if span is None else f"Span {span}") + f" {y_label}", loc='left',pad=15)
+            ax.set_title(("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {y_label} ({mean(n_environments)} Environments)", loc='left',pad=15)
             ax.set_ylabel(y_label)
             ax.set_xlabel("Interactions")
 
@@ -780,7 +782,7 @@ class Result:
                 Y     = [ sum(z)/len(z) for z in Z ]
                 X     = list(range(1,len(Y)+1))
 
-                start,end = xlim if xlim else (1,len(X))
+                start,end = xlim if xlim else (0,len(X))
 
                 X = X[start:end]
                 Y = Y[start:end]
