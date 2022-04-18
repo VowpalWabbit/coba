@@ -122,6 +122,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         self.assertEqual(1, row["centroid_purity"])
         self.assertEqual(0, row["centroid_distance"])
 
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_on_regression_dataset(self):
 
         env = SupervisedSimulation([[1],[2],[3],[4],[5],[6],[7],[8],[9],[10]]*2,[1,2,3,4,5,6,7,8,9,10]*2)
