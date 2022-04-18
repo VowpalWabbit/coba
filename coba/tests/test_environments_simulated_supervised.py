@@ -87,9 +87,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([(0,0,1),(1,0,0),(0,1,0)], interactions[1].actions)
         self.assertEqual([(0,0,1),(1,0,0),(0,1,0)], interactions[2].actions)
 
-        self.assertEqual([0 , 1, .5], interactions[0].rewards)
-        self.assertEqual([.5, .5, 1], interactions[1].rewards)
-        self.assertEqual([1 , 0, .5], interactions[2].rewards)
+        self.assertEqual([0 , 1, .5], [round(r,2) for r in interactions[0].rewards])
+        self.assertEqual([.5, .5, 1], [round(r,2) for r in interactions[1].rewards])
+        self.assertEqual([1 , 0, .5], [round(r,2) for r in interactions[2].rewards])
 
     def test_source_reader_too_large_take_no_min(self):
 

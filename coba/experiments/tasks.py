@@ -224,9 +224,9 @@ class SimpleEnvironmentTask(EnvironmentTask):
 class ClassEnvironmentTask(EnvironmentTask):
     """Describe an Environment made from a Classification dataset.
 
-    In addition to the Environment's parameters this task also calculates a number
-    of classification statistics which can be used to analyze the performance of learners
-    after an Experiment has finished. To make the most of this Task sklearn should be installed.
+    In addition to the Environment's parameters this task calculates a number of classification 
+    statistics which can be used to analyze the performance of learners after an Experiment has 
+    finished. To make the most of this Task sklearn should be installed.
     """
 
     def process(self, environment: Environment, interactions: Iterable[SimulatedInteraction]) -> Dict[Any,Any]:
@@ -248,7 +248,7 @@ class ClassEnvironmentTask(EnvironmentTask):
             from sklearn.decomposition import TruncatedSVD, PCA
 
             X   = [ InteractionsEncoder('x').encode(x=c, a=[]) for c in contexts ]
-            Y   = [ a[r.index(1)] for a,r in zip(actions,rewards)]
+            Y   = [ a[np.argmax(r)] for a,r in zip(actions,rewards)]
             C   = collections.defaultdict(list)
             clf = DecisionTreeClassifier(random_state=1)
 
