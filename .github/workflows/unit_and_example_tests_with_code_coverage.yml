@@ -38,6 +38,7 @@ jobs:
           pip list
           coverage run -m unittest
           coverage xml
+      - name: Report Coverage to Codecov
         uses: codecov/codecov-action@v2
         with:
           flags: unittest, ${{ matrix.os }}, ${{ matrix.version }}
