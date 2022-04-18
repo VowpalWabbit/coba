@@ -1,7 +1,7 @@
 # codecov recommends calculating coverage on all configurations and submitting with flags
 # here https://community.codecov.com/t/upload-of-coverage-of-several-python-versions/2349/2
 
-name: test_with_soft_dependencies
+name: unit_and_example_tests_with_code_coverage
 
 on:
   push:
@@ -24,24 +24,28 @@ jobs:
       - uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python }}
-#caching was causing strange errors on windows-latest so it has been removed
-#          cache: 'pip'
-#          cache-dependency-path: '**/tests/requirements.txt'
       - run: python --version
-      - run: pip install wheel
-      - run: pip install jupyterlab
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-      - run: pip install -r coba/tests/soft_dependencies.txt
-      - run: pip install coverage
-      - run: pip list
-      - run: python setup.py install -f
-      - run: coverage run -m unittest
-      - run: coverage xml
-      - uses: codecov/codecov-action@v2
+      #- run: pip install wheel
+      - name: Min Dependency Unit Tests
+        run: | 
+          python setup.py install -f
+          pip list
+          python -m unittest
+      - name: Max Depdency Unit Tests with Coverage
+        run: | 
+          pip install coverage
+          pip install -r coba/tests/soft_dependencies.txt
+          pip list
+          coverage run -m unittest
+          coverage xml
+        uses: codecov/codecov-action@v2
         with:
           flags: unittest, ${{ matrix.os }}, ${{ matrix.version }}
-      - name: Test examples
+      - name: Example Tests
         if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: |
+          pip install jupyterlab
+          pip list
         run: |
           python "examples/scripts/First Script.py"
           jupyter nbconvert --execute "examples/notebooks/First Experiment.ipynb" --inplace
