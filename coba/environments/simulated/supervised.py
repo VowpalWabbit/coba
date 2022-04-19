@@ -1,7 +1,7 @@
 import collections.abc
 
 from itertools import chain, repeat
-from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping, Tuple, Optional
+from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping
 from coba.backports import Literal
 
 from coba.encodings import OneHotEncoder
