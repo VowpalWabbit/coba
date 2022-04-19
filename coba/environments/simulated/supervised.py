@@ -212,8 +212,9 @@ class SupervisedSimulation(SimulatedEnvironment):
             max_n_actions = 10
 
             #Scale the labels so that the rewards are all in [0,1].
+            labels       = [float(l) for l in labels]
             min_l, max_l = min(labels), max(labels)
-            labels = [(float(l)-min_l)/(max_l-min_l) for l in labels]
+            labels       = [(l-min_l)/(max_l-min_l) for l in labels]
 
             if len(labels) <= max_n_actions:
                 actions = labels
