@@ -221,10 +221,11 @@ class SupervisedSimulation(SimulatedEnvironment):
             else:
                 actions = percentile(labels, [i/(max_n_actions+1) for i in range(1,max_n_actions+1)])
 
+            actions = sorted(list(set([round(a,3) for a in actions])))
             values  = dict(zip(OneHotEncoder().fit_encodes(actions), actions))
             actions = list(values.keys())
 
-            reward = lambda action,label: 1-abs(values[action]-float(label))
+            reward = lambda action,label: round(1-abs(values[action]-float(label)),3)
         else:
             #how can we tell the difference between featurized labels and multilabels????
             #for now we will assume multilables will be passed in as arrays not tuples...

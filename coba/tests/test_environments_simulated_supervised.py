@@ -259,7 +259,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual(actions, interactions[11].actions)
 
         for i in range(12):
-            self.assertEqual([1-(abs((a.index(1)+1)/11-i/11)) for a in interactions[i].actions], interactions[i].rewards)
+            self.assertEqual([round(1-abs(round((a.index(1)+1)/11,3)-i/11),3) for a in interactions[i].actions], interactions[i].rewards)
 
     def test_X_Y_too_large_take(self):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]
