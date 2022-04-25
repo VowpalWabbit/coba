@@ -357,6 +357,26 @@ class ArffReader_Tests(unittest.TestCase):
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
+    def test_sparse_full_sparse(self):
+        lines = [
+            "@relation test",
+            "@attribute a numeric",
+            "@attribute b numeric",
+            "@attribute c {class_B, class_C, class_D}",
+            "@data",
+            "{0 2,1 3}",
+            "{ }",
+            "{}",
+        ]
+
+        expected = [
+            {0:2, 1:3, 2:(1,0,0,0)},
+            {2:(1,0,0,0)},
+            {2:(1,0,0,0)}
+        ]
+        
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
     def test_sparse_categorical_0_value(self):
         
         #this is a bug in ARFF, it is not uncommon for the first class value in an ARFF class list
@@ -556,7 +576,21 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
-    def test_bad_attribute_tipe_raises_exception(self):
+    def test_capitalized_attribute_type(self):
+        lines = [
+            "@relation test",
+            "@attribute a REAL",
+            "@data",
+            "1",
+        ]
+        
+        expected = [
+            [1],
+        ]
+        
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_bad_attribute_type_raises_exception(self):
         lines = [
             "@relation test",
             "@attribute a abcd",
@@ -569,7 +603,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual('An unrecognized encoding was found in the arff attributes: abcd.', str(ex.exception))
 
-    def test_good_attribute_tipes_do_not_raise_exception(self):
+    def test_good_attribute_types_do_not_raise_exception(self):
         lines = [
             "@relation test",
             "@ATTRIBUTE a numeric",

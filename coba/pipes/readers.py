@@ -205,7 +205,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             
             if self._skip_encoding:
                 yield identity
-            elif encoding in numeric_types: 
+            elif encoding.lower() in numeric_types: 
                 yield lambda x: None if x=="?" else float(x)
             elif encoding.startswith(string_types):
                 yield identity
@@ -311,10 +311,14 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
 
             keys_and_vals = re.split('\s*,\s*|\s+', line.strip("} {"))
 
-            keys = list(map(int,keys_and_vals[0::2]))
-            vals = keys_and_vals[1::2]
+            if keys_and_vals != ['']:
+                keys = list(map(int,keys_and_vals[0::2]))
+                vals = keys_and_vals[1::2]
+            else:
+                keys = []
+                vals = []
 
-            if max(keys) >= len(headers) or min(keys) < 0:
+            if keys and (max(keys) >= len(headers) or min(keys) < 0):
                 raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
 
             final = { **defaults_dict, ** dict(zip(keys,vals)) }
