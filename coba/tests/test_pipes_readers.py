@@ -176,7 +176,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_sans_data(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute B numeric",
             "@attribute c {0, class_B, class_C, class_D}",
@@ -189,7 +189,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_skip_encoding(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute B numeric",
             "@attribute c {class_B, class_C, class_D}",
@@ -207,7 +207,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_dense_with_spaces_after_commas(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute B numeric",
             "@attribute c {class_B, class_C, class_D}",
@@ -225,7 +225,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_dense_with_spaces_after_tabs(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute B numeric",
             "@attribute c {class_B, class_C, class_D}",
@@ -243,7 +243,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_dense_sans_empty_lines(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute B numeric",
             "@attribute c {0, class_B, class_C, class_D}",
@@ -261,7 +261,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_dense_with_missing_value(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute B numeric",
             "@attribute c {class_B, class_C, class_D}",
@@ -279,7 +279,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_dense_with_empty_lines(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute A numeric",
             "@attribute B numeric",
             "@attribute C {0, class_B, class_C, class_D}",
@@ -301,7 +301,7 @@ class ArffReader_Tests(unittest.TestCase):
     def test_dense_with_comments(self):
         lines = [
             "%This is a comment",
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
             "@attribute c {0, class_B, class_C, class_D}",
@@ -319,7 +319,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_dense_with_strings(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a string",
             "@attribute b string",
             "@attribute c {0, class_B, class_C, class_D}",
@@ -337,7 +337,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_sparse(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
             "@attribute c {class_B, class_C, class_D}",
@@ -365,7 +365,7 @@ class ArffReader_Tests(unittest.TestCase):
         #Below is what a dataset with this bug would look like, there is no class_B, instead all
         #class_B's are encoded as 0.
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
             "@attribute c {class_B, class_C, class_D}",
@@ -387,7 +387,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_sparse_with_empty_lines(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
             "@attribute c {class_B, class_C, class_D}",
@@ -412,7 +412,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_sparse_with_spaces_after_comma(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
             "@attribute c {class_B, class_C, class_D}",
@@ -436,7 +436,7 @@ class ArffReader_Tests(unittest.TestCase):
         lines = [
             "%",
             "%",
-            "@relation news20",
+            "@relation test",
             "@attribute a string",
             "@attribute b string",
             "@attribute c {0, class_B, class_C, class_D}",
@@ -453,27 +453,9 @@ class ArffReader_Tests(unittest.TestCase):
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
-    def test_headers_with_quotes_and_pct(self):
-        lines = [
-            "@relation news20",
-            "@attribute 'a%3' string",
-            "@attribute 'b%4' string",
-            "@attribute 'c%5' {class_B, class_C, class_D}",
-            "@data",
-            "1,2,class_B",
-            "2,3,class_C",
-        ]
-
-        expected = [
-            ['1','2',(1,0,0)],
-            ['2','3',(0,1,0)]
-        ]
-
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
-
     def test_bad_class_labels_throws_exception(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute 'a' string",
             "@attribute 'b' string",
             "@attribute 'c' {class_B, class_C, class_D}",
@@ -486,25 +468,65 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertIn("We were unable to find one of the categorical values in the arff data.", str(e.exception))
 
-    def test_spaces_in_attribute_name(self):
+    def test_percent_in_attribute_name(self):
         lines = [
-            "@relation news20",
-            "@attribute 'a a' string",
-            '@attribute "b b" string',
-            "@attribute 'c c' {class_B, class_C, class_D}",
+            "@relation test",
+            "@attribute 'a%3' numeric",
             "@data",
-            "1,2,class_B",
+            "1",
         ]
 
-        expected = [
-            ['1','2',(1,0,0)],
+        expected = [ [1] ]
+
+        items = list(ArffReader().filter(lines))
+        self.assertEqual(expected, items)
+        self.assertEqual(1, items[0]["a%3"])
+
+    def test_spaces_in_attribute_name(self):
+        lines = [
+            "@relation test",
+            "@attribute 'a a' numeric",
+            "@data",
+            "1",
         ]
+
+        expected = [ [1] ]
         
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        items = list(ArffReader().filter(lines))
+        self.assertEqual(expected, items)
+        self.assertEqual(1, items[0]["a a"])
+
+    def test_escaped_single_quote_in_attribute_name(self):
+        lines = [
+            "@relation test",
+            "@attribute 'a\\'a' numeric",
+            "@data",
+            "1",
+        ]
+
+        expected = [ [1] ]
+        items = list(ArffReader().filter(lines))
+        
+        self.assertEqual(expected, items)
+        self.assertEqual(1, items[0]["a'a"])
+
+    def test_escaped_double_quote_in_attribute_name(self):
+        lines = [
+            "@relation test",
+            '@attribute "a\\"a" numeric',
+            "@data",
+            "1",
+        ]
+
+        expected = [ [1] ]
+        items = list(ArffReader().filter(lines))
+        
+        self.assertEqual(expected, items)
+        self.assertEqual(1, items[0]['a"a'])
 
     def test_tab_delimieted_attributes(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a\tstring",
             '@attribute b\tstring',
             "@attribute c\t{class_B, class_C, class_D}",
@@ -518,25 +540,9 @@ class ArffReader_Tests(unittest.TestCase):
         
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
-    def test_escaped_quote_in_attribute_name(self):
+    def test_capitalized_attribute_tag(self):
         lines = [
-            "@relation news20",
-            "@attribute 'a\\'a' numeric",
-            "@attribute 'b b' string",
-            "@attribute 'c c' {class_B, class_C, class_D}",
-            "@data",
-            "1,2,class_B",
-        ]
-
-        expected = [
-            [1,'2',(1,0,0)],
-        ]
-        
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
-
-    def test_capitalized_attribute(self):
-        lines = [
-            "@relation news20",
+            "@relation test",
             "@ATTRIBUTE 'a\\'a' numeric",
             "@attribute 'b b' string",
             "@attribute 'c c' {class_B, class_C, class_D}",
@@ -550,14 +556,12 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
-    def test_bad_tipe_raises_exception(self):
+    def test_bad_attribute_tipe_raises_exception(self):
         lines = [
-            "@relation news20",
-            "@ATTRIBUTE 'a\\'a' numeric",
-            "@attribute 'b b' abcd",
-            "@attribute 'c c' {class_B, class_C, class_D}",
+            "@relation test",
+            "@attribute a abcd",
             "@data",
-            "1,2,class_B",
+            "1",
         ]
         
         with self.assertRaises(CobaException) as ex:
@@ -565,14 +569,14 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual('An unrecognized encoding was found in the arff attributes: abcd.', str(ex.exception))
 
-    def test_all_good_tipes_do_not_raise_exception(self):
+    def test_good_attribute_tipes_do_not_raise_exception(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@ATTRIBUTE a numeric",
             "@ATTRIBUTE b integer",
             "@ATTRIBUTE c real",
-            "@attribute d    date",
-            "@attribute e   {class_B, class_C, class_D}",
+            "@attribute d date",
+            "@attribute e {class_B, class_C, class_D}",
             "@attribute f relational",
             "@data",
         ]
@@ -580,8 +584,9 @@ class ArffReader_Tests(unittest.TestCase):
         list(ArffReader().filter(lines))
 
     def test_str_as_cat(self):
+        
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute A numeric",
             "@attribute C {0, class_B, class_C, class_D}",
             "@data",
@@ -598,7 +603,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_too_many_dense_elements(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute A numeric",
             "@attribute C {0, class_B, class_C, class_D}",
             "@data",
@@ -612,7 +617,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_too_few_dense_elements(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute A numeric",
             "@attribute C {0, class_B, class_C, class_D}",
             "@data",
@@ -624,9 +629,9 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
-    def test_min_unknown_sparse_elements(self):
+    def test_too_min_sparse_element(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute A numeric",
             "@attribute C {0, class_B, class_C, class_D}",
             "@data",
@@ -638,9 +643,9 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
-    def test_max_unknown_sparse_elements(self):
+    def test_too_max_sparse_element(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute A numeric",
             "@attribute C {0, class_B, class_C, class_D}",
             "@data",
@@ -652,9 +657,28 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
+    def test_escaped_quotes_in_categorical_values(self):
+        lines = [
+            "@relation test",
+            "@attribute A numeric",
+            "@attribute B {'\\'classA\\'', '\\'classB\\''}",
+            "@data",
+            "1, '\\'classB\\''",
+        ]
+
+        expected = [
+            [1, "'classB'"]
+        ]
+
+        items = list(ArffReader(cat_as_str=True).filter(lines))
+
+        self.assertEqual(expected, items)
+        self.assertEqual(1         , items[0]['A'])
+        self.assertEqual("'classB'", items[0]['B'])
+
     def test_quotes_from_hell_dense_cat_as_str_true_good_categories(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute 'A  a' numeric",
             "@attribute '\"' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
             "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
@@ -677,7 +701,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_quotes_from_hell_dense_cat_as_str_true_bad_categories(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute 'A  a' numeric",
             "@attribute '\"' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
             "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
@@ -691,7 +715,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_quotes_from_hell_dense_cat_as_str_false(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute 'A  a' numeric",
             "@attribute '\"' {0, \"class'B\", '\"class_C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
             "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
@@ -714,7 +738,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_quotes_with_csv(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute 'value' numeric",
             "@attribute 'class' {'0','1'}",
             "@data",
@@ -733,7 +757,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_no_lazy_encoding_no_header_indexes_dense(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
             "@attribute c {class_B, class_C, class_D}",
@@ -755,7 +779,7 @@ class ArffReader_Tests(unittest.TestCase):
 
     def test_no_lazy_encoding_no_header_indexes_sparse(self):
         lines = [
-            "@relation news20",
+            "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
             "@attribute c {class_B, class_C, class_D}",

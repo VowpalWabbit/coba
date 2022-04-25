@@ -1,11 +1,12 @@
 import time
 import collections
 import collections.abc
+import math
 
 from abc import ABC, abstractmethod
-from statistics import median
-from itertools import takewhile
-from typing import Iterable, Any, Dict
+from statistics import median, mean
+from itertools import takewhile, chain, compress
+from typing import Iterable, Any, Dict, Sequence, Hashable
 
 from coba.exceptions import CobaExit
 from coba.random import CobaRandom
@@ -231,73 +232,135 @@ class ClassEnvironmentTask(EnvironmentTask):
 
     def process(self, environment: Environment, interactions: Iterable[SimulatedInteraction]) -> Dict[Any,Any]:
 
+        #sources:
+        #[1]: https://arxiv.org/pdf/1808.03591.pdf
+        #[2]: https://link.springer.com/content/pdf/10.1007/978-3-540-31883-5.pdf#page=468
+        #[3]: https://link.springer.com/content/pdf/10.1007/s10044-012-0280-z.pdf
+
+        #[3] found that information theoretic measures and landmarking measures are most important
+
         contexts,actions,rewards = zip(*[ (i.context, i.actions, i.rewards) for i in interactions ])
-        env_statistics = {}
+        env_stats = {}
 
-        try:
+        X = [ InteractionsEncoder('x').encode(x=c) for c in contexts ]
+        Y = [ a[r.index(max(r))] for a,r in zip(actions,rewards)]
 
-            PackageChecker.sklearn("ClassEnvironmentTask.process")
+        is_dense = not isinstance(X[0],dict)
 
-            import numpy as np
-            import scipy.sparse as sp
-            import scipy.stats as st
-            from sklearn.feature_extraction import FeatureHasher
-            from sklearn.tree import DecisionTreeClassifier
-            from sklearn.model_selection import cross_val_score
-            from sklearn.metrics import pairwise_distances
-            from sklearn.decomposition import TruncatedSVD, PCA
+        feats          = list(range(len(X[0]))) if is_dense else set().union(*X)
+        class_counts   = collections.Counter(Y).values()
+        feature_counts = collections.Counter(chain(*[feats if is_dense else x.keys() for x in X])).values()
 
-            X   = [ InteractionsEncoder('x').encode(x=c, a=[]) for c in contexts ]
-            Y   = [ a[np.argmax(r)] for a,r in zip(actions,rewards)]
-            C   = collections.defaultdict(list)
-            clf = DecisionTreeClassifier(random_state=1)
+        n = len(X)
+        k = len(class_counts)
+        m = len(feature_counts)
 
-            if isinstance(X[0],dict):
-                X = FeatureHasher(n_features=2**14, input_type="dict").fit_transform(X)
+        X_by_f = { f:[x[f] for x in X if is_dense or f in x] for f in feats}
+        x_bin  = lambda x,f:n/10*(x[f]-min(X_by_f[f]))/(max(X_by_f[f])-min(X_by_f[f]))
+        X_bin  = [ [x_bin(x,f) for f in feats] if is_dense else { f:x_bin(x,f) for f in x.keys() } for x in X]
 
-            if len(Y) > 5:
-                scores = cross_val_score(clf, X, Y, cv=5)
-                env_statistics["bayes_rate_avg"] = round(scores.mean(),4)
-                env_statistics["bayes_rate_iqr"] = round(st.iqr(scores),4)
 
-            svd = TruncatedSVD(n_components=8) if sp.issparse(X) else PCA()
-            svd.fit(X)
-            env_statistics["PcaVarExplained"] = svd.explained_variance_ratio_[:8].tolist()
+        get = lambda x,f: x[f] if is_dense else x.get(f,0)
 
-            for x,y in zip(X,Y):
-                C[y].append(x)
+        #Information-Theoretic Meta-features
 
-            if sp.issparse(X):
-                centroids = sp.vstack([sp.csr_matrix(sp.vstack(c).mean(0)) for c in C.values()])
-            else:
-                centroids = np.vstack([np.vstack(c).mean(0) for c in C.values()])
+        env_stats["class_count"          ] = k
+        env_stats["class_entropy_normed" ] = self._entropy_normed(Y)  # [1,2,3]
+        env_stats["class_imbalance_ratio"] = self._imbalance_ratio(Y) # [1]
+        env_stats["joint_XY_entropy_mean"] = mean([self._entropy([(get(x,f),y) for x,y in zip(X_bin,Y)]) for f in feats]) #[2,3]
+        env_stats["mutual_XY_info_mean"  ] = mean([self._mutual_info([get(x,f) for x in X],Y) for f in feats]) #[2,3]
+        env_stats["equivalent_num_attr"  ] = self._entropy(Y)/env_stats["mutual_XY_info_mean"] #[2,3]
+        
+        #Sparsity/Dimensionality measures [1,2,3]
+        env_stats["feature_count"       ] = m
+        env_stats["feature_per_instance"] = median([len(x)/m for x in X])
+        env_stats["instance_per_feature"] = median([f/m for f in feature_counts])
 
-            centroid_order = list(C.keys())
-            centroid_index = [ centroid_order.index(y) for y in Y ]
-            centroid_dists = pairwise_distances(X,centroids)
-            closest_index  = centroid_dists.argmin(1)
-            cluster_purity = (closest_index == centroid_index).mean()
+        #landmarking
 
-            env_statistics["centroid_purity"  ] = round(cluster_purity,4)
-            env_statistics["centroid_distance"] = round(median(centroid_dists[range(centroid_dists.shape[0]),centroid_index]),4)
+        # try:
 
-        except CobaExit:
-            pass
+        #     PackageChecker.sklearn("ClassEnvironmentTask.process")
 
-        features   = set()
-        nz_feats   = []
-        label_cnts = collections.defaultdict(int)
+        #     import numpy as np
+        #     import scipy.sparse as sp
+        #     import scipy.stats as st
+        #     from sklearn.feature_extraction import FeatureHasher
+        #     from sklearn.tree import DecisionTreeClassifier
+        #     from sklearn.model_selection import cross_val_score
+        #     from sklearn.metrics import pairwise_distances
+        #     from sklearn.decomposition import TruncatedSVD, PCA
 
-        for c,a,r in zip(contexts,actions,rewards):
+        #     #CCA
+        #     #PCA
+        #     #GaussianNaiveBayes
+        #     #1NN
+        #     #
 
-            feats = c.keys() if isinstance(c,dict) else range(len(c))
-            features.update(feats)
-            nz_feats.append(len(feats))
-            label_cnts[list(zip(*sorted(zip(r,a))))[1][-1]] += 1
+        #     C   = collections.defaultdict(list)
+        #     clf = DecisionTreeClassifier(random_state=1)
 
-        env_statistics["action_cardinality"] = median([len(a) for a in actions])
-        env_statistics["context_dimensions"] = len(features) 
-        env_statistics["context_median_nz" ] = median(nz_feats)
-        env_statistics["imbalance_ratio"   ] = round(max(label_cnts.values())/min(label_cnts.values()),4)
+        #     if isinstance(X[0],dict):
+        #         X = FeatureHasher(n_features=2**14, input_type="dict").fit_transform(X)
 
-        return { **SimpleEnvironmentTask().process(environment, interactions), **env_statistics }
+        #     if len(Y) > 5:
+        #         scores = cross_val_score(clf, X, Y, cv=5)
+        #         env_stats["bayes_rate_avg"] = round(scores.mean(),4)
+        #         env_stats["bayes_rate_iqr"] = round(st.iqr(scores),4)
+
+        #     svd = TruncatedSVD(n_components=8) if sp.issparse(X) else PCA()
+        #     svd.fit(X)
+        #     env_stats["PcaVarExplained"] = svd.explained_variance_ratio_[:8].tolist()
+
+        #     for x,y in zip(X,Y):
+        #         C[y].append(x)
+
+        #     if sp.issparse(X):
+        #         centroids = sp.vstack([sp.csr_matrix(sp.vstack(c).mean(0)) for c in C.values()])
+        #     else:
+        #         centroids = np.vstack([np.vstack(c).mean(0) for c in C.values()])
+
+        #     centroid_order = list(C.keys())
+        #     centroid_index = [ centroid_order.index(y) for y in Y ]
+        #     centroid_dists = pairwise_distances(X,centroids)
+        #     closest_index  = centroid_dists.argmin(1)
+        #     cluster_purity = (closest_index == centroid_index).mean()
+
+        #     env_stats["centroid_purity"  ] = round(cluster_purity,4)
+        #     env_stats["centroid_distance"] = round(median(centroid_dists[range(centroid_dists.shape[0]),centroid_index]),4)
+
+        # except CobaExit:
+        #    pass
+
+        # feats   = set()
+        # nz_feats   = []
+        # label_cnts = collections.defaultdict(int)
+
+        # for c,a,r in zip(contexts,actions,rewards):
+
+        #     feats = c.keys() if isinstance(c,dict) else range(len(c))
+        #     feats.update(feats)
+        #     nz_feats.append(len(feats))
+        #     label_cnts[list(zip(*sorted(zip(r,a))))[1][-1]] += 1
+
+        # env_stats["action_cardinality"] = median([len(a) for a in actions])
+        # env_stats["context_dimensions"] = len(feats) 
+        # env_stats["context_median_nz" ] = median(nz_feats)
+        # env_stats["imbalance_ratio"   ] = round(max(label_cnts.values())/min(label_cnts.values()),4)
+
+        return { **SimpleEnvironmentTask().process(environment, interactions), **env_stats }
+
+    def _entropy(self, items: Sequence[Hashable]) -> float:
+        return -sum([count/len(items)*math.log2(count/len(items)) for count in collections.Counter(items).values()])
+
+    def _entropy_normed(self, items: Sequence[Hashable]) -> float:
+        return self._entropy(items)/math.log2(len(set(items)))
+
+    def _mutual_info(self, items1: Sequence[Hashable], items2: Sequence[Hashable]) -> float:
+        return self._entropy(items1) + self._entropy(items2) - self._entropy(list(zip(items1,items2)))
+
+    def _imbalance_ratio(self, items: list) -> float:
+        counts = collections.Counter(items).values()
+        n      = len(items)
+        k      = len(counts)
+        return (k-1)/k*sum([c/(n-c) for c in counts])

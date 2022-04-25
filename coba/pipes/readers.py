@@ -349,7 +349,8 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
                     q  = item[0]
                     while item.rstrip()[-1] != q or item.rstrip()[-2]=="\\":
                         item += next(items)
-                    item = item.rstrip()[1:-1]
+
+                    item = item.rstrip()[1:-1].replace("\\",'')
 
                 yield item.strip()
 

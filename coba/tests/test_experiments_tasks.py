@@ -74,13 +74,9 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
             simulation = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
             row        = ClassEnvironmentTask().process(simulation,simulation.read())
 
-            self.assertEqual(2, row["action_cardinality"])
-            self.assertEqual(2, row["context_dimensions"])
-            self.assertEqual(1, row["imbalance_ratio"])
-            self.assertNotIn("bayes_rate_avg",row)
-            self.assertNotIn("bayes_rate_iqr",row)
-            self.assertNotIn("centroid_purity",row)
-            self.assertNotIn("centroid_distance",row)
+            self.assertEqual(2, row["class_count"])
+            self.assertEqual(2, row["feature_count"])
+            self.assertEqual(1, row["class_imbalance_ratio"])
 
     def test_classification_statistics_sparse_sans_sklearn(self):
         with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
@@ -90,13 +86,9 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
             simulation = SupervisedSimulation(*zip(*[c1,c2]*10))
             row        = ClassEnvironmentTask().process(simulation,simulation.read())
 
-            self.assertEqual(2, row["action_cardinality"])
-            self.assertEqual(2, row["context_dimensions"])
-            self.assertEqual(1, row["imbalance_ratio"])
-            self.assertNotIn("bayes_rate_avg",row)
-            self.assertNotIn("bayes_rate_iqr",row)
-            self.assertNotIn("centroid_purity",row)
-            self.assertNotIn("centroid_distance",row)
+            self.assertEqual(2, row["class_count"])
+            self.assertEqual(2, row["feature_count"])
+            self.assertEqual(1, row["class_imbalance_ratio"])
 
     def test_classification_statistics_encodable_sans_sklearn(self):
         with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
@@ -110,58 +102,8 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
 
     @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_dense(self):
+        pass
 
-        env = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
-        row = ClassEnvironmentTask().process(env,env.read())
-
-        self.assertEqual(2, row["action_cardinality"])
-        self.assertEqual(2, row["context_dimensions"])
-        self.assertEqual(1, row["imbalance_ratio"])
-        self.assertEqual(1, row["bayes_rate_avg"])
-        self.assertEqual(0, row["bayes_rate_iqr"])
-        self.assertEqual(1, row["centroid_purity"])
-        self.assertEqual(0, row["centroid_distance"])
-
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
-    def test_classification_statistics_on_regression_dataset(self):
-
-        env = SupervisedSimulation([[1],[2],[3],[4],[5],[6],[7],[8],[9],[10]]*2,[1,2,3,4,5,6,7,8,9,10]*2)
-        row = ClassEnvironmentTask().process(env,env.read())
-
-        self.assertEqual(10, row["action_cardinality"])
-        self.assertEqual(1, row["context_dimensions"])
-        self.assertEqual(2, row["imbalance_ratio"])
-        self.assertEqual(1, row["bayes_rate_avg"])
-        self.assertEqual(0, row["bayes_rate_iqr"])
-        self.assertEqual(1, row["centroid_purity"])
-        self.assertEqual(0, row["centroid_distance"])
-
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
-    def test_classification_statistics_sparse(self):
-
-        c1 = [{"1":1, "2":2}, "A"]
-        c2 = [{"1":3, "2":4}, "B"]
-
-        env = SupervisedSimulation(*zip(*[c1,c2]*10))
-        row = ClassEnvironmentTask().process(env,env.read())
-
-        self.assertEqual(2, row["action_cardinality"])
-        self.assertEqual(2, row["context_dimensions"])
-        self.assertEqual(1, row["imbalance_ratio"])
-        self.assertEqual(1, row["bayes_rate_avg"])
-        self.assertEqual(0, row["bayes_rate_iqr"])
-        self.assertEqual(1, row["centroid_purity"])
-        self.assertEqual(0, row["centroid_distance"])
-
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
-    def test_classification_statistics_encodable(self):
-        c1 = [{"1":1, "2":2 }, "A" ]
-        c2 = [{"1":3, "2":4 }, "B" ]
-
-        env = SupervisedSimulation(*zip(*[c1,c2]*10))
-        row = ClassEnvironmentTask().process(env,env.read())
-
-        json.dumps(row)
 
 class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 

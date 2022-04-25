@@ -50,7 +50,7 @@ class Scale(EnvironmentFilter):
 
     def __init__(self,
         shift: Union[Number,Literal["min","mean","med"]] = 0, 
-        scale: Union[Number,Literal["minmax","std","iqr",'maxabs']] = "minmax", 
+        scale: Union[Number,Literal["minmax","std","iqr","maxabs"]] = "minmax", 
         using: Optional[int] = None,
         target: Literal["features","rewards"] = "features"):
         """Instantiate a Scale filter.
@@ -63,7 +63,7 @@ class Scale(EnvironmentFilter):
         """
 
         assert isinstance(shift,Number) or shift in ["min","mean","med"]
-        assert isinstance(scale,Number) or scale in ["minmax","std","iqr",'maxabs']
+        assert isinstance(scale,Number) or scale in ["minmax","std","iqr","maxabs"]
 
         self._shift  = shift
         self._scale  = scale
@@ -91,8 +91,8 @@ class Scale(EnvironmentFilter):
         if any([isinstance(i.context,dict) for i in fitting_interactions]) and self._shift != 0:
             raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
 
-        mixed = []
-        had_non_numeric = []
+        mixed = set()
+        had_non_numeric = set()
 
         for interaction in fitting_interactions:
             
@@ -100,19 +100,17 @@ class Scale(EnvironmentFilter):
                 for name,value in self._feature_pairs(interaction.context):
 
                     if name in mixed: continue
-
                     is_numeric = isinstance(value,Number)
                     is_nan     = is_numeric and isnan(value)
 
-                    if (not is_numeric and name in unscaled) or (is_numeric and name in had_non_numeric) :
-                        mixed.append(name)
+                    if (not is_numeric and name in unscaled) or (is_numeric and name in had_non_numeric):
+                        mixed.add(name)
                         if name in unscaled: del unscaled[name]
                         if name in had_non_numeric: had_non_numeric.remove(name)
                     elif not is_numeric:
-                        had_non_numeric.append(name)
+                        had_non_numeric.add(name)
                     elif is_numeric and not is_nan:
                         unscaled[name].append(value)
-            
             if self._target == "rewards":
                 unscaled["rewards"].extend(interaction.rewards)
 
