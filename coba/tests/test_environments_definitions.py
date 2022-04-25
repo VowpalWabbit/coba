@@ -26,7 +26,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         environments = EnvironmentDefinitionFileV1(ListSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
-        self.assertDictEqual({'openml':150, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':150, **environments[0].params}, environments[0].params)
 
     def test_raw_environment(self):
         json_txt = """{
@@ -36,7 +36,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         environments = EnvironmentDefinitionFileV1(ListSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
-        self.assertDictEqual({'openml':150, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':150, **environments[0].params}, environments[0].params)
 
     def test_one_environment_one_filter(self):
         json_txt = """{
@@ -46,7 +46,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         }"""
 
         environments = EnvironmentDefinitionFileV1(ListSource([json_txt])).read()
-        self.assertDictEqual({"openml":150, "take":10, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':150, "take":10, **environments[0].params}, environments[0].params)
 
     def test_one_environment_two_filters(self):
         json_txt = """{
@@ -58,8 +58,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         environments = EnvironmentDefinitionFileV1(ListSource([json_txt])).read()
 
         self.assertEqual(2, len(environments))
-        self.assertDictEqual({"openml":150, "take":10, **environments[0].params}, environments[0].params)
-        self.assertDictEqual({"openml":150, "take":20, **environments[1].params}, environments[1].params)
+        self.assertDictEqual({'openml_data':150, "take":10, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':150, "take":20, **environments[1].params}, environments[1].params)
 
     def test_two_environments_two_filters(self):
         json_txt = """{
@@ -71,10 +71,10 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         environments = EnvironmentDefinitionFileV1(ListSource([json_txt])).read()
 
         self.assertEqual(4, len(environments))
-        self.assertDictEqual({"openml":150, "take":10, **environments[0].params}, environments[0].params)
-        self.assertDictEqual({"openml":150, "take":20, **environments[1].params}, environments[1].params)
-        self.assertDictEqual({"openml":151, "take":10, **environments[2].params}, environments[2].params)
-        self.assertDictEqual({"openml":151, "take":20, **environments[3].params}, environments[3].params)
+        self.assertDictEqual({'openml_data':150, "take":10, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':150, "take":20, **environments[1].params}, environments[1].params)
+        self.assertDictEqual({'openml_data':151, "take":10, **environments[2].params}, environments[2].params)
+        self.assertDictEqual({'openml_data':151, "take":20, **environments[3].params}, environments[3].params)
 
     def test_two_singular_environments(self):
         json_txt = """{
@@ -88,8 +88,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertIsInstance(environments[1], OpenmlSimulation)
-        self.assertDictEqual({"openml":150, **environments[0].params}, environments[0].params)
-        self.assertDictEqual({"openml":151, **environments[1].params}, environments[1].params)
+        self.assertDictEqual({'openml_data':150, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':151, **environments[1].params}, environments[1].params)
 
     def test_one_foreach_environment(self):
         json_txt = """{
@@ -102,8 +102,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertIsInstance(environments[1], OpenmlSimulation)
-        self.assertDictEqual({"openml":150, **environments[0].params}, environments[0].params)
-        self.assertDictEqual({"openml":151, **environments[1].params}, environments[1].params)
+        self.assertDictEqual({'openml_data':150, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':151, **environments[1].params}, environments[1].params)
 
     def test_one_variable(self):
         json_txt = """{
@@ -115,8 +115,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertIsInstance(environments[1], OpenmlSimulation)
-        self.assertDictEqual({"openml":150, **environments[0].params}, environments[0].params)
-        self.assertDictEqual({"openml":151, **environments[1].params}, environments[1].params)
+        self.assertDictEqual({'openml_data':150, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':151, **environments[1].params}, environments[1].params)
 
     def test_two_variables(self):
         json_txt = """{
@@ -135,12 +135,12 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         self.assertEqual(6, len(environments))
         self.assertIsInstance(environments[4], OpenmlSimulation)
         self.assertIsInstance(environments[5], OpenmlSimulation)
-        self.assertDictEqual({"openml":150, "take":10, **environments[0].params}, environments[0].params)
-        self.assertDictEqual({"openml":150, "take":20, **environments[1].params}, environments[1].params)
-        self.assertDictEqual({"openml":151, "take":10, **environments[2].params}, environments[2].params)
-        self.assertDictEqual({"openml":151, "take":20, **environments[3].params}, environments[3].params)
-        self.assertDictEqual({"openml":150           , **environments[4].params}, environments[4].params)
-        self.assertDictEqual({"openml":151           , **environments[5].params}, environments[5].params)
+        self.assertDictEqual({'openml_data':150, "take":10, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':150, "take":20, **environments[1].params}, environments[1].params)
+        self.assertDictEqual({'openml_data':151, "take":10, **environments[2].params}, environments[2].params)
+        self.assertDictEqual({'openml_data':151, "take":20, **environments[3].params}, environments[3].params)
+        self.assertDictEqual({'openml_data':150           , **environments[4].params}, environments[4].params)
+        self.assertDictEqual({'openml_data':151           , **environments[5].params}, environments[5].params)
 
     def test_pipe_list(self):
         json_txt = """{
@@ -152,8 +152,8 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         environments = EnvironmentDefinitionFileV1(ListSource([json_txt])).read()
 
         self.assertEqual(2, len(environments))
-        self.assertDictEqual({"openml":150, "take":10, **environments[0].params}, environments[0].params)
-        self.assertDictEqual({"openml":150, "take":20, **environments[1].params}, environments[1].params)
+        self.assertDictEqual({'openml_data':150, "take":10, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':150, "take":20, **environments[1].params}, environments[1].params)
 
     def test_pipe_str(self):
         json_txt = """{
@@ -165,7 +165,7 @@ class EnvironmentFileFmtV1_Tests(unittest.TestCase):
         environments = EnvironmentDefinitionFileV1(ListSource([json_txt])).read()
 
         self.assertEqual(1, len(environments))
-        self.assertDictEqual({"openml":150, **environments[0].params}, environments[0].params)
+        self.assertDictEqual({'openml_data':150, **environments[0].params}, environments[0].params)
 
     def test_bad_pipe_exception(self):
         json_txt = """{

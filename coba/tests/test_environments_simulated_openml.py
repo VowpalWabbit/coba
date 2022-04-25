@@ -61,20 +61,16 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         CobaContext.cacher = PutOnceCacher()
 
-        data_set_description = {
+        data = {
             "data_set_description":{
                 "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
                 "file_id":"22044555",
-                "visibility":"public",
                 "status":"active",
+                "default_target_attribute":"play"
             }
         }
 
-        data_set_features = {
+        feat = {
             "data_features":{
                 "feature":[
                     {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
@@ -86,7 +82,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        data_set_arff = """
+        arff = """
             @relation weather
             
             @attribute pH real
@@ -103,21 +99,11 @@ class OpenmlSource_Tests(unittest.TestCase):
             7.6,23,4700,1,yes
         """
 
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"play"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        features,labels = list(zip(*OpenmlSource(data_id=42693,label_type="C").read()))
+        features,labels = list(zip(*OpenmlSource(data_id=42693).read()))
 
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels), 5)
@@ -134,45 +120,37 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((0,1), labels[3])
         self.assertEqual((0,1), labels[4])
 
-    def test_dataset_deactivated(self):
+    def test_data_deactivated(self):
 
-        data_set_description = {
+        data = {
             "data_set_description":{
                 "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
                 "file_id":"22044555",
-                "visibility":"public",
                 "status":"deactivated",
+                "default_target_attribute": "play"
             }
         }
 
 
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
 
         with self.assertRaises(CobaException) as e:
             feature_rows, label_col = OpenmlSource(data_id=42693).read()
 
         self.assertTrue("has been deactivated" in str(e.exception))
 
-    def test_classification_type_classification_dataset_with_missing_values(self):
+    def test_missing_values(self):
 
-        data_set_description = {
+        data = {
             "data_set_description":{
                 "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
                 "file_id":"22044555",
-                "visibility":"public",
                 "status":"active",
+                "default_target_attribute":"play"
             }
         }
 
-        data_set_features = {
+        feat = {
             "data_features":{
                 "feature":[
                     {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
@@ -184,7 +162,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        data_set_arff = """
+        arff = """
             @relation weather
             
             @attribute pH real
@@ -201,21 +179,11 @@ class OpenmlSource_Tests(unittest.TestCase):
             7.6,23,4700,1,yes
         """
 
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"play"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693,label_type="C").read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
 
         self.assertEqual(len(feature_rows), 3)
         self.assertEqual(len(label_col), 3)
@@ -228,22 +196,18 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((0,1), label_col[1])
         self.assertEqual((0,1), label_col[2])
 
-    def test_classification_type_classification_dataset_cat_as_str(self):
+    def test_cat_as_str(self):
 
-        data_set_description = {
+        data = {
             "data_set_description":{
                 "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
                 "file_id":"22044555",
-                "visibility":"public",
                 "status":"active",
+                "default_target_attribute":"play"
             }
         }
 
-        data_set_features = {
+        feat = {
             "data_features":{
                 "feature":[
                     {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
@@ -255,7 +219,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        data_set_arff = """
+        arff = """
             @relation weather
             
             @attribute pH real
@@ -272,21 +236,11 @@ class OpenmlSource_Tests(unittest.TestCase):
             7.6,23,4700,1,yes
         """
 
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"play"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C", cat_as_str=True).read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, cat_as_str=True).read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -297,28 +251,24 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual([8.3, 27, 1020, '1'], feature_rows[3])
         self.assertEqual([7.6, 23, 4700, '1'], feature_rows[4])
 
-        self.assertEqual('no', label_col[0])
-        self.assertEqual('no', label_col[1])
+        self.assertEqual('no' , label_col[0])
+        self.assertEqual('no' , label_col[1])
         self.assertEqual('yes', label_col[2])
         self.assertEqual('yes', label_col[3])
         self.assertEqual('yes', label_col[4])
 
-    def test_regression_type_regression_dataset(self):
+    def test_data_classification(self):
 
-        data_set_description = {
+        data = {
             "data_set_description":{
                 "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
                 "file_id":"22044555",
-                "visibility":"public",
                 "status":"active",
+                "default_target_attribute":"play"
             }
         }
 
-        data_set_features = {
+        feat = {
             "data_features":{
                 "feature":[
                     {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
@@ -330,7 +280,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        data_set_arff = """
+        arff = """
             @relation weather
             
             @attribute pH real
@@ -347,908 +297,11 @@ class OpenmlSource_Tests(unittest.TestCase):
             7.6,23,4700,1,yes
         """
 
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":2, "status":"active", "input": [{"name":"target_feature", "value":"pH"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="regression").read()))
-
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
-
-        self.assertEqual([27, 1410, (1,0), (1,0)], feature_rows[0])
-        self.assertEqual([29, 1180, (1,0), (1,0)], feature_rows[1])
-        self.assertEqual([28, 1410, (1,0), (0,1)], feature_rows[2])
-        self.assertEqual([27, 1020, (0,1), (0,1)], feature_rows[3])
-        self.assertEqual([23, 4700, (0,1), (0,1)], feature_rows[4])
-
-        self.assertEqual(8.1, label_col[0])
-        self.assertEqual(8.2, label_col[1])
-        self.assertEqual(8.2, label_col[2])
-        self.assertEqual(8.3, label_col[3])
-        self.assertEqual(7.6, label_col[4])
-
-    def test_classification_type_regression_dataset_cache_exception(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
-
-        CobaContext.cacher = ExceptionCacher('openml_042693_tasks', CobaException())
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        with self.assertRaises(Exception) as e:
-            feature_rows, label_col = OpenmlSource(data_id=42693, label_type="C").read()
-
-        self.assertTrue("does not appear" in str(e.exception))
-
-    def test_classification_type_regression_dataset_no_classification_tasks(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":5, "status":"active" }, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        with self.assertRaises(Exception) as e:
-            feature_rows, label_col = OpenmlSource(data_id=42693, label_type="C").read()
-
-        self.assertTrue("does not appear" in str(e.exception))
-
-    def test_classification_type_regression_dataset_no_tasks(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set_tasks = { }
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        with self.assertRaises(CobaException) as e:
-            feature_rows, label_col = OpenmlSource(data_id=42693, label_type="C").read()
-
-        self.assertTrue("does not appear" in str(e.exception))
-
-    def test_classification_type_regression_dataset_classification_tasks(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set = """
-            @relation weather
-            
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {no, yes}
-            
-            @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" },
-                ]
-            }
-        }
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
-
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
-
-        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
-
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((1,0), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
-
-    def test_classification_type_regression_dataset_classification_tasks_targeting_ignored_col(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"true" ,"is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set_arff = """
-            @relation weather
-            
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {no, yes}
-            
-            @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" },
-                ]
-            }
-        }
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set_arff.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
-
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
-
-        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
-
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((1,0), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
-
-    def test_classification_type_regression_dataset_classification_tasks_targeting_numeric_col(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set = """
-            @relation weather
-            
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {no, yes}
-            
-            @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" },
-                ]
-            }
-        }
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
-
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
-
-        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
-
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((1,0), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
-
-    def test_classification_type_unsupervised_dataset_classification_tasks(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set = """
-            @relation weather
-            
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {no, yes}
-            
-            @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" },
-                ]
-            }
-        }
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
-
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
-
-        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
-
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((1,0), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
-
-    def test_sparse_classification_type_classification_dataset(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"1594",
-                "name":"news20_test",
-                "version":"2",
-                "file_id":"1595696",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"att_1","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"att_2","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"att_3","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"att_4","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"att_5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"5","name":"att_6","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"6","name":"att_7","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"7","name":"att_8","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"8","name":"att_9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"9","name":"att_10","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
-                ]
-            }
-        }
-
-        data_set_arff = """
-            @relation news20
-            
-            @attribute att_1 numeric
-            @attribute att_2 numeric
-            @attribute att_3 numeric
-            @attribute att_4 numeric
-            @attribute att_5 numeric
-            @attribute att_6 numeric
-            @attribute att_7 numeric
-            @attribute att_8 numeric
-            @attribute att_9 numeric
-            @attribute att_10 numeric
-            @attribute class {B, C, D}
-            
-            @data
-            {0 2,1 3}
-            {2 1,3 1,4 1,6 1,8 1,10 B}
-            {0 3,1 1,2 1,3 9,4 1,5 1,6 1,10 C}
-            {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
-        """
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"class"}]}, 
-                    { "task_id":359909, "task_type_id":5, "task_type":"Clustering", "status":"active" }
-                ]
-            }
-        }
-
-        CobaContext.cacher.put('openml_001594_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_001594_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_001594_arff', data_set_arff.encode().splitlines())
-        CobaContext.cacher.put('openml_001594_tasks', json.dumps(data_set_tasks).encode().splitlines())
-
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=1594, label_type="C").read()))
-
-        self.assertEqual(len(feature_rows), 4)
-        self.assertEqual(len(label_col   ), 4)
-
-        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
-        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
-        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
-        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
-
-        self.assertEqual((1,0,0,0), label_col[0])
-        self.assertEqual((0,1,0,0), label_col[1])
-        self.assertEqual((0,0,1,0), label_col[2])
-        self.assertEqual((0,0,0,1), label_col[3])
-
-    def test_task_id(self):
-
-        task_description = {
-            "task":{
-                "input":[
-                    {"name":"source_data","data_set":{"data_set_id":"1594","target_feature":"class"}}
-                ]
-            }
-        }
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"1594",
-                "name":"news20_test",
-                "version":"2",
-                "file_id":"1595696",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"att_1","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"att_2","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"att_3","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"att_4","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"att_5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"5","name":"att_6","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"6","name":"att_7","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"7","name":"att_8","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"8","name":"att_9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"9","name":"att_10","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
-                ]
-            }
-        }
-
-        data_set_arff = """
-            @relation news20
-            
-            @attribute att_1 numeric
-            @attribute att_2 numeric
-            @attribute att_3 numeric
-            @attribute att_4 numeric
-            @attribute att_5 numeric
-            @attribute att_6 numeric
-            @attribute att_7 numeric
-            @attribute att_8 numeric
-            @attribute att_9 numeric
-            @attribute att_10 numeric
-            @attribute class {B, C, D}
-            
-            @data
-            {0 2,1 3}
-            {2 1,3 1,4 1,6 1,8 1,10 B}
-            {0 3,1 1,2 1,3 9,4 1,5 1,6 1,10 C}
-            {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
-        """
-
-        CobaContext.cacher.put('openml_001111_task', json.dumps(task_description).encode().splitlines())
-        CobaContext.cacher.put('openml_001594_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_001594_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_001594_arff', data_set_arff.encode().splitlines())
-
-        feature_rows, label_col = list(zip(*OpenmlSource(task_id=1111).read()))
-
-        self.assertEqual(len(feature_rows), 4)
-        self.assertEqual(len(label_col   ), 4)
-
-        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
-        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
-        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
-        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
-
-        self.assertEqual((1,0,0,0), label_col[0])
-        self.assertEqual((0,1,0,0), label_col[1])
-        self.assertEqual((0,0,1,0), label_col[2])
-        self.assertEqual((0,0,0,1), label_col[3])
-
-    def test_task_id_no_source(self):
-
-        task_description = {
-            "task":{
-                "input":[ ]
-            }
-        }
-
-        CobaContext.cacher.put('openml_001111_task', json.dumps(task_description).encode().splitlines())
-
-        with self.assertRaises(CobaException):
-            list(OpenmlSource(task_id=1111).read())
-
-    def test_cache_cleared_on_unexpected_exception(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"class"}]}, 
-                    { "task_id":359909, "task_type_id":5, "task_type":"Clustering", "status":"active" }
-                ]
-            }
-        }
-
-        CobaContext.cacher = ExceptionCacher('openml_042693_arff', Exception())
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , b"" )
-
-        with self.assertRaises(Exception) as e:
-            feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
-
-        self.assertNotIn('openml_042693_descr', CobaContext.cacher)
-        self.assertNotIn('openml_042693_feats', CobaContext.cacher)
-        self.assertNotIn('openml_042693_arff' , CobaContext.cacher)
-
-    def test_cache_not_cleared_on_keyboard_interrupt(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set = """
-            @relation weather
-            
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {no, yes}
-            
-            @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-
-        data_set_tasks = {
-            "tasks": {
-                "task": [
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"class"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
-
-        CobaContext.cacher = ExceptionCacher('openml_042693_arff', KeyboardInterrupt())
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        with self.assertRaises(KeyboardInterrupt) as e:
-            feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
-
-        self.assertIn('openml_042693_descr', CobaContext.cacher)
-        self.assertIn('openml_042693_feats', CobaContext.cacher)
-        self.assertIn('openml_042693_arff' , CobaContext.cacher)
-
-    def test_cache_cleared_on_cache_coba_exception(self):
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set = """
-            @relation weather
-            
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {no, yes}
-            
-            @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"class"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
-
-        CobaContext.cacher = ExceptionCacher('openml_042693_arff', CobaException())
-
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        with self.assertRaises(Exception) as e:
-            feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
-
-        self.assertNotIn('openml_042693_descr', CobaContext.cacher)
-        self.assertNotIn('openml_042693_feats', CobaContext.cacher)
-        self.assertNotIn('openml_042693_arff' , CobaContext.cacher)
-
-    def test_arff_classification_type_classification_dataset_from_http_with_sparse_csv_cache(self):
-
-        data_set_csv = """
-            "att_1","att_2","att_3","att_4","att_5","att_6","att_7","att_8","att_9","att_10","class"
-            {0 2,1 3}
-            {2 1,3 1,4 1,6 1,8 1,10 B}
-            {0 3,1 1,2 1,3 9,4 1,5 1,6 1}
-            {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
-        """
-
-        CobaContext.cacher.put('openml_042693_csv'  , data_set_csv.encode().splitlines())
-
-        data_set_description = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-            }
-        }
-
-        data_set_features = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"play"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
-
-        data_set_arff = """
-            @relation weather
-            
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {no, yes}
-            
-            @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-   
-        def mocked_requests_get(*args, **kwargs):
-
-            if args[0] == 'https://www.openml.org/api/v1/json/data/42693':
-                return MockResponse(200, "", json.dumps(data_set_description).encode().splitlines())
-
-            if args[0] == 'https://www.openml.org/api/v1/json/data/features/42693':
-                return MockResponse(200, "", json.dumps(data_set_features).encode().splitlines())
-
-            if args[0] == 'https://www.openml.org/api/v1/json/task/list/data_id/42693':
-                return MockResponse(200, "", json.dumps(data_set_tasks).encode().splitlines())
-
-            if args[0] == 'https://www.openml.org/data/v1/download/22044555':
-                return MockResponse(200, "", data_set_arff.encode().splitlines())
-
-            return MockResponse(None, 404, [])
-
-        with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
-            feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff' , arff.encode().splitlines() )
+
+        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -1265,27 +318,18 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((0,1), label_col[3])
         self.assertEqual((0,1), label_col[4])
 
-        self.assertIn   ('openml_042693_descr', CobaContext.cacher)
-        self.assertIn   ('openml_042693_feats', CobaContext.cacher)
-        self.assertIn   ('openml_042693_arff' , CobaContext.cacher)
-        self.assertNotIn('openml_042693_csv'  , CobaContext.cacher)
+    def test_data_regression(self):
 
-    def test_read_twice_http_request_put_once_cache_once(self):
-
-        data_set_description = {
+        data = {
             "data_set_description":{
                 "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
                 "file_id":"22044555",
-                "visibility":"public",
                 "status":"active",
+                "default_target_attribute":"pH"
             }
         }
 
-        data_set_features = {
+        feat = {
             "data_features":{
                 "feature":[
                     {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
@@ -1297,16 +341,619 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"play"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
+        arff = """
+            @relation weather
+            
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {no, yes}
+            
+            @data
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff' , arff.encode().splitlines() )
+
+        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_col), 5)
+
+        self.assertEqual([27, 1410, (1,0), (1,0)], feature_rows[0])
+        self.assertEqual([29, 1180, (1,0), (1,0)], feature_rows[1])
+        self.assertEqual([28, 1410, (1,0), (0,1)], feature_rows[2])
+        self.assertEqual([27, 1020, (0,1), (0,1)], feature_rows[3])
+        self.assertEqual([23, 4700, (0,1), (0,1)], feature_rows[4])
+
+        self.assertEqual(8.1, label_col[0])
+        self.assertEqual(8.2, label_col[1])
+        self.assertEqual(8.2, label_col[2])
+        self.assertEqual(8.3, label_col[3])
+        self.assertEqual(7.6, label_col[4])
+
+    def test_no_default_target_attribute(self):
+
+        data = {
+            "data_set_description":{
+                "id":"42693",
+                "file_id":"22044555",
+                "status":"active",
+            }
+        }
+
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+
+        with self.assertRaises(Exception) as e:
+            feature_rows, label_col = OpenmlSource(data_id=42693, label_type="C").read()
+
+        self.assertTrue("We were unable to find" in str(e.exception))
+
+    def test_targeting_ignored_col(self):
+
+        data = {
+            "data_set_description":{
+                "id":"42693",
+                "file_id":"22044555",
+                "status":"active",
+                "default_target_attribute":"coli"
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"true" ,"is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
                 ]
             }
         }
 
-        data_set_arff = """
+        arff = """
+            @relation weather
+            
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {no, yes}
+            
+            @data
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
+
+        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
+
+        self.assertEqual(len(feature_rows), 5)
+        self.assertEqual(len(label_col), 5)
+
+        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+
+        self.assertEqual((1,0), label_col[0])
+        self.assertEqual((1,0), label_col[1])
+        self.assertEqual((1,0), label_col[2])
+        self.assertEqual((0,1), label_col[3])
+        self.assertEqual((0,1), label_col[4])
+
+    def test_sparse_classification_target(self):
+
+        data = {
+            "data_set_description":{
+                "id":"1594",
+                "file_id":"1595696",
+                "status":"active",
+                "default_target_attribute":"class"
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"att_1","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"att_2","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"att_3","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"att_4","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"att_5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"att_6","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"att_7","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"att_8","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"att_9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"att_10","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
+                ]
+            }
+        }
+
+        arff = """
+            @relation news20
+            
+            @attribute att_1 numeric
+            @attribute att_2 numeric
+            @attribute att_3 numeric
+            @attribute att_4 numeric
+            @attribute att_5 numeric
+            @attribute att_6 numeric
+            @attribute att_7 numeric
+            @attribute att_8 numeric
+            @attribute att_9 numeric
+            @attribute att_10 numeric
+            @attribute class {B, C, D}
+            
+            @data
+            {0 2,1 3}
+            {2 1,3 1,4 1,6 1,8 1,10 B}
+            {0 3,1 1,2 1,3 9,4 1,5 1,6 1,10 C}
+            {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
+        """
+
+        CobaContext.cacher.put('openml_001594_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_arff', arff.encode().splitlines())
+
+        feature_rows, label_col = list(zip(*OpenmlSource(data_id=1594).read()))
+
+        self.assertEqual(len(feature_rows), 4)
+        self.assertEqual(len(label_col   ), 4)
+
+        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
+        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
+        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
+        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
+
+        self.assertEqual((1,0,0,0), label_col[0])
+        self.assertEqual((0,1,0,0), label_col[1])
+        self.assertEqual((0,0,1,0), label_col[2])
+        self.assertEqual((0,0,0,1), label_col[3])
+
+    def test_task(self):
+
+        task = {
+            "task":{
+                "task_type_id":"1",
+                "input":[
+                    {"name":"source_data","data_set":{"data_set_id":"1594","target_feature":"class"}}
+                ]
+            }
+        }
+
+        data = {
+            "data_set_description":{
+                "id":"1594",
+                "file_id":"1595696",
+                "status":"active",
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"att_1","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"att_2","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"att_3","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"att_4","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"att_5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"att_6","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"att_7","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"att_8","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"att_9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"att_10","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
+                ]
+            }
+        }
+
+        arff = """
+            @relation news20
+            
+            @attribute att_1 numeric
+            @attribute att_2 numeric
+            @attribute att_3 numeric
+            @attribute att_4 numeric
+            @attribute att_5 numeric
+            @attribute att_6 numeric
+            @attribute att_7 numeric
+            @attribute att_8 numeric
+            @attribute att_9 numeric
+            @attribute att_10 numeric
+            @attribute class {B, C, D}
+            
+            @data
+            {0 2,1 3}
+            {2 1,3 1,4 1,6 1,8 1,10 B}
+            {0 3,1 1,2 1,3 9,4 1,5 1,6 1,10 C}
+            {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
+        """
+
+        CobaContext.cacher.put('openml_001111_task', json.dumps(task).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_arff', arff.encode().splitlines())
+
+        feature_rows, label_col = list(zip(*OpenmlSource(task_id=1111).read()))
+
+        self.assertEqual(len(feature_rows), 4)
+        self.assertEqual(len(label_col   ), 4)
+
+        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
+        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
+        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
+        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
+
+        self.assertEqual((1,0,0,0), label_col[0])
+        self.assertEqual((0,1,0,0), label_col[1])
+        self.assertEqual((0,0,1,0), label_col[2])
+        self.assertEqual((0,0,0,1), label_col[3])
+
+    def test_task_without_source_data(self):
+
+        task = {
+            "task":{
+                "task_type_id":"1",
+                "input":[ ]
+            }
+        }
+
+        data = {
+            "data_set_description":{
+                "id":"1594",
+                "file_id":"1595696",
+                "status":"active",
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"att_1","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"att_2","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"att_3","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"att_4","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"att_5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"att_6","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"att_7","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"att_8","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"att_9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"att_10","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
+                ]
+            }
+        }
+
+        arff = """
+            @relation news20
+            
+            @attribute att_1 numeric
+            @attribute att_2 numeric
+            @attribute att_3 numeric
+            @attribute att_4 numeric
+            @attribute att_5 numeric
+            @attribute att_6 numeric
+            @attribute att_7 numeric
+            @attribute att_8 numeric
+            @attribute att_9 numeric
+            @attribute att_10 numeric
+            @attribute class {B, C, D}
+            
+            @data
+            {0 2,1 3}
+            {2 1,3 1,4 1,6 1,8 1,10 B}
+            {0 3,1 1,2 1,3 9,4 1,5 1,6 1,10 C}
+            {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
+        """
+
+        CobaContext.cacher.put('openml_001111_task', json.dumps(task).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_arff', arff.encode().splitlines())
+
+        with self.assertRaises(CobaException) as e:
+            feature_rows, label_col = list(zip(*OpenmlSource(task_id=1111).read()))
+
+        self.assertIn("does not appear to have an associated", str(e.exception))
+
+    def test_task_classification_with_numeric_target(self):
+
+        task = {
+            "task":{
+                "task_type_id":"1",
+                "input":[
+                    {"name":"source_data","data_set":{"data_set_id":"1594","target_feature":"class"}}
+                ]
+            }
+        }
+
+        data = {
+            "data_set_description":{
+                "id":"1594",
+                "file_id":"1595696",
+                "status":"active",
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"att_1" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"att_2" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"att_3" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"att_4" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"att_5" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"att_6" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"att_7" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"att_8" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"att_9" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"att_10","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"class" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                ]
+            }
+        }
+
+        arff = """
+            @relation test
+            
+            @attribute att_1 numeric
+            @attribute att_2 numeric
+            @attribute att_3 numeric
+            @attribute att_4 numeric
+            @attribute att_5 numeric
+            @attribute att_6 numeric
+            @attribute att_7 numeric
+            @attribute att_8 numeric
+            @attribute att_9 numeric
+            @attribute att_10 numeric
+            @attribute class numeric
+            
+            @data
+            {0 2,1 3}
+            {2 1,3 1,4 1,6 1,8 1,10 1}
+            {0 3,1 1,2 1,3 9,4 1,5 1,6 1,10 2}
+            {0 1,3 1,6 1,7 1,8 1,9 2,10 3}
+        """
+
+        CobaContext.cacher.put('openml_001111_task', json.dumps(task).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_001594_arff', arff.encode().splitlines())
+
+        with self.assertRaises(CobaException) as e:
+            feature_rows, label_col = list(zip(*OpenmlSource(task_id=1111).read()))
+
+        self.assertIn("A numeric target", str(e.exception))
+
+        # self.assertEqual(len(feature_rows), 4)
+        # self.assertEqual(len(label_col   ), 4)
+
+        # self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
+        # self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
+        # self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
+        # self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
+
+        # self.assertEqual((1,0,0,0), label_col[0])
+        # self.assertEqual((0,1,0,0), label_col[1])
+        # self.assertEqual((0,0,1,0), label_col[2])
+        # self.assertEqual((0,0,0,1), label_col[3])
+
+    def test_task_id_no_source(self):
+
+        task_description = {
+            "task":{
+                "input":[ ]
+            }
+        }
+
+        CobaContext.cacher.put('openml_001111_task', json.dumps(task_description).encode().splitlines())
+
+        with self.assertRaises(CobaException):
+            list(OpenmlSource(task_id=1111).read())
+
+    def test_cache_cleared_on_unexpected_exception(self):
+
+        data = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "licence":"CC0",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+                "default_target_attribute":"play"
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        CobaContext.cacher = ExceptionCacher('openml_042693_arff', Exception())
+
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff', b"" )
+
+        with self.assertRaises(Exception) as e:
+            feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+
+        self.assertNotIn('openml_042693_data', CobaContext.cacher)
+        self.assertNotIn('openml_042693_feat', CobaContext.cacher)
+        self.assertNotIn('openml_042693_arff', CobaContext.cacher)
+
+    def test_cache_not_cleared_on_keyboard_interrupt(self):
+
+        data = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "licence":"CC0",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+                "default_target_attribute":"play"
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        data_set = """
+            @relation weather
+            
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {no, yes}
+            
+            @data
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        CobaContext.cacher = ExceptionCacher('openml_042693_arff', KeyboardInterrupt())
+
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff', data_set.encode().splitlines() )
+
+        with self.assertRaises(KeyboardInterrupt) as e:
+            feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
+
+        self.assertIn('openml_042693_data', CobaContext.cacher)
+        self.assertIn('openml_042693_feat', CobaContext.cacher)
+        self.assertIn('openml_042693_arff', CobaContext.cacher)
+
+    def test_cache_cleared_on_cache_coba_exception(self):
+
+        data = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "licence":"CC0",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+                "default_target_attribute":"play"
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        arff = """
+            @relation weather
+            
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {no, yes}
+            
+            @data
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        CobaContext.cacher = ExceptionCacher('openml_042693_arff', CobaException())
+
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
+
+        with self.assertRaises(Exception) as e:
+            feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+
+        self.assertNotIn('openml_042693_data', CobaContext.cacher)
+        self.assertNotIn('openml_042693_feat', CobaContext.cacher)
+        self.assertNotIn('openml_042693_arff', CobaContext.cacher)
+
+    def test_read_twice_http_request_put_once_cache_once(self):
+
+        data = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "licence":"CC0",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+                "default_target_attribute":"play"
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        arff = """
             @relation weather
             
             @attribute pH real
@@ -1324,10 +971,9 @@ class OpenmlSource_Tests(unittest.TestCase):
         """
    
         request_dict = {
-            'https://www.openml.org/api/v1/json/data/42693'             : MockResponse(200, "", json.dumps(data_set_description).encode().splitlines()),
-            'https://www.openml.org/api/v1/json/data/features/42693'    : MockResponse(200, "", json.dumps(data_set_features).encode().splitlines()),
-            'https://www.openml.org/data/v1/download/22044555'          : MockResponse(200, "", data_set_arff.encode().splitlines()),
-            'https://www.openml.org/api/v1/json/task/list/data_id/42693': MockResponse(200, "", json.dumps(data_set_tasks).encode().splitlines())
+            'https://www.openml.org/api/v1/json/data/42693'         : MockResponse(200, "", json.dumps(data).encode().splitlines()),
+            'https://www.openml.org/api/v1/json/data/features/42693': MockResponse(200, "", json.dumps(feat).encode().splitlines()),
+            'https://www.openml.org/data/v1/download/22044555'      : MockResponse(200, "", arff.encode().splitlines()),
         }
 
         def mocked_requests_get(*args, **kwargs):
@@ -1354,9 +1000,9 @@ class OpenmlSource_Tests(unittest.TestCase):
                 self.assertEqual((0,1), label_col[3])
                 self.assertEqual((0,1), label_col[4])
 
-                self.assertIn('openml_042693_descr', CobaContext.cacher)
-                self.assertIn('openml_042693_feats', CobaContext.cacher)
-                self.assertIn('openml_042693_arff' , CobaContext.cacher)
+                self.assertIn('openml_042693_data', CobaContext.cacher)
+                self.assertIn('openml_042693_feat', CobaContext.cacher)
+                self.assertIn('openml_042693_arff', CobaContext.cacher)
 
     def test_status_code_412_request_api_key(self):
         with unittest.mock.patch.object(requests, 'get', return_value=MockResponse(412, "please provide api key", [])):
@@ -1411,7 +1057,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         CobaContext.cacher   = MemoryCacher()
         CobaContext.logger   = NullLogger()
 
-        data_set_description = {
+        data = {
             "data_set_description":{
                 "id":"42693",
                 "name":"testdata",
@@ -1421,10 +1067,11 @@ class OpenmlSimulation_Tests(unittest.TestCase):
                 "file_id":"22044555",
                 "visibility":"public",
                 "status":"active",
+                "default_target_attribute": "coli"
             }
         }
 
-        data_set_features = {
+        feat = {
             "data_features":{
                 "feature":[
                     {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
@@ -1436,7 +1083,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             }
         }
 
-        data_set = """
+        arff = """
             @relation weather
             
             @attribute pH real
@@ -1451,21 +1098,11 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             8.3,27,1020,1,yes
         """
 
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":1, "status":"active", "input": [{"name":"target_feature", "value":"coli"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        interactions = list(OpenmlSimulation(data_id=42693, cat_as_str=True, label_type="C").read())
+        interactions = list(OpenmlSimulation(data_id=42693, cat_as_str=True).read())
 
         self.assertEqual(len(interactions), 3)
 
@@ -1493,7 +1130,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         CobaContext.cacher   = MemoryCacher()
         CobaContext.logger   = NullLogger()
 
-        data_set_description = {
+        data = {
             "data_set_description":{
                 "id":"42693",
                 "name":"testdata",
@@ -1503,10 +1140,11 @@ class OpenmlSimulation_Tests(unittest.TestCase):
                 "file_id":"22044555",
                 "visibility":"public",
                 "status":"active",
+                "default_target_attribute":"pH"
             }
         }
 
-        data_set_features = {
+        feat = {
             "data_features":{
                 "feature":[
                     {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
@@ -1518,7 +1156,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             }
         }
 
-        data_set = """
+        arff = """
             @relation weather
             
             @attribute pH real
@@ -1533,21 +1171,11 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             8.3,27,1020,1,yes
         """
 
-        data_set_tasks = {
-            "tasks":{
-                "task":[
-                    { "task_id":338754, "task_type_id":2, "status":"active", "input": [{"name":"target_feature", "value":"pH"}]}, 
-                    { "task_id":359909, "task_type_id":5, "status":"active" } 
-                ]
-            }
-        }
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        CobaContext.cacher.put('openml_042693_descr', json.dumps(data_set_description).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_feats', json.dumps(data_set_features).encode().splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , data_set.encode().splitlines() )
-        CobaContext.cacher.put('openml_042693_tasks', json.dumps(data_set_tasks).encode().splitlines() )
-
-        interactions = list(OpenmlSimulation(data_id=42693, label_type="R").read())
+        interactions = list(OpenmlSimulation(data_id=42693).read())
 
         self.assertEqual(len(interactions), 3)
 

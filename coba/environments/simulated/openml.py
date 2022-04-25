@@ -1,8 +1,8 @@
 import time
 import json
 
+from itertools import chain
 from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
-from coba.backports import Literal
 
 from coba.random import random
 from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, ListSource, Structure
@@ -19,12 +19,11 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     """
 
     @overload
-    def __init__(self, *, data_id:int, label_type:Literal["C","R"]=None, cat_as_str:bool=False):
+    def __init__(self, *, data_id:int, cat_as_str:bool=False):
         """Instantiate an OpenmlSource.
         
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
-            label_type: Indicates if a regression or classification label should be used on the dataset.
             cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded. 
         """
         ...
@@ -44,76 +43,66 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
         self._data_id    = kwargs.get('data_id',None)
         self._task_id    = kwargs.get('task_id',None)
-        self._label_type = kwargs.get('label_type',None)
+        self._target     = None
         self._cat_as_str = kwargs.get('cat_as_str',False)
-        self._cache_keys = {}
 
     @property
     def params(self) -> Dict[str,Any]:
         """Parameters describing the openml source."""
-        if not self._task_id:
-            return  { "openml": self._data_id, "cat_as_str": self._cat_as_str }
-        else:
-            return  { "openml": f"T{self._task_id}", "cat_as_str": self._cat_as_str }
+        return  { "openml_data": self._data_id, "openml_task": self._task_id, "openml_target": self._target, "cat_as_str": self._cat_as_str }
 
     def read(self) -> Iterable[Tuple[Any, Any]]:
         """Read and parse the openml source."""
         try:
 
-            data_id    = self._data_id
-            label_type = self._label_type
-            task_id    = self._task_id
-            target     = None
+            if self._data_id:
+                data_descr   = self._get_data_descr(self._data_id)
+                self._target = self._clean_name(data_descr.get("default_target_attribute",None))
+                task_type    = None
 
-            if task_id is not None:
-                self._cache_keys['task'] = f"openml_{task_id:0>6}_task"
-                task   = self._get_task_description(task_id)
-                source = ([i for i in task["input"] if i.get('name',None) == 'source_data'] + [None])[0]
-                
-                if source:
-                    data_id = source["data_set"]["data_set_id"]
-                    target  = source["data_set"]["target_feature"]
-                else:
-                    raise CobaException(f"Openml task {task_id} does not appear to have an associated data source.")
+            if self._task_id:
+                task_descr = self._get_task_descr(self._task_id)
+                task_type  = task_descr['type']
 
-            self._cache_keys['descr'] = f"openml_{data_id:0>6}_descr"
-            self._cache_keys['feats'] = f"openml_{data_id:0>6}_feats"
-            self._cache_keys['csv'  ] = f"openml_{data_id:0>6}_csv"
-            self._cache_keys['arff' ] = f"openml_{data_id:0>6}_arff"
-            self._cache_keys['tasks'] = f"openml_{data_id:0>6}_tasks"
+                if task_descr['type'] not in [1,2]:
+                    raise CobaException(f"Openml task {self._task_id} does not appear to be a regression or classification task.")
 
-            dataset_description  = self._get_dataset_description(data_id)
+                if not task_descr['data']:
+                    raise CobaException(f"Openml task {self._task_id} does not appear to have an associated data source.")
 
-            if dataset_description['status'] == 'deactivated':
-                raise CobaException(f"Openml {data_id} has been deactivated. This is often due to flags on the data.")
+                self._data_id = task_descr['data']
+                self._target  = self._clean_name(task_descr.get('target'))
+                data_descr    = self._get_data_descr(self._data_id)
 
-            is_ignore = lambda r: (
-                r['is_ignore'        ] == 'true' or
-                r['is_row_identifier'] == 'true' or
-                r['data_type'        ] not in ['numeric', 'nominal']
+            if not self._target:
+                raise CobaException(f"We were unable to find an appropriate target column for the given openml source.")
+
+            if data_descr.get('status') == 'deactivated':
+                raise CobaException(f"Openml {self._data_id} has been deactivated. This is often due to flags on the data.")
+
+            is_ignore = lambda feat_descr: (
+                feat_descr['is_ignore'        ] == 'true' or
+                feat_descr['is_row_identifier'] == 'true' or
+                feat_descr['data_type'        ] not in ['numeric', 'nominal']
             )
 
-            ignore = [ self._clean_name(f['name']) for f in self._get_feature_descriptions(data_id) if is_ignore(f)]
+            ignore = [ self._clean_name(f['name']) for f in self._get_feat_descr(self._data_id) if is_ignore(f)]
 
-            if not target and label_type is not None:
-                target = self._clean_name(self._get_target_for_problem_type(data_id, label_type))
-            
-            if not target and label_type is None:
-                target = self._clean_name(dataset_description["default_target_attribute"])
-
-            if target in ignore: 
-                ignore.pop(ignore.index(target))
+            if self._target in ignore: ignore.pop(ignore.index(self._target))
 
             def row_has_missing_values(row):
                 row_values = row._values.values() if isinstance(row,SparseWithMeta) else row._values
                 return "?" in row_values or "" in row_values
 
-            source    = ListSource(self._get_dataset_lines(dataset_description["file_id"], None))
+            source    = ListSource(self._get_arff_lines(data_descr["file_id"], None))
             reader    = ArffReader(cat_as_str=self._cat_as_str)
-            drop      = Drop(drop_cols=ignore, drop_row=row_has_missing_values)
-            structure = Structure([None, target])
+            drop      = Drop(drop_cols=ignore, drop_row=row_has_missing_values)            
+            structure = Structure([None, self._target])
 
-            return Pipes.join(source, reader, drop, structure).read()
+            for features,label in Pipes.join(source, reader, drop, structure).read():
+                if task_type == 1 and isinstance(label,(int,float)):
+                    raise CobaException("A numeric target was given for a classification task which we currently can't handle.")
+                yield features, label
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
@@ -129,7 +118,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             raise
 
     def _clean_name(self, name: str) -> str:
-        return name.strip().strip('\'"').replace('\\','')
+        return name.strip().strip('\'"').replace('\\','') if name else name
 
     def _get_data(self, url:str, key:str, checksum:str=None) -> Iterable[str]:
 
@@ -205,61 +194,52 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         finally:
             if srcsema: srcsema.release()
 
-    def _get_dataset_description(self, data_id:int) -> Dict[str,Any]:
+    def _get_data_descr(self, data_id:int) -> Dict[str,Any]:
 
-        description_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/data/{data_id}', self._cache_keys['descr']))
-        description_obj = json.loads(description_txt)["data_set_description"]
+        descr_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/data/{data_id}', self._cache_keys['data']))
+        descr_obj = json.loads(descr_txt)["data_set_description"]
 
-        return description_obj
+        return descr_obj
 
-    def _get_feature_descriptions(self, data_id:int) -> Sequence[Dict[str,Any]]:
+    def _get_feat_descr(self, data_id:int) -> Sequence[Dict[str,Any]]:
 
-        types_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/data/features/{data_id}', self._cache_keys['feats']))
-        types_obj = json.loads(types_txt)["data_features"]["feature"]
+        descr_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/data/features/{data_id}', self._cache_keys['feat']))
+        descr_obj = json.loads(descr_txt)["data_features"]["feature"]
 
-        return types_obj
+        return descr_obj
 
-    def _get_task_descriptions(self, data_id) -> Sequence[Dict[str,Any]]:
+    def _get_task_descr(self, task_id) -> Dict[str,Any]:
         
-        try:
-            text  = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/task/list/data_id/{data_id}', self._cache_keys['tasks']))
-            return json.loads(text).get("tasks",{}).get("task",[])
-        except CobaException:
-            return []
-
-    def _get_task_description(self, task_id) -> Dict[str,Any]:
+        descr_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/task/{task_id}', self._cache_keys['task']))
+        descr_obj = json.loads(descr_txt)['task']
         
-        description_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/task/{task_id}', self._cache_keys['task']))
-        description_obj = json.loads(description_txt)['task']
-        
-        return description_obj
+        task_type   = int(descr_obj.get('task_type_id',0))
+        task_source = ([i for i in descr_obj.get("input",[]) if i.get('name',None) == 'source_data'] + [{}])[0]
+        data_id     = int(task_source.get("data_set",{}).get("data_set_id",0)) or None
+        target      = task_source.get("data_set",{}).get("target_feature","") or None
 
-    def _get_dataset_lines(self, file_id:str, md5_checksum:str) -> Iterable[str]:
+        return { 'id': task_id, 'type': task_type, 'data': data_id, 'target': target}
+
+    def _get_arff_lines(self, file_id:str, md5_checksum:str) -> Iterable[str]:
 
             arff_url = f"https://www.openml.org/data/v1/download/{file_id}"
-
-            csv_key  = self._cache_keys['csv']
             arff_key = self._cache_keys['arff']
 
-            if csv_key in CobaContext.cacher: CobaContext.cacher.rmv(csv_key)
             return self._get_data(arff_url, arff_key, md5_checksum)
-
-    def _get_target_for_problem_type(self, data_id:int, label_type:str):
-
-        task_type_id = 1 if label_type == "C" else 2
-
-        for task in self._get_task_descriptions(data_id):
-            if task["task_type_id"] == task_type_id:
-                for input in task['input']:
-                    if input['name'] == 'target_feature':
-                        return input['value'] # just take the first one
-
-        raise CobaException(f"Openml {data_id} does not appear to be a {label_type} dataset")
 
     def _clear_cache(self) -> None:
         for key in self._cache_keys.values():
             CobaContext.cacher.release(key) #to make sure we don't get stuck in a race condition
             CobaContext.cacher.rmv(key)
+
+    @property
+    def _cache_keys(self):
+        return {
+            'task': f"openml_{self._task_id or 0:0>6}_task",
+            'data': f"openml_{self._data_id or 0:0>6}_data",
+            'feat': f"openml_{self._data_id or 0:0>6}_feat",
+            'arff': f"openml_{self._data_id or 0:0>6}_arff",
+        }
 
 class OpenmlSimulation(SupervisedSimulation):
     """A supervised simulation created from an openml dataset.
@@ -268,12 +248,11 @@ class OpenmlSimulation(SupervisedSimulation):
     """
 
     @overload
-    def __init__(self, data_id: int, label_type: Literal["C","R"] = None, cat_as_str: bool = False, take: int = None):
+    def __init__(self, data_id: int, cat_as_str: bool = False, take: int = None):
         """Instantiate an OpenmlSimulation.
         
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
-            label_type: Indicates if a regression or classification label should be used on the dataset.
             cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded.
             take: The number of interactions we'd like the simulation to have (these will be selected at random).
         """
@@ -292,12 +271,12 @@ class OpenmlSimulation(SupervisedSimulation):
 
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate an OpenmlSimulation."""
-        kwargs.update(zip(['data_id','label_type','cat_as_str','take'], args))
-        super().__init__(OpenmlSource(**kwargs), None, kwargs.get('label_type',None), kwargs.get('take',None))
+        kwargs.update(zip(['data_id','cat_as_str','take'], args))
+        super().__init__(OpenmlSource(**kwargs), None, None, kwargs.get('take',None))
 
     @property
     def params(self) -> Dict[str, Any]:
         return {**super().params, "type": "OpenmlSimulation" }
 
     def __str__(self) -> str:
-        return f"Openml(id={self.params['openml']}, cat_as_str={self.params['cat_as_str']})"
+        return f"Openml(id={self.params['openml_data']}, cat_as_str={self.params['cat_as_str']})"

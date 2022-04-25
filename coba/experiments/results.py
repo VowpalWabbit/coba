@@ -125,9 +125,7 @@ class Table:
             for col,col_filter in kwargs.items():
 
                 if isinstance(col_filter,collections.abc.Container) and not isinstance(col_filter,str):
-
                     col_filter_results.append(row[col] in col_filter or any([satisifies_filter(cf,row[col]) for cf in col_filter]))
-
                 else:
                     col_filter_results.append(satisifies_filter(col_filter,row.get(col,self._default(col)) ))
 
@@ -603,20 +601,32 @@ class Result:
 
         return result
 
-    def filter_fin(self) -> 'Result':
-        """Filter the result to only contain data about environments with all learners.
+    def filter_fin(self, n_interactions: int = None) -> 'Result':
+        """Filter the result to only contain data about environments with all learners and interactions.
 
         Args:
-            pred: A predicate that returns true for learner dictionaries that should be kept.
-            **kwargs: key-value pairs to filter on. For more information see Table.filter.
+            n_interactions: The number of interactions at which an environment is considered complete.
         """
 
-        def is_complete_sim(sim_id):
-            return all((sim_id, lrn_id) in self.interactions for lrn_id in self.learners.keys)
+        def has_all(env_id):
+            return all((env_id, lrn_id) in self.interactions for lrn_id in self.learners.keys)
+
+        def has_min(env_id):
+            if not n_interactions:
+                return True
+            else:
+                return all(len(self.interactions[(env_id, lrn_id)].get('index',[])) >= n_interactions for lrn_id in self.learners.keys)
+
+        complete_ids = [env_id for env_id in self.environments.keys if has_all(env_id) and has_min(env_id)]
 
         new_result               = copy(self)
-        new_result._environments = self.environments.filter(environment_id=is_complete_sim)
-        new_result._interactions = self.interactions.filter(environment_id=is_complete_sim)
+        new_result._environments = self.environments.filter(environment_id=complete_ids)
+        new_result._interactions = self.interactions.filter(environment_id=complete_ids)
+        
+        if n_interactions:
+            new_inter = copy(new_result.interactions)
+            new_inter._rows_pack = { rk: { pk: pv[0:n_interactions] for pk, pv in rv.items() } for rk,rv in new_inter._rows_pack.items() }
+            new_result._interactions = new_inter
 
         if len(new_result.environments) == 0:
             CobaContext.logger.log(f"There was no environment which was finished for every learner.")
@@ -753,12 +763,21 @@ class Result:
         sort: Literal['name',"id","y"] = "y"):
 
         if xlim and xlim[0] >= xlim[1]:
-            CobaContext.logger.log("The given x-limit end is less than the x-limit start. Plotting is impossible.")
+            CobaContext.logger.log("The xlim end is less than the xlim start. Plotting is impossible.")
 
+        first_length = None
+        mixed_length = False
         progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
 
         for progressive in self.interactions.to_progressive_lists(span=span, each=True, order="index", value=y):
-            progressives[progressive[0]].append(progressive[2:])
+            if not xlim or not xlim[1] or len(progressive[2:]) >= xlim[1]:
+                progressives[progressive[0]].append(progressive[2:])
+                first_length = first_length or len(progressive[2:])
+            if (not xlim or not xlim[1]) and first_length and len(progressive[2:]) != first_length:
+               mixed_length = True
+
+        if mixed_length:
+            CobaContext.logger.log("The result contains environments of different lengths. The plot only includes data which is present in all environments. To only plot environments with a minimum number of interactions call <result>.filter_fin(n_interactions).")
 
         if progressives and (not xlim or xlim[0] < xlim[1]):
 

@@ -79,7 +79,7 @@ class SparseWithMeta(collections.abc.MutableMapping):
         if index in self._removed: raise KeyError(index)
 
         if not self._encoded[index] and self._encoders:
-            self._values[index] = self._encoders[index](self._values[index])
+            self._values[index] = self._encoders[index](self._values.get(index,0))
             self._encoded[index] = True
 
         return self._values[index]

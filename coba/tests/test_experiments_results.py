@@ -607,7 +607,7 @@ class Result_Tests(unittest.TestCase):
         with self.assertRaises(Exception):
             Result.from_file("abcd")
 
-    def test_filter_fin(self):
+    def test_filter_fin_sans_n_interactions(self):
 
         sims = {1:{}, 2:{}}
         lrns = {1:{}, 2:{}}
@@ -623,6 +623,28 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(2, len(filtered_result.interactions))
+    
+    def test_filter_fin_with_n_interactions(self):
+
+        sims = {1:{}, 2:{}}
+        lrns = {1:{}, 2:{}}
+        ints = {
+            (1,1):{"_packed":{"reward":[1,2  ]}},
+            (1,2):{"_packed":{"reward":[1,2,3]}},
+            (2,1):{"_packed":{"reward":[1    ]}},
+            (2,2):{"_packed":{"reward":[1    ]}}
+        }
+
+        original_result = Result(1, 1, sims, lrns, ints)
+        filtered_result = original_result.filter_fin(2)
+
+        self.assertEqual(2, len(original_result.environments))
+        self.assertEqual(2, len(original_result.learners))
+        self.assertEqual(7, len(original_result.interactions))
+
+        self.assertEqual(1, len(filtered_result.environments))
+        self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(4, len(filtered_result.interactions))
 
     def test_filter_fin_no_finished(self):
 
@@ -864,9 +886,32 @@ class Result_Tests(unittest.TestCase):
         plot_learners_data = list(result._plot_learners_data(xlim=(1,0)))
 
         expected_length = 0
-        expected_log = "The given x-limit end is less than the x-limit start. Plotting is impossible."
+        expected_log = "The xlim end is less than the xlim start. Plotting is impossible."
 
         self.assertEqual(expected_length, len(plot_learners_data))
+        self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
+
+    def test_plot_learners_mixed_env_length_sans_xlim(self):
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
+        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        ints = {
+            (0,1): {"_packed":{"reward":[1,2,3]}},
+            (0,2): {"_packed":{"reward":[1,2]}},
+            (1,1): {"_packed":{"reward":[2,3]}},
+            (1,2): {"_packed":{"reward":[2,3]}}
+        }
+
+        result = Result(None, None, {}, lrns, ints)
+
+        plot_learners_data = list(result._plot_learners_data())
+
+        expected_log = "The result contains environments of different lengths. The plot only includes data which is present in all environments. To only plot environments with a minimum number of interactions call <result>.filter_fin(n_interactions)."
+
+        self.assertEqual(2, len(plot_learners_data))
+        self.assertEqual(2, len(plot_learners_data[0][-1]))
         self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
 
     def test_plot_learners_data_sort(self):

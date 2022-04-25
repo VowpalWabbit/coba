@@ -228,7 +228,7 @@ class SupervisedSimulation(SimulatedEnvironment):
             reward = lambda action,label: round(1-abs(values[action]-float(label)),3)
         else:
             #how can we tell the difference between featurized labels and multilabels????
-            #for now we will assume multilables will be passed in as arrays not tuples...
+            #for now we will assume multilables will be passed in as arrays as opposed to tuples...
             if not isinstance(labels[0], collections.abc.Hashable):
                 actions = list(chain.from_iterable(labels))
             else:
