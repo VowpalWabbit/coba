@@ -102,6 +102,16 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
             json.dumps(row)
 
     @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
+    def test_classification_statistics_encodable_with_sklearn(self):
+        import sklearn.exceptions
+        warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
+
+        simulation = Pipes.join(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10),Noise())
+        row        = ClassEnvironmentTask().process(simulation,simulation.read())
+
+        json.dumps(row)
+
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_dense(self):
         import sklearn.exceptions
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)

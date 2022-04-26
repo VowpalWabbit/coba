@@ -299,40 +299,40 @@ class ClassEnvironmentTask(EnvironmentTask):
             try:
                 #1NN OOB [3,4]
                 oob = np_Y[KNeighborsClassifier(n_neighbors=1).fit(np_X,np_Y).kneighbors(np_X, n_neighbors=2, return_distance=False)[:,1]]
-                env_stats["1nn_accuracy"] = accuracy_score(np_Y,oob)
-                env_stats["1nn_f1_weighted"] = f1_score(np_Y,oob, average='weighted')
+                env_stats["1nn_accuracy"] = float(accuracy_score(np_Y,oob))
+                env_stats["1nn_f1_weighted"] = float(f1_score(np_Y,oob, average='weighted'))
             except: #pragma: no cover
                 pass
 
             try:
                 #LDA [3,4]
                 scr = cross_validate(LinearDiscriminantAnalysis(), np_X, np_Y, scoring=('accuracy','f1_weighted'))
-                env_stats["lda_accuracy"] = scr['test_accuracy']
-                env_stats["lda_f1_weighted"] = scr['test_f1_weighted']
+                env_stats["lda_accuracy"] = float(mean(scr['test_accuracy']))
+                env_stats["lda_f1_weighted"] = float(mean(scr['test_f1_weighted']))
             except: #pragma: no cover
                 pass
 
             try:
                 #Naive Bayes [3,4]
                 scr = cross_validate(GaussianNB(), np_X, np_Y, scoring=('accuracy','f1_weighted'))
-                env_stats["naive_bayes_accuracy"] = scr['test_accuracy']
-                env_stats["naive_bayes_f1_weighted"] = scr['test_f1_weighted']
+                env_stats["naive_bayes_accuracy"] = float(mean(scr['test_accuracy']))
+                env_stats["naive_bayes_f1_weighted"] = float(mean(scr['test_f1_weighted']))
             except: #pragma: no cover
                 pass
 
             try:
                 #Average Node Learner [3,4]
                 scr = cross_validate(RandomForestClassifier(n_estimators=100,criterion='entropy',max_depth=1), np_X, np_Y, scoring=('accuracy','f1_weighted'))
-                env_stats["average_node_accuracy"] = scr['test_accuracy']
-                env_stats["average_node_f1_weighted"] = scr['test_f1_weighted']
+                env_stats["average_node_accuracy"] = float(mean(scr['test_accuracy']))
+                env_stats["average_node_f1_weighted"] = float(mean(scr['test_f1_weighted']))
             except: #pragma: no cover
                 pass
 
             try:
                 #Best Node Learner [3,4]
                 scr = cross_validate(DecisionTreeClassifier(criterion='entropy',max_depth=1), np_X, np_Y, scoring=('accuracy','f1_weighted'))
-                env_stats["best_node_accuracy"] = scr['test_accuracy']
-                env_stats["best_node_f1_weighted"] = scr['test_f1_weighted']
+                env_stats["best_node_accuracy"] = float(mean(scr['test_accuracy']))
+                env_stats["best_node_f1_weighted"] = float(mean(scr['test_f1_weighted']))
             except: #pragma: no cover
                 pass
 
@@ -340,10 +340,9 @@ class ClassEnvironmentTask(EnvironmentTask):
                 #pca effective dimensions [1]
                 cnt_X = np_X - np_X.mean(axis=0) if is_dense else sp.vstack([sp.csr_matrix(np_X.mean(axis=0))]*np_X.shape[0])
                 pca_var = TruncatedSVD(n_components=min(cnt_X.shape[1]-1,10)).fit(cnt_X).explained_variance_ratio_
-                env_stats["pca_dims_95"] = (pca_var<.95).sum()+1
+                env_stats["pca_dims_95"] = float(sum(pca_var<.95)+1)
             except: #pragma: no cover
                 pass
-
 
             #sklearn's CCA doesn't seem to work with sparse so I'm leaving it out for now depsite [3]
 
