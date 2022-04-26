@@ -5,7 +5,7 @@ import math
 
 from abc import ABC, abstractmethod
 from statistics import median, mean
-from itertools import takewhile, chain, compress
+from itertools import takewhile, chain
 from typing import Iterable, Any, Dict, Sequence, Hashable
 
 from coba.exceptions import CobaExit
