@@ -236,6 +236,7 @@ class ClassEnvironmentTask(EnvironmentTask):
         #[1]: https://arxiv.org/pdf/1808.03591.pdf
         #[2]: https://link.springer.com/content/pdf/10.1007/978-3-540-31883-5.pdf#page=468
         #[3]: https://link.springer.com/content/pdf/10.1007/s10044-012-0280-z.pdf
+        #[4]: https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.440.6255&rep=rep1&type=pdf
 
         #[3] found that information theoretic measures and landmarking measures are most important
 
@@ -259,7 +260,6 @@ class ClassEnvironmentTask(EnvironmentTask):
         x_bin  = lambda x,f:n/10*(x[f]-min(X_by_f[f]))/(max(X_by_f[f])-min(X_by_f[f]))
         X_bin  = [ [x_bin(x,f) for f in feats] if is_dense else { f:x_bin(x,f) for f in x.keys() } for x in X]
 
-
         get = lambda x,f: x[f] if is_dense else x.get(f,0)
 
         #Information-Theoretic Meta-features
@@ -278,75 +278,60 @@ class ClassEnvironmentTask(EnvironmentTask):
 
         #landmarking
 
-        # try:
+        try:
 
-        #     PackageChecker.sklearn("ClassEnvironmentTask.process")
+            PackageChecker.sklearn("ClassEnvironmentTask.process")
 
-        #     import numpy as np
-        #     import scipy.sparse as sp
-        #     import scipy.stats as st
-        #     from sklearn.feature_extraction import FeatureHasher
-        #     from sklearn.tree import DecisionTreeClassifier
-        #     from sklearn.model_selection import cross_val_score
-        #     from sklearn.metrics import pairwise_distances
-        #     from sklearn.decomposition import TruncatedSVD, PCA
+            import numpy as np
+            import scipy.sparse as sp
 
-        #     #CCA
-        #     #PCA
-        #     #GaussianNaiveBayes
-        #     #1NN
-        #     #
+            from sklearn.feature_extraction import FeatureHasher
+            from sklearn.decomposition import TruncatedSVD
+            from sklearn.neighbors import KNeighborsClassifier
+            from sklearn.naive_bayes import GaussianNB
+            from sklearn.metrics import f1_score, accuracy_score
+            from sklearn.model_selection import cross_validate
+            from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+            from sklearn.ensemble import RandomForestClassifier
+            from sklearn.tree import DecisionTreeClassifier
 
-        #     C   = collections.defaultdict(list)
-        #     clf = DecisionTreeClassifier(random_state=1)
+            np_X = np.array(X) if is_dense else FeatureHasher(n_features=2**14, input_type="dict").fit_transform(X)
+            np_Y = np.array(Y)
 
-        #     if isinstance(X[0],dict):
-        #         X = FeatureHasher(n_features=2**14, input_type="dict").fit_transform(X)
+            #1NN OOB
+            oob = np_Y[KNeighborsClassifier(n_neighbors=1).fit(np_X,np_Y).kneighbors(np_X, n_neighbors=2, return_distance=False)[:,1]]
+            env_stats["1nn_accuracy"] = accuracy_score(np_Y,oob)
+            env_stats["1nn_f1_weighted"] = f1_score(np_Y,oob, average='weighted')
 
-        #     if len(Y) > 5:
-        #         scores = cross_val_score(clf, X, Y, cv=5)
-        #         env_stats["bayes_rate_avg"] = round(scores.mean(),4)
-        #         env_stats["bayes_rate_iqr"] = round(st.iqr(scores),4)
+            #LDA
+            scr = cross_validate(LinearDiscriminantAnalysis(), np_X, np_Y, scoring=('accuracy','f1_weighted'))
+            env_stats["lda_accuracy"] = scr['test_accuracy']
+            env_stats["lda_f1_weighted"] = scr['test_f1_weighted']
 
-        #     svd = TruncatedSVD(n_components=8) if sp.issparse(X) else PCA()
-        #     svd.fit(X)
-        #     env_stats["PcaVarExplained"] = svd.explained_variance_ratio_[:8].tolist()
+            #Naive Bayes
+            scr = cross_validate(GaussianNB(), np_X, np_Y, scoring=('accuracy','f1_weighted'))
+            env_stats["naive_bayes_accuracy"] = scr['test_accuracy']
+            env_stats["naive_bayes_f1_weighted"] = scr['test_f1_weighted']
 
-        #     for x,y in zip(X,Y):
-        #         C[y].append(x)
+            #Average Node Learner
+            scr = cross_validate(RandomForestClassifier(n_estimators=100,criterion='entropy',max_depth=1), np_X, np_Y, scoring=('accuracy','f1_weighted'))
+            env_stats["average_node_accuracy"] = scr['test_accuracy']
+            env_stats["average_node_f1_weighted"] = scr['test_f1_weighted']
 
-        #     if sp.issparse(X):
-        #         centroids = sp.vstack([sp.csr_matrix(sp.vstack(c).mean(0)) for c in C.values()])
-        #     else:
-        #         centroids = np.vstack([np.vstack(c).mean(0) for c in C.values()])
+            #Best Node Learner
+            scr = cross_validate(DecisionTreeClassifier(criterion='entropy',max_depth=1), np_X, np_Y, scoring=('accuracy','f1_weighted'))
+            env_stats["best_node_accuracy"] = scr['test_accuracy']
+            env_stats["best_node_f1_weighted"] = scr['test_f1_weighted']
 
-        #     centroid_order = list(C.keys())
-        #     centroid_index = [ centroid_order.index(y) for y in Y ]
-        #     centroid_dists = pairwise_distances(X,centroids)
-        #     closest_index  = centroid_dists.argmin(1)
-        #     cluster_purity = (closest_index == centroid_index).mean()
+            #pca effective dimensions
+            cnt_X = np_X - np_X.mean(axis=0) if is_dense else sp.vstack([sp.csr_matrix(np_X.mean(axis=0))]*np_X.shape[0])
+            pca_var = TruncatedSVD(n_components=min(cnt_X.shape[1]-1,10)).fit(cnt_X).explained_variance_ratio_
+            env_stats["pca_dims_95"] = (pca_var<.95).sum()+1
 
-        #     env_stats["centroid_purity"  ] = round(cluster_purity,4)
-        #     env_stats["centroid_distance"] = round(median(centroid_dists[range(centroid_dists.shape[0]),centroid_index]),4)
+            #sklearn's CCA doesn't seem to work with sparse so I'm leaving it out for now depsite [3]
 
-        # except CobaExit:
-        #    pass
-
-        # feats   = set()
-        # nz_feats   = []
-        # label_cnts = collections.defaultdict(int)
-
-        # for c,a,r in zip(contexts,actions,rewards):
-
-        #     feats = c.keys() if isinstance(c,dict) else range(len(c))
-        #     feats.update(feats)
-        #     nz_feats.append(len(feats))
-        #     label_cnts[list(zip(*sorted(zip(r,a))))[1][-1]] += 1
-
-        # env_stats["action_cardinality"] = median([len(a) for a in actions])
-        # env_stats["context_dimensions"] = len(feats) 
-        # env_stats["context_median_nz" ] = median(nz_feats)
-        # env_stats["imbalance_ratio"   ] = round(max(label_cnts.values())/min(label_cnts.values()),4)
+        except CobaExit:
+            pass
 
         return { **SimpleEnvironmentTask().process(environment, interactions), **env_stats }
 

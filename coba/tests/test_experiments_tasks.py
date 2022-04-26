@@ -102,7 +102,12 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
 
     @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_dense(self):
-        pass
+        simulation = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
+        row        = ClassEnvironmentTask().process(simulation,simulation.read())
+
+        self.assertEqual(2, row["class_count"])
+        self.assertEqual(2, row["feature_count"])
+        self.assertEqual(1, row["class_imbalance_ratio"])
 
 
 class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):

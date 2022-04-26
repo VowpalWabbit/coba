@@ -1,7 +1,7 @@
 import re
 
 from itertools import repeat
-from typing import Any, Dict, Union, Sequence, Optional, Tuple, List
+from typing import Any, Dict, Union, Sequence, Optional, Tuple
 from coba.backports import Literal
 
 from coba.pipes import Flatten

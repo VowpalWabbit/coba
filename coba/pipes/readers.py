@@ -4,7 +4,7 @@ import collections.abc
 import operator
 
 from collections import deque, defaultdict
-from itertools import islice, chain, count, product
+from itertools import islice, chain, count
 from typing import Iterable, Sequence, List, Dict, Union, Any, Iterator, Pattern, Callable, Set, Tuple
 from typing import MutableSequence, MutableMapping
 
