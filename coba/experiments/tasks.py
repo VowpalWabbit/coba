@@ -2,6 +2,7 @@ import time
 import collections
 import collections.abc
 import math
+import warnings
 
 from abc import ABC, abstractmethod
 from statistics import median, mean
@@ -292,6 +293,9 @@ class ClassEnvironmentTask(EnvironmentTask):
             from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
             from sklearn.ensemble import RandomForestClassifier
             from sklearn.tree import DecisionTreeClassifier
+
+            import sklearn.exceptions
+            warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
 
             np_X = np.array(X) if is_dense else FeatureHasher(n_features=2**14, input_type="dict").fit_transform(X)
             np_Y = np.array(Y)
