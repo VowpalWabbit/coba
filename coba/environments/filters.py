@@ -645,7 +645,7 @@ class Noise(EnvironmentFilter):
             #we sort so that noise generation is deterministic with respect to seed
             return { k:self._noise(v, rng, noiser) for k,v in sorted(value.items()) }
 
-        if isinstance(value, collections.abc.Sequence):
+        if isinstance(value, collections.abc.Sequence) and not isinstance(value, str):
             return [ self._noise(v, rng, noiser) for v in value ]
 
         return self._noise(value, rng, noiser)

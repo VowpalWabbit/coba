@@ -257,7 +257,7 @@ class ClassEnvironmentTask(EnvironmentTask):
         m = len(feature_counts)
 
         X_by_f = { f:[x[f] for x in X if is_dense or f in x] for f in feats}
-        x_bin  = lambda x,f:n/10*(x[f]-min(X_by_f[f]))/(max(X_by_f[f])-min(X_by_f[f]))
+        x_bin  = lambda x,f:int(n/5*(x[f]-min(X_by_f[f]))/((max(X_by_f[f])-min(X_by_f[f])) or 1))
         X_bin  = [ [x_bin(x,f) for f in feats] if is_dense else { f:x_bin(x,f) for f in x.keys() } for x in X]
 
         get = lambda x,f: x[f] if is_dense else x.get(f,0)
@@ -270,13 +270,11 @@ class ClassEnvironmentTask(EnvironmentTask):
         env_stats["joint_XY_entropy_mean"] = mean([self._entropy([(get(x,f),y) for x,y in zip(X_bin,Y)]) for f in feats]) #[2,3]
         env_stats["mutual_XY_info_mean"  ] = mean([self._mutual_info([get(x,f) for x in X],Y) for f in feats]) #[2,3]
         env_stats["equivalent_num_attr"  ] = self._entropy(Y)/env_stats["mutual_XY_info_mean"] #[2,3]
-        
+
         #Sparsity/Dimensionality measures [1,2,3]
         env_stats["feature_count"       ] = m
         env_stats["feature_per_instance"] = median([len(x)/m for x in X])
         env_stats["instance_per_feature"] = median([f/m for f in feature_counts])
-
-        #landmarking
 
         try:
 
@@ -298,35 +296,54 @@ class ClassEnvironmentTask(EnvironmentTask):
             np_X = np.array(X) if is_dense else FeatureHasher(n_features=2**14, input_type="dict").fit_transform(X)
             np_Y = np.array(Y)
 
-            #1NN OOB
-            oob = np_Y[KNeighborsClassifier(n_neighbors=1).fit(np_X,np_Y).kneighbors(np_X, n_neighbors=2, return_distance=False)[:,1]]
-            env_stats["1nn_accuracy"] = accuracy_score(np_Y,oob)
-            env_stats["1nn_f1_weighted"] = f1_score(np_Y,oob, average='weighted')
+            try:
+                #1NN OOB [3,4]
+                oob = np_Y[KNeighborsClassifier(n_neighbors=1).fit(np_X,np_Y).kneighbors(np_X, n_neighbors=2, return_distance=False)[:,1]]
+                env_stats["1nn_accuracy"] = accuracy_score(np_Y,oob)
+                env_stats["1nn_f1_weighted"] = f1_score(np_Y,oob, average='weighted')
+            except: #pragma: no cover
+                pass
 
-            #LDA
-            scr = cross_validate(LinearDiscriminantAnalysis(), np_X, np_Y, scoring=('accuracy','f1_weighted'))
-            env_stats["lda_accuracy"] = scr['test_accuracy']
-            env_stats["lda_f1_weighted"] = scr['test_f1_weighted']
+            try:
+                #LDA [3,4]
+                scr = cross_validate(LinearDiscriminantAnalysis(), np_X, np_Y, scoring=('accuracy','f1_weighted'))
+                env_stats["lda_accuracy"] = scr['test_accuracy']
+                env_stats["lda_f1_weighted"] = scr['test_f1_weighted']
+            except: #pragma: no cover
+                pass
 
-            #Naive Bayes
-            scr = cross_validate(GaussianNB(), np_X, np_Y, scoring=('accuracy','f1_weighted'))
-            env_stats["naive_bayes_accuracy"] = scr['test_accuracy']
-            env_stats["naive_bayes_f1_weighted"] = scr['test_f1_weighted']
+            try:
+                #Naive Bayes [3,4]
+                scr = cross_validate(GaussianNB(), np_X, np_Y, scoring=('accuracy','f1_weighted'))
+                env_stats["naive_bayes_accuracy"] = scr['test_accuracy']
+                env_stats["naive_bayes_f1_weighted"] = scr['test_f1_weighted']
+            except: #pragma: no cover
+                pass
 
-            #Average Node Learner
-            scr = cross_validate(RandomForestClassifier(n_estimators=100,criterion='entropy',max_depth=1), np_X, np_Y, scoring=('accuracy','f1_weighted'))
-            env_stats["average_node_accuracy"] = scr['test_accuracy']
-            env_stats["average_node_f1_weighted"] = scr['test_f1_weighted']
+            try:
+                #Average Node Learner [3,4]
+                scr = cross_validate(RandomForestClassifier(n_estimators=100,criterion='entropy',max_depth=1), np_X, np_Y, scoring=('accuracy','f1_weighted'))
+                env_stats["average_node_accuracy"] = scr['test_accuracy']
+                env_stats["average_node_f1_weighted"] = scr['test_f1_weighted']
+            except: #pragma: no cover
+                pass
 
-            #Best Node Learner
-            scr = cross_validate(DecisionTreeClassifier(criterion='entropy',max_depth=1), np_X, np_Y, scoring=('accuracy','f1_weighted'))
-            env_stats["best_node_accuracy"] = scr['test_accuracy']
-            env_stats["best_node_f1_weighted"] = scr['test_f1_weighted']
+            try:
+                #Best Node Learner [3,4]
+                scr = cross_validate(DecisionTreeClassifier(criterion='entropy',max_depth=1), np_X, np_Y, scoring=('accuracy','f1_weighted'))
+                env_stats["best_node_accuracy"] = scr['test_accuracy']
+                env_stats["best_node_f1_weighted"] = scr['test_f1_weighted']
+            except: #pragma: no cover
+                pass
 
-            #pca effective dimensions
-            cnt_X = np_X - np_X.mean(axis=0) if is_dense else sp.vstack([sp.csr_matrix(np_X.mean(axis=0))]*np_X.shape[0])
-            pca_var = TruncatedSVD(n_components=min(cnt_X.shape[1]-1,10)).fit(cnt_X).explained_variance_ratio_
-            env_stats["pca_dims_95"] = (pca_var<.95).sum()+1
+            try:
+                #pca effective dimensions [1]
+                cnt_X = np_X - np_X.mean(axis=0) if is_dense else sp.vstack([sp.csr_matrix(np_X.mean(axis=0))]*np_X.shape[0])
+                pca_var = TruncatedSVD(n_components=min(cnt_X.shape[1]-1,10)).fit(cnt_X).explained_variance_ratio_
+                env_stats["pca_dims_95"] = (pca_var<.95).sum()+1
+            except: #pragma: no cover
+                pass
+
 
             #sklearn's CCA doesn't seem to work with sparse so I'm leaving it out for now depsite [3]
 

@@ -2,9 +2,10 @@ import json
 import unittest
 import unittest.mock
 import importlib.util
+import warnings
 
 from coba.contexts     import InteractionContext
-from coba.environments import SimulatedInteraction, LoggedInteraction, Shuffle, SupervisedSimulation
+from coba.environments import SimulatedInteraction, LoggedInteraction, Shuffle, SupervisedSimulation, Noise
 from coba.learners     import Learner
 from coba.pipes        import Pipes
 
@@ -92,8 +93,8 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
 
     def test_classification_statistics_encodable_sans_sklearn(self):
         with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
-            c1 = [{"1":1, "2":2 }, "A" ]
-            c2 = [{"1":3, "2":4 }, "B" ]
+            c1 = [{"1":1,"2":2}, "A" ]
+            c2 = [{"1":3,"2":4}, "B" ]
 
             simulation = SupervisedSimulation(*zip(*[c1,c2]*10))
             row        = ClassEnvironmentTask().process(simulation,simulation.read())
@@ -102,13 +103,27 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
 
     @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_classification_statistics_dense(self):
-        simulation = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
+        import sklearn.exceptions
+        warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
+
+        simulation = Pipes.join(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10),Noise())
         row        = ClassEnvironmentTask().process(simulation,simulation.read())
 
         self.assertEqual(2, row["class_count"])
         self.assertEqual(2, row["feature_count"])
         self.assertEqual(1, row["class_imbalance_ratio"])
 
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
+    def test_classification_statistics_sparse(self):
+        import sklearn.exceptions
+        warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
+        
+        simulation = Pipes.join(SupervisedSimulation([{"1":1,"2":2},{"3":3,"4":4}]*10,["A","B"]*10), Noise())
+        row        = ClassEnvironmentTask().process(simulation,simulation.read())
+
+        self.assertEqual(2, row["class_count"])
+        self.assertEqual(4, row["feature_count"])
+        self.assertEqual(1, row["class_imbalance_ratio"])
 
 class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 

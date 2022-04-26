@@ -1045,6 +1045,19 @@ class Noise_Tests(unittest.TestCase):
         self.assertEqual([(3,),(4,)]  , actual_interactions[1].actions)
         self.assertEqual([.1,.5], actual_interactions[1].rewards)
 
+    def test_action_noise3(self):
+
+        interactions = [
+            SimulatedInteraction((7,), ['A','B'], [.2,.3]),
+            SimulatedInteraction((1,), ['A','B'], [.1,.5]),
+        ]
+
+        actual_interactions = list(Noise().filter(interactions))
+
+        self.assertEqual(2        , len(actual_interactions))
+        self.assertEqual(['A','B'], actual_interactions[0].actions)
+        self.assertEqual(['A','B'], actual_interactions[1].actions)
+
     def test_reward_noise(self):
 
         interactions = [
