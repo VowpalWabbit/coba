@@ -130,7 +130,7 @@ class Sort_Tests(unittest.TestCase):
         self.assertEqual("{'sort': [0]}", str(Sort([0])))
 
 class Take_Tests(unittest.TestCase):
-    
+
     def test_bad_count(self):
         with self.assertRaises(ValueError):
             Take(-1)
@@ -215,7 +215,7 @@ class Where_Tests(unittest.TestCase):
         self.assertEqual([]     , list(Where(n_interactions=4       ).filter(items)))
         self.assertEqual([]     , list(Where(n_interactions=(None,1)).filter(items)))
         self.assertEqual([]     , list(Where(n_interactions=(4,None)).filter(items)))
-        
+
         self.assertEqual([1,2,3], list(Where(n_interactions=(1,None)).filter(items)))
         self.assertEqual([1,2,3], list(Where(n_interactions=(None,4)).filter(items)))
         self.assertEqual([1,2,3], list(Where(n_interactions=(1,4)   ).filter(items)))
@@ -295,7 +295,7 @@ class Scale_Tests(unittest.TestCase):
 
         self.assertEqual((1  ,0  ), scl_interactions[0].context)
         self.assertEqual((0  ,1  ), scl_interactions[1].context)
-        
+
         self.assertAlmostEqual(7/6, scl_interactions[2].context[0])
         self.assertAlmostEqual(1/7, scl_interactions[2].context[1])
 
@@ -411,7 +411,7 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction((1,9,"B"), [1], [1]),
             SimulatedInteraction((8,3,"C"), [1], [1])
         ]
- 
+
         mem_interactions = interactions
         scl_interactions = list(Scale("min","minmax").filter(interactions))
 
@@ -432,7 +432,7 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction((1           , 9           ), [1], [1]),
             SimulatedInteraction((8           , float('nan')), [1], [1])
         ]
- 
+
         scl_interactions = list(Scale("min","minmax").filter(interactions))
 
         self.assertEqual(3, len(scl_interactions))
@@ -452,13 +452,13 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction((1  , 9  ), [1], [1]),
             SimulatedInteraction((8  , "B"), [1], [1])
         ]
- 
+
         with self.assertWarns(Warning):
             scl_interactions = list(Scale("min","minmax").filter(interactions))
 
         self.assertEqual(3, len(scl_interactions))
 
-        self.assertEqual(("A", 2  ), scl_interactions[0].context)        
+        self.assertEqual(("A", 2  ), scl_interactions[0].context)
         self.assertEqual((1  , 9  ), scl_interactions[1].context)
         self.assertEqual((8  , "B"), scl_interactions[2].context)
 
@@ -470,7 +470,7 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction({0:8  , 1:"B", 2:1       }, [1], [1]),
             SimulatedInteraction({0:8  , 1:"B", 2:1, 3:"C"}, [1], [1])
         ]
- 
+
         with self.assertWarns(Warning):
             scl_interactions = list(Scale(0,"minmax").filter(interactions))
 
@@ -489,7 +489,7 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction({0:8  , 1:"B", 2:1       }, [1], [1]),
             SimulatedInteraction({0:8  , 1:"B", 2:1, 3:"C"}, [1], [1])
         ]
- 
+
         with self.assertRaises(CobaException):
             list(Scale("min","minmax").filter(interactions))
 
@@ -500,7 +500,7 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction(None, [1], [1]),
             SimulatedInteraction(None, [1], [1])
         ]
- 
+
         scl_interactions = list(Scale("min","minmax").filter(interactions))
 
         self.assertEqual(3, len(scl_interactions))
@@ -516,7 +516,7 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction(None, [1,2], [1,3]),
             SimulatedInteraction(None, [1,2], [1,3])
         ]
- 
+
         scl_interactions = list(Scale("mean","minmax", target="rewards").filter(interactions))
 
         self.assertEqual(3, len(scl_interactions))
@@ -536,7 +536,7 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction(None, [1,3], [1,3]),
             SimulatedInteraction(None, [1,3], [1,3])
         ]
- 
+
         scl_interactions = list(Scale(3,"maxabs", target="rewards").filter(interactions))
 
         self.assertEqual(3, len(scl_interactions))
@@ -942,7 +942,7 @@ class Warm_Tests(unittest.TestCase):
 class Noise_Tests(unittest.TestCase):
 
     def test_default_noise(self):
-        
+
         interactions = [
             SimulatedInteraction((7,), [1,2], [.2,.3]),
             SimulatedInteraction((1,), [2,3], [.1,.5]),
@@ -1076,7 +1076,7 @@ class Noise_Tests(unittest.TestCase):
         self.assertEqual([1.1,1.5], actual_interactions[1].rewards)
 
     def test_noise_repeatable(self):
-        
+
         interactions = [
             SimulatedInteraction((7,), [1,2], [.2,.3]),
             SimulatedInteraction((1,), [2,3], [.1,.5]),
@@ -1186,7 +1186,7 @@ class Riffle_Tests(unittest.TestCase):
         self.assertEqual((1,9), cov_interactions[1].context)
         self.assertEqual((8,3), cov_interactions[2].context)
 
-    def test_params(self):        
+    def test_params(self):
         self.assertEqual({'riffle_spacing':2, 'riffle_seed':3}, Riffle(2,3).params)
 
 if __name__ == '__main__':

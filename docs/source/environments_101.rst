@@ -4,9 +4,9 @@ Environments 101
 
 ``Coba`` environments are one of the core building blocks for experiments. Their primary role is to support
 the training and evaluation of learner algorithms. In practical terms, an environment is nothing more than a
-sequences of interactions with a world where each interaction is an independent instance in which a learner must 
-decide how to act and then receive a reward. Out of the box Coba provides support for two types of interactions -- 
-logged interactions (where reward information is known for only one action) and simulated interactions (where reward 
+sequences of interactions with a world where each interaction is an independent instance in which a learner must
+decide how to act and then receive a reward. Out of the box Coba provides support for two types of interactions --
+logged interactions (where reward information is known for only one action) and simulated interactions (where reward
 information is known for all actions). By extension there are also two types of environments: ``LoggedEnvironments``
 and ``SimulatedEnvironments``.
 
@@ -14,18 +14,18 @@ and ``SimulatedEnvironments``.
 The Role of Environments
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Environments are used in ``Coba`` to learn and evaluate policies. The default learning/evaluation method in ``Coba`` uses online learning 
-to both learn and evaluate in a single pass without having to define a train-test split. Additionally, for those familiar with contextual 
-bandit learning, Coba provides support for both on-policy and off-policy learning as well as on-policy and off-policy evaluation. In these 
-cases ``SimulatedEnvironments`` can generally be thought of as most appropriate for on-policy experiments while ``LoggedEnvironments`` can 
+Environments are used in ``Coba`` to learn and evaluate policies. The default learning/evaluation method in ``Coba`` uses online learning
+to both learn and evaluate in a single pass without having to define a train-test split. Additionally, for those familiar with contextual
+bandit learning, Coba provides support for both on-policy and off-policy learning as well as on-policy and off-policy evaluation. In these
+cases ``SimulatedEnvironments`` can generally be thought of as most appropriate for on-policy experiments while ``LoggedEnvironments`` can
 generally be considered most appropriate for off-policy experiments.
 
 Friendly Environments API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``coba.environments`` module contains all functionality pertaining to creating and modifying Environments. This functionality can be
-a little overwhelming so a simplified interface, called ``Environments``, has been provided to help one get started. This can be imported 
-as shown below. In what follows, examples are provided which use the simplified interface to create and modify environments for use in 
+a little overwhelming so a simplified interface, called ``Environments``, has been provided to help one get started. This can be imported
+as shown below. In what follows, examples are provided which use the simplified interface to create and modify environments for use in
 experiments.
 
 .. code-block:: python

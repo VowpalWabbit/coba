@@ -42,12 +42,12 @@ class Experiment:
         self._maxchunksperchild: Optional[int] = None
         self._chunk_by         : Optional[str] = None
 
-    def config(self, 
+    def config(self,
         processes: int = None,
         chunk_by: Literal['source','task'] = None,
         maxchunksperchild: Optional[int] = None) -> 'Experiment':
-        """Configure how the experiment will be executed. 
-        
+        """Configure how the experiment will be executed.
+
         A value of `None` for any item means the CobaContext.experiment will be used.
 
         Args:
@@ -68,7 +68,7 @@ class Experiment:
 
     @property
     def chunk_by(self) -> str:
-        """The method for chunking tasks before sending them to processes for execution. 
+        """The method for chunking tasks before sending them to processes for execution.
 
         This option is only relevant if the experiment is being executed on multiple processes.
         """
@@ -101,7 +101,7 @@ class Experiment:
 
         n_given_learners     = len(self._learners)
         n_given_environments = len(self._environments)
- 
+
         if len(restored.experiment) != 0:
             assert n_given_learners     == restored.experiment['n_learners'    ], "The current experiment doesn't match the given transaction log."
             assert n_given_environments == restored.experiment['n_environments'], "The current experiment doesn't match the given transaction log."
@@ -121,7 +121,7 @@ class Experiment:
 
         except KeyboardInterrupt as e: # pragma: no cover
             CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")
-        
+
         except Exception as ex: # pragma: no cover
             CobaContext.logger.log(ex)
 

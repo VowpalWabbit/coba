@@ -14,7 +14,7 @@ class Learner(ABC):
     @property
     def params(self) -> Dict[str,Any]: # pragma: no cover
         """Parameters describing the learner (used for descriptive purposes only).
-                
+
         Remarks:
             These will become columns in the learners table of experiment results.
         """
@@ -25,13 +25,13 @@ class Learner(ABC):
         """Predict which action to take in the context.
 
         Args:
-            context: The current context. It will either be None (multi-armed bandit), 
-                a value (a single feature) a hashable tuple (dense context), or a 
+            context: The current context. It will either be None (multi-armed bandit),
+                a value (a single feature) a hashable tuple (dense context), or a
                 hashable dictionary (sparse context).
-            actions: The current set of actions to choose from in the given context. 
-                Each action will either be a value (a single feature), a hashable tuple 
+            actions: The current set of actions to choose from in the given context.
+                Each action will either be a value (a single feature), a hashable tuple
                 (dense context), or a hashable dictionary (sparse context)..
-        
+
         Returns:
             A PMF over the actions and, optionally, an information object to use when learning.
         """
@@ -59,7 +59,7 @@ class SafeLearner(Learner):
         Args:
             learner: The learner we wish to make sure has the expected interface
         """
-        
+
         self._learner = learner if not isinstance(learner, SafeLearner) else learner._learner
 
     @property

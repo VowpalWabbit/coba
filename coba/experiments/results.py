@@ -26,7 +26,7 @@ class Table:
             name: The name of the table. Used for display purposes.
             primary_cols: Table columns used to make each row's tuple "key".
             rows: The actual rows that should be stored in the table. Each row is required to contain the given primary_cols.
-            preferred_cols: A list of columns that we prefer be displayed immediately after primary columns. All remaining 
+            preferred_cols: A list of columns that we prefer be displayed immediately after primary columns. All remaining
                 columns (i.e., neither primary nor preferred) will be ordered alphabetically.
         """
         self._name    = name
@@ -44,7 +44,7 @@ class Table:
         col_priority = list(chain(primary_cols + ['index'] + preferred_cols + sorted(all_columns)))
 
         self._columns = sorted(all_columns, key=col_priority.index)
-        self._rows_keys: List[Hashable               ] = []               
+        self._rows_keys: List[Hashable               ] = []
         self._rows_flat: Dict[Hashable, Dict[str,Any]] = {}
         self._rows_pack: Dict[Hashable, Dict[str,Any]] = {}
 
@@ -205,7 +205,7 @@ class Table:
                 types.extend([to_type(v) for v in value])
             else:
                 types.append(to_type(value))
-        
+
         return self._resolve_types(types)
 
     def _resolve_types(self, types: Sequence[Optional[Type[Any]]]) -> Type[Union[int,float,bool,object]]:
@@ -213,7 +213,7 @@ class Table:
 
         if len(types) == 1 and types[0] in [dict,str]:
             return object
-        
+
         if len(types) == 1 and types[0] in [int,float,bool]:
             return types[0]
 
@@ -371,7 +371,7 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
     def write(self, item: Any) -> None:
         if isinstance(self._sink, ListSink):
             self._sink.write(self._encode(item))
-        else: 
+        else:
             if not Path(self._sink._filename).exists():self._sink.write('["version",3]')
             self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
 
@@ -391,17 +391,17 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
 
             if not trx: continue
 
-            if trx[0] == "benchmark": 
+            if trx[0] == "benchmark":
                 n_lrns = trx[1]["n_learners"]
                 n_sims = trx[1]["n_simulations"]
 
-            if trx[0] == "S": 
+            if trx[0] == "S":
                 sim_rows[trx[1]] = trx[2]
 
-            if trx[0] == "L": 
+            if trx[0] == "L":
                 lrn_rows[trx[1]] = trx[2]
 
-            if trx[0] == "I": 
+            if trx[0] == "I":
                 int_rows[tuple(trx[1])] = trx[2]
 
         return Result(n_lrns, n_sims, sim_rows, lrn_rows, int_rows)
@@ -441,7 +441,7 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
     def write(self, item: Any) -> None:
         if isinstance(self._sink, ListSink):
             self._sink.write(self._encode(item))
-        else: 
+        else:
             if not Path(self._sink._filename).exists():self._sink.write('["version",4]')
             self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
 
@@ -462,17 +462,17 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
 
             if not trx: continue
 
-            if trx[0] == "experiment": 
+            if trx[0] == "experiment":
                 n_lrns = trx[1]["n_learners"]
                 n_sims = trx[1]["n_environments"]
 
-            if trx[0] == "E": 
+            if trx[0] == "E":
                 env_rows[trx[1]] = trx[2]
 
-            if trx[0] == "L": 
+            if trx[0] == "L":
                 lrn_rows[trx[1]] = trx[2]
 
-            if trx[0] == "I": 
+            if trx[0] == "I":
                 int_rows[tuple(trx[1])] = trx[2]
 
         return Result(n_lrns, n_sims, env_rows, lrn_rows, int_rows)
@@ -534,7 +534,7 @@ class Result:
     def from_file(filename: str) -> 'Result':
         """Create a Result from a transaction file."""
 
-        if not Path(filename).exists(): 
+        if not Path(filename).exists():
             raise CobaException("We were unable to find the given Result file.")
 
         return TransactionIO(filename).read()
@@ -566,33 +566,33 @@ class Result:
 
     @property
     def learners(self) -> Table:
-        """The collection of learners used in the Experiment. 
-        
+        """The collection of learners used in the Experiment.
+
         The primary key of this table is learner_id.
         """
         return self._learners
 
     @property
     def environments(self) -> Table:
-        """The collection of environments used in the Experiment. 
-        
+        """The collection of environments used in the Experiment.
+
         The primary key of this table is environment_id.
         """
         return self._environments
 
     @property
     def interactions(self) -> InteractionsTable:
-        """The collection of interactions that learners chose actions for in the Experiment. 
-            
-        The primary key of this Table is (index, environment_id, learner_id). It should be noted that the InteractionTable 
-        has an additional property, to_progressive_pandas() which calculates the expanding moving average or exponential 
+        """The collection of interactions that learners chose actions for in the Experiment.
+
+        The primary key of this Table is (index, environment_id, learner_id). It should be noted that the InteractionTable
+        has an additional property, to_progressive_pandas() which calculates the expanding moving average or exponential
         moving average for interactions ordered by index and grouped by environment_id and learner_id.
         """
         return self._interactions
 
     def copy(self) -> 'Result':
         """Create a copy of Result."""
-        
+
         result = Result()
 
         result._environments = copy(self._environments)
@@ -622,7 +622,7 @@ class Result:
         new_result               = copy(self)
         new_result._environments = self.environments.filter(environment_id=complete_ids)
         new_result._interactions = self.interactions.filter(environment_id=complete_ids)
-        
+
         if n_interactions:
             new_inter = copy(new_result.interactions)
             new_inter._rows_pack = { rk: { pk: pv[0:n_interactions] for pk, pv in rv.items() } for rk,rv in new_inter._rows_pack.items() }
@@ -677,12 +677,12 @@ class Result:
         filename: str = None,
         sort : Literal["name","id","y"] = "y",
         ax = None) -> None:
-        """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected 
-            performance for different learners across independent environments. This plot is valuable in gaining 
-            insight into how various learners perform in comparison to one another. 
+        """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected
+            performance for different learners across independent environments. This plot is valuable in gaining
+            insight into how various learners perform in comparison to one another.
 
         Args:
-            y: The value to plot on the y-axis: `reward` plots the reward obtained on each interaction, `pct_reward` 
+            y: The value to plot on the y-axis: `reward` plots the reward obtained on each interaction, `pct_reward`
                 plots the percentage of the optimal possible reward obtained on each interaction.
             xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
@@ -757,8 +757,8 @@ class Result:
 
     def _plot_learners_data(self,
         y   : Literal['reward','reward_pct','rank','rank_pct','regret','regret_pct'] = "reward",
-        xlim: Tuple[Number,Number] = None, 
-        span: int = None, 
+        xlim: Tuple[Number,Number] = None,
+        span: int = None,
         err : Literal['se','sd'] = None,
         sort: Literal['name',"id","y"] = "y"):
 
@@ -783,10 +783,10 @@ class Result:
 
             if sort == "name":
                 sort_func = lambda id: self.learners[id]["full_name"]
-            
+
             if sort == "y":
                 sort_func = lambda id: -sum(list(zip(*progressives[id]))[-1])
-            
+
             if sort == "id":
                 sort_func = lambda id: id
 

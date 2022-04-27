@@ -72,7 +72,7 @@ class NullCacher_Tests(unittest.TestCase):
     def test_put_does_nothing(self):
         NullCacher().put("abc", "abc")
         self.assertNotIn("abc", NullCacher())
-    
+
     def test_get_throws_exception(self):
         with self.assertRaises(Exception) as e:
             NullCacher().get("abc")
@@ -87,7 +87,7 @@ class NullCacher_Tests(unittest.TestCase):
 
         self.assertEqual(my_iter, my_iter)
         self.assertEqual([1,2,3], list(my_iter))
-    
+
     def test_release_does_nothing(self):
         NullCacher().release("abc")
 
@@ -303,7 +303,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.daemon = True
         t2.daemon = True
 
-        t1.start()        
+        t1.start()
         t2.start()
 
         t1.join()
@@ -332,7 +332,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
         t1.start()
         t2.start()
-        
+
         while curr_cacher.write_waits != 1:
             time.sleep(0.01)
 
@@ -404,7 +404,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         self.assertEqual(curr_cacher.get(1), 2)
 
     def test_put_then_get_works_correctly_sans_conflicting_keys_multi_thread(self):
-        
+
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="put")
         curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
 
@@ -457,7 +457,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
         while curr_cacher.write_waits != 1:
             time.sleep(0.01)
-            
+
         base_cacher.release()
 
         t1.join()
@@ -613,7 +613,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         self.assertEqual(curr_cacher.get(1), 1)
 
     def test_rmv_during_get_same_process_with_release(self):
-        
+
         base_cacher = IterCacher()
         curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
 
@@ -635,7 +635,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
         iter_1 = curr_cacher.get(1)
         next(iter_1)
-        
+
         with self.assertRaises(CobaException):
             curr_cacher.rmv(1)
 

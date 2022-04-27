@@ -20,7 +20,7 @@ Core
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
-      
+
       Pipes
 
 Execution Pipes
@@ -32,14 +32,14 @@ Execution Pipes
       Foreach
       Multiprocessor
 
-      
+
 Sources
 ~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
-            
+
       ListSource
       DiskSource
       HttpSource
@@ -53,12 +53,12 @@ Reader Filters
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
-      
+
       CsvReader
       ArffReader
       LibsvmReader
       ManikReader
-      
+
 Table Filters
 ~~~~~~~~~~~~~~~~~
 
@@ -66,7 +66,7 @@ Table Filters
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
-      Structure      
+      Structure
       Flatten
       Default
       Encode
@@ -77,7 +77,7 @@ Utility Filters
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
-            
+
       Take
       Shuffle
       Identity
@@ -85,14 +85,14 @@ Utility Filters
       Reservoir
       JsonDecode
       JsonEncode
-      
+
 Sinks
 ~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
-            
+
       NullSink
       ListSink
       DiskSink

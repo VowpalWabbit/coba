@@ -16,7 +16,7 @@ class SerializedSimulation(SimulatedEnvironment):
             for interaction in sim.read():
                 context = json_encoder.filter(interaction.context)
                 actions = json_encoder.filter(interaction.actions)
-                rewards = json_encoder.filter(interaction.rewards) 
+                rewards = json_encoder.filter(interaction.rewards)
                 kwargs  = json_encoder.filter(interaction.kwargs)
                 yield f"[{context},{actions},{rewards},{kwargs}]"
 

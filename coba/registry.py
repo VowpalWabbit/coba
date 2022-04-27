@@ -8,7 +8,7 @@ from itertools import repeat
 from importlib import reload
 from typing import Dict, Any, Callable
 
-from coba.backports.metadata import entry_points 
+from coba.backports.metadata import entry_points
 from coba.exceptions import CobaException
 
 def coba_registry_class(name:str) -> Callable[[type],type]:
@@ -53,7 +53,7 @@ class CobaRegistry:
 
         if isinstance(recipe, str):
             name = recipe
-    
+
         if isinstance(recipe, dict):
             mutable_recipe = dict(recipe)
 
@@ -79,7 +79,7 @@ class CobaRegistry:
 
     @classmethod
     def _try_load_registry_endpoints(cls) -> Dict[str,Any]:
-        
+
         if not cls._endpoints_loaded:
             cls._endpoints_loaded = True
             for ep in entry_points(group='coba.register'):
@@ -101,10 +101,10 @@ class CobaRegistry:
             implicit_is_args   = implicit_arg is not None and not isinstance(implicit_arg,dict)
             implicit_is_kwargs = implicit_arg is not None and     isinstance(implicit_arg,dict)
 
-            no_unknown_words = len(freewords) <= 1 
+            no_unknown_words = len(freewords) <= 1
             contains_name    = "name" in keywords or len(freewords) == 1
             name_collision   = "name" in recipe and len(freewords) == 1
-            args_collision   = "args" in recipe and implicit_is_args 
+            args_collision   = "args" in recipe and implicit_is_args
             kwargs_collision = "kwargs" in recipe and implicit_is_kwargs
             no_collisions    = not any([name_collision, args_collision, kwargs_collision])
 
@@ -133,7 +133,7 @@ class CobaRegistry:
             return name in cls._registry
 
     @classmethod
-    def _construct_or_return(cls, item:Any):        
+    def _construct_or_return(cls, item:Any):
         return cls.construct(item) if cls.is_valid_recipe(item) and cls.is_known_recipe(item) else item
 
     @classmethod

@@ -35,7 +35,7 @@ class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
 
         self._seed = seed
 
-    def filter(self, items: Iterable[Any]) -> Sequence[Any]: 
+    def filter(self, items: Iterable[Any]) -> Sequence[Any]:
         return CobaRandom(self._seed).shuffle(list(items))
 
     @property
@@ -73,7 +73,7 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         We use Algorithm L as described by Kim-Hung Li. (1994) to take a random count of items.
 
     References:
-        Kim-Hung Li. 1994. Reservoir-sampling algorithms of time complexity O(n(1 + log(N/n))). 
+        Kim-Hung Li. 1994. Reservoir-sampling algorithms of time complexity O(n(1 + log(N/n))).
         ACM Trans. Math. Softw. 20, 4 (Dec. 1994), 481–493. DOI:https://doi.org/10.1145/198429.198435
     """
 
@@ -128,14 +128,14 @@ class JsonEncode(Filter[Any, str]):
     def _min(self,obj):
         #WARNING: This method doesn't handle primitive types such int, float, or str. We handle this shortcoming
         #WARNING: by making sure no primitive type is passed to this method in filter. Accepting the shortcoming
-        #WARNING: improves the performance of this method by a few percentage points. 
+        #WARNING: improves the performance of this method by a few percentage points.
 
         #JsonEncoder writes floats with .0 regardless of if they are integers so we convert them to int to save space
         #JsonEncoder also writes floats out 16 digits so we truncate them to 5 digits here to reduce file size
 
         if isinstance(obj,tuple):
             obj = list(obj)
-            kv  = enumerate(obj) 
+            kv  = enumerate(obj)
         elif isinstance(obj,list):
             kv = enumerate(obj)
         elif isinstance(obj,dict):
@@ -150,12 +150,12 @@ class JsonEncode(Filter[Any, str]):
                 if v.is_integer():
                     obj[k] = int(v)
                 elif math.isnan(v) or math.isinf(v):
-                    obj[k] = v 
+                    obj[k] = v
                 else:
                     #rounding by any means is considerably slower than this crazy method
                     #we format as a truncated string and then manually remove the string
                     #indicators from the json via string replace methods
-                    obj[k] = f"|{v:0.5g}|" 
+                    obj[k] = f"|{v:0.5g}|"
             else:
                 obj[k] = self._min(v)
 
@@ -273,8 +273,8 @@ class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Un
 class Drop(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
     """A filter which drops rows and columns from in table shaped data."""
 
-    def __init__(self, 
-        drop_cols: Sequence[Union[str,int]] = [], 
+    def __init__(self,
+        drop_cols: Sequence[Union[str,int]] = [],
         drop_row: Callable[[Union[MutableSequence,MutableMapping]], bool] = None) -> None:
         """Instantiate a Drop filter.
 

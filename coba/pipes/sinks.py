@@ -20,13 +20,13 @@ class ConsoleSink(Sink[Any]):
 class DiskSink(Sink[str]):
     """A sink which writes to a file on disk.
 
-    This sink supports writing in either plain text or as a gz compressed file. 
+    This sink supports writing in either plain text or as a gz compressed file.
     In order to make this distinction gzip files must end with a gz extension.
     """
 
     def __init__(self, filename:str, mode:str='a+') -> None:
         """Instantiate a DiskSink.
-        
+
         Args:
             filename: The path to the file to write.
             mode: The mode with which the file should be written.
@@ -69,7 +69,7 @@ class ListSink(Sink[Any]):
 
     def __init__(self, items: List[Any] = None) -> None:
         """Instantiate a ListSink.
-        
+
         Args:
             items: The list we wish to write to.
         """
@@ -80,10 +80,10 @@ class ListSink(Sink[Any]):
 
 class QueueSink(Sink[Any]):
     """A sink which puts written items into a Queue."""
-    
+
     def __init__(self, queue:Queue=None) -> None:
         """Instantiate a QueueSink.
-        
+
         Args:
             queue: The queue to put written items into.
         """
@@ -100,7 +100,7 @@ class LambdaSink(Sink[Any]):
 
     def __init__(self, write: Callable[[Any],None]):
         """Instantiate a LambdaSink.
-        
+
         Args:
             write: A callable function written items will be passed to.
         """

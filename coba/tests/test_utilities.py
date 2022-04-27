@@ -7,14 +7,14 @@ from coba.utilities import PackageChecker, HashableDict, KeyDefaultDict, coba_ex
 
 class coba_exit_Tests(unittest.TestCase):
     def test_coba_exit(self):
-        
+
         self.assertEqual(sans_tb_sys_except_hook, sys.excepthook)
 
         with self.assertRaises(CobaExit):
             coba_exit("abc")
 
 class PackageChecker_sans_package_Tests(unittest.TestCase):
-    
+
     def setUp(self) -> None:
         self.patch = unittest.mock.patch('importlib.import_module', side_effect=ImportError())
         self.patch.start()
@@ -56,7 +56,7 @@ class PackageChecker_with_package_Tests(unittest.TestCase):
 
     def test_check_pandas_support(self):
         PackageChecker.pandas("")
-            
+
     def test_check_numpy_support(self):
         PackageChecker.numpy("")
 

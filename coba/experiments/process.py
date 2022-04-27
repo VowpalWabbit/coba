@@ -31,8 +31,8 @@ class WorkItem:
 
 class CreateWorkItems(Source[Iterable[WorkItem]]):
 
-    def __init__(self, 
-        environs        : Sequence[SimulatedEnvironment], 
+    def __init__(self,
+        environs        : Sequence[SimulatedEnvironment],
         learners        : Sequence[Learner],
         learner_task    : LearnerTask,
         environment_task: EnvironmentTask,
@@ -43,7 +43,7 @@ class CreateWorkItems(Source[Iterable[WorkItem]]):
 
         self._learner_task     = learner_task
         self._environment_task = environment_task
-        self._evaluation_task  = evaluation_task        
+        self._evaluation_task  = evaluation_task
 
     def read(self) -> Iterable[WorkItem]:
 
@@ -197,7 +197,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
         if task.environ is None:
             return None
         elif isinstance(task.environ, SourceFilters):
-            return task.environ._source 
+            return task.environ._source
         else:
             return task.environ
 
@@ -208,7 +208,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
         if task.environ is None:
             return (-1,None)
         elif isinstance(task.environ, SourceFilters):
-            return (task.environ_id, task.environ._filter) 
+            return (task.environ_id, task.environ._filter)
         else:
             return (task.environ_id, None)
 

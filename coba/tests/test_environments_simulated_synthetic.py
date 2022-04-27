@@ -13,7 +13,7 @@ CobaContext.logger = NullLogger()
 class LambdaSimulation_Tests(unittest.TestCase):
 
     def test_n_interactions_2_seed_none(self):
-        
+
         def C(i:int):
             return [1,2][i]
 
@@ -62,7 +62,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
         self.assertEqual([2,3,4], interaction.rewards)
 
     def test_n_interactions_2_seed_1(self):
-        
+
         def C(i:int, rng: CobaRandom):
             return [1,2][i]
 
@@ -103,7 +103,7 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
         def A(i:int,c:int):
             return [[1,2,3],[4,5,6]][i]
-        
+
         def R(i:int,c:int,a:int):
             return a-c
 
@@ -129,13 +129,13 @@ class LambdaSimulation_Tests(unittest.TestCase):
 
         def A(i:int,c:int):
             return [[1,2,3],[4,5,6]][i]
-        
+
         def R(i:int,c:int,a:int):
             return a-c
 
         with self.assertRaises(CobaException) as e:
             pickle.loads(pickle.dumps(LambdaSimulation(None,C,A,R)))
-        
+
         self.assertIn("pickle", str(e.exception))
 
 class LinearSyntheticSimulation_Tests(unittest.TestCase):
@@ -213,7 +213,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(500, len(interactions))
         self.assertEqual(None, interactions[0].context)
-        self.assertEqual(2, len(interactions[0].actions))        
+        self.assertEqual(2, len(interactions[0].actions))
         self.assertEqual((1,0), interactions[0].actions[0])
         self.assertEqual((0,1), interactions[0].actions[1])
 
@@ -311,7 +311,7 @@ class NeighborsSyntheticSimulation_Tests(unittest.TestCase):
             LinearSyntheticSimulation(200,0,3,4,seed=6)
 
     def test_pickle(self):
-        
+
         simulation = NeighborsSyntheticSimulation(20,n_actions=2,n_context_features=3,n_action_features=0,n_neighborhoods=10)
         simulation = pickle.loads(pickle.dumps(simulation))
         interactions = list(simulation.read())
@@ -471,7 +471,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
         self.assertDictEqual(expected, env.params)
 
     def test_linear_params(self):
-        
+
         env = KernelSyntheticSimulation(20,n_exemplars=10,seed=2,kernel='linear')
 
         expected = {
@@ -587,7 +587,7 @@ class MLPSyntheticSimulation_Tests(unittest.TestCase):
             MLPSyntheticSimulation(200,0,3,4,seed=6)
 
     def test_pickle(self):
-        
+
         simulation = MLPSyntheticSimulation(20,n_actions=2,n_context_features=3,n_action_features=0)
         simulation = pickle.loads(pickle.dumps(simulation))
         interactions = list(simulation.read())

@@ -20,7 +20,7 @@ class ReprSink(ListSink):
 
     def __str__(self):
         return "ReprSink"
-    
+
     @property
     def params(self):
         return self._params
@@ -35,7 +35,7 @@ class ReprFilter(Filter):
 
     def __str__(self):
         return f"ReprFilter{self._id}"
-    
+
     def filter(self, item: Any) -> Any:
         return item
 
@@ -131,7 +131,7 @@ class SourceFilters_Tests(unittest.TestCase):
         self.assertEqual({'source':'ParamsSource','filter':'ParamsFilter'}, source.params)
 
 class FiltersFilter_Tests(unittest.TestCase):
-    
+
     def test_init_filters(self):
 
         filter = FiltersFilter(ReprFilter("1"), ReprFilter("2"))
@@ -170,7 +170,7 @@ class FiltersFilter_Tests(unittest.TestCase):
         self.assertEqual({'filter':'ParamsFilter'}, source.params)
 
 class FiltersSink_Tests(unittest.TestCase):
-    
+
     def test_init_filters_sink(self):
 
         filter = FiltersSink(ReprFilter(), ReprFilter(), ReprSink())
@@ -200,12 +200,12 @@ class FiltersSink_Tests(unittest.TestCase):
         self.assertEqual([1,2], sink._sink.items)
 
     def test_read2(self):
-        
+
         sink  = FiltersSink(ReprFilter(), ReprSink())
-        sink2 = FiltersSink(ReprFilter(), sink)        
+        sink2 = FiltersSink(ReprFilter(), sink)
         sink2.write(1)
         sink2.write(2)
-        
+
         self.assertEqual([1,2], sink._sink.items)
 
     def test_params(self):
@@ -260,7 +260,7 @@ class PipesLine_Tests(unittest.TestCase):
 
 
 class Foreach_Tests(unittest.TestCase):
-    
+
     def test_filter(self):
         self.assertEqual([0,1,2],  list(Foreach(SingleItemIdentity()).filter(range(3))))
 
@@ -268,7 +268,7 @@ class Foreach_Tests(unittest.TestCase):
         sink = ListSink()
         Foreach(sink).write(range(3))
         self.assertEqual([0,1,2], sink.items)
-    
+
     def test_str(self):
         self.assertEqual("ReprSink", str(Foreach(ReprSink())))
 
@@ -310,7 +310,7 @@ class Pipes_Tests(unittest.TestCase):
         sink    = ReprSink()
 
         self.assertEqual("ReprSource,ReprFilter,ReprFilter,ReprSink", str(Pipes.join(source, *filters, sink)))
-    
+
     def test_join_source_filters_repr(self):
 
         source  = ReprSource()

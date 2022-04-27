@@ -38,7 +38,7 @@ class OnlineVariance():
 
     References:
         Wikipedia contributors. (2020, July 6). Algorithms for calculating variance. In Wikipedia, The
-        Free Encyclopedia. Retrieved 18:00, July 24, 2020, from 
+        Free Encyclopedia. Retrieved 18:00, July 24, 2020, from
         https://en.wikipedia.org/w/index.php?title=Algorithms_for_calculating_variance&oldid=966329915
     """
 
@@ -85,7 +85,7 @@ class OnlineMean():
 
     def update(self, value:float) -> None:
         """Update the current mean with the given value."""
-        
+
         self._n += 1
 
         alpha = 1/self._n

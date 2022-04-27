@@ -127,7 +127,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
     def test_classification_statistics_sparse(self):
         import sklearn.exceptions
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
-        
+
         simulation = Pipes.join(SupervisedSimulation([{"1":1,"2":2},{"3":3,"4":4}]*10,["A","B"]*10), Noise())
         row        = ClassEnvironmentTask().process(simulation,simulation.read())
 

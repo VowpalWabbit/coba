@@ -47,18 +47,18 @@ class EpsilonBanditLearner(Learner):
 
 class UcbBanditLearner(Learner):
     """A bandit learner using upper confidence bound estimates for exploration.
-    
+
     This algorithm is an implementation of Auer et al. (2002) UCB1-Tuned algorithm
     and requires that all rewards are in [0,1].
 
     References:
-        Auer, Peter, Nicolo Cesa-Bianchi, and Paul Fischer. "Finite-time analysis of 
+        Auer, Peter, Nicolo Cesa-Bianchi, and Paul Fischer. "Finite-time analysis of
         the multiarmed bandit problem." Machine learning 47.2-3 (2002): 235-256.
     """
-    
+
     def __init__(self):
         """Instantiate a UcbBanditLearner."""
-        #these variable names were selected for easier comparison with the original paper 
+        #these variable names were selected for easier comparison with the original paper
         self._t     : int = 0
         self._m     : Dict[Action, float         ] = {}
         self._s     : Dict[Action, int           ] = {}
@@ -138,7 +138,7 @@ class FixedLearner(Learner):
         Args:
             fixed_pmf: A PMF whose values are the probability of taking each action.
         """
-        
+
         assert round(sum(fixed_pmf),3) == 1, "The given pmf must sum to one to be a valid pmf."
         assert all([p >= 0 for p in fixed_pmf]), "All given probabilities of the pmf must be greater than or equal to 0."
 
@@ -150,7 +150,7 @@ class FixedLearner(Learner):
         return {"family":"fixed"}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
- 
+
         return self._fixed_pmf
 
     def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:

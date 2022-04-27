@@ -70,7 +70,7 @@ class VowpalEpsilonLearner_Tests(unittest.TestCase):
         mock.assert_called_once_with("--cb_explore_adf --epsilon 0.1 --noconstant --interactions ax -b 20 --quiet")
 
 class VowpalSoftmaxLearner_Tests(unittest.TestCase):
-    
+
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalSoftmaxLearner()

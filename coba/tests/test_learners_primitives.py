@@ -5,7 +5,7 @@ from coba.learners import SafeLearner
 class ParamsLearner:
     def __init__(self, params):
         self._params = params
-    
+
     @property
     def params(self):
         return self._params
@@ -27,7 +27,7 @@ class UnsafeFixedLearner:
     def __init__(self, pmf, info):
         self._pmf = pmf
         self._info = info
-    
+
     def predict(self, context, actions):
         if self._info is None:
             return self._pmf
@@ -50,17 +50,17 @@ class SafeLearner_Tests(unittest.TestCase):
 
     def test_params_fullname_0_params(self):
         learner = SafeLearner(ParamsLearner({"family":"B"}))
-        
+
         self.assertEqual("B", learner.full_name)
 
     def test_params_fullname_1_param(self):
         learner = SafeLearner(ParamsLearner({'a':"A", "family":"B"}))
-        
+
         self.assertEqual("B(a=A)", learner.full_name)
 
     def test_params_fullname_2_params(self):
         learner = SafeLearner(ParamsLearner({'a':"A","b":"B", "family":"B"}))
-        
+
         self.assertEqual("B(a=A,b=B)", learner.full_name)
 
     def test_no_sum_one_no_info_action_match_predict(self):

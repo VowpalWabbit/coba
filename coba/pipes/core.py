@@ -118,7 +118,7 @@ class Pipes:
             A single pipe that is a composition of the given pipes. The type of pipe returned
             is determined by the sequence given. A sequence of Filters will return a Filter. A
             sequence that begins with a Source and is followed by Filters will return a Source.
-            A sequence that starts with Filters and ends with a Sink will return a Sink. A 
+            A sequence that starts with Filters and ends with a Sink will return a Sink. A
             sequence that begins with a Source and ends with a Sink will return a completed pipe.
         """
         if len(pipes) == 0:
@@ -138,7 +138,7 @@ class Pipes:
 
         if hasattr(first,'filter') and hasattr(last,'filter'):
             return FiltersFilter(*pipes)
-        
+
         if hasattr(first,'filter') and hasattr(last,'write'):
             return FiltersSink(*pipes)
 
@@ -149,7 +149,7 @@ class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
 
     def __init__(self, pipe: Union[Filter[Any,Any],Sink[Any]]):
         """Instantiate a Foreach pipe.
-        
+
         Args:
             pipe: The pipe that we wish to pass a sequence of items one at a time.
         """

@@ -3,8 +3,8 @@ import math
 
 from coba.pipes.readers import DenseWithMeta, SparseWithMeta
 
-from coba.encodings import( 
-    IdentityEncoder, StringEncoder, NumericEncoder, 
+from coba.encodings import(
+    IdentityEncoder, StringEncoder, NumericEncoder,
     OneHotEncoder, FactorEncoder, InteractionsEncoder,
     MissingEncoder
 )
@@ -88,11 +88,11 @@ class NumericEncoder_Tests(unittest.TestCase):
 class OneHotEncoder_Tests(unittest.TestCase):
 
     def test_encode_err_if_unkonwn_true(self):
-        with self.assertRaises(CobaException): 
+        with self.assertRaises(CobaException):
             OneHotEncoder(err_if_unknown=True).fit(["1","1","1","0","0"]).encode("2")
 
     def test_encodes_err_if_unkonwn_true(self):
-        with self.assertRaises(CobaException): 
+        with self.assertRaises(CobaException):
             OneHotEncoder(err_if_unknown=True).fit(["1","1","1","0","0"]).encodes(["2"])
 
     def test_err_if_unkonwn_false(self):

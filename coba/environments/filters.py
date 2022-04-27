@@ -49,8 +49,8 @@ class Scale(EnvironmentFilter):
     """Shift and scale features to precondition them before learning."""
 
     def __init__(self,
-        shift: Union[Number,Literal["min","mean","med"]] = 0, 
-        scale: Union[Number,Literal["minmax","std","iqr","maxabs"]] = "minmax", 
+        shift: Union[Number,Literal["min","mean","med"]] = 0,
+        scale: Union[Number,Literal["minmax","std","iqr","maxabs"]] = "minmax",
         target: Literal["features","rewards"] = "features",
         using: Optional[int] = None):
         """Instantiate a Scale filter.
@@ -95,7 +95,7 @@ class Scale(EnvironmentFilter):
         had_non_numeric = set()
 
         for interaction in fitting_interactions:
-            
+
             if self._target == "features":
                 for name,value in self._feature_pairs(interaction.context):
 
@@ -191,24 +191,24 @@ class Scale(EnvironmentFilter):
 
             if isinstance(interaction, SimulatedInteraction):
                 yield SimulatedInteraction(
-                    final_context, 
-                    interaction.actions, 
-                    final_rewards or interaction.rewards, 
+                    final_context,
+                    interaction.actions,
+                    final_rewards or interaction.rewards,
                     **interaction.kwargs
                 )
-            
+
             elif isinstance(interaction, LoggedInteraction):
                 yield LoggedInteraction(
-                    final_context, 
-                    interaction.action, 
+                    final_context,
+                    interaction.action,
                     interaction.reward,
                     interaction.probability,
                     interaction.actions,
                     **interaction.kwargs
                 )
-            
+
             else: #pragma: no cover
-                raise CobaException("Unknown interactions were given to Scale.") 
+                raise CobaException("Unknown interactions were given to Scale.")
 
     def _feature_pairs(self,context) -> Sequence[Tuple[Hashable,Any]]:
         if isinstance(context,dict ): return context.items()
@@ -220,11 +220,11 @@ class Scale(EnvironmentFilter):
 class Impute(EnvironmentFilter):
     """Impute missing values (nan) in Interaction contexts."""
 
-    def __init__(self, 
+    def __init__(self,
         stat : Literal["mean","median","mode"] = "mean",
         using: Optional[int] = None):
         """Instantiate an Impute filter.
-        
+
         Args:
             stat: The statistic to use for impuatation.
             using: The number of interactions to use to calculate the imputation statistics.
@@ -280,24 +280,24 @@ class Impute(EnvironmentFilter):
             else:
                 final_context = kv_imputed_context[1]
 
-            if isinstance(interaction, SimulatedInteraction):                
+            if isinstance(interaction, SimulatedInteraction):
                 yield SimulatedInteraction(
-                    final_context, 
-                    interaction.actions, 
+                    final_context,
+                    interaction.actions,
                     interaction.rewards,
                     **interaction.kwargs
                 )
 
             elif isinstance(interaction, LoggedInteraction):
                 yield LoggedInteraction(
-                    final_context, 
-                    interaction.action, 
+                    final_context,
+                    interaction.action,
                     interaction.reward,
                     **interaction.kwargs
                 )
 
             else: #pragma: no cover
-                raise CobaException("Unknown interactions were given to Impute.") 
+                raise CobaException("Unknown interactions were given to Impute.")
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
 
@@ -308,7 +308,7 @@ class Impute(EnvironmentFilter):
         return []
 
 class Sparse(EnvironmentFilter):
-    """Sparsify an environment's feature representation. 
+    """Sparsify an environment's feature representation.
 
     This has little utility beyond debugging.
     """
@@ -336,27 +336,27 @@ class Sparse(EnvironmentFilter):
 
             if isinstance(interaction, SimulatedInteraction):
                 sparse_actions = list(map(self._make_sparse,interaction.actions)) if self._action else interaction.actions
-                
+
                 yield SimulatedInteraction(
-                    sparse_context, 
-                    sparse_actions, 
+                    sparse_context,
+                    sparse_actions,
                     interaction.rewards
                 )
-            
+
             elif isinstance(interaction, LoggedInteraction):
                 sparse_action = self._make_sparse(interaction.action) if self._action else interaction.action
-                
+
                 yield LoggedInteraction(
-                    sparse_context, 
-                    sparse_action, 
+                    sparse_context,
+                    sparse_action,
                     interaction.reward,
                     interaction.probability,
                     interaction.actions,
                     **interaction.kwargs
                 )
-            
+
             else: #pragma: no cover
-                raise CobaException("Unknown interactions were given to Sparse.") 
+                raise CobaException("Unknown interactions were given to Sparse.")
 
     def _make_sparse(self, value) -> Optional[dict]:
         if isinstance(value,dict) or value is None:
@@ -445,13 +445,13 @@ class Sort(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        full_sorter = lambda interaction: tuple(interaction.context                                 ) 
+        full_sorter = lambda interaction: tuple(interaction.context                                 )
         list_sorter = lambda interaction: tuple(interaction.context[key]       for key in self._keys)
         dict_sorter = lambda interaction: tuple(interaction.context.get(key,0) for key in self._keys)
 
         interactions = list(interactions)
         is_sparse    = isinstance(interactions[0].context,dict)
-        
+
         sorter = full_sorter if not self._keys else dict_sorter if is_sparse else list_sorter
 
         return sorted(interactions, key=sorter)
@@ -463,7 +463,7 @@ class Where(EnvironmentFilter):
         """Instantiate a Where filter.
 
         Args:
-            n_interactions: The minimum, maximum or exact number of interactions Environments must have. 
+            n_interactions: The minimum, maximum or exact number of interactions Environments must have.
         """
 
         self._n_interactions = n_interactions
@@ -533,10 +533,10 @@ class Warm(EnvironmentFilter):
 
     def _to_logged_interaction(self, interaction: SimulatedInteraction) -> LoggedInteraction:
         num_actions   = len(interaction.actions)
-        probabilities = [1/num_actions] * num_actions 
+        probabilities = [1/num_actions] * num_actions
 
         idx     = self._rng.choice(list(range(num_actions)), probabilities)
-        actions = interaction.actions 
+        actions = interaction.actions
         action  = interaction.actions[idx]
         prob    = probabilities[idx]
         reward  = interaction.rewards[idx]
@@ -574,7 +574,7 @@ class Noise(EnvironmentFilter):
     """Introduce noise to an environment."""
 
     def __init__(self,
-        context: Callable[[float,CobaRandom], float] = None, 
+        context: Callable[[float,CobaRandom], float] = None,
         action : Callable[[float,CobaRandom], float] = None,
         reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> None:
@@ -616,7 +616,7 @@ class Noise(EnvironmentFilter):
 
         params = {}
 
-        if self._context_noise != self._no_noise: params['context_noise'] = True 
+        if self._context_noise != self._no_noise: params['context_noise'] = True
         if self._action_noise != self._no_noise : params['action_noise' ] = True
         if self._reward_noise != self._no_noise : params['reward_noise' ] = True
 

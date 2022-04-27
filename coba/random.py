@@ -6,8 +6,8 @@ the public methods in to maintain state.
 
 Remarks:
     This implementation has been made to guarantee the reproducibility of experiments
-    according to integer seeds across all versions of Python. The standard implementation 
-    of random within Python has had a few variations in implementation in the past and 
+    according to integer seeds across all versions of Python. The standard implementation
+    of random within Python has had a few variations in implementation in the past and
     could always change in the future, making randomization by seed potentially non-fixed.
 """
 
@@ -28,12 +28,12 @@ class CobaRandom:
 
         Remarks:
             The values for a,c,m below are taken from L'ecuyer (1999). In this paper he notes that
-            these values for LCG should have an overall period of m though the period of lower bits 
-            will be much shorter. A solution he offers to this problem is to use much larger m (e.g., 
+            these values for LCG should have an overall period of m though the period of lower bits
+            will be much shorter. A solution he offers to this problem is to use much larger m (e.g.,
             2**128) and then only use the the top n most significant digits. For now, we aren't doing that.
 
         References:
-            L'ecuyer, Pierre. "Tables of linear congruential generators of different sizes 
+            L'ecuyer, Pierre. "Tables of linear congruential generators of different sizes
             and good lattice structure." Mathematics of Computation 68.225 (1999): 249-260.
         """
 
@@ -87,7 +87,7 @@ class CobaRandom:
             A new sequence with the order of items shuffled.
 
         Remarks:
-            This is the Richard Durstenfeld's method popularized by Donald Knuth in The Art of Computer 
+            This is the Richard Durstenfeld's method popularized by Donald Knuth in The Art of Computer
             Programming. This algorithm is unbiased (i.e., all possible permutations are equally likely to occur).
         """
 
@@ -136,7 +136,7 @@ class CobaRandom:
 
     def gauss(self, mu:float=0, sigma:float=1) -> float:
         """Generate a random number from N(mu,sigma).
-    
+
         Returns:
             A random number drawn from N(mu,sigma).
         """
@@ -218,7 +218,7 @@ def seed(seed: Optional[float]) -> None:
 
 def random(min:float=0, max:float=1) -> float:
     """Generate a uniform random number in [`min`,`max`].
-    
+
     Args:
         min: The minimum value for the random numbers.
         max: The maximum value for the random numbers.
@@ -244,7 +244,7 @@ def randoms(n: int, min:float=0, max:float=1) -> Sequence[float]:
 
 def gauss(mu:float=0, sigma:float=1) -> float:
     """Generate a random number from N(mu,sigma).
-    
+
     Returns:
         A random number drawn from N(mu,sigma).
     """

@@ -16,7 +16,7 @@ class Pipe:
 
 class Source(ABC, Pipe, Generic[_T_out]):
     """A pipe that can be read."""
-    
+
     @abstractmethod
     def read(self) -> _T_out:
         """Read the item."""

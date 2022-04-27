@@ -11,4 +11,3 @@ Welcome to coba's documentation!
    environments_101
    example_notebooks
    api_reference
-   

@@ -15,8 +15,8 @@ from coba.utilities import coba_exit
 from coba.contexts.cachers import Cacher
 from coba.contexts.loggers import Logger
 
-# To support class properties before python 3.9 we must implement our properties directly 
-# on a meta class. Using class properties rather than class variables is done to allow 
+# To support class properties before python 3.9 we must implement our properties directly
+# on a meta class. Using class properties rather than class variables is done to allow
 # lazy loading. Lazy loading moves errors to execution time instead of import time where
 # they are easier to debug as well as removing import time circular references.
 
@@ -54,7 +54,7 @@ class CobaContext_meta(type):
     _logger       = None
     _experiment   = None
     _search_paths = [Path.home() , Path.cwd(), Path(sys.path[0])]
-    _store        = {}        
+    _store        = {}
 
     def _load_file_configs(cls) -> Dict[str,Any]:
         config = {}
@@ -73,7 +73,7 @@ class CobaContext_meta(type):
                     cls._resolve_and_expand_paths(file_config, str(search_path))
 
                     config.update(file_config)
-                
+
                 except Exception as e:
                     raise CobaException(f"{str(e).strip('.')} in {potential_coba_config}.")
 
@@ -106,7 +106,7 @@ class CobaContext_meta(type):
 
                 for key,value in cls._load_file_configs().items():
                     if key in _raw_config and isinstance(_raw_config[key],dict) and not CobaRegistry.is_known_recipe(value):
-                       
+
                         if key == "experiment" and "maxtasksperchild" in value:
                             value["maxchunksperchild"] = value["maxtasksperchild"]
                             del value["maxtasksperchild"]
@@ -178,7 +178,7 @@ class CobaContext_meta(type):
         This store will be correctly marshalled to background processes if multiprocessing is used.
         """
         return cls._store
-    
+
     @store.setter
     def store(cls, value:Dict[str,Any]) -> None:
         cls._store = value
@@ -199,8 +199,8 @@ class CobaContext_meta(type):
         cls._search_paths = [ Path(path) if isinstance(path,str) else path for path in value  ]
 
 class CobaContext(metaclass=CobaContext_meta):
-    """To support class properties before python 3.9 we must implement our properties directly 
-       on a meta class. Using class properties rather than class variables is done to allow 
+    """To support class properties before python 3.9 we must implement our properties directly
+       on a meta class. Using class properties rather than class variables is done to allow
        lazy loading. Lazy loading moves errors to execution time instead of import time making
        them easier to debug as well as removing the potential for import time circular references.
     """ #I'm not sure some of the claims in the docstring are still true...
@@ -217,15 +217,15 @@ class InteractionContext_meta(type):
     @property
     def learner_info(cls) -> Dict[str,Any]:
         """Information that can be accessed by EvaluationTasks to store information at Interaction granularity.
-        
-        These values are stored in the Result.interactions table. This means leaners can log information on 
+
+        These values are stored in the Result.interactions table. This means leaners can log information on
         each learn/predict call and researchers can access it after the experiment for in-depth analysis.
         """
         return cls._learner_info
 
 class InteractionContext(metaclass=InteractionContext_meta):
-    """To support class properties before python 3.9 we must implement our properties directly 
-       on a meta class. Using class properties rather than class variables is done to allow 
+    """To support class properties before python 3.9 we must implement our properties directly
+       on a meta class. Using class properties rather than class variables is done to allow
        lazy loading. Lazy loading moves errors to execution time instead of import time making
        them easier to debug as well as removing the potential for import time circular references.
     """ #I'm not sure some of the claims in the docstring are still true...

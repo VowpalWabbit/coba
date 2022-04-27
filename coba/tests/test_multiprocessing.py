@@ -4,7 +4,7 @@ import unittest
 from multiprocessing import current_process
 from typing import Iterable, Any
 
-from coba.contexts        import CobaContext, NullLogger 
+from coba.contexts        import CobaContext, NullLogger
 from coba.contexts        import NullCacher, MemoryCacher
 from coba.contexts        import IndentLogger, BasicLogger, ExceptLog, StampLog, NameLog, DecoratedLogger
 from coba.pipes           import Filter, ListSink, Identity
@@ -56,7 +56,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
     def test_filter_exception_logging(self):
         CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
         CobaContext.cacher = NullCacher()
-        
+
         list(CobaMultiprocessor(ExceptionFilter(), 2, 1).filter(range(4)))
 
         self.assertEqual(4, len(CobaContext.logger.sink.items))
@@ -68,7 +68,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
     def test_read_exception_logging(self):
         CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
         CobaContext.cacher = NullCacher()
-        
+
         def broken_generator():
             yield [1]
             raise Exception("Generator Exception")
@@ -89,7 +89,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         self.assertIn("pickle", logger_sink.items[0])
 
     def test_double_call(self):
-        
+
         logger_sink = ListSink()
         logger      = DecoratedLogger([],IndentLogger(logger_sink), [NameLog(), StampLog()])
 
@@ -105,7 +105,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
 class CobaMultiprocessor_ProcessFilter_Tests(unittest.TestCase):
 
     def test_coba_config_set_correctly(self):
-        
+
         log_sink = ListSink()
 
         CobaContext.logger = NullLogger()
@@ -124,7 +124,7 @@ class CobaMultiprocessor_ProcessFilter_Tests(unittest.TestCase):
         self.assertIsInstance(CobaContext.cacher, MemoryCacher)
         self.assertIsInstance(CobaContext.store , dict)
         self.assertIsInstance(CobaContext.logger.sink, ListSink)
-    
+
     def test_exception_logged_but_not_thrown(self):
         log_sink = ListSink()
 

@@ -22,7 +22,7 @@ class BrokenQueue:
         raise self._exception
 
 class NullSink_Tests(unittest.TestCase):
-    
+
     def test_write(self):
         NullSink().write([1,2,3])
 
@@ -50,7 +50,7 @@ class DiskIO_Tests(unittest.TestCase):
         sink.write("a")
         sink.write("b")
         sink.write("c")
-        
+
         self.assertEqual(["a","b","c"], Path("coba/tests/.temp/test.log").read_text().splitlines())
 
     def test_simple_with_gz(self):
@@ -60,7 +60,7 @@ class DiskIO_Tests(unittest.TestCase):
         sink.write("a")
         sink.write("b")
         sink.write("c")
-        
+
         lines = gzip.decompress(Path("coba/tests/.temp/test.gz").read_bytes()).decode('utf-8').splitlines()
 
         self.assertEqual(["a","b","c"], lines)
@@ -69,18 +69,18 @@ class DiskIO_Tests(unittest.TestCase):
         pickle.dumps(DiskSink("coba/tests/.temp/test.gz"))
 
 class ListSink_Tests(unittest.TestCase):
-    
+
     def test_simple(self):
         sink = ListSink()
 
         sink.write("a")
         sink.write("b")
         sink.write("c")
-        
+
         self.assertEqual(["a","b","c"], sink.items)
 
 class QueueSink_Tests(unittest.TestCase):
-    
+
     def test_write(self):
 
         sink = QueueSink()

@@ -31,7 +31,7 @@ class MockResponse:
         return self
 
     def __exit__(self, *args, **kwargs):
-        pass    
+        pass
 
 class Environments_Tests(unittest.TestCase):
     def test_from_definition_path(self):
@@ -112,7 +112,7 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertIsInstance(env, LinearSyntheticSimulation)
         interactions = list(env.read())
-        
+
         self.assertEqual(1     , len(envs))
         self.assertEqual(100   , len(interactions))
         self.assertEqual(2     , len(interactions[0].actions))
@@ -127,7 +127,7 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertIsInstance(env, NeighborsSyntheticSimulation)
         interactions = list(env.read())
-        
+
         self.assertEqual(1  , len(envs))
         self.assertEqual(100, len(interactions))
         self.assertEqual(2  , len(interactions[0].actions))
@@ -142,7 +142,7 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertIsInstance(env, KernelSyntheticSimulation)
         interactions = list(env.read())
-        
+
         self.assertEqual(1           , len(envs))
         self.assertEqual(100         , len(interactions))
         self.assertEqual(2           , len(interactions[0].actions))
@@ -159,7 +159,7 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertIsInstance(env, MLPSyntheticSimulation)
         interactions = list(env.read())
-        
+
         self.assertEqual(1           , len(envs))
         self.assertEqual(100         , len(interactions))
         self.assertEqual(2           , len(interactions[0].actions))

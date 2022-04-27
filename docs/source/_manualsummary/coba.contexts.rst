@@ -31,19 +31,19 @@ Cachers
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
-      
+
       NullCacher
       MemoryCacher
       DiskCacher
       ConcurrentCacher
-      
+
 Loggers
 ~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
-      
+
       NullLogger
       BasicLogger
       IndentLogger
@@ -55,7 +55,7 @@ Log Decorators
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
-    
+
       ExceptLog
       NameLog
       StampLog

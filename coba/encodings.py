@@ -13,7 +13,7 @@ from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Dict
 
 from coba.exceptions import CobaException
 
-_T_out = TypeVar('_T_out', bound=Any, covariant=True) 
+_T_out = TypeVar('_T_out', bound=Any, covariant=True)
 
 class Encoder(Generic[_T_out], ABC):
     """The Encoder interface.
@@ -187,7 +187,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
                 k[i] = 1
 
             keys_and_values = zip(values, map(tuple,known_onehots))
-    
+
             if self._err_if_unknown:
                 self._onehots = dict(keys_and_values)
             else:
@@ -211,7 +211,7 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             raise CobaException(f"We were unable to find {e} in {list(self._onehots.keys())}")
 
     def encodes(self, values: Sequence[Any]) -> Sequence[Tuple[int,...]]:
-        
+
         if self._onehots is None:
             raise CobaException("This encoder must be fit before it can be used.")
 
@@ -260,7 +260,7 @@ class FactorEncoder(Encoder[int]):
             raise CobaException(f"We were unable to find {e} in {self._levels.keys()}") from None
 
     def encodes(self, values: Sequence[Any]) -> Sequence[int]:
-        
+
         if self._levels is None:
             raise CobaException("This encoder must be fit before it can be used.")
 
@@ -276,7 +276,7 @@ class CobaJsonDecoder(json.JSONDecoder):
     """A json decoder that allows for potential COBA extensions in the future."""
 
 class InteractionsEncoder:
-    
+
     def __init__(self, interactions: Sequence[Union[str,float]]) -> None:
         str_interactions = [i for i in interactions if isinstance(i,str)   ]
         num_interactions = [i for i in interactions if isinstance(i,Number)]
@@ -357,9 +357,9 @@ class InteractionsEncoder:
     def _pows(self, values, degree):
         #WARNING: This function has been extremely optimized. Please baseline performance before and after making any changes.
         #WARNING: You can find three existing performance tests in test_performance.
- 
+
         if values in [[],{}]: return []
-        
+
         starts = [1]*len(values)
         terms  = [['']] if isinstance(values[0],str) else [[1]]
 

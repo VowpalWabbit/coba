@@ -21,10 +21,10 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     @overload
     def __init__(self, *, data_id:int, cat_as_str:bool=False):
         """Instantiate an OpenmlSource.
-        
+
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
-            cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded. 
+            cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded.
         """
         ...
 
@@ -34,7 +34,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label
-            cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded. 
+            cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded.
         """
         ...
 
@@ -123,7 +123,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     def _get_data(self, url:str, key:str, checksum:str=None) -> Iterable[str]:
 
         # This can't be done in a streaming manner unless there is a persistent cacher.
-        # Because we don't require cacher this means this may not be possible with streaming. 
+        # Because we don't require cacher this means this may not be possible with streaming.
         # if checksum is not None and md5(bites).hexdigest() != checksum:
         #     #if the cache has become corrupted we need to clear it
         #     CobaContext.cacher.rmv(key)
@@ -144,9 +144,9 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         srcsema = CobaContext.store.get("srcsema")
 
         # we only allow three paralellel request, another attempt at being more "considerate".
-        if srcsema:srcsema.acquire() 
+        if srcsema:srcsema.acquire()
 
-        # An attempt to be considerate of how often we hit their REST api. 
+        # An attempt to be considerate of how often we hit their REST api.
         # They don't publish any rate-limiting guidelines so this is just a guess.
 
         if srcsema: time.sleep(2*random())
@@ -175,7 +175,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
                 if response.status_code != 200:
                     raise CobaException(f"An error was returned by openml: {response.text}")
 
-                # NOTE: These two checks need to be gated with a status code failure 
+                # NOTE: These two checks need to be gated with a status code failure
                 # NOTE: otherwise this will cause the data to be downloaded all at once
                 # NOTE: unfortunately I don't know the appropriate status code so commenting out for now
                 # if "Usually due to high server load" in response.text:
@@ -209,10 +209,10 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         return descr_obj
 
     def _get_task_descr(self, task_id) -> Dict[str,Any]:
-        
+
         descr_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/task/{task_id}', self._cache_keys['task']))
         descr_obj = json.loads(descr_txt)['task']
-        
+
         task_type   = int(descr_obj.get('task_type_id',0))
         task_source = ([i for i in descr_obj.get("input",[]) if i.get('name',None) == 'source_data'] + [{}])[0]
         data_id     = int(task_source.get("data_set",{}).get("data_set_id",0)) or None

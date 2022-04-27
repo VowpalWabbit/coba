@@ -17,9 +17,9 @@ class Performance_Tests(unittest.TestCase):
 
         encoder   = NumericEncoder()
         many_ones = ["1"]*500
-        
+
         time = min(timeit.repeat(lambda:encoder.encodes(many_ones), repeat=1000, number=4))
-        
+
         #was approximately .0003
         self.assertLess(time, .003)
 
@@ -27,9 +27,9 @@ class Performance_Tests(unittest.TestCase):
 
         encoder   = NumericEncoder()
         many_ones = ["1.2"]*100000
-        
+
         time = min(timeit.repeat(lambda:encoder.encodes(many_ones), repeat=25, number=1))
-        
+
         #was approximately .018
         self.assertLess(time, .18)
 
@@ -66,9 +66,9 @@ class Performance_Tests(unittest.TestCase):
         encoder = InteractionsEncoder(["xx"])
 
         x = list(range(100))
-        
+
         time = timeit.timeit(lambda: encoder.encode(x=x), number=100)
-        
+
         #best observed was 0.03
         self.assertLess(time, 0.3)
 
@@ -76,9 +76,9 @@ class Performance_Tests(unittest.TestCase):
         encoder = InteractionsEncoder(["xx"])
 
         x = dict(zip(map(str,range(100)), range(100)))
-        
+
         time = timeit.timeit(lambda: encoder.encode(x=x), number=100)
-        
+
         #best observed was 0.09
         self.assertLess(time, 0.9)
 
@@ -87,9 +87,9 @@ class Performance_Tests(unittest.TestCase):
 
         x = dict(zip(map(str,range(100)), range(100)))
         a = [1,2,3]
-        
+
         time = timeit.timeit(lambda: encoder.encode(x=x, a=a), number=50)
-        
+
         #best observed was 0.20
         self.assertLess(time, 2.0)
 
@@ -101,7 +101,7 @@ class Performance_Tests(unittest.TestCase):
         c = [2,3]
 
         time = timeit.timeit(lambda: encoder.encode(a=a, b=b, c=c), number=25)
-        
+
         #best observed was 0.17
         self.assertLess(time, 1.7)
 
@@ -153,7 +153,7 @@ class Performance_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --quiet",4)
 
         ns = { 'x': list(map(str,range(1000))) }
-        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))            
+        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))
 
         #.029 was my final average time
         self.assertLess(time, .29)
@@ -165,7 +165,7 @@ class Performance_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --quiet",4)
 
         ns = { 'x': [1]+[0]*1000  }
-        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))            
+        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))
 
         #.0044 was my final average time
         self.assertLess(time, .05)
@@ -177,7 +177,7 @@ class Performance_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --quiet",4)
 
         ns = { 'x': list(range(1000)) }
-        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=30, number=100))            
+        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=30, number=100))
 
         #.023 was my final average time
         self.assertLess(time, .23)
@@ -189,7 +189,7 @@ class Performance_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --quiet",4)
 
         ns = { 'x': dict(zip(map(str,range(1000)), range(1000))) }
-        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))            
+        time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))
 
         #.024 was my final average time
         self.assertLess(time, .24)
@@ -200,9 +200,9 @@ class Performance_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
 
-        shared    = { 'a': list(range(500))} 
+        shared    = { 'a': list(range(500))}
         distincts = [{ 'x': list(range(500)) }, { 'x': list(range(500)) }]
-        time = statistics.mean(timeit.repeat(lambda:vw.make_examples(shared, distincts, None), repeat=10, number=100))            
+        time = statistics.mean(timeit.repeat(lambda:vw.make_examples(shared, distincts, None), repeat=10, number=100))
 
         #.042 was my final average time
         self.assertLess(time, .42)
@@ -210,14 +210,14 @@ class Performance_Tests(unittest.TestCase):
     def test_reservoir_performance(self):
 
         x = list(range(10000))
-        
+
         time = statistics.mean(timeit.repeat(lambda:list(Reservoir(2,seed=1).filter(x)), repeat=10, number=100))
 
         #0.010 was my final average time.
         self.assertLess(time, .10)
 
     def test_jsonencode_performance(self):
-        
+
         x = [[1.2,1.2],[1.2,1.2],{'a':1.,'b':1.}]*300
         encoder = JsonEncode()
 
@@ -227,7 +227,7 @@ class Performance_Tests(unittest.TestCase):
         self.assertLess(time, 1.5)
 
     def test_arffreader_performance(self):
-        
+
         attributes = "\n".join([f"@attribute {i} {{1,2}}" for i in range(1000)])
         data_line  = ",".join(["1"]*1000)
         data_lines = "\n".join([data_line]*700)

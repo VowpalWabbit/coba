@@ -130,7 +130,7 @@ class Table_Tests(unittest.TestCase):
 
     def test_filter_kwarg_multi(self):
         table = Table("test", ['a'], [
-            {'a':'1', 'b':'b', 'c':'c'}, 
+            {'a':'1', 'b':'b', 'c':'c'},
             {'a':'2', 'b':'b', 'c':'C'},
             {'a':'3', 'b':'B', 'c':'c'},
             {'a':'4', 'b':'B', 'c':'C'}
@@ -261,7 +261,7 @@ class Table_Pandas_Tests(unittest.TestCase):
         import pandas as pd   #type: ignore
         import pandas.testing #type: ignore
 
-        table = Table("test", ['a'],[dict(a='A',b='B',c={'z':10},d='d'),dict(a='B',e='E')])        
+        table = Table("test", ['a'],[dict(a='A',b='B',c={'z':10},d='d'),dict(a='B',e='E')])
 
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c={'z':10},d='d'),
@@ -513,7 +513,7 @@ class TransactionIO_Tests(unittest.TestCase):
     def setUp(self) -> None:
         if Path("coba/tests/.temp/transaction.log").exists():
             Path("coba/tests/.temp/transaction.log").unlink()
-    
+
     def tearDown(self) -> None:
         if Path("coba/tests/.temp/transaction.log").exists():
             Path("coba/tests/.temp/transaction.log").unlink()
@@ -623,7 +623,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(filtered_result.environments))
         self.assertEqual(2, len(filtered_result.learners))
         self.assertEqual(2, len(filtered_result.interactions))
-    
+
     def test_filter_fin_with_n_interactions(self):
 
         sims = {1:{}, 2:{}}
@@ -686,7 +686,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_filter_env_no_match(self):
 
-        CobaContext.logger = IndentLogger() 
+        CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
         sims = {1:{}, 2:{}}
@@ -740,8 +740,8 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(filtered_result.interactions))
 
     def test_filter_lrn_no_match(self):
-        
-        CobaContext.logger = IndentLogger() 
+
+        CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
         sims = {1:{}, 2:{}}
@@ -803,7 +803,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual([], list(result._plot_learners_data(xlim=None)))
 
     def test_plot_learners_data_one_environment_all_default(self):
- 
+
         lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
         ints = {(0,1): {"_packed":{"reward":[1,2]}},(0,2):{"_packed":{"reward":[1,2]}}}
 
@@ -915,7 +915,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
 
     def test_plot_learners_data_sort(self):
-        
+
         lrns = {1:{ 'full_name':'learner_2'}, 2:{'full_name':'learner_1'}}
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},

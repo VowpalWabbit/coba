@@ -120,7 +120,7 @@ class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
             **dialect: This has the same values as Python's csv.reader dialect.
         """
         self._dialect    = dialect
-        self._has_header = has_header 
+        self._has_header = has_header
 
     def filter(self, items: Iterable[str]) -> Iterable[MutableSequence]:
 
@@ -143,7 +143,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
     #this class has been highly highly optimized. Before modifying anything run
     #Performance_Tests.test_arffreader_performance to get a performance baseline.
 
-    def __init__(self, 
+    def __init__(self,
         cat_as_str: bool =False,
         skip_encoding: bool = False,
         lazy_encoding: bool = True,
@@ -151,18 +151,18 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
         """Instantiate an ArffReader.
 
         Args:
-            cat_as_str: Indicates that categorical features should be encoded as a string rather than one hot encoded. 
+            cat_as_str: Indicates that categorical features should be encoded as a string rather than one hot encoded.
             skip_encoding: Indicates that features should not be encoded (this means all features will be strings).
             lazy_encoding: Indicates that features should be encoded lazily (this can save time if rows will be dropped).
-            header_indexing: Indicates that header data should be preserved so rows can be indexed by header name. 
+            header_indexing: Indicates that header data should be preserved so rows can be indexed by header name.
         """
 
         self._quotes = '"'+"'"
 
-        self._cat_as_str      = cat_as_str 
+        self._cat_as_str      = cat_as_str
         self._skip_encoding   = skip_encoding
         self._lazy_encoding   = lazy_encoding
-        self._header_indexing = header_indexing 
+        self._header_indexing = header_indexing
 
     def filter(self, source: Iterable[str]) -> Iterable[Union[MutableSequence,MutableMapping]]:
         headers  : List[str    ] = []
@@ -202,20 +202,20 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
         identity      = lambda x: None if x=="?" else x.strip()
 
         for encoding in encodings:
-            
+
             if self._skip_encoding:
                 yield identity
-            elif encoding.lower() in numeric_types: 
+            elif encoding.lower() in numeric_types:
                 yield lambda x: None if x=="?" else float(x)
             elif encoding.startswith(string_types):
                 yield identity
             elif encoding.startswith('{'):
                 r_comma = r_comma or re.compile("(,)")
                 categories = list(self._pattern_split(encoding[1:-1], r_comma))
-                
+
                 if not is_dense:
-                    #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the 
-                    #actual data because it is encoded as 0. Therefore, our ARFF reader automatically adds a 0 value 
+                    #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the
+                    #actual data because it is encoded as 0. Therefore, our ARFF reader automatically adds a 0 value
                     #to all sparse categorical one-hot encoders to protect against this.
                     categories = ["0"] + categories
 
@@ -266,7 +266,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
 
             if not use_advanced:
                 final = next(csv.reader([line], quotechar=(quotechar or '"'), delimiter=delimiter, **base_dialect))
-            
+
             else:
                 #the file does not appear to follow a readable csv.reader dialect
                 #we fall back now to a slightly slower, but more flexible, parser
@@ -345,7 +345,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
                 if not item or pattern.match(item): continue
 
                 count += 1
-                if count == n: 
+                if count == n:
                     items = chain([item],items)
                     break
 

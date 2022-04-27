@@ -9,7 +9,7 @@ from coba.learners     import Learner
 
 from coba.experiments.results import Result
 from coba.experiments.process import (
-    WorkItem, CreateWorkItems, RemoveFinished, 
+    WorkItem, CreateWorkItems, RemoveFinished,
     ChunkByTask, ChunkBySource, ProcessWorkItems
 )
 
@@ -73,7 +73,7 @@ class CreateWorkItems_Tests(unittest.TestCase):
         sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
-        
+
         tasks = list(CreateWorkItems([sim1,sim2], [lrn1,lrn2], None, None, None).read())
 
         self.assertEqual(8, len(tasks))

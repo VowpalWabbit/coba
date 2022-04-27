@@ -20,17 +20,17 @@ Dummy Learners
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
-      
+
       RandomLearner
       FixedLearner
-      
+
 Bandit Learners
 ~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
-            
+
       EpsilonBanditLearner
       UcbBanditLearner
 
@@ -57,7 +57,7 @@ Vowpal Contextual Bandit Learners
       VowpalCoverLearner
       VowpalRegcbLearner
       VowpalSquarecbLearner
-      
+
 Meta Learners
 ~~~~~~~~~~~~~
 

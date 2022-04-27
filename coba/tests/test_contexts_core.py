@@ -178,7 +178,7 @@ class CobaContext_Tests(unittest.TestCase):
         lines = str(e.exception).splitlines()
 
         self.assertEqual('', lines[0])
-        self.assertIn("ERROR: An error occured while initializing CobaContext", lines[1]) 
+        self.assertIn("ERROR: An error occured while initializing CobaContext", lines[1])
         self.assertIn(f"Expecting a JSON object (i.e., {{}}) ", lines[2])
         self.assertIn(f" in coba{os.sep}tests{os.sep}.temp{os.sep}.coba.", lines[2])
         self.assertTrue(str(e.exception).endswith("\n"))

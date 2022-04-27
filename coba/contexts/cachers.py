@@ -34,7 +34,7 @@ class Cacher(Generic[_K, _V], ABC):
 
     @abstractmethod
     def put(self, key: _K, value: _V) -> None:
-        """Put a key and its bytes into the cache. 
+        """Put a key and its bytes into the cache.
 
         In the case of a key collision nothing will be put.
 
@@ -55,8 +55,8 @@ class Cacher(Generic[_K, _V], ABC):
 
     @abstractmethod
     def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
-        """Get a key from the cache. 
-        
+        """Get a key from the cache.
+
         If the key is not in the cache put it first using getter.
 
         Args:
@@ -73,7 +73,7 @@ class Cacher(Generic[_K, _V], ABC):
             key: The key to release resources for.
 
         Remarks:
-            This method has been added to the interface primarily to help with 
+            This method has been added to the interface primarily to help with
             unexpected DiskCacher failures while iterating over a get request.
         """
 
@@ -95,16 +95,16 @@ class NullCacher(Cacher[_K, _V]):
 
     def rmv(self, key: _K):
         pass
-    
+
     def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
         return getter()
-    
+
     def release(self, key: _K) -> None:
         pass
 
 class MemoryCacher(Cacher[_K, _V]):
     """A cacher that caches in memory."""
-    
+
     def __init__(self) -> None:
         """Instantiate a MemoryCacher."""
         self._cache: Dict[_K,_V] = {}
@@ -123,7 +123,7 @@ class MemoryCacher(Cacher[_K, _V]):
             del self._cache[key]
 
     def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
-        if key not in self: 
+        if key not in self:
             self.put(key,getter())
         return self.get(key)
 
@@ -202,7 +202,7 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         if self._cache_dir is None:
             return getter()
 
-        if key not in self: 
+        if key not in self:
             self.put(key, getter())
 
         return self.get(key)
@@ -241,7 +241,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
         self._cond  = cond
 
         #we localize these to thread-id to make conccurent cacher
-        #work the same whether multi-threading or multi-processing 
+        #work the same whether multi-threading or multi-processing
         self._read_locks : Dict[Tuple[int,_K],int] = defaultdict(int)
         self._write_locks: Dict[Tuple[int,_K],int] = defaultdict(int)
 
@@ -325,7 +325,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
         finally:
             release()
 
-    def get(self, key:_K) -> _V:    
+    def get(self, key:_K) -> _V:
 
         self._acquire_read_lock(key)
         value = self._cache.get(key)
@@ -356,7 +356,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
         ### We need to get a read-lock probably before the first get check
         ### Otherwise it is possible for an item to be removed from the cache
         ### after the contains check and before the get. Given how I use
-        ### the cache currently though this is very unlikely to happen so 
+        ### the cache currently though this is very unlikely to happen so
         ### I'm not going to fix it at this time. In fact this risk is no
         ### different from anywhere else that I check before getting. The
         ### real solution would be to add a try_get method that gets if

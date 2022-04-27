@@ -50,7 +50,7 @@ class SimulatedInteraction(Interaction):
 
 class SimulatedEnvironment(Environment):
     """An environment made from SimulatedInteractions."""
-    
+
     @abstractmethod
     def read(self) -> Iterable[SimulatedInteraction]:
         """The sequence of interactions in the environment.

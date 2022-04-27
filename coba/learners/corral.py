@@ -13,32 +13,32 @@ from coba.learners.primitives import Learner, SafeLearner, Probs, Info
 class CorralLearner(Learner):
     """A meta-learner that takes a collection of learners and determines
     which is best in an environment.
-    
+
     This is an implementation of the Agarwal et al. (2017) Corral algorithm
     and requires that the reward is always in [0,1].
 
     References:
-        Agarwal, Alekh, Haipeng Luo, Behnam Neyshabur, and Robert E. Schapire. 
-        "Corralling a band of bandit algorithms." In Conference on Learning 
+        Agarwal, Alekh, Haipeng Luo, Behnam Neyshabur, and Robert E. Schapire.
+        "Corralling a band of bandit algorithms." In Conference on Learning
         Theory, pp. 12-38. PMLR, 2017.
     """
 
-    def __init__(self, 
-        learners: Sequence[Learner], 
+    def __init__(self,
+        learners: Sequence[Learner],
         eta     : float = 0.075,
-        T       : float = math.inf, 
-        mode    : Literal["importance","rejection","off-policy"] ="importance", 
+        T       : float = math.inf,
+        mode    : Literal["importance","rejection","off-policy"] ="importance",
         seed    : int = 1) -> None:
         """Instantiate a CorralLearner.
 
         Args:
             learners: The collection of base learners.
-            eta: The learning rate. This controls how quickly Corral picks a best base_learner. 
+            eta: The learning rate. This controls how quickly Corral picks a best base_learner.
             T: The number of interactions expected during the learning process. A small T will cause
                 the learning rate to shrink towards 0 quickly while a large value for T will cause the
                 learning rate to shrink towards 0 slowly. A value of inf means that the learning rate
                 will remain constant.
-            mode: Determines the method with which feedback is provided to the base learners. The 
+            mode: Determines the method with which feedback is provided to the base learners. The
                 original paper used importance sampling. We also support `off-policy` and `rejection`.
             seed: A seed for a random number generation in ordre to get repeatable results.
         """
@@ -108,7 +108,7 @@ class CorralLearner(Learner):
                 learner.learn(context, A, R, P, base_info)
 
         if self._mode == "off-policy":
-            # An alternative variation to the paper is provided below. It has the following characterisitcs: 
+            # An alternative variation to the paper is provided below. It has the following characterisitcs:
             #   > It is able to provide feedback to every base learner on every iteration
             #   > It uses a MVUB reward estimator (aka, the unmodified, observed reward)
             #   > It is "off-policy" (i.e., base learners receive action feedback distributed differently from their predicts).
@@ -116,7 +116,7 @@ class CorralLearner(Learner):
                 learner.learn(context, action, reward, probability, base_info)
 
         if self._mode == "rejection":
-            # An alternative variation to the paper is provided below. It has the following characterisitcs: 
+            # An alternative variation to the paper is provided below. It has the following characterisitcs:
             #   > It doesn't necessarily provide feedback to every base learner on every iteration
             #   > It uses a MVUB reward estimator (aka, the unmodified, observed reward) when it does provide feedback
             #   > It is "on-policy" (i.e., base learners receive action feedback is distributed identically to their predicts).
@@ -124,15 +124,15 @@ class CorralLearner(Learner):
             for learner, base_info, base_predict in zip(self._base_learners, base_infos, base_preds):
                 f = lambda a: base_predict[actions.index(a)] #the PMF we want
                 g = lambda a: predict[actions.index(a)]      #the PMF we have
-                
+
                 M = max([f(A)/g(A) for A in actions if g(A) > 0])
                 if p <= f(action)/(M*g(action)):
                     learner.learn(context, action, reward, f(action), base_info)
 
         # Instant loss is an unbiased estimate of E[loss|learner] for this iteration.
         # Our estimate differs from the orginal Corral paper because we have access to the
-        # action probabilities of the base learners while the Corral paper did not assume 
-        # access to this information. This information allows for a loss esimator with the same 
+        # action probabilities of the base learners while the Corral paper did not assume
+        # access to this information. This information allows for a loss esimator with the same
         # expectation as the original Corral paper's estimator but with a lower variance.
 
         loss = 1-reward
@@ -186,11 +186,11 @@ class CorralLearner(Learner):
             brackets = list(sorted(filter(lambda z: min_loss <= z and z <= max_loss, set(denom_zeros + [min_loss, max_loss]))))
 
             for l_brack, r_brack in zip(brackets[:-1], brackets[1:]):
-                
+
                 if (f(l_brack+.00001)-1) * (f(r_brack-.00001)-1) >= 0:
                     continue
                 else:
-                    # we use binary search because newtons 
+                    # we use binary search because newtons
                     # method can overshoot our objective
                     return binary_search(l_brack, r_brack)
 

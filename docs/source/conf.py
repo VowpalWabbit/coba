@@ -108,7 +108,7 @@ set_module(coba.contexts)
 #we have to point to meta because sphinx can't handle class level properties
 coba.contexts.core.CobaContext_meta.__module__ = "coba.contexts"
 coba.contexts.core.CobaContext_meta.__name__ = "CobaContext"
-coba.contexts.__dict__['CobaContext'] = coba.contexts.core.CobaContext_meta 
+coba.contexts.__dict__['CobaContext'] = coba.contexts.core.CobaContext_meta
 
 #we have to point to meta because sphinx can't handle class level properties
 coba.contexts.core.InteractionContext_meta.__module__ = "coba.contexts"

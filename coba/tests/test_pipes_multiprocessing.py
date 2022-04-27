@@ -21,7 +21,7 @@ class ParamsFilter(Filter):
     @property
     def params(self):
         return {'param':1}
-    
+
     def filter(self, item):
         pass
 
@@ -32,7 +32,7 @@ class ProcessNameFilter(Filter):
 class BarrierNameFilter(Filter):
     def __init__(self):
         self._barrier = Barrier(2)
-    
+
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         self._barrier.wait()
         yield f"pid-{current_process().pid}"
@@ -68,7 +68,7 @@ class PipeMultiprocessor_Tests(unittest.TestCase):
     def test_params(self):
         expected = ParamsFilter().params
         actual   = Multiprocessor(ParamsFilter(), 1, 1, chunked=False).params
-        
+
         self.assertEqual(expected,actual)
 
     def test_singleprocess_singleperchild(self):

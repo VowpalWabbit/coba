@@ -21,10 +21,10 @@
 
    {% endif %}
    {% endblock %}
-   
+
 
    {% block methods %}
-      
+
    {% set clean_methods = methods | reject("in",["__init__","mro"]) | list %}
    {% if clean_methods %}
    .. rubric:: {{ _('Methods') }}

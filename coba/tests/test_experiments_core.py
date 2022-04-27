@@ -99,7 +99,7 @@ class WrappedLearner(Learner):
 
     def predict(self, key, context, actions):
         return self._learner.predict(key, context, actions)
-    
+
     def learn(self, key, context, action, reward, probability) -> None:
         return self._learner.learn(key, context, action, reward, probability)
 
@@ -400,7 +400,7 @@ class Experiment_Single_Tests(unittest.TestCase):
                 result = Experiment([sim1,sim1], [learner]).evaluate(str(path))
 
             with self.assertRaises(AssertionError) as e:
-                result = Experiment([sim1], [learner,learner]).evaluate(str(path))    
+                result = Experiment([sim1], [learner,learner]).evaluate(str(path))
 
         finally:
             path.unlink()
@@ -431,7 +431,7 @@ class Experiment_Multi_Tests(Experiment_Single_Tests):
         experiment = Experiment([sim1],[learner])
 
         CobaContext.logger = BasicLogger(ListSink())
-        
+
         experiment.evaluate()
 
         self.assertEqual(1, len(CobaContext.logger.sink.items))

@@ -26,7 +26,7 @@ class CobaRegistry_Tests(unittest.TestCase):
         self.assertEqual("NullSink", klass.__name__)
 
     def test_endpoint_loaded_after_decorator_register(self):
-        
+
         @coba_registry_class("MyTestObject")
         class MyTestObject(TestObject): pass
 
@@ -129,7 +129,7 @@ class CobaRegistry_Tests(unittest.TestCase):
         klasses = CobaRegistry.construct(recipe)
 
         self.assertEqual(len(klasses), 3)
-    
+
         self.assertEqual(klasses[0].args, (1,))
         self.assertEqual(klasses[0].kwargs, {"a":1})
 
@@ -164,7 +164,7 @@ class CobaRegistry_Tests(unittest.TestCase):
         klasses = CobaRegistry.construct(recipe)
 
         self.assertEqual(len(klasses), 2)
-    
+
         self.assertEqual(klasses[0].args, (1,2))
         self.assertEqual(klasses[0].kwargs, {})
 
@@ -179,7 +179,7 @@ class CobaRegistry_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(klass.args))
         self.assertEqual(klass.kwargs, {})
-        
+
         self.assertIsInstance(klass.args[0], TestObject)
         self.assertEqual(klass.args[0].args, ())
         self.assertEqual(klass.args[0].kwargs, {})

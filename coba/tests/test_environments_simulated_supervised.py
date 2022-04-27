@@ -17,13 +17,13 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
         source = ArffSource(ListSource("""
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {yes, no}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -43,7 +43,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual((8.1,27,1410,(0,1)) , interactions[0].context)
         self.assertEqual((8.2,29,1180,(0,1)) , interactions[1].context)
         self.assertEqual((8.3,27,1020,(1,0)), interactions[2].context)
-        
+
         self.assertEqual([(0,1),(1,0)], interactions[0].actions)
         self.assertEqual([(0,1),(1,0)], interactions[1].actions)
         self.assertEqual([(0,1),(1,0)], interactions[2].actions)
@@ -95,13 +95,13 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
         source = ArffSource(ListSource("""
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {yes, no}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no

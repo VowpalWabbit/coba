@@ -84,15 +84,15 @@ class OnlineVariance_Tests(unittest.TestCase):
 class OnlineMean_Tests(unittest.TestCase):
 
     def test_no_updates_variance_nan(self):
-        
+
         online = OnlineMean()
-        
+
         self.assertTrue(isnan(online.mean))
 
     def test_one_update_variance_nan(self):
-        
+
         test_set = [1]
-        
+
         online = OnlineMean()
 
         for number in test_set:

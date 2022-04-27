@@ -168,7 +168,7 @@ class CsvReader_Tests(unittest.TestCase):
 
     def test_dense_sans_empty(self):
         self.assertEqual([['a','b','c'],['1','2','3']], list(CsvReader().filter(['a,b,c', '1,2,3'])))
-    
+
     def test_dense_with_empty(self):
         self.assertEqual([['a','b','c'],['1','2','3']], list(CsvReader().filter(['a,b,c', '', '1,2,3', ''])))
 
@@ -184,7 +184,7 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = []
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_skip_encoding(self):
@@ -256,7 +256,7 @@ class ArffReader_Tests(unittest.TestCase):
             [1,2,(0,1,0,0)],
             [2,3,(1,0,0,0)]
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_dense_with_missing_value(self):
@@ -295,7 +295,7 @@ class ArffReader_Tests(unittest.TestCase):
             [1,2,(0,1,0,0)],
             [2,3,(1,0,0,0)]
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_dense_with_comments(self):
@@ -314,7 +314,7 @@ class ArffReader_Tests(unittest.TestCase):
             [1,2,(0,1,0,0)],
             [2,3,(1,0,0,0)]
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_dense_with_strings(self):
@@ -332,7 +332,7 @@ class ArffReader_Tests(unittest.TestCase):
             ['1','2',(0,1,0,0)],
             ['2','3',(1,0,0,0)]
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_sparse(self):
@@ -354,7 +354,7 @@ class ArffReader_Tests(unittest.TestCase):
             {1:1, 2:(1,0,0,0)},
             {0:1,2:(0,0,0,1)}
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_sparse_full_sparse(self):
@@ -374,11 +374,11 @@ class ArffReader_Tests(unittest.TestCase):
             {2:(1,0,0,0)},
             {2:(1,0,0,0)}
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_sparse_categorical_0_value(self):
-        
+
         #this is a bug in ARFF, it is not uncommon for the first class value in an ARFF class list
         #to be dropped from the actual data because it is encoded as 0. Therefore our ARFF reader
         #automatically adds a 0 value to all categorical one-hot encoders to protect against this.
@@ -402,7 +402,7 @@ class ArffReader_Tests(unittest.TestCase):
             {1:1, 2:(1,0,0,0)},
             {0:1,2:(0,0,0,1)}
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_sparse_with_empty_lines(self):
@@ -427,7 +427,7 @@ class ArffReader_Tests(unittest.TestCase):
             {1:1, 2:(1,0,0,0)},
             {0:1,2:(0,0,0,1)}
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_sparse_with_spaces_after_comma(self):
@@ -449,7 +449,7 @@ class ArffReader_Tests(unittest.TestCase):
             {     1:1, 2:(1,0,0,0)},
             {0:1,      2:(0,0,0,1)}
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_leading_and_trailing_comments(self):
@@ -470,7 +470,7 @@ class ArffReader_Tests(unittest.TestCase):
             ['1','2',(0,1,0,0)],
             ['2','3',(1,0,0,0)]
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_bad_class_labels_throws_exception(self):
@@ -511,7 +511,7 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [ [1] ]
-        
+
         items = list(ArffReader().filter(lines))
         self.assertEqual(expected, items)
         self.assertEqual(1, items[0]["a a"])
@@ -526,7 +526,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         expected = [ [1] ]
         items = list(ArffReader().filter(lines))
-        
+
         self.assertEqual(expected, items)
         self.assertEqual(1, items[0]["a'a"])
 
@@ -540,7 +540,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         expected = [ [1] ]
         items = list(ArffReader().filter(lines))
-        
+
         self.assertEqual(expected, items)
         self.assertEqual(1, items[0]['a"a'])
 
@@ -557,7 +557,7 @@ class ArffReader_Tests(unittest.TestCase):
         expected = [
             ['1','2',(1,0,0)],
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_capitalized_attribute_tag(self):
@@ -583,11 +583,11 @@ class ArffReader_Tests(unittest.TestCase):
             "@data",
             "1",
         ]
-        
+
         expected = [
             [1],
         ]
-        
+
         self.assertEqual(expected, list(ArffReader().filter(lines)))
 
     def test_bad_attribute_type_raises_exception(self):
@@ -597,7 +597,7 @@ class ArffReader_Tests(unittest.TestCase):
             "@data",
             "1",
         ]
-        
+
         with self.assertRaises(CobaException) as ex:
             list(ArffReader().filter(lines))
 
@@ -614,11 +614,11 @@ class ArffReader_Tests(unittest.TestCase):
             "@attribute f relational",
             "@data",
         ]
-        
+
         list(ArffReader().filter(lines))
 
     def test_str_as_cat(self):
-        
+
         lines = [
             "@relation test",
             "@attribute A numeric",
@@ -881,7 +881,7 @@ class LibsvmReader_Tests(unittest.TestCase):
             ({     2:1}, ['2']),
             ({0:1     }, ['1'])
         ]
-        
+
         self.assertEqual(expected, list(LibsvmReader().filter(lines)))
 
 class ManikReader_Tests(unittest.TestCase):
@@ -900,7 +900,7 @@ class ManikReader_Tests(unittest.TestCase):
             ({     2:1}, ['2']),
             ({1:1     }, ['1'])
         ]
-        
+
         self.assertEqual(expected, list(ManikReader().filter(lines)))
 
     def test_no_label_lines(self):
@@ -934,7 +934,7 @@ class ManikReader_Tests(unittest.TestCase):
             ({     2:1}, ['2']),
             ({1:1     }, ['1'])
         ]
-        
+
         self.assertEqual(expected, list(ManikReader().filter(lines)))
 
 if __name__ == '__main__':

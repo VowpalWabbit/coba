@@ -39,7 +39,7 @@ class DiskSource_Tests(unittest.TestCase):
         if Path("coba/tests/.temp/test.gz").exists(): Path("coba/tests/.temp/test.gz").unlink()
 
     def test_simple_sans_gz(self):
-        Path("coba/tests/.temp/test.log").write_text("a\nb\nc")        
+        Path("coba/tests/.temp/test.log").write_text("a\nb\nc")
         self.assertEqual(["a","b","c"], list(DiskSource("coba/tests/.temp/test.log").read()))
 
     def test_simple_with_gz(self):
@@ -50,7 +50,7 @@ class DiskSource_Tests(unittest.TestCase):
         pickle.dumps(DiskSource("coba/tests/.temp/test.gz"))
 
 class QueueSource_Tests(unittest.TestCase):
-    
+
     def test_read_sans_blocking(self):
 
         queue = Queue()
@@ -91,7 +91,7 @@ class HttpSource_Tests(unittest.TestCase):
             pass
 
 class ListSource_Tests(unittest.TestCase):
-    
+
     def test_read_1(self):
         io = ListSource(['a','b'])
         self.assertEqual(["a",'b'], list(io.read()))

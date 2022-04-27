@@ -49,7 +49,7 @@ Raw Data Sources
       ManikSource
       OpenmlSource
 
-      
+
 Simulated Environments
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -63,13 +63,13 @@ Simulated Environments
       OpenmlSimulation
       LinearSyntheticSimulation
       NeighborsSyntheticSimulation
-      
+
 Environment Filters
 ~~~~~~~~~~~~~~~~~~~
 
    .. autosummary::
       :toctree: ../_autosummary
-      :template: class_with_ctor.rst      
+      :template: class_with_ctor.rst
 
       EnvironmentFilter
       Sort
@@ -77,8 +77,8 @@ Environment Filters
       Cycle
       Impute
       Binary
-      WarmStart      
-      Shuffle 
+      WarmStart
+      Shuffle
       Take
       Reservoir
       Identity

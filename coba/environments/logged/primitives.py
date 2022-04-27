@@ -22,7 +22,7 @@ class LoggedInteraction(Interaction):
             reward     : The reward that was revealed when the logged action was taken.
             probability: The probability that the logged action was taken.
             actions    : All actions that were availble to be taken when the logged action was taken.
-            **kwargs   : Additional information that should be recorded in the interactions table of an experiment result. If 
+            **kwargs   : Additional information that should be recorded in the interactions table of an experiment result. If
                 any data is a sequence with length equal to actions only the data at the selected action index will be recorded.
         """
 
@@ -56,7 +56,7 @@ class LoggedInteraction(Interaction):
 
 class LoggedEnvironment(Environment):
     """An Environment made from LoggedInteractions."""
-    
+
     @abstractmethod
     def read(self) -> Iterable[LoggedInteraction]:
         """The sequence of interactions in a simulation.

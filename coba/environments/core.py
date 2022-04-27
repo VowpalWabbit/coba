@@ -69,8 +69,8 @@ class Environments:
         seed: Union[int,Sequence[int]] = 1) -> 'Environments':
         """A synthetic simulation whose rewards are linear with respect to the given reward features.
 
-        The simulation's rewards are determined via a linear function with respect to the given reward features. When 
-        no context or action features are requested reward features are calculted using a constant feature of 1 for 
+        The simulation's rewards are determined via a linear function with respect to the given reward features. When
+        no context or action features are requested reward features are calculted using a constant feature of 1 for
         non-existant features.
         """
 
@@ -87,9 +87,9 @@ class Environments:
         n_action_features: int = 5,
         n_neighborhoods: int = 30,
         seed: int = 1) -> 'Environments':
-        """A synthetic simulation whose reward values are determined by neighborhoods. 
+        """A synthetic simulation whose reward values are determined by neighborhoods.
 
-        The simulation's rewards are determined by the neighborhood (location) of given 
+        The simulation's rewards are determined by the neighborhood (location) of given
         context and action pairs. A neighborhood's reward is determined by random assignment.
         """
 
@@ -126,7 +126,7 @@ class Environments:
         """A synthetic simulation whose reward function belongs to the MLP family.
 
         The MLP architecture has a single hidden layer with sigmoid activation and one output
-        value calculated from a random linear combination of the hidden layer's output.        
+        value calculated from a random linear combination of the hidden layer's output.
         """
 
         seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed
@@ -137,14 +137,14 @@ class Environments:
     @overload
     @staticmethod
     def from_openml(data_id: Union[int,Sequence[int]],
-        cat_as_str: bool = False, 
+        cat_as_str: bool = False,
         take: int = None) -> 'Environments':
         ...
 
     @overload
     @staticmethod
-    def from_openml(*,task_id: Union[int,Sequence[int]], 
-        cat_as_str: bool = False, 
+    def from_openml(*,task_id: Union[int,Sequence[int]],
+        cat_as_str: bool = False,
         take: int = None) -> 'Environments':
         ...
 
@@ -178,7 +178,7 @@ class Environments:
     @overload
     @staticmethod
     def from_supervised(
-        X = Sequence[Any], 
+        X = Sequence[Any],
         Y = Sequence[Any],
         label_type: Literal["C","R"] = "C") -> 'Environments':
         """Create a SimulatedEnvironment from a supervised dataset"""
@@ -193,7 +193,7 @@ class Environments:
         """Instantiate an Environments class.
 
         Args:
-            *environments: The base environments to initialize the class.        
+            *environments: The base environments to initialize the class.
         """
         self._environments = []
 
@@ -237,13 +237,13 @@ class Environments:
         return self.filter([Reservoir(n_interactions,seed) for seed in seeds])
 
     def scale(self,
-        shift: Union[float,Literal["min","mean","med"]] = 0, 
+        shift: Union[float,Literal["min","mean","med"]] = 0,
         scale: Union[float,Literal["minmax","std","iqr","maxabs"]] = "minmax",
         target: Literal["features","rewards"] = "features",
         using: Optional[int] = None) -> 'Environments':
         """Apply an affine shift and scaling factor to precondition environments."""
         return self.filter(Scale(shift, scale, target, using))
-        
+
     def impute(self,
         stat : Literal["mean","median","mode"] = "mean",
         using: Optional[int] = None) -> 'Environments':
@@ -255,7 +255,7 @@ class Environments:
         return self.filter(Where(n_interactions=n_interactions))
 
     def noise(self,
-        context: Callable[[float,CobaRandom], float] = None, 
+        context: Callable[[float,CobaRandom], float] = None,
         action : Callable[[float,CobaRandom], float] = None,
         reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> 'Environments':

@@ -89,7 +89,7 @@ class BasicLogger_Tests(unittest.TestCase):
         sink   = ListSink()
         logger = BasicLogger(sink)
         logs   = sink.items
-        
+
         with self.assertRaises(BaseException) as e:
             with logger.log('a'):
                 logger.log('c')
@@ -108,7 +108,7 @@ class BasicLogger_Tests(unittest.TestCase):
         sink   = ListSink()
         logger = BasicLogger(sink)
         logs   = sink.items
-        
+
         with self.assertRaises(Exception) as e:
             with logger.time('a'):
                 logger.log('c')
@@ -562,7 +562,7 @@ class DecoratedLogger_Tests(unittest.TestCase):
         self.assertEqual(['2 -- 1 -- a'], sink.items)
 
 class ExceptLog_Tests(unittest.TestCase):
-    
+
     def test_filter_exception(self):
 
         decorator = ExceptLog()

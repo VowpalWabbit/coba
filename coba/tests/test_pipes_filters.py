@@ -8,7 +8,7 @@ from coba.contexts import NullLogger, CobaContext
 CobaContext.logger = NullLogger()
 
 class Identity_Tests(unittest.TestCase):
-    
+
     def test_ident(self):
         items = [1,2,3]
 
@@ -18,7 +18,7 @@ class Identity_Tests(unittest.TestCase):
         self.assertEqual(idn_interactions, mem_interactions)
 
 class Shuffle_Tests(unittest.TestCase):
-    
+
     def test_shuffle(self):
         interactions = [ 1,2,3 ]
         shuffled_interactions = list(Shuffle(40).filter(interactions))
@@ -41,7 +41,7 @@ class Shuffle_Tests(unittest.TestCase):
             Shuffle('A')
 
 class Take_Tests(unittest.TestCase):
-    
+
     def test_bad_count(self):
         with self.assertRaises(ValueError):
             Take(-1)
@@ -289,7 +289,7 @@ class JsonEncode_Tests(unittest.TestCase):
 
     def test_list_list_minified(self):
         self.assertEqual('[1,[2,[1,2]]]',JsonEncode().filter([1,[2.,[1,2.]]]))
-    
+
     def test_list_tuple_minified(self):
         data = [(1,0),(0,1)]
         self.assertEqual('[[1,0],[0,1]]',JsonEncode().filter(data))
@@ -487,7 +487,7 @@ class Default_Tests(unittest.TestCase):
 
     def test_default_dense(self):
 
-        self.assertEqual(['abc','def'], list(Default({"A":1}).filter(['abc', 'def']))) 
+        self.assertEqual(['abc','def'], list(Default({"A":1}).filter(['abc', 'def'])))
 
 if __name__ == '__main__':
     unittest.main()

@@ -41,7 +41,7 @@ class EnvironmentDefinitionFileV1(Source[Sequence[Environment]]):
 
             if isinstance(item, list):
                 pieces = list(map(_construct, item))
-                
+
                 if hasattr(pieces[0][0],'read'):
                     result = [ Pipes.join(s,*f) for s in pieces[0] for f in product(*pieces[1:])]
                 else:

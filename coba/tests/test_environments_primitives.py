@@ -9,7 +9,7 @@ class DummyEnvironment:
         return []
 
 class SafeEnvironment_Tests(unittest.TestCase):
-    
+
     def test_params(self):
         self.assertEqual({'type': 'DummyEnvironment'}, SafeEnvironment(DummyEnvironment()).params)
 

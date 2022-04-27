@@ -11,9 +11,9 @@ from coba.environments import Environments
 #this line is required by Python in order to use multi-processing
 if __name__ == '__main__':
 
-    # These configuration changes aren't ever required. 
+    # These configuration changes aren't ever required.
     # They are simply here to serve as an example.
-    # These can also be set automatically by creating a .coba file your project root. 
+    # These can also be set automatically by creating a .coba file your project root.
     CobaContext.cacher.cache_directory = './.coba_cache'
     CobaContext.experiment.processes   = 2
     CobaContext.experiment.chunk_by    = 'task'
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     #Next we create the environments we'd like evaluate against
     environments = Environments.from_linear_synthetic(1000, n_action_features=0).shuffle([1,2,3])
 
-    #We then create and evaluate our experiment from our environments and learners 
+    #We then create and evaluate our experiment from our environments and learners
     result = Experiment(environments,learners).evaluate()
 
     #After evaluating can create a quick summary plot to get a sense of how the learners performed

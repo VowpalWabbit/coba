@@ -2,8 +2,8 @@
 
 This module is primarily intended for internal use within Coba. However, it is documented
 and made public for advanced use cases where existing Environment and Experiment creation
-functionality is not sufficient. That being said, a good understanding of the patterns 
-in coba.pipes can help one understand how to best take advantage what Coba has to offer. 
+functionality is not sufficient. That being said, a good understanding of the patterns
+in coba.pipes can help one understand how to best take advantage what Coba has to offer.
 """
 
 from coba.pipes.primitives import Filter, Source, Sink

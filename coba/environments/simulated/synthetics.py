@@ -31,7 +31,7 @@ class LambdaSimulation(SimulatedEnvironment):
         """
 
     @overload
-    def __init__(self, 
+    def __init__(self,
         n_interactions: Optional[int],
         context       : Callable[[int               ,CobaRandom],Context         ],
         actions       : Callable[[int,Context       ,CobaRandom],Sequence[Action]],
@@ -62,16 +62,16 @@ class LambdaSimulation(SimulatedEnvironment):
         params = { "type": "LambdaSimulation" }
 
         if hasattr(self, '_seed'):
-            params["seed"] = self._seed 
+            params["seed"] = self._seed
 
-        return params 
+        return params
 
     def read(self) -> Iterable[SimulatedInteraction]:
         rng = None if not self._make_rng else CobaRandom(self._seed)
 
-        _context = lambda i    : self._context(i    ,rng) if rng else self._context(i   ) 
+        _context = lambda i    : self._context(i    ,rng) if rng else self._context(i   )
         _actions = lambda i,c  : self._actions(i,c  ,rng) if rng else self._actions(i,c )
-        _reward  = lambda i,c,a: self._reward (i,c,a,rng) if rng else self._reward(i,c,a)  
+        _reward  = lambda i,c,a: self._reward (i,c,a,rng) if rng else self._reward(i,c,a)
 
         for i in islice(count(), self._n_interactions):
             context  = _context(i)
@@ -99,7 +99,7 @@ class LambdaSimulation(SimulatedEnvironment):
     def __reduce__(self) -> Tuple[object, ...]:
         if self._n_interactions is not None and self._n_interactions < 5000:
             #This is an interesting idea but maybe too wink-wink nudge-nudge in practice. It causes a weird flow
-            #in the logs that look like bugs. It also causes unexpected lags because IO is happening at strange 
+            #in the logs that look like bugs. It also causes unexpected lags because IO is happening at strange
             #places and in a manner that can cause thread locks.
             return (LambdaSimulation.Spoof, (list(self.read()), self.params, str(self), type(self).__name__ ))
         else:
@@ -117,7 +117,7 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
     """A synthetic simulation whose reward values are determined by neighborhoods.
 
     The simulation's rewards are determined by the location of given context and action pairs. These locations
-    indicate which neighborhood the context action pair belongs to. Neighborhood rewards are determined by 
+    indicate which neighborhood the context action pair belongs to. Neighborhood rewards are determined by
     random assignment.
     """
 
@@ -189,12 +189,12 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
 class LinearSyntheticSimulation(LambdaSimulation):
     """A synthetic simulation whose rewards are linear with respect to the given reward features.
 
-    The simulation's rewards are linear with respect to the requrested reward features. When no context 
+    The simulation's rewards are linear with respect to the requrested reward features. When no context
     or action features are requested these terms are removed from the requested reward features.
     """
 
-    def __init__(self, 
-        n_interactions:int, 
+    def __init__(self,
+        n_interactions:int,
         n_actions:int = 10,
         n_context_features:int = 10,
         n_action_features:int = 10,
@@ -261,7 +261,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
         global_rewards = sum(interaction_rewards,[])
         global_scale   = max(global_rewards)-min(global_rewards)
 
-        is_global_scale = weight_count == 1 
+        is_global_scale = weight_count == 1
 
         for i, part_rewards in enumerate(parts_rewards):
             scale            = global_scale if is_global_scale else (max(part_rewards)-min(part_rewards)) or 1
@@ -306,7 +306,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
             n_exemplars: The number of exemplar context-action pairs.
             kernel: The family of the kernel basis functions.
             degree: This argument is only relevant when using polynomial kernels.
-            gamma: This argument is only relevant when using exponential kernels. 
+            gamma: This argument is only relevant when using exponential kernels.
             seed: The random number seed used to generate all features, weights and noise in the simulation.
         """
 
@@ -410,7 +410,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
 
     def _exponential_kernel(self, F1: Sequence[float], F2: Sequence[float], gamma:float) -> float:
         return math.exp(-math.sqrt(sum([(f1-f2)**2 for f1,f2 in zip(F1,F2)]))/gamma)
-    
+
     def _gaussian_kernel(self, F1: Sequence[float], F2: Sequence[float], gamma:float) -> float:
         return math.exp(-sum([(f1-f2)**2 for f1,f2 in zip(F1,F2)])/gamma)
 
@@ -418,7 +418,7 @@ class MLPSyntheticSimulation(LambdaSimulation):
     """A synthetic simulation whose reward function belongs to the MLP family.
 
     The MLP architecture has a single hidden layer with sigmoid activation and one output
-    value calculated from a random linear combination of the hidden layer's output.        
+    value calculated from a random linear combination of the hidden layer's output.
     """
 
     def __init__(self,
@@ -468,7 +468,7 @@ class MLPSyntheticSimulation(LambdaSimulation):
 
         def actions(index:int, context: Context) -> Sequence[Action]:
             if n_action_features:
-                return [ (rng.gausses(n_action_features)) for _ in range(n_actions)] 
+                return [ (rng.gausses(n_action_features)) for _ in range(n_actions)]
             else:
                 return OneHotEncoder().fit_encodes(range(n_actions))
 
@@ -479,7 +479,7 @@ class MLPSyntheticSimulation(LambdaSimulation):
 
             if not n_action_features and not n_context_features:
                 return self._bias + self._output_weights[action.index(1)]
-            
+
             if n_action_features:
                 I = list(context)+list(action)
                 W = self._output_weights

@@ -20,7 +20,7 @@ Functions
    .. autosummary::
       :toctree: ../_autosummary
       :template: base.rst
-      
+
       seed
       random
       randoms

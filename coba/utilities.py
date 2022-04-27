@@ -11,14 +11,14 @@ def coba_exit(message:str):
     raise CobaExit(message) from None
 
 class PackageChecker:
-    
+
     @staticmethod
     def matplotlib(caller_name: str) -> None:
         """Raise ImportError with detailed error message if matplotlib is not installed.
 
         Functionality requiring matplotlib should call this helper and then lazily import.
 
-        Args:    
+        Args:
             caller_name: The name of the caller that requires matplotlib.
 
         Remarks:
@@ -36,7 +36,7 @@ class PackageChecker:
 
         Functionality requiring vowpalwabbit should call this helper and then lazily import.
 
-        Args:    
+        Args:
             caller_name: The name of the caller that requires vowpalwabbit.
 
         Remarks:

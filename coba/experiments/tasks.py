@@ -19,7 +19,7 @@ from coba.environments import Environment, Interaction, SimulatedInteraction, Lo
 
 class LearnerTask(ABC):
     """A task which describes a Learner."""
-    
+
     @abstractmethod
     def process(self, learner: Learner) -> Dict[Any,Any]:
         """Process the LearnerTask.
@@ -34,7 +34,7 @@ class LearnerTask(ABC):
 
 class EnvironmentTask(ABC):
     """A task which describes an Environment."""
-    
+
     @abstractmethod
     def process(self, environment: Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
         """Process the EnvironmentTask.
@@ -178,7 +178,7 @@ class OnlineWarmStartEvalTask(EvaluationTask):
         """Instantiate an OnlineOnPolicyEvalTask.
 
         Args:
-            seed: A random seed which determines which action is taken given predictions.        
+            seed: A random seed which determines which action is taken given predictions.
         """
         self._seed = seed
         self._time = time
@@ -228,8 +228,8 @@ class SimpleEnvironmentTask(EnvironmentTask):
 class ClassEnvironmentTask(EnvironmentTask):
     """Describe an Environment made from a Classification dataset.
 
-    In addition to the Environment's parameters this task calculates a number of classification 
-    statistics which can be used to analyze the performance of learners after an Experiment has 
+    In addition to the Environment's parameters this task calculates a number of classification
+    statistics which can be used to analyze the performance of learners after an Experiment has
     finished. To make the most of this Task sklearn should be installed.
     """
 

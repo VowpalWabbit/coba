@@ -1,4 +1,4 @@
-This directory contains two examples of environment definition files. 
+This directory contains two examples of environment definition files.
 
 Environment definition files are a great way to share experiments with other researchers.
 

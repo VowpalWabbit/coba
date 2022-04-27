@@ -27,7 +27,7 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
         def filter(self, item: Any) -> Any:
 
-            #placing this here means this is set inside the process 
+            #placing this here means this is set inside the process
             CobaContext.logger = self._logger
             CobaContext.cacher = self._cacher
             CobaContext.store  = self._store
@@ -53,8 +53,8 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             with Manager() as manager:
 
                 stdlog = QueueIO(Queue())
-                stderr = CobaMultiprocessor.PipeStderr()                
-                
+                stderr = CobaMultiprocessor.PipeStderr()
+
                 log_thread = Thread(target=Pipes.join(stdlog,Foreach(CobaContext.logger.sink)).run)
                 log_thread.daemon = True
                 log_thread.start()

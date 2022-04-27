@@ -13,9 +13,9 @@ class CobaException(Exception):
         return [str(self)]
 
 class CobaExit(BaseException):
-    # By inheriting directly from BaseException we are able to avoid triggering common 
+    # By inheriting directly from BaseException we are able to avoid triggering common
     # exception handlers. This is how the SystemExit exception also works when calling `exit()`.
-    
+
     def _render_traceback_(self):
         # This is a special method used by Jupyter Notebook for writing tracebacks
         # By dummying it up we can prevent CobaExit from writing tracebacks in Jupyter Notebook

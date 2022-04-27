@@ -27,7 +27,7 @@ class Logger(ABC):
     @abstractmethod
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         """Log a message or exception to the sink.
-        
+
         Args:
             message: The message or exception that should be logged.
 
@@ -77,7 +77,7 @@ class BasicLogger(Logger):
 
     def __init__(self, sink: Sink[str] = ConsoleSink()):
         """Instantiate a BasicLogger.
-        
+
         Args:
             sink: The sink to write to (by default console).
         """
@@ -98,7 +98,7 @@ class BasicLogger(Logger):
             raise
         finally:
             self.log(message + f" {outcome}")
-    
+
     @contextmanager
     def _time_context(self, message:str) -> 'Iterator[Logger]':
         self.log(message)
@@ -113,7 +113,7 @@ class BasicLogger(Logger):
             raise
         else:
             self.log(message + f" ({round(time.time()-self._starts.pop(),2)} seconds) (completed)")
-        
+
     @property
     def sink(self) -> Sink[str]:
         return self._sink
@@ -134,7 +134,7 @@ class IndentLogger(Logger):
 
     def __init__(self, sink: Sink[str] = ConsoleSink()):
         """Instantiate an IndentLogger.
-        
+
         Args:
             sink: The sink to write the logs to (by default console).
         """
@@ -155,7 +155,7 @@ class IndentLogger(Logger):
     @contextmanager
     def _time_context(self, message:str) -> 'Iterator[Logger]':
 
-        # we don't have all the information we need to write 
+        # we don't have all the information we need to write
         # our message but we want to save our place in line
         # we also level our message before entering context
         place_in_line = len(self._messages)
@@ -212,7 +212,7 @@ class DecoratedLogger(Logger):
 
     def __init__(self, pre_decorators: Sequence[Filter], logger: Logger, post_decorators: Sequence[Filter]):
         """Instantiate DecoratedLogger.
-        
+
         Args:
             pre_decorators: A sequence of decorators to be applied before the base logger.
             logger: The base logger we are decorating.
@@ -267,7 +267,7 @@ class ExceptLog(Filter[Union[str,Exception],str]):
             return log
         elif isinstance(log, CobaException):
             return str(log)
-        else: 
+        else:
             tb  = ''.join(traceback.format_tb(log.__traceback__))
             msg = ''.join(traceback.TracebackException.from_exception(log).format_exception_only())
             return f"Unexpected exception:\n\n{tb}\n  {msg}"

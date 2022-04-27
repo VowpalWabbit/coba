@@ -34,7 +34,7 @@ class VowpalMediator:
 
     def init_learner(self, args:str, label_type: int) -> 'VowpalMediator':
         """Create a VW learner from a command line arg string.
-        
+
         Args:
             args: The command line arg string to use for VW learner creation.
             label_type: The label type this VW learner will take.
@@ -56,7 +56,7 @@ class VowpalMediator:
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/CATS,-CATS-pdf-for-Continuous-Actions#vw-text-format
         """
         from vowpalwabbit import pyvw, __version__
-        
+
         if self._vw is not None:
             raise CobaException("We cannot initilaize a VW learner twice in a single mediator.")
 
@@ -80,7 +80,7 @@ class VowpalMediator:
 
     def make_example(self, namespaces: Namespaces, label:Optional[str]) -> Any:
         """Create a VW example.
-        
+
         Args:
             ns: The features grouped by namespace in this example.
             label: An optional label (required if this example will be used for learning).
@@ -95,7 +95,7 @@ class VowpalMediator:
 
     def make_examples(self, shared: Namespaces, separates: Sequence[Namespaces], labels:Optional[Sequence[str]]) -> Sequence[Any]:
         """Create a list of VW examples.
-        
+
         Args:
             shared: The features grouped by namespace in this example.
             label: An optional label (required if this example will be used for learning).
@@ -115,7 +115,7 @@ class VowpalMediator:
         return examples
 
     def _prep_namespaces(self, namespaces: Namespaces) -> VW_Namespaces:
-        """Turn a collection of coba formatted namespaces into VW format."""        
+        """Turn a collection of coba formatted namespaces into VW format."""
 
         #the strange type checks below were faster than traditional methods when performance testing
         for ns, feats in namespaces.items():
@@ -139,8 +139,8 @@ class VowpalMediator:
 
 class VowpalArgsLearner(Learner):
     """A friendly wrapper around Vowpal Wabbit's python interface to support CB learning.
-    
-    Remarks: 
+
+    Remarks:
         This learner requires that the Vowpal Wabbit package be installed. This package can be
         installed via `pip install vowpalwabbit`. To learn more about solving contextual bandit
         problems with Vowpal Wabbit see `here`__ and `here`__.
@@ -151,11 +151,11 @@ class VowpalArgsLearner(Learner):
 
     @staticmethod
     def make_args(
-        options: Sequence[str], 
+        options: Sequence[str],
         noconstant: bool,
-        interactions: Sequence[str], 
+        interactions: Sequence[str],
         ignore_linear:Sequence[str],
-        seed: Optional[int], 
+        seed: Optional[int],
         **kwargs) -> str:
         """Turn settings into a VW command line string.
 
@@ -195,16 +195,16 @@ class VowpalArgsLearner(Learner):
         """Instantiate a VowpalArgsLearner.
 
         Args:
-            args: Command line arguments to instantiate a Vowpal Wabbit contextual bandit learner. For 
-                examples and documentation on how to instantiate VW learners from command line arguments 
-                see `here`__. We require that either cb, cb_adf, cb_explore, or cb_explore_adf is used. 
-                When we format examples for VW context features are placed in the 'x' namespace and action 
+            args: Command line arguments to instantiate a Vowpal Wabbit contextual bandit learner. For
+                examples and documentation on how to instantiate VW learners from command line arguments
+                see `here`__. We require that either cb, cb_adf, cb_explore, or cb_explore_adf is used.
+                When we format examples for VW context features are placed in the 'x' namespace and action
                 features, when relevant, are placed in the 'a' namespace.
-            vw: A mediator able to communicate with VW. This should not need to ever be changed. 
+            vw: A mediator able to communicate with VW. This should not need to ever be changed.
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
         """
 
-        if "--cb" not in args: 
+        if "--cb" not in args:
             raise CobaException("VowpalArgsLearner was instantiated without a cb flag. One of the cb flags must be defined.")
 
         self._args    = args
@@ -258,10 +258,10 @@ class VowpalArgsLearner(Learner):
             min_bools = [s == min_loss for s in losses]
             min_count = sum(min_bools)
             probs     = [ int(min_indicator)/min_count for min_indicator in min_bools ]
-        
+
         if not self._adf and self._explore:
             probs = self._vw.predict(self._vw.make_example(context, None))
-            
+
         if not self._adf and not self._explore:
             index = self._vw.predict(self._vw.make_example(context, None))
             probs = [ int(i==index) for i in range(1,len(actions)+1) ]
@@ -288,14 +288,14 @@ class VowpalArgsLearner(Learner):
     def _labels(self,actions,action,reward:float,prob:float) -> Sequence[Optional[str]]:
         return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
 
-    def _flat(self,features:Any) -> Any:        
+    def _flat(self,features:Any) -> Any:
         return list(Flatten().filter([features]))[0]
 
     def __reduce__(self):
         return (VowpalArgsLearner, (self._args, self._vw) )
 
 class VowpalEpsilonLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more 
+    """A wrapper around VowpalArgsLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
@@ -340,7 +340,7 @@ class VowpalSoftmaxLearner(VowpalArgsLearner):
                 and infinity indicating that predictions should be greedy. For more information see `lambda`__.
             features: A list of namespaces and interactions  to use when learning reward functions.
             seed: The seed used by VW to generate any necessary randomness.
-        
+
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
         """
 
@@ -351,7 +351,7 @@ class VowpalSoftmaxLearner(VowpalArgsLearner):
         super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalBagLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more 
+    """A wrapper around VowpalArgsLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
@@ -379,20 +379,20 @@ class VowpalBagLearner(VowpalArgsLearner):
         super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalCoverLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more 
+    """A wrapper around VowpalArgsLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
     For more information on this algorithm see Agarwal et al. (2014).
 
     References:
-        Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming 
-        the monster: A fast and simple algorithm for contextual bandits." In International Conference on 
+        Agarwal, Alekh, Daniel Hsu, Satyen Kale, John Langford, Lihong Li, and Robert Schapire. "Taming
+        the monster: A fast and simple algorithm for contextual bandits." In International Conference on
         Machine Learning, pp. 1638-1646. 2014.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
 
-    def __init__(self, 
+    def __init__(self,
         cover: int = 5,
         features: Sequence[str] = [1,'a','ax','axx'],
         seed: Optional[int] = 1,
@@ -412,12 +412,12 @@ class VowpalCoverLearner(VowpalArgsLearner):
         super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalRegcbLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more 
+    """A wrapper around VowpalArgsLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
     References:
-        Foster, D., Agarwal, A., Dudik, M., Luo, H. & Schapire, R.. (2018). Practical Contextual 
-        Bandits with Regression Oracles. Proceedings of the 35th International Conference on Machine 
+        Foster, D., Agarwal, A., Dudik, M., Luo, H. & Schapire, R.. (2018). Practical Contextual
+        Bandits with Regression Oracles. Proceedings of the 35th International Conference on Machine
         Learning, in Proceedings of Machine Learning Research 80:1539-1548.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
@@ -445,12 +445,12 @@ class VowpalRegcbLearner(VowpalArgsLearner):
         super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalSquarecbLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more 
+    """A wrapper around VowpalArgsLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
     References:
-        Foster, D.& Rakhlin, A.. (2020). Beyond UCB: Optimal and Efficient Contextual Bandits with Regression 
-        Oracles. Proceedings of the 37th International Conference on Machine Learning, in Proceedings of Machine 
+        Foster, D.& Rakhlin, A.. (2020). Beyond UCB: Optimal and Efficient Contextual Bandits with Regression
+        Oracles. Proceedings of the 37th International Conference on Machine Learning, in Proceedings of Machine
         Learning Research 119:3199-3210.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
@@ -480,18 +480,18 @@ class VowpalSquarecbLearner(VowpalArgsLearner):
             f"--gamma_scale {gamma_scale}",
             "" if mode != "elimination" else "--elim"
         ]
-        
+
         noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
         super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
 
 class VowpalOffPolicyLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more 
+    """A wrapper around VowpalArgsLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
         This wrapper in particular performs policy learning without any exploration. This is
-        only correct when training examples come from a logging policy so that any exploration 
+        only correct when training examples come from a logging policy so that any exploration
         on our part is ignored.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms

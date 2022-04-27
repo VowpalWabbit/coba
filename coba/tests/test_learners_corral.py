@@ -20,7 +20,7 @@ class ReceivedLearnFixedLearner(FixedLearner):
 class FamilyLearner:
     def __init__(self, family):
         self._family = family
-    
+
     @property
     def params(self):
         return {'family': self._family}
@@ -55,14 +55,14 @@ class CorralLearner_Tests(unittest.TestCase):
     def test_off_policy_predict(self):
 
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="off-policy")
-        
+
         predict = learner.predict(None, [1,2])[0]
 
         self.assertEqual(.375, predict[0])
         self.assertEqual(.625, predict[1])
 
     def test_off_policy_learn(self):
-        
+
         actions      = [1,2]
         base1        = ReceivedLearnFixedLearner([1/2,1/2], 'a')
         base2        = ReceivedLearnFixedLearner([1/4,3/4], 'b')
@@ -83,7 +83,7 @@ class CorralLearner_Tests(unittest.TestCase):
     def test_rejection_predict(self):
 
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="rejection")
-        
+
         predict = learner.predict(None, [1,2])[0]
 
         self.assertEqual(.375, predict[0])
@@ -109,7 +109,7 @@ class CorralLearner_Tests(unittest.TestCase):
         for _ in range(1000):
 
             action      = random.choice(actions, predict)
-            probability = predict[actions.index(action)] 
+            probability = predict[actions.index(action)]
 
             learner.learn(None, action, reward, probability, info)
             base1_learn_cnt[action] += int(base1.received_learn is not None)

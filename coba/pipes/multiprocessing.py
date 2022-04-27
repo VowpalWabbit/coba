@@ -18,7 +18,7 @@ from coba.pipes.sinks      import Sink, ConsoleSink
 # handle not picklable (this is handled by explicitly pickling)    (TESTED)
 # handle empty list (this is done by PipesPool naturally) (TESTED)
 # handle exceptions in process (wrap worker executing code in an exception handler) (TESTED)
-# handle ctrl-c without hanging 
+# handle ctrl-c without hanging
 #   > This is done by making PipesPool terminate inside its ContextManager.__exit__
 #   > This is also done by handling EOFError,BrokenPipeError in QueueIO since ctr-c kills multiprocessing.Pipe
 # handle AttributeErrors. This occurs when... (this is handled PipePools.worker ) (TESTED)
@@ -34,7 +34,7 @@ class PipesPool:
     # to be debugged as they learn how to use coba this was unacepptable. Therefore,
     # after countless attempts to make multiprocessing.Pool work the decision was made
     # to write our own so we could add our own helpful error messages.
- 
+
     def __enter__(self) -> 'PipesPool':
         return self
 
@@ -42,7 +42,7 @@ class PipesPool:
         if exc_type is None:
             self.close()
         else:
-            self.terminate() 
+            self.terminate()
 
     def __init__(self, n_processes: int, maxtasksperchild: Optional[int], stderr: Sink):
 
@@ -82,7 +82,7 @@ class PipesPool:
 
             while not finished():
 
-                if self._terminate: 
+                if self._terminate:
                     break
 
                 self._pool = [p for p in self._pool if p.is_alive()]
@@ -93,9 +93,9 @@ class PipesPool:
                     process.start()
                     self._pool.append(process)
 
-                #I don't like this but it seems to be 
+                #I don't like this but it seems to be
                 #the fastest/simplest way out of all my tests...
-                time.sleep(0.1) 
+                time.sleep(0.1)
 
             if not self._terminate:
                 for _ in self._pool: self._stdin.write(None)
@@ -190,15 +190,15 @@ class PipesPool:
 
                 #This is a bit of a hack primarily put in place to deal with
                 #CobaMultiprocessing that performs coba logging of exceptions.
-                #An alternative solution would be to raise a coba exception 
-                #full logging decorators in the exception message. 
+                #An alternative solution would be to raise a coba exception
+                #full logging decorators in the exception message.
                 if result is None: continue
 
                 if not chunked and (inspect.isgenerator(result) or isinstance(result, collections.abc.Iterator)):
                     result = list(result)
 
                 if chunked:
-                    for r in result: 
+                    for r in result:
                         stdout.write(r)
                 else:
                     stdout.write(result)

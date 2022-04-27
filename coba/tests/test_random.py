@@ -20,7 +20,7 @@ class CobaRandom_Tests(unittest.TestCase):
     def test_value_of_randoms(self):
 
         numbers = coba.random.randoms(500000)
-        
+
         self.assertEqual(len(numbers), 500000)
 
         for n in numbers:
@@ -152,7 +152,7 @@ class CobaRandom_Tests(unittest.TestCase):
         self.assertEqual( cr1.randoms(3), cr2.randoms(3) )
 
     def test_gauss(self):
-        
+
         expected = 0.626
 
         cr = coba.random.CobaRandom(seed=1)
@@ -191,7 +191,7 @@ class CobaRandom_Tests(unittest.TestCase):
 
         frequencies = Counter(np.digitize(coba.random.randoms(50000), bins=[i/50 for i in range(50)]))
         self.assertLess(0.00001, chisquare(list(frequencies.values())).pvalue)
-    
+
     @unittest.skipUnless(importlib.util.find_spec("scipy"), "scipy is not installed so we must skip statistical tests")
     def test_shuffle_is_unbiased(self):
 

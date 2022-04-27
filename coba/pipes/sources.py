@@ -10,14 +10,14 @@ from coba.pipes.primitives import Source
 
 class NullSource(Source[Any]):
     """A source which always returns an empty list."""
-    
+
     def read(self) -> Iterable[Any]:
         return []
 
 class DiskSource(Source[Iterable[str]]):
     """A source which reads a file from disk.
 
-    This source supports reading both plain text files as well gz compressed file. 
+    This source supports reading both plain text files as well gz compressed file.
     In order to make this distinction gzip files must end with a gz extension.
     """
 
@@ -41,7 +41,7 @@ class DiskSource(Source[Iterable[str]]):
             if ".gz" in self._filename:
                 self._file = gzip.open(self._filename, f"{self._mode}b", compresslevel=6)
             else:
-                self._file = open(self._filename, f"{self._mode}b")                
+                self._file = open(self._filename, f"{self._mode}b")
 
         return self
 
@@ -61,7 +61,7 @@ class QueueSource(Source[Iterable[Any]]):
 
     def __init__(self, queue:Queue, block:bool=True, poison:Any=None) -> None:
         """Instantiate a QueueSource.
-        
+
         Args:
             queue: The queue that should be read.
             block: Indicates if the queue should block when it is empty.
@@ -121,7 +121,7 @@ class LambdaSource(Source[Any]):
 
     def __init__(self, read: Callable[[],Any]):
         """Instantiate a LambdaSource.
-        
+
         Args:
             read: A function to call for a return value when reading.
         """
@@ -139,14 +139,14 @@ class UrlSource(Source[Iterable[str]]):
 
     def __init__(self, url:str) -> None:
         """Instantiate a UrlSource.
-        
+
         Args:
             url: The url to a resource. Can be either a web request or a local path.
         """
         self._url = url
 
         if url.startswith("http://") or url.startswith("https://"):
-            self._source = HttpSource(url, mode='lines') 
+            self._source = HttpSource(url, mode='lines')
         elif url.startswith("file://"):
             self._source = DiskSource(url[7:])
         elif "://" not in url:
