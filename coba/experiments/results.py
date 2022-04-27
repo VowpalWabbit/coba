@@ -267,7 +267,7 @@ class InteractionsTable(Table):
 
         value_functions = {
             'reward_pct': lambda interactions: [r/m for r,m in zip(interactions['reward'],interactions['max_reward'])],
-            'rank_pct'  : lambda interactions: [(r-1)/(m-1) for r,m in zip(interactions['rank'],interactions['n_actions'])],
+            'rank_pct'  : lambda interactions: [(r-1)/(m-1) for r,m in zip(interactions['rank'],interactions['max_rank'])],
             'regret'    : lambda interactions: [m-r for r,m in zip(interactions['reward'],interactions['max_reward'])],
             'regret_pct': lambda interactions: [(u-r)/(u-l) for r,l,u in zip(interactions['reward'],interactions['min_reward'],interactions['max_reward'])],
         }

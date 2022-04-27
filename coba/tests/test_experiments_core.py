@@ -152,8 +152,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'}
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3}
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3}
         ]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -179,11 +179,11 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":1, "type":'LambdaSimulation'}
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
-            {"environment_id":1, "learner_id":0, "index":1, "reward":3, "min_reward":3, "max_reward":5, "rank":3, "n_actions":3},
-            {"environment_id":1, "learner_id":0, "index":2, "reward":4, "min_reward":3, "max_reward":5, "rank":2, "n_actions":3},
-            {"environment_id":1, "learner_id":0, "index":3, "reward":5, "min_reward":3, "max_reward":5, "rank":1, "n_actions":3}
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":1, "reward":3, "min_reward":3, "max_reward":5, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":2, "reward":4, "min_reward":3, "max_reward":5, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":3, "reward":5, "min_reward":3, "max_reward":5, 'min_rank':1, 'max_rank':3, "rank":1, "n_actions":3}
         ]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -204,10 +204,10 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
-            {"environment_id":0, "learner_id":1, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
-            {"environment_id":0, "learner_id":1, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
+            {"environment_id":0, "learner_id":1, "index":1, "reward":0, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":1, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
 
         ]
 
@@ -237,8 +237,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3, "Modulo":"0"},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3, "Modulo":"0"},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3, "Modulo":"0"},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3, "Modulo":"0"},
         ]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -262,8 +262,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
         ]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -294,8 +294,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
         ]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -319,8 +319,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'NoParamsEnvironment'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
         ]
 
         self.assertCountEqual(actual_learners, expected_learners)
@@ -353,11 +353,11 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":1, "type":'LambdaSimulation'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, "rank":3, "n_actions":3},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, "rank":2, "n_actions":3},
-            {"environment_id":1, "learner_id":0, "index":1, "reward":3, "min_reward":3, "max_reward":5, "rank":3, "n_actions":3},
-            {"environment_id":1, "learner_id":0, "index":2, "reward":4, "min_reward":3, "max_reward":5, "rank":2, "n_actions":3},
-            {"environment_id":1, "learner_id":0, "index":3, "reward":5, "min_reward":3, "max_reward":5, "rank":1, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":1, "reward":3, "min_reward":3, "max_reward":5, 'min_rank':1, 'max_rank':3, "rank":3, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":2, "reward":4, "min_reward":3, "max_reward":5, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
+            {"environment_id":1, "learner_id":0, "index":3, "reward":5, "min_reward":3, "max_reward":5, 'min_rank':1, 'max_rank':3, "rank":1, "n_actions":3},
         ]
 
         self.assertIsInstance(CobaContext.logger, IndentLogger)

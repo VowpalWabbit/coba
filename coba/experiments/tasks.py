@@ -111,6 +111,8 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
                 'reward'      : reward,
                 'max_reward'  : max(interaction.rewards),
                 'min_reward'  : min(interaction.rewards),
+                'min_rank'    : 1,
+                'max_rank'    : len(set(interaction.rewards)),
                 'rank'        : 1+sorted(interaction.rewards,reverse=True).index(reward),
                 'n_actions'   : len(interaction.actions),
             }
