@@ -2,7 +2,7 @@
 omit =
     */docs/*
     */tests/*
-    
+
 [report]
 exclude_lines =
     @abstract

@@ -32,7 +32,7 @@ class ExceptionCacher(MemoryCacher):
 
         if key == self._failure_key:
             raise self._failure_exception
-        
+
         return super().get(key)
 
 class MockResponse:
@@ -51,7 +51,7 @@ class MockResponse:
         return self._iter_lines
 
 class OpenmlSource_Tests(unittest.TestCase):
-    
+
     def setUp(self) -> None:
         CobaContext.api_keys = {'openml': None}
         CobaContext.cacher   = MemoryCacher()
@@ -84,13 +84,13 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -164,13 +164,13 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             ?,27,1410,2,no
             8.2,29,1180,2,no
@@ -221,13 +221,13 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -282,13 +282,13 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -343,13 +343,13 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -421,13 +421,13 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -488,7 +488,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation news20
-            
+
             @attribute att_1 numeric
             @attribute att_2 numeric
             @attribute att_3 numeric
@@ -500,7 +500,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute att_9 numeric
             @attribute att_10 numeric
             @attribute class {B, C, D}
-            
+
             @data
             {0 2,1 3}
             {2 1,3 1,4 1,6 1,8 1,10 B}
@@ -566,7 +566,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation news20
-            
+
             @attribute att_1 numeric
             @attribute att_2 numeric
             @attribute att_3 numeric
@@ -578,7 +578,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute att_9 numeric
             @attribute att_10 numeric
             @attribute class {B, C, D}
-            
+
             @data
             {0 2,1 3}
             {2 1,3 1,4 1,6 1,8 1,10 B}
@@ -643,7 +643,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation news20
-            
+
             @attribute att_1 numeric
             @attribute att_2 numeric
             @attribute att_3 numeric
@@ -655,7 +655,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute att_9 numeric
             @attribute att_10 numeric
             @attribute class {B, C, D}
-            
+
             @data
             {0 2,1 3}
             {2 1,3 1,4 1,6 1,8 1,10 B}
@@ -712,7 +712,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation test
-            
+
             @attribute att_1 numeric
             @attribute att_2 numeric
             @attribute att_3 numeric
@@ -724,7 +724,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute att_9 numeric
             @attribute att_10 numeric
             @attribute class numeric
-            
+
             @data
             {0 2,1 3}
             {2 1,3 1,4 1,6 1,8 1,10 1}
@@ -839,13 +839,13 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         data_set = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -897,13 +897,13 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -955,13 +955,13 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         arff = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -969,7 +969,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             8.3,27,1020,1,yes
             7.6,23,4700,1,yes
         """
-   
+
         request_dict = {
             'https://www.openml.org/api/v1/json/data/42693'         : MockResponse(200, "", json.dumps(data).encode().splitlines()),
             'https://www.openml.org/api/v1/json/data/features/42693': MockResponse(200, "", json.dumps(feat).encode().splitlines()),
@@ -1085,13 +1085,13 @@ class OpenmlSimulation_Tests(unittest.TestCase):
 
         arff = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -1115,7 +1115,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual((8.1,27,1410,'no'), interactions[0].context)
         self.assertEqual((8.2,29,1180,'no'), interactions[1].context)
         self.assertEqual((8.3,27,1020,'yes'), interactions[2].context)
-        
+
         self.assertEqual(["1","2"], interactions[0].actions)
         self.assertEqual(["1","2"], interactions[1].actions)
         self.assertEqual(["1","2"], interactions[2].actions)
@@ -1158,13 +1158,13 @@ class OpenmlSimulation_Tests(unittest.TestCase):
 
         arff = """
             @relation weather
-            
+
             @attribute pH real
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
             @attribute play {no, yes}
-            
+
             @data
             8.1,27,1410,2,no
             8.2,29,1180,2,no
@@ -1188,7 +1188,7 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual((27,1410,(1,0),(1,0)), interactions[0].context)
         self.assertEqual((29,1180,(1,0),(1,0)), interactions[1].context)
         self.assertEqual((27,1020,(0,1),(0,1)), interactions[2].context)
-        
+
         self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[0].actions)
         self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[1].actions)
         self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[2].actions)

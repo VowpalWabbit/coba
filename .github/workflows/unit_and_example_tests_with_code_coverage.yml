@@ -33,13 +33,13 @@ jobs:
             coba/tests/requirements-test.txt
       - run: python --version
       - name: Min Dependency Installs
-        run: | 
+        run: |
           python setup.py install -f
           pip list
       - name: Min Dependency Unit Tests
         run: python -m unittest
-      - name: Max Dependency Installs 
-        run: | 
+      - name: Max Dependency Installs
+        run: |
           pip install -r coba/tests/requirements-soft.txt
           pip install -r coba/tests/requirements-test.txt
           pip list
