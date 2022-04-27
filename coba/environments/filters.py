@@ -51,15 +51,15 @@ class Scale(EnvironmentFilter):
     def __init__(self,
         shift: Union[Number,Literal["min","mean","med"]] = 0, 
         scale: Union[Number,Literal["minmax","std","iqr","maxabs"]] = "minmax", 
-        using: Optional[int] = None,
-        target: Literal["features","rewards"] = "features"):
+        target: Literal["features","rewards"] = "features",
+        using: Optional[int] = None):
         """Instantiate a Scale filter.
 
         Args:
             shift: The statistic to use to shift each context feature.
             scale: The statistic to use to scale each context feature.
-            using: The number of interactions to use when calculating the necessary statistics.
             target: The target data we wish to scale in the environment.
+            using: The number of interactions to use when calculating the necessary statistics.
         """
 
         assert isinstance(shift,Number) or shift in ["min","mean","med"]

@@ -238,10 +238,11 @@ class Environments:
 
     def scale(self,
         shift: Union[float,Literal["min","mean","med"]] = 0, 
-        scale: Union[float,Literal["minmax","std","iqr","maxabs"]] = "minmax", 
+        scale: Union[float,Literal["minmax","std","iqr","maxabs"]] = "minmax",
+        target: Literal["features","rewards"] = "features",
         using: Optional[int] = None) -> 'Environments':
         """Apply an affine shift and scaling factor to precondition environments."""
-        return self.filter(Scale(shift, scale, using))
+        return self.filter(Scale(shift, scale, target, using))
         
     def impute(self,
         stat : Literal["mean","median","mode"] = "mean",

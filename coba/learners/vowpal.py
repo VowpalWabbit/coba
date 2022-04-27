@@ -214,10 +214,8 @@ class VowpalArgsLearner(Learner):
         self._n_actions = None
         self._actions   = None
 
-        try:
+        if "--cb " in args or "--cb_explore " in args:
             self._n_actions = int(re.match("--cb.*?\s+(\d*)\s*-?.*$", args).group(1))
-        except:
-            pass
 
         self._vw = vw or VowpalMediator()
 

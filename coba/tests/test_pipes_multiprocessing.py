@@ -51,6 +51,14 @@ class ExceptionFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         raise self._exc
 
+class EventFilter:
+    def __init__(self, event):
+        self._event = event
+    def filter(self, items):
+        yield 1
+        self._event.wait()
+        yield 2
+
 class PipeMultiprocessor_Tests(unittest.TestCase):
 
     def test_foreach_false(self):
@@ -136,7 +144,7 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
 
         self.assertEqual(0,stdout._queue.qsize())
         self.assertEqual(0,stderr._queue.qsize())
-        PipesPool.worker(filter, stdin, stdout, stderr, None)
+        PipesPool.worker(filter, stdin, stdout, stderr, None, False)
         self.assertEqual(2,stdout._queue.qsize())
         self.assertEqual(1,stdout._queue.get())
         self.assertEqual(2,stdout._queue.get())
@@ -156,7 +164,7 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
 
         self.assertEqual(0,stdout._queue.qsize())
         self.assertEqual(0,stderr._queue.qsize())
-        PipesPool.worker(filter, stdin, stdout, stderr, 1)
+        PipesPool.worker(filter, stdin, stdout, stderr, 1, False)
         self.assertEqual(1,stdout._queue.qsize())
         self.assertEqual(1,stdout._queue.get())
         self.assertEqual(0,stderr._queue.qsize())
@@ -174,7 +182,7 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
 
         self.assertEqual(0,stdout._queue.qsize())
         self.assertEqual(0,stderr._queue.qsize())
-        PipesPool.worker(filter, stdin, stdout, stderr, None)
+        PipesPool.worker(filter, stdin, stdout, stderr, None, False)
         self.assertEqual(0,stdout._queue.qsize())
         self.assertEqual(1,stderr._queue.qsize())
         self.assertEqual("Exception Filter", str(stderr._queue.get()[2]))
@@ -192,10 +200,41 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
 
         self.assertEqual(0,stdout._queue.qsize())
         self.assertEqual(0,stderr._queue.qsize())
-        PipesPool.worker(filter, stdin, stdout, stderr, None)
+        PipesPool.worker(filter, stdin, stdout, stderr, None, False)
         self.assertEqual(1,stdout._queue.qsize())
         self.assertEqual(1,len(stdout._queue.get()))
         self.assertEqual(0,stderr._queue.qsize())
+
+    def test_worker_iterable_chunked_return(self):
+
+        stdin  = QueueSource(Queue())
+        stdout = QueueSink(Queue())
+        stderr = QueueSink(Queue())
+
+        filter = Identity()
+
+        stdin._queue.put(pickle.dumps([1,2]))
+        stdin._queue.put(None)
+
+        self.assertEqual(0,stdout._queue.qsize())
+        self.assertEqual(0,stderr._queue.qsize())
+        PipesPool.worker(filter, stdin, stdout, stderr, None, True)
+        self.assertEqual(2,stdout._queue.qsize())
+        self.assertEqual(1,stdout._queue.get())
+        self.assertEqual(2,stdout._queue.get())
+        self.assertEqual(0,stderr._queue.qsize())
+
+    def test_map_chunked_yields(self):
+
+        iter_event = Event()
+
+        items = []
+        with PipesPool(1,None,NullSink()) as pool:
+            for i in pool.map(EventFilter(iter_event), [ [1,2] ], True):
+                items.append(i)
+                iter_event.set()
+
+        self.assertEqual(items, [1,2])
 
     def test_terminate_stops_pipe(self):
 
@@ -209,7 +248,7 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
             term_event.wait()
 
         def map_pool():
-            list(pool.map(Identity(), sleepy_iter()))
+            list(pool.map(Identity(), sleepy_iter(), False))
 
         thread = Thread(target=map_pool)
 
@@ -241,7 +280,7 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
 
         self.assertEqual(0,stdout._queue.qsize())
         self.assertEqual(0,stderr._queue.qsize())
-        PipesPool.worker(filter, stdin, stdout, stderr, None)
+        PipesPool.worker(filter, stdin, stdout, stderr, None, False)
         self.assertEqual(0,stdout._queue.qsize())
         self.assertEqual(1,stderr._queue.qsize())
         self.assertIn("We attempted to evaluate", stderr._queue.get())
@@ -259,7 +298,7 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
 
         self.assertEqual(0,stdout._queue.qsize())
         self.assertEqual(0,stderr._queue.qsize())
-        PipesPool.worker(filter, stdin, stdout, stderr, None)
+        PipesPool.worker(filter, stdin, stdout, stderr, None, False)
         self.assertEqual(0,stdout._queue.qsize())
         self.assertEqual(0,stderr._queue.qsize())
 

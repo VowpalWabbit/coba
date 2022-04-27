@@ -334,7 +334,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2   , envs[1].params['reservoir_seed'])
 
     def test_scale(self):
-        envs = Environments(TestEnvironment('A')).scale("med", "std", 2)
+        envs = Environments(TestEnvironment('A')).scale("med", "std", "features", 2)
 
         self.assertEqual(1  , len(envs))
         self.assertEqual('A'  , envs[0].params['id'])

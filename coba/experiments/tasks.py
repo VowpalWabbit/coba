@@ -264,7 +264,6 @@ class ClassEnvironmentTask(EnvironmentTask):
         get = lambda x,f: x[f] if is_dense else x.get(f,0)
 
         #Information-Theoretic Meta-features
-
         env_stats["class_count"          ] = k
         env_stats["class_entropy_normed" ] = self._entropy_normed(Y)  # [1,2,3]
         env_stats["class_imbalance_ratio"] = self._imbalance_ratio(Y) # [1]

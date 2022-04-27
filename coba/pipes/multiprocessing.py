@@ -1,4 +1,3 @@
-
 import time
 import traceback
 import pickle
@@ -55,7 +54,7 @@ class PipesPool:
         self._stderr = None
         self._stdout = None
 
-    def map(self, filter: Filter[Any, Any], items:Iterable[Any]) -> Iterable[Any]:
+    def map(self, filter: Filter[Any, Any], items:Iterable[Any], chunked:bool = False) -> Iterable[Any]:
 
         self._stdin  = QueueIO(Queue(maxsize=self._n_processes))
         self._stdout = QueueIO(Queue())
@@ -89,7 +88,7 @@ class PipesPool:
                 self._pool = [p for p in self._pool if p.is_alive()]
 
                 for _ in range(self._n_processes-len(self._pool)):
-                    args = (filter, self._stdin, self._stdout, self._stderr, self._maxtasksperchild)
+                    args = (filter, self._stdin, self._stdout, self._stderr, self._maxtasksperchild, chunked)
                     process = Process(target=PipesPool.worker, args=args)
                     process.start()
                     self._pool.append(process)
@@ -183,7 +182,7 @@ class PipesPool:
         return self._terminate
 
     @staticmethod
-    def worker(filter: Filter[Any,Any], stdin: Source, stdout: Sink, stderr: Sink, maxtasksperchild: Optional[int]):
+    def worker(filter: Filter, stdin: Source, stdout: Sink, stderr: Sink, maxtasksperchild: Optional[int], chunked:bool):
         try:
 
             for item in islice(map(pickle.loads,stdin.read()),maxtasksperchild):
@@ -195,8 +194,12 @@ class PipesPool:
                 #full logging decorators in the exception message. 
                 if result is None: continue
 
-                if inspect.isgenerator(result) or isinstance(result, collections.abc.Iterator):
-                    stdout.write(list(result))
+                if not chunked and (inspect.isgenerator(result) or isinstance(result, collections.abc.Iterator)):
+                    result = list(result)
+
+                if chunked:
+                    for r in result: 
+                        stdout.write(r)
                 else:
                     stdout.write(result)
 
@@ -211,7 +214,7 @@ class PipesPool:
                         "exists inside the `__name__=='__main__'` code block in the main execution script. In either case "
                         "you can choose one of two simple solutions: 1) evaluate your code in a single process with no limit "
                         "child tasks or 2) define all necessary classes in a separate file and include the classes via import "
-                        "statements."                                    
+                        "statements."
                     )
 
                     stderr.write(message)
@@ -230,6 +233,7 @@ class PipesPool:
 
 class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
     """Create multiple processes to filter given items."""
+
     def __init__(self,
         filter: Filter[Any, Any],
         n_processes: int = 1,
@@ -253,13 +257,9 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         with PipesPool(self._n_processes, self._maxtasksperchild, self._stderr) as pool:
-            for item in pool.map(self._filter, items):
-                if self._chunked:
-                    for inner_item in item: 
-                        yield inner_item
-                else:
-                    yield item
-    
+            for item in pool.map(self._filter, items, self._chunked):
+                yield item
+
     @property
     def params(self) -> Dict[str,Any]:
         return self._filter.params
