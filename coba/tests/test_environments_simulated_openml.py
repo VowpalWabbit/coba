@@ -1198,7 +1198,8 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual([1 ,  0, .5], [ round(r,2) for r in interactions[2].rewards])
 
     def test_str(self):
-        self.assertEqual('Openml(id=150, cat_as_str=False)', str(OpenmlSimulation(150)))
+        self.assertEqual('Openml(data=150, cat_as_str=False)', str(OpenmlSimulation(150)))
+        self.assertEqual('Openml(task=150, cat_as_str=False)', str(OpenmlSimulation(task_id=150)))
 
 if __name__ == '__main__':
     unittest.main()

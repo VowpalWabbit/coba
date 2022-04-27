@@ -14,7 +14,7 @@ from coba.pipes.readers import SparseWithMeta
 
 class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],Any]]]):
     """Load a source (local if cached) from openml.
-    
+
     This is primarily used by OpenmlSimulation to create Environments for Experiments.
     """
 
@@ -96,7 +96,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             source    = ListSource(self._get_arff_lines(data_descr["file_id"], None))
             reader    = ArffReader(cat_as_str=self._cat_as_str)
-            drop      = Drop(drop_cols=ignore, drop_row=row_has_missing_values)            
+            drop      = Drop(drop_cols=ignore, drop_row=row_has_missing_values)
             structure = Structure([None, self._target])
 
             for features,label in Pipes.join(source, reader, drop, structure).read():
@@ -148,7 +148,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
         # An attempt to be considerate of how often we hit their REST api. 
         # They don't publish any rate-limiting guidelines so this is just a guess.
-        
+
         if srcsema: time.sleep(2*random())
 
         try:
@@ -250,7 +250,7 @@ class OpenmlSimulation(SupervisedSimulation):
     @overload
     def __init__(self, data_id: int, cat_as_str: bool = False, take: int = None):
         """Instantiate an OpenmlSimulation.
-        
+
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
             cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded.
@@ -279,4 +279,11 @@ class OpenmlSimulation(SupervisedSimulation):
         return {**super().params, "type": "OpenmlSimulation" }
 
     def __str__(self) -> str:
-        return f"Openml(id={self.params['openml_data']}, cat_as_str={self.params['cat_as_str']})"
+
+        params = [
+            f"data={self.params['openml_data']}" if self.params.get('openml_data') else f"task={self.params['openml_task']}",
+            f"target={self.params['openml_target']}" if self.params.get('openml_target') else "",
+            f"cat_as_str={self.params['cat_as_str']}"
+        ]
+
+        return f"Openml({str.join(', ', filter(None,params))})"
