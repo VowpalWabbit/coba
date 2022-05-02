@@ -3,6 +3,7 @@ import unittest.mock
 import unittest
 import json
 
+from threading import Semaphore, Event, Thread
 from typing import cast, Tuple
 
 from coba.exceptions   import CobaException
@@ -56,6 +57,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.api_keys = {'openml': None}
         CobaContext.cacher   = MemoryCacher()
         CobaContext.logger   = NullLogger()
+        CobaContext.store    = {}
 
     def test_already_cached_values_are_not_cached_again(self):
 
@@ -392,7 +394,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
 
         with self.assertRaises(Exception) as e:
-            feature_rows, label_col = OpenmlSource(data_id=42693, label_type="C").read()
+            feature_rows, label_col = OpenmlSource(data_id=42693).read()
 
         self.assertTrue("We were unable to find" in str(e.exception))
 
@@ -440,7 +442,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
+        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
 
         self.assertEqual(len(feature_rows), 5)
         self.assertEqual(len(label_col), 5)
@@ -736,24 +738,21 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_001594_data', json.dumps(data).encode().splitlines())
         CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_001594_arff', arff.encode().splitlines())
+        
+        feature_rows, label_col = list(zip(*OpenmlSource(task_id=1111).read()))
 
-        with self.assertRaises(CobaException) as e:
-            feature_rows, label_col = list(zip(*OpenmlSource(task_id=1111).read()))
+        self.assertEqual(len(feature_rows), 4)
+        self.assertEqual(len(label_col   ), 4)
 
-        self.assertIn("A numeric target", str(e.exception))
+        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
+        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
+        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
+        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
 
-        # self.assertEqual(len(feature_rows), 4)
-        # self.assertEqual(len(label_col   ), 4)
-
-        # self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
-        # self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
-        # self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
-        # self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
-
-        # self.assertEqual((1,0,0,0), label_col[0])
-        # self.assertEqual((0,1,0,0), label_col[1])
-        # self.assertEqual((0,0,1,0), label_col[2])
-        # self.assertEqual((0,0,0,1), label_col[3])
+        self.assertEqual('0', label_col[0])
+        self.assertEqual('1', label_col[1])
+        self.assertEqual('2', label_col[2])
+        self.assertEqual('3', label_col[3])
 
     def test_task_id_no_source(self):
 
@@ -861,7 +860,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff', data_set.encode().splitlines() )
 
         with self.assertRaises(KeyboardInterrupt) as e:
-            feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
+            feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
 
         self.assertIn('openml_042693_data', CobaContext.cacher)
         self.assertIn('openml_042693_feat', CobaContext.cacher)
@@ -983,7 +982,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
             for _ in range(2):
-                feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, label_type="C").read()))
+                feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
 
                 self.assertEqual(len(feature_rows), 5)
                 self.assertEqual(len(label_col), 5)
@@ -1003,6 +1002,120 @@ class OpenmlSource_Tests(unittest.TestCase):
                 self.assertIn('openml_042693_data', CobaContext.cacher)
                 self.assertIn('openml_042693_feat', CobaContext.cacher)
                 self.assertIn('openml_042693_arff', CobaContext.cacher)
+
+    def test_srcsema_locked_and_released(self):
+
+        srcsema = Semaphore(1)
+        block_1 = Event()
+        block_2 = Event()
+
+        task = {
+            "task":{
+                "task_type_id":"1",
+                "input":[
+                    {"name":"source_data","data_set":{"data_set_id":"42693","target_feature":"play"}}
+                ]
+            }
+        }
+
+        data = {
+            "data_set_description":{
+                "id":"42693",
+                "name":"testdata",
+                "version":"2",
+                "format":"ARFF",
+                "licence":"CC0",
+                "file_id":"22044555",
+                "visibility":"public",
+                "status":"active",
+                "default_target_attribute":"play"
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        arff = """
+            @relation weather
+
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {no, yes}
+
+            @data
+            8.1,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,28,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        request_dict = {
+            'https://www.openml.org/api/v1/json/task/123'           : MockResponse(200, "", json.dumps(task).encode().splitlines()),
+            'https://www.openml.org/api/v1/json/data/42693'         : MockResponse(200, "", json.dumps(data).encode().splitlines()),
+            'https://www.openml.org/api/v1/json/data/features/42693': MockResponse(200, "", json.dumps(feat).encode().splitlines()),
+            'https://www.openml.org/data/v1/download/22044555'      : MockResponse(200, "", arff.encode().splitlines()),
+        }
+
+        def mocked_requests_get(*args, **kwargs):
+            block_2.set()
+            block_1.wait()
+            return request_dict.pop(args[0])
+
+        CobaContext.store['srcsema'] = srcsema
+        CobaContext.cacher = PutOnceCacher()
+
+        with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
+            def thread_1():
+                feature_rows, label_col = list(zip(*OpenmlSource(task_id=123).read()))
+
+            t1 = Thread(None, thread_1)
+            t1.start()
+
+            #make sure t1 has time to acuire lock
+            block_2.wait()
+
+            #we shouldn't be able to acquire if openml correctly locked 
+            self.assertFalse(srcsema.acquire(blocking=False))
+            block_1.set() # now we release t1 to finish
+            t1.join()
+
+            #now we can acquire because openml should release when done
+            self.assertTrue(srcsema.acquire(blocking=False))
+
+            #this should complete despite us acquiring above 
+            #because it doesn't lock since everything is cached
+            feature_rows, label_col = list(zip(*OpenmlSource(task_id=123).read()))
+
+            self.assertEqual(len(feature_rows), 5)
+            self.assertEqual(len(label_col), 5)
+
+            self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
+            self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
+            self.assertEqual([8.2, 28, 1410, (1,0)], feature_rows[2])
+            self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
+            self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+
+            self.assertEqual((1,0), label_col[0])
+            self.assertEqual((1,0), label_col[1])
+            self.assertEqual((0,1), label_col[2])
+            self.assertEqual((0,1), label_col[3])
+            self.assertEqual((0,1), label_col[4])
+
+            self.assertIn('openml_042693_data', CobaContext.cacher)
+            self.assertIn('openml_042693_feat', CobaContext.cacher)
+            self.assertIn('openml_042693_arff', CobaContext.cacher)
 
     def test_status_code_412_request_api_key(self):
         with unittest.mock.patch.object(requests, 'get', return_value=MockResponse(412, "please provide api key", [])):

@@ -207,7 +207,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
                 yield identity
             elif encoding.lower() in numeric_types:
                 yield lambda x: None if x=="?" else float(x)
-            elif encoding.startswith(string_types):
+            elif encoding.lower().startswith(string_types):
                 yield identity
             elif encoding.startswith('{'):
                 r_comma = r_comma or re.compile("(,)")

@@ -63,7 +63,7 @@ class VowpalMediator:
         self._version = __version__
         self._vw = pyvw.Workspace(args) if __version__[0] == '9' else pyvw.vw(args)
         self._label_type = pyvw.LabelType(label_type) if __version__[0] == '9' else label_type
-        self._example_type = pyvw.Example if __version__[0] == '9' else pyvw.example
+        self._example_init = pyvw.Example if __version__[0] == '9' else pyvw.example
 
         return self
 
@@ -86,28 +86,31 @@ class VowpalMediator:
             label: An optional label (required if this example will be used for learning).
         """
         ns = dict(self._prep_namespaces(namespaces))
-        ex = self._example_type(self._vw, ns, self._label_type)
-        if label is not None: ex.set_label_string(label)
 
+        ex = self._example_init(self._vw, None, self._label_type)
+        ex.push_feature_dict(self._vw, ns)
+        if label is not None: ex.set_label_string(label)
         ex.setup_example()
 
         return ex
 
-    def make_examples(self, shared: Namespaces, separates: Sequence[Namespaces], labels:Optional[Sequence[str]]) -> Sequence[Any]:
+    def make_examples(self, shared: Namespaces, uniques: Sequence[Namespaces], labels:Optional[Sequence[str]]) -> Sequence[Any]:
         """Create a list of VW examples.
 
         Args:
             shared: The features grouped by namespace in this example.
+            separates: The features, grouped by namespace, unique to each each example. 
             label: An optional label (required if this example will be used for learning).
         """
 
-        labels       = repeat(None) if labels is None else labels
-        vw_shared    = dict(self._prep_namespaces(shared))
-        vw_separates = list(map(dict,map(self._prep_namespaces,separates)))
+        labels     = repeat(None) if labels is None else labels
+        vw_shared  = dict(self._prep_namespaces(shared))
+        vw_uniques = list(map(dict,map(self._prep_namespaces,uniques)))
 
         examples = []
-        for vw_separate, label in zip(vw_separates,labels):
-            ex = self._example_type(self._vw, {**vw_shared, **vw_separate}, self._label_type)
+        for vw_unique, label in zip(vw_uniques,labels):
+            ex = self._example_init(self._vw, None, self._label_type)
+            ex.push_feature_dict(self._vw, {**vw_shared, **vw_unique})
             if label: ex.set_label_string(label)
             ex.setup_example()
             examples.append(ex)

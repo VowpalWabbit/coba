@@ -1,7 +1,6 @@
 import time
 import json
 
-from itertools import chain
 from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
 
 from coba.random import random
@@ -53,7 +52,16 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
     def read(self) -> Iterable[Tuple[Any, Any]]:
         """Read and parse the openml source."""
+
         try:
+
+            # we only allow three paralellel request, an attempt at being "considerate" to openml
+            srcsema = CobaContext.store.get("srcsema")
+            acquired = False
+            
+            if srcsema and not self._all_cached():
+                srcsema.acquire()
+                acquired = True
 
             if self._data_id:
                 data_descr   = self._get_data_descr(self._data_id)
@@ -100,8 +108,10 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             structure = Structure([None, self._target])
 
             for features,label in Pipes.join(source, reader, drop, structure).read():
-                if task_type == 1 and isinstance(label,(int,float)):
-                    raise CobaException("A numeric target was given for a classification task which we currently can't handle.")
+                #ensure that SupervisedSimulation will interpret the label as a class
+                if task_type == 1 and isinstance(label,(int,float)): 
+                    label = str(int(label) if float(label).is_integer() else label)
+                
                 yield features, label
 
         except KeyboardInterrupt:
@@ -112,10 +122,14 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             #we don't want to clear the cache if it is an error we know about (the original raise should clear if needed)
             raise
 
-        except Exception:
+        except Exception as e:
             #if something unexpected went wrong clear the cache just in case it was corrupted somehow
             self._clear_cache()
             raise
+    
+        finally:
+            if acquired:
+                srcsema.release()
 
     def _clean_name(self, name: str) -> str:
         return name.strip().strip('\'"').replace('\\','') if name else name
@@ -143,56 +157,50 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         api_key = CobaContext.api_keys['openml']
         srcsema = CobaContext.store.get("srcsema")
 
-        # we only allow three paralellel request, another attempt at being more "considerate".
-        if srcsema:srcsema.acquire()
-
         # An attempt to be considerate of how often we hit their REST api.
         # They don't publish any rate-limiting guidelines so this is just a guess.
-
+        # we check for srcsema because this indicates whether we are multiprocessing
         if srcsema: time.sleep(2*random())
 
-        try:
-            with HttpSource(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
+        with HttpSource(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
 
-                if response.status_code == 412:
-                    if 'please provide api key' in response.text:
-                        message = (
-                            "Openml has requested an API Key to access openml's rest API. A key can be obtained by creating "
-                            "an openml account at openml.org. Once a key has been obtained it should be placed within "
-                            "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
-                        raise CobaException(message)
+            if response.status_code == 412:
+                if 'please provide api key' in response.text:
+                    message = (
+                        "Openml has requested an API Key to access openml's rest API. A key can be obtained by creating "
+                        "an openml account at openml.org. Once a key has been obtained it should be placed within "
+                        "~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+                    raise CobaException(message)
 
-                    if 'authentication failed' in response.text:
-                        message = (
-                            "The API Key you provided no longer seems to be valid. You may need to create a new one by "
-                            "logging into your openml account and regenerating a key. After regenerating the new key "
-                            "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
-                        raise CobaException(message)
+                if 'authentication failed' in response.text:
+                    message = (
+                        "The API Key you provided no longer seems to be valid. You may need to create a new one by "
+                        "logging into your openml account and regenerating a key. After regenerating the new key "
+                        "should be placed in ~/.coba as { \"api_keys\" : { \"openml\" : \"<your key here>\", } }.")
+                    raise CobaException(message)
 
-                if response.status_code == 404:
-                    raise CobaException("We're sorry but we were unable to find the requested dataset on openml.")
+            if response.status_code == 404:
+                raise CobaException("We're sorry but we were unable to find the requested dataset on openml.")
 
-                if response.status_code != 200:
-                    raise CobaException(f"An error was returned by openml: {response.text}")
+            if response.status_code != 200:
+                raise CobaException(f"An error was returned by openml: {response.text}")
 
-                # NOTE: These two checks need to be gated with a status code failure
-                # NOTE: otherwise this will cause the data to be downloaded all at once
-                # NOTE: unfortunately I don't know the appropriate status code so commenting out for now
-                # if "Usually due to high server load" in response.text:
-                #     message = (
-                #         "Openml has experienced an error that they believe is the result of high server loads. "
-                #         "Openml recommends that you try again in a few seconds. Additionally, if not already "
-                #         "done, consider setting up a DiskCache in a coba config file to reduce the number of "
-                #         "openml calls in the future.")
-                #     raise CobaException(message) from None
+            # NOTE: These two checks need to be gated with a status code failure
+            # NOTE: otherwise this will cause the data to be downloaded all at once
+            # NOTE: unfortunately I don't know the appropriate status code so commenting out for now
+            # if "Usually due to high server load" in response.text:
+            #     message = (
+            #         "Openml has experienced an error that they believe is the result of high server loads. "
+            #         "Openml recommends that you try again in a few seconds. Additionally, if not already "
+            #         "done, consider setting up a DiskCache in a coba config file to reduce the number of "
+            #         "openml calls in the future.")
+            #     raise CobaException(message) from None
 
-                # if '' == response.text:
-                #     raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
+            # if '' == response.text:
+            #     raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
 
-                for b in response.iter_lines(decode_unicode=False):
-                    yield b
-        finally:
-            if srcsema: srcsema.release()
+            for b in response.iter_lines(decode_unicode=False):
+                yield b
 
     def _get_data_descr(self, data_id:int) -> Dict[str,Any]:
 
@@ -231,6 +239,23 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         for key in self._cache_keys.values():
             CobaContext.cacher.release(key) #to make sure we don't get stuck in a race condition
             CobaContext.cacher.rmv(key)
+
+    def _all_cached(self) -> bool:
+
+        old_data_id = self._data_id
+        all_cached  = False
+
+        if self._task_id and self._cache_keys['task'] in CobaContext.cacher:
+            task_descr = self._get_task_descr(self._task_id)
+
+            if not task_descr['data']: return True #this will fall into an exception so no more caching is needed
+
+            self._data_id = task_descr['data']
+
+        all_cached = bool(self._data_id and all(self._cache_keys[k] in CobaContext.cacher for k in ['data','feat','arff']))
+
+        self._data_id = old_data_id
+        return all_cached
 
     @property
     def _cache_keys(self):

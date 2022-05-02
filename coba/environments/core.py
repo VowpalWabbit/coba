@@ -108,7 +108,7 @@ class Environments:
         kernel: Literal['linear','polynomial','exponential','gaussian'] = 'gaussian',
         degree: int = 3,
         gamma: float = 1,
-        seed: int = 1) -> 'Environments':
+        seed: Union[int,Sequence[int]] = 1) -> 'Environments':
         """A synthetic simulation whose reward function is created from kernel basis functions."""
 
         seed = [seed] if not isinstance(seed,collections.abc.Sequence) else seed

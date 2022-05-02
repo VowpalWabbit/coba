@@ -580,12 +580,13 @@ class ArffReader_Tests(unittest.TestCase):
         lines = [
             "@relation test",
             "@attribute a REAL",
+            "@attribute a STRING",
             "@data",
-            "1",
+            "1,a",
         ]
 
         expected = [
-            [1],
+            [1,'a'],
         ]
 
         self.assertEqual(expected, list(ArffReader().filter(lines)))
