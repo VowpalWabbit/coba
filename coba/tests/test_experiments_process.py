@@ -160,25 +160,29 @@ class ChunkByTask_Tests(unittest.TestCase):
         tasks = [
             WorkItem(None, 0, None, None, None),
             WorkItem(None, 1, None, None, None),
-            WorkItem(1, None, sim2, None, None),
             WorkItem(0, None, sim1, None, None),
-            WorkItem(1, 0, sim1, None, None),
-            WorkItem(1, 1, sim1, None, None),
+            WorkItem(1, None, sim2, None, None),
+            WorkItem(2, None, sim1, None, None),
             WorkItem(0, 0, sim1, None, None),
-            WorkItem(0, 1, sim2, None, None)
+            WorkItem(0, 1, sim1, None, None),
+            WorkItem(1, 0, sim2, None, None),
+            WorkItem(1, 1, sim2, None, None),
+            WorkItem(2, 0, sim1, None, None),
         ]
 
         groups = list(ChunkByTask().filter(tasks))
 
-        self.assertEqual(len(groups), 8)
-        self.assertEqual(groups[0], tasks[0:1])
-        self.assertEqual(groups[1], tasks[1:2])
-        self.assertEqual(groups[2], tasks[3:4])
-        self.assertEqual(groups[3], tasks[6:7])
-        self.assertEqual(groups[4], tasks[7:8])
-        self.assertEqual(groups[5], tasks[2:3])
-        self.assertEqual(groups[6], tasks[4:5])
-        self.assertEqual(groups[7], tasks[5:6])
+        self.assertEqual(len(groups), 10)
+        self.assertEqual(groups[0], [tasks[0]])
+        self.assertEqual(groups[1], [tasks[1]])
+        self.assertEqual(groups[2], [tasks[2]])
+        self.assertEqual(groups[3], [tasks[5]])
+        self.assertEqual(groups[4], [tasks[6]])
+        self.assertEqual(groups[5], [tasks[4]])
+        self.assertEqual(groups[6], [tasks[9]])
+        self.assertEqual(groups[7], [tasks[3]])
+        self.assertEqual(groups[8], [tasks[7]])
+        self.assertEqual(groups[9], [tasks[8]])
 
 class ProcessTasks_Tests(unittest.TestCase):
 

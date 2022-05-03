@@ -108,18 +108,11 @@ class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
 class ChunkByTask(Filter[Iterable[WorkItem], Iterable[Iterable[WorkItem]]]):
 
     def filter(self, workitems: Iterable[WorkItem]) -> Iterable[Iterable[WorkItem]]:
-
-        workitems = list(workitems)
-
-        learner_items = [w for w in workitems if w.environ_id is None]
-        environ_items = [w for w in workitems if w.learner_id is None]
-        eval_items    = [w for w in workitems if w.environ_id is not None and w.learner_id is not None]
-
-        for item in sorted(learner_items, key = lambda t: t.learner_id):
-            yield [ item ]
-
-        for item in sorted(environ_items+eval_items, key=lambda t:( t.environ_id, t.learner_id if t.learner_id is not None else -1)):
-            yield [ item ]
+        
+        #this makes sure all items are in order by source
+        for chunk in ChunkBySource().filter(workitems):
+            for workitem in chunk:
+                yield [ workitem ]
 
 class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
