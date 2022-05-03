@@ -61,7 +61,10 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             
             if srcsema and not self._all_cached():
                 srcsema.acquire()
-                acquired = True
+                if self._all_cached(): 
+                    srcsema.release() #in-case another process cached everything needed while we were waiting
+                else:
+                    acquired = True
 
             if self._data_id:
                 data_descr   = self._get_data_descr(self._data_id)
