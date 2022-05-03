@@ -109,13 +109,13 @@ class PipesPool:
         def populate_tasks():
 
             try:
-                for item in items:
+                for i, item in enumerate(items):
 
                     if self._terminate: break
 
                     try:
 
-                        self._stdin.write(pickle.dumps(item))
+                        self._stdin.write(pickle.dumps((i,item)))
 
                     except Exception as e:
                         if "pickle" in str(e) or "Pickling" in str(e):
@@ -185,7 +185,8 @@ class PipesPool:
     def worker(filter: Filter, stdin: Source, stdout: Sink, stderr: Sink, maxtasksperchild: Optional[int], chunked:bool):
         try:
 
-            for item in islice(map(pickle.loads,stdin.read()),maxtasksperchild):
+            for i,item in islice(map(pickle.loads,stdin.read()),maxtasksperchild):
+                print(i)
                 result = filter.filter(item)
 
                 #This is a bit of a hack primarily put in place to deal with
