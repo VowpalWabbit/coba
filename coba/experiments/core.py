@@ -45,7 +45,8 @@ class Experiment:
     def config(self,
         processes: int = None,
         chunk_by: Literal['source','task'] = None,
-        maxchunksperchild: Optional[int] = None) -> 'Experiment':
+        maxchunksperchild: Optional[int] = None,
+        maxtasksperchunk: Optional[int] = None) -> 'Experiment':
         """Configure how the experiment will be executed.
 
         A value of `None` for any item means the CobaContext.experiment will be used.
@@ -53,16 +54,19 @@ class Experiment:
         Args:
             chunk_by: The method for chunking tasks before processing.
             processes: The number of processes to create for evaluating the experiment.
-            maxchunkssperchild: The number of chunks each process evaluate before being restarted. A value of 0 means infinite.
+            maxchunksperchild: The number of chunks each process evaluate before being restarted. A value of 0 means infinite.
+            maxtasksperchunk: The maximum number of tasks a chunk can have. If a chunk has too many tasks it will be split into smaller chunks.
         """
 
         assert chunk_by is None or chunk_by in ['task', 'source'], "The given chunk_by value wasn't recognized. Allowed values are 'task', 'source' and 'none'"
         assert processes is None or processes > 0, "The given number of processes is invalid. Must be greater than 0."
-        assert maxchunksperchild is None or maxchunksperchild >= 0, "The given number of taks per child is invalid. Must be greater than or equal to 0 (0 for infinite)."
+        assert maxchunksperchild is None or maxchunksperchild >= 0, "The given number of chunks per child is invalid. Must be greater than or equal to 0 (0 for infinite)."
+        assert maxtasksperchunk is None or maxtasksperchunk >= 0, "The given number of chunks per child is invalid. Must be greater than or equal to 0 (0 for infinite)."
 
         self._chunk_by          = chunk_by
         self._processes         = processes
         self._maxchunksperchild = maxchunksperchild
+        self._maxtasksperchunk  = maxtasksperchunk
 
         return self
 
