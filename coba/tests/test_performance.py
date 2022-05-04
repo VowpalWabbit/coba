@@ -2,6 +2,7 @@ import unittest
 import timeit
 import statistics
 import importlib.util
+import itertools
 
 import coba.random
 
@@ -10,6 +11,7 @@ from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, ListSource
+from coba.experiments import Result
 
 class Performance_Tests(unittest.TestCase):
 
@@ -262,6 +264,15 @@ class Performance_Tests(unittest.TestCase):
 
         #.11 was my final time
         self.assertLess(time, 1.1)
+
+    def test_result_filter_env(self):
+        envs = { k:{ 'mod': k%100 } for k in range(1000) }
+        lrns = { 1:{}, 2:{}, 3:{}}
+        ints = { (e,l):{} for e in envs.keys() for l in lrns.keys() }
+        time = timeit.timeit(lambda: Result(1, 1, envs, lrns, ints).filter_env(mod=5), number=4)
+
+        #.07 was my final time
+        self.assertLess(time, .7)
 
 if __name__ == '__main__':
     unittest.main()

@@ -44,7 +44,7 @@ class Table:
         col_priority = list(chain(primary_cols + ['index'] + preferred_cols + sorted(all_columns)))
 
         self._columns = sorted(all_columns, key=col_priority.index)
-        self._rows_keys: List[Hashable               ] = []
+        self._rows_keys: Dict[Hashable, None         ] = {}
         self._rows_flat: Dict[Hashable, Dict[str,Any]] = {}
         self._rows_pack: Dict[Hashable, Dict[str,Any]] = {}
 
@@ -56,11 +56,11 @@ class Table:
             if row_pack:
                 row_pack['index'] = list(range(1,len(list(row_pack.values())[0])+1))
 
-            self._rows_keys.append(row_key)
+            self._rows_keys[row_key] = None
             self._rows_pack[row_key] = row_pack
             self._rows_flat[row_key] = row_flat
 
-        self._rows_keys = sorted(self._rows_keys)
+        self._rows_keys = collections.OrderedDict(zip(sorted(list(self._rows_keys.keys())),repeat(None)))
 
     @property
     def name(self) -> str:
@@ -70,7 +70,7 @@ class Table:
     @property
     def keys(self) -> Sequence[Hashable]:
         """Keys for accessing data in the table."""
-        return self._rows_keys
+        return list(self._rows_keys.keys())
 
     @property
     def columns(self) -> Sequence[str]:
@@ -132,7 +132,7 @@ class Table:
             return all(row_filter_results+col_filter_results)
 
         new_result = copy(self)
-        new_result._rows_keys = list(filter(satisfies_all_filters,self.keys))
+        new_result._rows_keys = collections.OrderedDict(zip(filter(satisfies_all_filters,self.keys), repeat(None)))
 
         return new_result
 
@@ -240,7 +240,7 @@ class Table:
         return sum([ len(self._rows_pack[key].get('index',[None])) for key in self.keys ])
 
     def __getitem__(self, key: Union[Hashable, Sequence[Hashable]]) -> Dict[str,Any]:
-        if key not in self.keys: raise KeyError(key)
+        if key not in self._rows_keys: raise KeyError(key)
         return dict(**self._rows_flat[key], **self._rows_pack[key])
 
 class InteractionsTable(Table):
@@ -643,7 +643,7 @@ class Result:
 
         new_result = copy(self)
         new_result._environments = new_result.environments.filter(pred, **kwargs)
-        new_result._interactions = new_result.interactions.filter(environment_id=new_result.environments)
+        new_result._interactions = new_result.interactions.filter(lambda row: row['environment_id'] in new_result.environments)
 
         if len(new_result.environments) == 0:
             CobaContext.logger.log(f"No environments matched the given filter.")
