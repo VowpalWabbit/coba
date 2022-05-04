@@ -377,12 +377,16 @@ class Experiment_Single_Tests(unittest.TestCase):
         CobaContext.experiment.maxchunksperchild = 3
         self.assertEqual(3,exp.maxchunksperchild)
 
+        CobaContext.experiment.maxtasksperchunk = 2
+        self.assertEqual(2,exp.maxtasksperchunk)
+
         CobaContext.experiment.chunk_by = 'source'
         self.assertEqual('source',exp.chunk_by)
 
-        exp.config(processes=2, maxchunksperchild=5, chunk_by='task')
+        exp.config(processes=2, maxchunksperchild=5, maxtasksperchunk=3, chunk_by='task')
         self.assertEqual(2,exp.processes)
         self.assertEqual(5,exp.maxchunksperchild)
+        self.assertEqual(3,exp.maxtasksperchunk)
         self.assertEqual('task',exp.chunk_by)
 
     def test_restore_not_matched_environments(self):

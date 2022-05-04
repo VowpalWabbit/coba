@@ -37,10 +37,11 @@ class ExperimentConfig:
     These can be overridden directly calling `config` on an Experiment.
     """
 
-    def __init__(self, processes:int, maxchunksperchild:int, chunk_by: Literal["source","task"]):
+    def __init__(self, processes:int, maxchunksperchild:int, maxtasksperchunk:int, chunk_by: Literal["source","task"]):
         """Instantiate an ExperimentConfig."""
         self.processes        : int                      = processes
         self.maxchunksperchild: int                      = maxchunksperchild
+        self.maxtasksperchunk : int                      = maxtasksperchunk
         self.chunk_by         : Literal["source","task"] = chunk_by
 
 class CobaContext_meta(type):
@@ -101,7 +102,7 @@ class CobaContext_meta(type):
                     "api_keys"  : collections.defaultdict(lambda:None),
                     "cacher"    : { "DiskCacher": None},
                     "logger"    : { "IndentLogger": "Console" },
-                    "experiment": { "processes": 1, "maxchunksperchild": 0, "chunk_by": "source" }
+                    "experiment": { "processes": 1, "maxchunksperchild": 0, "maxtasksperchunk":0, "chunk_by": "source" }
                 }
 
                 for key,value in cls._load_file_configs().items():

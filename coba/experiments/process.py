@@ -1,7 +1,7 @@
 import gc
 
 from copy import deepcopy
-from itertools import groupby
+from itertools import groupby, islice
 from collections import defaultdict
 from typing import Iterable, Sequence, Any, Optional, Tuple, Union
 
@@ -85,7 +85,7 @@ class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
 
 class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
 
-    def filter(self, items: Iterable[WorkItem]) -> Iterable[Iterable[WorkItem]]:
+    def filter(self, items: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
 
         items  = list(items)
         chunks = defaultdict(list)
@@ -105,14 +105,27 @@ class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
     def _get_source(self, env):
         return env._source if isinstance(env, SourceFilters) else env
 
-class ChunkByTask(Filter[Iterable[WorkItem], Iterable[Iterable[WorkItem]]]):
+class ChunkByTask(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
 
-    def filter(self, workitems: Iterable[WorkItem]) -> Iterable[Iterable[WorkItem]]:
-        
+    def filter(self, workitems: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
+
         #this makes sure all items are in order by source
         for chunk in ChunkBySource().filter(workitems):
             for workitem in chunk:
                 yield [ workitem ]
+
+class MaxChunkSize(Filter[Iterable[Sequence[WorkItem]], Iterable[Sequence[WorkItem]]]):
+    def __init__(self, max_tasks) -> None:
+        self._max_tasks = max_tasks
+
+    def filter(self, chunks: Iterable[Sequence[WorkItem]]) -> Iterable[Sequence[WorkItem]]:
+
+        for chunk in chunks:
+            chunk = iter(chunk)
+            max_task_chunk = list(islice(chunk,self._max_tasks or None))
+            while max_task_chunk:
+                yield max_task_chunk
+                max_task_chunk = list(islice(chunk,self._max_tasks or None))
 
 class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 

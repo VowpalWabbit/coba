@@ -10,7 +10,8 @@ from coba.learners     import Learner
 from coba.experiments.results import Result
 from coba.experiments.process import (
     WorkItem, CreateWorkItems, RemoveFinished,
-    ChunkByTask, ChunkBySource, ProcessWorkItems
+    ChunkByTask, ChunkBySource, ProcessWorkItems,
+    MaxChunkSize
 )
 
 #for testing purposes
@@ -183,6 +184,23 @@ class ChunkByTask_Tests(unittest.TestCase):
         self.assertEqual(groups[7], [tasks[3]])
         self.assertEqual(groups[8], [tasks[7]])
         self.assertEqual(groups[9], [tasks[8]])
+
+class MaxChunkSize_Tests(unittest.TestCase):
+    
+    def test_max_size_0(self):
+        actual   = list(MaxChunkSize(0).filter([[1,2,3],[4,5],[6]]))
+        expected = [[1,2,3],[4,5],[6]]
+        self.assertEqual(expected, actual)
+
+    def test_max_size_1(self):
+        actual   = list(MaxChunkSize(1).filter([[1,2,3],[4,5],[6]]))
+        expected = [[1],[2],[3],[4],[5],[6]]
+        self.assertEqual(expected, actual)
+    
+    def test_max_size_2(self):
+        actual   = list(MaxChunkSize(2).filter([[1,2,3],[4,5],[6]]))
+        expected = [[1,2],[3],[4,5],[6]] 
+        self.assertEqual(expected, actual)
 
 class ProcessTasks_Tests(unittest.TestCase):
 

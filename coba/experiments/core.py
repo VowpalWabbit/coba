@@ -8,7 +8,7 @@ from coba.environments import Environment
 from coba.multiprocessing import CobaMultiprocessor
 from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger
 
-from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems
+from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems, MaxChunkSize
 from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
 from coba.experiments.tasks   import SimpleLearnerTask, SimpleEnvironmentTask, OnlineOnPolicyEvalTask
 from coba.experiments.results import Result, TransactionIO
@@ -40,6 +40,7 @@ class Experiment:
 
         self._processes        : Optional[int] = None
         self._maxchunksperchild: Optional[int] = None
+        self._maxtasksperchunk : Optional[int] = None 
         self._chunk_by         : Optional[str] = None
 
     def config(self,
@@ -54,14 +55,17 @@ class Experiment:
         Args:
             chunk_by: The method for chunking tasks before processing.
             processes: The number of processes to create for evaluating the experiment.
-            maxchunksperchild: The number of chunks each process evaluate before being restarted. A value of 0 means infinite.
-            maxtasksperchunk: The maximum number of tasks a chunk can have. If a chunk has too many tasks it will be split into smaller chunks.
+            maxchunksperchild: The number of chunks each process evaluate before being restarted. A 
+                value of 0 means that all processes will survive until the end of the experiment.
+            maxtasksperchunk: The maximum number of tasks a chunk can have. If a chunk has too many 
+                tasks it will be split into smaller chunks. A value of 0 means that chunks are never
+                broken down into smaller chunks.
         """
 
         assert chunk_by is None or chunk_by in ['task', 'source'], "The given chunk_by value wasn't recognized. Allowed values are 'task', 'source' and 'none'"
         assert processes is None or processes > 0, "The given number of processes is invalid. Must be greater than 0."
         assert maxchunksperchild is None or maxchunksperchild >= 0, "The given number of chunks per child is invalid. Must be greater than or equal to 0 (0 for infinite)."
-        assert maxtasksperchunk is None or maxtasksperchunk >= 0, "The given number of chunks per child is invalid. Must be greater than or equal to 0 (0 for infinite)."
+        assert maxtasksperchunk is None or maxtasksperchunk >= 0, "The given number of tasks per chunk is invalid. Must be greater than or equal to 0 (0 for infinite)."
 
         self._chunk_by          = chunk_by
         self._processes         = processes
@@ -85,8 +89,13 @@ class Experiment:
 
     @property
     def maxchunksperchild(self) -> int:
-        """The number of chunks to perform per process before restarting an evaluation process."""
+        """The number of tasks chunks to perform per process before restarting an evaluation process."""
         return self._maxchunksperchild if self._maxchunksperchild is not None else CobaContext.experiment.maxchunksperchild
+
+    @property
+    def maxtasksperchunk(self) -> int:
+        """The maximum number of tasks allowed in a chunk before breaking a chunk into smaller chunks."""
+        return self._maxtasksperchunk if self._maxtasksperchunk is not None else CobaContext.experiment.maxtasksperchunk
 
     def evaluate(self, result_file:str = None) -> Result:
         """Evaluate the experiment and return the results.
@@ -94,9 +103,9 @@ class Experiment:
         Args:
             result_file: The file for writing and restoring results .
         """
-        cb, mp, mt = self.chunk_by, self.processes, self.maxchunksperchild
+        cb, mp, mc, mt = self.chunk_by, self.processes, self.maxchunksperchild, self.maxtasksperchunk
 
-        if mp > 1 or mt != 0:
+        if mp > 1 or mc != 0:
             CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [NameLog(), StampLog()])
         else:
             CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()])
@@ -113,11 +122,12 @@ class Experiment:
         workitems  = CreateWorkItems(self._environments, self._learners, self._learner_task, self._environment_task, self._evaluation_task)
         unfinished = RemoveFinished(restored)
         chunk      = ChunkByTask() if cb == 'task' else ChunkBySource()
+        max_chunk  = MaxChunkSize(mt)
         sink       = TransactionIO(result_file)
 
         single_process = ProcessWorkItems()
-        multi_process  = Pipes.join(chunk, CobaMultiprocessor(ProcessWorkItems(), mp, mt))
-        process        = multi_process if mp > 1 or mt != 0 else single_process
+        multi_process  = Pipes.join(chunk, max_chunk, CobaMultiprocessor(ProcessWorkItems(), mp, mc))
+        process        = multi_process if mp > 1 or mc != 0 else single_process
 
         try:
             if not restored: sink.write(["T0", n_given_learners, n_given_environments])
