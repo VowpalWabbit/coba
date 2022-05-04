@@ -14,6 +14,12 @@ from coba.learners import (
     VowpalSquarecbLearner, VowpalOffPolicyLearner
 )
 
+class VowpalInherited(VowpalArgsLearner):
+
+    @property
+    def params(self):
+        return {"Shadow":True}
+
 class VowpalEaxmpleMock:
 
     def __init__(self,ns,label):
@@ -155,8 +161,12 @@ class VowpalOffpolicyLearner_Tests(unittest.TestCase):
 
 class VowpalArgsLearner_Tests(unittest.TestCase):
 
+    def test_inheritance_after_pickle(self):
+        learner = pickle.loads(pickle.dumps(VowpalInherited()))
+        self.assertEqual(learner.params, {"Shadow":True})
+
     def test_params(self):
-        learners = VowpalArgsLearner(vw=VowpalMediatorMocked())
+        learner = VowpalArgsLearner(vw=VowpalMediatorMocked())
 
         expected_args = [
             "--cb_explore_adf",
@@ -167,8 +177,8 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
             "--random_seed 1",
         ]
 
-        self.assertEqual(learners.params['family'], "vw")
-        self.assertEqual(learners.params["args"], " ".join(expected_args))
+        self.assertEqual(learner.params['family'], "vw")
+        self.assertEqual(learner.params["args"], " ".join(expected_args))
 
     def test_init_no_cb_term(self):
         with self.assertRaises(CobaException):

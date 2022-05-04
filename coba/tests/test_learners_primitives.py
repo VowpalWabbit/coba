@@ -16,6 +16,19 @@ class ParamsLearner:
     def learn(self, context, action, reward, probability, info):
         pass
 
+class ParamsNotPropertyLearner:
+    def __init__(self, params):
+        self._params = params
+
+    def params(self):
+        return self._params
+
+    def predict(self, context, actions):
+        pass
+
+    def learn(self, context, action, reward, probability, info):
+        pass
+
 class NoParamsLearner:
     def predict(self, context, actions):
         pass
@@ -39,6 +52,10 @@ class SafeLearner_Tests(unittest.TestCase):
     def test_no_params(self):
         learner = SafeLearner(NoParamsLearner())
         self.assertEqual("NoParamsLearner", learner.params["family"])
+
+    def test_params_not_property(self):
+        learner = SafeLearner(ParamsNotPropertyLearner({'a':"A"}))
+        self.assertDictEqual({"family":"ParamsNotPropertyLearner", "a":"A"}, learner.params)
 
     def test_params_no_family(self):
         learner = SafeLearner(ParamsLearner({'a':"A"}))

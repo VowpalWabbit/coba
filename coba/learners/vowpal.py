@@ -295,7 +295,7 @@ class VowpalArgsLearner(Learner):
         return list(Flatten().filter([features]))[0]
 
     def __reduce__(self):
-        return (VowpalArgsLearner, (self._args, self._vw) )
+        return (type(self), (self._args, self._vw) )
 
 class VowpalEpsilonLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more

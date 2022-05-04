@@ -78,6 +78,7 @@ class SafeLearner(Learner):
     def params(self) -> Dict[str, Any]:
         try:
             params = self._learner.params
+            params = params if isinstance(params,dict) else params()
         except AttributeError:
             params = {}
 
