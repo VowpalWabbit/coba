@@ -162,7 +162,7 @@ class VowpalOffpolicyLearner_Tests(unittest.TestCase):
 class VowpalArgsLearner_Tests(unittest.TestCase):
 
     def test_inheritance_after_pickle(self):
-        learner = pickle.loads(pickle.dumps(VowpalInherited()))
+        learner = pickle.loads(pickle.dumps(VowpalInherited(vw=VowpalMediatorMocked())))
         self.assertEqual(learner.params, {"Shadow":True})
 
     def test_params(self):
