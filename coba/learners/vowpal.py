@@ -330,7 +330,9 @@ class VowpalEpsilonLearner(VowpalArgsLearner):
         noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
+        vw            = kwargs.pop('vw',None)
+
+        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
 class VowpalSoftmaxLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more
@@ -360,7 +362,8 @@ class VowpalSoftmaxLearner(VowpalArgsLearner):
         noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
+        vw            = kwargs.pop('vw',None)
+        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
 class VowpalBagLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more
@@ -388,7 +391,8 @@ class VowpalBagLearner(VowpalArgsLearner):
         noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
+        vw            = kwargs.pop('vw',None)
+        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
 class VowpalCoverLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more
@@ -421,7 +425,9 @@ class VowpalCoverLearner(VowpalArgsLearner):
         noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
+        vw            = kwargs.pop('vw',None)
+
+        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
 class VowpalRegcbLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more
@@ -454,7 +460,8 @@ class VowpalRegcbLearner(VowpalArgsLearner):
         noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
+        vw            = kwargs.pop('vw',None)
+        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
 class VowpalSquarecbLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more
@@ -496,7 +503,8 @@ class VowpalSquarecbLearner(VowpalArgsLearner):
         noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
+        vw            = kwargs.pop('vw',None)
+        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
 class VowpalOffPolicyLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more
@@ -524,4 +532,5 @@ class VowpalOffPolicyLearner(VowpalArgsLearner):
         noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs))
+        vw            = kwargs.pop('vw',None)
+        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
