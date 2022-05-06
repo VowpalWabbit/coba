@@ -217,8 +217,11 @@ class VowpalArgsLearner(Learner):
         self._n_actions = None
         self._actions   = None
 
-        if "--cb " in args or "--cb_explore " in args:
-            self._n_actions = int(re.match("--cb.*?\s+(\d*)\s*-?.*$", args).group(1))
+        if not self._adf:
+            n_action_str = re.match("--cb.*?\s*(\d*)\\b.*", args).group(1)
+            self._n_actions = int(n_action_str) if n_action_str else None
+            #useful for removing the n_actions from args 
+            #re.sub("(--cb)\s*(\d+)", '\g<1>', "--cb 123", count=1)
 
         self._vw = vw or VowpalMediator()
 
@@ -231,15 +234,18 @@ class VowpalArgsLearner(Learner):
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
 
-        if not self._adf and not self._actions:
-            self._actions = actions
+        if not self._vw.is_initialized and not self._adf and self._n_actions:
+            self._vw.init_learner(self._args, 4)
 
-        if not self._vw.is_initialized and not self._adf:
+        if not self._vw.is_initialized and not self._adf and not self._n_actions:
             self._n_actions = len(actions)
             args            = self._args.replace('--cb_explore','').replace('--cb','')
             args            = f"--cb_explore {len(actions)} " if self._explore else f"--cb {len(actions)} " + args
             args            = args.strip()
             self._vw.init_learner(args,4)
+
+        if not self._adf and not self._actions:
+            self._actions = actions
 
         if not self._adf and actions != self._actions:
             raise CobaException("Actions are only allowed to change between predictions when using `adf`.")
@@ -276,8 +282,11 @@ class VowpalArgsLearner(Learner):
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
 
-        if not self._vw.is_initialized and not self._adf:
-            raise CobaException("When using `cb  without `adf` predict must be called before learn to initialize the vw learner")
+        if not self._vw.is_initialized and not self._adf and self._n_actions:
+            self._vw.init_learner(self._args, 4)
+
+        if not self._vw.is_initialized and not self._adf and not self._n_actions:
+            raise CobaException("When using `cb` without `adf` predict must be called before learn to initialize the vw learner")
 
         actions = info
         labels  = self._labels(actions, action, reward, probability)

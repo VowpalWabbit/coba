@@ -336,29 +336,34 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         with self.assertRaises(CobaException):
             VowpalArgsLearner("--cb", VowpalMediatorMocked()).learn(None,1,.2,.2,None)
 
-    def test_cb_explore_no_predict_for_inference(self):
+    def test_cb_no_predict_for_inference(self):
         with self.assertRaises(CobaException):
-            VowpalArgsLearner("--cb_explore", VowpalMediatorMocked()).learn(None,1,.2,.2,None)
+            VowpalArgsLearner("--cb", VowpalMediatorMocked()).learn(None,1,.2,.2,None)
 
-    def test_cb_action_change(self):
+    def test_cb_predict_action_change(self):
+
+        learner = VowpalArgsLearner("--cb", VowpalMediatorMocked())
+        learner.predict(None, [1,2,3])
+
+        with self.assertRaises(CobaException) as e:
+            learner.predict(None, [4,5,6])
+
+        self.assertTrue("`adf`" in str(e.exception))
+
+    def test_cb_predict_action_count_mismatch(self):
 
         learner = VowpalArgsLearner("--cb 3", VowpalMediatorMocked())
-        learner.predict(None, [1,2,3])
 
-        with self.assertRaises(Exception) as e:
-            learner.predict(None, [4,5,6])
+        with self.assertRaises(CobaException) as e:
+            learner.predict(None, [1,2,3,4])
 
-        self.assertTrue("`adf`" in str(e.exception))
+    def test_cb_learn_before_predict(self):
+        learner = VowpalArgsLearner("--cb 3", VowpalMediatorMocked())
+        learner.learn(None,1,1,1,[1,2,3])
 
-    def test_cb_explore_action_change(self):
-
-        learner = VowpalArgsLearner("--cb_explore 3", VowpalMediatorMocked())
-        learner.predict(None, [1,2,3])
-
-        with self.assertRaises(Exception) as e:
-            learner.predict(None, [4,5,6])
-
-        self.assertTrue("`adf`" in str(e.exception))
+    def test_cb_adf_learn_before_predict(self):
+        learner = VowpalArgsLearner("--cb_adf", VowpalMediatorMocked())
+        learner.learn(None,1,1,1,[1,2,3])
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
     def test_cb_adf_learning(self):
