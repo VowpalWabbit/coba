@@ -63,17 +63,17 @@ class VowpalEpsilonLearner_Tests(unittest.TestCase):
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalEpsilonLearner()
-        mock.assert_called_once_with("--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",None)
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_specifics(self, mock) -> None:
         VowpalEpsilonLearner(epsilon=0.1, features = ['a','x','ax'], seed=None)
-        mock.assert_called_once_with("--cb_explore_adf --epsilon 0.1 --noconstant --interactions ax --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --epsilon 0.1 --noconstant --interactions ax --quiet",None)
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_custom_flag(self, mock) -> None:
         VowpalEpsilonLearner(epsilon=0.1, features = ['a','x','ax'], seed=None, b=20)
-        mock.assert_called_once_with("--cb_explore_adf --epsilon 0.1 --noconstant --interactions ax -b 20 --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --epsilon 0.1 --noconstant --interactions ax -b 20 --quiet",None)
     
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalEpsilonLearner(vw=VowpalMediatorMocked()))), VowpalEpsilonLearner)
@@ -83,12 +83,12 @@ class VowpalSoftmaxLearner_Tests(unittest.TestCase):
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalSoftmaxLearner()
-        mock.assert_called_once_with("--cb_explore_adf --softmax --lambda 10 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --softmax --lambda 10 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",None)
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_specifics(self, mock) -> None:
         VowpalSoftmaxLearner(softmax=5, features=[1, "x", "a", "ax"], seed=None)
-        mock.assert_called_once_with("--cb_explore_adf --softmax --lambda 5 --interactions ax --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --softmax --lambda 5 --interactions ax --quiet",None)
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalSoftmaxLearner(vw=VowpalMediatorMocked()))), VowpalSoftmaxLearner)
@@ -98,12 +98,12 @@ class VowpalBagLearner_Tests(unittest.TestCase):
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalBagLearner()
-        mock.assert_called_once_with("--cb_explore_adf --bag 5 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --bag 5 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",None)
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_specifics(self, mock) -> None:
         VowpalBagLearner(bag=10, features=['x', 'a', "ax"], seed=None)
-        mock.assert_called_once_with("--cb_explore_adf --bag 10 --noconstant --interactions ax --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --bag 10 --noconstant --interactions ax --quiet",None)
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalBagLearner(vw=VowpalMediatorMocked()))), VowpalBagLearner)
@@ -113,12 +113,12 @@ class VowpalCoverLearner_Tests(unittest.TestCase):
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalCoverLearner()
-        mock.assert_called_once_with("--cb_explore_adf --cover 5 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --cover 5 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",None)
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_specifics(self, mock) -> None:
         VowpalCoverLearner(cover=10, features = ['a','x','ax'], seed=None)
-        mock.assert_called_once_with("--cb_explore_adf --cover 10 --noconstant --interactions ax --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --cover 10 --noconstant --interactions ax --quiet",None)
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalCoverLearner(vw=VowpalMediatorMocked()))), VowpalCoverLearner)
@@ -128,12 +128,12 @@ class VowpalRegcbLearner_Tests(unittest.TestCase):
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalRegcbLearner()
-        mock.assert_called_once_with("--cb_explore_adf --regcb --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --regcb --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",None)
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_specifics(self, mock) -> None:
         VowpalRegcbLearner(mode="optimistic", features = ['a','x','ax'], seed=None)
-        mock.assert_called_once_with("--cb_explore_adf --regcbopt --noconstant --interactions ax --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --regcbopt --noconstant --interactions ax --quiet",None)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
     def test_pickle(self) -> None:
@@ -144,12 +144,12 @@ class VowpalSquarecbLearner_Tests(unittest.TestCase):
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalSquarecbLearner()
-        mock.assert_called_once_with("--cb_explore_adf --squarecb --gamma_scale 10 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --squarecb --gamma_scale 10 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",None)
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_specifics(self, mock) -> None:
         VowpalSquarecbLearner(mode="elimination", gamma_scale=5, features = ['a','x','ax'], seed=None)
-        mock.assert_called_once_with("--cb_explore_adf --squarecb --gamma_scale 5 --elim --noconstant --interactions ax --quiet")
+        mock.assert_called_once_with("--cb_explore_adf --squarecb --gamma_scale 5 --elim --noconstant --interactions ax --quiet",None)
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalSquarecbLearner(vw=VowpalMediatorMocked()))), VowpalSquarecbLearner)
@@ -159,12 +159,12 @@ class VowpalOffpolicyLearner_Tests(unittest.TestCase):
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalOffPolicyLearner()
-        mock.assert_called_once_with("--cb_adf --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet")
+        mock.assert_called_once_with("--cb_adf --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",None)
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalArgsLearner.__init__')
     def test_specifics(self, mock) -> None:
         VowpalOffPolicyLearner(features=['a','x',"ax"], seed=None)
-        mock.assert_called_once_with("--cb_adf --noconstant --interactions ax --quiet")
+        mock.assert_called_once_with("--cb_adf --noconstant --interactions ax --quiet",None)
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalOffPolicyLearner(vw=VowpalMediatorMocked()))), VowpalOffPolicyLearner)
