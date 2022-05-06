@@ -247,7 +247,7 @@ class ClassEnvironmentTask(EnvironmentTask):
         env_stats = {}
 
         X = [ InteractionsEncoder('x').encode(x=c) for c in contexts ]
-        Y = [ a[r.index(max(r))] for a,r in zip(actions,rewards)]
+        Y = [ a[r.index(max(r))] for a,r in zip(actions,rewards)     ]
 
         is_dense = not isinstance(X[0],dict)
 
@@ -260,13 +260,16 @@ class ClassEnvironmentTask(EnvironmentTask):
         m = len(feature_counts)
 
         X_by_f = { f:[x[f] for x in X if is_dense or f in x] for f in feats}
-        x_bin  = lambda x,f:int(n/5*(x[f]-min(X_by_f[f]))/((max(X_by_f[f])-min(X_by_f[f])) or 1))
+        min_f  = { f: min(X_by_f[f]) for f in feats }
+        max_f  = { f: max(X_by_f[f]) for f in feats }
+        x_bin  = lambda x,f:1+int(n/5*(x[f]-min_f[f])/((max_f[f]-min_f[f]) or 1))
         X_bin  = [ [x_bin(x,f) for f in feats] if is_dense else { f:x_bin(x,f) for f in x.keys() } for x in X]
 
         get = lambda x,f: x[f] if is_dense else x.get(f,0)
 
         #Information-Theoretic Meta-features
         env_stats["class_count"          ] = k
+        env_stats["class_entropy"        ] = self._entropy(Y)  # [1]
         env_stats["class_entropy_normed" ] = self._entropy_normed(Y)  # [1,2,3]
         env_stats["class_imbalance_ratio"] = self._imbalance_ratio(Y) # [1]
         env_stats["joint_XY_entropy_mean"] = mean([self._entropy([(get(x,f),y) for x,y in zip(X_bin,Y)]) for f in feats]) #[2,3]
@@ -276,7 +279,7 @@ class ClassEnvironmentTask(EnvironmentTask):
         #Sparsity/Dimensionality measures [1,2,3]
         env_stats["feature_count"       ] = m
         env_stats["feature_per_instance"] = median([len(x)/m for x in X])
-        env_stats["instance_per_feature"] = median([f/m for f in feature_counts])
+        env_stats["instance_per_feature"] = median([f/n for f in feature_counts])
 
         try:
 
@@ -298,13 +301,20 @@ class ClassEnvironmentTask(EnvironmentTask):
             import sklearn.exceptions
             warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
 
-            np_X = np.array(X) if is_dense else FeatureHasher(n_features=2**14, input_type="dict").fit_transform(X)
+            if is_dense:
+                np_X = np.array(X)
+            else:
+                #Convert the sparse matrix into a compact dense representation.
+                #This is necessary for a number of analysis performed below and
+                #is done here because we only care about the data that we have.
+                np_X = FeatureHasher(n_features=2**14, input_type="dict").fit_transform(X)
+                np_X = np_X[:,sorted(set(np_X.nonzero()[1]))].toarray()
             np_Y = np.array(Y)
 
             try:
                 #1NN OOB [3,4]
                 oob = np_Y[KNeighborsClassifier(n_neighbors=1).fit(np_X,np_Y).kneighbors(np_X, n_neighbors=2, return_distance=False)[:,1]]
-                env_stats["1nn_accuracy"] = float(accuracy_score(np_Y,oob))
+                env_stats["1nn_accuracy"]    = float(accuracy_score(np_Y,oob))
                 env_stats["1nn_f1_weighted"] = float(f1_score(np_Y,oob, average='weighted'))
             except: #pragma: no cover
                 pass
@@ -343,9 +353,10 @@ class ClassEnvironmentTask(EnvironmentTask):
 
             try:
                 #pca effective dimensions [1]
-                cnt_X = np_X - np_X.mean(axis=0) if is_dense else sp.vstack([sp.csr_matrix(np_X.mean(axis=0))]*np_X.shape[0])
-                pca_var = TruncatedSVD(n_components=min(cnt_X.shape[1]-1,10)).fit(cnt_X).explained_variance_ratio_
-                env_stats["pca_dims_95"] = float(sum(pca_var<.95)+1)
+                centered_x= np_X - np_X.mean(axis=0)
+                pca_var = TruncatedSVD(n_components=min(np_X.shape[1]-1,1000)).fit(centered_x).explained_variance_ratio_
+                env_stats["pca_top_3_pct"] = pca_var[0:3].sum()
+                env_stats["pca_dims_95"  ] = int(sum(np.cumsum(pca_var)<.95)+1)
             except: #pragma: no cover
                 pass
 

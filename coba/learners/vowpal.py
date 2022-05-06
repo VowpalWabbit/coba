@@ -222,19 +222,19 @@ class VowpalArgsLearner(Learner):
 
         self._vw = vw or VowpalMediator()
 
-        if self._adf or self._n_actions is not None:
-            self._vw.init_learner(args, 4)
-
     @property
     def params(self) -> Dict[str, Any]:
         return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
 
     def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
 
+        if not self._vw.is_initialized and self._adf:
+            self._vw.init_learner(self._args, 4)
+
         if not self._adf and not self._actions:
             self._actions = actions
 
-        if not self._vw.is_initialized: #this should only be true for not adf with no actions given
+        if not self._vw.is_initialized and not self._adf:
             self._n_actions = len(actions)
             args            = self._args.replace('--cb_explore','').replace('--cb','')
             args            = f"--cb_explore {len(actions)} " if self._explore else f"--cb {len(actions)} " + args
@@ -273,7 +273,10 @@ class VowpalArgsLearner(Learner):
 
     def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
 
-        if not self._vw.is_initialized:
+        if not self._vw.is_initialized and self._adf:
+            self._vw.init_learner(self._args, 4)
+
+        if not self._vw.is_initialized and not self._adf:
             raise CobaException("When using `cb  without `adf` predict must be called before learn to initialize the vw learner")
 
         actions = info
@@ -293,9 +296,6 @@ class VowpalArgsLearner(Learner):
 
     def _flat(self,features:Any) -> Any:
         return list(Flatten().filter([features]))[0]
-
-    def __reduce__(self):
-        return (type(self), (self._args, self._vw) )
 
 class VowpalEpsilonLearner(VowpalArgsLearner):
     """A wrapper around VowpalArgsLearner that provides more documentation. For more
