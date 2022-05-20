@@ -245,7 +245,6 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         Y = [1,1,2,2]
         self.assertIsNone(ClassEnvironmentTask()._max_individual_feature_efficiency(X,Y))
 
-
     @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_max_directional_fisher_discriminant_ratio(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
