@@ -77,7 +77,6 @@ class PipesPool:
         self._no_more_items = False
 
         def maintain_pool():
-
             finished = lambda: self._completed and (self._stdin._queue.qsize() == 0 or self._terminate)
 
             while not finished():
@@ -107,14 +106,12 @@ class PipesPool:
             self._stdout.write(None)
 
         def populate_tasks():
-
             try:
                 for item in items:
 
                     if self._terminate: break
 
                     try:
-
                         self._stdin.write(pickle.dumps(item))
 
                     except Exception as e:
@@ -176,6 +173,12 @@ class PipesPool:
 
         if len(self._threads) > 2:
             self._threads[1].join()
+        
+        #If these closes are removed it can take a lot
+        #longer to clean up a termination though it still works.
+        if self._stdin : self._stdin._queue .close()
+        if self._stdout: self._stdout._queue.close()
+        if self._stderr: self._stderr._queue.close()
 
     @property
     def is_terminated(self) -> bool:
@@ -184,7 +187,6 @@ class PipesPool:
     @staticmethod
     def worker(filter: Filter, stdin: Source, stdout: Sink, stderr: Sink, maxtasksperchild: Optional[int], chunked:bool):
         try:
-
             for item in islice(map(pickle.loads,stdin.read()),maxtasksperchild):
                 result = filter.filter(item)
 

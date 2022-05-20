@@ -1,11 +1,14 @@
 import time
 import shutil
-import threading
 import unittest
+
+import threading       as mt
+import multiprocessing as mp
 
 from contextlib import contextmanager
 from pathlib import Path
 
+from coba.pipes import QueueIO
 from coba.contexts import DiskCacher, MemoryCacher, NullCacher, ConcurrentCacher
 from coba.exceptions import CobaException
 
@@ -21,8 +24,8 @@ class MaxCountCacher:
 
         self._paused      = False
         self._pause_on    = pause_once_on
-        self._func_event  = threading.Event()
-        self._first_event = threading.Event()
+        self._func_event  = mt.Event()
+        self._first_event = mt.Event()
 
     @contextmanager
     def count_context(self):
@@ -228,25 +231,25 @@ class DiskCacher_Tests(unittest.TestCase):
 class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_put_works_correctly_single_thread(self):
-        cacher = ConcurrentCacher(MemoryCacher(), {}, threading.Lock(), threading.Condition())
+        cacher = ConcurrentCacher(MemoryCacher(), {}, mt.Lock(), mt.Condition())
         cacher.put("abc", "abc")
         self.assertIn("abc", cacher)
 
     def test_get_works_correctly_single_thread(self):
-        cacher = ConcurrentCacher(MemoryCacher(), {}, threading.Lock(), threading.Condition())
+        cacher = ConcurrentCacher(MemoryCacher(), {}, mt.Lock(), mt.Condition())
         cacher.put("abc", "abcd")
         self.assertIn("abc", cacher)
         self.assertEqual(cacher.get("abc"), "abcd")
 
     def test_get_iter_works_correctly_single_thread(self):
-        cacher = ConcurrentCacher(IterCacher(), {}, threading.Lock(), threading.Condition())
+        cacher = ConcurrentCacher(IterCacher(), {}, mt.Lock(), mt.Condition())
         cacher.put("abc", [1,2,3])
         self.assertEqual(list(cacher.get("abc")), [1,2,3])
         self.assertEqual(list(cacher.get("abc")), [1,2,3])
         self.assertEqual(0, cacher._dict["abc"])
 
     def test_rmv_works_correctly_single_thread(self):
-        cacher = ConcurrentCacher(MemoryCacher(), {}, threading.Lock(), threading.Condition())
+        cacher = ConcurrentCacher(MemoryCacher(), {}, mt.Lock(), mt.Condition())
         cacher.put("abc", "abcd")
         self.assertIn("abc", cacher)
         cacher.rmv("abc")
@@ -255,7 +258,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_get_then_get_works_correctly_with_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         curr_cacher.put(1,1)
 
@@ -267,8 +270,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get(1)
             base_cacher.release()
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -284,7 +287,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_get_then_get_works_correctly_sans_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         curr_cacher.put(1,1)
         curr_cacher.put(2,2)
@@ -297,8 +300,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get(2)
             base_cacher.release()
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -315,7 +318,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_put_then_put_works_correctly_with_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="put")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         def thread_1():
             curr_cacher.put(1,2)
@@ -324,8 +327,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             base_cacher.wait()
             curr_cacher.put(1,3)
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -346,7 +349,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_put_then_put_works_correctly_sans_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="put")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         def thread_1():
             curr_cacher.put(1,2)
@@ -356,8 +359,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.put(2,3)
             base_cacher.release()
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -374,7 +377,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_put_then_get_works_correctly_with_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="put")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         def thread_1():
             curr_cacher.put(1,2)
@@ -383,8 +386,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             base_cacher.wait()
             curr_cacher.get(1)
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -406,7 +409,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
     def test_put_then_get_works_correctly_sans_conflicting_keys_multi_thread(self):
 
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="put")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         base_cacher._cacher.put(2,1)
 
@@ -418,8 +421,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get(2)
             base_cacher.release()
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -435,7 +438,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_get_then_put_works_correctly_with_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         curr_cacher.put(1,1)
 
@@ -446,8 +449,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             base_cacher.wait()
             curr_cacher.put(1,2)
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -468,7 +471,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_get_then_put_works_correctly_sans_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         base_cacher._cacher.put(1,1)
 
@@ -480,8 +483,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.put(2,2)
             base_cacher.release()
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -498,7 +501,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_get_put_put_then_get_put_get_works_correctly_with_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get_put")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         def thread_1():
             curr_cacher.get_put(1,lambda: 1)
@@ -507,8 +510,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             base_cacher.wait()
             curr_cacher.get_put(1,lambda: 2)
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -529,7 +532,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_get_put_put_then_get_put_get_works_correctly_sans_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get_put")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         def thread_1():
             curr_cacher.get_put(1,lambda: 1)
@@ -539,8 +542,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get_put(2,lambda: 2)
             base_cacher.release()
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -557,7 +560,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_get_put_put_then_get_put_get_iter_works_correctly_sans_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(IterCacher(),pause_once_on="get_put")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         def thread_1():
             curr_cacher.get_put(1,lambda: [1])
@@ -567,8 +570,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get_put(2,lambda: [2])
             base_cacher.release()
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -585,7 +588,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
     def test_get_put_get_then_get_put_get_works_correctly_with_conflicting_keys_multi_thread(self):
         base_cacher = MaxCountCacher(MemoryCacher(),pause_once_on="get")
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         curr_cacher.put(1,1)
 
@@ -597,8 +600,8 @@ class ConcurrentCacher_Test(unittest.TestCase):
             curr_cacher.get_put(1,lambda: 2)
             base_cacher.release()
 
-        t1 = threading.Thread(None, thread_1)
-        t2 = threading.Thread(None, thread_2)
+        t1 = mt.Thread(None, thread_1)
+        t2 = mt.Thread(None, thread_2)
 
         t1.daemon = True
         t2.daemon = True
@@ -615,7 +618,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
     def test_rmv_during_get_same_process_with_release(self):
 
         base_cacher = IterCacher()
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         curr_cacher.put(1,range(4))
         try:
@@ -629,7 +632,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
     def test_rmv_during_get_same_process_causes_exception(self):
 
         base_cacher = IterCacher()
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         curr_cacher.put(1,range(4))
 
@@ -642,7 +645,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
     def test_rmv_during_get_put_same_process_causes_exception(self):
 
         base_cacher = IterCacher()
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         def getter():
             yield 1
@@ -655,7 +658,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
     def test_put_during_get_put_same_process_causes_exception(self):
 
         base_cacher = IterCacher()
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         def getter():
             yield 1
@@ -670,7 +673,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
     def test_get_during_get_put_same_process_causes_exception(self):
 
         base_cacher = IterCacher()
-        curr_cacher = ConcurrentCacher(base_cacher , {}, threading.Lock(), threading.Condition())
+        curr_cacher = ConcurrentCacher(base_cacher , {}, mt.Lock(), mt.Condition())
 
         def getter():
             yield 1
@@ -679,7 +682,6 @@ class ConcurrentCacher_Test(unittest.TestCase):
 
         with self.assertRaises(CobaException):
             curr_cacher.get_put(1,getter)
-
 
 if __name__ == '__main__':
     unittest.main()

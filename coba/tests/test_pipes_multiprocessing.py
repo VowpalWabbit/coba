@@ -1,10 +1,10 @@
 import unittest
 import pickle
 
-from queue                       import Queue
-from threading                   import Thread
-from multiprocessing             import current_process, Event, Barrier
-from typing                      import Iterable, Any
+from queue           import Queue
+from threading       import Thread
+from multiprocessing import current_process, Event, Barrier
+from typing          import Iterable, Any
 
 from coba.pipes import Filter, ListSink, Identity, QueueSource, QueueSink, NullSink
 
@@ -236,7 +236,7 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
 
         self.assertEqual(items, [1,2])
 
-    def test_terminate_stops_pipe(self):
+    def test_terminate_stops_pipe1(self):
 
         init_event = Event()
         term_event = Event()
@@ -255,8 +255,39 @@ class PipeMultiprocessor_PipePool_Tests(unittest.TestCase):
         thread.start()
         init_event.wait() #make sure the pool has fully initialized
         pool.terminate()
-        thread.join(4)
+        thread.join(.1)
 
+        self.assertFalse(thread.is_alive())
+
+    def test_terminate_stops_pipe2(self):
+
+        #populate_tasks has a finite write queue.
+        #This test makes sure that blocking on write doesn't prevent terminate
+
+        filt_event = Event()
+        init_event = Event()
+        term_event = Event()
+
+        pool = PipesPool(1,None,NullSink())
+
+        def sleepy_iter():
+            yield 1
+            yield 2
+            init_event.set()
+            yield 3
+            term_event.wait()
+
+        def map_pool():
+            list(pool.map(EventFilter(filt_event), sleepy_iter(), False))
+
+        thread = Thread(target=map_pool)
+
+        thread.start()
+
+        init_event.wait() #we've read two tasks, one should be in the filter and one in queue, write should now block
+        pool.terminate()
+
+        thread.join(.1)
         self.assertFalse(thread.is_alive())
 
     def test_terminate_called_on_exception(self):

@@ -35,6 +35,7 @@ class ExceptionFilter(Filter):
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         raise self._exc
+
 class CobaMultiprocessor_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
