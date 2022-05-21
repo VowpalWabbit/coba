@@ -973,7 +973,7 @@ class Result_Tests(unittest.TestCase):
                     mock_ax.get_xticks.return_value = [1,2]
                     mock_ax.get_xlim.return_value   = [2,2]
 
-                    Result({}, lrns, ints).plot_learners(xlim=(0,2))
+                    Result({}, lrns, ints).plot_learners()
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -1030,7 +1030,7 @@ class Result_Tests(unittest.TestCase):
                     self.assertEqual(0, savefig.call_count)
 
     @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib is not installed so we must skip plotting tests")
-    def test_plot_learners_each_figname(self):
+    def test_plot_learners_filename(self):
         with unittest.mock.patch('matplotlib.pyplot.show') as show:
             with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
                 with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
@@ -1047,7 +1047,7 @@ class Result_Tests(unittest.TestCase):
                     mock_ax.get_xticks.return_value = [1,2]
                     mock_ax.get_xlim.return_value   = [2,2]
 
-                    Result({}, lrns, ints).plot_learners(xlim=(0,2),filename='abc')
+                    Result({}, lrns, ints).plot_learners(filename='abc')
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -1064,6 +1064,41 @@ class Result_Tests(unittest.TestCase):
                     mock_ax.set_xticks.called_once_with([2,2])
                     self.assertEqual(1, show.call_count)
                     self.assertEqual(1, savefig.call_count)
+
+    @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib is not installed so we must skip plotting tests")
+    def test_plot_learners_labels(self):
+        with unittest.mock.patch('matplotlib.pyplot.show') as show:
+            with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
+                with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+                    lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+                    ints = {
+                        (0,1): {"_packed":{"reward":[1,2]}},
+                        (0,2): {"_packed":{"reward":[1,2]}},
+                        (1,1): {"_packed":{"reward":[2,3]}},
+                        (1,2): {"_packed":{"reward":[2,3]}}
+                    }
+
+                    mock_ax = plt_figure().add_subplot()
+
+                    mock_ax.get_xticks.return_value = [1,2]
+                    mock_ax.get_xlim.return_value   = [2,2]
+
+                    Result({}, lrns, ints).plot_learners(labels=['a','b'])
+
+                    plt_figure().add_subplot.assert_called_with(111)
+
+                    self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[0][0])
+                    self.assertEqual('a'             , mock_ax.errorbar.call_args_list[0][1]["label"])
+                    self.assertEqual(0               , mock_ax.errorbar.call_args_list[0][1]["yerr"])
+
+                    self.assertEqual(([1,2],[1.5,2.]), mock_ax.errorbar.call_args_list[1][0])
+                    self.assertEqual('b'             , mock_ax.errorbar.call_args_list[1][1]["label"])
+                    self.assertEqual(0               , mock_ax.errorbar.call_args_list[1][1]["yerr"])
+
+                    self.assertEqual(0, mock_ax.plot.call_count)
+
+                    mock_ax.set_xticks.called_once_with([2,2])
+                    self.assertEqual(1, show.call_count)
 
     @unittest.skipUnless(importlib.util.find_spec("matplotlib"), "matplotlib is not installed so we must skip plotting tests")
     def test_plot_learners_ax_provided(self):

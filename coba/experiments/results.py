@@ -670,6 +670,7 @@ class Result:
         each : bool = False,
         filename: str = None,
         sort : Literal["name","id","y"] = "y",
+        labels: Sequence[str] = [],
         ax = None) -> None:
         """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected
             performance for different learners across independent environments. This plot is valuable in gaining
@@ -687,6 +688,7 @@ class Result:
             each: This determines whether each evaluated environment used to estimate mean performance is also plotted.
             filename: Provide a filename to write plot image to disk.
             sort: Indicate how learner names should be sorted in the legend.
+            labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
@@ -696,11 +698,15 @@ class Result:
         show = ax is None
         n_environments = []
 
-        for label, X, Y, yerr, Z in self._plot_learners_data(y,xlim,span,err,sort):
+        given_labels = labels
+
+        for i, (label, X, Y, yerr, Z) in enumerate(self._plot_learners_data(y,xlim,span,err,sort)):
 
             ax = ax or plt.figure(figsize=(10,6)).add_subplot(111) #type: ignore
 
             color = next(ax._get_lines.prop_cycler)['color']
+
+            label = given_labels[i] if i < len(given_labels) else label
 
             ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), label=label, color=color)
 
