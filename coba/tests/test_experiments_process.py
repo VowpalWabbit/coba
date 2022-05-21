@@ -104,6 +104,25 @@ class RemoveFinished_Tests(unittest.TestCase):
 
         self.assertEqual(5, len(unfinished_tasks))
 
+    def test_restored_none(self):
+
+        restored = None
+
+        tasks = [
+            WorkItem(None, 0, None, None, None),
+            WorkItem(None, 1, None, None, None),
+            WorkItem(0, None, None, None, None),
+            WorkItem(1, None, None, None, None),
+            WorkItem(0, 0, None, None, None),
+            WorkItem(1, 0, None, None, None),
+            WorkItem(0, 1, None, None, None),
+            WorkItem(1, 1, None, None, None),
+        ]
+
+        unfinished_tasks = list(RemoveFinished(restored).filter(tasks))
+
+        self.assertEqual(8, len(unfinished_tasks))
+
 class ChunkBySource_Tests(unittest.TestCase):
 
     def test_four_groups(self):

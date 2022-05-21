@@ -110,12 +110,12 @@ class Experiment:
         else:
             CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()])
 
-        restored = Result.from_file(result_file) if result_file and Path(result_file).exists() else Result()
+        restored = Result.from_file(result_file) if result_file and Path(result_file).exists() else None
 
         n_given_learners     = len(self._learners)
         n_given_environments = len(self._environments)
 
-        if len(restored.experiment) != 0:
+        if restored:
             assert n_given_learners     == restored.experiment['n_learners'    ], "The current experiment doesn't match the given transaction log."
             assert n_given_environments == restored.experiment['n_environments'], "The current experiment doesn't match the given transaction log."
 
@@ -132,7 +132,6 @@ class Experiment:
         try:
             if not restored: sink.write(["T0", n_given_learners, n_given_environments])
             Pipes.join(workitems, unfinished, process, Foreach(sink)).run()
-
         except KeyboardInterrupt as e: # pragma: no cover
             CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")
 

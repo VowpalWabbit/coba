@@ -65,7 +65,7 @@ class CreateWorkItems(Source[Iterable[WorkItem]]):
                 yield WorkItem(env_id, lrn_id, env, lrn, self._evaluation_task)
 
 class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
-    def __init__(self, restored: Result) -> None:
+    def __init__(self, restored: Optional[Result]) -> None:
         self._restored = restored
 
     def filter(self, tasks: Iterable[WorkItem]) -> Iterable[WorkItem]:
@@ -76,11 +76,13 @@ class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
             is_environ_task = task.learner_id is None
             is_eval_task    = not (is_learner_task or is_environ_task)
 
-            if is_learner_task and task.learner_id not in self._restored.learners:
+            if not self._restored:
                 yield task
-            if is_environ_task and task.environ_id not in self._restored.environments:
+            elif is_learner_task and task.learner_id not in self._restored.learners:
                 yield task
-            if is_eval_task and (task.environ_id, task.learner_id) not in self._restored._interactions:
+            elif is_environ_task and task.environ_id not in self._restored.environments:
+                yield task
+            elif is_eval_task and (task.environ_id, task.learner_id) not in self._restored._interactions:
                 yield task
 
 class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
