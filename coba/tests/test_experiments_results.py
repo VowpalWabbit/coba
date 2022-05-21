@@ -472,12 +472,12 @@ class TransactionIO_V4_Tests(unittest.TestCase):
 
         result = io.read()
 
-        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
         self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
         self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
         self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
 
-    def test_simple_to_and_from_memory(self):
+    def test_simple_to_and_from_memory_1(self):
         io = TransactionIO_V4()
 
         io.write(["T0",1,2])
@@ -487,7 +487,22 @@ class TransactionIO_V4_Tests(unittest.TestCase):
 
         result = io.read()
 
-        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
+        self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
+        self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
+
+    def test_simple_to_and_from_memory_2(self):
+        io = TransactionIO_V4()
+
+        io.write(["T0",1,2])
+        io.write(["T1",0,{"name":"lrn1"}])
+        io.write(["T2",1,{"source":"test"}])
+        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
+
+        result = io.read()
+
+        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
         self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
         self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
         self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
@@ -495,7 +510,7 @@ class TransactionIO_V4_Tests(unittest.TestCase):
     def test_simple_to_and_from_memory_unknown_transaction(self):
         io = TransactionIO_V4()
 
-        io.write(["T0",1,2])
+        io.write(["T0",{"n_learners":1,"n_environments":2}])
         io.write(["T1",0,{"name":"lrn1"}])
         io.write(["T2",1,{"source":"test"}])
         io.write(["T4",'UNKNOWN'])
@@ -503,7 +518,7 @@ class TransactionIO_V4_Tests(unittest.TestCase):
 
         result = io.read()
 
-        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
         self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
         self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
         self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
@@ -551,7 +566,7 @@ class TransactionIO_Tests(unittest.TestCase):
 
         result = io.read()
 
-        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
         self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
         self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
         self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
@@ -566,7 +581,7 @@ class TransactionIO_Tests(unittest.TestCase):
 
         result = io.read()
 
-        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
         self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
         self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
         self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
@@ -581,7 +596,7 @@ class TransactionIO_Tests(unittest.TestCase):
 
         result = TransactionIO("coba/tests/.temp/transaction.log").read()
 
-        self.assertEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertEqual({**result.experiment, "n_learners":1, "n_environments":2}, result.experiment)
         self.assertEqual([{'learner_id':0,'name':"lrn1"}], result.learners.to_dicts())
         self.assertEqual([{'environment_id':1,'source':"test"}], result.environments.to_dicts())
         self.assertEqual([{'learner_id':0,'environment_id':1,'index':1,'reward':3},{'learner_id':0,'environment_id':1,'index':2,'reward':4}], result.interactions.to_dicts())
@@ -590,7 +605,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_has_interactions_key(self):
 
-        result = Result(1,2, {}, {}, {(0,1): {"_packed":{"reward":[1,1]}},(0,2):{"_packed":{"reward":[1,1]}}})
+        result = Result({}, {}, {(0,1): {"_packed":{"reward":[1,1]}},(0,2):{"_packed":{"reward":[1,1]}}})
 
         self.assertEqual("{'Learners': 0, 'Environments': 0, 'Interactions': 4}", str(result))
 
@@ -600,20 +615,18 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(len(result._interactions), 4)
 
     def test_has_preamble(self):
-
-        self.assertDictEqual(Result(1,2,{},{},{}).experiment, {"n_learners":1, "n_environments":2})
+        self.assertDictEqual(Result({},{},{},{"n_learners":1, "n_environments":2}).experiment, {"n_learners":1, "n_environments":2})
 
     def test_exception_when_no_file(self):
         with self.assertRaises(Exception):
             Result.from_file("abcd")
 
     def test_filter_fin_sans_n_interactions(self):
-
         sims = {1:{}, 2:{}}
         lrns = {1:{}, 2:{}}
         ints = {(1,1):{}, (1,2):{}, (2,1):{}}
 
-        original_result = Result(1, 1, sims, lrns, ints)
+        original_result = Result(sims, lrns, ints)
         filtered_result = original_result.filter_fin()
 
         self.assertEqual(2, len(original_result.environments))
@@ -635,7 +648,7 @@ class Result_Tests(unittest.TestCase):
             (2,2):{"_packed":{"reward":[1    ]}}
         }
 
-        original_result = Result(1, 1, sims, lrns, ints)
+        original_result = Result(sims, lrns, ints)
         filtered_result = original_result.filter_fin(2)
 
         self.assertEqual(2, len(original_result.environments))
@@ -655,7 +668,7 @@ class Result_Tests(unittest.TestCase):
         lrns = {1:{}, 2:{}}
         ints = {(1,1):{}, (2,1):{}}
 
-        original_result = Result(1, 1, sims, lrns, ints)
+        original_result = Result(sims, lrns, ints)
         filtered_result = original_result.filter_fin()
 
         self.assertEqual(2, len(original_result.environments))
@@ -673,7 +686,7 @@ class Result_Tests(unittest.TestCase):
         lrns = {1:{}, 2:{}}
         ints = {(1,1):{}, (1,2):{}, (2,1):{}}
 
-        original_result = Result(1, 1, sims, lrns, ints)
+        original_result = Result(sims, lrns, ints)
         filtered_result = original_result.filter_env(environment_id=2)
 
         self.assertEqual(2, len(original_result.environments))
@@ -693,7 +706,7 @@ class Result_Tests(unittest.TestCase):
         lrns = {1:{}, 2:{}}
         ints = {(1,1):{}, (1,2):{}, (2,1):{}}
 
-        original_result = Result(1, 1, sims, lrns, ints)
+        original_result = Result(sims, lrns, ints)
         filtered_result = original_result.filter_env(environment_id=3)
 
         self.assertEqual(2, len(original_result.environments))
@@ -711,7 +724,7 @@ class Result_Tests(unittest.TestCase):
         lrns = {1:{}, 2:{}}
         ints = {(1,1):{}, (1,2):{}, (2,1):{}}
 
-        original_result = Result(1, 1, sims, lrns, ints)
+        original_result = Result(sims, lrns, ints)
         filtered_result = original_result.filter_lrn(learner_id=2)
 
         self.assertEqual(2, len(original_result.environments))
@@ -728,7 +741,7 @@ class Result_Tests(unittest.TestCase):
         lrns = {1:{}, 2:{}, 3:{}}
         ints = {(1,1):{}, (1,2):{}, (2,3):{}}
 
-        original_result = Result(1, 1, sims, lrns, ints)
+        original_result = Result(sims, lrns, ints)
         filtered_result = original_result.filter_lrn(learner_id=[2,1])
 
         self.assertEqual(2, len(original_result.environments))
@@ -748,7 +761,7 @@ class Result_Tests(unittest.TestCase):
         lrns = {1:{}, 2:{}, 3:{}}
         ints = {(1,1):{}, (1,2):{}, (2,3):{}}
 
-        original_result = Result(1, 1, sims, lrns, ints)
+        original_result = Result(sims, lrns, ints)
         filtered_result = original_result.filter_lrn(learner_id=5)
 
         self.assertEqual(2, len(original_result.environments))
@@ -766,7 +779,7 @@ class Result_Tests(unittest.TestCase):
         lrns = {1:{}, 2:{}, 3:{}}
         ints = {(1,1):{}, (1,2):{}, (2,3):{}}
 
-        result = Result(1, 1, sims, lrns, ints)
+        result = Result(sims, lrns, ints)
         result_copy = result.copy()
 
         self.assertIsNot(result, result_copy)
@@ -784,7 +797,7 @@ class Result_Tests(unittest.TestCase):
         lrns = {1:{}, 2:{}, 3:{}}
         ints = {(1,1):{}, (1,2):{}, (2,3):{}}
 
-        self.assertEqual("{'Learners': 3, 'Environments': 2, 'Interactions': 3}", str(Result(1, 1, sims, lrns, ints)))
+        self.assertEqual("{'Learners': 3, 'Environments': 2, 'Interactions': 3}", str(Result(sims, lrns, ints)))
 
     def test_ipython_display_(self):
 
@@ -794,12 +807,12 @@ class Result_Tests(unittest.TestCase):
             lrns = {1:{}, 2:{}, 3:{}}
             ints = {(1,1):{}, (1,2):{}, (2,3):{}}
 
-            result = Result(1, 1, sims, lrns, ints)
+            result = Result(sims, lrns, ints)
             result._ipython_display_()
             mock.assert_called_once_with(str(result))
 
     def test_plot_learners_data_empty_result_xlim_none(self):
-        result = Result(None, None, {}, {}, {})
+        result = Result({}, {}, {})
         self.assertEqual([], list(result._plot_learners_data(xlim=None)))
 
     def test_plot_learners_data_one_environment_all_default(self):
@@ -807,7 +820,7 @@ class Result_Tests(unittest.TestCase):
         lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
         ints = {(0,1): {"_packed":{"reward":[1,2]}},(0,2):{"_packed":{"reward":[1,2]}}}
 
-        result = Result(None, None, {}, lrns, ints)
+        result = Result({}, lrns, ints)
 
         plot_learners_data = list(result._plot_learners_data(xlim=(0,2)))
 
@@ -825,7 +838,7 @@ class Result_Tests(unittest.TestCase):
             (1,2): {"_packed":{"reward":[2,3]}}
         }
 
-        result = Result(None, None, {}, lrns, ints)
+        result = Result({}, lrns, ints)
 
         plot_learners_data = list(result._plot_learners_data(xlim=(0,2)))
 
@@ -843,7 +856,7 @@ class Result_Tests(unittest.TestCase):
             (1,2): {"_packed":{"reward":[2,3]}}
         }
 
-        result = Result(None, None, {}, lrns, ints)
+        result = Result({}, lrns, ints)
         plot_learners_data = list(result._plot_learners_data(xlim=(1,2)))
 
         self.assertEqual(2, len(plot_learners_data))
@@ -860,7 +873,7 @@ class Result_Tests(unittest.TestCase):
             (1,2): {"_packed":{"reward":[2,3]}}
         }
 
-        result = Result(None, None, {}, lrns, ints)
+        result = Result({}, lrns, ints)
 
         plot_learners_data = list(result._plot_learners_data(xlim=(0,2),err='sd'))
 
@@ -881,7 +894,7 @@ class Result_Tests(unittest.TestCase):
             (1,2): {"_packed":{"reward":[2,3]}}
         }
 
-        result = Result(None, None, {}, lrns, ints)
+        result = Result({}, lrns, ints)
 
         plot_learners_data = list(result._plot_learners_data(xlim=(1,0)))
 
@@ -904,7 +917,7 @@ class Result_Tests(unittest.TestCase):
             (1,2): {"_packed":{"reward":[2,3]}}
         }
 
-        result = Result(None, None, {}, lrns, ints)
+        result = Result({}, lrns, ints)
 
         plot_learners_data = list(result._plot_learners_data())
 
@@ -924,7 +937,7 @@ class Result_Tests(unittest.TestCase):
             (1,2): {"_packed":{"reward":[2,4]}}
         }
 
-        result = Result(None, None, {}, lrns, ints)
+        result = Result({}, lrns, ints)
 
         plot_learners_data = list(result._plot_learners_data(xlim=(0,2),sort="name"))
         self.assertEqual(2, len(plot_learners_data))
@@ -960,7 +973,7 @@ class Result_Tests(unittest.TestCase):
                     mock_ax.get_xticks.return_value = [1,2]
                     mock_ax.get_xlim.return_value   = [2,2]
 
-                    Result(None, None, {}, lrns, ints).plot_learners(xlim=(0,2))
+                    Result({}, lrns, ints).plot_learners(xlim=(0,2))
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -998,7 +1011,7 @@ class Result_Tests(unittest.TestCase):
                     mock_ax.get_xticks.return_value = [1,2]
                     mock_ax.get_xlim.return_value   = [2,2]
 
-                    Result(None, None, {}, lrns, ints).plot_learners(each=True,xlim=(0,1),ylim=(0,1))
+                    Result({}, lrns, ints).plot_learners(each=True,xlim=(0,1),ylim=(0,1))
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -1034,7 +1047,7 @@ class Result_Tests(unittest.TestCase):
                     mock_ax.get_xticks.return_value = [1,2]
                     mock_ax.get_xlim.return_value   = [2,2]
 
-                    Result(None, None, {}, lrns, ints).plot_learners(xlim=(0,2),filename='abc')
+                    Result({}, lrns, ints).plot_learners(xlim=(0,2),filename='abc')
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -1070,7 +1083,7 @@ class Result_Tests(unittest.TestCase):
                 mock_ax.get_xticks.return_value = [1,2]
                 mock_ax.get_xlim.return_value   = [2,2]
 
-                Result(None, None, {}, lrns, ints).plot_learners(ax=mock_ax,xlim=(0,2))
+                Result({}, lrns, ints).plot_learners(ax=mock_ax,xlim=(0,2))
 
                 self.assertEqual(0, plt_figure().add_subplot.call_count)
 
@@ -1097,7 +1110,7 @@ class Result_Tests(unittest.TestCase):
                 CobaContext.logger = IndentLogger()
                 CobaContext.logger.sink = ListSink()
 
-                result = Result(None, None, {}, {}, {})
+                result = Result({}, {}, {})
                 result.plot_learners()
 
                 self.assertEqual(0, plt_figure().add_subplot.call_count)

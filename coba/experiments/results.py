@@ -377,7 +377,7 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
 
     def read(self) -> 'Result':
         n_lrns   = None
-        n_sims   = None
+        n_envs   = None
         lrn_rows = {}
         sim_rows = {}
         int_rows = {}
@@ -393,7 +393,7 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
 
             if trx[0] == "benchmark":
                 n_lrns = trx[1]["n_learners"]
-                n_sims = trx[1]["n_simulations"]
+                n_envs = trx[1]["n_simulations"]
 
             if trx[0] == "S":
                 sim_rows[trx[1]] = trx[2]
@@ -404,7 +404,7 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
             if trx[0] == "I":
                 int_rows[tuple(trx[1])] = trx[2]
 
-        return Result(n_lrns, n_sims, sim_rows, lrn_rows, int_rows)
+        return Result(sim_rows, lrn_rows, int_rows, {"n_learners":n_lrns,"n_environments":n_envs})
 
     def _encode(self,item):
         if item[0] == "T0":
@@ -447,8 +447,7 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
 
     def read(self) -> 'Result':
 
-        n_lrns   = None
-        n_sims   = None
+        exp_dict = {}
         lrn_rows = {}
         env_rows = {}
         int_rows = {}
@@ -463,8 +462,7 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
             if not trx: continue
 
             if trx[0] == "experiment":
-                n_lrns = trx[1]["n_learners"]
-                n_sims = trx[1]["n_environments"]
+                exp_dict = trx[1]
 
             if trx[0] == "E":
                 env_rows[trx[1]] = trx[2]
@@ -475,11 +473,11 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
             if trx[0] == "I":
                 int_rows[tuple(trx[1])] = trx[2]
 
-        return Result(n_lrns, n_sims, env_rows, lrn_rows, int_rows)
+        return Result(env_rows, lrn_rows, int_rows, exp_dict)
 
     def _encode(self,item):
         if item[0] == "T0":
-            return ['experiment', {"n_learners":item[1], "n_environments":item[2]}]
+            return ['experiment', {"n_learners":item[1], "n_environments":item[2], "description":None} if len(item)==3 else item[1] ]
 
         if item[0] == "T1":
             return ["L", item[1], item[2]]
@@ -540,25 +538,21 @@ class Result:
         return TransactionIO(filename).read()
 
     def __init__(self,
-        n_lrns  : int = None,
-        n_envs  : int = None,
         env_rows: Dict[int           ,Dict[str,Any]] = {},
         lrn_rows: Dict[int           ,Dict[str,Any]] = {},
-        int_rows: Dict[Tuple[int,int],Dict[str,Any]] = {}) -> None:
+        int_rows: Dict[Tuple[int,int],Dict[str,Any]] = {},
+        exp_dict: Dict[str, Any]                     = {}) -> None:
         """Instantiate a Result class.
 
         This constructor should never be called directly. Instead a Result file should be created
         from an Experiment and the result file should be loaded via Result.from_file(filename).
         """
 
-        self.experiment = {}
-
-        if n_lrns is not None: self.experiment["n_learners"] = n_lrns
-        if n_envs is not None: self.experiment["n_environments"] = n_envs
-
         env_flat = [ { "environment_id":k,                       **v } for k,v in env_rows.items() ]
         lrn_flat = [ {                        "learner_id" :k,   **v } for k,v in lrn_rows.items() ]
         int_flat = [ { "environment_id":k[0], "learner_id":k[1], **v } for k,v in int_rows.items() ]
+
+        self.experiment = exp_dict
 
         self._environments = Table            ("Environments", ['environment_id'              ], env_flat, ["source"])
         self._learners     = Table            ("Learners"    , ['learner_id'                  ], lrn_flat, ["family","shuffle","take"])

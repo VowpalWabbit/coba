@@ -19,6 +19,7 @@ class Experiment:
     def __init__(self,
         environments    : Sequence[Environment],
         learners        : Sequence[Learner],
+        description     : str = None,
         learner_task    : LearnerTask     = SimpleLearnerTask(),
         environment_task: EnvironmentTask = SimpleEnvironmentTask(),
         evaluation_task : EvaluationTask  = OnlineOnPolicyEvalTask()) -> None:
@@ -27,6 +28,7 @@ class Experiment:
         Args:
             environments: The collection of environments to use in the experiment.
             learners: The collection of learners to use in the experiment.
+            description: A description of the experiment for documentaiton purposes.
             learner_task: A task which describes a learner.
             environment_task: A task which describes an environment.
             evaluation_task: A task which evaluates a learner on an environment.
@@ -34,6 +36,7 @@ class Experiment:
 
         self._environments     = environments
         self._learners         = learners
+        self._description      = description
         self._learner_task     = learner_task
         self._environment_task = environment_task
         self._evaluation_task  = evaluation_task
@@ -116,8 +119,8 @@ class Experiment:
         n_given_environments = len(self._environments)
 
         if restored:
-            assert n_given_learners     == restored.experiment['n_learners'    ], "The current experiment doesn't match the given transaction log."
-            assert n_given_environments == restored.experiment['n_environments'], "The current experiment doesn't match the given transaction log."
+            assert n_given_learners     == restored.experiment.get('n_learners',n_given_learners)        , "The current experiment doesn't match the given transaction log."
+            assert n_given_environments == restored.experiment.get('n_environments',n_given_environments), "The current experiment doesn't match the given transaction log."
 
         workitems  = CreateWorkItems(self._environments, self._learners, self._learner_task, self._environment_task, self._evaluation_task)
         unfinished = RemoveFinished(restored)
@@ -130,7 +133,7 @@ class Experiment:
         process        = multi_process if mp > 1 or mc != 0 else single_process
 
         try:
-            if not restored: sink.write(["T0", n_given_learners, n_given_environments])
+            if not restored: sink.write(["T0", {'n_learners':n_given_learners, 'n_environments':n_given_environments, 'description':self._description }])
             Pipes.join(workitems, unfinished, process, Foreach(sink)).run()
         except KeyboardInterrupt as e: # pragma: no cover
             CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")

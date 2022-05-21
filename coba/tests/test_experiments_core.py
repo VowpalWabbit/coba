@@ -156,7 +156,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3}
         ]
 
-        self.assertDictEqual({"n_learners":1, "n_environments":1}, result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -165,7 +165,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
-        experiment = Experiment([sim1,sim2], [learner], evaluation_task=OnlineOnPolicyEvalTask(False))
+        experiment = Experiment([sim1,sim2], [learner], "abc", evaluation_task=OnlineOnPolicyEvalTask(False))
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_dicts()
@@ -187,7 +187,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":1, "learner_id":0, "index":3, "reward":5, "min_reward":3, "max_reward":5, 'min_rank':1, 'max_rank':3, "rank":1, "n_actions":3}
         ]
 
-        self.assertDictEqual({"n_learners":1, "n_environments":2}, result.experiment)
+        self.assertDictEqual({"description":"abc", "n_learners":1, "n_environments":2}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -213,12 +213,12 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         ]
 
-        actual_result       = experiment.evaluate()
-        actual_learners     = actual_result._learners.to_dicts()
-        actual_environments = actual_result._environments.to_dicts()
-        actual_interactions = actual_result.interactions.to_dicts()
+        result              = experiment.evaluate()
+        actual_learners     = result._learners.to_dicts()
+        actual_environments = result._environments.to_dicts()
+        actual_interactions = result.interactions.to_dicts()
 
-        self.assertDictEqual({"n_learners":2, "n_environments":1}, actual_result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":2, "n_environments":1}, result.experiment)
         self.assertEqual(actual_learners, expected_learners)
         self.assertEqual(actual_environments, expected_environments)
         self.assertEqual(actual_interactions, expected_interactions)
@@ -244,7 +244,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3, "Modulo":"0"},
         ]
 
-        self.assertDictEqual({"n_learners":1, "n_environments":1}, actual_result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, actual_result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -271,7 +271,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
         ]
 
-        self.assertDictEqual({"n_learners":1, "n_environments":1}, actual_result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, actual_result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -304,7 +304,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
         ]
 
-        self.assertDictEqual({"n_learners":1, "n_environments":1}, second_result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, second_result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -330,7 +330,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":2, "reward":1, "min_reward":0, "max_reward":2, 'min_rank':1, 'max_rank':3, "rank":2, "n_actions":3},
         ]
 
-        self.assertDictEqual({"n_learners":1, "n_environments":1}, result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -367,7 +367,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertEqual(2, sum([int("Unexpected exception:" in item) for item in CobaContext.logger.sink.items]))
 
-        self.assertDictEqual({"n_learners":2, "n_environments":2}, result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":2, "n_environments":2}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
