@@ -1096,8 +1096,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners()
 
         expected_lines = [
-            ([1,2],[1,1.5],None,"#1f77b4",1,'learner_1'),
-            ([1,2],[1,1.5],None,"#ff7f0e",1,'learner_2')
+            ([1,2],[1,1.5],None,0,1,'learner_1'),
+            ([1,2],[1,1.5],None,1,1,'learner_2')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1120,8 +1120,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners()
 
         expected_lines = [
-            ([1,2],[3/2,4/2],None,"#1f77b4",1,'learner_1'),
-            ([1,2],[3/2,4/2],None,"#ff7f0e",1,'learner_2')
+            ([1,2],[3/2,4/2],None,0,1,'learner_1'),
+            ([1,2],[3/2,4/2],None,1,1,'learner_2')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1144,8 +1144,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(err='sd')
 
         expected_lines = [
-            ([1,2],[3/2,4/2],[1/2,1/2],"#1f77b4",1,'learner_1'),
-            ([1,2],[3/2,4/2],[1/2,1/2],"#ff7f0e",1,'learner_2')
+            ([1,2],[3/2,4/2],[1/2,1/2],0,1,'learner_1'),
+            ([1,2],[3/2,4/2],[1/2,1/2],1,1,'learner_2')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1171,8 +1171,8 @@ class Result_Tests(unittest.TestCase):
 
         expected_log = "This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this warning in the future call <result>.filter_fin() before plotting."
         expected_lines = [
-            ([1,2],[2,5/2],None,"#1f77b4",1,'learner_1'),
-            ([1,2],[2,5/2],None,"#ff7f0e",1,'learner_2')
+            ([1,2],[2,5/2],None,0,1,'learner_1'),
+            ([1,2],[2,5/2],None,1,1,'learner_2')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1200,8 +1200,8 @@ class Result_Tests(unittest.TestCase):
 
         expected_log = "The result contains environments of different lengths. The plot only includes data which is present in all environments. To only plot environments with a minimum number of interactions call <result>.filter_fin(n_interactions)."
         expected_lines = [
-            ([1,2],[3/2,4/2],None,"#1f77b4",1,'learner_1'),
-            ([1,2],[3/2,4/2],None,"#ff7f0e",1,'learner_2')
+            ([1,2],[3/2,4/2],None,0,1,'learner_1'),
+            ([1,2],[3/2,4/2],None,1,1,'learner_2')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1228,13 +1228,13 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(sort='y')
 
         sort0 = [
-            ([1,2],[3/2,5/2],None,"#1f77b4",1,'learner_1'),
-            ([1,2],[3/2,4/2],None,"#ff7f0e",1,'learner_2')
+            ([1,2],[3/2,5/2],None,0,1,'learner_1'),
+            ([1,2],[3/2,4/2],None,1,1,'learner_2')
         ]
 
         sort1 = [
-            ([1,2],[3/2,4/2],None,"#1f77b4",1,'learner_2'),
-            ([1,2],[3/2,5/2],None,"#ff7f0e",1,'learner_1')
+            ([1,2],[3/2,4/2],None,0,1,'learner_2'),
+            ([1,2],[3/2,5/2],None,1,1,'learner_1')
         ]
 
         self.assertEqual(3, len(plotter.plot_calls))
@@ -1260,12 +1260,12 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(each=True)
 
         expected_lines = [
-            ([1,2],[1.5,2],None,"#1f77b4",1,'learner_1'),
-            ([1,2],[1,1.5],None,"#1f77b4",.15,None),
-            ([1,2],[2,2.5],None,"#1f77b4",.15,None),
-            ([1,2],[1.5,2],None,"#ff7f0e",1,'learner_2'),
-            ([1,2],[1,1.5],None,"#ff7f0e",.15,None),
-            ([1,2],[2,2.5],None,"#ff7f0e",.15,None)
+            ([1,2],[1.5,2],None,0,1,'learner_1'),
+            ([1,2],[1,1.5],None,0,.15,None),
+            ([1,2],[2,2.5],None,0,.15,None),
+            ([1,2],[1.5,2],None,1,1,'learner_2'),
+            ([1,2],[1,1.5],None,1,.15,None),
+            ([1,2],[2,2.5],None,1,.15,None)
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1345,8 +1345,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(labels=['a','b'])
 
         expected_lines = [
-            ([1,2],[3/2,4/2],None,"#1f77b4",1,'a'),
-            ([1,2],[3/2,4/2],None,"#ff7f0e",1,'b')
+            ([1,2],[3/2,4/2],None,0,1,'a'),
+            ([1,2],[3/2,4/2],None,1,1,'b')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))

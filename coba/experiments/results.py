@@ -565,6 +565,8 @@ class MatplotlibPlotter(Plotter):
         PackageChecker.matplotlib('Result.plot_learners')
         import matplotlib.pyplot as plt #type: ignore
 
+        color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
         ax: plt.Axes
         show = ax is None
 
@@ -593,6 +595,8 @@ class MatplotlibPlotter(Plotter):
                 else:
                     XYE = [(x,y,e) for x,y,e in zip(X,Y,E) if in_lim(x,xlim) and in_lim(y,ylim)]
                     X,Y,E = map(list,zip(*XYE)) if XYE else ([],[],[])
+
+                if isinstance(c,int): c = color_cycle[c]
 
                 if X and Y:
                     if E is None:
@@ -808,19 +812,15 @@ class Result:
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
-        PackageChecker.matplotlib('Result.plot_learners')
-        import matplotlib.pyplot as plt #type: ignore
-
         n_envs = float('inf')
         given_labels = labels
-        given_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
         lines = []
 
         for i, (label, X, Y, E, Z) in enumerate(self._plot_learners_data(y,span,err,sort)):
 
             n_envs = min(n_envs, len(Z[0]))
-            color  = given_colors[i]
+            color  = i
             label  = given_labels[i] if i < len(given_labels) else label
 
             lines.append( (X, Y, E, color, 1, label) )
