@@ -603,6 +603,13 @@ class TransactionIO_Tests(unittest.TestCase):
 
 class Result_Tests(unittest.TestCase):
 
+    def test_set_plotter(self):
+        result = Result()
+        
+        self.assertIsNotNone(result._plotter)
+        result.set_plotter(None)
+        self.assertIsNone(result._plotter)
+
     def test_has_interactions_key(self):
 
         result = Result({}, {}, {(0,1): {"_packed":{"reward":[1,1]}},(0,2):{"_packed":{"reward":[1,1]}}})
@@ -1149,7 +1156,7 @@ class Result_Tests(unittest.TestCase):
                 result.plot_learners()
 
                 self.assertEqual(0, plt_figure().add_subplot.call_count)
-                self.assertEqual([f"No data was found for plotting in the given results: {result}."], CobaContext.logger.sink.items)
+                self.assertEqual([f"No data was found for plotting in the given results."], CobaContext.logger.sink.items)
 
 if __name__ == '__main__':
     unittest.main()

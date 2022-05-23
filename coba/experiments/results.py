@@ -7,6 +7,7 @@ from pathlib import Path
 from numbers import Number
 from statistics import mean
 from operator import truediv
+from abc import abstractmethod
 from itertools import chain, repeat, accumulate
 from typing import Any, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Set, Callable
 from coba.backports import Literal
@@ -525,6 +526,86 @@ class TransactionIO(Source['Result'], Sink[Any]):
     def read(self) -> 'Result':
         return self._transactionIO.read()
 
+class Plotter:
+    @abstractmethod
+    def plot(self,
+        ax,
+        lines: Sequence[Tuple[Sequence[float], Sequence[float], Optional[Sequence[float]], str, float, Optional[str]]],
+        title: str,
+        xlabel: str,
+        ylabel: str,
+        xlim: Optional[Tuple[Number,Number]],
+        ylim: Optional[Tuple[Number,Number]],
+        filename: Optional[str]) -> None:
+        pass
+
+class MatplotlibPlotter(Plotter):
+    
+    def plot(self,
+        ax,
+        lines: Sequence[Tuple[Sequence[float], Sequence[float], Optional[Sequence[float]], str, float, Optional[str]]],
+        title: str,
+        xlabel: str,
+        ylabel: str,
+        xlim: Optional[Tuple[Number,Number]],
+        ylim: Optional[Tuple[Number,Number]],
+        filename: Optional[str]
+    ) -> None:
+
+        PackageChecker.matplotlib('Result.plot_learners')
+        import matplotlib.pyplot as plt #type: ignore
+
+        ax: plt.Axes
+        show = ax is None
+
+        if not lines:
+            CobaContext.logger.log(f"No data was found for plotting in the given results.")
+
+        else:
+            ax = ax or plt.figure(figsize=(10,4)).add_subplot(111) #type: ignore
+
+            for X, Y, E, c, a, l in lines:    
+
+                if E is None:
+                    ax.plot(X, Y, color=c, alpha=a, label=l)
+                else:
+                    ax.errorbar(X, Y, yerr=E, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), color=c, alpha=a, label=l)
+
+            padding = .05
+            ax.margins(0)
+            ax.set_xticks([min(ax.get_xlim()[1], max(ax.get_xlim()[0],x)) for x in ax.get_xticks()])
+            ax.margins(padding)
+
+            if xlim:
+                x_pad = padding*(xlim[1]-xlim[0])
+                ax.set_xlim(xlim[0]-x_pad, xlim[1]+x_pad)
+
+            if ylim:
+                y_pad = padding*(ylim[1]-ylim[0])
+                ax.set_ylim(ylim[0]-y_pad, ylim[1]+y_pad)
+
+            ax.set_title(title, loc='left', pad=15)
+            ax.set_ylabel(ylabel)
+            ax.set_xlabel(xlabel)
+
+            if ax.get_legend() is None:
+                scale = 0.65
+                box1 = ax.get_position()
+                ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
+            else:
+                ax.get_legend().remove()
+
+            ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium') #type: ignore
+
+            if show:
+                plt.show()
+                plt.close()
+
+            if filename:
+                plt.tight_layout()
+                plt.savefig(filename, dpi=300)
+                plt.close()
+
 class Result:
     """A class representing the result of an Experiment."""
 
@@ -558,6 +639,8 @@ class Result:
         self._learners     = Table            ("Learners"    , ['learner_id'                  ], lrn_flat, ["family","shuffle","take"])
         self._interactions = InteractionsTable("Interactions", ['environment_id', 'learner_id'], int_flat, ["index","reward"])
 
+        self._plotter = MatplotlibPlotter()
+
     @property
     def learners(self) -> Table:
         """The collection of learners used in the Experiment.
@@ -583,6 +666,10 @@ class Result:
         moving average for interactions ordered by index and grouped by environment_id and learner_id.
         """
         return self._interactions
+
+    def set_plotter(self, plotter: Plotter) -> None:
+        """Manually set the underlying plotting tool. By default matplotlib is used though this can be changed."""
+        self._plotter = plotter
 
     def copy(self) -> 'Result':
         """Create a copy of Result."""
@@ -695,65 +782,28 @@ class Result:
         PackageChecker.matplotlib('Result.plot_learners')
         import matplotlib.pyplot as plt #type: ignore
 
-        show = ax is None
-        n_environments = []
-
+        n_envs = float('inf')
         given_labels = labels
+        given_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-        for i, (label, X, Y, yerr, Z) in enumerate(self._plot_learners_data(y,xlim,span,err,sort)):
+        lines = []
 
-            ax = ax or plt.figure(figsize=(10,6)).add_subplot(111) #type: ignore
+        for i, (label, X, Y, E, Z) in enumerate(self._plot_learners_data(y,xlim,span,err,sort)):
 
-            color = next(ax._get_lines.prop_cycler)['color']
+            n_envs = min(n_envs, len(Z[0]))
+            color  = given_colors[i]
+            label  = given_labels[i] if i < len(given_labels) else label
 
-            label = given_labels[i] if i < len(given_labels) else label
+            lines.append( (X, Y, E, color, 1, label) )
 
-            ax.errorbar(X, Y, yerr=yerr, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), label=label, color=color)
+            if each: 
+                lines.extend(zip(repeat(X), zip(*Z), repeat(None), repeat(color), repeat(0.15), repeat(None)))
 
-            n_environments.append(len(Z[0]))
+        xlabel = "Interactions"
+        ylabel = y.capitalize().replace("_pct"," Percent")
+        title  = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel} ({n_envs} Environments)"
 
-            if each:
-                for Y in list(zip(*Z)):
-                    ax.plot(X,Y, color=color, alpha=0.15)
-
-        if ax is None:
-            CobaContext.logger.log(f"No data was found for plotting in the given results: {self}.")
-        else:
-            padding = .05
-            ax.margins(0)
-            ax.set_xticks([min(ax.get_xlim()[1], max(ax.get_xlim()[0],x)) for x in ax.get_xticks()])
-            ax.margins(padding)
-
-            if xlim:
-                x_pad = padding*(xlim[1]-xlim[0])
-                ax.set_xlim(xlim[0]-x_pad, xlim[1]+x_pad)
-
-            if ylim:
-                y_pad = padding*(ylim[1]-ylim[0])
-                ax.set_ylim(ylim[0]-y_pad, ylim[1]+y_pad)
-
-            y_label = y.capitalize().replace("_pct"," Percent")
-
-            ax.set_title(("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {y_label} ({mean(n_environments)} Environments)", loc='left',pad=15)
-            ax.set_ylabel(y_label)
-            ax.set_xlabel("Interactions")
-
-            if ax.get_legend() is None:
-                scale = 0.65
-                box1 = ax.get_position()
-                ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
-            else:
-                ax.get_legend().remove()
-
-            ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium') #type: ignore
-
-            if show:
-                plt.show()
-                plt.close()
-
-            if filename:
-                plt.savefig(filename, dpi=300)
-                plt.close()
+        self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, filename)
 
     def _plot_learners_data(self,
         y   : Literal['reward','reward_pct','rank','rank_pct','regret','regret_pct'] = "reward",
