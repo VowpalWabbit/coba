@@ -246,7 +246,7 @@ class Table:
 
 class InteractionsTable(Table):
 
-    def to_progressive_lists(self,
+    def to_progressive_dicts(self,
         span: int = None,
         each: bool = False,
         order: str = "index",
@@ -264,7 +264,7 @@ class InteractionsTable(Table):
         Returns:
             Either [[learner_id, col progressive means...],...] or [[learner_id, environment_id, col progressive means...],...].
         """
-        lrn_sim_rows = []
+        lrn_env_rows = []
 
         value_functions = {
             'reward_pct': lambda interactions: [r/m for r,m in zip(interactions['reward'],interactions['max_reward'])],
@@ -301,21 +301,25 @@ class InteractionsTable(Table):
                     cumwindow.append(moving_sum)
                     cumdivisor.append(min(span,add_i+1))
 
-                #highly-performant way to calucate exponential moving average identical to Pandas df.ewm(span=span).mean()
+                #efficient way to calucate exponential moving average identical to Pandas df.ewm(span=span).mean()
                 #alpha = 2/(1+span)
                 #cumwindow  = list(accumulate(values          , lambda a,c: c + (1-alpha)*a))
                 #cumdivisor = list(accumulate([1.]*len(values), lambda a,c: c + (1-alpha)*a)) #type: ignore
 
-            lrn_sim_rows.append([interactions["learner_id"], interactions["environment_id"], *list(map(truediv, cumwindow, cumdivisor))])
+            lrn_env_rows.append( {
+                "learner_id"    : interactions["learner_id"], 
+                "environment_id": interactions["environment_id"], 
+                "values"        : list(map(truediv, cumwindow, cumdivisor))
+            })
 
         if each:
-            return lrn_sim_rows
+            return lrn_env_rows
 
         else:
             grouped_lrn_sim_rows = collections.defaultdict(list)
 
-            for row in lrn_sim_rows:
-                grouped_lrn_sim_rows[row[0]].append(row[2:])
+            for row in lrn_env_rows:
+                grouped_lrn_sim_rows[row["learner_id"]].append(row["values"])
 
             lrn_rows = []
 
@@ -327,7 +331,7 @@ class InteractionsTable(Table):
 
                 Y = [ sum(z)/len(z) for z in Z ]
 
-                lrn_rows.append([learner_id, *Y])
+                lrn_rows.append({"learner_id":learner_id, "values": Y})
 
             return lrn_rows
 
@@ -350,7 +354,13 @@ class InteractionsTable(Table):
 
         import pandas as pd
 
-        data = self.to_progressive_lists(span, each, ord_col, val_col)
+        data = []
+
+        for d in self.to_progressive_dicts(span, each, ord_col, val_col):
+            if each:
+                data.append([d["learner_id"], d["environment_id"], *d["values"]])
+            if not each:
+                data.append([d["learner_id"], *d["values"]])
 
         if each:
             n_index = len(data[0][2:])
@@ -558,18 +568,37 @@ class MatplotlibPlotter(Plotter):
         ax: plt.Axes
         show = ax is None
 
-        if not lines:
-            CobaContext.logger.log(f"No data was found for plotting in the given results.")
+        bad_xlim  = xlim and xlim[0] is not None and xlim[1] is not None and xlim[0] >= xlim[1]
+        bad_ylim  = ylim and ylim[0] is not None and ylim[1] is not None and ylim[0] >= ylim[1]
+        bad_lines = not lines
 
+        if bad_xlim or bad_ylim or bad_lines:
+            if bad_xlim:
+                CobaContext.logger.log("The xlim end is less than the xlim start. Plotting is impossible.")
+            if bad_ylim:
+                CobaContext.logger.log("The ylim end is less than the ylim start. Plotting is impossible.")
+            if bad_lines:
+                CobaContext.logger.log(f"No data was found for plotting in the given results.")
         else:
             ax = ax or plt.figure(figsize=(10,4)).add_subplot(111) #type: ignore
 
-            for X, Y, E, c, a, l in lines:    
+            in_lim = lambda v,lim: lim is None or ((lim[0] or -float('inf')) <= v and v <= (lim[1] or float('inf')))
 
-                if E is None:
-                    ax.plot(X, Y, color=c, alpha=a, label=l)
+            for X, Y, E, c, a, l in lines:
+
+                # we remove values outside of the given lims because matplotlib won't correctly scale otherwise
+                if not E:
+                    XY = [(x,y) for x,y in zip(X,Y) if in_lim(x,xlim) and in_lim(y,ylim)]
+                    X,Y = map(list,zip(*XY)) if XY else ([],[])
                 else:
-                    ax.errorbar(X, Y, yerr=E, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), color=c, alpha=a, label=l)
+                    XYE = [(x,y,e) for x,y,e in zip(X,Y,E) if in_lim(x,xlim) and in_lim(y,ylim)]
+                    X,Y,E = map(list,zip(*XYE)) if XYE else ([],[],[])
+
+                if X and Y:
+                    if E is None:
+                        ax.plot(X, Y, color=c, alpha=a, label=l)
+                    else:
+                        ax.errorbar(X, Y, yerr=E, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), color=c, alpha=a, label=l)
 
             padding = .05
             ax.margins(0)
@@ -588,7 +617,7 @@ class MatplotlibPlotter(Plotter):
             ax.set_ylabel(ylabel)
             ax.set_xlabel(xlabel)
 
-            if ax.get_legend() is None:
+            if ax.get_legend() is None: #pragma: no cover
                 scale = 0.65
                 box1 = ax.get_position()
                 ax.set_position([box1.x0, box1.y0 + box1.height * (1-scale), box1.width, box1.height * scale])
@@ -788,7 +817,7 @@ class Result:
 
         lines = []
 
-        for i, (label, X, Y, E, Z) in enumerate(self._plot_learners_data(y,xlim,span,err,sort)):
+        for i, (label, X, Y, E, Z) in enumerate(self._plot_learners_data(y,span,err,sort)):
 
             n_envs = min(n_envs, len(Z[0]))
             color  = given_colors[i]
@@ -797,7 +826,7 @@ class Result:
             lines.append( (X, Y, E, color, 1, label) )
 
             if each: 
-                lines.extend(zip(repeat(X), zip(*Z), repeat(None), repeat(color), repeat(0.15), repeat(None)))
+                lines.extend(zip(repeat(X), map(list,zip(*Z)), repeat(None), repeat(color), repeat(0.15), repeat(None)))
 
         xlabel = "Interactions"
         ylabel = y.capitalize().replace("_pct"," Percent")
@@ -807,35 +836,34 @@ class Result:
 
     def _plot_learners_data(self,
         y   : Literal['reward','reward_pct','rank','rank_pct','regret','regret_pct'] = "reward",
-        xlim: Tuple[Number,Number] = None,
         span: int = None,
         err : Literal['se','sd'] = None,
         sort: Literal['name',"id","y"] = "y"):
 
-        if xlim and xlim[0] >= xlim[1]:
-            CobaContext.logger.log("The xlim end is less than the xlim start. Plotting is impossible.")
+        prog_by_lrn: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
+        prog_by_lrn_env = self.interactions.to_progressive_dicts(span=span, each=True, value=y)
 
-        first_length = None
-        mixed_length = False
-        progressives: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
+        #TODO: only include env_ids that are present for all learners
+        lrn_id_count   = len(set([ d['learner_id'] for d in prog_by_lrn_env ]))
+        env_id_counts  = collections.Counter([ d['environment_id'] for d in prog_by_lrn_env ])
+        val_len_counts = collections.Counter([ len(d['values'])    for d in prog_by_lrn_env ])
 
-        for progressive in self.interactions.to_progressive_lists(span=span, each=True, order="index", value=y):
-            if not xlim or not xlim[1] or len(progressive[2:]) >= xlim[1]:
-                progressives[progressive[0]].append(progressive[2:])
-                first_length = first_length or len(progressive[2:])
-            if (not xlim or not xlim[1]) and first_length and len(progressive[2:]) != first_length:
-               mixed_length = True
+        if len(set(env_id_counts.values())) > 1:
+            CobaContext.logger.log("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this warning in the future call <result>.filter_fin() before plotting.") 
 
-        if mixed_length:
+        if len(val_len_counts) > 1:
             CobaContext.logger.log("The result contains environments of different lengths. The plot only includes data which is present in all environments. To only plot environments with a minimum number of interactions call <result>.filter_fin(n_interactions).")
 
-        if progressives and (not xlim or xlim[0] < xlim[1]):
+        for progressive in prog_by_lrn_env:
+            if env_id_counts[progressive['environment_id']] == lrn_id_count:
+                prog_by_lrn[progressive["learner_id"]].append(progressive["values"])
 
+        if prog_by_lrn:
             if sort == "name":
                 sort_func = lambda id: self.learners[id]["full_name"]
 
             if sort == "y":
-                sort_func = lambda id: -sum(list(zip(*progressives[id]))[-1])
+                sort_func = lambda id: -sum(list(zip(*prog_by_lrn[id]))[-1])
 
             if sort == "id":
                 sort_func = lambda id: id
@@ -843,33 +871,33 @@ class Result:
             for learner_id in sorted(self.learners.keys, key=sort_func):
 
                 label = self._learners[learner_id]["full_name"]
-                Z     = list(zip(*progressives[learner_id]))
+                Z     = list(zip(*prog_by_lrn[learner_id]))
 
-                if not Z: continue
+                if not Z or not Z[0]: continue
 
-                N     = [ len(z) for z in Z        ]
-                Y     = [ sum(z)/len(z) for z in Z ]
-                X     = list(range(1,len(Y)+1))
+                Y = [ sum(z)/len(z) for z in Z ]
+                X = list(range(1,len(Y)+1))
+                E = self._yerr(Z, err)
 
-                start,end = xlim if xlim else (0,len(X))
+                yield label, X, Y, E, Z
 
-                X = X[start:end]
-                Y = Y[start:end]
-                Z = Z[start:end]
+    def _yerr(self, Z: Sequence[Sequence[float]], err: Literal['sd','se']):
+        
+        err = err.lower() if err else err
+        
+        N = [ len(z) for z in Z        ]
+        Y = [ sum(z)/len(z) for z in Z ]
 
-                if len(X) == 0: continue
+        #this is much faster than python's native stdev
+        #and more or less free computationally so we always
+        #calculate it regardless of if they are showing them
+        #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
+        
+        Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z            ]
+        SD = [ (round(y2-y**2,8))**(1/2)       for y2,y in zip(Y2,Y) ]
+        SE = [ sd/(n**(1/2))                   for sd,n in zip(SD,N) ]
 
-                #this is much faster than python's native stdev
-                #and more or less free computationally so we always
-                #calculate it regardless of if they are showing them
-                #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
-                Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z            ]
-                SD = [ (round(y2-y**2,8))**(1/2)       for y2,y in zip(Y2,Y) ]
-                SE = [ sd/(n**(1/2))                   for sd,n in zip(SD,N) ]
-
-                yerr = 0 if err is None else SE if err.lower() == 'se' else SD if err.lower() == 'sd' else 0
-
-                yield label, X, Y, yerr, Z
+        return SE if err == 'se' else SD if err == 'sd' else None
 
     def __str__(self) -> str:
         return str({ "Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })
