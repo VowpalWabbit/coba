@@ -138,6 +138,7 @@ class Environments:
     @staticmethod
     def from_openml(data_id: Union[int,Sequence[int]],
         cat_as_str: bool = False,
+        drop_missing: bool = True,
         take: int = None) -> 'Environments':
         ...
 
@@ -145,6 +146,7 @@ class Environments:
     @staticmethod
     def from_openml(*,task_id: Union[int,Sequence[int]],
         cat_as_str: bool = False,
+        drop_missing: bool = True,
         take: int = None) -> 'Environments':
         ...
 
@@ -152,7 +154,7 @@ class Environments:
     def from_openml(*args,**kwargs) -> 'Environments':
         """Create a SimulatedEnvironment from datasets available on openml."""
 
-        kwargs.update(zip(['data_id','cat_as_str','take'], args))
+        kwargs.update(zip(['data_id','cat_as_str','drop_missing','take'], args))
 
         if 'data_id' in kwargs and isinstance(kwargs['data_id'],int):
             kwargs['data_id'] = [kwargs['data_id']]
