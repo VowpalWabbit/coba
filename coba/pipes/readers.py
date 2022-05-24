@@ -354,9 +354,11 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
                     while item.rstrip()[-1] != q or item.rstrip()[-2]=="\\":
                         item += next(items)
 
-                    item = item.rstrip()[1:-1].replace("\\",'')
+                    item = item.strip().rstrip()[1:-1].replace("\\",'')
+                else:
+                    item.strip()
 
-                yield item.strip()
+                yield item
 
             yield "".join(items).strip()
         except StopIteration:
