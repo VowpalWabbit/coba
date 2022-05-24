@@ -293,7 +293,7 @@ class ArffReader_Tests(unittest.TestCase):
             [2,3,None]
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(ArffReader(missing_value=None).filter(lines)))
 
     def test_dense_with_empty_lines(self):
         lines = [

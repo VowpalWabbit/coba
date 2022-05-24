@@ -147,7 +147,8 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
         cat_as_str: bool =False,
         skip_encoding: bool = False,
         lazy_encoding: bool = True,
-        header_indexing: bool = True):
+        header_indexing: bool = True,
+        missing_value: Any = float('nan')):
         """Instantiate an ArffReader.
 
         Args:
@@ -155,6 +156,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             skip_encoding: Indicates that features should not be encoded (this means all features will be strings).
             lazy_encoding: Indicates that features should be encoded lazily (this can save time if rows will be dropped).
             header_indexing: Indicates that header data should be preserved so rows can be indexed by header name.
+            missing_value: The value to replace missing values with
         """
 
         self._quotes = '"'+"'"
@@ -163,6 +165,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
         self._skip_encoding   = skip_encoding
         self._lazy_encoding   = lazy_encoding
         self._header_indexing = header_indexing
+        self._missing_value   = missing_value
 
     def filter(self, source: Iterable[str]) -> Iterable[Union[MutableSequence,MutableMapping]]:
         headers  : List[str    ] = []
@@ -199,16 +202,15 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
         numeric_types = ('numeric', 'integer', 'real')
         string_types  = ("string", "date", "relational")
         r_comma       = None
-        identity      = lambda x: None if x=="?" else x.strip()
 
         for encoding in encodings:
 
             if self._skip_encoding:
-                yield identity
+                yield lambda x: self._missing_value if x=="?" else x.strip()
             elif encoding.lower() in numeric_types:
-                yield lambda x: None if x=="?" else float(x)
+                yield lambda x: self._missing_value if x=="?" else float(x)
             elif encoding.lower().startswith(string_types):
-                yield identity
+                yield lambda x: self._missing_value if x=="?" else x.strip()
             elif encoding.startswith('{'):
                 r_comma = r_comma or re.compile("(,)")
                 categories = list(self._pattern_split(encoding[1:-1], r_comma))
@@ -222,7 +224,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
                 def encoder(x:str,cats=categories,get=OneHotEncoder(categories)._onehots.__getitem__):
 
                     if x =="?":
-                        return None
+                        return self._missing_value
 
                     #if x not in cats and x[0] in self._quotes and x[0]==x[-1] and len(x) > 1:
                     #    x = x[1:-1]

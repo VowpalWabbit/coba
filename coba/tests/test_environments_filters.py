@@ -445,6 +445,37 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(1  , scl_interactions[2].context[0])
         self.assertTrue(isnan(scl_interactions[2].context[1]))
 
+    def test_scale_min_and_minmax_with_str_and_nan(self):
+
+        nan = float('nan')
+
+        interactions = [
+            LoggedInteraction((7,2  , 'A'), 1, 1),
+            LoggedInteraction((1,9  , 'B'), 1, 1),
+            LoggedInteraction((8,nan, nan), 1, 1)
+        ]
+
+        mem_interactions = interactions
+        scl_interactions = list(Scale("min","minmax").filter(interactions))
+
+        self.assertEqual((7,2,'A'), mem_interactions[0].context)
+        self.assertEqual((1,9,'B'), mem_interactions[1].context)
+        self.assertEqual(8,   mem_interactions[2].context[0] )
+        self.assertTrue(isnan(mem_interactions[2].context[1]))
+        self.assertTrue(isnan(mem_interactions[2].context[2]))
+
+        self.assertEqual(3, len(scl_interactions))
+
+        self.assertIsInstance(scl_interactions[0], LoggedInteraction)
+        self.assertIsInstance(scl_interactions[1], LoggedInteraction)
+        self.assertIsInstance(scl_interactions[2], LoggedInteraction)
+
+        self.assertEqual((6/7,0,'A'), scl_interactions[0].context)
+        self.assertEqual((0  ,1,'B'), scl_interactions[1].context)
+        self.assertEqual(1,   scl_interactions[2].context[0])
+        self.assertTrue(isnan(scl_interactions[2].context[1]))
+        self.assertTrue(isnan(scl_interactions[2].context[2]))
+
     def test_scale_min_and_minmax_with_mixed(self):
 
         interactions = [
@@ -490,8 +521,10 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction({0:8  , 1:"B", 2:1, 3:"C"}, [1], [1])
         ]
 
-        with self.assertRaises(CobaException):
+        with self.assertRaises(CobaException) as e:
             list(Scale("min","minmax").filter(interactions))
+
+        self.assertIn("Shift is required to be 0 for sparse environments", str(e.exception))
 
     def test_scale_min_and_minmax_with_None(self):
 

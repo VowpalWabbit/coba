@@ -103,7 +103,9 @@ class Scale(EnvironmentFilter):
                     is_numeric = isinstance(value,Number)
                     is_nan     = is_numeric and isnan(value)
 
-                    if (not is_numeric and name in unscaled) or (is_numeric and name in had_non_numeric):
+                    if is_nan:
+                        pass
+                    elif (not is_numeric and name in unscaled) or (is_numeric and name in had_non_numeric):
                         mixed.add(name)
                         if name in unscaled: del unscaled[name]
                         if name in had_non_numeric: had_non_numeric.remove(name)
