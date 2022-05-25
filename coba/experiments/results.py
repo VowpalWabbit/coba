@@ -5,10 +5,9 @@ import collections.abc
 from copy import copy
 from pathlib import Path
 from numbers import Number
-from statistics import mean
 from operator import truediv
 from abc import abstractmethod
-from itertools import chain, repeat, accumulate
+from itertools import chain, repeat, accumulate, count
 from typing import Any, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Set, Callable
 from coba.backports import Literal
 
@@ -16,6 +15,8 @@ from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.pipes import Pipes, Sink, Source, JsonEncode, JsonDecode, DiskSource, DiskSink, ListSource, ListSink, Foreach
+
+Line = Tuple[Sequence[float], Sequence[float], Optional[Sequence[float]], str, float, Optional[str]]
 
 class Table:
     """A container class for storing tabular data."""
@@ -540,7 +541,7 @@ class Plotter:
     @abstractmethod
     def plot(self,
         ax,
-        lines: Sequence[Tuple[Sequence[float], Sequence[float], Optional[Sequence[float]], str, float, Optional[str]]],
+        lines: Sequence[Line],
         title: str,
         xlabel: str,
         ylabel: str,
@@ -553,7 +554,7 @@ class MatplotlibPlotter(Plotter):
     
     def plot(self,
         ax,
-        lines: Sequence[Tuple[Sequence[float], Sequence[float], Optional[Sequence[float]], str, float, Optional[str]]],
+        lines: Sequence[Line],
         title: str,
         xlabel: str,
         ylabel: str,
@@ -812,92 +813,78 @@ class Result:
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
-        n_envs = float('inf')
-        given_labels = labels
-
         lines = []
-
-        for i, (label, X, Y, E, Z) in enumerate(self._plot_learners_data(y,span,err,sort)):
-
-            n_envs = min(n_envs, len(Z[0]))
-            color  = i
-            label  = given_labels[i] if i < len(given_labels) else label
-
-            lines.append( (X, Y, E, color, 1, label) )
-
-            if each: 
-                lines.extend(zip(repeat(X), map(list,zip(*Z)), repeat(None), repeat(color), repeat(0.15), repeat(None)))
-
-        xlabel = "Interactions"
-        ylabel = y.capitalize().replace("_pct"," Percent")
-        title  = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel} ({n_envs} Environments)"
-
-        self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, filename)
-
-    def _plot_learners_data(self,
-        y   : Literal['reward','reward_pct','rank','rank_pct','regret','regret_pct'] = "reward",
-        span: int = None,
-        err : Literal['se','sd'] = None,
-        sort: Literal['name',"id","y"] = "y"):
 
         prog_by_lrn: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
         prog_by_lrn_env = self.interactions.to_progressive_dicts(span=span, each=True, value=y)
 
-        #TODO: only include env_ids that are present for all learners
-        lrn_id_count   = len(set([ d['learner_id'] for d in prog_by_lrn_env ]))
+        lrn_id_count   = len(set(d['learner_id']                   for d in prog_by_lrn_env ))
         env_id_counts  = collections.Counter([ d['environment_id'] for d in prog_by_lrn_env ])
         val_len_counts = collections.Counter([ len(d['values'])    for d in prog_by_lrn_env ])
+        full_env_ids   = [ id for id,count in env_id_counts.items() if count == lrn_id_count ]
 
-        if len(set(env_id_counts.values())) > 1:
+        if len(full_env_ids) != len(env_id_counts):
             CobaContext.logger.log("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this warning in the future call <result>.filter_fin() before plotting.") 
 
         if len(val_len_counts) > 1:
             CobaContext.logger.log("The result contains environments of different lengths. The plot only includes data which is present in all environments. To only plot environments with a minimum number of interactions call <result>.filter_fin(n_interactions).")
 
         for progressive in prog_by_lrn_env:
-            if env_id_counts[progressive['environment_id']] == lrn_id_count:
+            if progressive['environment_id'] in full_env_ids:
                 prog_by_lrn[progressive["learner_id"]].append(progressive["values"])
 
-        if prog_by_lrn:
-            if sort == "name":
-                sort_func = lambda id: self.learners[id]["full_name"]
+        for i, learner_id in enumerate(sorted(prog_by_lrn.keys())):
 
-            if sort == "y":
-                sort_func = lambda id: -sum(list(zip(*prog_by_lrn[id]))[-1])
+            label = self._learners[learner_id]["full_name"]
+            Z     = list(zip(*prog_by_lrn[learner_id]))
 
-            if sort == "id":
-                sort_func = lambda id: id
+            #if not Z or not Z[0]: continue
 
-            for learner_id in sorted(self.learners.keys, key=sort_func):
+            X = list(range(1,len(Z)+1))
+            Y = [ sum(z)/len(z) for z in Z ]
+            E = [self._yerr(z, err) for z in Z] if err else None
 
-                label = self._learners[learner_id]["full_name"]
-                Z     = list(zip(*prog_by_lrn[learner_id]))
+            color = i
+            label = labels[i] if i < len(labels) else label
 
-                if not Z or not Z[0]: continue
+            lines.append( (X, Y, E, color, 1, label) )
 
-                Y = [ sum(z)/len(z) for z in Z ]
-                X = list(range(1,len(Y)+1))
-                E = self._yerr(Z, err)
+            if each: 
+                lines.extend(zip(repeat(X), map(list,zip(*Z)), repeat(None), repeat(color), repeat(0.15), repeat(None)))
 
-                yield label, X, Y, E, Z
+        lines = sorted(lines, key=self._sort_func(sort))
 
-    def _yerr(self, Z: Sequence[Sequence[float]], err: Literal['sd','se']):
-        
-        err = err.lower() if err else err
-        
-        N = [ len(z) for z in Z        ]
-        Y = [ sum(z)/len(z) for z in Z ]
+        xlabel = "Interactions"
+        ylabel = y.capitalize().replace("_pct"," Percent")
+        title  = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel} ({len(full_env_ids)} Environments)"
 
-        #this is much faster than python's native stdev
-        #and more or less free computationally so we always
-        #calculate it regardless of if they are showing them
+        self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, filename)
+
+    def _yerr(self, z: Sequence[float], err: Literal['sd','se']):
+
         #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
-        
-        Y2 = [ sum([zz**2 for zz in z])/len(z) for z in Z            ]
-        SD = [ (round(y2-y**2,8))**(1/2)       for y2,y in zip(Y2,Y) ]
-        SE = [ sd/(n**(1/2))                   for sd,n in zip(SD,N) ]
+        #the implementation below is much faster than the 
+        #statistics module because `statistics` uses
+        #integer ratios to achieve maximum precision
 
-        return SE if err == 'se' else SD if err == 'sd' else None
+        n    = len(z)
+        E_z  = sum(z)/n
+        E_z2 = sum([_z*_z for _z in z])/n
+        var  = E_z2 - E_z*E_z
+
+        return (var)**(1/2) if err.lower() == 'sd' else (var/n)**(1/2)
+
+    def _sort_func(self, sort: Literal["name","id","y"]) -> Callable[[Line], Any]:
+        if sort == "id":
+            #we assume the data is already in id order
+            #so we return a function that will preserve order
+            return lambda line,x=count(): next(x)
+
+        if sort == "name":
+            return lambda line: line[5] if line[5] is not None else "zzz" #a random string that will be sorted to the end
+
+        #in all other cases we sort by the last y-value
+        return lambda line: -line[1][-1]
 
     def __str__(self) -> str:
         return str({ "Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })

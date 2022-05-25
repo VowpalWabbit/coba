@@ -1228,8 +1228,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(sort='y')
 
         sort0 = [
-            ([1,2],[3/2,5/2],None,0,1,'learner_1'),
-            ([1,2],[3/2,4/2],None,1,1,'learner_2')
+            ([1,2],[3/2,5/2],None,1,1,'learner_1'),
+            ([1,2],[3/2,4/2],None,0,1,'learner_2')
         ]
 
         sort1 = [
@@ -1257,7 +1257,7 @@ class Result_Tests(unittest.TestCase):
         result = Result({}, lrns, ints)
 
         result.set_plotter(plotter)
-        result.plot_learners(each=True)
+        result.plot_learners(each=True,sort='id')
 
         expected_lines = [
             ([1,2],[1.5,2],None,0,1,'learner_1'),
