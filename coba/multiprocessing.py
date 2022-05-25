@@ -55,8 +55,7 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 stdlog = QueueIO(Queue())
                 stderr = CobaMultiprocessor.PipeStderr()
 
-                log_thread = Thread(target=Pipes.join(stdlog,Foreach(CobaContext.logger.sink)).run)
-                log_thread.daemon = True
+                log_thread = Thread(target=Pipes.join(stdlog,Foreach(CobaContext.logger.sink)).run, daemon=True)
                 log_thread.start()
 
                 logger = CobaContext.logger
