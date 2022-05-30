@@ -10,7 +10,7 @@ from coba.exceptions import CobaException
 from coba.environments.filters     import EnvironmentFilter
 from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
 from coba.environments.filters     import Impute, Where, Noise, Riffle, Sort
-from coba.environments.definitions import EnvironmentDefinitionFileV1
+from coba.environments.definitions import EnvironmentsDefinitionV2
 
 from coba.environments          .primitives import Environment
 from coba.environments.logged   .primitives import LoggedEnvironment
@@ -36,7 +36,7 @@ class Environments:
     @staticmethod
     def from_file(arg) -> 'Environments':
         """Instantiate Environments from an environments definition file."""
-        return Environments(*EnvironmentDefinitionFileV1(arg).read())
+        return Environments(*EnvironmentsDefinitionV2(arg).read())
 
     @staticmethod
     def from_prebuilt(name:str) -> 'Environments':

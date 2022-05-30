@@ -7,9 +7,8 @@ from pathlib import Path
 from typing import Iterable, Dict, Any, Sequence, Union
 from coba.backports import Literal
 
-from coba.pipes import Sink, NullSink
 from coba.exceptions import CobaException
-from coba.registry import CobaRegistry
+from coba.registry import JsonMakerV1, CobaRegistry
 from coba.utilities import coba_exit
 
 from coba.contexts.cachers import Cacher
@@ -106,7 +105,7 @@ class CobaContext_meta(type):
                 }
 
                 for key,value in cls._load_file_configs().items():
-                    if key in _raw_config and isinstance(_raw_config[key],dict) and not CobaRegistry.is_known_recipe(value):
+                    if key in ['api_keys', 'experiment']:
 
                         if key == "experiment" and "maxtasksperchild" in value:
                             value["maxchunksperchild"] = value["maxtasksperchild"]
@@ -118,8 +117,8 @@ class CobaContext_meta(type):
 
                 cls._config_backing = {
                     'api_keys'  : _raw_config['api_keys'],
-                    'cacher'    : CobaRegistry.construct(_raw_config['cacher']),
-                    'logger'    : CobaRegistry.construct(_raw_config['logger']),
+                    'cacher'    : JsonMakerV1(CobaRegistry.registry).make(_raw_config['cacher']),
+                    'logger'    : JsonMakerV1(CobaRegistry.registry).make(_raw_config['logger']),
                     'experiment': ExperimentConfig(**_raw_config['experiment'])
                 }
             except CobaException as e:
