@@ -10,7 +10,7 @@ from coba.exceptions import CobaException
 from coba.environments.filters     import EnvironmentFilter
 from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
 from coba.environments.filters     import Impute, Where, Noise, Riffle, Sort
-from coba.environments.definitions import EnvironmentsDefinitionV2
+from coba.environments.definitions import EnvironmentsDefinitionV1, EnvironmentsDefinitionV2
 
 from coba.environments          .primitives import Environment
 from coba.environments.logged   .primitives import LoggedEnvironment
@@ -36,7 +36,17 @@ class Environments:
     @staticmethod
     def from_file(arg) -> 'Environments':
         """Instantiate Environments from an environments definition file."""
-        return Environments(*EnvironmentsDefinitionV2(arg).read())
+        try:
+            return Environments(*EnvironmentsDefinitionV2(arg).read())
+        except Exception as e: #pragma: no cover
+            try:
+                #try previous version of definition files. If previous versions also fail
+                #then we raise the exception given by the most up-to-date version so that
+                #changes can be made to conform to the latest version.
+                return Environments(*EnvironmentsDefinitionV1(arg).read())
+            except:
+                raise e
+
 
     @staticmethod
     def from_prebuilt(name:str) -> 'Environments':
