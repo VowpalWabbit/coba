@@ -10,7 +10,7 @@ from coba.exceptions import CobaException
 from coba.environments.filters     import EnvironmentFilter
 from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
 from coba.environments.filters     import Impute, Where, Noise, Riffle, Sort
-from coba.environments.definitions import EnvironmentsDefinitionV1, EnvironmentsDefinitionV2
+from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 
 from coba.environments          .primitives import Environment
 from coba.environments.logged   .primitives import LoggedEnvironment
@@ -27,23 +27,23 @@ class Environments:
 
     @overload
     @staticmethod
-    def from_file(filesource:Source[Iterable[str]]) -> 'Environments': ...
+    def from_template(filesource:Source[Iterable[str]]) -> 'Environments': ...
 
     @overload
     @staticmethod
-    def from_file(filename:str) -> 'Environments': ...
+    def from_template(fileurl:str) -> 'Environments': ...
 
     @staticmethod
-    def from_file(arg) -> 'Environments':
-        """Instantiate Environments from an environments definition file."""
+    def from_template(arg, **user_vars) -> 'Environments':
+        """Instantiate Environments from an environment template file with user defined variables."""
         try:
-            return Environments(*EnvironmentsDefinitionV2(arg).read())
+            return Environments(*EnvironmentsTemplateV2(arg, **user_vars).read())
         except Exception as e: #pragma: no cover
             try:
                 #try previous version of definition files. If previous versions also fail
                 #then we raise the exception given by the most up-to-date version so that
                 #changes can be made to conform to the latest version.
-                return Environments(*EnvironmentsDefinitionV1(arg).read())
+                return Environments(*EnvironmentsTemplateV1(arg).read())
             except:
                 raise e
 
@@ -67,7 +67,7 @@ class Environments:
         definition_txt = definition_txt.replace('"./', f'"{repo_url}/{name}/')
         definition_txt = definition_txt.replace('.json"', '.json?raw=True"')
 
-        return Environments.from_file(ListSource([definition_txt]))
+        return Environments.from_template(ListSource([definition_txt]))
 
     @staticmethod
     def from_linear_synthetic(

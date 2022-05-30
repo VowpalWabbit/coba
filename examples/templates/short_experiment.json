@@ -1,0 +1,14 @@
+{
+    "variables": {
+        "$n_take"    : 300,
+        "$n_shuffles": 2,
+        "$data_ids"  : [3,6,8],
+
+        "$openmls" : { "OpenmlSimulation": { "data_id": "$", "take":"$n_take"}, "for": "$data_ids"             },
+        "$shuffles": { "Shuffle"         : "$",                                 "for": {"range":"$n_shuffles"} },
+        "$scale"   : { "Scale"           : [0, "minmax"]                                                       }
+    },
+    "environments": [
+        ["$openmls", "$scale", "$shuffles" ]
+    ]
+}
