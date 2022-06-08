@@ -1,4 +1,6 @@
 import unittest
+import importlib.util
+
 
 from statistics import mean, variance
 from math import isnan
@@ -55,6 +57,7 @@ class BootstrapConfidenceInterval_Tests(unittest.TestCase):
 
 class BinomialConfidenceInterval_Tests(unittest.TestCase):
 
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_copper_pearson(self):
         p_hat, (lo,hi) = BinomialConfidenceInterval('clopper-pearson').calculate([0,0,0,1,1,1])
 

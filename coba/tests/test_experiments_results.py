@@ -1733,6 +1733,7 @@ class TransformXYE_Tests(unittest.TestCase):
         self.assertAlmostEqual(expected_rows[1][2][0],actual_rows[1][2][0],4)
         self.assertAlmostEqual(expected_rows[1][2][1],actual_rows[1][2][1],4)
 
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
     def test_x_index_bi_exact_err(self):
 
         rows = [
