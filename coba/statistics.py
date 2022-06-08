@@ -41,7 +41,7 @@ def phi(x: float) -> float:
     'Cumulative distribution function for the standard normal distribution'
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
 
-class PointConfidence(ABC):
+class PointAndInterval(ABC):
 
     @abstractmethod
     def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
@@ -69,7 +69,7 @@ class Mean:
         #If precision is needed use a true statistics package  
         return sum(sample)/len(sample)
 
-class StandardErrorOfMean(PointConfidence):
+class StandardErrorOfMean(PointAndInterval):
 
     def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
         z_975 = 1.96 #z-score for .975 area to the left
@@ -77,7 +77,7 @@ class StandardErrorOfMean(PointConfidence):
         se    = StandardDeviation().calculate(sample)/(len(sample)**(.5))
         return (mu, (z_975*se,z_975*se))
 
-class BootstrapConfidenceInterval(PointConfidence):
+class BootstrapConfidenceInterval(PointAndInterval):
 
     def __init__(self, confidence:float, statistic:Callable[[Sequence[float]], float]) -> None:
         self._conf = confidence
@@ -97,7 +97,7 @@ class BootstrapConfidenceInterval(PointConfidence):
 
         return (point_stat, (point_stat-lower_stat,upper_stat-point_stat))
 
-class BinomialConfidenceInterval(PointConfidence):
+class BinomialConfidenceInterval(PointAndInterval):
 
     def __init__(self, method:Literal['wilson', 'clopper-pearson']):
         self._method = method

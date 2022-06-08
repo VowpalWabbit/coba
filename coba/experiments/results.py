@@ -11,7 +11,7 @@ from itertools import chain, repeat, accumulate, groupby, count
 from typing import Any, Dict, List, Set, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Callable, NamedTuple
 from coba.backports import Literal
 
-from coba.statistics import Mean, StandardDeviation, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval, PointConfidence
+from coba.statistics import Mean, StandardDeviation, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval, PointAndInterval
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
@@ -626,7 +626,7 @@ class TransformToXYE:
         envs: Dict[int,Dict[str,Any]], 
         x:Sequence[str], 
         y:str,
-        err:Union[str,None,PointConfidence]) -> Sequence[Tuple[Any,float,Union[None,float,Tuple[float,float]]]]:
+        err:Union[str,None,PointAndInterval]) -> Sequence[Tuple[Any,float,Union[None,float,Tuple[float,float]]]]:
 
         if err == 'sd':
             avg = Mean()
@@ -638,7 +638,7 @@ class TransformToXYE:
             YE = BootstrapConfidenceInterval(.95, Mean().calculate).calculate
         elif err == "bi":
             YE = BinomialConfidenceInterval('wilson').calculate
-        elif isinstance(err,PointConfidence):
+        elif isinstance(err,PointAndInterval):
             YE = err.calculate
         else:
             avg = Mean()
@@ -805,7 +805,7 @@ class Result:
         y          : str = "reward",
         mode       : Literal["diff","prob"] = "diff",
         span       : int = None,
-        err        : Union[Literal['se','sd','bs'], None, PointConfidence] = None,
+        err        : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
         labels     : Sequence[str] = None,
         colors     : Sequence[str] = None,
         xlim       : Tuple[Number,Number] = None,
@@ -860,7 +860,7 @@ class Result:
         x       : Union[str,Sequence[str]] = "index",
         y       : str = "reward",
         span    : int = None,
-        err     : Union[Literal['se','sd','bs'], None, PointConfidence] = None,
+        err     : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
         labels  : Sequence[str] = None,
         colors  : Sequence[str] = None,
         xlim    : Tuple[Number,Number] = None,
