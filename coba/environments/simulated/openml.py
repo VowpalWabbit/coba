@@ -211,21 +211,21 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
     def _get_data_descr(self, data_id:int) -> Dict[str,Any]:
 
-        descr_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/data/{data_id}', self._cache_keys['data']))
+        descr_txt = " ".join(self._get_data(f'https://openml.org/api/v1/json/data/{data_id}', self._cache_keys['data']))
         descr_obj = json.loads(descr_txt)["data_set_description"]
 
         return descr_obj
 
     def _get_feat_descr(self, data_id:int) -> Sequence[Dict[str,Any]]:
 
-        descr_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/data/features/{data_id}', self._cache_keys['feat']))
+        descr_txt = " ".join(self._get_data(f'https://openml.org/api/v1/json/data/features/{data_id}', self._cache_keys['feat']))
         descr_obj = json.loads(descr_txt)["data_features"]["feature"]
 
         return descr_obj
 
     def _get_task_descr(self, task_id) -> Dict[str,Any]:
 
-        descr_txt = " ".join(self._get_data(f'https://www.openml.org/api/v1/json/task/{task_id}', self._cache_keys['task']))
+        descr_txt = " ".join(self._get_data(f'https://openml.org/api/v1/json/task/{task_id}', self._cache_keys['task']))
         descr_obj = json.loads(descr_txt)['task']
 
         task_type   = int(descr_obj.get('task_type_id',0))
@@ -237,7 +237,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
     def _get_arff_lines(self, file_id:str, md5_checksum:str) -> Iterable[str]:
 
-            arff_url = f"https://www.openml.org/data/v1/download/{file_id}"
+            arff_url = f"https://openml.org/data/v1/download/{file_id}"
             arff_key = self._cache_keys['arff']
 
             return self._get_data(arff_url, arff_key, md5_checksum)
