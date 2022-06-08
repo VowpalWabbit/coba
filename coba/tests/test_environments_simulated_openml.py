@@ -970,9 +970,9 @@ class OpenmlSource_Tests(unittest.TestCase):
         """
 
         request_dict = {
-            'https://www.openml.org/api/v1/json/data/42693'         : MockResponse(200, "", json.dumps(data).encode().splitlines()),
-            'https://www.openml.org/api/v1/json/data/features/42693': MockResponse(200, "", json.dumps(feat).encode().splitlines()),
-            'https://www.openml.org/data/v1/download/22044555'      : MockResponse(200, "", arff.encode().splitlines()),
+            'https://openml.org/api/v1/json/data/42693'         : MockResponse(200, "", json.dumps(data).encode().splitlines()),
+            'https://openml.org/api/v1/json/data/features/42693': MockResponse(200, "", json.dumps(feat).encode().splitlines()),
+            'https://openml.org/data/v1/download/22044555'      : MockResponse(200, "", arff.encode().splitlines()),
         }
 
         def mocked_requests_get(*args, **kwargs):
@@ -1062,10 +1062,10 @@ class OpenmlSource_Tests(unittest.TestCase):
         """
 
         request_dict = {
-            'https://www.openml.org/api/v1/json/task/123'           : MockResponse(200, "", json.dumps(task).encode().splitlines()),
-            'https://www.openml.org/api/v1/json/data/42693'         : MockResponse(200, "", json.dumps(data).encode().splitlines()),
-            'https://www.openml.org/api/v1/json/data/features/42693': MockResponse(200, "", json.dumps(feat).encode().splitlines()),
-            'https://www.openml.org/data/v1/download/22044555'      : MockResponse(200, "", arff.encode().splitlines()),
+            'https://openml.org/api/v1/json/task/123'           : MockResponse(200, "", json.dumps(task).encode().splitlines()),
+            'https://openml.org/api/v1/json/data/42693'         : MockResponse(200, "", json.dumps(data).encode().splitlines()),
+            'https://openml.org/api/v1/json/data/features/42693': MockResponse(200, "", json.dumps(feat).encode().splitlines()),
+            'https://openml.org/data/v1/download/22044555'      : MockResponse(200, "", arff.encode().splitlines()),
         }
 
         def mocked_requests_get(*args, **kwargs):
