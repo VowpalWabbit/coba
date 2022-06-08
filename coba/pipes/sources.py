@@ -80,7 +80,7 @@ class QueueSource(Source[Iterable[Any]]):
                     break
 
                 yield item
-        except (EOFError,BrokenPipeError):
+        except (EOFError,BrokenPipeError,TypeError):
             pass
 
 class HttpSource(Source[Union[requests.Response, Iterable[str]]]):
