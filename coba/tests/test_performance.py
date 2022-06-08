@@ -148,7 +148,7 @@ class Performance_Tests(unittest.TestCase):
         #best observed 0.01
         self.assertLess(time,.1)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_str_performance(self):
 
         vw = VowpalMediator()
@@ -160,7 +160,7 @@ class Performance_Tests(unittest.TestCase):
         #.029 was my final average time
         self.assertLess(time, .29)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_highly_sparse_performance(self):
 
         vw = VowpalMediator()
@@ -172,7 +172,7 @@ class Performance_Tests(unittest.TestCase):
         #.0044 was my final average time
         self.assertLess(time, .05)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_int_performance(self):
 
         vw = VowpalMediator()
@@ -184,7 +184,7 @@ class Performance_Tests(unittest.TestCase):
         #.023 was my final average time
         self.assertLess(time, .23)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_dict_performance(self):
 
         vw = VowpalMediator()
@@ -196,7 +196,7 @@ class Performance_Tests(unittest.TestCase):
         #.024 was my final average time
         self.assertLess(time, .24)
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed")
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_examples_sequence_int_performance(self):
 
         vw = VowpalMediator()

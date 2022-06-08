@@ -365,7 +365,7 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         learner = VowpalArgsLearner("--cb_adf", VowpalMediatorMocked())
         learner.learn(None,1,1,1,[1,2,3])
 
-    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
     def test_cb_adf_learning(self):
         learner = VowpalArgsLearner()
 

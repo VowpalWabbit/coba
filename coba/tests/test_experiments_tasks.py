@@ -103,7 +103,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
 
             json.dumps(row)
 
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip this test.")
     def test_classification_statistics_encodable_with_sklearn(self):
         import sklearn.exceptions
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
@@ -113,7 +113,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
 
         json.dumps(row)
 
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip this test.")
     def test_classification_statistics_dense(self):
         import sklearn.exceptions
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
@@ -234,19 +234,19 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         Y = [1,1,2,2]
         self.assertAlmostEqual(.5, ClassEnvironmentTask()._max_individual_feature_efficiency(X,Y))
 
-    @unittest.skipUnless(importlib.util.find_spec("numpy"), "numpy is not installed so we must skip the test")
+    @unittest.skipUnless(importlib.util.find_spec("numpy"), "numpy is not installed so we must skip this test.")
     def test_max_individual_feature_efficiency(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2]
         self.assertAlmostEqual(.5, ClassEnvironmentTask()._max_individual_feature_efficiency(X,Y))
 
-    @unittest.skipUnless(not importlib.util.find_spec("numpy"), "numpy is installed so we must skip the test")
+    @unittest.skipUnless(not importlib.util.find_spec("numpy"), "numpy is installed so we must skip this test.")
     def test_max_individual_feature_efficiency_sans_numpy(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2]
         self.assertIsNone(ClassEnvironmentTask()._max_individual_feature_efficiency(X,Y))
 
-    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip the sklearn test")
+    @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip this test.")
     def test_max_directional_fisher_discriminant_ratio(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2]
