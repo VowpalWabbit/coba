@@ -3,7 +3,9 @@ import unittest
 from statistics import mean, variance
 from math import isnan
 
-from coba.statistics import OnlineVariance, OnlineMean, iqr, percentile
+from coba.exceptions import CobaException
+from coba.statistics import OnlineVariance, OnlineMean, iqr, percentile, phi
+from coba.statistics import Mean, StandardDeviation, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval
 
 class iqr_Tests(unittest.TestCase):
     def test_simple_exclusive(self):
@@ -21,6 +23,59 @@ class percentile_Tests(unittest.TestCase):
 
     def test_simple_00_50_01(self):
         self.assertEqual((1,2,3), percentile([3,2,1], [0,.5,1]))
+
+class Mean_Tests(unittest.TestCase):
+    def test(self):
+        self.assertEqual(2,Mean().calculate([1,2,3]))
+
+class StandardDeviation_Tests(unittest.TestCase):
+    def test(self):
+        self.assertAlmostEqual(1.4142,StandardDeviation().calculate([1,3]),4)
+
+class StandardErrorOfMean_Tests(unittest.TestCase):
+    def test(self):
+        mu,(lo,hi) = StandardErrorOfMean().calculate([1,3])
+        self.assertEqual(2,mu)
+        self.assertEqual(1.96,lo)
+        self.assertEqual(1.96,hi)
+
+class BootstrapConfidenceInterval_Tests(unittest.TestCase):
+    
+    def test1(self):
+        mu,(lo,hi) = BootstrapConfidenceInterval(.95,Mean().calculate).calculate([0,2])
+        self.assertEqual(1,mu)
+        self.assertEqual(1,lo)
+        self.assertEqual(1,hi)
+
+    def test2(self):
+        mu,(lo,hi) = BootstrapConfidenceInterval(.1,Mean().calculate).calculate([0,2])
+        self.assertEqual(1,mu)
+        self.assertEqual(0,lo)
+        self.assertEqual(0,hi)
+
+class BinomialConfidenceInterval_Tests(unittest.TestCase):
+
+    def test_copper_pearson(self):
+        p_hat, (lo,hi) = BinomialConfidenceInterval('clopper-pearson').calculate([0,0,0,1,1,1])
+
+        self.assertEqual(0.5, p_hat)
+        self.assertAlmostEqual(0.118117, p_hat-lo, 6)
+        self.assertAlmostEqual(0.881883, p_hat+hi, 6)
+
+    def test_wilson(self):
+        p_hat, (lo,hi) = BinomialConfidenceInterval('wilson').calculate([0]*3+[1]*3)
+
+        self.assertEqual(0.5, p_hat)
+        self.assertAlmostEqual(0.18761, p_hat-lo, 4)
+        self.assertAlmostEqual(0.81238, p_hat+hi, 4)
+
+    def test_bad_data(self):
+        with self.assertRaises(CobaException):
+            BinomialConfidenceInterval('wilson').calculate([1,2,3])
+
+class Phi_Tests(unittest.TestCase):
+    def test(self):
+        self.assertAlmostEqual(.975, phi(1.96),3)
 
 class OnlineVariance_Tests(unittest.TestCase):
 

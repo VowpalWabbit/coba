@@ -1,4 +1,12 @@
-from typing import Sequence, Tuple, Union
+import math
+
+from abc import abstractmethod, ABC
+from typing import Sequence, Tuple, Union, Callable
+from coba.backports import Literal
+
+from coba.exceptions import CobaException
+from coba.random import CobaRandom
+from coba.utilities import PackageChecker
 
 def iqr(values: Sequence[float]) -> float:
 
@@ -29,12 +37,110 @@ def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]
     else:
         return tuple([_percentile(values, p) for p in percentiles ])
 
+def phi(x: float) -> float:
+    'Cumulative distribution function for the standard normal distribution'
+    return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
+
+class PointConfidence(ABC):
+
+    @abstractmethod
+    def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
+        ...
+
+class StandardDeviation:
+    
+    def calculate(self, sample: Sequence[float]) -> float:
+
+        #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
+        #directly calculating is much faster than the
+        #statistics module because `statistics` uses
+        #integer ratios to ensure precision. If precision
+        #is needed use the statistics module
+        n    = len(sample)
+        E_s  = sum(sample)/n
+        E_s2 = sum([s*s for s in sample])/n
+        var  = E_s2 - E_s*E_s
+        var  = var*n/(n-1) #Bessel's correction
+
+        return var**(1/2)
+
+class Mean:
+    def calculate(self, sample: Sequence[float]) -> float:
+        #If precision is needed use a true statistics package  
+        return sum(sample)/len(sample)
+
+class StandardErrorOfMean(PointConfidence):
+
+    def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
+        z_975 = 1.96 #z-score for .975 area to the left
+        mu    = sum(sample)/len(sample)
+        se    = StandardDeviation().calculate(sample)/(len(sample)**(.5))
+        return (mu, (z_975*se,z_975*se))
+
+class BootstrapConfidenceInterval(PointConfidence):
+
+    def __init__(self, confidence:float, statistic:Callable[[Sequence[float]], float]) -> None:
+        self._conf = confidence
+        self._stat = statistic
+
+    def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
+        rng = CobaRandom(1)
+        n = len(sample)
+
+        sample_stats = [ self._stat([sample[i] for i in rng.randints(n, 0, n-1)]) for _ in range(50) ]
+
+        lower_conf = (1-self._conf)/2
+        upper_conf = (1+self._conf)/2
+
+        point_stat = self._stat(sample)
+        lower_stat,upper_stat = percentile(sample_stats,[lower_conf,upper_conf])
+
+        return (point_stat, (point_stat-lower_stat,upper_stat-point_stat))
+
+class BinomialConfidenceInterval(PointConfidence):
+
+    def __init__(self, method:Literal['wilson', 'clopper-pearson']):
+        self._method = method
+
+    def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
+        if set(sample) - set([0,1]):
+            raise CobaException("A binomial confidence interval can only be calculated on values of 0 and 1.")
+
+        if self._method == "wilson":
+            z_975 = 1.96 #z-score for .975 area to the left
+            p_hat = sum(sample)/len(sample)
+            n     = len(sample)
+            Q     = z_975**2/(2*n)
+
+            #https://www.itl.nist.gov/div898/handbook/prc/section2/prc241.htm
+            interval_num = z_975*((p_hat*(1-p_hat))/n + Q/(2*n))**(.5)
+            location_num = (p_hat+Q)
+            
+            interval_den = (1+2*Q)
+            location_den = (1+2*Q)
+
+            interval = interval_num/interval_den
+            location = location_num/location_den
+
+            return (p_hat, (p_hat-(location-interval), (location+interval)-p_hat))
+        else:
+            PackageChecker.sklearn("BinomialConfidenceInterval")
+            from scipy.stats import beta
+            lo = beta.ppf(.05/2, sum(sample), len(sample) - sum(sample) + 1)
+            hi = beta.ppf(1-.05/2, sum(sample) + 1, len(sample) - sum(sample))
+            p_hat = sum(sample)/len(sample)
+
+            lo = 0.0 if math.isnan(lo) else lo
+            hi = 1.0 if math.isnan(hi) else hi
+
+            return (p_hat, (p_hat-lo,hi-p_hat))
+
 class OnlineVariance():
     """Calculate sample variance in an online fashion.
 
     Remarks:
         This algorithm is known as Welford's algorithm and the implementation below
-        is a modified version of the Python algorithm by Wikepedia contirubtors (2020).
+        is a modified version of the Python algorithm created by Wikepedia contributors (2020).
 
     References:
         Wikipedia contributors. (2020, July 6). Algorithms for calculating variance. In Wikipedia, The

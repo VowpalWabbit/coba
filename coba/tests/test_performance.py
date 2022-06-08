@@ -11,7 +11,7 @@ from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, ListSource
-from coba.experiments import Result
+from coba.experiments.results import Result, InteractionsTable, moving_average
 
 class Performance_Tests(unittest.TestCase):
 
@@ -273,6 +273,20 @@ class Performance_Tests(unittest.TestCase):
 
         #.07 was my final time
         self.assertLess(time, .7)
+
+    def test_moving_average_sliding_window(self):
+        rwds = [1,0]*1000
+        time = timeit.timeit(lambda: moving_average(rwds,span=2), number=250)
+
+        #.056 was my final time
+        self.assertLess(time, .56)
+
+    def test_moving_average_rolling_window(self):
+        rwds = [1,0]*1000
+        time = timeit.timeit(lambda: moving_average(rwds), number=500)
+
+        #between .069 and .075 was my final time
+        self.assertLess(time, .75)
 
 if __name__ == '__main__':
     unittest.main()

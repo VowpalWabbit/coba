@@ -5,18 +5,36 @@ import collections.abc
 from copy import copy
 from pathlib import Path
 from numbers import Number
-from operator import truediv
+from operator import truediv, sub, gt
 from abc import abstractmethod
-from itertools import chain, repeat, accumulate, count
-from typing import Any, Dict, List, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Set, Callable
+from itertools import chain, repeat, accumulate, groupby, count
+from typing import Any, Dict, List, Set, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Callable, NamedTuple
 from coba.backports import Literal
 
+from coba.statistics import Mean, StandardDeviation, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval, PointConfidence
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.pipes import Pipes, Sink, Source, JsonEncode, JsonDecode, DiskSource, DiskSink, ListSource, ListSink, Foreach
 
-Line = Tuple[Sequence[float], Sequence[float], Optional[Sequence[float]], str, float, Optional[str]]
+def exponential_moving_average(values:Sequence[float], span:int=None):
+    #exponential moving average identical to Pandas df.ewm(span=span).mean()
+    alpha = 2/(1+span)
+    cumwindow  = list(accumulate(values          , lambda a,v: v + (1-alpha)*a))
+    cumdivisor = list(accumulate([1.]*len(values), lambda a,v: v + (1-alpha)*a)) #type: ignore
+    return list(map(truediv, cumwindow, cumdivisor))
+
+def moving_average(values:Sequence[float], span:int=None):
+
+    if span == 1: 
+        return values
+
+    if span is None or span >= len(values):
+        return [a/n for n,a in enumerate(accumulate(values),1)]
+
+    window_sums  = accumulate(map(sub, values, chain(repeat(0,span),values)))
+    window_sizes = chain(range(1,span), repeat(span))
+    return list(map(truediv,window_sums,window_sizes))
 
 class Table:
     """A container class for storing tabular data."""
@@ -246,130 +264,7 @@ class Table:
         return dict(**self._rows_flat[key], **self._rows_pack[key])
 
 class InteractionsTable(Table):
-
-    def to_progressive_dicts(self,
-        span: int = None,
-        each: bool = False,
-        order: str = "index",
-        value: Literal['reward','reward_pct','rank','rank_pct','regret','regret_pct'] = "reward"):
-        """Return expanding or exponential averages for col grouped by learner and possibly environment.
-
-        Args:
-            span: If span is None return an expanding average (i.e., progressive validation). If span is not none
-                calculate a simple moving average with window size of span (window will be smaller than span initially).
-            each: If true the group by learner and environment (as in each environment). If each is false
-                then only group by learner.
-            ord_col: The column which indicates the order in which averaging is calculated on the val_col.
-            val_col: The column we wish to calculate the progressive average values for.
-
-        Returns:
-            Either [[learner_id, col progressive means...],...] or [[learner_id, environment_id, col progressive means...],...].
-        """
-        lrn_env_rows = []
-
-        value_functions = {
-            'reward_pct': lambda interactions: [r/m for r,m in zip(interactions['reward'],interactions['max_reward'])],
-            'rank_pct'  : lambda interactions: [(r-1)/(m-1) for r,m in zip(interactions['rank'],interactions['max_rank'])],
-            'regret'    : lambda interactions: [m-r for r,m in zip(interactions['reward'],interactions['max_reward'])],
-            'regret_pct': lambda interactions: [(u-r)/(u-l) for r,l,u in zip(interactions['reward'],interactions['min_reward'],interactions['max_reward'])],
-        }
-
-        for interactions in self:
-
-            values = value_functions.get(value, lambda interactions: interactions[value])(interactions)
-            orders = interactions[order]
-            values = [ v[1] for v in sorted(zip(orders,values)) ]
-
-            if span is None or span >= len(values):
-                cumwindow  = list(accumulate(values))
-                cumdivisor = list(range(1,len(cumwindow)+1))
-
-            elif span == 1:
-                cumwindow  = list(values)
-                cumdivisor = [1]*len(cumwindow)
-
-            else:
-                moving_sum = 0
-                cumwindow  = []
-                cumdivisor = []
-                for index in range(len(values)):
-                    sub_i = index-span
-                    add_i = index
-
-                    moving_sum += values[add_i]
-                    moving_sum -= values[sub_i] if sub_i >= 0 else 0
-
-                    cumwindow.append(moving_sum)
-                    cumdivisor.append(min(span,add_i+1))
-
-                #efficient way to calucate exponential moving average identical to Pandas df.ewm(span=span).mean()
-                #alpha = 2/(1+span)
-                #cumwindow  = list(accumulate(values          , lambda a,c: c + (1-alpha)*a))
-                #cumdivisor = list(accumulate([1.]*len(values), lambda a,c: c + (1-alpha)*a)) #type: ignore
-
-            lrn_env_rows.append( {
-                "learner_id"    : interactions["learner_id"], 
-                "environment_id": interactions["environment_id"], 
-                "values"        : list(map(truediv, cumwindow, cumdivisor))
-            })
-
-        if each:
-            return lrn_env_rows
-
-        else:
-            grouped_lrn_sim_rows = collections.defaultdict(list)
-
-            for row in lrn_env_rows:
-                grouped_lrn_sim_rows[row["learner_id"]].append(row["values"])
-
-            lrn_rows = []
-
-            for learner_id in grouped_lrn_sim_rows.keys():
-
-                Z = list(zip(*grouped_lrn_sim_rows[learner_id]))
-
-                if not Z: continue
-
-                Y = [ sum(z)/len(z) for z in Z ]
-
-                lrn_rows.append({"learner_id":learner_id, "values": Y})
-
-            return lrn_rows
-
-    def to_progressive_pandas(self, span: int = None, each: bool = False, ord_col="index", val_col: str = "reward"):
-        """Return expanding or exponential averages for yaxis grouped by learner and possibly environment.
-
-        Args:
-            span: If span is None return an expanding average (i.e., progressive validation). If span is not none
-                calculate a simple moving average with window size of span (window will be smaller than span initially).
-            each: If true the group by learner and environment (as in each environment). If each is false
-                then only group by learner.
-            ord_col: The column which indicates the order in which averaging is calculated on the val_col.
-            val_col: The column we wish to calculate the progressive average values for.
-
-        Returns:
-            A data frame whose columns are (learner_id, [environment_id], interaction indexes...).
-        """
-
-        PackageChecker.pandas("Result.to_pandas")
-
-        import pandas as pd
-
-        data = []
-
-        for d in self.to_progressive_dicts(span, each, ord_col, val_col):
-            if each:
-                data.append([d["learner_id"], d["environment_id"], *d["values"]])
-            if not each:
-                data.append([d["learner_id"], *d["values"]])
-
-        if each:
-            n_index = len(data[0][2:])
-            return pd.DataFrame(data, columns=["learner_id", "environment_id", *range(1,n_index+1)])
-
-        else:
-            n_index = len(data[0][1:])
-            return pd.DataFrame(data, columns=["learner_id", *range(1,n_index+1)])
+    pass
 
 class TransactionIO_V3(Source['Result'], Sink[Any]):
 
@@ -537,29 +432,44 @@ class TransactionIO(Source['Result'], Sink[Any]):
     def read(self) -> 'Result':
         return self._transactionIO.read()
 
+class Points(NamedTuple):
+    X    : Sequence[Any]
+    Y    : Sequence[float] 
+    E    : Sequence[float]  = None
+    color: Union[str,int]   = None
+    alpha: float            = 1
+    label: Optional[str]    = None
+    style: Literal['-','.'] = "-"
+
 class Plotter:
     @abstractmethod
     def plot(self,
         ax,
-        lines: Sequence[Line],
+        lines: Sequence[Points],
         title: str,
         xlabel: str,
         ylabel: str,
         xlim: Optional[Tuple[Number,Number]],
         ylim: Optional[Tuple[Number,Number]],
+        xticks: bool,
+        yticks: bool,
         filename: Optional[str]) -> None:
         pass
 
 class MatplotlibPlotter(Plotter):
-    
+
     def plot(self,
         ax,
-        lines: Sequence[Line],
+        lines: Sequence[Points],
         title: str,
         xlabel: str,
         ylabel: str,
         xlim: Optional[Tuple[Number,Number]],
         ylim: Optional[Tuple[Number,Number]],
+        xticks: bool,
+        yticks: bool,
+        xrotation: Optional[float],
+        yrotation: Optional[float],
         filename: Optional[str]
     ) -> None:
 
@@ -586,24 +496,37 @@ class MatplotlibPlotter(Plotter):
             ax = ax or plt.figure(figsize=(10,4)).add_subplot(111) #type: ignore
 
             in_lim = lambda v,lim: lim is None or ((lim[0] or -float('inf')) <= v and v <= (lim[1] or float('inf')))
+            
+            any_label = False
+            num_coalesce = lambda x1,x2: x1 if isinstance(x1,(int,float)) else x2
 
-            for X, Y, E, c, a, l in lines:
+            for X, Y, E, c, a, l, fmt in lines:
+
+                if l: any_label = True
 
                 # we remove values outside of the given lims because matplotlib won't correctly scale otherwise
                 if not E:
-                    XY = [(x,y) for x,y in zip(X,Y) if in_lim(x,xlim) and in_lim(y,ylim)]
+                    XY = [(x,y) for i,x,y in zip(count(),X,Y) if in_lim(num_coalesce(x,i),xlim) and in_lim(num_coalesce(y,i),ylim)]
                     X,Y = map(list,zip(*XY)) if XY else ([],[])
                 else:
-                    XYE = [(x,y,e) for x,y,e in zip(X,Y,E) if in_lim(x,xlim) and in_lim(y,ylim)]
+                    XYE = [(x,y,e) for i,x,y,e in zip(count(),X,Y,E) if in_lim(num_coalesce(x,i),xlim) and in_lim(num_coalesce(y,i),ylim)]
                     X,Y,E = map(list,zip(*XYE)) if XYE else ([],[],[])
 
                 if isinstance(c,int): c = color_cycle[c]
 
                 if X and Y:
-                    if E is None:
-                        ax.plot(X, Y, color=c, alpha=a, label=l)
+                    if not E or all([e is None for e in E]):
+                        ax.plot(X, Y, fmt,  color=c, alpha=a, label=l)
                     else:
-                        ax.errorbar(X, Y, yerr=E, elinewidth=0.5, errorevery=(0,max(int(len(X)*0.05),1)), color=c, alpha=a, label=l)
+                        E = list(zip(*E)) if isinstance(E[0],tuple) else E 
+                        error_every = max(int(len(X)*0.05),1) if fmt == "-" else 1
+                        ax.errorbar(X, Y, E, None, fmt, elinewidth=0.5, errorevery=error_every, color=c, alpha=a, label=l)
+
+            if xrotation is not None:
+                plt.xticks(rotation=xrotation)
+
+            if yrotation is not None:
+                plt.yticks(rotation=yrotation)
 
             padding = .05
             ax.margins(0)
@@ -629,7 +552,14 @@ class MatplotlibPlotter(Plotter):
             else:
                 ax.get_legend().remove()
 
-            ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium') #type: ignore
+            if any_label:
+                ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium') #type: ignore
+
+            if not xticks:
+                plt.xticks([])
+
+            if not yticks:
+                plt.yticks([])
 
             if show:
                 plt.show()
@@ -639,6 +569,92 @@ class MatplotlibPlotter(Plotter):
                 plt.tight_layout()
                 plt.savefig(filename, dpi=300)
                 plt.close()
+
+class FilterPlottingData:
+
+    def filter(self, rows:Sequence[Dict[str,Any]], x:Sequence[str], y:str, learner_ids:Sequence[int] = None) -> Sequence[Dict[str,Any]]:
+
+        if not rows: raise CobaException("This result doesn't contain any evaluation data to plot.")
+
+        rows = [row for row in rows if not learner_ids or row["learner_id"] in learner_ids]
+
+        learner_count   = len(set([row['learner_id'] for row in rows]))
+        environ_counts  = collections.Counter([row['environment_id'] for row in rows])
+        environ_lengths = set([len(row[y]) for row in rows])
+        min_env_length  = min(environ_lengths) 
+
+        if max(environ_counts.values()) != learner_count:
+            raise CobaException("This result does not contain an environment which has been finished for every learner. Plotting has been stopped.")
+
+        if min(environ_counts.values()) != learner_count:
+            CobaContext.logger.log("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this warning in the future call <result>.filter_fin() before plotting.") 
+
+        if len(environ_lengths) > 1 and x == ['index']:
+            CobaContext.logger.log("This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting.")
+
+        complete    = lambda row: environ_counts[row['environment_id']] == learner_count
+        subselect_y = lambda ys: ys[:min_env_length] if x == ['index'] else ys
+        subselect_r = lambda row: {k:(row[k] if k != y else subselect_y(row[k])) for k in ['environment_id','learner_id',y]}
+
+        return list(map(subselect_r,filter(complete,rows)))
+
+class SmoothPlottingData:
+
+    def filter(self, rows:Sequence[Dict[str,Any]], y:str, span:Optional[int]) -> Sequence[Dict[str,Any]]:
+
+        e_key = "environment_id"
+        l_key = "learner_id"
+
+        return [{e_key:row[e_key], l_key:row[l_key], y:moving_average(row[y],span)} for row in rows]
+
+class ContrastPlottingData:
+
+    def filter(self, rows:Sequence[Dict[str,Any]], y:str, mode:str, learner_id1:int) -> Sequence[Dict[str,Any]]:
+
+        sort_key  = lambda row: (row['environment_id'], 0 if row['learner_id']==learner_id1 else 1)
+        group_key = lambda row: row['environment_id']
+
+        contraster = lambda Y1,Y2: list(map(int,map(gt,Y1,Y2))) if mode == "prob" else list(map(sub,Y1,Y2))
+        contrast   = lambda env_id, pair: {'environment_id': env_id, y: contraster(pair[0][y],pair[1][y]) }
+
+        return [ contrast(env_id,list(pair)) for env_id, pair in groupby(sorted(rows,key=sort_key),key=group_key) ]
+
+class TransformToXYE:
+
+    def filter(self, 
+        rows: Sequence[Dict[str,Any]], 
+        envs: Dict[int,Dict[str,Any]], 
+        x:Sequence[str], 
+        y:str,
+        err:Union[str,None,PointConfidence]) -> Sequence[Tuple[Any,float,Union[None,float,Tuple[float,float]]]]:
+
+        if err == 'sd':
+            avg = Mean()
+            std = StandardDeviation()
+            YE = lambda z: (avg.calculate(z), std.calculate(z))
+        elif err == 'se':
+            YE = StandardErrorOfMean().calculate
+        elif err == "bs":
+            YE = BootstrapConfidenceInterval(.95, Mean().calculate).calculate
+        elif err == "bi":
+            YE = BinomialConfidenceInterval('wilson').calculate
+        elif isinstance(err,PointConfidence):
+            YE = err.calculate
+        else:
+            avg = Mean()
+            YE = lambda z: (avg.calculate(z), None)
+
+        if x == ['index']:
+            Z = list(zip(*[row[y] for row in rows]))
+            X = list(range(1,len(Z)+1))
+            return [(x,)+YE(z) for x,z in zip(X,Z) ]
+
+        else:
+            XZ = collections.defaultdict(list)
+            make_x = lambda env: env[x[0]] if len(x) == 1 else tuple(env[k] for k in x)
+            for row in rows:
+                XZ[str(make_x(envs[row["environment_id"]]))].append(row[y][-1])
+            return [(x,)+YE(z) for x,z in XZ.items()]
 
 class Result:
     """A class representing the result of an Experiment."""
@@ -782,113 +798,127 @@ class Result:
 
         return new_result
 
+    def plot_contrast(self,
+        learner_id1: int,
+        learner_id2: int,
+        x          : Union[str, Sequence[str]] = "environment_id",
+        y          : str = "reward",
+        mode       : Literal["diff","prob"] = "diff",
+        span       : int = None,
+        err        : Union[Literal['se','sd','bs'], None, PointConfidence] = None,
+        labels     : Sequence[str] = None,
+        colors     : Sequence[str] = None,
+        xlim       : Tuple[Number,Number] = None,
+        ylim       : Tuple[Number,Number] = None,
+        xticks     : bool = True,
+        yticks     : bool = True,
+        filename   : str = None,
+        ax = None) -> None:
+
+        x = [x] if isinstance(x,str) else list(x)
+        self._validate_parameters(x)
+
+        rows = FilterPlottingData().filter(list(self.interactions), x, y, [learner_id1, learner_id2])
+        rows = SmoothPlottingData().filter(rows, y, span)
+        rows = ContrastPlottingData().filter(rows, y, mode, learner_id1)
+
+        XYE = TransformToXYE().filter(rows, self.environments, x, y, err)
+        
+        if x != ['index']:
+            XYE = sorted(XYE, key=lambda xye: xye[1])
+
+        bound = .5 if mode == "prob" else 0
+
+        win,tie,loss = [],[],[]
+        for _x,_y,_e in XYE:
+            l,u = (0,0) if _e is None else (_e,_e) if isinstance(_e,Number) else _e
+            (win if _y-l > bound else loss if _y+u < bound else tie).append((_x,_y,_e))
+
+        colors = (colors or []) + [0,1,2]
+        labels = (labels or []) + [self.learners[learner_id1]['full_name'], self.learners[learner_id2]['full_name']]
+
+        leftmost_x  = (loss+tie+win)[ 0][0]
+        rightmost_x = (loss+tie+win)[-1][0]
+
+        fmt = "-" if x == ['index'] else "."
+
+        plots = []
+        if loss: plots.append(Points(*zip(*loss), 2, 1, labels[1] + " " + f"({len(loss)})", fmt))
+        if tie : plots.append(Points(*zip(*tie) , 1, 1, 'Tie'     + " " + f"({len(tie )})", fmt))
+        if win : plots.append(Points(*zip(*win) , 0, 1, labels[0] + " " + f"({len(win )})", fmt))        
+        plots.append(Points((leftmost_x,rightmost_x),(bound,bound), None , "#888", 1, None, '-'))
+
+        xrotation = 90 if x != ['index'] else 0
+        yrotation = 0
+
+        xlabel = "Interactions" if x==['index'] else x[0] if len(x) == 1 else x
+        ylabel = f"{labels[0]} - {labels[1]}" if mode=="diff" else f"P({labels[0]} > {labels[1]})"
+        title  = f"{ylabel} ({len(rows) if x==['index'] else len(XYE)} Environments)"
+        self._plotter.plot(ax, plots, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, filename)
+
     def plot_learners(self,
-        y    : Literal['reward','reward_pct','rank','rank_pct','regret','regret_pct'] = "reward",
-        xlim : Optional[Tuple[Number,Number]] = None,
-        ylim : Optional[Tuple[Number,Number]] = None,
-        span : int = None,
-        err  : Optional[Literal['se','sd']] = None,
-        each : bool = False,
+        x       : Union[str,Sequence[str]] = "index",
+        y       : str = "reward",
+        span    : int = None,
+        err     : Union[Literal['se','sd','bs'], None, PointConfidence] = None,
+        labels  : Sequence[str] = None,
+        colors  : Sequence[str] = None,
+        xlim    : Tuple[Number,Number] = None,
+        ylim    : Tuple[Number,Number] = None,
+        xticks  : bool = True,
+        yticks  : bool = True,
         filename: str = None,
-        sort : Literal["name","id","y"] = "y",
-        labels: Sequence[str] = [],
         ax = None) -> None:
         """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected
             performance for different learners across independent environments. This plot is valuable in gaining
             insight into how various learners perform in comparison to one another.
 
         Args:
-            y: The value to plot on the y-axis: `reward` plots the reward obtained on each interaction, `pct_reward`
-                plots the percentage of the optimal possible reward obtained on each interaction.
+            x: The value to plot on the x-axis. This can either be index or environment columns to group by.
+            y: The value to plot on the y-axis.
+            span: The number of y values to smooth together when reporting y. If this is None then the average of all y
+                values up to current is shown otherwise a moving average with window size of span (the window will be
+                smaller than span initially).
+            err: This determines what kind of error bars to plot (if any). If `None` then no bars are plotted, if 'se'
+                the standard error is shown, and if 'sd' the standard deviation is shown.
             xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
-            span: If span is None return an expanding average (i.e., progressive validation). If span is not none
-                calculate a simple moving average with window size of span (window will be smaller than span initially).
-            err: This determines what kind of error bars to plot (if any). Valid types are `None`, 'se', and 'sd'. If `None`
-                then no bars are plotted, if 'se' the standard error is shown, and if 'sd' the standard deviation is shown.
-            each: This determines whether each evaluated environment used to estimate mean performance is also plotted.
-            filename: Provide a filename to write plot image to disk.
-            sort: Indicate how learner names should be sorted in the legend.
             labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
+            filename: Provide a filename to write plot image to disk.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
-        lines = []
+        x = [x] if isinstance(x,str) else list(x)
+        self._validate_parameters(x)
 
-        prog_by_lrn: Dict[int,List[Sequence[float]]] = collections.defaultdict(list)
-        prog_by_lrn_env = self.interactions.to_progressive_dicts(span=span, each=True, value=y)
+        rows = FilterPlottingData().filter(list(self.interactions), x, y)
+        rows = SmoothPlottingData().filter(rows, y, span)
 
-        lrn_id_count   = len(set(d['learner_id']                   for d in prog_by_lrn_env ))
-        env_id_counts  = collections.Counter([ d['environment_id'] for d in prog_by_lrn_env ])
-        val_len_counts = collections.Counter([ len(d['values'])    for d in prog_by_lrn_env ])
-        full_env_ids   = [ id for id,count in env_id_counts.items() if count == lrn_id_count ]
+        env_rows = self.environments
+        n_envs   = len(set([row['environment_id'] for row in rows]))
+        get_key  = lambda row: row['learner_id']
+        lines    = []
 
-        if len(full_env_ids) != len(env_id_counts):
-            CobaContext.logger.log("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this warning in the future call <result>.filter_fin() before plotting.") 
+        for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
+            XYE = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
+            color = colors[i] if colors and i < len(colors) else i
+            label = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
+            lines.append(Points(*zip(*XYE), color, 1, label))
 
-        if len(val_len_counts) > 1:
-            CobaContext.logger.log("The result contains environments of different lengths. The plot only includes data which is present in all environments. To only plot environments with a minimum number of interactions call <result>.filter_fin(n_interactions).")
-
-        for progressive in prog_by_lrn_env:
-            if progressive['environment_id'] in full_env_ids:
-                prog_by_lrn[progressive["learner_id"]].append(progressive["values"])
-
-        for i, learner_id in enumerate(sorted(prog_by_lrn.keys())):
-
-            label = self._learners[learner_id]["full_name"]
-            Z     = list(zip(*prog_by_lrn[learner_id]))
-
-            #if not Z or not Z[0]: continue
-
-            X = list(range(1,len(Z)+1))
-            Y = [ sum(z)/len(z) for z in Z ]
-            E = [self._yerr(z, err) for z in Z] if err else None
-
-            color = i
-            label = labels[i] if i < len(labels) else label
-
-            lines.append( (X, Y, E, color, 1, label) )
-
-            if each: 
-                lines.extend(zip(repeat(X), map(list,zip(*Z)), repeat(None), repeat(color), repeat(0.15), repeat(None)))
-
-        lines = sorted(lines, key=self._sort_func(sort))
-
+        lines  = sorted(lines, key=lambda line: -line[1][-1])
         xlabel = "Interactions"
         ylabel = y.capitalize().replace("_pct"," Percent")
-        title  = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel} ({len(full_env_ids)} Environments)"
+        title  = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel} ({n_envs} Environments)"
 
-        self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, filename)
-
-    def _yerr(self, z: Sequence[float], err: Literal['sd','se']):
-
-        #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
-        #the implementation below is much faster than the 
-        #statistics module because `statistics` uses
-        #integer ratios to achieve maximum precision
-
-        n    = len(z)
-        E_z  = sum(z)/n
-        E_z2 = sum([_z*_z for _z in z])/n
-        var  = E_z2 - E_z*E_z
-
-        return (var)**(1/2) if err.lower() == 'sd' else (var/n)**(1/2)
-
-    def _sort_func(self, sort: Literal["name","id","y"]) -> Callable[[Line], Any]:
-        if sort == "id":
-            #we assume the data is already in id order
-            #so we return a function that will preserve order
-            return lambda line,x=count(): next(x)
-
-        if sort == "name":
-            return lambda line: line[5] if line[5] is not None else "zzz" #a random string that will be sorted to the end
-
-        #in all other cases we sort by the last y-value
-        return lambda line: -line[1][-1]
+        self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, 0, 0, filename)
 
     def __str__(self) -> str:
-        return str({ "Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })
+        return str({"Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })
 
     def _ipython_display_(self):
         #pretty print in jupyter notebook (https://ipython.readthedocs.io/en/stable/config/integrating.html)
         print(str(self))
+
+    def _validate_parameters(self, x:Sequence[str]):
+        if 'index' in x and len(x) > 1:
+            raise CobaException('The x-axis cannot contain both interaction index and environment features. Please choose one or the other.')

@@ -5,6 +5,7 @@ import unittest.mock
 import importlib.util
 import warnings
 
+from coba.exceptions   import CobaException
 from coba.contexts     import InteractionContext
 from coba.environments import SimulatedInteraction, LoggedInteraction, Shuffle, SupervisedSimulation, Noise
 from coba.learners     import Learner
@@ -253,6 +254,35 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
 
 class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 
+    def test_no_metrics(self):
+        with self.assertRaises(CobaException):
+            OnlineOnPolicyEvalTask(None)
+
+    def test_one_metric(self):
+        task         = OnlineOnPolicyEvalTask("reward",time=False)
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            SimulatedInteraction(None,[1,2,3],[7,8,9]),
+            SimulatedInteraction(None,[4,5,6],[4,5,6]),
+            SimulatedInteraction(None,[7,8,9],[1,2,3]),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
+        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
+        expected_learn_calls     = [(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
+        expected_task_results    = [
+            {"reward":7},
+            {"reward":5},
+            {"reward":3}
+        ]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
     def test_process_none_rewards_no_info_no_logs_no_kwargs(self):
 
         task         = OnlineOnPolicyEvalTask(time=False)
@@ -269,9 +299,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
         expected_task_results    = [
-            {"reward":7,"max_reward":9,'min_reward':7,'min_rank':1,'max_rank':3,'rank':3,'n_actions':3},
-            {"reward":5,"max_reward":6,'min_reward':4,'min_rank':1,'max_rank':3,'rank':2,'n_actions':3},
-            {"reward":3,"max_reward":3,'min_reward':1,'min_rank':1,'max_rank':3,'rank':1,'n_actions':3}
+            {"reward":7,"reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0},
+            {"reward":5,"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5},
+            {"reward":3,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -294,8 +324,8 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_returns = [[1,0],[0,1]]
         expected_learn_calls     = [({'c':1},{'a':1},7,1,None),({'c':2},{'a':5},5,1,None)]
         expected_task_results    = [
-            {"reward":7,"max_reward":8,'min_reward':7,'min_rank':1,'max_rank':2,'rank':2,'n_actions':2},
-            {"reward":5,"max_reward":5,'min_reward':4,'min_rank':1,'max_rank':2,'rank':1,'n_actions':2},
+            {"reward":7,"reward_pct":0.0,'rank':2,'rank_pct':1.0,'regret':1,'regret_pct':1.0},
+            {"reward":5,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0},
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -319,9 +349,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(1,1,7,1,None),(2,5,5,1,None),(3,9,3,1,None)]
         expected_task_results    = [
-            {"reward":7,"max_reward":9,'min_reward':7,'min_rank':1,'max_rank':3,'rank':3,'n_actions':3},
-            {"reward":5,"max_reward":6,'min_reward':4,'min_rank':1,'max_rank':3,'rank':2,'n_actions':3},
-            {"reward":3,"max_reward":3,'min_reward':1,'min_rank':1,'max_rank':3,'rank':1,'n_actions':3}
+            {"reward":7,"reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0},
+            {"reward":5,"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5},
+            {"reward":3,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -345,9 +375,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
         expected_learn_calls     = [(1,1,7,1,1),(2,5,5,1,2),(3,9,3,1,3)]
         expected_task_results    = [
-            {"reward":7,"letters":'a','learn':1,'predict':1,'I':1,'max_reward':9,'min_reward':7,'min_rank':1,'max_rank':3,'rank':3,'n_actions':3},
-            {"reward":5,'letters':'e','learn':2,'predict':2,'I':2,'max_reward':6,'min_reward':4,'min_rank':1,'max_rank':3,'rank':2,'n_actions':3},
-            {"reward":3,'letters':'i','learn':3,'predict':3,'I':3,'max_reward':3,'min_reward':1,'min_rank':1,'max_rank':3,'rank':1,'n_actions':3}
+            {"reward":7,"letters":'a','learn':1,'predict':1,'I':1,"reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0},
+            {"reward":5,'letters':'e','learn':2,'predict':2,'I':2,"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5},
+            {"reward":3,'letters':'i','learn':3,'predict':3,'I':3,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -371,9 +401,9 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
         expected_learn_calls     = [(1,1,7,1,1),(2,5,5,1,2),(3,9,3,1,3)]
         expected_task_results    = [
-            {"reward":7,'learn':1,'predict':1,              'max_reward':9,'min_reward':7,'min_rank':1,'max_rank':3,'rank':3,'n_actions':3},
-            {"reward":5,'learn':2,'predict':2,'letters':'e','max_reward':6,'min_reward':4,'min_rank':1,'max_rank':3,'rank':2,'n_actions':3},
-            {"reward":3,'learn':3,'predict':3,'letters':'i','max_reward':3,'min_reward':1,'min_rank':1,'max_rank':3,'rank':1,'n_actions':3}
+            {"reward":7,'learn':1,'predict':1,              "reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0},
+            {"reward":5,'learn':2,'predict':2,'letters':'e',"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5},
+            {"reward":3,'learn':3,'predict':3,'letters':'i',"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -516,9 +546,9 @@ class OnlineWarmStartEvaluationTask_Tests(unittest.TestCase):
             {},
             {},
             {},
-            {"reward":7,'max_reward':9,'min_reward':7,'min_rank':1,'max_rank':3,'rank':3,'n_actions':3},
-            {"reward":5,'max_reward':6,'min_reward':4,'min_rank':1,'max_rank':3,'rank':2,'n_actions':3},
-            {"reward":3,'max_reward':3,'min_reward':1,'min_rank':1,'max_rank':3,'rank':1,'n_actions':3}
+            {"reward":7,"reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0},
+            {"reward":5,"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5},
+            {"reward":3,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)

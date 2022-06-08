@@ -4,7 +4,7 @@ This script requires that the matplotlib and vowpalwabbit packages be installed.
 """
 
 from coba.contexts     import CobaContext
-from coba.learners     import RandomLearner, EpsilonBanditLearner, VowpalEpsilonLearner
+from coba.learners     import RandomLearner, EpsilonBanditLearner, VowpalEpsilonLearner, VowpalBagLearner
 from coba.experiments  import Experiment
 from coba.environments import Environments
 
@@ -16,23 +16,28 @@ if __name__ == '__main__':
     # These can also be set automatically by creating a .coba file your project root.
     CobaContext.cacher.cache_directory = './.coba_cache'
     CobaContext.experiment.processes   = 2
-    CobaContext.experiment.chunk_by    = 'task'
+    CobaContext.experiment.chunk_by    = 'source'
 
     #First, we define the learners that we want to test
     learners = [
         VowpalEpsilonLearner(),
+        VowpalBagLearner(),
         EpsilonBanditLearner(),
         RandomLearner(),
     ]
 
     #Next we create the environments we'd like evaluate against
-    environments = Environments.from_linear_synthetic(1000, n_action_features=0).shuffle([1,2,3])
+    environments = Environments.from_linear_synthetic(1000, n_action_features=0).shuffle([1,2,3,4])
 
-    #We then create and evaluate our experiment from our environments and learners
-    result = Experiment(environments,learners).evaluate()
+    #We then create and run our experiment from our environments and learners
+    result = Experiment(environments,learners).run()
 
     #After evaluating can create a quick summary plot to get a sense of how the learners performed
-    result.plot_learners(y='regret_pct',err='se')
+    result.plot_learners(y='rank_pct',err='se')
 
-    #We can also create a plot examining how specific learners did across each shuffle of our environments
-    result.filter_lrn(full_name="vw").plot_learners(y='regret_pct',err='se',each=True)
+    #We can then filter down the plot down to get a closer look at a region of interest
+    result.filter_lrn(family="vw").plot_learners(y='rank_pct', err='se', xlim=(700,1000))
+
+    #Finally, we can directly contrast two learners to see exactly when one learner out-performs 
+    #another with 95% confidence (given the 95% confidence interval assumptions are appropriate)
+    result.plot_contrast(0, 1, "index", "reward", "diff", err='se', labels=["VWEpsilon","VWBag"])

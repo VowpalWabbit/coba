@@ -114,6 +114,18 @@ class CobaRandom:
 
         return min(int((b-a+1) * self.random()), b-a) + a
 
+    def randints(self, n:int, a:int, b:int) -> int:
+        """Generate `n` uniform random integers in [a, b].
+
+        Args:
+            n: The number of random integers to generate.
+            a: The inclusive lower bound for the random integer.
+            b: The inclusive upper bound for the random integer.
+        """
+
+        return [min(int((b-a+1) * r), b-a) + a for r in self.randoms(n)]
+
+
     def choice(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Any:
         """Choose a random item from the given sequence.
 
@@ -137,6 +149,10 @@ class CobaRandom:
     def gauss(self, mu:float=0, sigma:float=1) -> float:
         """Generate a random number from N(mu,sigma).
 
+        Args:
+            mu: The expectation of the distribution we are drawing from.
+            sigma: The standard deviation of the distribution we are drawing form.
+
         Returns:
             A random number drawn from N(mu,sigma).
         """
@@ -146,7 +162,7 @@ class CobaRandom:
         """Generate `n` independent random numbers from N(mu,sigma).
 
         Args:
-            n: How many random numbers should be generated
+            n: The number of random numbers to generate.
             mu: The expectation of the distribution we are drawing from.
             sigma: The standard deviation of the distribution we are drawing form.
 

@@ -100,8 +100,8 @@ class Experiment:
         """The maximum number of tasks allowed in a chunk before breaking a chunk into smaller chunks."""
         return self._maxtasksperchunk if self._maxtasksperchunk is not None else CobaContext.experiment.maxtasksperchunk
 
-    def evaluate(self, result_file:str = None) -> Result:
-        """Evaluate the experiment and return the results.
+    def run(self, result_file:str = None) -> Result:
+        """Run the experiment and return the results.
 
         Args:
             result_file: The file for writing and restoring results .
@@ -145,3 +145,12 @@ class Experiment:
             CobaContext.logger = CobaContext.logger.undecorate()
 
         return sink.read()
+
+    def evaluate(self, result_file:str = None) -> Result:
+        """Evaluate the experiment and return the results (this is a backwards compatible proxy for the run method).
+
+        Args:
+            result_file: The file for writing and restoring results .
+        """
+
+        return self.run(result_file=result_file)

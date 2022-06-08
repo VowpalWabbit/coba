@@ -5,12 +5,12 @@ import math
 import warnings
 
 from abc import ABC, abstractmethod
-from statistics import median, mean
+from statistics import mean
 from itertools import takewhile, combinations
-from typing import Iterable, Any, Dict, Sequence, Hashable
+from typing import Iterable, Any, Dict, Sequence, Hashable, Union
 
 from coba.statistics import percentile
-from coba.exceptions import CobaExit
+from coba.exceptions import CobaExit, CobaException
 from coba.random import CobaRandom
 from coba.learners import Learner, SafeLearner
 from coba.encodings import InteractionsEncoder
@@ -68,15 +68,27 @@ class EvaluationTask(ABC):
 class OnlineOnPolicyEvalTask(EvaluationTask):
     """Evaluate a Learner on a SimulatedEnvironment."""
 
-    def __init__(self, time:bool = True, seed:int = 1) -> None:
+    def __init__(self, 
+        metrics: Union[str,Sequence[str]] = ["reward","reward_pct","rank","rank_pct","regret","regret_pct"],
+        time:bool = True, 
+        seed:int = 1) -> None:
         """Instantiate an OnlineOnPolicyEvalTask.
 
         Args:
+            metrics: The metrics to keep track of while evaluating learners in addition to reward.
+            time: Indicate whether time statistcs should be tracked during evaluation.
             seed: A random seed which determines which action is taken given predictions.
-
         """
-        self._time = time
-        self._seed = seed
+
+        if not metrics:
+            raise CobaException("At least one performance metric is required.")
+
+        if isinstance(metrics,str): 
+            metrics = [metrics]
+
+        self._metrics = metrics
+        self._time    = time
+        self._seed    = seed
 
     def process(self, learner: Learner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
 
@@ -106,23 +118,29 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
             learn_time = time.time() - start_time
 
             learner_info     = InteractionContext.learner_info
-            interaction_info = { k:v[action_index] if isinstance(v,(list,tuple)) else v for k,v in interaction.kwargs.items() }
+            interaction_info = { k:(v[action_index] if isinstance(v,(list,tuple)) else v) for k,v in interaction.kwargs.items() }
 
-            evaluation_info  = {
+            eval_stats = {
                 'reward'      : reward,
                 'max_reward'  : max(interaction.rewards),
                 'min_reward'  : min(interaction.rewards),
+                'rank'        : 1+sorted(interaction.rewards,reverse=True).index(reward),
                 'min_rank'    : 1,
                 'max_rank'    : len(set(interaction.rewards)),
-                'rank'        : 1+sorted(interaction.rewards,reverse=True).index(reward),
-                'n_actions'   : len(interaction.actions),
             }
 
-            if self._time:
-                evaluation_info["predict_time"] = predict_time
-                evaluation_info["learn_time"  ] = learn_time
+            eval_metrics = {
+                'reward': eval_stats['reward'],
+                'reward_pct': (eval_stats['reward']-eval_stats['min_reward'])/(eval_stats['max_reward']-eval_stats['min_reward']),
+                'rank': eval_stats['rank'],
+                'rank_pct': (eval_stats['rank']-1)/(eval_stats['max_rank']-1),
+                'regret': eval_stats['max_reward']-eval_stats['reward'],
+                'regret_pct': (eval_stats['max_reward']-eval_stats['reward'])/(eval_stats['max_reward']-eval_stats['min_reward'])
+            }
 
-            yield {**interaction_info, **learner_info, **evaluation_info}
+            eval_times = {} if not self._time else {"predict_time": predict_time, "learn_time": learn_time}
+
+            yield {**interaction_info, **learner_info, **eval_times, **{k:eval_metrics[k] for k in self._metrics}}
 
 class OnlineOffPolicyEvalTask(EvaluationTask):
     """Evaluate a Learner on a LoggedEnvironment."""
@@ -194,10 +212,10 @@ class OnlineWarmStartEvalTask(EvaluationTask):
         logged_interactions    = takewhile(lambda i: isinstance(i,LoggedInteraction), separable_interactions)
         simulated_interactions = separable_interactions
 
-        for row in OnlineOffPolicyEvalTask(self._time).process(learner, logged_interactions):
+        for row in OnlineOffPolicyEvalTask(time=self._time).process(learner, logged_interactions):
             yield row
 
-        for row in OnlineOnPolicyEvalTask(self._time, self._seed).process(learner, simulated_interactions):
+        for row in OnlineOnPolicyEvalTask(time=self._time, seed=self._seed).process(learner, simulated_interactions):
             yield row
 
     def _repeat_first_simulated_interaction(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
