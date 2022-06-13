@@ -1091,6 +1091,26 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
+    def test_plot_learners_one_environment_x_not_index(self):
+
+        envs = {0:{}}
+        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        ints = {(0,1): {"_packed":{"reward":[1,2]}},(0,2):{"_packed":{"reward":[1,2]}}}
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_learners(x=['environment_id'])
+
+        expected_lines = [
+            (('0',),(1.5,),(None,),0,1,'learner_1','.'),
+            (('0',),(1.5,),(None,),1,1,'learner_2','.')
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
     def test_plot_learners_two_environments_err_sd(self):
 
         lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }

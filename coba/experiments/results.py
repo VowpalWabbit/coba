@@ -899,11 +899,13 @@ class Result:
         get_key  = lambda row: row['learner_id']
         lines    = []
 
+        style = "-" if x == ['index'] else "."
+
         for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
             XYE = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
             color = colors[i] if colors and i < len(colors) else i
             label = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
-            lines.append(Points(*zip(*XYE), color, 1, label))
+            lines.append(Points(*zip(*XYE), color, 1, label, style))
 
         lines  = sorted(lines, key=lambda line: -line[1][-1])
         xlabel = "Interactions"
