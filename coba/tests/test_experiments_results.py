@@ -1064,6 +1064,9 @@ class Result_Tests(unittest.TestCase):
             ((1,2),(1,1.5),(None,None),1,1,'learner_2','-')
         ]
 
+        self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
+        self.assertEqual("Interactions", plotter.plot_calls[0][3])
+
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
@@ -1088,6 +1091,9 @@ class Result_Tests(unittest.TestCase):
             ((1,2),(3/2,4/2),(None,None),1,1,'learner_2','-')
         ]
 
+        self.assertEqual("Progressive Reward (2 Environments)", plotter.plot_calls[0][2])
+        self.assertEqual("Interactions", plotter.plot_calls[0][3])
+        
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
@@ -1108,6 +1114,9 @@ class Result_Tests(unittest.TestCase):
             (('0',),(1.5,),(None,),1,1,'learner_2','.')
         ]
 
+        self.assertEqual("Final Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
+        self.assertEqual("environment_id", plotter.plot_calls[0][3])
+        
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 

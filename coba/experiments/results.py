@@ -908,9 +908,13 @@ class Result:
             lines.append(Points(*zip(*XYE), color, 1, label, style))
 
         lines  = sorted(lines, key=lambda line: -line[1][-1])
-        xlabel = "Interactions"
+        xlabel = "Interactions" if x==['index'] else x[0] if len(x) == 1 else x
         ylabel = y.capitalize().replace("_pct"," Percent")
+
         title  = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel} ({n_envs} Environments)"
+        
+        if x != ['index']:
+            title = "Final " + title
 
         self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, 0, 0, filename)
 
