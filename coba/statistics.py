@@ -60,7 +60,9 @@ class StandardDeviation:
         E_s  = sum(sample)/n
         E_s2 = sum([s*s for s in sample])/n
         var  = E_s2 - E_s*E_s
-        var  = var*n/(n-1) #Bessel's correction
+    
+        if n > 1: #Bessel's correction
+            var  = var*n/(n-1) 
 
         return var**(1/2)
 

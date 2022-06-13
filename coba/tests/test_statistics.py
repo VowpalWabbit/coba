@@ -34,6 +34,9 @@ class StandardDeviation_Tests(unittest.TestCase):
     def test(self):
         self.assertAlmostEqual(1.4142,StandardDeviation().calculate([1,3]),4)
 
+    def test_length_1(self):
+        self.assertAlmostEqual(0,StandardDeviation().calculate([1]),4)
+
 class StandardErrorOfMean_Tests(unittest.TestCase):
     def test(self):
         mu,(lo,hi) = StandardErrorOfMean().calculate([1,3])
