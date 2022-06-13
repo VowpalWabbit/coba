@@ -1,8 +1,9 @@
 import unittest
 
-from coba.pipes import ListSource
+from coba.pipes import ListSource, ListSink
 from coba.registry import CobaRegistry
 from coba.exceptions import CobaException
+from coba.contexts import CobaContext, IndentLogger
 
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 from coba.environments import OpenmlSimulation, Take
@@ -407,6 +408,25 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertDictEqual({**environments[0].params, 'openml_data':151}, environments[0].params)
 
+    def test_unused_user_defined_variable(self):
+        json_txt = """{
+            "environments": [
+                "$openmls"
+            ]
+        }"""
+
+        CobaContext.logger = IndentLogger()
+        CobaContext.logger.sink = ListSink()
+
+        environments = EnvironmentsTemplateV2(ListSource([json_txt]), openmls={"OpenmlSimulation":150}, O={"OpenmlSimulation":150}).read()
+
+        self.assertEqual(len(environments), 1)
+        self.assertIsInstance(environments[0], OpenmlSimulation)
+        self.assertDictEqual({**environments[0].params, 'openml_data':150}, environments[0].params)
+
+        expected_log = "The following provided variables were not used by the template:['O']"
+
+        self.assertEqual(expected_log, CobaContext.logger.sink.items[0])
 
     def test_str_pipe(self):
         json_txt = """{

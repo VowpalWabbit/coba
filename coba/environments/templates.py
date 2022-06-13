@@ -3,6 +3,7 @@ import collections.abc
 from itertools import product
 from typing import Sequence, Any, overload, Iterable, Union, Dict
 
+from coba.contexts import CobaContext
 from coba.registry import JsonMakerV1, CobaRegistry, JsonMakerV2
 from coba.pipes import Source, JsonDecode, UrlSource, Pipes
 from coba.exceptions import CobaException
@@ -74,6 +75,12 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
     def read(self) -> Sequence[Environment]:
         definition: dict = JsonDecode().filter('\n'.join(self._source.read()))
         
+        needed_var = list(self._missing(definition.get("variables",{}))) + list(self._missing(definition.get('environments',[])))
+        not_needed_user_var = [ v[1:] for v in set(self._user_variables.keys()) - set(needed_var)]
+
+        if not_needed_user_var:
+            CobaContext.logger.log(f"The following provided variables were not used by the template:{not_needed_user_var}")
+
         old_variables = { **definition.get("variables",{}), **self._user_variables}
         new_variables = self._fill(old_variables,old_variables)
         num_fillings  = 0
@@ -92,7 +99,7 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
         recipes = recipes if isinstance(recipes, list) else [recipes]
         recipes = self._fill(recipes, variables)
 
-        missing = self._missing(recipes)
+        missing = set(self._missing(recipes))
         if missing: raise CobaException(f"The following variables were not defined: [{','.join(missing)}]")
 
         environments = []
