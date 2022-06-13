@@ -902,17 +902,19 @@ class Result:
         style = "-" if x == ['index'] else "."
 
         for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
-            XYE = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
-            color = colors[i] if colors and i < len(colors) else i
-            label = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
+            lrn_rows = list(lrn_rows)
+            XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
+            color    = colors[i] if colors and i < len(colors) else i
+            label    = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
             lines.append(Points(*zip(*XYE), color, 1, label, style))
 
         lines  = sorted(lines, key=lambda line: -line[1][-1])
         xlabel = "Interactions" if x==['index'] else x[0] if len(x) == 1 else x
         ylabel = y.capitalize().replace("_pct"," Percent")
 
-        title  = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel} ({n_envs} Environments)"
-        
+        title = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel}"
+        title = title + f" ({len(lrn_rows) if x==['index'] else len(XYE)} Environments)"
+
         if x != ['index']:
             title = "Final " + title
 
