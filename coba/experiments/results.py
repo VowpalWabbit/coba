@@ -435,7 +435,8 @@ class TransactionIO(Source['Result'], Sink[Any]):
 class Points(NamedTuple):
     X    : Sequence[Any]
     Y    : Sequence[float] 
-    E    : Sequence[float]  = None
+    XE   : Sequence[float]  = None
+    YE   : Sequence[float]  = None
     color: Union[str,int]   = None
     alpha: float            = 1
     label: Optional[str]    = None
@@ -493,34 +494,37 @@ class MatplotlibPlotter(Plotter):
             if bad_lines:
                 CobaContext.logger.log(f"No data was found for plotting in the given results.")
         else:
-            ax = ax or plt.figure(figsize=(10,4)).add_subplot(111) #type: ignore
+            ax = ax or plt.figure(num="coba").add_subplot(111) #type: ignore
 
             in_lim = lambda v,lim: lim is None or ((lim[0] or -float('inf')) <= v and v <= (lim[1] or float('inf')))
-            
+
             any_label = False
             num_coalesce = lambda x1,x2: x1 if isinstance(x1,(int,float)) else x2
 
-            for X, Y, E, c, a, l, fmt in lines:
+            for X, Y, XE, YE, c, a, l, fmt in lines:
 
                 if l: any_label = True
 
                 # we remove values outside of the given lims because matplotlib won't correctly scale otherwise
-                if not E:
+                if not YE:
                     XY = [(x,y) for i,x,y in zip(count(),X,Y) if in_lim(num_coalesce(x,i),xlim) and in_lim(num_coalesce(y,i),ylim)]
                     X,Y = map(list,zip(*XY)) if XY else ([],[])
                 else:
-                    XYE = [(x,y,e) for i,x,y,e in zip(count(),X,Y,E) if in_lim(num_coalesce(x,i),xlim) and in_lim(num_coalesce(y,i),ylim)]
-                    X,Y,E = map(list,zip(*XYE)) if XYE else ([],[],[])
+                    XYE = [(x,y,e) for i,x,y,e in zip(count(),X,Y,YE) if in_lim(num_coalesce(x,i),xlim) and in_lim(num_coalesce(y,i),ylim)]
+                    X,Y,YE = map(list,zip(*XYE)) if XYE else ([],[],[])
 
                 if isinstance(c,int): c = color_cycle[c]
 
+                not_err_bar = lambda E: not E or all([e is None for e in E])
+
                 if X and Y:
-                    if not E or all([e is None for e in E]):
+                    if all(map(not_err_bar,[XE,YE])):
                         ax.plot(X, Y, fmt,  color=c, alpha=a, label=l)
                     else:
-                        E = list(zip(*E)) if isinstance(E[0],tuple) else E 
+                        XE = None if not_err_bar(XE) else list(zip(*XE)) if isinstance(XE[0],tuple) else XE
+                        YE = None if not_err_bar(YE) else list(zip(*YE)) if isinstance(YE[0],tuple) else YE
                         error_every = max(int(len(X)*0.05),1) if fmt == "-" else 1
-                        ax.errorbar(X, Y, E, None, fmt, elinewidth=0.5, errorevery=error_every, color=c, alpha=a, label=l)
+                        ax.errorbar(X, Y, YE, XE, fmt, elinewidth=0.5, errorevery=error_every, color=c, alpha=a, label=l)
 
             if xrotation is not None:
                 plt.xticks(rotation=xrotation)
@@ -614,14 +618,20 @@ class ContrastPlottingData:
         sort_key  = lambda row: (row['environment_id'], 0 if row['learner_id']==learner_id1 else 1)
         group_key = lambda row: row['environment_id']
 
-        contraster = lambda Y1,Y2: list(map(int,map(gt,Y1,Y2))) if mode == "prob" else list(map(sub,Y1,Y2))
-        contrast   = lambda env_id, pair: {'environment_id': env_id, y: contraster(pair[0][y],pair[1][y]) }
+        if mode == "prob":
+            contraster = lambda Y1,Y2: list(map(int,map(gt,Y1,Y2))) 
+        elif mode == "diff": 
+            contraster = lambda Y1,Y2: list(map(sub,Y1,Y2))
+        else:
+            contraster = lambda Y1,Y2: list(zip(Y1,Y2))
+
+        contrast = lambda env_id, pair: {'environment_id': env_id, y: contraster(pair[0][y],pair[1][y]) }
 
         return [ contrast(env_id,list(pair)) for env_id, pair in groupby(sorted(rows,key=sort_key),key=group_key) ]
 
 class TransformToXYE:
 
-    def filter(self, 
+    def filter(self,
         rows: Sequence[Dict[str,Any]], 
         envs: Dict[int,Dict[str,Any]], 
         x:Sequence[str], 
@@ -642,19 +652,30 @@ class TransformToXYE:
             YE = err.calculate
         else:
             avg = Mean()
-            YE = lambda z: (avg.calculate(z), None)
+            YE = lambda z: (avg.calculate(z) if len(z) > 1 else z[0], None)
+
+        is_scatter = isinstance(rows[0][y][0],(list,tuple))
 
         if x == ['index']:
             Z = list(zip(*[row[y] for row in rows]))
             X = list(range(1,len(Z)+1))
-            return [(x,)+YE(z) for x,z in zip(X,Z) ]
 
+            if not is_scatter:
+                points = [(x,None)+YE(z) for x,z in zip(X,Z) ]
+            else:
+                points = [YE(z1)+YE(z2) for _,z in zip(X,Z) for z1,z2 in [tuple(zip(*z))]]
         else:
             XZ = collections.defaultdict(list)
             make_x = lambda env: env[x[0]] if len(x) == 1 else tuple(env[k] for k in x)
             for row in rows:
                 XZ[str(make_x(envs[row["environment_id"]]))].append(row[y][-1])
-            return [(x,)+YE(z) for x,z in XZ.items()]
+
+            if not is_scatter:
+                points = [(x,None)+YE(z) for x,z in XZ.items()]
+            else:
+                points = [YE(z1)+YE(z2) for _,z in XZ.items() for z1,z2 in [tuple(zip(*z))]]
+
+        return [ (x,y,xe,ye) for x,xe,y,ye in points ]
 
 class Result:
     """A class representing the result of an Experiment."""
@@ -803,7 +824,7 @@ class Result:
         learner_id2: int,
         x          : Union[str, Sequence[str]] = "environment_id",
         y          : str = "reward",
-        mode       : Literal["diff","prob"] = "diff",
+        mode       : Literal["diff","prob",'scat'] = "diff",
         span       : int = None,
         err        : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
         labels     : Sequence[str] = None,
@@ -823,22 +844,23 @@ class Result:
         rows = ContrastPlottingData().filter(rows, y, mode, learner_id1)
 
         XYE = TransformToXYE().filter(rows, self.environments, x, y, err)
-        
+
         if x != ['index']:
             XYE = sorted(XYE, key=lambda xye: xye[1])
 
         bound = .5 if mode == "prob" else 0
 
         win,tie,loss = [],[],[]
-        for _x,_y,_e in XYE:
-            l,u = (0,0) if _e is None else (_e,_e) if isinstance(_e,Number) else _e
-            (win if _y-l > bound else loss if _y+u < bound else tie).append((_x,_y,_e))
+        for _x,_y,_xe,_ye in XYE:
+            xl,xu = (0,0) if _xe is None else (_xe,_xe) if isinstance(_xe,Number) else _xe
+            yl,yu = (0,0) if _ye is None else (_ye,_ye) if isinstance(_ye,Number) else _ye
+            if mode != 'scat':
+                (win if _y-yl > bound else loss if _y+yu < bound else tie).append((_x,_y,_xe,_ye))
+            else:
+                (win if _x-xl>_y+yu else loss if _y-yl>_x+xu else tie).append((_x,_y,_xe,_ye))
 
         colors = (colors or []) + [0,1,2]
         labels = (labels or []) + [self.learners[learner_id1]['full_name'], self.learners[learner_id2]['full_name']]
-
-        leftmost_x  = (loss+tie+win)[ 0][0]
-        rightmost_x = (loss+tie+win)[-1][0]
 
         fmt = "-" if x == ['index'] else "."
 
@@ -846,14 +868,27 @@ class Result:
         if loss: plots.append(Points(*zip(*loss), 2, 1, labels[1] + " " + f"({len(loss)})", fmt))
         if tie : plots.append(Points(*zip(*tie) , 1, 1, 'Tie'     + " " + f"({len(tie )})", fmt))
         if win : plots.append(Points(*zip(*win) , 0, 1, labels[0] + " " + f"({len(win )})", fmt))        
-        plots.append(Points((leftmost_x,rightmost_x),(bound,bound), None , "#888", 1, None, '-'))
 
-        xrotation = 90 if x != ['index'] else 0
+        if mode != 'scat':
+            leftmost_x  = (loss+tie+win)[ 0][0]
+            rightmost_x = (loss+tie+win)[-1][0]
+            plots.append(Points((leftmost_x,rightmost_x),(bound,bound), None, None , "#888", 1, None, '-'))
+        else:
+            m    = max([p[0] for p in (loss+tie+win)]+[p[1] for p in (loss+tie+win)]+[1])
+            plots.append(Points((0,m),(0,m), None, None , "#888", 1, None, '-'))
+
+        xrotation = 90 if x != ['index'] and len(XYE)>5 else 0
         yrotation = 0
 
-        xlabel = "Interactions" if x==['index'] else x[0] if len(x) == 1 else x
-        ylabel = f"{labels[0]} - {labels[1]}" if mode=="diff" else f"P({labels[0]} > {labels[1]})"
+        if mode != "scat":
+            xlabel = "Interactions" if x==['index'] else x[0] if len(x) == 1 else x
+            ylabel = f"{labels[0]} - {labels[1]}" if mode=="diff" else f"P({labels[0]} > {labels[1]})"
+        else:
+            xlabel = y
+            ylabel = y
+
         title  = f"{ylabel} ({len(rows) if x==['index'] else len(XYE)} Environments)"
+
         self._plotter.plot(ax, plots, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, filename)
 
     def plot_learners(self,

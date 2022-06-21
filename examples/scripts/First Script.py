@@ -27,7 +27,8 @@ if __name__ == '__main__':
     ]
 
     #Next we create the environments we'd like evaluate against
-    environments = Environments.from_linear_synthetic(1000, n_action_features=0).shuffle([1,2,3,4])
+    environments  = Environments.from_linear_synthetic(1000, n_action_features=0).shuffle([1,2,3,4])
+    environments += Environments.from_kernel_synthetic(1000, n_action_features=0).shuffle([1,2,3,4])
 
     #We then create and run our experiment from our environments and learners
     result = Experiment(environments,learners).run()
@@ -38,6 +39,9 @@ if __name__ == '__main__':
     #We can then filter down the plot down to get a closer look at a region of interest
     result.filter_lrn(family="vw").plot_learners(y='rank_pct', err='se', xlim=(700,1000))
 
-    #Finally, we can directly contrast two learners to see exactly when one learner out-performs 
-    #another with 95% confidence (given the 95% confidence interval assumptions are appropriate)
-    result.plot_contrast(0, 1, "index", "reward", "diff", err='se', labels=["VWEpsilon","VWBag"])
+    #We can also directly contrast two learners to see exactly when one learner out-performs 
+    #another with 95% confidence (given that the 95% CI assumptions are appropriate for the data)
+    result.plot_contrast(0, 1, "index", "reward", mode="diff", err='se', labels=["VWEpsilon","VWBag"])
+
+    #Finally, we can group our environments to see which environments our two learners perform better on    
+    result.plot_contrast(0, 1, "type", "reward" , mode="scat", err='se', labels=["VWEpsilon","VWBag"])

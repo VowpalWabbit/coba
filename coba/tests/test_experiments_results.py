@@ -331,8 +331,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                     mock_ax.get_xlim.return_value   = [2,2]
 
                     lines = [
-                        ([1,2], [5,6], None, "B", 1.00, 'L1', '-'),
-                        ([3,4], [7,8], None, "R", 0.25, 'L2', '-')
+                        ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                        ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
                     ]
 
                     MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
@@ -368,8 +368,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                     mock_ax.get_xlim.return_value   = [2,2]
 
                     lines = [
-                        ([1,2], [5,6], [10,11], "B", 1.00, 'L1', '-'),
-                        ([3,4], [7,8], [12,13], "R", 0.25, 'L2', '-')
+                        ([1,2], [5,6], None, [10,11], "B", 1.00, 'L1', '-'),
+                        ([3,4], [7,8], None, [12,13], "R", 0.25, 'L2', '-')
                     ]
 
                     MatplotlibPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, None,)
@@ -398,8 +398,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
         with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
             lines = [
-                ([1,2], [5,6], None, "B", 1.00, 'L1', '-'),
-                ([3,4], [7,8], None, "R", 0.25, 'L2', '-')
+                ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
             ]
 
             mock_ax = plt_figure().add_subplot()
@@ -413,8 +413,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
         with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
             lines = [
-                ([1,2], [5,6], [4,3], "B", 1.00, 'L1', '-'),
-                ([3,4], [7,8], [2,1], "R", 0.25, 'L2', '-')
+                ([1,2], [5,6], None, [4,3], "B", 1.00, 'L1', '-'),
+                ([3,4], [7,8], None, [2,1], "R", 0.25, 'L2', '-')
             ]
 
             mock_ax = plt_figure().add_subplot()
@@ -427,8 +427,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
         with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
             lines = [
-                ([1,2], [5,6], None, "B", 1.00, 'L1', '-'),
-                ([3,4], [7,8], None, "R", 0.25, 'L2', '-')
+                ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
             ]
 
             mock_ax = plt_figure().add_subplot()
@@ -443,8 +443,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 lines = [
-                    ([1,2], [5,6], None, "B", 1.00, 'L1', '-'),
-                    ([3,4], [7,8], None, "R", 0.25, 'L2', '-')
+                    ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                    ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
                 ]
 
                 mock_ax = plt_figure().add_subplot()
@@ -461,8 +461,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 lines = [
-                    ([1,2], [5,6], None, "B", 1.00, 'L1', '-'),
-                    ([3,4], [7,8], None, "R", 0.25, 'L2', '-')
+                    ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                    ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
                 ]
 
                 mock_ax = plt_figure().add_subplot()
@@ -479,8 +479,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 lines = [
-                    ([1,2], [5,6], None, "B", 1.00, 'L1', '-'),
-                    ([3,4], [7,8], None, "R", 0.25, 'L2', '-')
+                    ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                    ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
                 ]
 
                 mock_ax = plt_figure().add_subplot()
@@ -497,8 +497,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
 
                 lines = [
-                    ([1,2], [5,6], None, "B", 1.00, 'L1', '-'),
-                    ([3,4], [7,8], None, "R", 0.25, 'L2', '-')
+                    ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                    ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
                 ]
 
                 mock_ax = plt_figure().add_subplot()
@@ -522,8 +522,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                     mock_ax.get_xlim.return_value   = [2,2]
 
                     lines = [
-                        ([1,2], [5,6], None, "B", 1.00, 'L1', '-'),
-                        ([3,4], [7,8], None, "R", 0.25, 'L2', '-')
+                        ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                        ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
                     ]
 
                     MatplotlibPlotter().plot(mock_ax,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
@@ -583,8 +583,8 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                     mock_ax.get_xlim.return_value   = [2,2]
 
                     lines = [
-                        ([1,2], [5,6], None, "B", 1.00, 'L1', '-'),
-                        ([3,4], [7,8], None, "R", 0.25, 'L2', '-')
+                        ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                        ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
                     ]
 
                     MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,"abc")
@@ -1060,8 +1060,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners()
 
         expected_lines = [
-            ((1,2),(1,1.5),(None,None),0,1,'learner_1','-'),
-            ((1,2),(1,1.5),(None,None),1,1,'learner_2','-')
+            ((1,2),(1,1.5),(None,None),(None,None),0,1,'learner_1','-'),
+            ((1,2),(1,1.5),(None,None),(None,None),1,1,'learner_2','-')
         ]
 
         self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
@@ -1087,8 +1087,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners()
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),0,1,'learner_1','-'),
-            ((1,2),(3/2,4/2),(None,None),1,1,'learner_2','-')
+            ((1,2),(3/2,4/2),(None,None),(None,None),0,1,'learner_1','-'),
+            ((1,2),(3/2,4/2),(None,None),(None,None),1,1,'learner_2','-')
         ]
 
         self.assertEqual("Progressive Reward (2 Environments)", plotter.plot_calls[0][2])
@@ -1110,13 +1110,13 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(x=['environment_id'])
 
         expected_lines = [
-            (('0',),(1.5,),(None,),0,1,'learner_1','.'),
-            (('0',),(1.5,),(None,),1,1,'learner_2','.')
+            (('0',),(1.5,),(None,),(None,),0,1,'learner_1','.'),
+            (('0',),(1.5,),(None,),(None,),1,1,'learner_2','.')
         ]
 
         self.assertEqual("Final Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
         self.assertEqual("environment_id", plotter.plot_calls[0][3])
-        
+
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
@@ -1137,8 +1137,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(err='sd')
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(sqrt(2)/2,sqrt(2)/2),0,1,'learner_1','-'),
-            ((1,2),(3/2,4/2),(sqrt(2)/2,sqrt(2)/2),1,1,'learner_2','-')
+            ((1,2),(3/2,4/2),(None,None),(sqrt(2)/2,sqrt(2)/2),0,1,'learner_1','-'),
+            ((1,2),(3/2,4/2),(None,None),(sqrt(2)/2,sqrt(2)/2),1,1,'learner_2','-')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1164,8 +1164,8 @@ class Result_Tests(unittest.TestCase):
 
         expected_log = "This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this warning in the future call <result>.filter_fin() before plotting."
         expected_lines = [
-            ((1,2),(2,5/2),(None,None),0,1,'learner_1','-'),
-            ((1,2),(2,5/2),(None,None),1,1,'learner_2','-')
+            ((1,2),(2,5/2),(None,None),(None,None),0,1,'learner_1','-'),
+            ((1,2),(2,5/2),(None,None),(None,None),1,1,'learner_2','-')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1193,8 +1193,8 @@ class Result_Tests(unittest.TestCase):
 
         expected_log = "This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting."
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),0,1,'learner_1','-'),
-            ((1,2),(3/2,4/2),(None,None),1,1,'learner_2','-')
+            ((1,2),(3/2,4/2),(None,None),(None,None),0,1,'learner_1','-'),
+            ((1,2),(3/2,4/2),(None,None),(None,None),1,1,'learner_2','-')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1275,8 +1275,8 @@ class Result_Tests(unittest.TestCase):
         result.plot_learners(labels=['a','b'])
 
         expected_lines = [
-            ((1,2),(3/2,4/2),(None,None),0,1,'a','-'),
-            ((1,2),(3/2,4/2),(None,None),1,1,'b','-')
+            ((1,2),(3/2,4/2),(None,None),(None,None),0,1,'a','-'),
+            ((1,2),(3/2,4/2),(None,None),(None,None),1,1,'b','-')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1311,10 +1311,10 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(1,2,'index')
 
         expected_lines = [
-            ((1,)  ,(-1,), (None,), 2     , 1, 'learner_2 (1)', '-'),
-            ((2,)  ,( 0,), (None,), 1     , 1, 'Tie (1)'      , '-'),
-            ((3,)  ,( 1,), (None,), 0     , 1, 'learner_1 (1)', '-'),
-            ((1,3,),(0,0), None   , "#888", 1, None           , '-')
+            ((1,)  ,(-1,), (None,), (None,), 2     , 1, 'learner_2 (1)', '-'),
+            ((2,)  ,( 0,), (None,), (None,), 1     , 1, 'Tie (1)'      , '-'),
+            ((3,)  ,( 1,), (None,), (None,), 0     , 1, 'learner_1 (1)', '-'),
+            ((1,3,),(0,0), None   , None   , "#888", 1, None           , '-')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1323,7 +1323,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines[2], plotter.plot_calls[0][1][2])
         self.assertEqual(expected_lines[3], plotter.plot_calls[0][1][3])
 
-    def test_plot_contrast_one_environment_env_index(self):
+    def test_plot_contrast_one_environment_env_not_index(self):
 
         envs = {0:{'a':1}, 1:{'a':2}, 2:{'a':3}}
         lrns = {1:{'full_name':'learner_1'},2:{'full_name':'learner_2'}}
@@ -1343,9 +1343,39 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(1,2,'a')
 
         expected_lines = [
-            (('2',)   , (0, ), (None,    ), 1     , 1, 'Tie (1)'      , '.'),
-            (('3','1'), (1,2), (None,None), 0     , 1, 'learner_1 (2)', '.'),
-            (('2','1'), (0,0), None       , "#888", 1, None           , '-')
+            (('2',)   , (0, ), (None,    ), (None,    ), 1     , 1, 'Tie (1)'      , '.'),
+            (('3','1'), (1,2), (None,None), (None,None), 0     , 1, 'learner_1 (2)', '.'),
+            (('2','1'), (0,0), None       , None       , "#888", 1, None           , '-')
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines[0], plotter.plot_calls[0][1][0])
+        self.assertEqual(expected_lines[1], plotter.plot_calls[0][1][1])
+        self.assertEqual(expected_lines[2], plotter.plot_calls[0][1][2])
+
+    def test_plot_scat_contrast_one_environment_env_index(self):
+
+        envs = {0:{'a':1}, 1:{'a':2}, 2:{'a':3}}
+        lrns = {1:{'full_name':'learner_1'},2:{'full_name':'learner_2'}}
+        ints = {
+            (0,1): {"_packed":{"reward":[0,3,12]}},
+            (0,2): {"_packed":{"reward":[1,2,6 ]}},
+            (1,1): {"_packed":{"reward":[0,3,6 ]}},
+            (1,2): {"_packed":{"reward":[1,2,6 ]}},
+            (2,1): {"_packed":{"reward":[0,3,9 ]}},
+            (2,2): {"_packed":{"reward":[1,2,6 ]}},
+        }
+
+        plotter = TestPlotter()
+        result = Result(envs, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_contrast(1,2,'a',mode='scat')
+
+        expected_lines = [
+            ((3,  ), (3,  ), (None,    ), (None,    ), 1     , 1, 'Tie (1)'      , '.'),
+            ((5, 4), (3, 3), (None,None), (None,None), 0     , 1, 'learner_1 (2)', '.'),
+            ((0, 5), (0, 5), None       , None       , "#888", 1, None           , '-')
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
@@ -1640,8 +1670,26 @@ class ContrastPlottingData_Tests(unittest.TestCase):
             {"environment_id":0, "reward":[0,0,0]},
             {"environment_id":1, "reward":[0,0,0]}
         ]
-        
+
         actual_rows = ContrastPlottingData().filter(rows, "reward", "prob", 0)
+
+        self.assertEqual(expected_rows,actual_rows)
+
+    def test_2_env_scat_1(self):
+
+        rows = [
+            {"environment_id":0, "learner_id":0, "reward":[0,2,4]},
+            {"environment_id":0, "learner_id":1, "reward":[0,4,8]},
+            {"environment_id":1, "learner_id":0, "reward":[0,0,0]},
+            {"environment_id":1, "learner_id":1, "reward":[1,2,3]}
+        ]
+
+        expected_rows = [
+            {"environment_id":0, "reward":[(0,0),(2,4),(4,8)]},
+            {"environment_id":1, "reward":[(0,1),(0,2),(0,3)]}
+        ]
+        
+        actual_rows = ContrastPlottingData().filter(rows, "reward", "scat", 0)
         
         self.assertEqual(expected_rows,actual_rows)
 
@@ -1660,9 +1708,9 @@ class TransformXYE_Tests(unittest.TestCase):
         }
 
         expected_rows = [
-            (1, 0, None),
-            (2, 3, None),
-            (3, 6, None),
+            (1, 0, None, None),
+            (2, 3, None, None),
+            (3, 6, None, None),
         ]
 
         actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", None)
@@ -1682,8 +1730,8 @@ class TransformXYE_Tests(unittest.TestCase):
         }
 
         expected_rows = [
-            (1, 0, 0      ),
-            (2, 2, sqrt(2)),
+            (1, 0, None, 0      ),
+            (2, 2, None, sqrt(2)),
         ]
 
         actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'sd')
@@ -1703,8 +1751,8 @@ class TransformXYE_Tests(unittest.TestCase):
         }
 
         expected_rows = [
-            (1, 0, (0   ,0   )),
-            (2, 2, (1.96,1.96)),
+            (1, 0, None, (0   ,0   )),
+            (2, 2, None, (1.96,1.96)),
         ]
 
         actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'se')
@@ -1724,8 +1772,8 @@ class TransformXYE_Tests(unittest.TestCase):
         }
 
         expected_rows = [
-            (1,   0, (0 , 0)),
-            (2, 1/2, (.5,.5)),
+            (1,   0, None, (0 , 0)),
+            (2, 1/2, None, (.5,.5)),
         ]
 
         actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'bs')
@@ -1748,19 +1796,19 @@ class TransformXYE_Tests(unittest.TestCase):
         }
 
         expected_rows = [
-            (1,   0, (0         , 0.39033   )),
-            (2, 1/2, (.5-0.18761, 0.81238-.5)),
+            (1,   0, None, (0         , 0.39033   )),
+            (2, 1/2, None, (.5-0.18761, 0.81238-.5)),
         ]
 
         actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'bi')
 
-        self.assertEqual      (expected_rows[0][0:2] ,actual_rows[0][0:2]   )
-        self.assertEqual      (expected_rows[0][2][0],actual_rows[0][2][0]  )
-        self.assertAlmostEqual(expected_rows[0][2][1],actual_rows[0][2][1],4)
+        self.assertEqual      (expected_rows[0][0:3] ,actual_rows[0][0:3]   )
+        self.assertEqual      (expected_rows[0][3][0],actual_rows[0][3][0]  )
+        self.assertAlmostEqual(expected_rows[0][3][1],actual_rows[0][3][1],4)
 
-        self.assertEqual      (expected_rows[1][0:2] ,actual_rows[1][0:2]   )
-        self.assertAlmostEqual(expected_rows[1][2][0],actual_rows[1][2][0],4)
-        self.assertAlmostEqual(expected_rows[1][2][1],actual_rows[1][2][1],4)
+        self.assertEqual      (expected_rows[1][0:3] ,actual_rows[1][0:3]   )
+        self.assertAlmostEqual(expected_rows[1][3][0],actual_rows[1][3][0],4)
+        self.assertAlmostEqual(expected_rows[1][3][1],actual_rows[1][3][1],4)
 
     @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip this test.")
     def test_x_index_bi_exact_err(self):
@@ -1780,16 +1828,16 @@ class TransformXYE_Tests(unittest.TestCase):
         }
 
         expected_rows = [
-            (1, 1/2, (.5-0.11811, 0.88188-.5)),
+            (1, 1/2, None, (.5-0.11811, 0.88188-.5)),
         ]
 
         actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", BinomialConfidenceInterval('clopper-pearson'))
 
-        self.assertEqual      (expected_rows[0][0:2] ,actual_rows[0][0:2]   )
-        self.assertAlmostEqual(expected_rows[0][2][0],actual_rows[0][2][0],4)
-        self.assertAlmostEqual(expected_rows[0][2][1],actual_rows[0][2][1],4)
+        self.assertEqual      (expected_rows[0][0:3] ,actual_rows[0][0:3]   )
+        self.assertAlmostEqual(expected_rows[0][3][0],actual_rows[0][3][0],4)
+        self.assertAlmostEqual(expected_rows[0][3][1],actual_rows[0][3][1],4)
 
-    def test_one_env_index_bs_err(self):
+    def test_one_env_bs_err(self):
 
         rows = [
             {"environment_id":0, "reward":[1,2]},
@@ -1806,15 +1854,15 @@ class TransformXYE_Tests(unittest.TestCase):
         }
 
         expected_rows = [
-            ('1', 4, (2,2)),
-            ('3', 6, (2,2)),
+            ('1', 4, None, (2,2)),
+            ('3', 6, None, (2,2)),
         ]
 
         actual_rows = TransformToXYE().filter(rows, envs, 'a', "reward", 'bs')
 
         self.assertEqual(expected_rows,actual_rows)
 
-    def test_two_env_index_bs_err(self):
+    def test_two_env_bs_err(self):
 
         rows = [
             {"environment_id":0, "reward":[1,2]},
@@ -1831,9 +1879,56 @@ class TransformXYE_Tests(unittest.TestCase):
         }
 
         expected_rows = [
-            ('(1, 2)', 4, (2,2)),
-            ('(3, 5)', 4, (0,0)),
-            ('(3, 6)', 8, (0,0)),
+            ('(1, 2)', 4, None, (2,2)),
+            ('(3, 5)', 4, None, (0,0)),
+            ('(3, 6)', 8, None, (0,0)),
+        ]
+
+        actual_rows = TransformToXYE().filter(rows, envs, ['a','b'], "reward", 'bs')
+
+        self.assertEqual(expected_rows,actual_rows)
+    
+    def test_index_pairwise_bs_err(self):
+
+        rows = [
+            {"environment_id":0, "reward":[(1,2),(3,4)]},
+            {"environment_id":1, "reward":[(3,6),(3,6)]},
+        ]
+
+        envs = {
+            0: {'a':1,'b':2},
+            1: {'a':3,'b':5},
+        }
+
+        expected_rows = [
+            (2, 4, (1,1), (2,2)),
+            (3, 5, (0,0), (1,1)),
+        ]
+
+        actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'bs')
+
+        self.assertEqual(expected_rows,actual_rows)
+
+    def test_two_env_pairwise_bs_err(self):
+
+        rows = [
+            {"environment_id":0, "reward":[(1,2)]},
+            {"environment_id":1, "reward":[(2,4)]},
+            {"environment_id":2, "reward":[(3,6)]},
+            {"environment_id":3, "reward":[(4,8)]},
+        ]
+
+        envs = {
+            0: {'a':1,'b':2},
+            1: {'a':3,'b':5},
+            2: {'a':1,'b':2},
+            3: {'a':3,'b':6},
+        }
+
+        expected_rows = [
+            (2, 4, (1,1), (2,2)),
+            (2, 4, (0,0), (0,0)),
+            (4, 8, (0,0), (0,0)),
         ]
 
         actual_rows = TransformToXYE().filter(rows, envs, ['a','b'], "reward", 'bs')
