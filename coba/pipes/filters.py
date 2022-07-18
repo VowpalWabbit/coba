@@ -153,8 +153,8 @@ class JsonEncode(Filter[Any, str]):
                     obj[k] = v
                 else:
                     #rounding by any means is considerably slower than this crazy method
-                    #we format as a truncated string and then manually remove the string
-                    #indicators from the json via string replace methods
+                    #where we format as a truncated string and then manually remove the 
+                    #string indicators from the json via string replace methods
                     obj[k] = f"|{v:0.5g}|"
             else:
                 obj[k] = self._min(v)

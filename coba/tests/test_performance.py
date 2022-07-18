@@ -2,7 +2,6 @@ import unittest
 import timeit
 import statistics
 import importlib.util
-import itertools
 
 import coba.random
 
@@ -11,7 +10,7 @@ from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, ListSource
-from coba.experiments.results import Result, InteractionsTable, moving_average
+from coba.experiments.results import Result, moving_average
 
 class Performance_Tests(unittest.TestCase):
 
