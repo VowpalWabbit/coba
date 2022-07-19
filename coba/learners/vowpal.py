@@ -12,9 +12,9 @@ from coba.environments import Context, Action
 from coba.learners.primitives import Learner, Probs, Info
 
 Feature       = Union[str,int,float]
-Features      = Union[Feature, Sequence[Feature], Dict[str,Feature]]
+Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]
 Namespaces    = Dict[str,Features]
-VW_Features   = Sequence[Union[str,int,Tuple[str,Union[int,float]],Tuple[int,Union[int,float]]]]
+VW_Features   = Sequence[Union[str,int,Tuple[Union[str,int],Union[int,float]],Dict[str,Union[int,float]]]]
 VW_Namespaces = Dict[str,VW_Features]
 
 class VowpalMediator:
@@ -60,10 +60,10 @@ class VowpalMediator:
         if self._vw is not None:
             raise CobaException("We cannot initilaize a VW learner twice in a single mediator.")
 
-        self._version = __version__
-        self._vw = pyvw.Workspace(args) if __version__[0] == '9' else pyvw.vw(args)
-        self._label_type = pyvw.LabelType(label_type) if __version__[0] == '9' else label_type
-        self._example_init = pyvw.Example if __version__[0] == '9' else pyvw.example
+        self._version = [ int(v) for v in __version__.split(".") ]
+        self._vw = pyvw.Workspace(args) if self._version[0] >= 9 else pyvw.vw(args)
+        self._label_type = pyvw.LabelType(label_type) if self._version[0] >= 9 else label_type
+        self._example_init = pyvw.Example if self._version[0] >= 9 else pyvw.example
 
         return self
 
@@ -120,17 +120,38 @@ class VowpalMediator:
     def _prep_namespaces(self, namespaces: Namespaces) -> VW_Namespaces:
         """Turn a collection of coba formatted namespaces into VW format."""
 
-        #the strange type checks below were faster than traditional methods when performance testing
-        for ns, feats in namespaces.items():
-            if not feats and feats != 0 and feats != "":
-                continue
-            elif feats.__class__ is str:
-                yield (ns, [f"{self._get_ns_offset(ns,1)}={feats}"])
-            elif feats.__class__ is int or feats.__class__ is float:
-                yield (ns, [(self._get_ns_offset(ns,1), feats)])
-            else:
-                feats = feats.items() if feats.__class__ is dict else enumerate(feats,self._get_ns_offset(ns,len(feats)))
-                yield (ns, [f"{k}={v}" if v.__class__ is str else (k, v) for k,v in feats if v!= 0])
+        if self._version[0] < 9 or self._version[:2] == [9,1]:#pragma: no cover
+            #the strange type checks below were faster than traditional methods when performance testing
+            for ns, feats in namespaces.items():
+                if not feats and feats != 0 and feats != "":
+                    continue
+                elif feats.__class__ is str:
+                    yield (ns, [f"{self._get_ns_offset(ns,1)}={feats}"])
+                elif feats.__class__ is int or feats.__class__ is float:
+                    yield (ns, [(self._get_ns_offset(ns,1), feats)])
+                else:
+                    feats = feats.items() if feats.__class__ is dict else enumerate(feats,self._get_ns_offset(ns,len(feats)))
+                    yield (ns, [f"{k}={v}" if v.__class__ is str else (k, v) for k,v in feats if v!= 0])
+        else:
+            #the strange type checks below were faster than traditional methods when performance testing
+            for ns, feats in namespaces.items():
+                if not feats and feats != 0 and feats != "":
+                    continue
+                elif feats.__class__ is str:
+                    yield (ns, [f"{self._get_ns_offset(ns,1)}={feats}"])
+                elif feats.__class__ is int or feats.__class__ is float:
+                    yield (ns, [(self._get_ns_offset(ns,1), feats)])
+                elif feats.__class__ is dict:
+                    yield (ns, feats)
+                else:
+                    d={}
+                    for k,v in enumerate(feats, start=self._get_ns_offset(ns,len(feats))):
+                        if  v:
+                            if v.__class__ is str:
+                                d[f"{k}={v}"] = 1
+                            else:
+                                d[k] = v
+                    yield (ns, d)
 
     def _get_ns_offset(self, namespace:str, length:int) -> Sequence[int]:
         value = self._ns_offsets.setdefault(namespace, self._curr_ns_offset)

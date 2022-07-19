@@ -153,11 +153,11 @@ class Performance_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
 
-        ns = { 'x': list(map(str,range(1000))) }
+        ns = { 'x': [ str(i) for i in range(1000) ] }
         time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))
 
-        #.029 was my final average time
-        self.assertLess(time, .29)
+        #.028 was my final average time
+        self.assertLess(time, .28)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_highly_sparse_performance(self):
@@ -168,8 +168,8 @@ class Performance_Tests(unittest.TestCase):
         ns = { 'x': [1]+[0]*1000  }
         time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))
 
-        #.0044 was my final average time
-        self.assertLess(time, .05)
+        #.0040 was my final average time
+        self.assertLess(time, .04)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_int_performance(self):
@@ -180,8 +180,8 @@ class Performance_Tests(unittest.TestCase):
         ns = { 'x': list(range(1000)) }
         time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=30, number=100))
 
-        #.023 was my final average time
-        self.assertLess(time, .23)
+        #.013 was my final average time
+        self.assertLess(time, .13)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_dict_performance(self):
@@ -189,11 +189,11 @@ class Performance_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --quiet",4)
 
-        ns = { 'x': dict(zip(map(str,range(1000)), range(1000))) }
+        ns = { 'x': { str(i):i for i in range(1000) } }
         time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))
 
-        #.024 was my final average time
-        self.assertLess(time, .24)
+        #.003 was my final average time
+        self.assertLess(time, .03)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_examples_sequence_int_performance(self):
@@ -205,8 +205,8 @@ class Performance_Tests(unittest.TestCase):
         distincts = [{ 'x': list(range(500)) }, { 'x': list(range(500)) }]
         time = statistics.mean(timeit.repeat(lambda:vw.make_examples(shared, distincts, None), repeat=10, number=100))
 
-        #.042 was my final average time
-        self.assertLess(time, .42)
+        #.022 was my final average time
+        self.assertLess(time, .22)
 
     def test_reservoir_performance(self):
 

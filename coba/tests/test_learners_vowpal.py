@@ -451,6 +451,7 @@ class VowpalMediator_Tests(unittest.TestCase):
 
         self.assertEqual([(ex.get_feature_id("x","a"),5)],list(ex.iter_features()))
 
+    @unittest.skip("Supporting this use case made dict processing take nearly 4x as long, so we removed it.")
     def test_make_example_dict_string_value(self):
 
         vw = VowpalMediator()
