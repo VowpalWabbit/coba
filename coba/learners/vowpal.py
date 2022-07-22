@@ -1,5 +1,6 @@
 import re
 
+from sys import platform
 from itertools import repeat
 from typing import Any, Dict, Union, Sequence, Optional, Tuple
 from coba.backports import Literal
@@ -120,7 +121,7 @@ class VowpalMediator:
     def _prep_namespaces(self, namespaces: Namespaces) -> VW_Namespaces:
         """Turn a collection of coba formatted namespaces into VW format."""
 
-        if self._version[0] < 9 or self._version[:2] == [9,1]:#pragma: no cover
+        if self._version < [9,2] or (self._version == [9,2,0] and "linux" in platform): #pragma: no cover
             #the strange type checks below were faster than traditional methods when performance testing
             for ns, feats in namespaces.items():
                 if not feats and feats != 0 and feats != "":
