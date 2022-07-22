@@ -133,7 +133,7 @@ class VowpalMediator:
                 else:
                     feats = feats.items() if feats.__class__ is dict else enumerate(feats,self._get_ns_offset(ns,len(feats)))
                     yield (ns, [f"{k}={v}" if v.__class__ is str else (k, v) for k,v in feats if v!= 0])
-        else:
+        else: #pragma: no cover
             #the strange type checks below were faster than traditional methods when performance testing
             for ns, feats in namespaces.items():
                 if not feats and feats != 0 and feats != "":
