@@ -198,6 +198,54 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((0,1), label_col[1])
         self.assertEqual((0,1), label_col[2])
 
+    def test_raw_openmlreader(self):
+
+        data = {
+            "data_set_description":{
+                "id":"42693",
+                "file_id":"22044555",
+                "status":"active",
+                "default_target_attribute":"play"
+            }
+        }
+
+        feat = {
+            "data_features":{
+                "feature":[
+                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
+                ]
+            }
+        }
+
+        arff = """
+            @relation weather
+
+            @attribute pH real
+            @attribute temperature real
+            @attribute conductivity real
+            @attribute coli {2, 1}
+            @attribute play {no, yes}
+
+            @data
+            ?,27,1410,2,no
+            8.2,29,1180,2,no
+            8.2,,1410,2,yes
+            8.3,27,1020,1,yes
+            7.6,23,4700,1,yes
+        """
+
+        CobaContext.cacher.put('openml_042693_data', json.dumps(data).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
+        CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
+
+        raw = list(OpenmlSource(data_id=42693).read(raw=True))
+        self.assertEqual(raw[0]._headers, {'pH': 0, 'temperature': 1, 'conductivity': 2, 'coli': 3, 'play': 4})
+        self.assertEqual(raw[0]._values, ['?', '27', '1410', '2', 'no'])
+
     def test_cat_as_str(self):
 
         data = {

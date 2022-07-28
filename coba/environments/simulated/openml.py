@@ -53,7 +53,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         """Parameters describing the openml source."""
         return  { "openml_data": self._data_id, "openml_task": self._task_id, "openml_target": self._target, "cat_as_str": self._cat_as_str, "drop_missing": self._drop_missing }
 
-    def read(self) -> Iterable[Tuple[Any, Any]]:
+    def read(self, raw:bool = False) -> Iterable[Tuple[Any, Any]]:
         """Read and parse the openml source."""
 
         try:
@@ -111,15 +111,20 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             source    = ListSource(self._get_arff_lines(data_descr["file_id"], None))
             reader    = ArffReader(cat_as_str=self._cat_as_str)
-            drop      = Drop(drop_cols=ignore, drop_row=drop_row)
-            structure = Structure([None, self._target])
 
-            for features,label in Pipes.join(source, reader, drop, structure).read():
-                #ensure that SupervisedSimulation will interpret the label as a class
-                if task_type == 1 and isinstance(label,(int,float)): 
-                    label = str(int(label) if float(label).is_integer() else label)
-                
-                yield features, label
+            if raw:
+                for raw_output in Pipes.join(source, reader).read():
+                    yield raw_output
+            else:
+                drop      = Drop(drop_cols=ignore, drop_row=drop_row)
+                structure = Structure([None, self._target])
+
+                for features, label in Pipes.join(source, reader, drop, structure).read():
+                    # ensure that SupervisedSimulation will interpret the label as a class
+                    if task_type == 1 and isinstance(label,(int,float)): 
+                        label = str(int(label) if float(label).is_integer() else label)
+                    
+                    yield features, label
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
