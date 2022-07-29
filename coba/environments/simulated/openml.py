@@ -42,18 +42,19 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     def __init__(self, **kwargs):
         """Instantiate an OpenmlSource."""
 
-        self._data_id      = kwargs.get('data_id',None)
-        self._task_id      = kwargs.get('task_id',None)
-        self._target       = None
-        self._cat_as_str   = kwargs.get('cat_as_str',False)
-        self._drop_missing = kwargs.get('drop_missing',True)
+        self._data_id        = kwargs.get('data_id',None)
+        self._task_id        = kwargs.get('task_id',None)
+        self._target         = None
+        self._cat_as_str     = kwargs.get('cat_as_str',False)
+        self._drop_missing   = kwargs.get('drop_missing',True)
+        self._skip_structure = kwargs.get('skip_structure',False)
 
     @property
     def params(self) -> Dict[str,Any]:
         """Parameters describing the openml source."""
         return  { "openml_data": self._data_id, "openml_task": self._task_id, "openml_target": self._target, "cat_as_str": self._cat_as_str, "drop_missing": self._drop_missing }
 
-    def read(self, raw:bool = False) -> Iterable[Tuple[Any, Any]]:
+    def read(self) -> Iterable[Tuple[Any, Any]]:
         """Read and parse the openml source."""
 
         try:
@@ -111,12 +112,12 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             source    = ListSource(self._get_arff_lines(data_descr["file_id"], None))
             reader    = ArffReader(cat_as_str=self._cat_as_str)
+            drop      = Drop(drop_cols=ignore, drop_row=drop_row)
 
-            if raw:
-                for raw_output in Pipes.join(source, reader).read():
+            if self._skip_structure:
+                for raw_output in Pipes.join(source, reader, drop).read():
                     yield raw_output
             else:
-                drop      = Drop(drop_cols=ignore, drop_row=drop_row)
                 structure = Structure([None, self._target])
 
                 for features, label in Pipes.join(source, reader, drop, structure).read():

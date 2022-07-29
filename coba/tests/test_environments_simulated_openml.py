@@ -198,7 +198,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((0,1), label_col[1])
         self.assertEqual((0,1), label_col[2])
 
-    def test_raw_openmlreader(self):
+    def test_skip_structure_openmlreader(self):
 
         data = {
             "data_set_description":{
@@ -242,7 +242,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        raw = list(OpenmlSource(data_id=42693).read(raw=True))
+        raw = list(OpenmlSource(data_id=42693, drop_missing=False, skip_structure=True).read())
         self.assertEqual(raw[0]._headers, {'pH': 0, 'temperature': 1, 'conductivity': 2, 'coli': 3, 'play': 4})
         self.assertEqual(raw[0]._values, ['?', '27', '1410', '2', 'no'])
 
