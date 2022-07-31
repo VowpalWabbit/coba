@@ -109,6 +109,7 @@ class Experiment:
         cb, mp, mc, mt = self.chunk_by, self.processes, self.maxchunksperchild, self.maxtasksperchunk
 
         if mp > 1 or mc != 0:
+            #Add name so that we know which process-id the logs came from in addition to the time of the log
             CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [NameLog(), StampLog()])
         else:
             CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()])

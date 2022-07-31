@@ -5,37 +5,39 @@ from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, Mutabl
 
 from coba.random import random
 from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, ListSource, Structure
+from coba.pipes.readers import SparseWithMeta
 from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 
 from coba.environments.simulated.supervised import SupervisedSimulation
-from coba.pipes.readers import SparseWithMeta
 
 class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],Any]]]):
-    """Load a source (local if cached) from openml.
+    """Load a source from openml.org (or from disk if previously cached).
 
     This is primarily used by OpenmlSimulation to create Environments for Experiments.
     """
 
     @overload
-    def __init__(self, *, data_id:int, cat_as_str:bool=False, drop_missing:bool=False):
+    def __init__(self, *, data_id:int, cat_as_str:bool=False, drop_missing:bool=False, skip_structure:bool=False):
         """Instantiate an OpenmlSource.
 
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
             cat_as_str: Categorical features should be encoded as a string rather than one hot encoded.
             drop_missing: Drop data rows with missing values.
+            skip_structure: Skip structuring the rows (i.e. return flat rows instead of tuples of label and features).
         """
         ...
 
     @overload
-    def __init__(self, *, task_id:int, cat_as_str:bool=False, drop_missing:bool=False):
+    def __init__(self, *, task_id:int, cat_as_str:bool=False, drop_missing:bool=False, skip_structure:bool=False):
         """Instantiate an OpenmlSource.
 
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label
             cat_as_str: Categorical features should be encoded as a string rather than one hot encoded.
             drop_missing: Drop data rows with missing values.
+            skip_structure: Skip structuring the rows (i.e. return flat rows instead of tuples of label and features).
         """
         ...
 
@@ -60,15 +62,16 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         try:
 
             # we only allow three paralellel request, an attempt at being "considerate" to openml
-            srcsema = CobaContext.store.get("srcsema")
-            acquired = False
+            # openml_semaphore will be None if we aren't multiprocessing otherwise it'll have a sema
+            openml_semaphore = CobaContext.store.get("openml_semaphore")
+            semaphore_acquired = False
             
-            if srcsema and not self._all_cached():
-                srcsema.acquire()
-                if self._all_cached(): #pragma: no cover
-                    srcsema.release() #in-case another process cached everything needed while we were waiting
+            if openml_semaphore and not self._source_already_cached():
+                openml_semaphore.acquire()
+                if self._source_already_cached(): #pragma: no cover
+                    openml_semaphore.release() #in-case another process cached everything needed while we were waiting
                 else:
-                    acquired = True
+                    semaphore_acquired = True
 
             if self._data_id:
                 data_descr   = self._get_data_descr(self._data_id)
@@ -135,14 +138,14 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             #we don't want to clear the cache if it is an error we know about (the original raise should clear if needed)
             raise
 
-        except Exception as e:
+        except Exception:
             #if something unexpected went wrong clear the cache just in case it was corrupted somehow
             self._clear_cache()
             raise
     
         finally:
-            if acquired:
-                srcsema.release()
+            if semaphore_acquired:
+                openml_semaphore.release()
 
     def _clean_name(self, name: str) -> str:
         return name.strip().strip('\'"').replace('\\','') if name else name
@@ -168,12 +171,12 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
     def _http_request(self, url:str) -> Iterable[bytes]:
         api_key = CobaContext.api_keys['openml']
-        srcsema = CobaContext.store.get("srcsema")
+        semaphore = CobaContext.store.get("openml_semaphore")
 
-        # An attempt to be considerate of how often we hit their REST api.
-        # They don't publish any rate-limiting guidelines so this is just a guess.
-        # we check for srcsema because this indicates whether we are multiprocessing
-        if srcsema: time.sleep(2*random())
+        # An attempt to be considerate and stagger/limit our hits of their REST API.
+        # Openml doesn't publish any rate-limiting guidelines so this is just a guess.
+        # if semaphore is not None it indictes that we are in a CobaMultiprocessor.
+        if semaphore: time.sleep(2*random())
 
         with HttpSource(url + (f'?api_key={api_key}' if api_key else '')).read() as response:
 
@@ -253,7 +256,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             CobaContext.cacher.release(key) #to make sure we don't get stuck in a race condition
             CobaContext.cacher.rmv(key)
 
-    def _all_cached(self) -> bool:
+    def _source_already_cached(self) -> bool:
 
         old_data_id = self._data_id
         all_cached  = False

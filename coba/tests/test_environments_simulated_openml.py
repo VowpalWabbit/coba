@@ -1051,11 +1051,11 @@ class OpenmlSource_Tests(unittest.TestCase):
                 self.assertIn('openml_042693_feat', CobaContext.cacher)
                 self.assertIn('openml_042693_arff', CobaContext.cacher)
 
-    def test_srcsema_locked_and_released(self):
+    def test_semaphore_locked_and_released(self):
 
-        srcsema = Semaphore(1)
-        block_1 = Event()
-        block_2 = Event()
+        semaphore = Semaphore(1)
+        block_1   = Event()
+        block_2   = Event()
 
         task = {
             "task":{
@@ -1121,7 +1121,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             block_1.wait()
             return request_dict.pop(args[0])
 
-        CobaContext.store['srcsema'] = srcsema
+        CobaContext.store['openml_semaphore'] = semaphore
         CobaContext.cacher = PutOnceCacher()
 
         with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
@@ -1135,12 +1135,12 @@ class OpenmlSource_Tests(unittest.TestCase):
             block_2.wait()
 
             #we shouldn't be able to acquire if openml correctly locked 
-            self.assertFalse(srcsema.acquire(blocking=False))
+            self.assertFalse(semaphore.acquire(blocking=False))
             block_1.set() # now we release t1 to finish
             t1.join()
 
             #now we can acquire because openml should release when done
-            self.assertTrue(srcsema.acquire(blocking=False))
+            self.assertTrue(semaphore.acquire(blocking=False))
 
             #this should complete despite us acquiring above 
             #because it doesn't lock since everything is cached
