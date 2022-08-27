@@ -145,13 +145,15 @@ class VowpalMediator:
                 elif feats.__class__ is dict:
                     yield (ns, feats)
                 else:
+                    #I haven't been able to make this any faster...
                     d={}
                     for k,v in enumerate(feats, start=self._get_ns_offset(ns,len(feats))):
-                        if  v:
-                            if v.__class__ is str:
-                                d[f"{k}={v}"] = 1
-                            else:
-                                d[k] = v
+                        if not v:
+                            continue
+                        elif v.__class__ is str:
+                            d[f"{k}={v}"] = 1
+                        else:
+                            d[k] = v
                     yield (ns, d)
 
     def _get_ns_offset(self, namespace:str, length:int) -> Sequence[int]:
