@@ -410,7 +410,7 @@ class VowpalArgsLearner_Tests(unittest.TestCase):
         average_post_learn_reward = sum(post_learn_rewards)/len(post_learn_rewards)
 
         self.assertAlmostEqual(.33, average_pre_learn_reward, places=2)
-        self.assertAlmostEqual(.78, average_post_learn_reward, places=2)
+        self.assertAlmostEqual(.775, average_post_learn_reward, places=2)
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalArgsLearner(vw=VowpalMediatorMocked()))), VowpalArgsLearner)
@@ -441,7 +441,7 @@ class VowpalMediator_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':5}, None)
 
-        self.assertEqual([(ex.get_feature_id("x",0),5)],list(ex.iter_features()))
+        self.assertEqual([(ex.get_feature_id("x",'0'),5)],list(ex.iter_features()))
 
     def test_make_example_dict_numeric_value(self):
 
@@ -466,7 +466,7 @@ class VowpalMediator_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':[2]}, None)
 
-        self.assertEqual([(ex.get_feature_id("x",0),2)],list(ex.iter_features()))
+        self.assertEqual([(ex.get_feature_id("x",'0'),2)],list(ex.iter_features()))
 
     def test_make_example_empty_list(self):
 
@@ -474,7 +474,7 @@ class VowpalMediator_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':[2], 'y':[]}, None)
 
-        self.assertEqual([(ex.get_feature_id("x",0),2)],list(ex.iter_features()))
+        self.assertEqual([(ex.get_feature_id("x",'0'),2)],list(ex.iter_features()))
 
     def test_make_example_list_string_value(self):
 
@@ -492,7 +492,7 @@ class VowpalMediator_Tests(unittest.TestCase):
 
         expected = [
             (ex.get_feature_id("x","0=a"),1),
-            (ex.get_feature_id("x", 1),3.2),
+            (ex.get_feature_id("x",'1'),3.2),
             (ex.get_feature_id("x","2=c"),1)
         ]
 
@@ -535,13 +535,13 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertEqual(2, len(ex))
 
         expected_0 = [
-            (ex[0].get_feature_id("x",0),3),
-            (ex[0].get_feature_id("a",1),1)
+            (ex[0].get_feature_id("x",'0'),3),
+            (ex[0].get_feature_id("a",'1'),1)
         ]
 
         expected_1 = [
-            (ex[1].get_feature_id("x",0),3),
-            (ex[1].get_feature_id("a",1),2)
+            (ex[1].get_feature_id("x",'0'),3),
+            (ex[1].get_feature_id("a",'1'),2)
         ]
 
         self.assertEqual(expected_0,list(ex[0].iter_features()))
@@ -591,11 +591,11 @@ class VowpalMediator_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --epsilon .1 --noconstant --quiet", 4)
         ex = vw.make_examples({'x':2}, [{'a':1}, {'a':2}], ["0:.5:1", ""])
 
-        self.assertEqual(0, vw._vw.get_weight(0))
-        self.assertEqual(0, vw._vw.get_weight(1))
+        self.assertEqual(0, vw._vw.get_weight(ex[0].get_feature_id("x",'0')))
+        self.assertEqual(0, vw._vw.get_weight(ex[0].get_feature_id("a",'1')))
         vw.learn(ex)
-        self.assertNotEqual(0, vw._vw.get_weight(0))
-        self.assertNotEqual(0, vw._vw.get_weight(1))
+        self.assertNotEqual(0, vw._vw.get_weight(ex[0].get_feature_id("x",'0')))
+        self.assertNotEqual(0, vw._vw.get_weight(ex[0].get_feature_id("a",'1')))
         self.assertEqual(2, len([vw._vw.get_weight(i) for i in range(vw._vw.num_weights()) if vw._vw.get_weight(i) != 0]))
 
     def test_regression_learning(self):

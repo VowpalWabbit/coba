@@ -171,9 +171,9 @@ class Performance_Tests(unittest.TestCase):
         ns = { 'x': [ str(i) for i in range(1000) ] }
         time = statistics.mean(timeit.repeat(lambda:vw.make_example(ns, None), repeat=10, number=100))
 
-        #.028 was my final average time
+        #.022 was my final average time
         if print_time: print(time)
-        self.assertLess(time, .28)
+        self.assertLess(time, .22)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_highly_sparse_performance(self):

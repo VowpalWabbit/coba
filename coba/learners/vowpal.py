@@ -23,9 +23,9 @@ class VowpalMediator:
 
     def __init__(self) -> None:
         self._vw = None
-        self._ns_offsets: Dict[str,int] = {}
-        self._curr_ns_offset = 0
-
+        self._namespace_keys = []
+        self._namespace_keys_index: Dict[str,int] = {}
+ 
         PackageChecker.vowpalwabbit('VowpalMediator.__init__')
 
     @property
@@ -127,11 +127,11 @@ class VowpalMediator:
                 if not feats and feats != 0 and feats != "":
                     continue
                 elif feats.__class__ is str:
-                    yield (ns, [f"{self._get_ns_offset(ns,1)}={feats}"])
+                    yield (ns, [f"{self._get_namespace_keys(ns,1)[0]}={feats}"])
                 elif feats.__class__ is int or feats.__class__ is float:
-                    yield (ns, [(self._get_ns_offset(ns,1), feats)])
+                    yield (ns, [(self._get_namespace_keys(ns,1)[0], feats)])
                 else:
-                    feats = feats.items() if feats.__class__ is dict else enumerate(feats,self._get_ns_offset(ns,len(feats)))
+                    feats = feats.items() if feats.__class__ is dict else enumerate(feats,self._get_namespace_keys(ns,len(feats)))
                     yield (ns, [f"{k}={v}" if v.__class__ is str else (k, v) for k,v in feats if v!= 0])
         else: #pragma: no cover
             #the strange type checks below were faster than traditional methods when performance testing
@@ -139,27 +139,40 @@ class VowpalMediator:
                 if not feats and feats != 0 and feats != "":
                     continue
                 elif feats.__class__ is str:
-                    yield (ns, [f"{self._get_ns_offset(ns,1)}={feats}"])
+                    yield (ns, [f"{self._get_namespace_keys(ns,1)[0]}={feats}"])
                 elif feats.__class__ is int or feats.__class__ is float:
-                    yield (ns, [(self._get_ns_offset(ns,1), feats)])
+                    yield (ns, [(self._get_namespace_keys(ns,1)[0], feats)])
                 elif feats.__class__ is dict:
                     yield (ns, feats)
                 else:
-                    #I haven't been able to make this any faster...
                     d={}
-                    for k,v in enumerate(feats, start=self._get_ns_offset(ns,len(feats))):
+
+                    K = self._get_namespace_keys(ns,len(feats))
+                    V = feats
+
+                    for k,v in zip(K,V):
                         if not v:
                             continue
                         elif v.__class__ is str:
                             d[f"{k}={v}"] = 1
                         else:
                             d[k] = v
+
                     yield (ns, d)
 
-    def _get_ns_offset(self, namespace:str, length:int) -> Sequence[int]:
-        value = self._ns_offsets.setdefault(namespace, self._curr_ns_offset)
-        self._curr_ns_offset += length
-        return value
+    def _get_namespace_keys(self, namespace:str, length:int) -> Sequence[str]:
+
+        if namespace in self._namespace_keys_index:
+            index = self._namespace_keys_index[namespace]
+            keys  = self._namespace_keys[index:index+length]
+        else:
+            index = len(self._namespace_keys)
+            keys  = list(map(str,range(index,index+length)))
+
+            self._namespace_keys_index[namespace] = index
+            self._namespace_keys += keys
+
+        return keys
 
 class VowpalArgsLearner(Learner):
     """A friendly wrapper around Vowpal Wabbit's python interface to support CB learning.
