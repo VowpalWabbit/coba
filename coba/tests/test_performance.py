@@ -186,7 +186,7 @@ class Performance_Tests(unittest.TestCase):
 
         #.004 was my final average time
         if print_time: print(time)
-        self.assertLess(time, .04)
+        self.assertLess(time, .08) # (for some reason this runs slow on github so we give extra room)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_int_performance(self):
