@@ -1,7 +1,7 @@
 import re
 
 from sys import platform
-from itertools import repeat
+from itertools import repeat, compress
 from typing import Any, Dict, Union, Sequence, Optional, Tuple
 from coba.backports import Literal
 
@@ -150,10 +150,8 @@ class VowpalMediator:
                     K = self._get_namespace_keys(ns,len(feats))
                     V = feats
 
-                    for k,v in zip(K,V):
-                        if not v:
-                            continue
-                        elif v.__class__ is str:
+                    for k,v in compress(zip(K,V),V):
+                        if v.__class__ is str:
                             d[f"{k}={v}"] = 1
                         else:
                             d[k] = v
