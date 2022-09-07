@@ -43,10 +43,10 @@ class Experiment:
         self._evaluation_task  = evaluation_task
 
         if any([env is None for env in environments]):
-            raise CobaException("An Environment was given whose value was None. This is not allowed.")
+            raise CobaException("An Environment was given whose value was None, which can't be processed.")
 
         if any([lrn is None for lrn in learners]):
-            raise CobaException("A Learner was given whose value was None. This is not allowed.")
+            raise CobaException("A Learner was given whose value was None, which can't be processed.")
 
         self._processes        : Optional[int] = None
         self._maxchunksperchild: Optional[int] = None
