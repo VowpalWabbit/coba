@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import cast
 
 from coba.environments import Environment, LambdaSimulation
-from coba.experiments.tasks import OnlineOnPolicyEvalTask
 from coba.pipes import Source, ListSink
 from coba.learners import Learner
 from coba.contexts import CobaContext, InteractionContext, CobaContext, IndentLogger, BasicLogger, NullLogger
-from coba.experiments import Experiment
+from coba.experiments import Experiment, OnlineOnPolicyEvalTask
+from coba.exceptions import CobaException
 
 class NoParamsLearner:
     def predict(self, context, actions):
@@ -412,6 +412,18 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         finally:
             path.unlink()
+
+    def test_none_environment_raises(self):
+        with self.assertRaises(CobaException) as raised:
+            Experiment([None],[])
+
+        self.assertEqual("An Environment was given whose value was None. This is not allowed.", str(raised.exception))
+
+    def test_none_learner_raises(self):
+        with self.assertRaises(CobaException) as raised:
+            Experiment([],[None])
+
+        self.assertEqual("A Learner was given whose value was None. This is not allowed.", str(raised.exception))
 
 class Experiment_Multi_Tests(Experiment_Single_Tests):
 

@@ -7,6 +7,7 @@ from coba.learners import Learner
 from coba.environments import Environment
 from coba.multiprocessing import CobaMultiprocessor
 from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger
+from coba.exceptions import CobaException
 
 from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems, MaxChunkSize
 from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
@@ -40,6 +41,12 @@ class Experiment:
         self._learner_task     = learner_task
         self._environment_task = environment_task
         self._evaluation_task  = evaluation_task
+
+        if any([env is None for env in environments]):
+            raise CobaException("An Environment was given whose value was None. This is not allowed.")
+
+        if any([lrn is None for lrn in learners]):
+            raise CobaException("A Learner was given whose value was None. This is not allowed.")
 
         self._processes        : Optional[int] = None
         self._maxchunksperchild: Optional[int] = None
