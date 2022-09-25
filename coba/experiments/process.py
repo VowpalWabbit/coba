@@ -57,10 +57,8 @@ class CreateWorkItems(Source[Iterable[WorkItem]]):
         for lrn_id,lrn in keyed_learners.items():
             yield WorkItem(None, lrn_id, None, lrn, self._learner_task)
 
-        for env_id, env in keyed_environs.items():
-            yield WorkItem(env_id, None, env, None, self._environment_task)
-
         for env_id,env in keyed_environs.items():
+            yield WorkItem(env_id, None, env, None, self._environment_task)
             for lrn_id,lrn in keyed_learners.items():
                 yield WorkItem(env_id, lrn_id, env, lrn, self._evaluation_task)
 
