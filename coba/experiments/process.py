@@ -111,10 +111,14 @@ class ChunkByTask(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
 
     def filter(self, workitems: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
 
-        #this makes sure all items are in order by source
-        for chunk in ChunkBySource().filter(workitems):
-            for workitem in chunk:
-                yield [ workitem ]
+        #We used to sort by source before performing this action
+        #This was nice because it meant a single openml data set
+        #Could be loaded and then a bunch of tasks would be able
+        #to use the cached version of it. Just leaving this note
+        #here for now in case I want to change back in the future.
+
+        for workitem in workitems:
+            yield [workitem]
 
 class MaxChunkSize(Filter[Iterable[Sequence[WorkItem]], Iterable[Sequence[WorkItem]]]):
     def __init__(self, max_tasks) -> None:

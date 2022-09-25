@@ -134,7 +134,6 @@ class CorralLearner(Learner):
         # action probabilities of the base learners while the Corral paper did not assume
         # access to this information. This information allows for a loss esimator with the same
         # expectation as the original Corral paper's estimator but with a lower variance.
-
         loss = 1-reward
 
         picked_index = actions.index(action)

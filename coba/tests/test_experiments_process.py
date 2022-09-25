@@ -196,13 +196,13 @@ class ChunkByTask_Tests(unittest.TestCase):
         self.assertEqual(groups[0], [tasks[0]])
         self.assertEqual(groups[1], [tasks[1]])
         self.assertEqual(groups[2], [tasks[2]])
-        self.assertEqual(groups[3], [tasks[5]])
-        self.assertEqual(groups[4], [tasks[6]])
-        self.assertEqual(groups[5], [tasks[4]])
-        self.assertEqual(groups[6], [tasks[9]])
-        self.assertEqual(groups[7], [tasks[3]])
-        self.assertEqual(groups[8], [tasks[7]])
-        self.assertEqual(groups[9], [tasks[8]])
+        self.assertEqual(groups[3], [tasks[3]])
+        self.assertEqual(groups[4], [tasks[4]])
+        self.assertEqual(groups[5], [tasks[5]])
+        self.assertEqual(groups[6], [tasks[6]])
+        self.assertEqual(groups[7], [tasks[7]])
+        self.assertEqual(groups[8], [tasks[8]])
+        self.assertEqual(groups[9], [tasks[9]])
 
 class MaxChunkSize_Tests(unittest.TestCase):
     

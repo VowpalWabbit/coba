@@ -454,7 +454,7 @@ class Plotter:
         ylim: Optional[Tuple[Number,Number]],
         xticks: bool,
         yticks: bool,
-        filename: Optional[str]) -> None:
+        out: Union[None,Literal['screen'],str]) -> None:
         pass
 
 class MatplotlibPlotter(Plotter):
@@ -471,7 +471,7 @@ class MatplotlibPlotter(Plotter):
         yticks: bool,
         xrotation: Optional[float],
         yrotation: Optional[float],
-        filename: Optional[str]
+        out: Union[None,Literal['screen'],str]
     ) -> None:
 
         PackageChecker.matplotlib('Result.plot_learners')
@@ -480,7 +480,6 @@ class MatplotlibPlotter(Plotter):
         color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
         ax: plt.Axes
-        show = ax is None
 
         bad_xlim  = xlim and xlim[0] is not None and xlim[1] is not None and xlim[0] >= xlim[1]
         bad_ylim  = ylim and ylim[0] is not None and ylim[1] is not None and ylim[0] >= ylim[1]
@@ -494,7 +493,13 @@ class MatplotlibPlotter(Plotter):
             if bad_lines:
                 CobaContext.logger.log(f"No data was found for plotting in the given results.")
         else:
-            ax = ax or plt.figure(num="coba").add_subplot(111) #type: ignore
+
+            if not ax or isinstance(ax,int):
+                if 'coba' in plt.get_figlabels():
+                    f = plt.figure(num="coba")
+                    ax = f.add_subplot(111) if not isinstance(ax,int) else f.add_subplot(ax)
+                else:
+                    ax = plt.subplot(111) if not isinstance(ax,int) else plt.subplot(ax)
 
             in_lim = lambda v,lim: lim is None or ((lim[0] or -float('inf')) <= v and v <= (lim[1] or float('inf')))
 
@@ -565,13 +570,13 @@ class MatplotlibPlotter(Plotter):
             if not yticks:
                 plt.yticks([])
 
-            if show:
-                plt.show()
+            if out not in ['screen',None]:
+                plt.tight_layout()
+                plt.savefig(str(out), dpi=300)
                 plt.close()
 
-            if filename:
-                plt.tight_layout()
-                plt.savefig(filename, dpi=300)
+            if out=="screen":
+                plt.show()
                 plt.close()
 
 class FilterPlottingData:
@@ -833,7 +838,7 @@ class Result:
         ylim       : Tuple[Number,Number] = None,
         xticks     : bool = True,
         yticks     : bool = True,
-        filename   : str = None,
+        out        : Union[None,Literal['screen'],str] = 'screen',
         ax = None) -> None:
 
         x = [x] if isinstance(x,str) else list(x)
@@ -865,9 +870,10 @@ class Result:
         fmt = "-" if x == ['index'] else "."
 
         plots = []
-        if loss: plots.append(Points(*zip(*loss), 2, 1, labels[1] + " " + f"({len(loss)})", fmt))
-        if tie : plots.append(Points(*zip(*tie) , 1, 1, 'Tie'     + " " + f"({len(tie )})", fmt))
-        if win : plots.append(Points(*zip(*win) , 0, 1, labels[0] + " " + f"({len(win )})", fmt))        
+        
+        if loss: plots.append(Points(*zip(*loss), colors[0], 1, labels[1] + " " + f"({len(loss)})", fmt))
+        if tie : plots.append(Points(*zip(*tie) , colors[1], 1, 'Tie'     + " " + f"({len(tie )})", fmt))
+        if win : plots.append(Points(*zip(*win) , colors[2], 1, labels[0] + " " + f"({len(win )})", fmt))        
 
         if mode != 'scat':
             leftmost_x  = (loss+tie+win)[ 0][0]
@@ -881,7 +887,7 @@ class Result:
         yrotation = 0
 
         if mode != "scat":
-            xlabel = "Interactions" if x==['index'] else x[0] if len(x) == 1 else x
+            xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
             ylabel = f"{labels[0]} - {labels[1]}" if mode=="diff" else f"P({labels[0]} > {labels[1]})"
         else:
             xlabel = y
@@ -889,20 +895,20 @@ class Result:
 
         title  = f"{ylabel} ({len(rows) if x==['index'] else len(XYE)} Environments)"
 
-        self._plotter.plot(ax, plots, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, filename)
+        self._plotter.plot(ax, plots, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
 
     def plot_learners(self,
-        x       : Union[str,Sequence[str]] = "index",
-        y       : str = "reward",
-        span    : int = None,
-        err     : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
-        labels  : Sequence[str] = None,
-        colors  : Sequence[str] = None,
-        xlim    : Tuple[Number,Number] = None,
-        ylim    : Tuple[Number,Number] = None,
-        xticks  : bool = True,
-        yticks  : bool = True,
-        filename: str = None,
+        x     : Union[str,Sequence[str]] = "index",
+        y     : str = "reward",
+        span  : int = None,
+        err   : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
+        labels: Sequence[str] = None,
+        colors: Sequence[str] = None,
+        xlim  : Tuple[Number,Number] = None,
+        ylim  : Tuple[Number,Number] = None,
+        xticks: bool = True,
+        yticks: bool = True,
+        out   : Union[None,Literal['screen'],str] = 'screen',
         ax = None) -> None:
         """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected
             performance for different learners across independent environments. This plot is valuable in gaining
@@ -919,7 +925,7 @@ class Result:
             xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
-            filename: Provide a filename to write plot image to disk.
+            out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
@@ -939,12 +945,12 @@ class Result:
         for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
             lrn_rows = list(lrn_rows)
             XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
-            color    = colors[i] if colors and i < len(colors) else i
+            color    = i if not colors else colors[i] if i < len(colors) else i+max(colors) if isinstance(colors[0],int) else i
             label    = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
             lines.append(Points(*zip(*XYE), color, 1, label, style))
 
         lines  = sorted(lines, key=lambda line: -line[1][-1])
-        xlabel = "Interactions" if x==['index'] else x[0] if len(x) == 1 else x
+        xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
         ylabel = y.capitalize().replace("_pct"," Percent")
 
         title = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel}"
@@ -953,7 +959,7 @@ class Result:
         if x != ['index']:
             title = "Final " + title
 
-        self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, 0, 0, filename)
+        self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, 0, 0, out)
 
     def __str__(self) -> str:
         return str({"Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })

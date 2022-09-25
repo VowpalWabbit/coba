@@ -15,7 +15,6 @@ from coba            import pipes
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
-from coba.pipes      import Flatten
 
 from coba.environments.primitives import Interaction
 from coba.environments.logged.primitives import LoggedInteraction
@@ -413,6 +412,15 @@ class Cycle(EnvironmentFilter):
         except StopIteration:
             pass
 
+class Flatten:
+    """Flatten the context and action features for interactions."""
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+        flatten = pipes.Flatten()
+        for interaction in interactions:
+            flat_context = next(iter(flatten.filter([interaction.context])))
+            flat_actions = list(flatten.filter(interaction.actions))
+            yield SimulatedInteraction(flat_context, flat_actions, interaction.rewards, **interaction.kwargs)
+
 class Binary(EnvironmentFilter):
     """Binarize all rewards to either 1 (max rewards) or 0 (all others)."""
 
@@ -439,7 +447,7 @@ class Sort(EnvironmentFilter):
             *keys: The context items that should be sorted on.
         """
 
-        self._keys = list(Flatten().filter([list(keys)]))[0]
+        self._keys = list(pipes.Flatten().filter([list(keys)]))[0]
 
     @property
     def params(self) -> Dict[str, Any]:

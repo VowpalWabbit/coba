@@ -7,9 +7,9 @@ from coba.random     import CobaRandom
 from coba.pipes      import Pipes, Source, HttpSource, ListSource, JsonDecode
 from coba.exceptions import CobaException
 
-from coba.environments.filters     import EnvironmentFilter
-from coba.environments.filters     import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
-from coba.environments.filters     import Impute, Where, Noise, Riffle, Sort
+from coba.environments.filters   import EnvironmentFilter
+from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
+from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 
 from coba.environments          .primitives import Environment
@@ -46,7 +46,6 @@ class Environments:
                 return Environments(*EnvironmentsTemplateV1(arg).read())
             except:
                 raise e
-
 
     @staticmethod
     def from_prebuilt(name:str) -> 'Environments':
