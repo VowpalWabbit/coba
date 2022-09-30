@@ -844,6 +844,29 @@ class Result:
         yticks     : bool = True,
         out        : Union[None,Literal['screen'],str] = 'screen',
         ax = None) -> None:
+        """Plot a direct contrast of the performance for two learners.
+
+        Args:
+            learner_id1: The first learner to plot in the contrast.
+            learner_id2: The second learner to plot in the contrast.
+            x: The value to plot on the x-axis. This can either be index or environment columns to group by.
+            y: The value to plot on the y-axis.
+            mode: The kind of contrast plot to make: diff plots the pairwise difference, prob plots the the probability
+                of learner_id1 beating learner_id2, and scatter plots learner_id1 on x-axis and learner_id2 on y axis.
+            span: The number of y values to smooth together when reporting y. If this is None then the average of all y
+                values up to current is shown otherwise a moving average with window size of span (the window will be
+                smaller than span initially).
+            err: This determines what kind of error bars to plot (if any). If `None` then no bars are plotted, if 'se'
+                the standard error is shown, and if 'sd' the standard deviation is shown.
+            labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
+            colors: The colors used to plot the learners plot.
+            xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
+            ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
+            xticks: Whether the x-axis labels should be drawn.
+            yticks: Whether the y-axis labels should be drawn.
+            out: Indicate where the plot should be sent to after plotting is finished.
+            ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
+        """
 
         x = [x] if isinstance(x,str) else list(x)
         self._validate_parameters(x)
@@ -874,10 +897,10 @@ class Result:
         fmt = "-" if x == ['index'] else "."
 
         plots = []
-        
+
         if loss: plots.append(Points(*zip(*loss), colors[0], 1, labels[1] + " " + f"({len(loss)})", fmt))
         if tie : plots.append(Points(*zip(*tie) , colors[1], 1, 'Tie'     + " " + f"({len(tie )})", fmt))
-        if win : plots.append(Points(*zip(*win) , colors[2], 1, labels[0] + " " + f"({len(win )})", fmt))        
+        if win : plots.append(Points(*zip(*win) , colors[2], 1, labels[0] + " " + f"({len(win )})", fmt))
 
         if mode != 'scat':
             leftmost_x  = (loss+tie+win)[ 0][0]
@@ -902,12 +925,13 @@ class Result:
         self._plotter.plot(ax, plots, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
 
     def plot_learners(self,
+        ids   : Union[int,Sequence[int]] = None, 
         x     : Union[str,Sequence[str]] = "index",
         y     : str = "reward",
         span  : int = None,
         err   : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
         labels: Sequence[str] = None,
-        colors: Sequence[str] = None,
+        colors: Union[int,Sequence[Union[str,int]]] = None,
         xlim  : Tuple[Number,Number] = None,
         ylim  : Tuple[Number,Number] = None,
         xticks: bool = True,
@@ -919,6 +943,7 @@ class Result:
             insight into how various learners perform in comparison to one another.
 
         Args:
+            ids: Sequence of learner ids to plot (if None we will plot all learnesr in the result).
             x: The value to plot on the x-axis. This can either be index or environment columns to group by.
             y: The value to plot on the y-axis.
             span: The number of y values to smooth together when reporting y. If this is None then the average of all y
@@ -926,17 +951,26 @@ class Result:
                 smaller than span initially).
             err: This determines what kind of error bars to plot (if any). If `None` then no bars are plotted, if 'se'
                 the standard error is shown, and if 'sd' the standard deviation is shown.
+            labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
+            colors: The colors used to plot the learners plot.
             xlim: Define the x-axis limits to plot. If `None` the x-axis limits will be inferred.
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
-            labels: The legend labels to use in the plot. These should be in order of the actual legend labels.
+            xticks: Whether the x-axis labels should be drawn.
+            yticks: Whether the y-axis labels should be drawn.
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
 
-        x = [x] if isinstance(x,str) else list(x)
+        if isinstance(ids,int): ids = [ids]
+        if isinstance(colors,int): colors = [colors]
+        if isinstance(labels,str): labels = [labels]
+        if isinstance(x,str): x = [x]
+
         self._validate_parameters(x)
 
-        rows = FilterPlottingData().filter(list(self.interactions), x, y)
+        interactions = self.interactions if not ids else self.filter_lrn(learner_id=ids).interactions
+
+        rows = FilterPlottingData().filter(list(interactions), x, y)
         rows = SmoothPlottingData().filter(rows, y, span)
 
         env_rows = self.environments
@@ -949,7 +983,7 @@ class Result:
 
             lrn_rows = list(lrn_rows)
             XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
-            color    = i if not colors else colors[i] if i < len(colors) else i+max(colors) if isinstance(colors[0],int) else i
+            color    = i if not colors else i+max(colors) if isinstance(colors[0],int) else colors[i] if i < len(colors) else i
             label    = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
             lines.append(Points(*zip(*XYE), color, 1, label, style))
 

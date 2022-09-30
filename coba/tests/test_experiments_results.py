@@ -1335,6 +1335,52 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
+    def test_plot_learners_one_color(self):
+        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        ints = {
+            (0,1): {"_packed":{"reward":[1,2]}},
+            (0,2): {"_packed":{"reward":[1,2]}},
+            (1,1): {"_packed":{"reward":[2,3]}},
+            (1,2): {"_packed":{"reward":[2,3]}}
+        }
+
+        plotter = TestPlotter()
+        result = Result({}, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_learners(colors=2)
+
+        expected_lines = [
+            ((1,2),(3/2,4/2),(None,None),(None,None),2,1,'learner_1','-'),
+            ((1,2),(3/2,4/2),(None,None),(None,None),3,1,'learner_2','-')
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+    def test_plot_learners_id(self):
+        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        ints = {
+            (0,1): {"_packed":{"reward":[1,2]}},
+            (0,2): {"_packed":{"reward":[1,2]}},
+            (1,1): {"_packed":{"reward":[2,3]}},
+            (1,2): {"_packed":{"reward":[2,3]}}
+        }
+
+        plotter = TestPlotter()
+        result = Result({}, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_learners(ids=[1])
+
+        expected_lines = [
+            ((1,2),(3/2,4/2),(None,None),(None,None),0,1,'learner_1','-'),
+        ]
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
+
     def test_plot_learners_empty_results(self):
         plotter = TestPlotter()
         result = Result({}, {}, {})
