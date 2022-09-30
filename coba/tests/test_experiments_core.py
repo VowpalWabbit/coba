@@ -140,6 +140,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         learner    = ModuloLearner()
         experiment = Experiment([sim1], [learner], evaluation_task=OnlineOnPolicyEvalTask(time=False))
 
+        CobaContext.logger = IndentLogger(ListSink())
+
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_dicts()
         actual_environments = result.environments.to_dicts()
@@ -156,6 +158,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":2, "reward":1, "reward_pct":0.5, "rank":2, 'rank_pct':0.5, 'regret':1, "regret_pct":0.5}
         ]
 
+        self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
@@ -275,18 +278,22 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
 
-    def test_transaction_resume_1(self):
+    def test_restore(self):
         sim             = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         working_learner = ModuloLearner()
         broken_learner  = BrokenLearner()
 
+        CobaContext.logger = IndentLogger(ListSink())
+
         #the second Experiment shouldn't ever call broken_factory() because
         #we're resuming from the first experiment's transaction.log
         try:
-            first_result  = Experiment([sim],[working_learner],evaluation_task=OnlineOnPolicyEvalTask(time=False)).evaluate("coba/tests/.temp/transactions.log")
-            second_result = Experiment([sim],[broken_learner ],evaluation_task=OnlineOnPolicyEvalTask(time=False)).evaluate("coba/tests/.temp/transactions.log")
+            first_result  = Experiment([sim],[working_learner],evaluation_task=OnlineOnPolicyEvalTask(time=False)).run("coba/tests/.temp/transactions.log")
+            second_result = Experiment([sim],[broken_learner ],evaluation_task=OnlineOnPolicyEvalTask(time=False)).run("coba/tests/.temp/transactions.log")
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
+
+        CobaContext.logger
 
         actual_learners     = second_result.learners.to_dicts()
         actual_environments = second_result.environments.to_dicts()
@@ -302,6 +309,9 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":1, "reward":0, "reward_pct":0.0, "rank":3, 'rank_pct':1.0, 'regret':2, "regret_pct":1.0},
             {"environment_id":0, "learner_id":0, "index":2, "reward":1, "reward_pct":0.5, "rank":2, 'rank_pct':0.5, 'regret':1, "regret_pct":0.5},
         ]
+
+        self.assertIsInstance(CobaContext.logger, IndentLogger)
+        self.assertTrue("Restoring existing experiment logs..." in CobaContext.logger.sink.items[-1])
 
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, second_result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)

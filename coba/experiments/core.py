@@ -121,7 +121,11 @@ class Experiment:
         else:
             CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()])
 
-        restored = Result.from_file(result_file) if result_file and Path(result_file).exists() else None
+        if result_file and Path(result_file).exists():
+            CobaContext.logger.log("Restoring existing experiment logs...")
+            restored = Result.from_file(result_file)
+        else: 
+            restored = None
 
         n_given_learners     = len(self._learners)
         n_given_environments = len(self._environments)
