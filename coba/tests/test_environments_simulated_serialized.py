@@ -1,6 +1,6 @@
 import unittest
 
-from coba.pipes        import ListSink, ListSource, HttpSource, DiskSource
+from coba.pipes        import ListSink, IterableSource, HttpSource, DiskSource
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import SimulatedInteraction, MemorySimulation, SerializedSimulation
 
@@ -35,7 +35,7 @@ class SerializedSimulation_Tests(unittest.TestCase):
         expected_env = MemorySimulation(params={}, interactions=[SimulatedInteraction(1,[1,2],[2,3])])
 
         SerializedSimulation(expected_env).write(sink)
-        actual_env = SerializedSimulation(ListSource(sink.items))
+        actual_env = SerializedSimulation(IterableSource(sink.items))
 
         self.assertEqual(expected_env.params, actual_env.params)
         self.assertEqual(len(list(expected_env.read())), len(list(actual_env.read())))
@@ -49,7 +49,7 @@ class SerializedSimulation_Tests(unittest.TestCase):
 
         expected_env = MemorySimulation(params={'a':1}, interactions=[SimulatedInteraction(None,[1,2],[2,3])])
         SerializedSimulation(expected_env).write(sink)
-        actual_env = SerializedSimulation(ListSource(sink.items))
+        actual_env = SerializedSimulation(IterableSource(sink.items))
 
         self.assertEqual(expected_env.params, actual_env.params)
         self.assertEqual(len(list(expected_env.read())), len(list(actual_env.read())))
@@ -63,7 +63,7 @@ class SerializedSimulation_Tests(unittest.TestCase):
 
         expected_env = MemorySimulation(params={'a':1}, interactions=[SimulatedInteraction(None,[(1,0),(0,1)],[2,3])])
         SerializedSimulation(expected_env).write(sink)
-        actual_env = SerializedSimulation(ListSource(sink.items))
+        actual_env = SerializedSimulation(IterableSource(sink.items))
 
         self.assertEqual(expected_env.params, actual_env.params)
         self.assertEqual(len(list(expected_env.read())), len(list(actual_env.read())))

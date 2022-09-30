@@ -412,13 +412,20 @@ class Cycle(EnvironmentFilter):
         except StopIteration:
             pass
 
-class Flatten:
+class Flatten(EnvironmentFilter):
     """Flatten the context and action features for interactions."""
+    
+    def __init__(self):
+        self._flattener = pipes.Flatten()
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { "flat": True }
+
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-        flatten = pipes.Flatten()
         for interaction in interactions:
-            flat_context = next(iter(flatten.filter([interaction.context])))
-            flat_actions = list(flatten.filter(interaction.actions))
+            flat_context = next(iter(self._flattener.filter([interaction.context])))
+            flat_actions = list(self._flattener.filter(interaction.actions))
             yield SimulatedInteraction(flat_context, flat_actions, interaction.rewards, **interaction.kwargs)
 
 class Binary(EnvironmentFilter):

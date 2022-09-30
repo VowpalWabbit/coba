@@ -5,7 +5,7 @@ from multiprocessing import current_process
 from typing import Iterable, Any
 
 from coba.exceptions import CobaException
-from coba.pipes import Filter, ListSink, ListSource
+from coba.pipes import Filter, ListSink, IterableSource
 
 from coba.pipes.core import Pipes, Foreach, SourceFilters, FiltersFilter, FiltersSink
 
@@ -25,7 +25,7 @@ class ReprSink(ListSink):
     def params(self):
         return self._params
 
-class ReprSource(ListSource):
+class ReprSource(IterableSource):
     def __str__(self):
         return "ReprSource"
 
@@ -278,7 +278,7 @@ class Foreach_Tests(unittest.TestCase):
 class Pipes_Tests(unittest.TestCase):
 
     def test_run(self):
-        source = ListSource(list(range(10)))
+        source = IterableSource(list(range(10)))
         sink   = ListSink()
 
         Pipes.join(source, ProcessNameFilter(), sink).run()
@@ -301,7 +301,7 @@ class Pipes_Tests(unittest.TestCase):
 
     def test_exception(self):
         with self.assertRaises(Exception):
-            Pipes.join(ListSource(list(range(4))), ExceptionFilter(), ListSink()).run()
+            Pipes.join(IterableSource(list(range(4))), ExceptionFilter(), ListSink()).run()
 
     def test_join_source_filters_sink_repr(self):
 

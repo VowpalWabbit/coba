@@ -6,7 +6,7 @@ from coba.backports import Literal
 
 from coba.encodings import OneHotEncoder
 from coba.random import CobaRandom
-from coba.pipes import Pipes, Source, ListSource, Structure, Reservoir, UrlSource, CsvReader
+from coba.pipes import Pipes, Source, IterableSource, Structure, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 from coba.statistics import percentile
 
@@ -186,7 +186,7 @@ class SupervisedSimulation(SimulatedEnvironment):
             X          = args[0]
             Y          = args[1]
             label_type = args[2] if len(args) > 2 else kwargs.get("label_type", None)
-            source     = ListSource(list(zip(X,Y)))
+            source     = IterableSource(list(zip(X,Y)))
             params     = {"source": "[X,Y]"}
 
         self._label_type = label_type

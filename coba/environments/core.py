@@ -4,12 +4,12 @@ from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional,
 from coba.backports import Literal
 
 from coba.random     import CobaRandom
-from coba.pipes      import Pipes, Source, HttpSource, ListSource, JsonDecode
+from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode
 from coba.exceptions import CobaException
 
 from coba.environments.filters   import EnvironmentFilter
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
-from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort
+from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 
 from coba.environments          .primitives import Environment
@@ -66,7 +66,7 @@ class Environments:
         definition_txt = definition_txt.replace('"./', f'"{repo_url}/{name}/')
         definition_txt = definition_txt.replace('.json"', '.json?raw=True"')
 
-        return Environments.from_template(ListSource([definition_txt]))
+        return Environments.from_template(IterableSource([definition_txt]))
 
     @staticmethod
     def from_linear_synthetic(
@@ -270,8 +270,12 @@ class Environments:
         action : Callable[[float,CobaRandom], float] = None,
         reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> 'Environments':
-        """Add noise to an environments context, actions and rewards."""
+        """Add noise to an environment's context, actions and rewards."""
         return self.filter(Noise(context,action,reward,seed))
+
+    def flat(self) -> 'Environments':
+        """Flatten environment's context and actions."""
+        return self.filter(Flatten())
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""

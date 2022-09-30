@@ -100,20 +100,20 @@ class HttpSource(Source[Union[requests.Response, Iterable[str]]]):
         response = requests.get(self._url, stream=True) #by default this includes the header accept-encoding gzip and deflate
         return response if self._mode == "response" else response.iter_lines(decode_unicode=True)
 
-class ListSource(Source[Iterable[Any]]):
-    """A source which reads from a list."""
+class IterableSource(Source[Iterable[Any]]):
+    """A source which reads from an iterable."""
 
-    def __init__(self, items: Sequence[Any]=None):
-        """Instantiate a ListSource.
+    def __init__(self, iterable: Iterable[Any]=None):
+        """Instantiate an IterableSource.
 
         Args:
-            items: The list object we should read from.
+            items: The iterable we should read from.
         """
 
-        self.items = [] if items is None else items
+        self.iterable = [] if iterable is None else iterable
 
     def read(self) -> Iterable[Any]:
-        for item in self.items:
+        for item in self.iterable:
             yield item
 
 class LambdaSource(Source[Any]):

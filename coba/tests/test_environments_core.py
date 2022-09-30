@@ -363,6 +363,15 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B'  , envs[1].params['id'])
         self.assertEqual((1,2), envs[1].params['where_n_interactions'])
 
+    def test_flatten(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).flat()
+
+        self.assertEqual(2   , len(envs))
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(True, envs[0].params['flat'])
+        self.assertEqual('B' , envs[1].params['id'])
+        self.assertEqual(True, envs[1].params['flat'])
+
     def test_noise(self):
         envs = Environments(TestEnvironment('A')).noise(lambda x,r: x+1, lambda x,r: x+2, lambda x,r: x+3, lambda x,r: x+4)
 

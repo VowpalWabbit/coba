@@ -1,6 +1,6 @@
 import unittest
 
-from coba.pipes import ListSource, ListSink
+from coba.pipes import IterableSource, ListSink
 from coba.registry import CobaRegistry
 from coba.exceptions import CobaException
 from coba.contexts import CobaContext, IndentLogger
@@ -24,7 +24,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertDictEqual({**environments[0].params, 'openml_data':150}, environments[0].params)
@@ -34,7 +34,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             "environments" : { "OpenmlSimulation": 150 }
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertDictEqual({**environments[0].params, 'openml_data':150}, environments[0].params)
@@ -46,7 +46,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
         self.assertDictEqual({**environments[0].params, 'openml_data':150, "take":10}, environments[0].params)
 
     def test_one_environment_two_filters(self):
@@ -56,7 +56,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertEqual(2, len(environments))
         self.assertDictEqual({**environments[0].params, 'openml_data':150, "take":10}, environments[0].params)
@@ -69,7 +69,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertEqual(4, len(environments))
         self.assertDictEqual({**environments[0].params, 'openml_data':150, "take":10}, environments[0].params)
@@ -85,7 +85,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertIsInstance(environments[1], OpenmlSimulation)
@@ -99,7 +99,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertIsInstance(environments[1], OpenmlSimulation)
@@ -112,7 +112,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             "environments" : [ "$openml_sims" ]
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertIsInstance(environments[1], OpenmlSimulation)
@@ -131,7 +131,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertEqual(6, len(environments))
         self.assertIsInstance(environments[4], OpenmlSimulation)
@@ -150,7 +150,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertEqual(2, len(environments))
         self.assertDictEqual({**environments[0].params, 'openml_data':150, "take":10}, environments[0].params)
@@ -163,7 +163,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV1(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertEqual(1, len(environments))
         self.assertDictEqual({**environments[0].params, 'openml_data':150}, environments[0].params)
@@ -176,7 +176,7 @@ class EnvironmentsTemplateV1_Tests(unittest.TestCase):
         }"""
 
         with self.assertRaises(CobaException) as e:
-            EnvironmentsTemplateV1(ListSource([json_txt])).read()
+            EnvironmentsTemplateV1(IterableSource([json_txt])).read()
 
         self.assertIn("We were unable to construct",str(e.exception))
 
@@ -191,7 +191,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             "environments" : { "OpenmlSimulation": 150 }
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertDictEqual({**environments[0].params, 'openml_data':150}, environments[0].params)
@@ -204,7 +204,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertDictEqual({**environments[0].params, 'openml_data':150}, environments[0].params)
@@ -218,7 +218,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertIsInstance(environments[1], OpenmlSimulation)
@@ -232,7 +232,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
         self.assertDictEqual({**environments[0].params, 'openml_data':150, "take":10}, environments[0].params)
 
     def test_one_environment_two_filters(self):
@@ -243,7 +243,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertEqual(2, len(environments))
         self.assertDictEqual({**environments[0].params, 'openml_data':150, "take":10}, environments[0].params)
@@ -257,7 +257,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertEqual(4, len(environments))
         self.assertDictEqual({**environments[0].params, 'openml_data':150, "take":10}, environments[0].params)
@@ -273,7 +273,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertIsInstance(environments[1], OpenmlSimulation)
@@ -286,7 +286,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             "environments" : [ "$openml_sims" ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertIsInstance(environments[1], OpenmlSimulation)
@@ -305,7 +305,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertEqual(6, len(environments))
         self.assertIsInstance(environments[4], OpenmlSimulation)
@@ -323,7 +323,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             "environments" : { "OpenmlSimulation":"$", "for": "$dataids" }
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertIsInstance(environments[1], OpenmlSimulation)
@@ -341,7 +341,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertEqual(2, len(environments))
         self.assertIsInstance(environments[0], OpenmlSimulation)
@@ -357,7 +357,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
         }"""
 
         with self.assertRaises(CobaException) as e:
-            EnvironmentsTemplateV2(ListSource([json_txt])).read()
+            EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertEqual("There appears to be an infinite loop in the template.", str(e.exception))
 
@@ -369,7 +369,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
         }"""
 
         with self.assertRaises(CobaException) as e:
-            EnvironmentsTemplateV2(ListSource([json_txt])).read()
+            EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertEqual("The following variables were not defined: [$openmls]", str(e.exception))
 
@@ -380,7 +380,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt]), openmls={"OpenmlSimulation":150}).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt]), openmls={"OpenmlSimulation":150}).read()
 
         self.assertEqual(len(environments), 1)
         self.assertIsInstance(environments[0], OpenmlSimulation)
@@ -396,13 +396,13 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt]), openmls={"OpenmlSimulation":150}).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt]), openmls={"OpenmlSimulation":150}).read()
 
         self.assertEqual(len(environments), 1)
         self.assertIsInstance(environments[0], OpenmlSimulation)
         self.assertDictEqual({**environments[0].params, 'openml_data':150}, environments[0].params)
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertEqual(len(environments), 1)
         self.assertIsInstance(environments[0], OpenmlSimulation)
@@ -418,7 +418,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt]), openmls={"OpenmlSimulation":150}, O={"OpenmlSimulation":150}).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt]), openmls={"OpenmlSimulation":150}, O={"OpenmlSimulation":150}).read()
 
         self.assertEqual(len(environments), 1)
         self.assertIsInstance(environments[0], OpenmlSimulation)
@@ -435,7 +435,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
             ]
         }"""
 
-        environments = EnvironmentsTemplateV2(ListSource([json_txt])).read()
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertEqual(1, len(environments))
         self.assertDictEqual({**environments[0].params, 'openml_data':150}, environments[0].params)
@@ -448,7 +448,7 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
         }"""
 
         with self.assertRaises(CobaException) as e:
-            EnvironmentsTemplateV2(ListSource([json_txt])).read()
+            EnvironmentsTemplateV2(IterableSource([json_txt])).read()
 
         self.assertIn("We were unable to construct",str(e.exception))
 

@@ -8,33 +8,34 @@ from numbers import Number
 from operator import truediv, sub, gt
 from abc import abstractmethod
 from itertools import chain, repeat, accumulate, groupby, count
-from typing import Any, Dict, List, Set, Tuple, Optional, Sequence, Hashable, Iterator, Union, Type, Callable, NamedTuple
+from typing import Any, Dict, List, Set, Tuple, Optional, Sequence, Hashable, Iterable, Iterator, Union, Type, Callable, NamedTuple
 from coba.backports import Literal
 
 from coba.statistics import Mean, StandardDeviation, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval, PointAndInterval
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.pipes import Pipes, Sink, Source, JsonEncode, JsonDecode, DiskSource, DiskSink, ListSource, ListSink, Foreach
+from coba.pipes import Pipes, Sink, Source, JsonEncode, JsonDecode, DiskSource, DiskSink, IterableSource, ListSink, Foreach
 
-def exponential_moving_average(values:Sequence[float], span:int=None):
+def exponential_moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
     #exponential moving average identical to Pandas df.ewm(span=span).mean()
     alpha = 2/(1+span)
     cumwindow  = list(accumulate(values          , lambda a,v: v + (1-alpha)*a))
     cumdivisor = list(accumulate([1.]*len(values), lambda a,v: v + (1-alpha)*a)) #type: ignore
-    return list(map(truediv, cumwindow, cumdivisor))
+    return map(truediv, cumwindow, cumdivisor)
 
-def moving_average(values:Sequence[float], span:int=None):
+def moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
 
     if span == 1: 
         return values
 
     if span is None or span >= len(values):
-        return [a/n for n,a in enumerate(accumulate(values),1)]
+        return (a/n for n,a in enumerate(accumulate(values),1))
 
     window_sums  = accumulate(map(sub, values, chain(repeat(0,span),values)))
     window_sizes = chain(range(1,span), repeat(span))
-    return list(map(truediv,window_sums,window_sizes))
+
+    return map(truediv,window_sums,window_sizes)
 
 class Table:
     """A container class for storing tabular data."""
@@ -272,8 +273,8 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
 
         self._log_file = log_file
         self._minify   = minify
-        self._source   = DiskSource(log_file) if log_file else ListSource()
-        self._sink     = DiskSink(log_file) if log_file else ListSink(self._source.items)
+        self._source   = DiskSource(log_file) if log_file else IterableSource()
+        self._sink     = DiskSink(log_file) if log_file else ListSink(self._source.iterable)
 
     def write(self, item: Any) -> None:
         if isinstance(self._sink, ListSink):
@@ -289,7 +290,7 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
         sim_rows = {}
         int_rows = {}
 
-        if isinstance(self._source, ListSource):
+        if isinstance(self._source, IterableSource):
             decoded_source = self._source
         else:
             decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
@@ -342,8 +343,8 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
 
         self._log_file = log_file
         self._minify   = minify
-        self._source   = DiskSource(log_file) if log_file else ListSource()
-        self._sink     = DiskSink(log_file)   if log_file else ListSink(self._source.items)
+        self._source   = DiskSource(log_file) if log_file else IterableSource()
+        self._sink     = DiskSink(log_file)   if log_file else ListSink(self._source.iterable)
 
     def write(self, item: Any) -> None:
         if isinstance(self._sink, ListSink):
@@ -359,7 +360,7 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
         env_rows = {}
         int_rows = {}
 
-        if isinstance(self._source, ListSource):
+        if isinstance(self._source, IterableSource):
             decoded_source = self._source
         else:
             decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
@@ -491,7 +492,7 @@ class MatplotlibPlotter(Plotter):
             if bad_ylim:
                 CobaContext.logger.log("The ylim end is less than the ylim start. Plotting is impossible.")
             if bad_lines:
-                CobaContext.logger.log(f"No data was found for plotting in the given results.")
+                CobaContext.logger.log(f"No data was found for plotting.")
         else:
 
             if not ax or isinstance(ax,int):
@@ -573,6 +574,7 @@ class MatplotlibPlotter(Plotter):
             if out not in ['screen',None]:
                 plt.tight_layout()
                 plt.savefig(str(out), dpi=300)
+                plt.show()
                 plt.close()
 
             if out=="screen":
@@ -610,10 +612,8 @@ class FilterPlottingData:
 class SmoothPlottingData:
 
     def filter(self, rows:Sequence[Dict[str,Any]], y:str, span:Optional[int]) -> Sequence[Dict[str,Any]]:
-
         e_key = "environment_id"
         l_key = "learner_id"
-
         return [{e_key:row[e_key], l_key:row[l_key], y:moving_average(row[y],span)} for row in rows]
 
 class ContrastPlottingData:
@@ -659,11 +659,15 @@ class TransformToXYE:
             avg = Mean()
             YE = lambda z: (avg.calculate(z) if len(z) > 1 else z[0], None)
 
-        is_scatter = isinstance(rows[0][y][0],(list,tuple))
+        iters = [ iter(row[y]) for row in rows ]
+        first_val = next(iters[0])
+        iters[0] = chain([first_val],iters[0])
+
+        is_scatter = isinstance(first_val,(list,tuple))
 
         if x == ['index']:
-            Z = list(zip(*[row[y] for row in rows]))
-            X = list(range(1,len(Z)+1))
+            Z = zip(*iters)
+            X = count(1)
 
             if not is_scatter:
                 points = [(x,None)+YE(z) for x,z in zip(X,Z) ]
@@ -672,8 +676,8 @@ class TransformToXYE:
         else:
             XZ = collections.defaultdict(list)
             make_x = lambda env: env[x[0]] if len(x) == 1 else tuple(env[k] for k in x)
-            for row in rows:
-                XZ[str(make_x(envs[row["environment_id"]]))].append(row[y][-1])
+            for row,I in zip(rows,iters):
+                XZ[str(make_x(envs[row["environment_id"]]))].append(list(I)[-1])
 
             if not is_scatter:
                 points = [(x,None)+YE(z) for x,z in XZ.items()]
@@ -936,13 +940,13 @@ class Result:
         rows = SmoothPlottingData().filter(rows, y, span)
 
         env_rows = self.environments
-        n_envs   = len(set([row['environment_id'] for row in rows]))
         get_key  = lambda row: row['learner_id']
         lines    = []
 
         style = "-" if x == ['index'] else "."
 
         for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
+
             lrn_rows = list(lrn_rows)
             XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
             color    = i if not colors else colors[i] if i < len(colors) else i+max(colors) if isinstance(colors[0],int) else i

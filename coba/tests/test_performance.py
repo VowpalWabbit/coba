@@ -9,7 +9,7 @@ from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
-from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, ListSource
+from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, IterableSource
 from coba.experiments.results import Result, moving_average
 
 print_time = False
@@ -283,7 +283,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_scale(self):
 
-        env = ListSource([SimulatedInteraction((3193.0, 151.0, 17.0, 484.0, -137.0, 319.0, 239.0, 238.0, 121.0, 3322.0, 0.0, 1.0, 0.0, 0.0, '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'),[1,2,3],[4,5,6])]*1000)
+        env = IterableSource([SimulatedInteraction((3193.0, 151.0, 17.0, 484.0, -137.0, 319.0, 239.0, 238.0, 121.0, 3322.0, 0.0, 1.0, 0.0, 0.0, '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'),[1,2,3],[4,5,6])]*1000)
         time = timeit.timeit(lambda:list(Scale().filter(env.read())), number=1)
 
         #.11 was my final 

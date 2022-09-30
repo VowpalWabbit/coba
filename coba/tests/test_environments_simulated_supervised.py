@@ -1,7 +1,7 @@
 import unittest.mock
 import unittest
 
-from coba.pipes        import ListSource
+from coba.pipes        import IterableSource
 from coba.contexts     import CobaContext, CobaContext, NullLogger
 from coba.environments import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
 
@@ -15,7 +15,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_source_reader_classification(self):
 
-        source = ArffSource(ListSource("""
+        source = ArffSource(IterableSource("""
             @relation weather
 
             @attribute pH real
@@ -54,7 +54,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_source_reader_regression_less_than_10(self):
 
-        source = ArffSource(ListSource("""
+        source = ArffSource(IterableSource("""
             @relation weather
 
             @attribute pH real
@@ -93,7 +93,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
     def test_source_reader_too_large_take_no_min(self):
 
-        source = ArffSource(ListSource("""
+        source = ArffSource(IterableSource("""
             @relation weather
 
             @attribute pH real
@@ -280,9 +280,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 class CsvSource_Tests(unittest.TestCase):
 
     def test_simple(self):
-        self.assertEqual([["1","2","3"]], list(CsvSource(ListSource(["1,2,3"])).read()))
-        self.assertEqual({}, CsvSource(ListSource(["1,2,3"])).params)
-        self.assertEqual('{},{}', str(CsvSource(ListSource(["1,2,3"]))))
+        self.assertEqual([["1","2","3"]], list(CsvSource(IterableSource(["1,2,3"])).read()))
+        self.assertEqual({}, CsvSource(IterableSource(["1,2,3"])).params)
+        self.assertEqual('{},{}', str(CsvSource(IterableSource(["1,2,3"]))))
 
 
 class ArffSource_Tests(unittest.TestCase):
@@ -302,9 +302,9 @@ class ArffSource_Tests(unittest.TestCase):
             [2, 3]
         ]
 
-        self.assertEqual(expected, list(ArffSource(ListSource(lines)).read()))
-        self.assertEqual({}, ArffSource(ListSource(lines)).params)
-        self.assertEqual('{},{}', str(ArffSource(ListSource(lines))))
+        self.assertEqual(expected, list(ArffSource(IterableSource(lines)).read()))
+        self.assertEqual({}, ArffSource(IterableSource(lines)).params)
+        self.assertEqual('{},{}', str(ArffSource(IterableSource(lines))))
 
 class LibsvmSource_Tests(unittest.TestCase):
 
@@ -323,9 +323,9 @@ class LibsvmSource_Tests(unittest.TestCase):
             ({1:1     }, ['1'])
         ]
 
-        self.assertEqual(expected, list(LibSvmSource(ListSource(lines)).read()))
-        self.assertEqual({}, LibSvmSource(ListSource(lines)).params)
-        self.assertEqual('{},{}', str(LibSvmSource(ListSource(lines))))
+        self.assertEqual(expected, list(LibSvmSource(IterableSource(lines)).read()))
+        self.assertEqual({}, LibSvmSource(IterableSource(lines)).params)
+        self.assertEqual('{},{}', str(LibSvmSource(IterableSource(lines))))
 
 class ManikSource_Tests(unittest.TestCase):
 
@@ -345,9 +345,9 @@ class ManikSource_Tests(unittest.TestCase):
             ({1:1     }, ['1'])
         ]
 
-        self.assertEqual(expected, list(ManikSource(ListSource(lines)).read()))
-        self.assertEqual({}, ManikSource(ListSource(lines)).params)
-        self.assertEqual('{},{}', str(ManikSource(ListSource(lines))))
+        self.assertEqual(expected, list(ManikSource(IterableSource(lines)).read()))
+        self.assertEqual({}, ManikSource(IterableSource(lines)).params)
+        self.assertEqual('{},{}', str(ManikSource(IterableSource(lines))))
 
 if __name__ == '__main__':
     unittest.main()

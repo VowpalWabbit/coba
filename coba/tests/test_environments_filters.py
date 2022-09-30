@@ -7,7 +7,7 @@ from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.environments import LoggedInteraction, SimulatedInteraction
 
-from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary
+from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle
 
 class TestEnvironment:
@@ -1221,6 +1221,28 @@ class Riffle_Tests(unittest.TestCase):
 
     def test_params(self):
         self.assertEqual({'riffle_spacing':2, 'riffle_seed':3}, Riffle(2,3).params)
+
+class Flatten_Tests(unittest.TestCase):
+    def test_flatten(self):
+        
+        interactions = [
+            SimulatedInteraction((7,(1,0)), [(1,(2,3)),2], [.2,.3]),
+            SimulatedInteraction((1,"abc"), [(1,"def"),3], [.1,.5]),
+        ]
+
+        flatten_filter = Flatten()
+        actual_interactions = list(flatten_filter.filter(interactions))
+
+        self.assertEqual(2            , len(actual_interactions))
+        self.assertEqual((7,1,0)      , actual_interactions[0].context)
+        self.assertEqual([(1,2,3)  ,2], actual_interactions[0].actions)
+        self.assertEqual([.2,.3]      , actual_interactions[0].rewards)
+        self.assertEqual((1,"abc")    , actual_interactions[1].context)
+        self.assertEqual([(1,"def"),3], actual_interactions[1].actions)
+        self.assertEqual([.1,.5]      , actual_interactions[1].rewards)
+
+    def test_params(self):
+        self.assertEqual({'flat':True}, Flatten().params)
 
 if __name__ == '__main__':
     unittest.main()

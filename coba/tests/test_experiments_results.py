@@ -335,7 +335,7 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                         ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
                     ]
 
-                    MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+                    MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,"screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -357,7 +357,7 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                     self.assertEqual(1, show.call_count)
                     self.assertEqual(0, savefig.call_count)
 
-    def test_plot_lines_err_title_xlabel_ylabel(self):
+    def test_plot_lines_err_title_xlabel_ylabel_screen(self):
         with unittest.mock.patch('matplotlib.pyplot.show') as show:
             with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
                 with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
@@ -372,7 +372,7 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
                         ([3,4], [7,8], None, [12,13], "R", 0.25, 'L2', '-')
                     ]
 
-                    MatplotlibPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, None,)
+                    MatplotlibPlotter().plot(None, lines, "title", "xlabel", "ylabel", None, None, True, True, None, None, "screen")
 
                     plt_figure().add_subplot.assert_called_with(111)
 
@@ -608,6 +608,59 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
 
                     self.assertEqual(1, show.call_count)
                     self.assertEqual(1, savefig.call_count)
+    
+    def test_plot_none(self):
+        with unittest.mock.patch('matplotlib.pyplot.show') as show:
+            with unittest.mock.patch('matplotlib.pyplot.savefig') as savefig:
+                with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                    mock_ax = plt_figure().add_subplot()
+
+                    mock_ax.get_xticks.return_value = [1,2]
+                    mock_ax.get_xlim.return_value   = [2,2]
+
+                    lines = [
+                        ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                        ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
+                    ]
+
+                    MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+
+                    plt_figure().add_subplot.assert_called_with(111)
+
+                    self.assertEqual(([1,2],[5,6],'-'), mock_ax.plot.call_args_list[0][0])
+                    self.assertEqual('B'              , mock_ax.plot.call_args_list[0][1]["color"])
+                    self.assertEqual(1                , mock_ax.plot.call_args_list[0][1]["alpha"])
+                    self.assertEqual('L1'             , mock_ax.plot.call_args_list[0][1]["label"])
+
+                    self.assertEqual(([3,4],[7,8],'-'), mock_ax.plot.call_args_list[1][0])
+                    self.assertEqual('R'              , mock_ax.plot.call_args_list[1][1]["color"])
+                    self.assertEqual(.25              , mock_ax.plot.call_args_list[1][1]["alpha"])
+                    self.assertEqual('L2'             , mock_ax.plot.call_args_list[1][1]["label"])
+
+                    mock_ax.set_xticks.called_once_with([2,2])
+                    mock_ax.set_title.colled_once_with('title')
+                    mock_ax.set_xlabel.called_once_with('xlabel')
+                    mock_ax.set_ylabel.called_once_with('ylabel')
+
+                    self.assertEqual(0, show.call_count)
+                    self.assertEqual(0, savefig.call_count)
+
+    def test_plot_existing_figure(self):
+        with unittest.mock.patch('matplotlib.pyplot.get_figlabels') as plt_get_figlabels:
+            with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
+
+                plt_get_figlabels.return_value = ['coba']
+                
+                lines = [
+                    ([1,2], [5,6], None, None, "B", 1.00, 'L1', '-'),
+                    ([3,4], [7,8], None, None, "R", 0.25, 'L2', '-')
+                ]
+
+                MatplotlibPlotter().plot(None,lines,"title","xlabel","ylabel",None,None,True,True,None,None,None)
+
+                plt_figure.assert_called_with(num='coba')
+                plt_figure().add_subplot.assert_called_with(111)
 
     def test_no_lines(self):
         with unittest.mock.patch('matplotlib.pyplot.figure') as plt_figure:
@@ -619,7 +672,7 @@ class MatplotlibPlotter_Tests(unittest.TestCase):
             plotter.plot(None, [], 'abc', 'def', 'efg', None, None, True, True, None, None, None)
 
             self.assertEqual(0, plt_figure().add_subplot.call_count)
-            self.assertEqual(["No data was found for plotting in the given results."], CobaContext.logger.sink.items)
+            self.assertEqual(["No data was found for plotting."], CobaContext.logger.sink.items)
 
 class TransactionIO_V3_Tests(unittest.TestCase):
 
@@ -1065,7 +1118,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
-        self.assertEqual("Interactions", plotter.plot_calls[0][3])
+        self.assertEqual("Interaction", plotter.plot_calls[0][3])
 
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
@@ -1092,7 +1145,7 @@ class Result_Tests(unittest.TestCase):
         ]
 
         self.assertEqual("Progressive Reward (2 Environments)", plotter.plot_calls[0][2])
-        self.assertEqual("Interactions", plotter.plot_calls[0][3])
+        self.assertEqual("Interaction", plotter.plot_calls[0][3])
         
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
@@ -1215,7 +1268,7 @@ class Result_Tests(unittest.TestCase):
         result = Result({}, lrns, ints)
 
         result.set_plotter(plotter)
-        result.plot_learners(filename="abc")
+        result.plot_learners(out="abc")
 
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual("abc", plotter.plot_calls[0][11])
@@ -1311,9 +1364,9 @@ class Result_Tests(unittest.TestCase):
         result.plot_contrast(1,2,'index')
 
         expected_lines = [
-            ((1,)  ,(-1,), (None,), (None,), 2     , 1, 'learner_2 (1)', '-'),
+            ((1,)  ,(-1,), (None,), (None,), 0     , 1, 'learner_2 (1)', '-'),
             ((2,)  ,( 0,), (None,), (None,), 1     , 1, 'Tie (1)'      , '-'),
-            ((3,)  ,( 1,), (None,), (None,), 0     , 1, 'learner_1 (1)', '-'),
+            ((3,)  ,( 1,), (None,), (None,), 2     , 1, 'learner_1 (1)', '-'),
             ((1,3,),(0,0), None   , None   , "#888", 1, None           , '-')
         ]
 
@@ -1344,7 +1397,7 @@ class Result_Tests(unittest.TestCase):
 
         expected_lines = [
             (('2',)   , (0, ), (None,    ), (None,    ), 1     , 1, 'Tie (1)'      , '.'),
-            (('3','1'), (1,2), (None,None), (None,None), 0     , 1, 'learner_1 (2)', '.'),
+            (('3','1'), (1,2), (None,None), (None,None), 2     , 1, 'learner_1 (2)', '.'),
             (('2','1'), (0,0), None       , None       , "#888", 1, None           , '-')
         ]
 
@@ -1374,7 +1427,7 @@ class Result_Tests(unittest.TestCase):
 
         expected_lines = [
             ((3,  ), (3,  ), (None,    ), (None,    ), 1     , 1, 'Tie (1)'      , '.'),
-            ((5, 4), (3, 3), (None,None), (None,None), 0     , 1, 'learner_1 (2)', '.'),
+            ((5, 4), (3, 3), (None,None), (None,None), 2     , 1, 'learner_1 (2)', '.'),
             ((0, 5), (0, 5), None       , None       , "#888", 1, None           , '-')
         ]
 
@@ -1386,22 +1439,22 @@ class Result_Tests(unittest.TestCase):
 class moving_average_Tests(unittest.TestCase):
 
     def test_sliding_windows(self):
-        self.assertEqual([0,1/2,1/2,0/2,1/2], moving_average([0,1,0,0,1],span=2))
-        self.assertEqual([0,1/2,1/3,1/3,1/3], moving_average([0,1,0,0,1],span=3))
-        self.assertEqual([0,1/2,1/3,1/4,2/4], moving_average([0,1,0,0,1],span=4))
+        self.assertEqual([0,1/2,1/2,0/2,1/2], list(moving_average([0,1,0,0,1],span=2)))
+        self.assertEqual([0,1/2,1/3,1/3,1/3], list(moving_average([0,1,0,0,1],span=3)))
+        self.assertEqual([0,1/2,1/3,1/4,2/4], list(moving_average([0,1,0,0,1],span=4)))
 
     def test_rolling_windows(self):
-        self.assertEqual([0,1/2,1/3,1/4,2/5], moving_average([0,1,0,0,1],span=None))
-        self.assertEqual([0,1/2,1/3,1/4,2/5], moving_average([0,1,0,0,1],span=5   ))
-        self.assertEqual([0,1/2,1/3,1/4,2/5], moving_average([0,1,0,0,1],span=6   ))
+        self.assertEqual([0,1/2,1/3,1/4,2/5], list(moving_average([0,1,0,0,1],span=None)))
+        self.assertEqual([0,1/2,1/3,1/4,2/5], list(moving_average([0,1,0,0,1],span=5   )))
+        self.assertEqual([0,1/2,1/3,1/4,2/5], list(moving_average([0,1,0,0,1],span=6   )))
 
     def test_no_window(self):
-        self.assertEqual([0,1,0,0,1], moving_average([0,1,0,0,1],span=1))
+        self.assertEqual([0,1,0,0,1], list(moving_average([0,1,0,0,1],span=1)))
 
 class exponential_moving_average_Tets(unittest.TestCase):
 
     def test_span_2(self):
-        self.assertEqual([1,1.75,2.62,3.55], [round(v,2) for v in exponential_moving_average([1,2,3,4],span=2)])
+        self.assertEqual([1,1.75,2.62,3.55], [round(v,2) for v in list(exponential_moving_average([1,2,3,4],span=2))])
 
 class FilterPlottingData_Tests(unittest.TestCase):
 
@@ -1566,6 +1619,8 @@ class SmoothPlottingData_Tests(unittest.TestCase):
         ]
 
         actual_rows = SmoothPlottingData().filter(rows, "reward", None)
+        actual_rows[0]['reward'] = list(actual_rows[0]['reward'])
+        actual_rows[1]['reward'] = list(actual_rows[1]['reward'])
 
         self.assertEqual(expected_rows,actual_rows)
 
@@ -1582,6 +1637,8 @@ class SmoothPlottingData_Tests(unittest.TestCase):
         ]
 
         actual_rows = SmoothPlottingData().filter(rows, "reward", 2)
+        actual_rows[0]['reward'] = list(actual_rows[0]['reward'])
+        actual_rows[1]['reward'] = list(actual_rows[1]['reward'])
 
         self.assertEqual(expected_rows,actual_rows)
 
@@ -1598,6 +1655,8 @@ class SmoothPlottingData_Tests(unittest.TestCase):
         ]
 
         actual_rows = SmoothPlottingData().filter(rows, "reward", 1)
+        actual_rows[0]['reward'] = list(actual_rows[0]['reward'])
+        actual_rows[1]['reward'] = list(actual_rows[1]['reward'])
 
         self.assertEqual(expected_rows,actual_rows)
 

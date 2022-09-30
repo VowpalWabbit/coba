@@ -4,7 +4,7 @@ import json
 from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
 
 from coba.random import random
-from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, ListSource, Structure
+from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, IterableSource, Structure
 from coba.pipes.readers import SparseWithMeta
 from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
@@ -113,7 +113,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
                 has_missing = "?" in row_values or "" in row_values
                 return self._drop_missing and has_missing
 
-            source    = ListSource(self._get_arff_lines(data_descr["file_id"], None))
+            source    = IterableSource(self._get_arff_lines(data_descr["file_id"], None))
             reader    = ArffReader(cat_as_str=self._cat_as_str)
             drop      = Drop(drop_cols=ignore, drop_row=drop_row)
 
@@ -152,16 +152,6 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
     def _get_data(self, url:str, key:str, checksum:str=None) -> Iterable[str]:
 
-        # This can't be done in a streaming manner unless there is a persistent cacher.
-        # Because we don't require cacher this means this may not be possible with streaming.
-        # if checksum is not None and md5(bites).hexdigest() != checksum:
-        #     #if the cache has become corrupted we need to clear it
-        #     CobaContext.cacher.rmv(key)
-        #     message = (
-        #         f"The response from {url} did not match the given checksum {checksum}. This could be the result "
-        #         "of network errors or the file becoming corrupted. Please consider downloading the file again. "
-        #         "If the error persists you may want to manually download and reference the file.")
-        #     raise CobaException(message) from None
         try:
             for b in CobaContext.cacher.get_put(key, lambda: self._http_request(url)):
                 yield b.decode('utf-8')

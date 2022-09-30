@@ -8,7 +8,7 @@ from queue import Queue
 from pathlib import Path
 
 from coba.exceptions import CobaException
-from coba.pipes import DiskSource, QueueSource, NullSource, HttpSource, LambdaSource, ListSource, UrlSource
+from coba.pipes import DiskSource, QueueSource, NullSource, HttpSource, LambdaSource, IterableSource, UrlSource
 from coba.contexts import NullLogger, CobaContext
 
 CobaContext.logger = NullLogger()
@@ -93,11 +93,11 @@ class HttpSource_Tests(unittest.TestCase):
 class ListSource_Tests(unittest.TestCase):
 
     def test_read_1(self):
-        io = ListSource(['a','b'])
+        io = IterableSource(['a','b'])
         self.assertEqual(["a",'b'], list(io.read()))
 
     def test_read_2(self):
-        io = ListSource()
+        io = IterableSource()
         self.assertEqual([], list(io.read()))
 
 class LambdaSource_Tests(unittest.TestCase):
