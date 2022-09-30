@@ -194,7 +194,13 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
                                 if workitem.environ and workitem.learner:
                                     with CobaContext.logger.time(f"Evaluating Learner {workitem.learner_id} on Environment {workitem.environ_id}..."):
-                                        row = list(workitem.task.process(deepcopy(workitem.learner), interactions))
+ 
+                                        if len([i for i in chunk if i.environ and i.learner]) > 1:
+                                            learner = deepcopy(workitem.learner)
+                                        else:
+                                            learner = workitem.learner
+
+                                        row = list(workitem.task.process(learner, interactions))
                                         yield ["T3", (workitem.environ_id, workitem.learner_id), row]
 
                             except Exception as e:

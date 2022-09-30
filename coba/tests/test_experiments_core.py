@@ -24,6 +24,7 @@ class NoParamsEnvironment:
 class ModuloLearner(Learner):
     def __init__(self, param:str="0"):
         self._param = param
+        self._learn_calls = 0
 
     @property
     def params(self):
@@ -33,7 +34,7 @@ class ModuloLearner(Learner):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
 
     def learn(self, context, action, reward, probability, info):
-        pass
+        self._learn_calls += 1
 
 class BrokenLearner(Learner):
 
@@ -163,6 +164,11 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
+        
+        if CobaContext.experiment.processes == 1:
+            self.assertEqual(2, learner._learn_calls)
+        else:
+            self.assertEqual(0, learner._learn_calls)
 
     def test_sims(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -194,6 +200,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
+        self.assertEqual(0, learner._learn_calls)
 
     def test_learners(self):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
