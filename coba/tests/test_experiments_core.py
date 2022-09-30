@@ -139,7 +139,41 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_sim(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))
         learner    = ModuloLearner()
-        experiment = Experiment([sim1], [learner], evaluation_task=OnlineOnPolicyEvalTask(time=False))
+        experiment = Experiment(sim1, [learner], evaluation_task=OnlineOnPolicyEvalTask(time=False))
+
+        CobaContext.logger = IndentLogger(ListSink())
+
+        result              = experiment.evaluate()
+        actual_learners     = result.learners.to_dicts()
+        actual_environments = result.environments.to_dicts()
+        actual_interactions = result.interactions.to_dicts()
+
+        expected_learners     = [
+            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'LambdaSimulation'}
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "reward_pct":0.0, "rank":3, 'rank_pct':1.0, 'regret':2, "regret_pct":1.0},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "reward_pct":0.5, "rank":2, 'rank_pct':0.5, 'regret':1, "regret_pct":0.5}
+        ]
+
+        self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, result.experiment)
+        self.assertCountEqual(actual_learners, expected_learners)
+        self.assertCountEqual(actual_environments, expected_environments)
+        self.assertCountEqual(actual_interactions, expected_interactions)
+        
+        if CobaContext.experiment.processes == 1:
+            self.assertEqual(2, learner._learn_calls)
+        else:
+            self.assertEqual(0, learner._learn_calls)
+
+    def test_learner(self):
+        sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))
+        learner    = ModuloLearner()
+        experiment = Experiment([sim1], learner, evaluation_task=OnlineOnPolicyEvalTask(time=False))
 
         CobaContext.logger = IndentLogger(ListSink())
 

@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import Sequence, Optional
+from typing import Sequence, Optional, Union
 from coba.backports import Literal
 
 from coba.pipes import Pipes, Foreach
 from coba.learners import Learner
-from coba.environments import Environment
+from coba.environments import Environment, Environments
 from coba.multiprocessing import CobaMultiprocessor
 from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger
 from coba.exceptions import CobaException
@@ -18,8 +18,8 @@ class Experiment:
     """An Experiment using a collection of environments and learners."""
 
     def __init__(self,
-        environments    : Sequence[Environment],
-        learners        : Sequence[Learner],
+        environments    : Union[Environment, Sequence[Environment]],
+        learners        : Union[Learner,Sequence[Learner]],
         description     : str = None,
         learner_task    : LearnerTask     = SimpleLearnerTask(),
         environment_task: EnvironmentTask = SimpleEnvironmentTask(),
@@ -34,6 +34,12 @@ class Experiment:
             environment_task: A task which describes an environment.
             evaluation_task: A task which evaluates a learner on an environment.
         """
+
+        if (not isinstance(environments, (Environments, list, tuple))):
+            environments = [environments]
+
+        if (not isinstance(learners, (list, tuple))):
+            learners = [learners]
 
         self._environments     = environments
         self._learners         = learners
