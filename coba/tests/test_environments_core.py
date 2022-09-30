@@ -325,7 +325,18 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B' , envs[1].params['id'])
         self.assertEqual(1   , envs[1].params['take'])
 
-    def test_reservoir(self):
+    def test_reservoir_seed(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).reservoir(1,2)
+
+        self.assertEqual(2   , len(envs))
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(1   , envs[0].params['reservoir_count'])
+        self.assertEqual(2   , envs[0].params['reservoir_seed'])
+        self.assertEqual('B' , envs[1].params['id'])
+        self.assertEqual(1   , envs[1].params['reservoir_count'])
+        self.assertEqual(2   , envs[1].params['reservoir_seed'])
+
+    def test_reservoir_seeds(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).reservoir(1,[2])
 
         self.assertEqual(2   , len(envs))

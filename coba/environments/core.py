@@ -243,8 +243,9 @@ class Environments:
         """Take a fixed number of interactions from the Environments."""
         return self.filter(Take(n_interactions))
 
-    def reservoir(self, n_interactions: int, seeds: Sequence[int]) -> 'Environments':
+    def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]) -> 'Environments':
         """Take a random fixed number of interactions from the Environments."""
+        if isinstance(seeds,int): seeds = [seeds]
         return self.filter([Reservoir(n_interactions,seed) for seed in seeds])
 
     def scale(self,
