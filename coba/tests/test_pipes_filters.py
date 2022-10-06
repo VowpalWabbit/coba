@@ -359,7 +359,6 @@ class Structure_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(Structure(2).filter(given)) )
 
-
     def test_sparse_numeric_row_structure(self):
 
         given_row0 = { 0:2, 1:3, 2:4 }
@@ -478,6 +477,19 @@ class Drops_Tests(unittest.TestCase):
         expected = [['a'        ], expected_row0, expected_row1]
 
         self.assertEqual( expected, list(Drop(drop_cols=[1,2]).filter(given)) )
+
+    def test_empty_drop(self):
+
+        given_row0 = [1,2,3]
+        given_row1 = [4,5,6]
+
+        expected_row0 = given_row0
+        expected_row1 = given_row1
+
+        given    = [given_row0, given_row1]
+        expected = [expected_row0, expected_row1]
+
+        self.assertEqual( expected, list(Drop(drop_cols=[]).filter(given)) )
 
 class Default_Tests(unittest.TestCase):
 

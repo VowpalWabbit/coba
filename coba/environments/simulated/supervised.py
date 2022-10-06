@@ -49,21 +49,15 @@ class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping
 
     def __init__(self,
         source: Union[str,Source[Iterable[str]]],
-        cat_as_str: bool = False,
-        skip_encoding: bool = False,
-        lazy_encoding: bool = True,
-        header_indexing: bool = True) -> None:
+        cat_as_str: bool = False) -> None:
         """Instantiate an ArffSource.
 
         Args:
             source: The data source. Accepts either a string representing the source location or another Source.
             cat_as_str: Indicates that categorical features should be encoded as a string rather than one hot encoded.
-            skip_encoding: Indicates that features should not be encoded (this means all features will be strings).
-            lazy_encoding: Indicates that features should be encoded lazily (this can save time if rows will be dropped).
-            header_indexing: Indicates that header data should be preserved so rows can be indexed by header name.
         """
         source = UrlSource(source) if isinstance(source,str) else source
-        reader = ArffReader(cat_as_str, skip_encoding, lazy_encoding, header_indexing)
+        reader = ArffReader(cat_as_str)
         self._source = Pipes.join(source, reader)
 
     def read(self) -> Union[Iterable[MutableSequence], Iterable[MutableMapping]]:

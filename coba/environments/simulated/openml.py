@@ -5,7 +5,6 @@ from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, Mutabl
 
 from coba.random import random
 from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, IterableSource, Structure
-from coba.pipes.readers import SparseWithMeta
 from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 
@@ -109,9 +108,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             if self._target in ignore: ignore.pop(ignore.index(self._target))
 
             def drop_row(row):
-                row_values = row._values.values() if isinstance(row,SparseWithMeta) else row._values
-                has_missing = "?" in row_values or "" in row_values
-                return self._drop_missing and has_missing
+                return self._drop_missing and row.any_missing
 
             source    = IterableSource(self._get_arff_lines(data_descr["file_id"], None))
             reader    = ArffReader(cat_as_str=self._cat_as_str)

@@ -3,6 +3,7 @@ import unittest.mock
 import unittest
 import json
 
+from math import isnan
 from threading import Semaphore, Event, Thread
 from typing import cast, Tuple
 
@@ -243,8 +244,18 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
         raw = list(OpenmlSource(data_id=42693, drop_missing=False, skip_structure=True).read())
-        self.assertEqual(raw[0]._headers, {'pH': 0, 'temperature': 1, 'conductivity': 2, 'coli': 3, 'play': 4})
-        self.assertEqual(raw[0]._values, ['?', '27', '1410', '2', 'no'])
+        
+        self.assertNotEqual(raw[0][0],raw[0][0])
+        
+        self.assertEqual([27, 1410, (1,0),(1,0)], list(raw[0])[1:])
+        self.assertEqual([8.2, 29, 1180, (1,0),(1,0)], raw[1])
+        
+        self.assertEqual(8.2, raw[2][0])
+        self.assertNotEqual(raw[2][1],raw[2][1])
+        self.assertEqual([1410, (1,0),(0,1)], list(raw[2])[2:])
+        
+        self.assertEqual([8.3, 27, 1020, (0,1),(0,1)], raw[3])
+        self.assertEqual([7.6, 23, 4700, (0,1),(0,1)], raw[4])
 
     def test_cat_as_str(self):
 
@@ -521,16 +532,16 @@ class OpenmlSource_Tests(unittest.TestCase):
         feat = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"att_1","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"att_2","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"att_3","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"att_4","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"att_5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"5","name":"att_6","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"6","name":"att_7","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"7","name":"att_8","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"8","name":"att_9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"9","name":"att_10","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"0","name":"0","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"1","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"2","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"3","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"4","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"6","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"7","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"8","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
                     {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
                 ]
             }
@@ -539,16 +550,16 @@ class OpenmlSource_Tests(unittest.TestCase):
         arff = """
             @relation news20
 
-            @attribute att_1 numeric
-            @attribute att_2 numeric
-            @attribute att_3 numeric
-            @attribute att_4 numeric
-            @attribute att_5 numeric
-            @attribute att_6 numeric
-            @attribute att_7 numeric
-            @attribute att_8 numeric
-            @attribute att_9 numeric
-            @attribute att_10 numeric
+            @attribute 0 numeric
+            @attribute 1 numeric
+            @attribute 2 numeric
+            @attribute 3 numeric
+            @attribute 4 numeric
+            @attribute 5 numeric
+            @attribute 6 numeric
+            @attribute 7 numeric
+            @attribute 8 numeric
+            @attribute 9 numeric
             @attribute class {B, C, D}
 
             @data
@@ -567,10 +578,10 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(feature_rows), 4)
         self.assertEqual(len(label_col   ), 4)
 
-        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
-        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
-        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
-        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
+        self.assertEqual(dict(zip( map(str,(0,1))          , (2,3)          )), feature_rows[0])
+        self.assertEqual(dict(zip( map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), feature_rows[1])
+        self.assertEqual(dict(zip( map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), feature_rows[2])
+        self.assertEqual(dict(zip( map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), feature_rows[3])
 
         self.assertEqual((1,0,0,0), label_col[0])
         self.assertEqual((0,1,0,0), label_col[1])
@@ -599,16 +610,16 @@ class OpenmlSource_Tests(unittest.TestCase):
         feat = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"att_1","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"att_2","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"att_3","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"att_4","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"att_5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"5","name":"att_6","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"6","name":"att_7","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"7","name":"att_8","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"8","name":"att_9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"9","name":"att_10","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"0","name":"0","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"1","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"2","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"3","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"4","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"5","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"7","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"8","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
                     {"index":"10","name":"class","data_type":"nominal","nominal_value":["A","B","C","D"],"is_ignore":"false","is_row_identifier":"false","number_of_missing_values":"0"}
                 ]
             }
@@ -617,16 +628,16 @@ class OpenmlSource_Tests(unittest.TestCase):
         arff = """
             @relation news20
 
-            @attribute att_1 numeric
-            @attribute att_2 numeric
-            @attribute att_3 numeric
-            @attribute att_4 numeric
-            @attribute att_5 numeric
-            @attribute att_6 numeric
-            @attribute att_7 numeric
-            @attribute att_8 numeric
-            @attribute att_9 numeric
-            @attribute att_10 numeric
+            @attribute 0 numeric
+            @attribute 1 numeric
+            @attribute 2 numeric
+            @attribute 3 numeric
+            @attribute 4 numeric
+            @attribute 5 numeric
+            @attribute 6 numeric
+            @attribute 7 numeric
+            @attribute 8 numeric
+            @attribute 9 numeric
             @attribute class {B, C, D}
 
             @data
@@ -646,10 +657,10 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(feature_rows), 4)
         self.assertEqual(len(label_col   ), 4)
 
-        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
-        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
-        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
-        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
+        self.assertEqual(dict(zip( map(str,(0,1))          , (2,3)          )), feature_rows[0])
+        self.assertEqual(dict(zip( map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), feature_rows[1])
+        self.assertEqual(dict(zip( map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), feature_rows[2])
+        self.assertEqual(dict(zip( map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), feature_rows[3])
 
         self.assertEqual((1,0,0,0), label_col[0])
         self.assertEqual((0,1,0,0), label_col[1])
@@ -745,16 +756,16 @@ class OpenmlSource_Tests(unittest.TestCase):
         feat = {
             "data_features":{
                 "feature":[
-                    {"index":"0","name":"att_1" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"att_2" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"att_3" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"att_4" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"att_5" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"5","name":"att_6" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"6","name":"att_7" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"7","name":"att_8" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"8","name":"att_9" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"9","name":"att_10","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"0","name":"0" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"1","name":"1" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"2","name":"2" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"3","name":"3" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"4","name":"4" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"5","name":"5" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"6","name":"6" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"7","name":"7" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"8","name":"8" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
+                    {"index":"9","name":"9","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
                     {"index":"9","name":"class" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
                 ]
             }
@@ -763,16 +774,16 @@ class OpenmlSource_Tests(unittest.TestCase):
         arff = """
             @relation test
 
-            @attribute att_1 numeric
-            @attribute att_2 numeric
-            @attribute att_3 numeric
-            @attribute att_4 numeric
-            @attribute att_5 numeric
-            @attribute att_6 numeric
-            @attribute att_7 numeric
-            @attribute att_8 numeric
-            @attribute att_9 numeric
-            @attribute att_10 numeric
+            @attribute 0 numeric
+            @attribute 1 numeric
+            @attribute 2 numeric
+            @attribute 3 numeric
+            @attribute 4 numeric
+            @attribute 5 numeric
+            @attribute 6 numeric
+            @attribute 7 numeric
+            @attribute 8 numeric
+            @attribute 9 numeric
             @attribute class numeric
 
             @data
@@ -792,10 +803,10 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(feature_rows), 4)
         self.assertEqual(len(label_col   ), 4)
 
-        self.assertEqual(dict(zip( (0,1)          , (2,3)          )), feature_rows[0])
-        self.assertEqual(dict(zip( (2,3,4,6,8)    , (1,1,1,1,1)    )), feature_rows[1])
-        self.assertEqual(dict(zip( (0,1,2,3,4,5,6), (3,1,1,9,1,1,1))), feature_rows[2])
-        self.assertEqual(dict(zip( (0,3,6,7,8,9)  , (1,1,1,1,1,2)  )), feature_rows[3])
+        self.assertEqual(dict(zip( map(str,(0,1))          , (2,3)          )), feature_rows[0])
+        self.assertEqual(dict(zip( map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), feature_rows[1])
+        self.assertEqual(dict(zip( map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), feature_rows[2])
+        self.assertEqual(dict(zip( map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), feature_rows[3])
 
         self.assertEqual('0', label_col[0])
         self.assertEqual('1', label_col[1])

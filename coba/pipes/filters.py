@@ -2,13 +2,14 @@ import json
 import math
 import copy
 
-from collections import defaultdict
+from collections import defaultdict, abc
 from itertools import islice, chain
-from typing import Iterable, Any, Sequence, Dict, Callable, Optional, Union, MutableSequence, MutableMapping
+from typing import Iterable, Any, Sequence, Mapping, Callable, Optional, Union
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
 
+from coba.pipes.rows import Row, DropRow
 from coba.pipes.primitives import Filter
 
 class Identity(Filter[Any, Any]):
@@ -17,7 +18,7 @@ class Identity(Filter[Any, Any]):
         return item
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return {}
 
 class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
@@ -39,7 +40,7 @@ class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
         return CobaRandom(self._seed).shuffle(list(items))
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return { "shuffle": self._seed }
 
 class Take(Filter[Iterable[Any], Sequence[Any]]):
@@ -63,7 +64,7 @@ class Take(Filter[Iterable[Any], Sequence[Any]]):
         return islice(items, self._count)
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return { "take": self._count }
 
 class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
@@ -94,7 +95,7 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         self._seed  = seed
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return { "reservoir_count": self._count, "reservoir_seed": self._seed }
 
     def filter(self, items: Iterable[Any]) -> Sequence[Any]:
@@ -211,10 +212,10 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
 
             yield row
 
-class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
+class Encode(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
     """A filter which encodes features in table shaped data."""
 
-    def __init__(self, encoders:Dict[Union[str,int],Encoder], fit_using:int = None, missing_val: str = None):
+    def __init__(self, encoders:Mapping[Any,Encoder], fit_using:int = None, missing_val: str = None):
         """Instantiate an Encode filter.
 
         Args:
@@ -226,7 +227,7 @@ class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Un
         self._fit_using   = fit_using
         self._missing_val = missing_val
 
-    def filter(self, items: Iterable[Union[MutableSequence,MutableMapping]]) -> Iterable[Union[MutableSequence,MutableMapping]]:
+    def filter(self, items: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
 
         items = iter(items) # this makes sure items are pulled out for fitting
 
@@ -236,7 +237,7 @@ class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Un
         except StopIteration:
             return []
 
-        is_dense = not isinstance(first_item,dict)
+        is_dense = isinstance(first_item,abc.Sequence)
 
         if not is_dense:
             encoders = self._encoders
@@ -264,18 +265,19 @@ class Encode(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Un
             encoders[k] = encoders[k].fit(v)
 
         for item in chain(items_for_fitting, items):
+            item = list(item) if is_dense else dict(item)
             for k,v in encoders.items():
                 if is_dense or k in item:
                     val = item[k]
                     item[k] = encoders[k].encode(val) if val not in ['',self._missing_val] else val
             yield item
 
-class Drop(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
+class Drop(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
     """A filter which drops rows and columns from in table shaped data."""
 
     def __init__(self,
         drop_cols: Sequence[Union[str,int]] = [],
-        drop_row: Callable[[Union[MutableSequence,MutableMapping]], bool] = None) -> None:
+        drop_row: Callable[[Union[Sequence,Mapping]], bool] = None) -> None:
         """Instantiate a Drop filter.
 
         Args:
@@ -286,16 +288,15 @@ class Drop(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Unio
         self._drop_cols = sorted(drop_cols, reverse=True)
         self._drop_row  = drop_row or (lambda r: False)
 
-    def filter(self, data: Iterable[Union[MutableSequence,MutableMapping]]) -> Iterable[Union[MutableSequence,MutableMapping]]:
+    def filter(self, data: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
 
+        row_dropper = DropRow(self._drop_cols)
         keep_row = lambda r: not self._drop_row(r) if self._drop_row else True
         for row in filter(keep_row, data):
-            if row is not None:
-                for col in self._drop_cols:
-                    del row[col]
-            yield row
+            row = row_dropper.filter(row) if row else row
+            yield row 
 
-class Structure(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Any]]):
+class Structure(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Any]]):
     """A filter which restructures rows in table shaped data."""
 
     def __init__(self, structure: Sequence[Any]) -> None:
@@ -305,6 +306,12 @@ class Structure(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable
             structure: The structure that each row should be reformed into. Items in the structure should be
                 feature names. A None value indicates the location that all left-over features will be placed.
         """
+        
+        if isinstance(structure,abc.Sequence):
+            self._dropper = DropRow(set(list(Flatten().filter([structure]))[0]) - {None})
+        else:
+            self._dropper = DropRow([])
+        
         self._structure = []
         stack = [structure]
         while stack:
@@ -320,7 +327,7 @@ class Structure(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable
             else:
                 self._structure.insert(0,item)
 
-    def filter(self, data: Iterable[Union[MutableSequence,MutableMapping]]) -> Iterable[Any]:
+    def filter(self, data: Iterable[Union[Sequence,Mapping]]) -> Iterable[Any]:
         for row in data:
             stack   = []
             working = []
@@ -337,16 +344,16 @@ class Structure(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable
                     new_working.append(tuple(working))
                     working = new_working
                 elif item == None:
-                    working.append(row)
+                    working.append(self._dropper.filter(row))
                 else:
-                    working.append(row.pop(item))
+                    working.append(row[item])
 
             yield working[0]
 
-class Default(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[Union[MutableSequence,MutableMapping]]]):
+class Default(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
     """A filter which sets default values for row features in table shaped data."""
 
-    def __init__(self, defaults: Dict[Any, Any]) -> None:
+    def __init__(self, defaults: Mapping[Any, Any]) -> None:
         """Instantiate a Default filter.
 
         Args:
@@ -354,11 +361,12 @@ class Default(Filter[Iterable[Union[MutableSequence,MutableMapping]], Iterable[U
         """
         self._defaults = defaults
 
-    def filter(self, data: Iterable[Union[MutableSequence,MutableMapping]]) -> Iterable[Union[MutableSequence,MutableMapping]]:
+    def filter(self, data: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
 
         for row in data:
 
-            if isinstance(row,dict):
+            if isinstance(row,abc.Mapping):
+                row = dict(row)
                 for k,v in self._defaults.items():
                     if k not in row: row[k] = v
 

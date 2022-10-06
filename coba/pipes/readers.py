@@ -11,103 +11,9 @@ from typing import MutableSequence, MutableMapping
 from coba.exceptions import CobaException
 from coba.encodings import Encoder, OneHotEncoder
 
+from coba.pipes.core import Pipes
+from coba.pipes.rows import ParseRow, EncodeRow, IndexRow, DenseRow, SparseRow
 from coba.pipes.primitives import Filter
-
-class DenseWithMeta(collections.abc.MutableSequence):
-    def __init__(self, values: Sequence[Any], headers: Dict[str,int] = {}, encoders: Sequence[Callable[[Any],Any]] = []) -> None:
-        self._headers  = headers
-        self._encoders = encoders
-        self._values   = values
-
-        self._removed  = 0
-        self._offsets  = [0]*len(values)
-        self._encoded  = [not encoders]*len(values)
-
-    def __getitem__(self, index: Union[str,int]) -> Any:
-        index = self._headers[index] if index in self._headers else self._offsets[index] + index
-
-        if not self._encoded[index] and self._encoders:
-            self._values[index] = self._encoders[index](self._values[index])
-            self._encoded[index] = True
-
-        return self._values[index]
-
-    def __setitem__(self, index: Union[str,int], value: Any) -> None:
-        index = self._headers[index] if index in self._headers else self._offsets[index] + index
-        self._values[index] = value
-        self._encoded[index] = True
-
-    def __delitem__(self, index: Union[str,int]):
-        old_index = self._headers[index] if index in self._headers else self._offsets[index] + index
-        new_index = self._old_indexes().index(old_index)
-
-        self._offsets.pop(new_index)
-
-        for i in range(new_index, len(self._offsets)):
-            self._offsets[i] += 1
-
-    def __len__(self) -> int:
-        return len(self._offsets)
-
-    def insert(self, index: int, value:Any):
-        raise NotImplementedError()
-
-    def _old_indexes(self) -> Sequence[int]:
-        return list(map(operator.add,count(),self._offsets))
-
-    def __eq__(self, __o: object) -> bool:
-        return list(self).__eq__(__o)
-
-    def __repr__(self) -> str:
-        return str(list(self))
-
-    def __str__(self) -> str:
-        return str(list(self))
-
-class SparseWithMeta(collections.abc.MutableMapping):
-
-    def __init__(self, values: Dict[Any,str], headers: Dict[str,Any] = {}, encoders: Dict[Any,Callable[[Any],Any]] = {}) -> None:
-        self._headers  = headers
-        self._encoders = encoders
-        self._values   = values
-
-        self._removed: Set[Any] = set()
-        self._encoded: Dict[Any,bool] = defaultdict(bool)
-
-    def __getitem__(self, index: Union[str,int]) -> Any:
-        index = self._headers[index] if index in self._headers else index
-        if index in self._removed: raise KeyError(index)
-
-        if not self._encoded[index] and self._encoders:
-            self._values[index] = self._encoders[index](self._values.get(index,0))
-            self._encoded[index] = True
-
-        return self._values[index]
-
-    def __setitem__(self, index: Union[str,int], value: Any) -> None:
-        index = self._headers[index] if index in self._headers else index
-        if index in self._removed: raise KeyError(index)
-        self._values[index] = value
-
-    def __delitem__(self, index: Union[str,int]):
-        index = self._headers[index] if index in self._headers else index
-        if index in self._removed: raise KeyError(index)
-        self._removed.add(index)
-
-    def __len__(self) -> int:
-        return len(self._values) - len(self._removed)
-
-    def __iter__(self) -> Iterator[Any]:
-        return iter(self._values.keys()-self._removed)
-
-    def __eq__(self, __o: object) -> bool:
-        return dict(self.items()).__eq__(__o)
-
-    def __repr__(self) -> str:
-        return str(dict(self))
-
-    def __str__(self) -> str:
-        return str(dict(self))
 
 class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
     """A filter capable of parsing CSV formatted data."""
@@ -128,9 +34,10 @@ class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
 
         if self._has_header:
             headers = dict(zip(next(lines), count()))
+            indexer = IndexRow(headers)
 
         for line in lines:
-            yield line if not self._has_header else DenseWithMeta(line,headers)
+            yield line if not self._has_header else indexer.filter(DenseRow(line,False))
 
 class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMapping]]]):
     """A filter capable of parsing ARFF formatted data.
@@ -143,29 +50,17 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
     #this class has been highly highly optimized. Before modifying anything run
     #Performance_Tests.test_arffreader_performance to get a performance baseline.
 
-    def __init__(self,
-        cat_as_str: bool =False,
-        skip_encoding: bool = False,
-        lazy_encoding: bool = True,
-        header_indexing: bool = True,
-        missing_value: Any = float('nan')):
+    def __init__(self, cat_as_str: bool =False, missing_value: Any = float('nan')):
         """Instantiate an ArffReader.
 
         Args:
             cat_as_str: Indicates that categorical features should be encoded as a string rather than one hot encoded.
-            skip_encoding: Indicates that features should not be encoded (this means all features will be strings).
-            lazy_encoding: Indicates that features should be encoded lazily (this can save time if rows will be dropped).
-            header_indexing: Indicates that header data should be preserved so rows can be indexed by header name.
             missing_value: The value to replace missing values with
         """
 
-        self._quotes = '"'+"'"
-
-        self._cat_as_str      = cat_as_str
-        self._skip_encoding   = skip_encoding
-        self._lazy_encoding   = lazy_encoding
-        self._header_indexing = header_indexing
-        self._missing_value   = missing_value
+        self._quotes        = '"'+"'"
+        self._cat_as_str    = cat_as_str
+        self._missing_value = missing_value
 
     def filter(self, source: Iterable[str]) -> Iterable[Union[MutableSequence,MutableMapping]]:
         headers  : List[str    ] = []
@@ -193,6 +88,9 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
         is_dense = not (first_data_line.startswith('{') and first_data_line.endswith('}'))
         encoders = list(self._encoders(encodings,is_dense))
 
+        if len(headers) != len(set(headers)):
+            raise CobaException("Two columns in the ARFF file had identical header values.")
+
         if is_dense:
             return self._parse_dense_data(chain([first_data_line], lines), headers, encoders)
         else:
@@ -205,10 +103,8 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
 
         for encoding in encodings:
 
-            if self._skip_encoding:
-                yield lambda x: self._missing_value if x=="?" else x.strip()
-            elif encoding.lower() in numeric_types:
-                yield lambda x: self._missing_value if x=="?" else float(x)
+            if encoding.lower() in numeric_types:
+                yield lambda x: self._missing_value if x=="?" or x=="" else float(x)
             elif encoding.lower().startswith(string_types):
                 yield lambda x: self._missing_value if x=="?" else x.strip()
             elif encoding.startswith('{'):
@@ -240,8 +136,6 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
 
     def _parse_dense_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableSequence]:
 
-        headers_dict = dict(zip(headers,count()))
-
         fallback_delimieter = None
 
         quotechars   = {'"',"'"}
@@ -249,6 +143,10 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
         delimiter    = None
         use_advanced = False
         base_dialect = dict(skipinitialspace=True,escapechar="\\",doublequote=False)
+
+        headers_dict = dict(zip(headers,count()))
+        row_indexer  = IndexRow(headers_dict)
+        row_encoder  = EncodeRow(encoders)
 
         for i,line in enumerate(lines):
 
@@ -277,16 +175,16 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
                     #this isn't airtight but we can only infer so much.
                     fallback_delimieter = ',' if len(line.split(',')) > len(line.split('\t')) else "\t"
 
-                line = deque(line.split(fallback_delimieter))
+                d_line = deque(line.split(fallback_delimieter))
                 final = []
 
-                while line:
-                    item = line.popleft().lstrip()
+                while d_line:
+                    item = d_line.popleft().lstrip()
 
                     if item[0] in self._quotes:
                         possible_quotechar = item[0]
                         while item.rstrip()[-1] != possible_quotechar or item.rstrip()[-2] == "\\":
-                            item += "," + line.popleft()
+                            item += "," + d_line.popleft()
                         item = item.strip()[1:-1]
 
                     final.append(item.replace('\\',''))
@@ -294,14 +192,11 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             if len(final) != len(headers):
                 raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
 
-            final_headers  = headers_dict if self._header_indexing else {}
-            final_encoders = encoders if self._lazy_encoding else []
-            final_items    = final if self._lazy_encoding else [ e(f) for e,f in zip(encoders,final)]
+            no_space_line = line.translate(str.maketrans('','', ' \t\n\r\v\f'))
+            any_missing = no_space_line[0] in '?,' or no_space_line[-1] in '?,'
+            any_missing = any_missing or no_space_line.find(',?,') != -1 or no_space_line.find(',,') != -1
 
-            if not self._lazy_encoding and not self._header_indexing:
-                yield final_items
-            else:
-                yield DenseWithMeta(final_items, final_headers, final_encoders)
+            yield Pipes.join(row_encoder, row_indexer).filter(DenseRow(final, any_missing))
 
     def _parse_sparse_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMapping]:
 
@@ -325,14 +220,12 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
 
             final = { **defaults_dict, ** dict(zip(keys,vals)) }
 
-            final_headers  = headers_dict if self._header_indexing else {}
-            final_encoders = encoders_dict if self._lazy_encoding else {}
-            final_items    = final if self._lazy_encoding else { k:encoders[k](v) for k,v in final.items() }
+            final_headers  = headers_dict
+            final_encoders = encoders_dict
+            final_items    = final
+            any_missing    = " ?," in line
 
-            if not self._lazy_encoding and not self._header_indexing:
-                yield final_items
-            else:
-                yield SparseWithMeta(final_items, final_headers, final_encoders)
+            yield Pipes.join(EncodeRow(final_encoders), IndexRow(final_headers)).filter(SparseRow(final_items, any_missing))
 
     def _pattern_split(self, line: str, pattern: Pattern[str], n=None):
 
