@@ -4,8 +4,9 @@ import json
 from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
 
 from coba.random import random
-from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, IterableSource, Structure, SparseRow, DenseRow
-from coba.contexts import CobaContext, CobaContext
+from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, IterableSource, Foreach
+from coba.pipes import LabelRow, DenseRow, SparseRow
+from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 
 from coba.environments.simulated.supervised import SupervisedSimulation
@@ -55,7 +56,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         """Parameters describing the openml source."""
         return  { "openml_data": self._data_id, "openml_task": self._task_id, "openml_target": self._target, "cat_as_str": self._cat_as_str, "drop_missing": self._drop_missing }
 
-    def read(self) -> Iterable[Tuple[Any, Any]]:
+    def read(self) -> Iterable[Union[DenseRow,SparseRow]]:
         """Read and parse the openml source."""
 
         try:
@@ -64,7 +65,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             # openml_semaphore will be None if we aren't multiprocessing otherwise it'll have a sema
             openml_semaphore = CobaContext.store.get("openml_semaphore")
             semaphore_acquired = False
-            
+
             if openml_semaphore and not self._source_already_cached():
                 openml_semaphore.acquire()
                 if self._source_already_cached(): #pragma: no cover
@@ -107,25 +108,16 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             if self._target in ignore: ignore.pop(ignore.index(self._target))
 
-            def drop_row(row: Union[SparseRow,DenseRow]):
-                return self._drop_missing and row.missing
+            def str_if_num(v):
+                v = int(v) if isinstance(v,float) and v.is_integer() else v
+                return str(v) if isinstance(v,(int,float)) else v
+            
+            source = IterableSource(self._get_arff_lines(data_descr["file_id"], None))
+            reader = ArffReader(cat_as_str=self._cat_as_str)
+            drop   = Drop(drop_cols=ignore, drop_row=lambda r: self._drop_missing and r.missing)
+            label  = Foreach(LabelRow(self._target, "coba_openml_lbl", str_if_num if task_type == 1 else None))
 
-            source    = IterableSource(self._get_arff_lines(data_descr["file_id"], None))
-            reader    = ArffReader(cat_as_str=self._cat_as_str)
-            drop      = Drop(drop_cols=ignore, drop_row=drop_row)
-
-            if self._skip_structure:
-                for raw_output in Pipes.join(source, reader, drop).read():
-                    yield raw_output
-            else:
-                structure = Structure([None, self._target])
-
-                for features, label in Pipes.join(source, reader, drop, structure).read():
-                    # ensure that SupervisedSimulation will interpret the label as a class
-                    if task_type == 1 and isinstance(label,(int,float)): 
-                        label = str(int(label) if float(label).is_integer() else label)
-                    
-                    yield features, label
+            return Pipes.join(source, reader, drop, label).read()
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
@@ -139,7 +131,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             #if something unexpected went wrong clear the cache just in case it was corrupted somehow
             self._clear_cache()
             raise
-    
+
         finally:
             if semaphore_acquired:
                 openml_semaphore.release()
@@ -276,7 +268,7 @@ class OpenmlSimulation(SupervisedSimulation):
     """
 
     @overload
-    def __init__(self, data_id: int, cat_as_str: bool = False, keep_missing: bool = False, take: int = None):
+    def __init__(self, data_id: int, cat_as_str: bool = False, drop_missing: bool = True, take: int = None):
         """Instantiate an OpenmlSimulation.
 
         Args:
@@ -288,7 +280,7 @@ class OpenmlSimulation(SupervisedSimulation):
         ...
 
     @overload
-    def __init__(self, *, task_id: int, cat_as_str: bool = False, keep_missing: bool = False, take: int=None):
+    def __init__(self, *, task_id: int, cat_as_str: bool = False, drop_missing: bool = True, take: int=None):
         """Instantiate an OpenmlSimulation.
 
         Args:
@@ -302,7 +294,7 @@ class OpenmlSimulation(SupervisedSimulation):
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate an OpenmlSimulation."""
         kwargs.update(zip(['data_id','cat_as_str','drop_missing','take'], args))
-        super().__init__(OpenmlSource(**kwargs), None, None, kwargs.get('take',None))
+        super().__init__(OpenmlSource(**kwargs), "coba_openml_lbl", None, kwargs.get('take',None))
 
     @property
     def params(self) -> Dict[str, Any]:

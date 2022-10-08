@@ -106,7 +106,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        features,labels = list(zip(*OpenmlSource(data_id=42693).read()))
+        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
 
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels), 5)
@@ -186,18 +186,18 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
 
-        self.assertEqual(len(feature_rows), 3)
-        self.assertEqual(len(label_col), 3)
+        self.assertEqual(len(features), 3)
+        self.assertEqual(len(labels), 3)
 
-        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[0])
-        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[1])
-        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[2])
+        self.assertEqual([8.2, 29, 1180, (1,0)], features[0])
+        self.assertEqual([8.3, 27, 1020, (0,1)], features[1])
+        self.assertEqual([7.6, 23, 4700, (0,1)], features[2])
 
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((0,1), label_col[1])
-        self.assertEqual((0,1), label_col[2])
+        self.assertEqual((1,0), labels[0])
+        self.assertEqual((0,1), labels[1])
+        self.assertEqual((0,1), labels[2])
 
     def test_skip_structure_openmlreader(self):
 
@@ -301,22 +301,22 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693, cat_as_str=True).read()))
+        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693,cat_as_str=True).read()])
 
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
+        self.assertEqual(len(features), 5)
+        self.assertEqual(len(labels), 5)
 
-        self.assertEqual([8.1, 27, 1410, '2'], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, '2'], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, '2'], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, '1'], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, '1'], feature_rows[4])
+        self.assertEqual([8.1, 27, 1410, '2'], features[0])
+        self.assertEqual([8.2, 29, 1180, '2'], features[1])
+        self.assertEqual([8.2, 28, 1410, '2'], features[2])
+        self.assertEqual([8.3, 27, 1020, '1'], features[3])
+        self.assertEqual([7.6, 23, 4700, '1'], features[4])
 
-        self.assertEqual('no' , label_col[0])
-        self.assertEqual('no' , label_col[1])
-        self.assertEqual('yes', label_col[2])
-        self.assertEqual('yes', label_col[3])
-        self.assertEqual('yes', label_col[4])
+        self.assertEqual('no' , labels[0])
+        self.assertEqual('no' , labels[1])
+        self.assertEqual('yes', labels[2])
+        self.assertEqual('yes', labels[3])
+        self.assertEqual('yes', labels[4])
 
     def test_data_classification(self):
 
@@ -362,22 +362,22 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_042693_arff' , arff.encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
 
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
+        self.assertEqual(len(features), 5)
+        self.assertEqual(len(labels), 5)
 
-        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, (1,0)], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+        self.assertEqual([8.1, 27, 1410, (1,0)], features[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], features[1])
+        self.assertEqual([8.2, 28, 1410, (1,0)], features[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], features[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], features[4])
 
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((0,1), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
+        self.assertEqual((1,0), labels[0])
+        self.assertEqual((1,0), labels[1])
+        self.assertEqual((0,1), labels[2])
+        self.assertEqual((0,1), labels[3])
+        self.assertEqual((0,1), labels[4])
 
     def test_data_regression(self):
 
@@ -423,22 +423,22 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_042693_arff' , arff.encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
 
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
+        self.assertEqual(len(features), 5)
+        self.assertEqual(len(labels), 5)
 
-        self.assertEqual([27, 1410, (1,0), (1,0)], feature_rows[0])
-        self.assertEqual([29, 1180, (1,0), (1,0)], feature_rows[1])
-        self.assertEqual([28, 1410, (1,0), (0,1)], feature_rows[2])
-        self.assertEqual([27, 1020, (0,1), (0,1)], feature_rows[3])
-        self.assertEqual([23, 4700, (0,1), (0,1)], feature_rows[4])
+        self.assertEqual([27, 1410, (1,0), (1,0)], features[0])
+        self.assertEqual([29, 1180, (1,0), (1,0)], features[1])
+        self.assertEqual([28, 1410, (1,0), (0,1)], features[2])
+        self.assertEqual([27, 1020, (0,1), (0,1)], features[3])
+        self.assertEqual([23, 4700, (0,1), (0,1)], features[4])
 
-        self.assertEqual(8.1, label_col[0])
-        self.assertEqual(8.2, label_col[1])
-        self.assertEqual(8.2, label_col[2])
-        self.assertEqual(8.3, label_col[3])
-        self.assertEqual(7.6, label_col[4])
+        self.assertEqual(8.1, labels[0])
+        self.assertEqual(8.2, labels[1])
+        self.assertEqual(8.2, labels[2])
+        self.assertEqual(8.3, labels[3])
+        self.assertEqual(7.6, labels[4])
 
     def test_no_default_target_attribute(self):
 
@@ -501,22 +501,22 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.encode().splitlines() )
 
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
 
-        self.assertEqual(len(feature_rows), 5)
-        self.assertEqual(len(label_col), 5)
+        self.assertEqual(len(features), 5)
+        self.assertEqual(len(labels), 5)
 
-        self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
-        self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
-        self.assertEqual([8.2, 28, 1410, (0,1)], feature_rows[2])
-        self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
-        self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+        self.assertEqual([8.1, 27, 1410, (1,0)], features[0])
+        self.assertEqual([8.2, 29, 1180, (1,0)], features[1])
+        self.assertEqual([8.2, 28, 1410, (0,1)], features[2])
+        self.assertEqual([8.3, 27, 1020, (0,1)], features[3])
+        self.assertEqual([7.6, 23, 4700, (0,1)], features[4])
 
-        self.assertEqual((1,0), label_col[0])
-        self.assertEqual((1,0), label_col[1])
-        self.assertEqual((1,0), label_col[2])
-        self.assertEqual((0,1), label_col[3])
-        self.assertEqual((0,1), label_col[4])
+        self.assertEqual((1,0), labels[0])
+        self.assertEqual((1,0), labels[1])
+        self.assertEqual((1,0), labels[2])
+        self.assertEqual((0,1), labels[3])
+        self.assertEqual((0,1), labels[4])
 
     def test_sparse_classification_target(self):
 
@@ -573,20 +573,20 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_001594_arff', arff.encode().splitlines())
 
-        feature_rows, label_col = list(zip(*OpenmlSource(data_id=1594).read()))
+        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=1594).read()])
 
-        self.assertEqual(len(feature_rows), 4)
-        self.assertEqual(len(label_col   ), 4)
+        self.assertEqual(len(features), 4)
+        self.assertEqual(len(labels  ), 4)
 
-        self.assertEqual(dict(zip( map(str,(0,1))          , (2,3)          )), feature_rows[0])
-        self.assertEqual(dict(zip( map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), feature_rows[1])
-        self.assertEqual(dict(zip( map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), feature_rows[2])
-        self.assertEqual(dict(zip( map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), feature_rows[3])
+        self.assertEqual(dict(zip(map(str,(0,1))          , (2,3)          )), features[0])
+        self.assertEqual(dict(zip(map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), features[1])
+        self.assertEqual(dict(zip(map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), features[2])
+        self.assertEqual(dict(zip(map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), features[3])
 
-        self.assertEqual((1,0,0,0), label_col[0])
-        self.assertEqual((0,1,0,0), label_col[1])
-        self.assertEqual((0,0,1,0), label_col[2])
-        self.assertEqual((0,0,0,1), label_col[3])
+        self.assertEqual((1,0,0,0), labels[0])
+        self.assertEqual((0,1,0,0), labels[1])
+        self.assertEqual((0,0,1,0), labels[2])
+        self.assertEqual((0,0,0,1), labels[3])
 
     def test_task(self):
 
@@ -652,20 +652,20 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_001594_arff', arff.encode().splitlines())
 
-        feature_rows, label_col = list(zip(*OpenmlSource(task_id=1111).read()))
+        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(task_id=1111).read()])
 
-        self.assertEqual(len(feature_rows), 4)
-        self.assertEqual(len(label_col   ), 4)
+        self.assertEqual(len(features), 4)
+        self.assertEqual(len(labels  ), 4)
 
-        self.assertEqual(dict(zip( map(str,(0,1))          , (2,3)          )), feature_rows[0])
-        self.assertEqual(dict(zip( map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), feature_rows[1])
-        self.assertEqual(dict(zip( map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), feature_rows[2])
-        self.assertEqual(dict(zip( map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), feature_rows[3])
+        self.assertEqual(dict(zip( map(str,(0,1))          , (2,3)          )), features[0])
+        self.assertEqual(dict(zip( map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), features[1])
+        self.assertEqual(dict(zip( map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), features[2])
+        self.assertEqual(dict(zip( map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), features[3])
 
-        self.assertEqual((1,0,0,0), label_col[0])
-        self.assertEqual((0,1,0,0), label_col[1])
-        self.assertEqual((0,0,1,0), label_col[2])
-        self.assertEqual((0,0,0,1), label_col[3])
+        self.assertEqual((1,0,0,0), labels[0])
+        self.assertEqual((0,1,0,0), labels[1])
+        self.assertEqual((0,0,1,0), labels[2])
+        self.assertEqual((0,0,0,1), labels[3])
 
     def test_task_without_source_data(self):
 
@@ -798,20 +798,20 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).encode().splitlines())
         CobaContext.cacher.put('openml_001594_arff', arff.encode().splitlines())
         
-        feature_rows, label_col = list(zip(*OpenmlSource(task_id=1111).read()))
+        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(task_id=1111).read()])
 
-        self.assertEqual(len(feature_rows), 4)
-        self.assertEqual(len(label_col   ), 4)
+        self.assertEqual(len(features), 4)
+        self.assertEqual(len(labels  ), 4)
 
-        self.assertEqual(dict(zip(map(str,(0,1))          , (2,3)          )), feature_rows[0])
-        self.assertEqual(dict(zip(map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), feature_rows[1])
-        self.assertEqual(dict(zip(map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), feature_rows[2])
-        self.assertEqual(dict(zip(map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), feature_rows[3])
+        self.assertEqual(dict(zip(map(str,(0,1))          , (2,3)          )), features[0])
+        self.assertEqual(dict(zip(map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), features[1])
+        self.assertEqual(dict(zip(map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), features[2])
+        self.assertEqual(dict(zip(map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), features[3])
 
-        self.assertEqual('0', label_col[0])
-        self.assertEqual('1', label_col[1])
-        self.assertEqual('2', label_col[2])
-        self.assertEqual('3', label_col[3])
+        self.assertEqual('0', labels[0])
+        self.assertEqual('1', labels[1])
+        self.assertEqual('2', labels[2])
+        self.assertEqual('3', labels[3])
 
     def test_task_id_no_source(self):
 
@@ -1041,22 +1041,22 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
             for _ in range(2):
-                feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
+                features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
 
-                self.assertEqual(len(feature_rows), 5)
-                self.assertEqual(len(label_col), 5)
+                self.assertEqual(len(features), 5)
+                self.assertEqual(len(labels), 5)
 
-                self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
-                self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
-                self.assertEqual([8.2, 28, 1410, (1,0)], feature_rows[2])
-                self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
-                self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+                self.assertEqual([8.1, 27, 1410, (1,0)], features[0])
+                self.assertEqual([8.2, 29, 1180, (1,0)], features[1])
+                self.assertEqual([8.2, 28, 1410, (1,0)], features[2])
+                self.assertEqual([8.3, 27, 1020, (0,1)], features[3])
+                self.assertEqual([7.6, 23, 4700, (0,1)], features[4])
 
-                self.assertEqual((1,0), label_col[0])
-                self.assertEqual((1,0), label_col[1])
-                self.assertEqual((0,1), label_col[2])
-                self.assertEqual((0,1), label_col[3])
-                self.assertEqual((0,1), label_col[4])
+                self.assertEqual((1,0), labels[0])
+                self.assertEqual((1,0), labels[1])
+                self.assertEqual((0,1), labels[2])
+                self.assertEqual((0,1), labels[3])
+                self.assertEqual((0,1), labels[4])
 
                 self.assertIn('openml_042693_data', CobaContext.cacher)
                 self.assertIn('openml_042693_feat', CobaContext.cacher)
@@ -1137,7 +1137,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
             def thread_1():
-                feature_rows, label_col = list(zip(*OpenmlSource(task_id=123).read()))
+                features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(task_id=123).read()])
 
             t1 = Thread(None, thread_1)
             t1.start()
@@ -1155,22 +1155,22 @@ class OpenmlSource_Tests(unittest.TestCase):
 
             #this should complete despite us acquiring above 
             #because it doesn't lock since everything is cached
-            feature_rows, label_col = list(zip(*OpenmlSource(task_id=123).read()))
+            features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(task_id=123).read()])
 
-            self.assertEqual(len(feature_rows), 5)
-            self.assertEqual(len(label_col), 5)
+            self.assertEqual(len(features), 5)
+            self.assertEqual(len(labels), 5)
 
-            self.assertEqual([8.1, 27, 1410, (1,0)], feature_rows[0])
-            self.assertEqual([8.2, 29, 1180, (1,0)], feature_rows[1])
-            self.assertEqual([8.2, 28, 1410, (1,0)], feature_rows[2])
-            self.assertEqual([8.3, 27, 1020, (0,1)], feature_rows[3])
-            self.assertEqual([7.6, 23, 4700, (0,1)], feature_rows[4])
+            self.assertEqual([8.1, 27, 1410, (1,0)], features[0])
+            self.assertEqual([8.2, 29, 1180, (1,0)], features[1])
+            self.assertEqual([8.2, 28, 1410, (1,0)], features[2])
+            self.assertEqual([8.3, 27, 1020, (0,1)], features[3])
+            self.assertEqual([7.6, 23, 4700, (0,1)], features[4])
 
-            self.assertEqual((1,0), label_col[0])
-            self.assertEqual((1,0), label_col[1])
-            self.assertEqual((0,1), label_col[2])
-            self.assertEqual((0,1), label_col[3])
-            self.assertEqual((0,1), label_col[4])
+            self.assertEqual((1,0), labels[0])
+            self.assertEqual((1,0), labels[1])
+            self.assertEqual((0,1), labels[2])
+            self.assertEqual((0,1), labels[3])
+            self.assertEqual((0,1), labels[4])
 
             self.assertIn('openml_042693_data', CobaContext.cacher)
             self.assertIn('openml_042693_feat', CobaContext.cacher)

@@ -503,7 +503,7 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         with self.assertRaises(CobaException) as e:
-            list(ArffReader().filter(lines))
+            [ list(l) for l in ArffReader().filter(lines) ]
 
         self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
@@ -517,7 +517,7 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         with self.assertRaises(CobaException) as e:
-            list(ArffReader().filter(lines))
+            [ list(l) for l in ArffReader().filter(lines) ]
 
         self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
@@ -531,7 +531,7 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         with self.assertRaises(CobaException) as e:
-            list(ArffReader().filter(lines))
+            [ dict(l) for l in ArffReader().filter(lines) ]
 
         self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 
@@ -545,7 +545,7 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         with self.assertRaises(CobaException) as e:
-            list(ArffReader().filter(lines))
+            [ dict(l) for l in ArffReader().filter(lines) ]
 
         self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
 

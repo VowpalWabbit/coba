@@ -293,7 +293,7 @@ class Drop(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Map
         row_dropper = DropRow(self._drop_cols)
         keep_row = lambda r: not self._drop_row(r) if self._drop_row else True
         for row in filter(keep_row, data):
-            row = row_dropper.filter(row) if row else row
+            row = row_dropper.filter(row) if row is not None else row
             yield row 
 
 class Structure(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Any]]):

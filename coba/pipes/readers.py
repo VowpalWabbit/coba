@@ -3,7 +3,7 @@ import csv
 
 from collections import deque
 from itertools import islice, chain, count
-from typing import Iterable, Sequence, List, Union, Any, Pattern, Tuple
+from typing import Iterable, Sequence, List, Union, Any, Pattern, Tuple, Dict
 from typing import MutableSequence, MutableMapping
 
 from coba.exceptions import CobaException
@@ -11,6 +11,7 @@ from coba.encodings import Encoder, OneHotEncoder
 
 from coba.pipes.core import Pipes
 from coba.pipes.rows import EncodeRow, IndexRow, DenseRow, SparseRow
+from coba.pipes.sources import LambdaSource
 from coba.pipes.primitives import Filter
 
 class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
@@ -35,7 +36,8 @@ class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
             indexer = IndexRow(headers)
 
         for line in lines:
-            yield line if not self._has_header else indexer.filter(DenseRow(loaded=line,missing=False))
+            row = DenseRow(loaded=line,missing=False)
+            yield row if not self._has_header else indexer.filter(row)
 
 class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMapping]]]):
     """A filter capable of parsing ARFF formatted data.
@@ -43,10 +45,89 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
     For a complete description of the ARFF format see `here`__.
 
     __ https://waikato.github.io/weka-wiki/formats_and_processing/arff_stable/
+
+    Remarks:
+        This class has been highly highly optimized. Before modifying anything run
+        Performance_Tests.test_arffreader_performance to get a performance baseline.
     """
 
-    #this class has been highly highly optimized. Before modifying anything run
-    #Performance_Tests.test_arffreader_performance to get a performance baseline.
+    class SparseRowParser:
+        def __init__(self, max_key:int, sparse_onehots:Dict[int,str]) -> None:
+            self._max_key = max_key
+            self._sparse_onehots = sparse_onehots
+
+        def parse(self, i:int, line:str) -> Dict[str,str]:
+            keys_and_vals = re.split('\s*,\s*|\s+', line.strip("} {"))
+
+            if keys_and_vals != ['']:
+                keys = list(map(int,keys_and_vals[0::2]))
+                vals = keys_and_vals[1::2]
+            else:
+                keys = []
+                vals = []
+
+            if keys and (max(keys) >= self._max_key or min(keys) < 0):
+                raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
+
+            final = { **self._sparse_onehots, ** dict(zip(keys,vals)) }
+
+            return final
+
+    class DenseRowParser:
+        def __init__(self, column_count:int) -> None:
+            self._column_count = column_count
+            self._fallback_delimieter = None
+
+            self._quotechars   = {'"',"'"}
+            self._quotes       = '"'+"'"
+            self._quotechar    = None
+            self._delimiter    = None
+            self._use_advanced = False
+            self._base_dialect = dict(skipinitialspace=True,escapechar="\\",doublequote=False)
+
+        def parse(self, i:int, line:str) -> List[str]:
+            if not self._use_advanced:
+                for quote in self._quotechars-{self._quotechar}:
+                    if quote in line:
+                        self._quotechar = self._quotechar or quote
+                        self._use_advanced = self._quotechar != quote
+
+            if not self._use_advanced and not self._delimiter:
+                if len(next(csv.reader([line], ))) == self._column_count:
+                    self._delimiter = ','
+                elif len(next(csv.reader([line], quotechar=(self._quotechar or '"'), delimiter='\t', **self._base_dialect))) == self._column_count:
+                    self._delimiter = '\t'
+                else:
+                    self._use_advanced = True
+
+            if not self._use_advanced:
+                final = next(csv.reader([line], quotechar=(self._quotechar or '"'), delimiter=self._delimiter, **self._base_dialect))
+
+            else:
+                #the file does not appear to follow a readable csv.reader dialect
+                #we fall back now to a slightly slower, but more flexible, parser
+                if self._fallback_delimieter is None:
+                    #this isn't airtight but we can only infer so much.
+                    self._fallback_delimieter = ',' if len(line.split(',')) > len(line.split('\t')) else "\t"
+
+                d_line = deque(line.split(self._fallback_delimieter))
+                final = []
+
+                while d_line:
+                    item = d_line.popleft().lstrip()
+
+                    if item[0] in self._quotes:
+                        possible_quotechar = item[0]
+                        while item.rstrip()[-1] != possible_quotechar or item.rstrip()[-2] == "\\":
+                            item += "," + d_line.popleft()
+                        item = item.strip()[1:-1]
+
+                    final.append(item.replace('\\',''))
+
+            if len(final) != self._column_count:
+                raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
+
+            return final
 
     def __init__(self, cat_as_str: bool =False, missing_value: Any = float('nan')):
         """Instantiate an ArffReader.
@@ -134,92 +215,29 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
 
     def _parse_dense_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableSequence]:
 
-        fallback_delimieter = None
-
-        quotechars   = {'"',"'"}
-        quotechar    = None
-        delimiter    = None
-        use_advanced = False
-        base_dialect = dict(skipinitialspace=True,escapechar="\\",doublequote=False)
-
-        headers_dict = dict(zip(headers,count()))
-        row_indexer  = IndexRow(headers_dict)
+        parser       = ArffReader.DenseRowParser(len(headers))
+        row_indexer  = IndexRow(dict(zip(headers,count())))
         row_encoder  = EncodeRow(encoders)
 
         for i,line in enumerate(lines):
-
-            if not use_advanced:
-                for quote in quotechars-{quotechar}:
-                    if quote in line:
-                        quotechar = quotechar or quote
-                        use_advanced = quotechar != quote
-
-            if not use_advanced and not delimiter:
-                if len(next(csv.reader([line], ))) == len(headers):
-                    delimiter = ','
-                elif len(next(csv.reader([line], quotechar=(quotechar or '"'), delimiter='\t', **base_dialect))) == len(headers):
-                    delimiter = '\t'
-                else:
-                    use_advanced = True
-
-            if not use_advanced:
-                final = next(csv.reader([line], quotechar=(quotechar or '"'), delimiter=delimiter, **base_dialect))
-
-            else:
-                #the file does not appear to follow a readable csv.reader dialect
-                #we fall back now to a slightly slower, but more flexible, parser
-                if fallback_delimieter is None:
-                    #this isn't airtight but we can only infer so much.
-                    fallback_delimieter = ',' if len(line.split(',')) > len(line.split('\t')) else "\t"
-
-                d_line = deque(line.split(fallback_delimieter))
-                final = []
-
-                while d_line:
-                    item = d_line.popleft().lstrip()
-
-                    if item[0] in self._quotes:
-                        possible_quotechar = item[0]
-                        while item.rstrip()[-1] != possible_quotechar or item.rstrip()[-2] == "\\":
-                            item += "," + d_line.popleft()
-                        item = item.strip()[1:-1]
-
-                    final.append(item.replace('\\',''))
-
-            if len(final) != len(headers):
-                raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
-
-            no_space_line = line.translate(str.maketrans('','', ' \t\n\r\v\f'))
-            any_missing = no_space_line[0] in '?,' or no_space_line[-1] in '?,'
-            any_missing = any_missing or no_space_line.find(',?,') != -1 or no_space_line.find(',,') != -1
-
-            yield Pipes.join(row_encoder, row_indexer).filter(DenseRow(loaded=final,missing=any_missing))
+            compact = line.translate(str.maketrans('','', ' \t\n\r\v\f'))
+            missing = compact[0] in '?,' or compact.find(',?,') != -1 or compact.find(',,') != -1 or compact[-1] in '?,'            
+            loader  = LambdaSource(lambda line=line, i=i:  parser.parse(i,line))
+            
+            yield Pipes.join(row_encoder, row_indexer).filter(DenseRow(loader=loader,missing=missing))
 
     def _parse_sparse_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMapping]:
 
-        headers  = dict(zip(headers,count()))
-        defaults_dict = { k:"0" for k in range(len(encoders)) if encoders[k]("0") != 0 }
-        encoders = dict(zip(count(),encoders))
+        #if there is a onehot column whose value is 0 it will be missing. This fills it in.
+        onehots     = { k:"0" for k in range(len(encoders)) if encoders[k]("0") != 0 }
+        parser      = ArffReader.SparseRowParser(len(headers), onehots)
+        row_indexer = IndexRow(dict(zip(headers,count())))
+        row_encoder = EncodeRow(encoders)
 
         for i,line in enumerate(lines):
-
-            keys_and_vals = re.split('\s*,\s*|\s+', line.strip("} {"))
-
-            if keys_and_vals != ['']:
-                keys = list(map(int,keys_and_vals[0::2]))
-                vals = keys_and_vals[1::2]
-            else:
-                keys = []
-                vals = []
-
-            if keys and (max(keys) >= len(headers) or min(keys) < 0):
-                raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
-
-            final = { **defaults_dict, ** dict(zip(keys,vals)) }
-
-            any_missing = " ?," in line or line[-2:] == " ?"
-
-            yield Pipes.join(EncodeRow(encoders), IndexRow(headers)).filter(SparseRow(loaded=final,missing=any_missing))
+            missing = " ?," in line or line[-2:] == " ?"
+            loader  = LambdaSource(lambda line=line, i=i:  parser.parse(i,line))
+            yield Pipes.join(row_encoder, row_indexer).filter(SparseRow(loader=loader,missing=missing))
 
     def _pattern_split(self, line: str, pattern: Pattern[str], n=None):
 

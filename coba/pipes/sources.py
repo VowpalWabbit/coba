@@ -2,7 +2,7 @@ import requests
 import gzip
 
 from queue import Queue
-from typing import Callable, Iterable, Sequence, Any, Union
+from typing import Callable, Iterable, Any, Union
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
