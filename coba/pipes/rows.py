@@ -1,264 +1,280 @@
-from collections import abc
-from typing import Any, Union, Callable, Iterator, Mapping, Sequence, overload
+from abc import ABC, abstractmethod
 
-from coba.exceptions import CobaException
-from coba.pipes.primitives import Filter
+from bisect import bisect_left
+from collections import abc, deque
+from typing import Any, Union, Callable, Iterator, overload, List, Dict, Deque, Hashable
+from typing import Sequence, Mapping
 
-# parse -> encode -> sparse/dense row (which won't be evaluated until __getitem__ is called)
+from coba.pipes.primitives import Filter, Source
 
-# this is the supervised simulation pipe...
-#parse -> encode -> drop -> structure -> ({feats}, lbl) or ([feats], lbl)
+class IDenseRow(ABC):
 
-# this is the pipe for anyone who just wants the data...
-#parse -> encode -> drop -> [rows with headers] or {rows}
+    @abstractmethod
+    def __getitem__(self, key) -> Any:
+        ...
 
-class Row:
+    @abstractmethod
+    def __setitem__(self, key, item) -> None:
+        ...
 
-    def prep(item: Union[Sequence,Mapping]) -> Union['DenseRow','SparseRow']:
-        if isinstance(item,(DenseRow,SparseRow)):
-            return item
-        elif isinstance(item,abc.Sequence):
-            return DenseRow(item, False)
-        elif isinstance(item,abc.Mapping):
-            return SparseRow(item, False)
-        else: #pragma: no cover
-            raise CobaException("An unrecognized item was passed to Row.prep")
+    @abstractmethod
+    def __delitem__(self, key) -> None:
+        ...
 
-class ParseRow:
+    @abstractmethod
+    def __len__(self) -> int:
+        ...
 
-    def __init__(self, line:str, parser: Callable[[str], Union[Sequence,Mapping]] = None, any_missing: bool = False) -> None:
-        self._row         = line
-        self._parser      = parser or (lambda x:x)
-        self._any_missing = any_missing
+    @abstractmethod
+    def __iter__(self) -> Iterator:
+        ...
 
-        def default_get(key):
-            return self.row.__getitem__(key)
+    @abstractmethod
+    def pop(self, key) -> Any:
+        ...
 
-        self._keys = [ lambda: list(range(len(self.row))) if isinstance(self.row, abc.Sequence) else self.row.keys()]
-        self._gets = [ default_get ]
+class ISparseRow(ABC):
 
-    def add_decorator(self, keys_decorator, gets_decorator) -> None:
+    @abstractmethod
+    def __getitem__(self, key) -> Any:
+        ...
 
-        keys_decorator = keys_decorator or (lambda x  :x)
-        gets_decorator = gets_decorator or (lambda x,y:x)
+    @abstractmethod
+    def __setitem__(self, key, item) -> None:
+        ...
 
-        new_keys = keys_decorator(self._keys[-1])
-        new_gets = gets_decorator(self._gets[-1], new_keys)
-
-        self._keys.append(new_keys)
-        self._gets.append(new_gets)
-
-    @property
-    def row(self)->Union[list,dict]:
-        if self._parser:
-            self._row = self._parser(self._row)
-            self._parser = None
-        return self._row
-
-    @property
-    def any_missing(self) -> bool:
-        return self._any_missing
-
-    def keys(self) -> Sequence[Union[int,str]]:
-        return self._keys[-1]()
-
-    def __getitem__(self, key: Union[int, str]) -> Any:
-        return self._gets[-1](key)
-
-class DenseRow(abc.Sequence):
-    
-    @overload
-    def __init__(self, sequence: Sequence, any_missing: bool=False) -> None:
+    @abstractmethod
+    def __delitem__(self, key) -> None:
         ...
     
-    @overload
-    def __init__(self, line:str, parse: Callable[[str],Sequence], any_missing: bool) -> None:
+    @abstractmethod
+    def __len__(self) -> int:
+        ...
+
+    @abstractmethod
+    def __iter__(self) -> Iterator:
         ...
     
-    def __init__(self, *args) -> None:
-        if len(args)==3:
-            self._row = ParseRow(args[0],args[1],args[2]) 
-        elif len(args) ==2: 
-            self._row = ParseRow(args[0],any_missing=args[1])
+    @abstractmethod
+    def pop(self, key) -> Any:
+        ...
+
+class DenseRow(abc.MutableSequence, IDenseRow):
+
+    @overload
+    def __init__(self,*,loader: Source[List], missing: bool = False) -> None:
+        ...
+
+    @overload
+    def __init__(self,*,loaded: List, missing: bool = False) -> None:
+        ...
+
+    def __init__(self,**kwargs) -> None:
+
+        self._loader : Source[List]  = kwargs.get('loader',None)
+        self._loaded : List          = kwargs.get('loaded',None)
+        self._indexes: Sequence[int] = list(range(0 if not self._loaded else len(self._loaded)))
+
+        self._cmds: Deque = deque()
+
+        self.encoders    : Union[Sequence,Mapping] = None
+        self.headers     : Mapping[str,int]        = None
+        self.headers_inv : Mapping[int,str]        = None
+        self.missing     : bool                    = kwargs.get('missing',False)
+
+        if self._loader:
+            def load(): 
+                self._loaded  = self._loader.read()
+                self._indexes = list(range(len(self._loaded)))
+            self._cmds.appendleft((load,()))
+
+    def _run_cmds(self) -> None:
+        while self._cmds: 
+            f,a = self._cmds.pop()
+            f(*a)
+
+    def __getitem__(self, key: Union[str,int]):
+        if self._cmds: self._run_cmds()
+        
+        key = self._indexes[key] if key.__class__ is int else self.headers[key]
+        val = self._loaded[key]
+        return val if self.encoders is None else self.encoders[key](val)
+
+    def __setitem__(self, key: Hashable, item: Any):
+        if self._loaded is not None:
+            key = self._indexes[key] if key.__class__ is int else self.headers[key]
+            self._loaded[key] = item
         else:
-            self._row = ParseRow(args[0],any_missing=False)
+            self._cmds.appendleft((self.__setitem__,(key,item)))
 
-    def add_decorator(self, keys_decorator, gets_decorator) -> None:
-        self._row.add_decorator(keys_decorator,gets_decorator)
+    def __delitem__(self, key: Hashable):
+        if self._loaded is not None:
+            key = self._indexes[key] if key.__class__ is int else self.headers[key]
+            del self._indexes[bisect_left(self._indexes,key)]
+        else:
+            self._cmds.appendleft((self.__delitem__,(key,)))
 
-    @property
-    def any_missing(self) -> bool:
-        return self._row.any_missing
-
-    def keys(self) -> Sequence[int]:
-        return self._row.keys()
-
-    def __getitem__(self, key: int) -> Any:
-        return self._row[key]
+    def insert(self, key: int, item: Any):
+        raise NotImplementedError()
 
     def __len__(self) -> int:
-        return len(self.keys())
+        if self._cmds: self._run_cmds()
+        return len(self._loaded)
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(self) == list(o)
 
     def __repr__(self) -> str:
-        return list(self).__repr__()
+        return str(self)
 
     def __str__(self) -> str:
-        return list(self).__str__()
+        return f"DenseRow: {str(self._loaded) if self._loaded is not None else 'Unloaded'}"
 
-class SparseRow(abc.Mapping):
+    def set_label(self, key: Hashable) -> None:
+        if self._cmds: self._run_cmds()
+        key = self._indexes[key] if key.__class__ is int else self.headers[key]
+        self._loaded.insert(0,self._loaded.pop(key))
+
+        if self.headers:
+            start_header = self.headers_inv[0]
+            label_header = self.headers_inv[key]
+
+            self.headers[start_header] = self.headers[label_header]
+            self.headers[label_header] = 0
+
+            self.headers_inv[0] = label_header
+            self.headers_inv[key] = start_header
+
+class SparseRow(abc.MutableMapping, ISparseRow):
     @overload
-    def __init__(self, mapping: Mapping, any_missing: bool = False) -> None:
+    def __init__(self,*,loader: Source[Dict], missing: bool = False) -> None:
         ...
+
     @overload
-    def __init__(self, line:str, parse: Callable[[str],Sequence], any_missing: bool) -> None:
+    def __init__(self,*,loaded: Dict, missing: bool = False) -> None:
         ...
-    def __init__(self, *args) -> None:        
-        
-        if len(args)==3:
-            self._row = ParseRow(args[0],args[1],args[2]) 
-        elif len(args) ==2: 
-            self._row = ParseRow(args[0],any_missing=args[1])
+
+    def __init__(self,**kwargs) -> None:
+        self._loader : Source[Dict] = kwargs.get('loader',None)
+        self._loaded : Dict         = kwargs.get('loaded',None)
+
+        self._cmds: Deque[Callable] = deque()
+
+        self.encoders   : Union[Sequence,Mapping] = None
+        self.headers    : Mapping[str,str]        = None
+        self.headers_inv: Mapping[str,str]        = None
+        self.missing    : bool                    = kwargs.get('missing',False)
+
+        self._label = None
+
+        if self._loader:
+            def load(): self._loaded = self._loader.read()
+            self._cmds.appendleft((load,()))
+
+    def __getitem__(self, key: Hashable):
+        while self._cmds: 
+            f,a = self._cmds.pop()
+            f(*a)
+        key   = key if not self.headers else self.headers[key]
+        value = self._loaded.get(key,0)
+        return value if self.encoders is None else self.encoders[key](value)
+
+    def __setitem__(self, key: Hashable, item: Any):
+        if self._loaded is not None:
+            key = key if not self.headers else self.headers[key]
+            self._loaded[key] = item
         else:
-            self._row = ParseRow(args[0],any_missing=False)
+            self._cmds.appendleft((self.__setitem__,(key,item)))
 
-    def add_decorator(self, keys_decorator, gets_decorator) -> None:
-        self._row.add_decorator(keys_decorator,gets_decorator)
+    def __delitem__(self, key: Hashable):
+        if self._loaded is not None:
+            key = key if not self.headers else self.headers[key]
+            if key in self._loaded: del self._loaded[key]
+        else:
+            self._cmds.appendleft( (self.__delitem__, (key,)) )
 
-    @property
-    def any_missing(self) -> bool:
-        return self._row.any_missing
+    def __iter__(self) -> Iterator:
+        while self._cmds: 
+            f,a = self._cmds.pop()
+            f(*a)
 
-    def __getitem__(self, key: int) -> Any:
-        try:
-            return self._row[key]
-        except KeyError:
-            return 0
+        keys = [k for k in self._loaded if k != self._label ]
+        if self._label: keys = [self._label] + keys
+        if self.headers_inv: keys = list(map(self.headers_inv.__getitem__,keys))
 
-    def __iter__(self) -> Iterator[str]:
-        return iter(self._row.keys())
+        return iter(keys)
 
     def __len__(self) -> int:
-        return len(self._row.keys())
+        while self._cmds: 
+            f,a = self._cmds.pop()
+            f(*a)
+        return len(self._loaded)
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Mapping) and dict(self) == dict(o)
 
     def __repr__(self) -> str:
-        return dict(self).__repr__()
+        return str(self)
 
     def __str__(self) -> str:
-        return dict(self).__str__()
+        return f"SparseRow: {str(self._loaded) if self._loaded else 'Unloaded'}"
 
-class DropRow(Filter[Union[Sequence,Mapping],Union[Sequence,Mapping]]):
+    def set_label(self, key: Hashable) -> None:
+        self._label = key
+
+class DropRow(Filter[Union[IDenseRow,ISparseRow],Union[IDenseRow,ISparseRow]]):
 
     def __init__(self, cols: Sequence) -> None:
-        self._is_int = cols and isinstance(list(cols)[0],int)
-        self._cols   = sorted(set(cols),reverse=True)
+        self._cols = sorted(set(cols),reverse=True) or []
 
-    def filter(self, item: Union[Sequence,Mapping]) -> Union[Sequence,Mapping]:
-
-        if not self._cols: return item
-
-        if isinstance(item,dict):
-            item = dict(item)
-            for c in self._cols: del item[c]
-        
-        elif isinstance(item,list):
-            item = list(item)
-            for c in self._cols: del item[c]
-        
-        elif isinstance(item,(DenseRow,SparseRow)):    
-            def int_keys_decorator(old_keys):
-                def decorated():
-                    is_not_excluded_int = lambda i,k: (self._is_int and i not in self._cols)
-                    is_not_excluded_str = lambda i,k: (not self._is_int and k not in self._cols)
-                    return [i for i,k in enumerate(old_keys()) if is_not_excluded_int(i,k) or is_not_excluded_str(i,k) ]
-                return decorated
-
-            def str_keys_decorator(old_keys):
-                def decorated():
-                    return [k for k in old_keys() if k not in self._cols]
-                return decorated
-
-            def int_gets_decorator(old_get,new_keys):
-                def decorated(key):
-                    return old_get(new_keys()[key] if isinstance(key,int) else key)
-                return decorated
-
-            def str_gets_decorator(old_get,new_keys):
-                def decorated(key):
-                    return old_get(key)
-                return decorated
-
-            if isinstance(item, DenseRow):
-                item.add_decorator(int_keys_decorator, int_gets_decorator)
-            else:
-                item.add_decorator(str_keys_decorator, str_gets_decorator)
-        else:
-            raise CobaException("Unrecognized row type passed to DropRow.")
+    def filter(self, item: Union[IDenseRow,ISparseRow]) -> Union[IDenseRow,ISparseRow]:
+        for c in self._cols: del item[c]
         return item
 
-class EncodeRow(Filter[Union[Sequence,Mapping],Union[Sequence,Mapping]]):
+class EncodeRow(Filter[Union[IDenseRow,ISparseRow],Union[IDenseRow,ISparseRow]]):
 
     def __init__(self, encoders: Union[Sequence,Mapping]) -> None:
         self._encoders = encoders
 
-    def filter(self, item: Union[Sequence,Mapping]) -> Union[Sequence,Mapping]:
-        row = Row.prep(item)
-        
-        def gets_decorator(old_get,new_keys):
-            def decorated(key):
-                return self._encoders[key](old_get(key))
-            return decorated
+    def filter(self, item: Union[IDenseRow,ISparseRow]) -> Union[IDenseRow,ISparseRow]:
 
-        row.add_decorator(None, gets_decorator) 
+        try:
+            item.encoders = self._encoders
+        except:
+            item = SparseRow(loaded=item) if isinstance(item,dict) else DenseRow(loaded=item)
+            item.encoders    = self._encoders
         
-        return row
+        return item
 
-class IndexRow(Filter[Union[Sequence,Mapping],Union[Sequence,Mapping]]):
+class IndexRow(Filter[Union[IDenseRow,ISparseRow],Union[IDenseRow,ISparseRow]]):
 
     def __init__(self, index: Mapping) -> None:
         self._fwd_index = index
         self._rev_index = { v:k for k,v in index.items()}
 
-    def filter(self, item: Union[Sequence,Mapping]) -> Union[Sequence,Mapping]:
-        row = Row.prep(item)
+    def filter(self, item: Union[IDenseRow,ISparseRow]) -> Union[IDenseRow,ISparseRow]:
         
-        def keys_decorator(old_keys):
-            def decorator():
-                return [ self._rev_index[k] for k in old_keys() ]
-            return decorator
+        try:
+            item.headers     = self._fwd_index
+            item.headers_inv = self._rev_index
+        except:
+            item = SparseRow(loaded=item) if isinstance(item,dict) else DenseRow(loaded=item)
+            item.headers     = self._fwd_index
+            item.headers_inv = self._rev_index
 
-        def gets_decorator(old_get,new_keys):
-            def decorator(key):
-                return old_get(self._fwd_index[key] if isinstance(key,str) else key)
-            return decorator
+        return item
 
-        row.add_decorator(keys_decorator,gets_decorator)
-
-        return row
-
-class LabelRow(Filter[Union[Sequence,Mapping],Union[Sequence,Mapping]]):
+class LabelRow(Filter[Union[IDenseRow,ISparseRow],Union[IDenseRow,ISparseRow]]):
 
     def __init__(self, label: Union[int,str]) -> None:
         self._label = label
 
-    def filter(self, item: Union[Sequence,Mapping]) -> Union[Sequence,Mapping]:
-        row = Row.prep(item)
-        
-        def gets_decorator(old_get,new_keys):
-            def decorator(key):
-                return old_get(key if isinstance(key,str) else new_keys()[key])
-            return decorator
+    def filter(self, item: Union[IDenseRow,ISparseRow]) -> Union[IDenseRow,ISparseRow]:
 
-        def keys_decorator(old_keys):
-            def decorator():
-                return [self._label] + [ k for k in old_keys() if k != self._label ]
-            return decorator
+        try:
+            item.set_label(self._label)
+        except:
+            item = SparseRow(loaded=item) if isinstance(item,dict) else DenseRow(loaded=item)
+            item.set_label(self._label)
 
-        row.add_decorator(keys_decorator,gets_decorator)
-
-        return row
+        return item

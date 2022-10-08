@@ -9,7 +9,7 @@ from typing import Iterable, Any, Sequence, Mapping, Callable, Optional, Union
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
 
-from coba.pipes.rows import Row, DropRow
+from coba.pipes.rows import DropRow
 from coba.pipes.primitives import Filter
 
 class Identity(Filter[Any, Any]):
@@ -307,11 +307,6 @@ class Structure(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Any]]):
                 feature names. A None value indicates the location that all left-over features will be placed.
         """
         
-        if isinstance(structure,abc.Sequence):
-            self._dropper = DropRow(set(list(Flatten().filter([structure]))[0]) - {None})
-        else:
-            self._dropper = DropRow([])
-        
         self._structure = []
         stack = [structure]
         while stack:
@@ -344,9 +339,9 @@ class Structure(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Any]]):
                     new_working.append(tuple(working))
                     working = new_working
                 elif item == None:
-                    working.append(self._dropper.filter(row))
+                    working.append(row)
                 else:
-                    working.append(row[item])
+                    working.append(row.pop(item))
 
             yield working[0]
 

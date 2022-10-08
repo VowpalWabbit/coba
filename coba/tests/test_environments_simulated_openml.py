@@ -803,10 +803,10 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(feature_rows), 4)
         self.assertEqual(len(label_col   ), 4)
 
-        self.assertEqual(dict(zip( map(str,(0,1))          , (2,3)          )), feature_rows[0])
-        self.assertEqual(dict(zip( map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), feature_rows[1])
-        self.assertEqual(dict(zip( map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), feature_rows[2])
-        self.assertEqual(dict(zip( map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), feature_rows[3])
+        self.assertEqual(dict(zip(map(str,(0,1))          , (2,3)          )), feature_rows[0])
+        self.assertEqual(dict(zip(map(str,(2,3,4,6,8))    , (1,1,1,1,1)    )), feature_rows[1])
+        self.assertEqual(dict(zip(map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), feature_rows[2])
+        self.assertEqual(dict(zip(map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), feature_rows[3])
 
         self.assertEqual('0', label_col[0])
         self.assertEqual('1', label_col[1])

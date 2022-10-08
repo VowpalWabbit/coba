@@ -1,18 +1,16 @@
 import re
 import csv
-import collections.abc
-import operator
 
-from collections import deque, defaultdict
+from collections import deque
 from itertools import islice, chain, count
-from typing import Iterable, Sequence, List, Dict, Union, Any, Iterator, Pattern, Callable, Set, Tuple
+from typing import Iterable, Sequence, List, Union, Any, Pattern, Tuple
 from typing import MutableSequence, MutableMapping
 
 from coba.exceptions import CobaException
 from coba.encodings import Encoder, OneHotEncoder
 
 from coba.pipes.core import Pipes
-from coba.pipes.rows import ParseRow, EncodeRow, IndexRow, DenseRow, SparseRow
+from coba.pipes.rows import EncodeRow, IndexRow, DenseRow, SparseRow
 from coba.pipes.primitives import Filter
 
 class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
@@ -37,7 +35,7 @@ class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
             indexer = IndexRow(headers)
 
         for line in lines:
-            yield line if not self._has_header else indexer.filter(DenseRow(line,False))
+            yield line if not self._has_header else indexer.filter(DenseRow(loaded=line,missing=False))
 
 class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMapping]]]):
     """A filter capable of parsing ARFF formatted data.
@@ -170,7 +168,6 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             else:
                 #the file does not appear to follow a readable csv.reader dialect
                 #we fall back now to a slightly slower, but more flexible, parser
-
                 if fallback_delimieter is None:
                     #this isn't airtight but we can only infer so much.
                     fallback_delimieter = ',' if len(line.split(',')) > len(line.split('\t')) else "\t"
@@ -196,13 +193,13 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
             any_missing = no_space_line[0] in '?,' or no_space_line[-1] in '?,'
             any_missing = any_missing or no_space_line.find(',?,') != -1 or no_space_line.find(',,') != -1
 
-            yield Pipes.join(row_encoder, row_indexer).filter(DenseRow(final, any_missing))
+            yield Pipes.join(row_encoder, row_indexer).filter(DenseRow(loaded=final,missing=any_missing))
 
     def _parse_sparse_data(self, lines: Iterable[str], headers: Sequence[str], encoders: Sequence[Encoder]) -> Iterable[MutableMapping]:
 
-        headers_dict  = dict(zip(headers,count()))
+        headers  = dict(zip(headers,count()))
         defaults_dict = { k:"0" for k in range(len(encoders)) if encoders[k]("0") != 0 }
-        encoders_dict = dict(zip(count(),encoders))
+        encoders = dict(zip(count(),encoders))
 
         for i,line in enumerate(lines):
 
@@ -220,12 +217,9 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[MutableSequence,MutableMap
 
             final = { **defaults_dict, ** dict(zip(keys,vals)) }
 
-            final_headers  = headers_dict
-            final_encoders = encoders_dict
-            final_items    = final
-            any_missing    = " ?," in line
+            any_missing = " ?," in line or line[-2:] == " ?"
 
-            yield Pipes.join(EncodeRow(final_encoders), IndexRow(final_headers)).filter(SparseRow(final_items, any_missing))
+            yield Pipes.join(EncodeRow(encoders), IndexRow(headers)).filter(SparseRow(loaded=final,missing=any_missing))
 
     def _pattern_split(self, line: str, pattern: Pattern[str], n=None):
 

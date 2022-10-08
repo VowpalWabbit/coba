@@ -12,6 +12,7 @@ from coba.pipes.multiprocessing import Multiprocessor
 from coba.pipes.filters import Take, Shuffle, Drop, Structure, Identity, Flatten, Default, Reservoir
 from coba.pipes.filters import Encode, JsonDecode, JsonEncode
 
+from coba.pipes.rows    import DenseRow, SparseRow, IDenseRow, ISparseRow, EncodeRow, DropRow, IndexRow, LabelRow
 from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
 from coba.pipes.sources import NullSource, DiskSource, IterableSource, QueueSource, HttpSource, LambdaSource, UrlSource
 from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink
@@ -54,5 +55,13 @@ __all__ = [
     "QueueSink",
     "LambdaSink",
     "QueueIO",
-    "SourceFilters"
+    "SourceFilters",
+    "DenseRow",
+    "SparseRow",
+    "IDenseRow",
+    "ISparseRow",
+    "EncodeRow",
+    "DropRow",
+    "IndexRow",
+    "LabelRow"
 ]

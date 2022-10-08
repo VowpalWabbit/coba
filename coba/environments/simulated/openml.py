@@ -4,7 +4,7 @@ import json
 from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
 
 from coba.random import random
-from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, IterableSource, Structure
+from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, IterableSource, Structure, SparseRow, DenseRow
 from coba.contexts import CobaContext, CobaContext
 from coba.exceptions import CobaException
 
@@ -107,8 +107,8 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             if self._target in ignore: ignore.pop(ignore.index(self._target))
 
-            def drop_row(row):
-                return self._drop_missing and row.any_missing
+            def drop_row(row: Union[SparseRow,DenseRow]):
+                return self._drop_missing and row.missing
 
             source    = IterableSource(self._get_arff_lines(data_descr["file_id"], None))
             reader    = ArffReader(cat_as_str=self._cat_as_str)

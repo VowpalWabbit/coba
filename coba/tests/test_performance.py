@@ -9,8 +9,9 @@ from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
-from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, IterableSource
-from coba.pipes.rows import ParseRow, EncodeRow, DenseRow
+from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
+from coba.pipes import IterableSource, LambdaSource
+from coba.pipes import EncodeRow, DropRow, DenseRow
 from coba.experiments.results import Result, moving_average
 
 print_time = False
@@ -317,29 +318,29 @@ class Performance_Tests(unittest.TestCase):
         if print_time: print(time)
         self.assertLess(time, .75)
 
-    def test_parser_row(self):
-        line = ','.join(['1']*1000)
-
-        #this is about 10% slower than a direct call of line.split(',')[1]
-        time = timeit.timeit(lambda: ParseRow(line, lambda l: l.split(','))[1], number=1000)
-
-        #.015 was my final time
-        if print_time: print(time)
-        self.assertLess(time, .15)
-
     def test_encoder_row(self):
         row  = ['1']*1000
         ints = [int]*1000
-        
-        R = EncodeRow(ints).filter(DenseRow(row))
+
+        R = EncodeRow(ints).filter(DenseRow(loaded=row))
 
         #this is about 68% slower than ints[1](row[1])
-        #We can get only 50% slower with R = EncodeRow(row, ints).__getitem__
         time = timeit.timeit(lambda: R[1], number=100000)
-        
-        #.068 was my final time
-        if print_time: print(time)
-        self.assertLess(time, .68)
+        #time = timeit.timeit(lambda: ints[1](row[1]), number=100000)
 
-# if __name__ == '__main__':
-#     unittest.main()
+        #.075 was my final time
+        if print_time: print(time)
+        self.assertLess(time, .75)
+
+    def test_drop_row(self):
+        R = DenseRow(loaded=[1,2]*10000) #.05
+
+        drop = DropRow([-1])
+        time = timeit.timeit(lambda: drop.filter(R), number=10000)
+        
+        #0.011
+        if print_time: print(time)
+        self.assertLess(time,.11)
+
+if __name__ == '__main__':
+    unittest.main()

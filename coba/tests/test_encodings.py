@@ -1,7 +1,7 @@
 import unittest
 import math
 
-from coba.pipes.rows import DenseRow, SparseRow, IndexRow
+from coba.pipes.rows import DenseRow, SparseRow
 
 from coba.encodings import(
     IdentityEncoder, StringEncoder, NumericEncoder,
@@ -195,7 +195,7 @@ class InteractionsEncoder_Tests(unittest.TestCase):
 
     def test_dense_row_x_a(self):
         encoder = InteractionsEncoder(["x", "a"])
-        interactions = encoder.encode(x=DenseRow([1,2,3]), a=[1,2])
+        interactions = encoder.encode(x=DenseRow(loaded=[1,2,3]), a=[1,2])
 
         self.assertEqual([1,2,3,1,2], interactions)
 
@@ -222,7 +222,7 @@ class InteractionsEncoder_Tests(unittest.TestCase):
 
     def test_sparse_row_x_a(self):
         encoder = InteractionsEncoder(["x","a"])
-        interactions = encoder.encode(x=SparseRow({"1":1,"2":2}), a={"1":3,"2":4})
+        interactions = encoder.encode(x=SparseRow(loaded={"1":1,"2":2}), a={"1":3,"2":4})
 
         self.assertEqual(dict([("x1",1), ("x2",2), ("a1",3), ("a2",4)]), interactions)
 
