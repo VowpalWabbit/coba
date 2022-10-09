@@ -1,14 +1,13 @@
 import unittest
-import math
 
 from pathlib import Path
 from typing import cast
 
 from coba.environments import Environment, LambdaSimulation
 from coba.pipes import Source, ListSink
-from coba.learners import Learner
-from coba.contexts import CobaContext, InteractionContext, CobaContext, IndentLogger, BasicLogger, NullLogger
-from coba.experiments import Experiment, OnlineOnPolicyEvalTask
+from coba.learners import CbLearner
+from coba.contexts import CobaContext, IndentLogger, BasicLogger, NullLogger
+from coba.experiments import Experiment, OnlineOnPolicyEval
 from coba.exceptions import CobaException
 
 class NoParamsLearner:
@@ -21,7 +20,7 @@ class NoParamsEnvironment:
     def read(self):
         return LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a)).read()
 
-class ModuloLearner(Learner):
+class ModuloLearner(CbLearner):
     def __init__(self, param:str="0"):
         self._param = param
         self._learn_calls = 0
@@ -36,7 +35,7 @@ class ModuloLearner(Learner):
     def learn(self, context, action, reward, probability, info):
         self._learn_calls += 1
 
-class BrokenLearner(Learner):
+class BrokenLearner(CbLearner):
 
     @property
     def params(self):
@@ -48,7 +47,7 @@ class BrokenLearner(Learner):
     def learn(self, context, action, reward, probability, info):
         pass
 
-class PredictInfoLearner(Learner):
+class PredictInfoLearner(CbLearner):
     def __init__(self, param:str="0"):
         self._param = param
 
@@ -62,7 +61,7 @@ class PredictInfoLearner(Learner):
     def learn(self, context, action, reward, probability, info):
         assert info == (0,1)
 
-class LearnInfoLearner(Learner):
+class LearnInfoLearner(CbLearner):
     def __init__(self, param:str="0"):
         self._param = param
 
@@ -74,7 +73,7 @@ class LearnInfoLearner(Learner):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
 
     def learn(self, context, action, reward, probability, info):
-        InteractionContext.learner_info.update({"Modulo": self._param})
+        CobaContext.learning_info.update({"Modulo": self._param})
 
 class NotPicklableLearner(ModuloLearner):
     def __init__(self):
@@ -89,7 +88,7 @@ class NotPicklableLearnerWithReduce(NotPicklableLearner):
     def __reduce__(self):
         return (NotPicklableLearnerWithReduce, ())
 
-class WrappedLearner(Learner):
+class WrappedLearner(CbLearner):
 
     @property
     def params(self):
@@ -139,7 +138,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_sim(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))
         learner    = ModuloLearner()
-        experiment = Experiment(sim1, [learner], evaluation_task=OnlineOnPolicyEvalTask(time=False))
+        experiment = Experiment(sim1, [learner], evaluation_task=OnlineOnPolicyEval(time=False))
 
         CobaContext.logger = IndentLogger(ListSink())
 
@@ -173,7 +172,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_learner(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))
         learner    = ModuloLearner()
-        experiment = Experiment([sim1], learner, evaluation_task=OnlineOnPolicyEvalTask(time=False))
+        experiment = Experiment([sim1], learner, evaluation_task=OnlineOnPolicyEval(time=False))
 
         CobaContext.logger = IndentLogger(ListSink())
 
@@ -208,7 +207,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
-        experiment = Experiment([sim1,sim2], [learner], "abc", evaluation_task=OnlineOnPolicyEvalTask(time=False))
+        experiment = Experiment([sim1,sim2], [learner], "abc", evaluation_task=OnlineOnPolicyEval(time=False))
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_dicts()
@@ -240,7 +239,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = ModuloLearner("0") #type: ignore
         learner2   = ModuloLearner("1") #type: ignore
-        experiment = Experiment([sim], [learner1, learner2], evaluation_task=OnlineOnPolicyEvalTask(time=False))
+        experiment = Experiment([sim], [learner1, learner2], evaluation_task=OnlineOnPolicyEval(time=False))
 
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'},
@@ -269,7 +268,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_learner_info(self):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = LearnInfoLearner("0") #type: ignore
-        experiment = Experiment([sim],[learner1], evaluation_task=OnlineOnPolicyEvalTask(time=False))
+        experiment = Experiment([sim],[learner1], evaluation_task=OnlineOnPolicyEval(time=False))
 
         actual_result       = experiment.evaluate()
         actual_learners     = actual_result._learners.to_dicts()
@@ -295,7 +294,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_predict_info(self):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = PredictInfoLearner("0") #type: ignore
-        experiment = Experiment([sim],[learner1],evaluation_task=OnlineOnPolicyEvalTask(time=False))
+        experiment = Experiment([sim],[learner1],evaluation_task=OnlineOnPolicyEval(time=False))
 
         actual_result       = experiment.evaluate()
         
@@ -329,8 +328,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         #the second Experiment shouldn't ever call broken_factory() because
         #we're resuming from the first experiment's transaction.log
         try:
-            first_result  = Experiment([sim],[working_learner],evaluation_task=OnlineOnPolicyEvalTask(time=False)).run("coba/tests/.temp/transactions.log")
-            second_result = Experiment([sim],[broken_learner ],evaluation_task=OnlineOnPolicyEvalTask(time=False)).run("coba/tests/.temp/transactions.log")
+            first_result  = Experiment([sim],[working_learner],evaluation_task=OnlineOnPolicyEval(time=False)).run("coba/tests/.temp/transactions.log")
+            second_result = Experiment([sim],[broken_learner ],evaluation_task=OnlineOnPolicyEval(time=False)).run("coba/tests/.temp/transactions.log")
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
 
@@ -362,7 +361,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_no_params(self):
         sim1       = NoParamsEnvironment()
         learner    = NoParamsLearner()
-        experiment = Experiment([sim1], [learner], evaluation_task=OnlineOnPolicyEvalTask(time=False))
+        experiment = Experiment([sim1], [learner], evaluation_task=OnlineOnPolicyEval(time=False))
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_dicts()
@@ -391,7 +390,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
-        experiment = Experiment([sim1,sim2], [ModuloLearner(), BrokenLearner()],evaluation_task=OnlineOnPolicyEvalTask(time=False))
+        experiment = Experiment([sim1,sim2], [ModuloLearner(), BrokenLearner()],evaluation_task=OnlineOnPolicyEval(time=False))
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_dicts()

@@ -6,17 +6,18 @@ import importlib.util
 import warnings
 
 from coba.exceptions   import CobaException
-from coba.contexts     import InteractionContext
+from coba.contexts     import CobaContext
 from coba.environments import SimulatedInteraction, LoggedInteraction, Shuffle, SupervisedSimulation, Noise
-from coba.learners     import Learner
+from coba.learners     import CbLearner, IglLearner
 from coba.pipes        import Pipes
 
 from coba.experiments.tasks import (
-    OnlineOnPolicyEvalTask, ClassEnvironmentTask, SimpleEnvironmentTask, OnlineOffPolicyEvalTask, OnlineWarmStartEvalTask
+    OnlineOnPolicyEval, ClassEnvironmentInfo, SimpleEnvironmentInfo, 
+    OnlineOffPolicyEval, OnlineWarmStartEval, InteractionGroundedEval
 )
 
 #for testing purposes
-class RecordingLearner(Learner):
+class RecordingLearner(CbLearner):
     def __init__(self, with_info:bool = True, with_log:bool = True):
 
         self._i               = 0
@@ -35,7 +36,7 @@ class RecordingLearner(Learner):
         self._i += 1
 
         if self._with_log:
-            InteractionContext.learner_info.update(predict=self._i)
+            CobaContext.learning_info.update(predict=self._i)
 
         action_index = len(self.predict_calls) % len(actions)
         self.predict_calls.append((context, actions))
@@ -47,9 +48,26 @@ class RecordingLearner(Learner):
     def learn(self, context, action, reward, probability, info):
 
         if self._with_log:
-            InteractionContext.learner_info.update(learn=self._i)
+            CobaContext.learning_info.update(learn=self._i)
 
         self.learn_calls.append((context, action, reward, probability, info))
+
+class DummyIglLearner(IglLearner):
+
+    def __init__(self, predictions):
+        self._predictions = predictions
+        self._n_predicts = 0
+        self._predict_calls = []
+        self._learn_calls = []
+
+    def predict(self, *args):
+        self._n_predicts += 1
+        CobaContext.learning_info['n_predict'] = self._n_predicts
+        self._predict_calls.append(args)
+        return self._predictions.pop(0)
+
+    def learn(self, *args):
+        self._learn_calls.append(args)
 #for testing purposes
 
 class SimpleEnvironmentTask_Tests(unittest.TestCase):
@@ -57,7 +75,7 @@ class SimpleEnvironmentTask_Tests(unittest.TestCase):
     def test_classification_statistics_dense(self):
 
         env  = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
-        task = SimpleEnvironmentTask()
+        task = SimpleEnvironmentInfo()
         ints = list(env.read())
 
         self.assertEqual({**env.params}, task.process(env,ints))
@@ -65,7 +83,7 @@ class SimpleEnvironmentTask_Tests(unittest.TestCase):
     def test_environment_pipe_statistics_dense(self):
 
         env  = Pipes.join(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10), Shuffle(1))
-        task = SimpleEnvironmentTask()
+        task = SimpleEnvironmentInfo()
         ints = list(env.read())
 
         self.assertEqual({**env.params}, task.process(env,ints))
@@ -75,7 +93,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
     def test_classification_statistics_dense_sans_sklearn(self):
         with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
             simulation = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)
-            row        = ClassEnvironmentTask().process(simulation,simulation.read())
+            row        = ClassEnvironmentInfo().process(simulation,simulation.read())
 
             self.assertEqual(2, row["class_count"])
             self.assertEqual(2, row["feature_count"])
@@ -87,7 +105,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
             c2 = [{"1":3, "2":4}, "B"]
 
             simulation = SupervisedSimulation(*zip(*[c1,c2]*10))
-            row        = ClassEnvironmentTask().process(simulation,simulation.read())
+            row        = ClassEnvironmentInfo().process(simulation,simulation.read())
 
             self.assertEqual(2, row["class_count"])
             self.assertEqual(2, row["feature_count"])
@@ -99,7 +117,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
             c2 = [{"1":3,"2":4}, "B" ]
 
             simulation = SupervisedSimulation(*zip(*[c1,c2]*10))
-            row        = ClassEnvironmentTask().process(simulation,simulation.read())
+            row        = ClassEnvironmentInfo().process(simulation,simulation.read())
 
             json.dumps(row)
 
@@ -109,7 +127,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
 
         simulation = Pipes.join(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10),Noise())
-        row        = ClassEnvironmentTask().process(simulation,simulation.read())
+        row        = ClassEnvironmentInfo().process(simulation,simulation.read())
 
         json.dumps(row)
 
@@ -119,7 +137,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
 
         simulation = Pipes.join(SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10),Noise())
-        row        = ClassEnvironmentTask().process(simulation,simulation.read())
+        row        = ClassEnvironmentInfo().process(simulation,simulation.read())
 
         self.assertEqual(2, row["class_count"])
         self.assertEqual(2, row["feature_count"])
@@ -131,7 +149,7 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         warnings.filterwarnings("ignore", category=sklearn.exceptions.FitFailedWarning)
 
         simulation = Pipes.join(SupervisedSimulation([{"1":1,"2":2},{"3":3,"4":4}]*10,["A","B"]*10), Noise())
-        row        = ClassEnvironmentTask().process(simulation,simulation.read())
+        row        = ClassEnvironmentInfo().process(simulation,simulation.read())
 
         self.assertEqual(2, row["class_count"])
         self.assertEqual(4, row["feature_count"])
@@ -141,15 +159,15 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         a = [1,2,3,4,5,6]
         b = [1,1,1,1,1,1]
         c = [1,2,1,2,1,2]
-        self.assertAlmostEqual(math.log2(len(a)), ClassEnvironmentTask()._entropy(a))
-        self.assertAlmostEqual(                0, ClassEnvironmentTask()._entropy(b))
-        self.assertAlmostEqual(                1, ClassEnvironmentTask()._entropy(c))
+        self.assertAlmostEqual(math.log2(len(a)), ClassEnvironmentInfo()._entropy(a))
+        self.assertAlmostEqual(                0, ClassEnvironmentInfo()._entropy(b))
+        self.assertAlmostEqual(                1, ClassEnvironmentInfo()._entropy(c))
 
     def test_entropy_normed(self):
         a = [1,2,3,4,5]
         b = [1,1,1,1,1]
-        self.assertAlmostEqual(1, ClassEnvironmentTask()._entropy_normed(a))
-        self.assertAlmostEqual(0, ClassEnvironmentTask()._entropy_normed(b))
+        self.assertAlmostEqual(1, ClassEnvironmentInfo()._entropy_normed(a))
+        self.assertAlmostEqual(0, ClassEnvironmentInfo()._entropy_normed(b))
 
     def test_mutual_info(self):
         #mutual info, I(), tells me how many bits of info two random variables convey about eachother
@@ -182,84 +200,84 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         #H(a) = 2; H(a|b) = 2; H(a,b) = 2; I(a;b) = 0
         a = [1,2,3,4]
         b = [1,1,1,1]
-        self.assertAlmostEqual(0, ClassEnvironmentTask()._mutual_info(a,b))
+        self.assertAlmostEqual(0, ClassEnvironmentInfo()._mutual_info(a,b))
 
         #H(b) = 1; H(b|a) = 0; H(a,b) = 1; I(b;a) = 1
         #H(a) = 1; H(a|b) = 0; H(a,b) = 1; I(a;b) = 1
         a = [1,2,1,2]
         b = [1,1,2,2]
-        self.assertAlmostEqual(0, ClassEnvironmentTask()._mutual_info(a,b))
+        self.assertAlmostEqual(0, ClassEnvironmentInfo()._mutual_info(a,b))
 
         a = [1,2,1,2]
         b = [2,1,2,1]
-        self.assertAlmostEqual(1, ClassEnvironmentTask()._mutual_info(a,b))
+        self.assertAlmostEqual(1, ClassEnvironmentInfo()._mutual_info(a,b))
 
         a = [1,2,3,4]
         b = [1,2,3,4]
-        self.assertAlmostEqual(2, ClassEnvironmentTask()._mutual_info(a,b))
+        self.assertAlmostEqual(2, ClassEnvironmentInfo()._mutual_info(a,b))
 
     def test_dense(self):
 
         X = [[1,2,3],[4,5,6]]
-        self.assertEqual(X, ClassEnvironmentTask()._dense(X))
+        self.assertEqual(X, ClassEnvironmentInfo()._dense(X))
 
         X = [{'a':1}, {'b':2}, {'a':3, 'b':4}]
-        self.assertEqual([[1,0],[0,2],[3,4]], ClassEnvironmentTask()._dense(X))
+        self.assertEqual([[1,0],[0,2],[3,4]], ClassEnvironmentInfo()._dense(X))
 
     def test_bin(self):
 
         X = [[1,2],[2,3],[3,4],[4,5]]
-        self.assertEqual([[0,0],[0,0],[1,1],[1,1]], ClassEnvironmentTask()._bin(X,2))
+        self.assertEqual([[0,0],[0,0],[1,1],[1,1]], ClassEnvironmentInfo()._bin(X,2))
 
         X = [[1,2],[2,3],[3,4],[4,5]]
-        self.assertEqual([[0,0],[1,1],[1,1],[2,2]], ClassEnvironmentTask()._bin(X,3))
+        self.assertEqual([[0,0],[1,1],[1,1],[2,2]], ClassEnvironmentInfo()._bin(X,3))
 
         X = [[1,2],[2,3],[3,4],[4,5]]
-        self.assertEqual([[0,0],[1,1],[2,2],[3,3]], ClassEnvironmentTask()._bin(X,4))
+        self.assertEqual([[0,0],[1,1],[2,2],[3,3]], ClassEnvironmentInfo()._bin(X,4))
 
     def test_imbalance_ratio_1(self):
 
-        self.assertAlmostEqual(0, ClassEnvironmentTask()._imbalance_ratio([1,1,2,2]))
-        self.assertAlmostEqual(1, ClassEnvironmentTask()._imbalance_ratio([1,1]))
-        self.assertIsNone     (   ClassEnvironmentTask()._imbalance_ratio([]))
+        self.assertAlmostEqual(0, ClassEnvironmentInfo()._imbalance_ratio([1,1,2,2]))
+        self.assertAlmostEqual(1, ClassEnvironmentInfo()._imbalance_ratio([1,1]))
+        self.assertIsNone     (   ClassEnvironmentInfo()._imbalance_ratio([]))
 
     def test_volume_overlapping_region(self):
 
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2] 
-        self.assertAlmostEqual(.04, ClassEnvironmentTask()._volume_overlapping_region(X,Y))
+        self.assertAlmostEqual(.04, ClassEnvironmentInfo()._volume_overlapping_region(X,Y))
 
     def test_max_individual_feature_efficiency(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2]
-        self.assertAlmostEqual(.5, ClassEnvironmentTask()._max_individual_feature_efficiency(X,Y))
+        self.assertAlmostEqual(.5, ClassEnvironmentInfo()._max_individual_feature_efficiency(X,Y))
 
     @unittest.skipUnless(importlib.util.find_spec("numpy"), "numpy is not installed so we must skip this test.")
     def test_max_individual_feature_efficiency(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2]
-        self.assertAlmostEqual(.5, ClassEnvironmentTask()._max_individual_feature_efficiency(X,Y))
+        self.assertAlmostEqual(.5, ClassEnvironmentInfo()._max_individual_feature_efficiency(X,Y))
 
     @unittest.skipUnless(not importlib.util.find_spec("numpy"), "numpy is installed so we must skip this test.")
     def test_max_individual_feature_efficiency_sans_numpy(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2]
-        self.assertIsNone(ClassEnvironmentTask()._max_individual_feature_efficiency(X,Y))
+        self.assertIsNone(ClassEnvironmentInfo()._max_individual_feature_efficiency(X,Y))
 
     @unittest.skipUnless(importlib.util.find_spec("sklearn"), "sklearn is not installed so we must skip this test.")
     def test_max_directional_fisher_discriminant_ratio(self):
         X = [[1,1],[-5,-5],[-1,-1],[5,5]]
         Y = [1,1,2,2]
-        self.assertAlmostEqual(.529, ClassEnvironmentTask()._max_directional_fisher_discriminant_ratio(X,Y), places=3)
+        self.assertAlmostEqual(.529, ClassEnvironmentInfo()._max_directional_fisher_discriminant_ratio(X,Y), places=3)
 
-class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
+class OnlineOnPolicyEval_Tests(unittest.TestCase):
 
     def test_no_metrics(self):
         with self.assertRaises(CobaException):
-            OnlineOnPolicyEvalTask(None)
+            OnlineOnPolicyEval(None)
 
     def test_one_metric(self):
-        task         = OnlineOnPolicyEvalTask("reward",time=False)
+        task         = OnlineOnPolicyEval("reward",time=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(None,[1,2,3],[7,8,9]),
@@ -285,7 +303,7 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_none_rewards_no_info_no_logs_no_kwargs(self):
 
-        task         = OnlineOnPolicyEvalTask(time=False)
+        task         = OnlineOnPolicyEval(time=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(None,[1,2,3],[7,8,9]),
@@ -311,7 +329,7 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_sparse_rewards_no_info_no_logs_no_kwargs(self):
 
-        task         = OnlineOnPolicyEvalTask(time=False)
+        task         = OnlineOnPolicyEval(time=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction({'c':1},[{'a':1},{'a':2}],[7,8]),
@@ -335,7 +353,7 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_rewards_no_info_no_logs_no_kwargs(self):
 
-        task         = OnlineOnPolicyEvalTask(time=False)
+        task         = OnlineOnPolicyEval(time=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9]),
@@ -361,7 +379,7 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_rewards_info_logs_kwargs(self):
 
-        task         = OnlineOnPolicyEvalTask(time=False)
+        task         = OnlineOnPolicyEval(time=False)
         learner      = RecordingLearner(with_info=True, with_log=True)
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9],letters=['a','b','c'],I=1),
@@ -387,7 +405,7 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_process_rewards_info_logs_kwargs_partial(self):
 
-        task         = OnlineOnPolicyEvalTask(time=False)
+        task         = OnlineOnPolicyEval(time=False)
         learner      = RecordingLearner(with_info=True, with_log=True)
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9]),
@@ -413,7 +431,7 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_time(self):
 
-        task         = OnlineOnPolicyEvalTask(time=True)
+        task         = OnlineOnPolicyEval(time=True)
         learner      = RecordingLearner()
         interactions = [SimulatedInteraction(1,[1,2,3],[7,8,9])]
 
@@ -422,10 +440,10 @@ class OnlineOnPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
         self.assertAlmostEqual(0, task_results[0]["learn_time"  ], places=1)
 
-class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
+class OnlineOffPolicyEval_Tests(unittest.TestCase):
 
     def test_process_reward_no_actions_no_probability_no_info_no_logs(self):
-        task    = OnlineOffPolicyEvalTask(time=False)
+        task    = OnlineOffPolicyEval(time=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3),
@@ -446,7 +464,7 @@ class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_process_reward_actions_no_probability_no_info_no_logs(self):
-        task    = OnlineOffPolicyEvalTask(time=False)
+        task    = OnlineOffPolicyEval(time=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3, actions=[2,5,8]),
@@ -467,7 +485,7 @@ class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_process_reward_actions_probability_no_info_no_logs(self):
-        task    = OnlineOffPolicyEvalTask(time=False)
+        task    = OnlineOffPolicyEval(time=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3, .2, [2,5,8]),
@@ -488,7 +506,7 @@ class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_process_reward_actions_probability_info_logs_kwargs(self):
-        task    = OnlineOffPolicyEvalTask(time=False)
+        task    = OnlineOffPolicyEval(time=False)
         learner = RecordingLearner(with_info=True,with_log=True)
         interactions = [
             LoggedInteraction(1, 2, 3, .2, [2,5,8], L='a'),
@@ -514,7 +532,7 @@ class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
 
     def test_time(self):
 
-        task         = OnlineOffPolicyEvalTask(time=True)
+        task         = OnlineOffPolicyEval(time=True)
         learner      = RecordingLearner()
         interactions = [LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.2)]
 
@@ -523,10 +541,10 @@ class OnlineOffPolicyEvaluationTask_Tests(unittest.TestCase):
         self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
         self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
 
-class OnlineWarmStartEvaluationTask_Tests(unittest.TestCase):
+class OnlineWarmStartEval_Tests(unittest.TestCase):
 
     def test_process_reward_no_actions_no_probability_no_info_no_logs(self):
-        task         = OnlineWarmStartEvalTask(time=False)
+        task         = OnlineWarmStartEval(time=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3),
@@ -555,6 +573,37 @@ class OnlineWarmStartEvaluationTask_Tests(unittest.TestCase):
         self.assertEqual(expected_predict_returns, learner.predict_returns)
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
+
+class InteractionGroundedEval_Tests(unittest.TestCase):
+
+    def test_two_eval_iterations(self):
+
+        learner = DummyIglLearner([[1,0,0],[0,0,1]])
+        interactions = [
+            SimulatedInteraction(0,[1,2,3],[1,0,0],userid=0,isnormal=False,feedbacks=[4,5,6]),
+            SimulatedInteraction(1,[1,2,3],[0,1,0],userid=1,isnormal=True ,feedbacks=[7,8,9]),
+        ]
+
+        expected_predict_calls = [
+            (0,[1,2,3]),
+            (1,[1,2,3])
+        ]
+
+        expected_learn_calls = [
+            (0,[1,2,3],1,4,1,None),
+            (1,[1,2,3],3,9,1,None)
+        ]
+
+        expected_results = [
+            dict(reward=1,feedback=4,userid=0,isnormal=False,probability=1,n_predict=1),
+            dict(reward=0,feedback=9,userid=1,isnormal=True ,probability=1,n_predict=2)
+        ]
+
+        actual_results = list(InteractionGroundedEval().process(learner,interactions))
+
+        self.assertEqual(expected_results, actual_results)
+        self.assertEqual(expected_predict_calls, learner._predict_calls)
+        self.assertEqual(expected_learn_calls, learner._learn_calls)
 
 if __name__ == '__main__':
     unittest.main()

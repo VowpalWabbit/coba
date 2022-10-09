@@ -10,7 +10,7 @@ from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
 
-from coba.learners.primitives import Learner, Probs, Info
+from coba.learners.primitives import CbLearner, Probs, Info
 
 Feature       = Union[str,int,float]
 Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]
@@ -172,7 +172,7 @@ class VowpalMediator:
 
         return keys
 
-class VowpalArgsLearner(Learner):
+class VowpalLearner(CbLearner):
     """A friendly wrapper around Vowpal Wabbit's python interface to support CB learning.
 
     Remarks:
@@ -227,7 +227,7 @@ class VowpalArgsLearner(Learner):
         return " ".join(options)
 
     def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet", vw: VowpalMediator = None) -> None:
-        """Instantiate a VowpalArgsLearner.
+        """Instantiate a VowpalLearner.
 
         Args:
             args: Command line arguments to instantiate a Vowpal Wabbit contextual bandit learner. For
@@ -240,7 +240,7 @@ class VowpalArgsLearner(Learner):
         """
 
         if "--cb" not in args:
-            raise CobaException("VowpalArgsLearner was instantiated without a cb flag. One of the cb flags must be defined.")
+            raise CobaException("VowpalLearner was instantiated without a cb flag. One of the cb flags must be defined.")
 
         self._args    = args
         self._explore = "--cb_explore" in args
@@ -338,8 +338,8 @@ class VowpalArgsLearner(Learner):
     def _flat(self,features:Any) -> Any:
         return list(Flatten().filter([features]))[0]
 
-class VowpalEpsilonLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more
+class VowpalEpsilonLearner(VowpalLearner):
+    """A wrapper around VowpalLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
@@ -364,10 +364,10 @@ class VowpalEpsilonLearner(VowpalArgsLearner):
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
         vw            = kwargs.pop('vw',None)
 
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
-class VowpalSoftmaxLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more
+class VowpalSoftmaxLearner(VowpalLearner):
+    """A wrapper around VowpalLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
@@ -395,10 +395,10 @@ class VowpalSoftmaxLearner(VowpalArgsLearner):
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
         vw            = kwargs.pop('vw',None)
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
-class VowpalBagLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more
+class VowpalBagLearner(VowpalLearner):
+    """A wrapper around VowpalLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
@@ -424,10 +424,10 @@ class VowpalBagLearner(VowpalArgsLearner):
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
         vw            = kwargs.pop('vw',None)
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
-class VowpalCoverLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more
+class VowpalCoverLearner(VowpalLearner):
+    """A wrapper around VowpalLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
     For more information on this algorithm see Agarwal et al. (2014).
@@ -459,10 +459,10 @@ class VowpalCoverLearner(VowpalArgsLearner):
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
         vw            = kwargs.pop('vw',None)
 
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
-class VowpalRegcbLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more
+class VowpalRegcbLearner(VowpalLearner):
+    """A wrapper around VowpalLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
     References:
@@ -493,10 +493,10 @@ class VowpalRegcbLearner(VowpalArgsLearner):
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
         vw            = kwargs.pop('vw',None)
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
-class VowpalSquarecbLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more
+class VowpalSquarecbLearner(VowpalLearner):
+    """A wrapper around VowpalLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
     References:
@@ -536,15 +536,15 @@ class VowpalSquarecbLearner(VowpalArgsLearner):
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
         vw            = kwargs.pop('vw',None)
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
 
-class VowpalOffPolicyLearner(VowpalArgsLearner):
-    """A wrapper around VowpalArgsLearner that provides more documentation. For more
+class VowpalOffPolicyLearner(VowpalLearner):
+    """A wrapper around VowpalLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
         This wrapper in particular performs policy learning without any exploration. This is
         only correct when training examples come from a logging policy so that any exploration
-        on our part is ignored.
+        on our part would be irrelevant.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
@@ -565,4 +565,4 @@ class VowpalOffPolicyLearner(VowpalArgsLearner):
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
         vw            = kwargs.pop('vw',None)
-        super().__init__(VowpalArgsLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)

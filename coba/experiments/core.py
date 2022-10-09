@@ -3,7 +3,7 @@ from typing import Sequence, Optional, Union
 from coba.backports import Literal
 
 from coba.pipes import Pipes, Foreach
-from coba.learners import Learner
+from coba.learners import CbLearner
 from coba.environments import Environment, Environments
 from coba.multiprocessing import CobaMultiprocessor
 from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger
@@ -11,7 +11,7 @@ from coba.exceptions import CobaException
 
 from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems, MaxChunkSize
 from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
-from coba.experiments.tasks   import SimpleLearnerTask, SimpleEnvironmentTask, OnlineOnPolicyEvalTask
+from coba.experiments.tasks   import SimpleLearnerInfo, SimpleEnvironmentInfo, OnlineOnPolicyEval
 from coba.experiments.results import Result, TransactionIO
 
 class Experiment:
@@ -19,11 +19,11 @@ class Experiment:
 
     def __init__(self,
         environments    : Union[Environment, Sequence[Environment]],
-        learners        : Union[Learner,Sequence[Learner]],
+        learners        : Union[CbLearner,Sequence[CbLearner]],
         description     : str = None,
-        learner_task    : LearnerTask     = SimpleLearnerTask(),
-        environment_task: EnvironmentTask = SimpleEnvironmentTask(),
-        evaluation_task : EvaluationTask  = OnlineOnPolicyEvalTask()) -> None:
+        learner_task    : LearnerTask     = SimpleLearnerInfo(),
+        environment_task: EnvironmentTask = SimpleEnvironmentInfo(),
+        evaluation_task : EvaluationTask  = OnlineOnPolicyEval()) -> None:
         """Instantiate an Experiment.
 
         Args:

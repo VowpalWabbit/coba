@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Sequence, Any, Iterable, Optional
+from typing import Sequence, Iterable, Optional
 
 from coba.environments.primitives import Context, Action, Environment, Interaction
 

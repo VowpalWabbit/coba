@@ -5,11 +5,12 @@ from typing import Any, Sequence, Dict, Union, Tuple
 
 from coba.environments import Context, Action
 
-Info  = Any
-Probs = Sequence[float]
+Info     = Any
+Probs    = Sequence[float]
+Feedback = Any
 
-class Learner(ABC):
-    """The Learner interface."""
+class CbLearner(ABC):
+    """The CbLearner interface."""
 
     @property
     def params(self) -> Dict[str,Any]: # pragma: no cover
@@ -50,10 +51,29 @@ class Learner(ABC):
         """
         ...
 
-class SafeLearner(Learner):
+class IglLearner(ABC):
+
+    @property
+    def params(self) -> Dict[str,Any]: # pragma: no cover
+        """Parameters describing the learner (used for descriptive purposes only).
+
+        Remarks:
+            These will become columns in the learners table of experiment results.
+        """
+        return {}
+
+    @abstractmethod
+    def predict(self, context: Context, actions: Sequence[Action]) -> Union[Probs,Tuple[Probs,Info]]:
+        ...
+
+    @abstractmethod
+    def learn(self, context: Context, actions: Sequence[Action], action: Action, feedback: Feedback, probability: float, info: Info):
+        ...
+
+class SafeLearner(CbLearner):
     """A wrapper for learner-likes that guarantees interface consistency."""
 
-    def __init__(self, learner: Learner) -> None:
+    def __init__(self, learner: CbLearner) -> None:
         """Instantiate a SafeLearner.
 
         Args:
@@ -104,8 +124,8 @@ class SafeLearner(Learner):
 
         return (predict,info)
 
-    def learn(self, context: Context, action: Action, reward: float, probability:float, info: Info) -> None:
-        self._learner.learn(context, action, reward, probability, info)
+    def learn(self, *args, **kwargs) -> None:
+        self._learner.learn(*args, **kwargs)
 
     def __str__(self) -> str:
         return self.full_name

@@ -4,6 +4,7 @@ import requests
 
 from pathlib import Path
 
+from coba.contexts import CobaContext, DiskCacher
 from coba.pipes import DiskSource, UrlSource
 from coba.exceptions import CobaException
 from coba.environments import Environments, Environment, Shuffle, Take
@@ -34,6 +35,11 @@ class MockResponse:
         pass
 
 class Environments_Tests(unittest.TestCase):
+    def test_set_caching_directory(self):
+        Environments.set_caching_directory('abc')
+        self.assertIsInstance(CobaContext.cacher, DiskCacher)
+        self.assertEqual("abc", CobaContext.cacher.cache_directory)
+
     def test_from_definition_path(self):
         if Path("coba/tests/.temp/from_file.env").exists():
             Path("coba/tests/.temp/from_file.env").unlink()
@@ -428,6 +434,17 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(4     , len(interactions[0].actions[0]))
         self.assertEqual(['xa'], env.params['reward_features'])
         self.assertEqual(5     , env.params['seed'])
+
+    def test_grounded(self):
+        envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)        
+        envs = envs.grounded(10,5,4,2,3)
+        env  = envs[0]
+
+        self.assertEqual(10,env.params['n_users'])
+        self.assertEqual(5,env.params['n_normal'])
+        self.assertEqual(4,env.params['n_words'])
+        self.assertEqual(2,env.params['n_good'])
+        self.assertEqual(3,env.params['igl_seed'])
 
     def test_singular_filter(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1))

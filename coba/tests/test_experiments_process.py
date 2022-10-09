@@ -5,7 +5,7 @@ from typing import cast, Iterable
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation
 from coba.pipes        import Pipes
-from coba.learners     import Learner
+from coba.learners     import CbLearner
 
 from coba.experiments.results import Result
 from coba.experiments.process import (
@@ -15,7 +15,7 @@ from coba.experiments.process import (
 )
 
 #for testing purposes
-class ModuloLearner(Learner):
+class ModuloLearner(CbLearner):
     def __init__(self, param:str="0"):
         self._param = param
 

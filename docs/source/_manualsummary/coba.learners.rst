@@ -50,7 +50,7 @@ Vowpal Contextual Bandit Learners
       :toctree: ../_autosummary
       :template: class_with_ctor.rst
 
-      VowpalArgsLearner
+      VowpalLearner
       VowpalEpsilonLearner
       VowpalSoftmaxLearner
       VowpalBagLearner

@@ -11,7 +11,7 @@ from coba.exceptions import CobaException
 from coba.registry import JsonMakerV1, CobaRegistry
 from coba.utilities import coba_exit
 
-from coba.contexts.cachers import Cacher
+from coba.contexts.cachers import Cacher, DiskCacher
 from coba.contexts.loggers import Logger
 
 # To support class properties before python 3.9 we must implement our properties directly
@@ -49,12 +49,13 @@ class CobaContext_meta(type):
     Coba context can either be set directly or set in a .coba configuration file.
     """
 
-    _api_keys     = None
-    _cacher       = None
-    _logger       = None
-    _experiment   = None
-    _search_paths = [Path.home() , Path.cwd(), Path(sys.path[0])]
-    _store        = {}
+    _api_keys      = None
+    _cacher        = None
+    _logger        = None
+    _experiment    = None
+    _search_paths  = [Path.home() , Path.cwd(), Path(sys.path[0])]
+    _store         = {}
+    _learning_info = {}
 
     def _load_file_configs(cls) -> Dict[str,Any]:
         config = {}
@@ -158,7 +159,7 @@ class CobaContext_meta(type):
         return cls._cacher
 
     @cacher.setter
-    def cacher(cls, value: Cacher) -> None:
+    def cacher(cls, value: Union[Cacher,str]) -> None:
         cls._cacher = value
 
     @property
@@ -198,32 +199,17 @@ class CobaContext_meta(type):
     def search_paths(cls, value:Sequence[Union[str,Path]]) -> None:
         cls._search_paths = [ Path(path) if isinstance(path,str) else path for path in value  ]
 
-class CobaContext(metaclass=CobaContext_meta):
-    """To support class properties before python 3.9 we must implement our properties directly
-       on a meta class. Using class properties rather than class variables is done to allow
-       lazy loading. Lazy loading moves errors to execution time instead of import time making
-       them easier to debug as well as removing the potential for import time circular references.
-    """ #I'm not sure some of the claims in the docstring are still true...
-    pass
-
-class InteractionContext_meta(type):
-    """Global context scoped to the currently executing learner on a process.
-
-    At this time this exists primarily to allow Learners to log more in-depth information about
-    their performance and state for algorithm debugging and analysis after an experiment is finished.
-    """
-    _learner_info = dict()
-
     @property
-    def learner_info(cls) -> Dict[str,Any]:
-        """Information that can be accessed by EvaluationTasks to store information at Interaction granularity.
+    def learning_info(cls) -> Dict[str,Any]:
+        """Information that will be stored in Result.interactions for more in-depth analysis later.
 
         These values are stored in the Result.interactions table. This means leaners can log information on
         each learn/predict call and researchers can access it after the experiment for in-depth analysis.
         """
-        return cls._learner_info
+        cls._learning_info = cls._learning_info if cls._learning_info else {}
+        return cls._learning_info
 
-class InteractionContext(metaclass=InteractionContext_meta):
+class CobaContext(metaclass=CobaContext_meta):
     """To support class properties before python 3.9 we must implement our properties directly
        on a meta class. Using class properties rather than class variables is done to allow
        lazy loading. Lazy loading moves errors to execution time instead of import time making

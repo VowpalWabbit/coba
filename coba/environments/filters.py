@@ -670,3 +670,4 @@ class Noise(EnvironmentFilter):
     def _noise(self, value:Union[None,float,str], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]) -> float:
 
         return value if not isinstance(value,(int,float)) else noiser(value, rng)
+    

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from coba.exceptions import CobaExit
 from coba.pipes import JsonEncode, ConsoleSink, DiskSink, NullSink
-from coba.contexts import InteractionContext, CobaContext, DiskCacher, IndentLogger, NullLogger
+from coba.contexts import CobaContext, DiskCacher, IndentLogger, NullLogger
 
 class CobaContext_Tests(unittest.TestCase):
 
@@ -19,6 +19,7 @@ class CobaContext_Tests(unittest.TestCase):
         CobaContext._experiment = None
         CobaContext._store = {}
         CobaContext._config_backing = None
+        CobaContext._learning_info = None
 
     def tearDown(self) -> None:
         if Path("coba/tests/.temp/.coba").exists():
@@ -39,6 +40,7 @@ class CobaContext_Tests(unittest.TestCase):
         self.assertEqual(CobaContext.experiment.chunk_by, 'source')
         self.assertEqual(CobaContext.api_keys, {})
         self.assertEqual(CobaContext.store, {})
+        self.assertEqual(CobaContext.learning_info, {})
 
     def test_config_file_disk_cacher_home1(self):
 
@@ -219,16 +221,11 @@ class CobaContext_Tests(unittest.TestCase):
         self.assertIn("TypeError: unsupported operand type(s)", lines[-1])
         self.assertTrue(str(e.exception).endswith("\n"))
 
-class InteractionContext_Tests(unittest.TestCase):
-
-    def setUp(self) -> None:
-        InteractionContext._info = None
-
-    def tearDown(self) -> None:
-        InteractionContext._info = None
-
-    def test_learn_info_default(self):
-        self.assertIsInstance(InteractionContext.learner_info, dict)
+    def test_learning_info_persistence(self):
+        CobaContext.learning_info['a'] = 1
+        self.assertEqual({'a':1},CobaContext.learning_info)
+        CobaContext.learning_info.clear()
+        self.assertEqual({},CobaContext.learning_info)
 
 if __name__ == '__main__':
     unittest.main()

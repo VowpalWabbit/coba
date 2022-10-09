@@ -19,7 +19,6 @@ class Interaction:
         Args:
             context: The context in which the interaction occured.
         """
-
         self._context = context
         self._kwargs  = kwargs
 

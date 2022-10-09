@@ -1,15 +1,16 @@
 """This module contains all public learners and learner interfaces."""
 
-from coba.learners.primitives import Learner, SafeLearner
+from coba.learners.primitives import CbLearner, IglLearner, SafeLearner
 from coba.learners.bandit     import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
 from coba.learners.corral     import CorralLearner
 from coba.learners.vowpal     import VowpalMediator
-from coba.learners.vowpal     import VowpalArgsLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner
+from coba.learners.vowpal     import VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner, VowpalBagLearner
 from coba.learners.vowpal     import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner
 from coba.learners.linucb     import LinUCBLearner
 
 __all__ = [
-    'Learner',
+    'CbLearner',
+    'IglLearner',
     'SafeLearner',
     'RandomLearner',
     'FixedLearner',
@@ -17,7 +18,7 @@ __all__ = [
     'UcbBanditLearner',
     'CorralLearner',
     'LinUCBLearner',
-    'VowpalArgsLearner',
+    'VowpalLearner',
     'VowpalEpsilonLearner',
     'VowpalSoftmaxLearner',
     'VowpalBagLearner',
@@ -25,5 +26,5 @@ __all__ = [
     'VowpalRegcbLearner',
     'VowpalSquarecbLearner',
     'VowpalOffPolicyLearner',
-    'VowpalMediator'
+    'VowpalMediator',
 ]

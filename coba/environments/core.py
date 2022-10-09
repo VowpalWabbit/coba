@@ -1,8 +1,10 @@
 import collections.abc
 
+from pathlib import Path
 from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable
 from coba.backports import Literal
 
+from coba.contexts   import CobaContext,DiskCacher
 from coba.random     import CobaRandom
 from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode
 from coba.exceptions import CobaException
@@ -21,9 +23,14 @@ from coba.environments.simulated.synthetics import LinearSyntheticSimulation, Ne
 from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
+from coba.environments.simulated.grounded   import ToInteractionGrounded
 
 class Environments:
     """A friendly wrapper around commonly used environment functionality."""
+
+    @staticmethod
+    def set_caching_directory(path:Union[str,Path]) -> None:
+        CobaContext.cacher = DiskCacher(path)
 
     @overload
     @staticmethod
@@ -281,6 +288,10 @@ class Environments:
     def materialize(self) -> 'Environments':
         """Convert from generated environments to materialized environments."""
         return Environments([MemorySimulation(list(env.read()), env.params) for env in self])
+
+    def grounded(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int=1) -> 'Environments':
+        """Convert from simulated environments to interaction grounded environments."""
+        return self.filter(ToInteractionGrounded(n_users, n_normal, n_words, n_good, seed))
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""

@@ -5,7 +5,7 @@ from itertools import groupby, islice
 from collections import defaultdict
 from typing import Iterable, Sequence, Any, Optional, Tuple, Union
 
-from coba.learners import Learner
+from coba.learners import CbLearner
 from coba.contexts import CobaContext
 from coba.pipes import Source, Filter
 from coba.pipes.core import SourceFilters
@@ -20,7 +20,7 @@ class WorkItem:
         environ_id: Optional[int],
         learner_id: Optional[int],
         environ   : Optional[SimulatedEnvironment],
-        learner   : Optional[Learner],
+        learner   : Optional[CbLearner],
         task      : Union[LearnerTask, EnvironmentTask, EvaluationTask]) -> None:
 
         self.learner_id = learner_id
@@ -33,7 +33,7 @@ class CreateWorkItems(Source[Iterable[WorkItem]]):
 
     def __init__(self,
         environs        : Sequence[SimulatedEnvironment],
-        learners        : Sequence[Learner],
+        learners        : Sequence[CbLearner],
         learner_task    : LearnerTask,
         environment_task: EnvironmentTask,
         evaluation_task : EvaluationTask) -> None:

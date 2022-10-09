@@ -19,6 +19,7 @@ from coba.environments.simulated.synthetics import KernelSyntheticSimulation, ML
 from coba.environments.simulated.openml     import OpenmlSimulation, OpenmlSource
 from coba.environments.simulated.supervised import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
 from coba.environments.simulated.serialized import SerializedSimulation
+from coba.environments.simulated.grounded   import ToInteractionGrounded
 
 from coba.environments.logged.primitives import LoggedInteraction, LoggedEnvironment
 from coba.environments.warmstart.primitives import WarmStartEnvironment
@@ -64,5 +65,6 @@ __all__ = [
     'Identity',
     'Sparse',
     'Riffle',
-    'Flatten'
+    'Flatten',
+    'ToInteractionGrounded'
 ]

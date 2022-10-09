@@ -6,9 +6,9 @@ during an experiment evaluation, and the Result datastructures returned after ex
 
 from coba.experiments.core    import Experiment
 from coba.experiments.results import Result, Table
-from coba.experiments.tasks   import LearnerTask, SimpleLearnerTask
-from coba.experiments.tasks   import EnvironmentTask, SimpleEnvironmentTask, ClassEnvironmentTask
-from coba.experiments.tasks   import EvaluationTask, OnlineOnPolicyEvalTask, OnlineOffPolicyEvalTask, OnlineWarmStartEvalTask
+from coba.experiments.tasks   import LearnerTask, SimpleLearnerInfo
+from coba.experiments.tasks   import EnvironmentTask, SimpleEnvironmentInfo, ClassEnvironmentInfo
+from coba.experiments.tasks   import EvaluationTask, OnlineOnPolicyEval, OnlineOffPolicyEval, OnlineWarmStartEval
 
 __all__ = [
     'Result',
@@ -17,10 +17,10 @@ __all__ = [
     'LearnerTask',
     'EnvironmentTask',
     'EvaluationTask',
-    'SimpleLearnerTask',
-    'ClassEnvironmentTask',
-    'SimpleEnvironmentTask',
-    'OnlineOnPolicyEvalTask',
-    'OnlineOffPolicyEvalTask',
-    'OnlineWarmStartEvalTask'
+    'SimpleLearnerInfo',
+    'ClassEnvironmentInfo',
+    'SimpleEnvironmentInfo',
+    'OnlineOnPolicyEval',
+    'OnlineOffPolicyEval',
+    'OnlineWarmStartEval'
 ]

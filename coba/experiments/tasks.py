@@ -12,17 +12,17 @@ from typing import Iterable, Any, Dict, Sequence, Hashable, Union
 from coba.statistics import percentile
 from coba.exceptions import CobaExit, CobaException
 from coba.random import CobaRandom
-from coba.learners import Learner, SafeLearner
+from coba.learners import CbLearner, SafeLearner, IglLearner
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker
-from coba.contexts import InteractionContext
+from coba.contexts import CobaContext
 from coba.environments import Environment, Interaction, SimulatedInteraction, LoggedInteraction, SafeEnvironment
 
 class LearnerTask(ABC):
     """A task which describes a Learner."""
 
     @abstractmethod
-    def process(self, learner: Learner) -> Dict[Any,Any]:
+    def process(self, learner: CbLearner) -> Dict[Any,Any]:
         """Process the LearnerTask.
 
         Args:
@@ -53,7 +53,7 @@ class EvaluationTask(ABC):
     """A task which evaluates a Learner on an Environment."""
 
     @abstractmethod
-    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
+    def process(self, learner: CbLearner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
         """Process the EvaluationTask.
 
         Args:
@@ -65,7 +65,7 @@ class EvaluationTask(ABC):
         """
         ...
 
-class OnlineOnPolicyEvalTask(EvaluationTask):
+class OnlineOnPolicyEval(EvaluationTask):
     """Evaluate a Learner on a SimulatedEnvironment."""
 
     def __init__(self, 
@@ -90,7 +90,7 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
         self._time    = time
         self._seed    = seed
 
-    def process(self, learner: Learner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
+    def process(self, learner: CbLearner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
 
         random = CobaRandom(self._seed)
 
@@ -99,7 +99,7 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
 
         for interaction in interactions:
 
-            InteractionContext.learner_info.clear()
+            CobaContext.learning_info.clear()
 
             context = interaction.context
             actions = interaction.actions
@@ -117,7 +117,6 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
             learner.learn(context, action, reward, probability, info)
             learn_time = time.time() - start_time
 
-            learner_info     = InteractionContext.learner_info
             interaction_info = { k:(v[action_index] if isinstance(v,(list,tuple)) else v) for k,v in interaction.kwargs.items() }
 
             eval_stats = {
@@ -140,15 +139,15 @@ class OnlineOnPolicyEvalTask(EvaluationTask):
 
             eval_times = {} if not self._time else {"predict_time": predict_time, "learn_time": learn_time}
 
-            yield {**interaction_info, **learner_info, **eval_times, **{k:eval_metrics[k] for k in self._metrics}}
+            yield {**CobaContext.learning_info, **interaction_info, **eval_times, **{k:eval_metrics[k] for k in self._metrics}}
 
-class OnlineOffPolicyEvalTask(EvaluationTask):
+class OnlineOffPolicyEval(EvaluationTask):
     """Evaluate a Learner on a LoggedEnvironment."""
 
     def __init__(self, time:bool = True) -> None:
         self._time = time
 
-    def process(self, learner: Learner, interactions: Iterable[LoggedInteraction]) -> Iterable[Dict[Any,Any]]:
+    def process(self, learner: CbLearner, interactions: Iterable[LoggedInteraction]) -> Iterable[Dict[Any,Any]]:
 
         learn_time = 0
         predict_time = 0
@@ -158,7 +157,7 @@ class OnlineOffPolicyEvalTask(EvaluationTask):
 
         for interaction in interactions:
 
-            InteractionContext.learner_info.clear()
+            CobaContext.learning_info.clear()
 
             if not interaction.actions:
                 info             = None
@@ -185,12 +184,11 @@ class OnlineOffPolicyEvalTask(EvaluationTask):
             learner.learn(interaction.context, interaction.action, reveal, prob, info)
             learn_time = time.time()-start_time
 
-            learner_info  = InteractionContext.learner_info
-            time_info     = {"predict_time": predict_time, "learn_time": learn_time} if self._time else {}
+            time_info = {"predict_time": predict_time, "learn_time": learn_time} if self._time else {}
 
-            yield {**interaction_info, **learner_info, **time_info}
+            yield { **CobaContext.learning_info, **interaction_info, **time_info}
 
-class OnlineWarmStartEvalTask(EvaluationTask):
+class OnlineWarmStartEval(EvaluationTask):
     """Evaluate a Learner on a WarmStartEnvironment."""
 
     def __init__(self, time:bool = True, seed:int = 1) -> None:
@@ -202,7 +200,7 @@ class OnlineWarmStartEvalTask(EvaluationTask):
         self._seed = seed
         self._time = time
 
-    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
+    def process(self, learner: CbLearner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
 
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
@@ -212,10 +210,10 @@ class OnlineWarmStartEvalTask(EvaluationTask):
         logged_interactions    = takewhile(lambda i: isinstance(i,LoggedInteraction), separable_interactions)
         simulated_interactions = separable_interactions
 
-        for row in OnlineOffPolicyEvalTask(time=self._time).process(learner, logged_interactions):
+        for row in OnlineOffPolicyEval(time=self._time).process(learner, logged_interactions):
             yield row
 
-        for row in OnlineOnPolicyEvalTask(time=self._time, seed=self._seed).process(learner, simulated_interactions):
+        for row in OnlineOnPolicyEval(time=self._time, seed=self._seed).process(learner, simulated_interactions):
             yield row
 
     def _repeat_first_simulated_interaction(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
@@ -230,21 +228,21 @@ class OnlineWarmStartEvalTask(EvaluationTask):
 
             any_simulated_found = any_simulated_found or isinstance(interaction, SimulatedInteraction)
 
-class SimpleLearnerTask(LearnerTask):
+class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""
 
-    def process(self, item: Learner) -> Dict[Any,Any]:
+    def process(self, item: CbLearner) -> Dict[Any,Any]:
         item = SafeLearner(item)
         return {"full_name": item.full_name, **item.params}
 
-class SimpleEnvironmentTask(EnvironmentTask):
+class SimpleEnvironmentInfo(EnvironmentTask):
     """Describe an Environment using its Environment and Filter parameters."""
 
     def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
         if not isinstance(environment, SafeEnvironment): environment = SafeEnvironment(environment)
         return { k:v for k,v in environment.params.items() if v is not None }
 
-class ClassEnvironmentTask(EnvironmentTask):
+class ClassEnvironmentInfo(EnvironmentTask):
     """Describe an Environment made from a Classification dataset.
 
     In addition to the Environment's parameters this task calculates a number of classification
@@ -390,7 +388,7 @@ class ClassEnvironmentTask(EnvironmentTask):
         except CobaExit:
             pass
 
-        return { **SimpleEnvironmentTask().process(environment, interactions), **env_stats }
+        return { **SimpleEnvironmentInfo().process(environment, interactions), **env_stats }
 
     def _entropy(self, items: Sequence[Hashable]) -> float:
         return -sum([count/len(items)*math.log2(count/len(items)) for count in collections.Counter(items).values()])
@@ -565,3 +563,38 @@ class ClassEnvironmentTask(EnvironmentTask):
         lim_f  = { f: percentile(X_by_f[f],[lower,upper]) for f in range(len(X_by_f)) }
         X_bin  = [ [ round((n_bins-1)*(x[f]-lim_f[f][0])/((lim_f[f][1]-lim_f[f][0]) or 1)) for f in range(len(X_by_f)) ] for x in X]
         return X_bin
+
+class InteractionGroundedEval(EvaluationTask):
+
+    def __init__(self, seed:int = 1) -> None:
+        self._seed = seed
+
+    def process(self, learner: IglLearner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
+
+        rng = CobaRandom(self._seed)
+
+        if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
+
+        for interaction in interactions:
+
+            CobaContext.learning_info.clear()
+
+            context   = interaction.context
+            actions   = interaction.actions
+            rewards   = interaction.rewards
+            feedbacks = interaction.kwargs['feedbacks']
+            userid    = interaction.kwargs['userid']
+            isnormal  = interaction.kwargs['isnormal']
+
+            probabilities,info = learner.predict(context=context, actions=interaction.actions)
+
+            action       = rng.choice(actions, probabilities)
+            action_index = actions.index(action)
+            reward       = rewards[action_index]
+            feedback     = feedbacks[action_index]
+            probability  = probabilities[action_index]
+
+            learner.learn(context, actions, action, feedback, probability, info)
+
+            #Anything can be returned here for later analysis. I simply guessed at what was needed.
+            yield { "reward": reward, "feedback": feedback, "userid": userid, "isnormal": isnormal, "probability": probability, **CobaContext.learning_info}

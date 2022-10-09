@@ -6,11 +6,11 @@ from coba.backports import Literal
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.environments import Context, Action
-from coba.contexts import InteractionContext
+from coba.contexts import CobaContext
 
-from coba.learners.primitives import Learner, SafeLearner, Probs, Info
+from coba.learners.primitives import CbLearner, SafeLearner, Probs, Info
 
-class CorralLearner(Learner):
+class CorralLearner(CbLearner):
     """A meta-learner that takes a collection of learners and determines
     which is best in an environment.
 
@@ -24,7 +24,7 @@ class CorralLearner(Learner):
     """
 
     def __init__(self,
-        learners: Sequence[Learner],
+        learners: Sequence[CbLearner],
         eta     : float = 0.075,
         T       : float = math.inf,
         mode    : Literal["importance","rejection","off-policy"] ="importance",
@@ -150,7 +150,7 @@ class CorralLearner(Learner):
         base_pbar_data    = { f"pbar_{i}"   : self._p_bars[i]             for i in range(len(self._base_learners)) }
         predict_data      = { "predict"     : probability, **base_predict_data, **base_pbar_data }
 
-        InteractionContext.learner_info.update({**predict_data, **base_predict_data, **base_pbar_data})
+        CobaContext.learning_info.update({**predict_data, **base_predict_data, **base_pbar_data})
 
     @staticmethod
     def _log_barrier_omd(ps, losses, etas) -> Sequence[float]:

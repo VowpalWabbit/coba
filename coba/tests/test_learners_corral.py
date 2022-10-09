@@ -2,7 +2,7 @@ import unittest
 
 from statistics import mean
 
-from coba.contexts import InteractionContext
+from coba.contexts import CobaContext
 from coba.random import CobaRandom
 from coba.learners import CorralLearner, FixedLearner, LinUCBLearner
 
@@ -15,7 +15,7 @@ class ReceivedLearnFixedLearner(FixedLearner):
 
     def learn(self, context, action, reward, probability, info) -> None:
         self.received_learn = (context, action, reward, probability)
-        InteractionContext.learner_info.update({self.key:1})
+        CobaContext.learning_info.update({self.key:1})
 
 class FamilyLearner:
     def __init__(self, family):
@@ -74,7 +74,7 @@ class CorralLearner_Tests(unittest.TestCase):
         reward      = 1
 
         learner.learn(None, action, reward, probability, info)
-        info = InteractionContext.learner_info
+        info = CobaContext.learning_info
 
         self.assertDictEqual({'a':1,'b':1, **info}, info)
         self.assertEqual((None, action, reward, predict[0]), base1.received_learn)
