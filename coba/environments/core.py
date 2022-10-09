@@ -14,7 +14,7 @@ from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemp
 
 from coba.environments          .primitives import Environment
 from coba.environments.logged   .primitives import LoggedEnvironment
-from coba.environments.simulated.primitives import SimulatedEnvironment
+from coba.environments.simulated.primitives import SimulatedEnvironment, MemorySimulation
 from coba.environments.warmstart.primitives import WarmStartEnvironment
 
 from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
@@ -277,6 +277,10 @@ class Environments:
     def flat(self) -> 'Environments':
         """Flatten environment's context and actions."""
         return self.filter(Flatten())
+
+    def materialize(self) -> 'Environments':
+        """Convert from generated environments to materialized environments."""
+        return Environments([MemorySimulation(list(env.read()), env.params) for env in self])
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""

@@ -28,7 +28,7 @@ class SimulatedInteraction(Interaction):
         if rewards and len(rewards) != len(actions):
             raise CobaException("Interaction reward counts must equal action counts.")
 
-        self._actions  = actions
+        self._actions = actions
         self._rewards = rewards
 
         super().__init__(context, **kwargs)
@@ -46,7 +46,6 @@ class SimulatedInteraction(Interaction):
     def rewards(self) -> Sequence[float]:
         """The reward for each action in the interaction."""
         return self._rewards
-
 
 class SimulatedEnvironment(Environment):
     """An environment made from SimulatedInteractions."""

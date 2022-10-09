@@ -410,6 +410,25 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual('*', envs[0].params['sort'])
 
+    def test_materialize(self):
+        envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
+        env  = envs[0]
+        self.assertNotIsInstance(env.read(),list)
+
+        envs = envs.materialize()
+        env  = envs[0]
+        self.assertIsInstance(env.read(),list)
+
+        interactions = env.read()
+
+        self.assertEqual(1     , len(envs))
+        self.assertEqual(100   , len(interactions))
+        self.assertEqual(2     , len(interactions[0].actions))
+        self.assertEqual(3     , len(interactions[0].context))
+        self.assertEqual(4     , len(interactions[0].actions[0]))
+        self.assertEqual(['xa'], env.params['reward_features'])
+        self.assertEqual(5     , env.params['seed'])
+
     def test_singular_filter(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1))
 

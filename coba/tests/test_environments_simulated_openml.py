@@ -1361,13 +1361,13 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual((29,1180,(1,0),(1,0)), interactions[1].context)
         self.assertEqual((27,1020,(0,1),(0,1)), interactions[2].context)
 
-        self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[0].actions)
-        self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[1].actions)
-        self.assertEqual([(0,0,1), (1,0,0), (0,1,0)], interactions[2].actions)
+        self.assertEqual([(1,0,0), (0,1,0), (0,0,1)], interactions[0].actions)
+        self.assertEqual([(1,0,0), (0,1,0), (0,0,1)], interactions[1].actions)
+        self.assertEqual([(1,0,0), (0,1,0), (0,0,1)], interactions[2].actions)
 
-        self.assertEqual([0 ,  1, .5], [ round(r,2) for r in interactions[0].rewards])
-        self.assertEqual([.5, .5,  1], [ round(r,2) for r in interactions[1].rewards])
-        self.assertEqual([1 ,  0, .5], [ round(r,2) for r in interactions[2].rewards])
+        self.assertEqual([ 1, .5,  0], [ round(r,2) for r in interactions[0].rewards])
+        self.assertEqual([.5,  1, .5], [ round(r,2) for r in interactions[1].rewards])
+        self.assertEqual([ 0, .5,  1], [ round(r,2) for r in interactions[2].rewards])
 
     def test_str(self):
         self.assertEqual('Openml(data=150, cat_as_str=False, drop_missing=True)', str(OpenmlSimulation(150)))

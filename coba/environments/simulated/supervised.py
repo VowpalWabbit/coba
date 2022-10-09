@@ -4,10 +4,9 @@ from itertools import chain, repeat
 from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping
 from coba.backports import Literal
 
-from coba.encodings import OneHotEncoder
-from coba.random import CobaRandom
 from coba.pipes import Pipes, Source, IterableSource, Structure, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
+from coba.encodings import OneHotEncoder
 from coba.statistics import percentile
 
 from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
@@ -223,7 +222,7 @@ class SupervisedSimulation(SimulatedEnvironment):
         else:
             #how can we tell the difference between featurized labels and multilabels????
             #for now we will assume multilables will be passed in as arrays as opposed to tuples...
-            if not isinstance(labels[0], collections.abc.Hashable):
+            if isinstance(labels[0], list):
                 actions = list(chain.from_iterable(labels))
             else:
                 actions = list(labels)
@@ -233,7 +232,7 @@ class SupervisedSimulation(SimulatedEnvironment):
             reward        = lambda action,label: int(is_label(action,label) or in_multilabel(action,label))
 
         contexts = features
-        actions  = CobaRandom(1).shuffle(sorted(set(actions)))
+        actions  = sorted(set(actions),reverse=isinstance(actions[0],tuple))
         rewards  = [ [ reward(action,label) for action in actions ] for label in labels ]
 
         for c,a,r in zip(contexts, repeat(actions), rewards):

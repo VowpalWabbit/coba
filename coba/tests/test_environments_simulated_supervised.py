@@ -44,13 +44,13 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual((8.2,29,1180,(0,1)) , interactions[1].context)
         self.assertEqual((8.3,27,1020,(1,0)), interactions[2].context)
 
-        self.assertEqual([(0,1),(1,0)], interactions[0].actions)
-        self.assertEqual([(0,1),(1,0)], interactions[1].actions)
-        self.assertEqual([(0,1),(1,0)], interactions[2].actions)
+        self.assertEqual([(1,0),(0,1)], interactions[0].actions)
+        self.assertEqual([(1,0),(0,1)], interactions[1].actions)
+        self.assertEqual([(1,0),(0,1)], interactions[2].actions)
 
-        self.assertEqual([0,1], interactions[0].rewards)
-        self.assertEqual([0,1], interactions[1].rewards)
-        self.assertEqual([1,0], interactions[2].rewards)
+        self.assertEqual([1,0], interactions[0].rewards)
+        self.assertEqual([1,0], interactions[1].rewards)
+        self.assertEqual([0,1], interactions[2].rewards)
 
     def test_source_reader_regression_less_than_10(self):
 
@@ -83,13 +83,13 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual((29,1180,(1,0),(0,1)), interactions[1].context)
         self.assertEqual((27,1020,(0,1),(1,0)), interactions[2].context)
 
-        self.assertEqual([(0,0,1),(1,0,0),(0,1,0)], interactions[0].actions)
-        self.assertEqual([(0,0,1),(1,0,0),(0,1,0)], interactions[1].actions)
-        self.assertEqual([(0,0,1),(1,0,0),(0,1,0)], interactions[2].actions)
+        self.assertEqual([(1,0,0),(0,1,0),(0,0,1)], interactions[0].actions)
+        self.assertEqual([(1,0,0),(0,1,0),(0,0,1)], interactions[1].actions)
+        self.assertEqual([(1,0,0),(0,1,0),(0,0,1)], interactions[2].actions)
 
-        self.assertEqual([0 , 1, .5], [round(r,2) for r in interactions[0].rewards])
-        self.assertEqual([.5, .5, 1], [round(r,2) for r in interactions[1].rewards])
-        self.assertEqual([1 , 0, .5], [round(r,2) for r in interactions[2].rewards])
+        self.assertEqual([ 1, .5,  0], [round(r,2) for r in interactions[0].rewards])
+        self.assertEqual([.5,  1, .5], [round(r,2) for r in interactions[1].rewards])
+        self.assertEqual([ 0, .5,  1], [round(r,2) for r in interactions[2].rewards])
 
     def test_source_reader_too_large_take_no_min(self):
 
@@ -208,12 +208,12 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual((8.2,29,1180,(0,1)), interactions[1].context)
         self.assertEqual((8.3,27,1020,(1,0)), interactions[2].context)
 
-        self.assertEqual([1,4,3,2], interactions[0].actions)
-        self.assertEqual([1,4,3,2], interactions[1].actions)
-        self.assertEqual([1,4,3,2], interactions[2].actions)
+        self.assertEqual([1,2,3,4], interactions[0].actions)
+        self.assertEqual([1,2,3,4], interactions[1].actions)
+        self.assertEqual([1,2,3,4], interactions[2].actions)
 
         self.assertEqual([1,1,1,1], interactions[0].rewards)
-        self.assertEqual([1,0,0,1], interactions[1].rewards)
+        self.assertEqual([1,1,0,0], interactions[1].rewards)
         self.assertEqual([1,0,0,0], interactions[2].rewards)
 
     def test_X_Y_regression_more_than_10(self):
@@ -238,11 +238,11 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual(11, interactions[11].context)
 
         actions = [
-            (0, 0, 0, 0, 0, 0, 0, 0, 1, 0), (0, 1, 0, 0, 0, 0, 0, 0, 0, 0),
+            (1, 0, 0, 0, 0, 0, 0, 0, 0, 0), (0, 1, 0, 0, 0, 0, 0, 0, 0, 0),
+            (0, 0, 1, 0, 0, 0, 0, 0, 0, 0), (0, 0, 0, 1, 0, 0, 0, 0, 0, 0),
             (0, 0, 0, 0, 1, 0, 0, 0, 0, 0), (0, 0, 0, 0, 0, 1, 0, 0, 0, 0),
-            (0, 0, 0, 1, 0, 0, 0, 0, 0, 0), (0, 0, 0, 0, 0, 0, 0, 0, 0, 1),
-            (0, 0, 1, 0, 0, 0, 0, 0, 0, 0), (0, 0, 0, 0, 0, 0, 1, 0, 0, 0),
-            (0, 0, 0, 0, 0, 0, 0, 1, 0, 0), (1, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            (0, 0, 0, 0, 0, 0, 1, 0, 0, 0), (0, 0, 0, 0, 0, 0, 0, 1, 0, 0),
+            (0, 0, 0, 0, 0, 0, 0, 0, 1, 0), (0, 0, 0, 0, 0, 0, 0, 0, 0, 1),
         ]
 
         self.assertEqual(actions, interactions[0].actions)

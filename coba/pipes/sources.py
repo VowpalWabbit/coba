@@ -109,12 +109,10 @@ class IterableSource(Source[Iterable[Any]]):
         Args:
             items: The iterable we should read from.
         """
-
         self.iterable = [] if iterable is None else iterable
 
     def read(self) -> Iterable[Any]:
-        for item in self.iterable:
-            yield item
+        return self.iterable
 
 class LambdaSource(Source[Any]):
     """A source which reads from a callable method."""
