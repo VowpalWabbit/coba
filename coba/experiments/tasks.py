@@ -12,7 +12,7 @@ from typing import Iterable, Any, Dict, Sequence, Hashable, Union
 from coba.statistics import percentile
 from coba.exceptions import CobaExit, CobaException
 from coba.random import CobaRandom
-from coba.learners import CbLearner, SafeLearner, IglLearner
+from coba.learners import CbLearner, SafeLearner, IgLearner
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker
 from coba.contexts import CobaContext
@@ -564,12 +564,12 @@ class ClassEnvironmentInfo(EnvironmentTask):
         X_bin  = [ [ round((n_bins-1)*(x[f]-lim_f[f][0])/((lim_f[f][1]-lim_f[f][0]) or 1)) for f in range(len(X_by_f)) ] for x in X]
         return X_bin
 
-class InteractionGroundedEval(EvaluationTask):
+class OnlineGroundedEval(EvaluationTask):
 
     def __init__(self, seed:int = 1) -> None:
         self._seed = seed
 
-    def process(self, learner: IglLearner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
+    def process(self, learner: IgLearner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
 
         rng = CobaRandom(self._seed)
 

@@ -48,7 +48,7 @@ class ToInteractionGrounded(EnvironmentFilter):
                 max_index              = interaction.rewards.index(max(interaction.rewards))
                 igl_rewards            = [0]*len(interaction.rewards)
                 igl_rewards[max_index] = 1
-            
+
             userid    = rng.choice(self.userids)
             good, bad = (self.good_words, self.bad_words) if userid in normalids else (self.bad_words, self.good_words)
             words     = [ (rng.choice(good),) if r==1 else (rng.choice(bad),) for r in igl_rewards ]

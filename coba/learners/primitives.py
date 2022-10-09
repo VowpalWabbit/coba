@@ -10,7 +10,7 @@ Probs    = Sequence[float]
 Feedback = Any
 
 class CbLearner(ABC):
-    """The CbLearner interface."""
+    """The Learner interface for contextual bandit learning."""
 
     @property
     def params(self) -> Dict[str,Any]: # pragma: no cover
@@ -51,7 +51,8 @@ class CbLearner(ABC):
         """
         ...
 
-class IglLearner(ABC):
+class IgLearner(ABC):
+    """The Learner interface for interaction grounded learning."""
 
     @property
     def params(self) -> Dict[str,Any]: # pragma: no cover

@@ -8,12 +8,12 @@ import warnings
 from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext
 from coba.environments import SimulatedInteraction, LoggedInteraction, Shuffle, SupervisedSimulation, Noise
-from coba.learners     import CbLearner, IglLearner
+from coba.learners     import CbLearner, IgLearner
 from coba.pipes        import Pipes
 
 from coba.experiments.tasks import (
     OnlineOnPolicyEval, ClassEnvironmentInfo, SimpleEnvironmentInfo, 
-    OnlineOffPolicyEval, OnlineWarmStartEval, InteractionGroundedEval
+    OnlineOffPolicyEval, OnlineWarmStartEval, OnlineGroundedEval
 )
 
 #for testing purposes
@@ -52,7 +52,7 @@ class RecordingLearner(CbLearner):
 
         self.learn_calls.append((context, action, reward, probability, info))
 
-class DummyIglLearner(IglLearner):
+class DummyIglLearner(IgLearner):
 
     def __init__(self, predictions):
         self._predictions = predictions
@@ -599,7 +599,7 @@ class InteractionGroundedEval_Tests(unittest.TestCase):
             dict(reward=0,feedback=9,userid=1,isnormal=True ,probability=1,n_predict=2)
         ]
 
-        actual_results = list(InteractionGroundedEval().process(learner,interactions))
+        actual_results = list(OnlineGroundedEval().process(learner,interactions))
 
         self.assertEqual(expected_results, actual_results)
         self.assertEqual(expected_predict_calls, learner._predict_calls)

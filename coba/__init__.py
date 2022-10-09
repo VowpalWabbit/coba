@@ -1,6 +1,6 @@
-from coba.contexts import CobaContext
+from coba.contexts     import CobaContext
 from coba.environments import Environments
-from coba.experiments import Experiment, Result
+from coba.experiments  import Experiment, Result, OnlineGroundedEval, OnlineOnPolicyEval
 
 from coba.learners.bandit import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
 from coba.learners.corral import CorralLearner
@@ -35,4 +35,6 @@ __all__ = [
     'VowpalRegcbLearner',
     'VowpalSquarecbLearner',
     'VowpalOffPolicyLearner',
+    'OnlineGroundedEval',
+    'OnlineOnPolicyEval'
 ]
