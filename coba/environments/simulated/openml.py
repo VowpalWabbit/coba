@@ -18,7 +18,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     """
 
     @overload
-    def __init__(self, *, data_id:int, cat_as_str:bool=False, drop_missing:bool=False, skip_structure:bool=False):
+    def __init__(self, *, data_id:int, cat_as_str:bool=False, drop_missing:bool=True, skip_structure:bool=False):
         """Instantiate an OpenmlSource.
 
         Args:
@@ -30,7 +30,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         ...
 
     @overload
-    def __init__(self, *, task_id:int, cat_as_str:bool=False, drop_missing:bool=False, skip_structure:bool=False):
+    def __init__(self, *, task_id:int, cat_as_str:bool=False, drop_missing:bool=True, skip_structure:bool=False):
         """Instantiate an OpenmlSource.
 
         Args:
@@ -98,7 +98,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             if data_descr.get('status') == 'deactivated':
                 raise CobaException(f"Openml {self._data_id} has been deactivated. This is often due to flags on the data.")
 
-            is_ignore = lambda feat_descr: (
+            is_ignore = lambda feat_descr:(
                 feat_descr['is_ignore'        ] == 'true' or
                 feat_descr['is_row_identifier'] == 'true' or
                 feat_descr['data_type'        ] not in ['numeric', 'nominal']
@@ -111,13 +111,14 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             def str_if_num(v):
                 v = int(v) if isinstance(v,float) and v.is_integer() else v
                 return str(v) if isinstance(v,(int,float)) else v
-            
-            source = IterableSource(self._get_arff_lines(data_descr["file_id"], None))
-            reader = ArffReader(cat_as_str=self._cat_as_str)
-            drop   = Drop(drop_cols=ignore, drop_row=lambda r: self._drop_missing and r.missing)
-            label  = Foreach(LabelRow(self._target, "coba_openml_lbl", str_if_num if task_type == 1 else None))
 
-            return Pipes.join(source, reader, drop, label).read()
+            drop_row = (lambda r: r.missing) if self._drop_missing else None
+            lines    = self._get_arff_lines(data_descr["file_id"], None)
+            reader   = ArffReader(cat_as_str=self._cat_as_str)
+            drop     = Drop(drop_cols=ignore, drop_row=drop_row)
+            label    = LabelRow(self._target, "coba_openml_lbl", str_if_num if task_type == 1 else None)
+
+            return Pipes.join(reader, drop, label).filter(lines)
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
@@ -140,15 +141,14 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         return name.strip().strip('\'"').replace('\\','') if name else name
 
     def _get_data(self, url:str, key:str, checksum:str=None) -> Iterable[str]:
-
         try:
             for b in CobaContext.cacher.get_put(key, lambda: self._http_request(url)):
-                yield b.decode('utf-8')
+                yield b
         except Exception:
             self._clear_cache()
             raise
 
-    def _http_request(self, url:str) -> Iterable[bytes]:
+    def _http_request(self, url:str) -> Iterable[str]:
         api_key = CobaContext.api_keys['openml']
         semaphore = CobaContext.store.get("openml_semaphore")
 
@@ -194,7 +194,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             # if '' == response.text:
             #     raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
 
-            for b in response.iter_lines(decode_unicode=False):
+            for b in response.iter_lines(decode_unicode=True):
                 yield b
 
     def _get_data_descr(self, data_id:int) -> Dict[str,Any]:

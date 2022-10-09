@@ -3,13 +3,12 @@ import math
 import copy
 
 from collections import defaultdict, abc
-from itertools import islice, chain
+from itertools import islice, chain, filterfalse
 from typing import Iterable, Any, Sequence, Mapping, Callable, Optional, Union
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
 
-from coba.pipes.rows import DropRow
 from coba.pipes.primitives import Filter
 
 class Identity(Filter[Any, Any]):
@@ -286,15 +285,18 @@ class Drop(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Map
         """
 
         self._drop_cols = sorted(drop_cols, reverse=True)
-        self._drop_row  = drop_row or (lambda r: False)
+        self._drop_row  = drop_row
 
-    def filter(self, data: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
+    def filter(self, rows: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
 
-        row_dropper = DropRow(self._drop_cols)
-        keep_row = lambda r: not self._drop_row(r) if self._drop_row else True
-        for row in filter(keep_row, data):
-            row = row_dropper.filter(row) if row is not None else row
-            yield row 
+        drop_cols = self._drop_cols
+        has_drop  = bool(drop_cols)
+        rows      = rows if not self._drop_row else filterfalse(self._drop_row, rows)
+
+        for row in rows:
+            if has_drop and row is not None:
+                for c in self._drop_cols: del row[c]
+            yield row
 
 class Structure(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Any]]):
     """A filter which restructures rows in table shaped data."""

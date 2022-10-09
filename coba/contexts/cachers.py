@@ -8,7 +8,7 @@ from abc import abstractmethod, ABC
 from collections.abc import Iterator
 from threading import Lock, Condition
 from pathlib import Path
-from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic, Tuple
+from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic, Tuple, Generator
 
 from coba.exceptions import CobaException
 
@@ -130,7 +130,7 @@ class MemoryCacher(Cacher[_K, _V]):
     def release(self, key: _K) -> None:
         pass
 
-class DiskCacher(Cacher[str, Iterable[bytes]]):
+class DiskCacher(Cacher[str, Iterable[str]]):
     """A cacher that writes to disk.
 
     The DiskCacher compresses all values before writing to conserve disk space.
@@ -159,37 +159,33 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
         return self._cache_dir is not None and self._cache_path(key).exists()
 
     @contextmanager
-    def _open(self, key, mode, compresslevel=9) -> gzip.GzipFile:
+    def _open(self, key, mode, encoding=None, compresslevel=9) -> Generator[gzip.GzipFile, None, None]:
         try:
-            self._files[key] = gzip.open(self._cache_path(key), mode, compresslevel)
-            yield self._files[key]
+            file = gzip.open(self._cache_path(key), mode, compresslevel, encoding)
+            self._files[key] = file
+            yield file
         finally:
             if key in self._files: self._files.pop(key).close()
 
-    def get(self, key: str) -> Iterable[bytes]:
+    def get(self, key: str) -> Iterable[str]:
         if key not in self: return []
 
-        try:
-            with self._open(key, 'rb') as f:
-                for line in f:
-                    yield line.rstrip(b'\r\n')
-        except:
-            #do we want to clear the cache here if something goes wrong?
-            #it seems reasonable since this would indicate the cache is corrupted...
-            raise
+        with self._open(key, 'rt', 'utf-8') as f:
+            return f.readlines()
 
-    def put(self, key: str, value: Iterable[bytes]):
+    def put(self, key: str, lines: Iterable[str]):
 
         if self._cache_dir is None: return
 
         try:
             if key in self: return
 
-            if isinstance(value,bytes): value = [value]
+            if isinstance(lines,str): lines = [lines]
 
-            with self._open(key, 'wb+', compresslevel=6) as f:
-                for line in value:
-                    f.write(line.rstrip(b'\r\n') + b'\r\n')
+            with self._open(key, 'wt+', "utf-8", compresslevel=6) as f:
+                for line in lines:
+                    f.write(line.rstrip('\r\n'))
+                    f.write('\n')
         except:
             if key in self: self.rmv(key)
             raise
@@ -197,7 +193,7 @@ class DiskCacher(Cacher[str, Iterable[bytes]]):
     def rmv(self, key: str) -> None:
         if self._cache_path(key).exists(): self._cache_path(key).unlink()
 
-    def get_put(self, key: str, getter: Callable[[], Iterable[bytes]]) -> Iterable[bytes]:
+    def get_put(self, key: str, getter: Callable[[], Iterable[str]]) -> Iterable[str]:
 
         if self._cache_dir is None:
             return getter()

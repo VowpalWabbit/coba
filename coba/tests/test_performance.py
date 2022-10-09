@@ -10,8 +10,8 @@ from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
-from coba.pipes import IterableSource, LambdaSource
-from coba.pipes import EncodeRow, DropRow, DenseRow
+from coba.pipes import IterableSource
+from coba.pipes import EncodeRow, DenseRow
 from coba.experiments.results import Result, moving_average
 
 print_time = False
@@ -271,9 +271,9 @@ class Performance_Tests(unittest.TestCase):
         structure = Structure([None,2])
         time = timeit.timeit(lambda:list(structure.filter([[0,0,0] for _ in range(100)])), number=100)
 
-        #.017 was my final time. (This used to be twice as fast. Adding DropRow slowed it down considerably.)
+        #.008 was my final time.
         if print_time: print(time)
-        self.assertLess(time, 0.17)
+        self.assertLess(time, 0.08)
 
     def test_linear_synthetic(self):
 
@@ -322,7 +322,7 @@ class Performance_Tests(unittest.TestCase):
         row  = ['1']*1000
         ints = [int]*1000
 
-        R = EncodeRow(ints).filter(DenseRow(loaded=row))
+        R = next(EncodeRow(ints).filter([DenseRow(loaded=row)]))
 
         #this is about 68% slower than ints[1](row[1])
         time = timeit.timeit(lambda: R[1], number=100000)
@@ -331,16 +331,6 @@ class Performance_Tests(unittest.TestCase):
         #.075 was my final time
         if print_time: print(time)
         self.assertLess(time, .75)
-
-    def test_drop_row(self):
-        R = DenseRow(loaded=[1,2]*10000) #.05
-
-        drop = DropRow([-1])
-        time = timeit.timeit(lambda: drop.filter(R), number=10000)
-        
-        #0.011
-        if print_time: print(time)
-        self.assertLess(time,.11)
 
 if __name__ == '__main__':
     unittest.main()

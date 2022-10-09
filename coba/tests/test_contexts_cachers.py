@@ -2,13 +2,11 @@ import time
 import shutil
 import unittest
 
-import threading       as mt
-import multiprocessing as mp
+import threading as mt
 
 from contextlib import contextmanager
 from pathlib import Path
 
-from coba.pipes import QueueIO
 from coba.contexts import DiskCacher, MemoryCacher, NullCacher, ConcurrentCacher
 from coba.exceptions import CobaException
 
@@ -132,36 +130,36 @@ class DiskCacher_Tests(unittest.TestCase):
 
     def test_creates_directory(self):
         cache = DiskCacher(self.Cache_Test_Dir / "folder1/folder2")
-        cache.put("test.csv", [b"test"])
+        cache.put("test.csv", ["test"])
         self.assertTrue("test.csv" in cache)
 
     def test_creates_directory2(self):
         cache = DiskCacher(None)
         cache.cache_directory = self.Cache_Test_Dir / "folder1/folder2"
-        cache.put("test.csv", [b"test"])
+        cache.put("test.csv", ["test"])
         self.assertTrue("test.csv" in cache)
 
     def test_write_csv_to_cache(self):
 
         cache = DiskCacher(self.Cache_Test_Dir)
         self.assertFalse("test.csv"    in cache)
-        cache.put("test.csv", [b"test"])
+        cache.put("test.csv", ["test"])
         self.assertTrue("test.csv" in cache)
-        self.assertEqual(list(cache.get("test.csv")), [b"test"])
+        self.assertEqual(list(cache.get("test.csv")), ["test\n"])
 
     def test_write_multiline_csv_to_cache(self):
 
         cache = DiskCacher(self.Cache_Test_Dir)
         self.assertFalse("test.csv"    in cache)
-        cache.put("test.csv", [b"test", b"test2"])
+        cache.put("test.csv", ["test", "test2"])
         self.assertTrue("test.csv" in cache)
-        self.assertEqual(list(cache.get("test.csv")), [b"test", b"test2"])
+        self.assertEqual(list(cache.get("test.csv")), ["test\n", "test2\n"])
 
     def test_rmv_csv_from_cache(self):
 
         cache = DiskCacher(self.Cache_Test_Dir)
         self.assertFalse("test.csv"    in cache)
-        cache.put("test.csv", [b"test"])
+        cache.put("test.csv", ["test"])
         self.assertTrue("test.csv"    in cache)
         cache.rmv("test.csv")
         self.assertFalse("test.csv"    in cache)
@@ -207,20 +205,32 @@ class DiskCacher_Tests(unittest.TestCase):
     def test_get_put_multiline_csv_to_cache(self):
         cache = DiskCacher(self.Cache_Test_Dir)
         self.assertFalse("test.csv.gz" in cache)
-        self.assertEqual(list(cache.get_put("test.csv.gz", lambda: [b"test", b"test2"])), [b"test", b"test2"])
-        self.assertEqual(list(cache.get("test.csv.gz")), [b"test", b"test2"])
-        self.assertEqual(list(cache.get("test.csv.gz")), [b"test", b"test2"])
-        self.assertEqual(list(cache.get_put("test.csv.gz", lambda: None)), [b"test", b"test2"])
+        self.assertEqual(list(cache.get_put("test.csv.gz", lambda: ["test", "test2"])), ["test\n", "test2\n"])
+        self.assertEqual(list(cache.get("test.csv.gz")), ["test\n", "test2\n"])
+        self.assertEqual(list(cache.get("test.csv.gz")), ["test\n", "test2\n"])
+        self.assertEqual(list(cache.get_put("test.csv.gz", lambda: None)), ["test\n", "test2\n"])
 
     def test_get_put_None_cache_dir(self):
         cache = DiskCacher(None)
         self.assertFalse("test.csv" in cache)
-        self.assertEqual(list(cache.get_put("test.csv", lambda: [b"test", b"test2"])), [b"test", b"test2"])
+        self.assertEqual(list(cache.get_put("test.csv", lambda: ["test", "test2"])), ["test", "test2"])
         self.assertFalse("test.csv" in cache)
 
-    def test_remove_while_getting(self):
+    def test_release(self):
         cache = DiskCacher(self.Cache_Test_Dir)
-        cache.put("test.csv", [b"test", b"test2"])
+        cache.put("test.csv", ["test", "test2"])
+        f = open(self.Cache_Test_Dir/"test.csv.gz")
+        cache._files["test.csv"] = f
+        cache.release("test.csv")
+        self.assertNotIn("test.csv", cache._files)
+        self.assertTrue(f.closed)
+        cache.rmv("test.csv")
+
+    @unittest.skip("This has been deprecated. We now read the whole file upfront because it is faster.")
+    def test_remove_while_getting(self):
+    
+        cache = DiskCacher(self.Cache_Test_Dir)
+        cache.put("test.csv", ["test", "test2"])
 
         test_iter = cache.get("test.csv")
         first_line = next(test_iter)
