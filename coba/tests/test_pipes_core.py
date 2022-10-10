@@ -130,6 +130,24 @@ class SourceFilters_Tests(unittest.TestCase):
         source = SourceFilters(ParamsSource(), NoParamsFilter(), ParamsFilter())
         self.assertEqual({'source':'ParamsSource','filter':'ParamsFilter'}, source.params)
 
+    def test_len(self):
+        self.assertEqual(3, len(SourceFilters(ReprSource([1,2]), ReprFilter(), ReprFilter())))
+
+    def test_getitem(self):
+        source  = ReprSource([1,2])
+        filter1 = Foreach(ReprSink())
+        filter2 = Foreach(ReprSink())
+
+        pipe = SourceFilters(source, filter1, filter2)
+
+        self.assertIs(pipe[0],source)
+        self.assertIs(pipe[1],filter1)
+        self.assertIs(pipe[2],filter2)
+        
+        self.assertIs(pipe[-1],filter2)
+        self.assertIs(pipe[-2],filter1)
+        self.assertIs(pipe[-3],source)
+
 class FiltersFilter_Tests(unittest.TestCase):
 
     def test_init_filters(self):
@@ -168,6 +186,21 @@ class FiltersFilter_Tests(unittest.TestCase):
 
         source = FiltersFilter(ParamsFilter(), NoParamsFilter())
         self.assertEqual({'filter':'ParamsFilter'}, source.params)
+
+    def test_len(self):
+        self.assertEqual(2,len(FiltersFilter(ReprFilter("1"), ReprFilter("2"))))
+
+    def test_getitem(self):
+        filter1 = ReprFilter("1")
+        filter2 = ReprFilter("2")
+
+        pipe = FiltersFilter(filter1, filter2)
+
+        self.assertIs(pipe[0],filter1)
+        self.assertIs(pipe[1],filter2)
+        
+        self.assertIs(pipe[-1],filter2)
+        self.assertIs(pipe[-2],filter1)
 
 class FiltersSink_Tests(unittest.TestCase):
 
@@ -221,6 +254,24 @@ class FiltersSink_Tests(unittest.TestCase):
         sink = FiltersSink(NoParamsFilter(), ParamsFilter(), ParamsSink())
         self.assertEqual({'sink':'ParamsSink','filter':'ParamsFilter'}, sink.params)
 
+    def test_len(self):
+        self.assertEqual(3,len(FiltersSink(ReprFilter(), ReprFilter(), ReprSink())))
+
+    def test_getitem(self):
+        filter1 = ReprFilter()
+        filter2 = ReprFilter()
+        sink    = ReprSink()
+
+        pipe = FiltersSink(filter1, filter2, sink)
+
+        self.assertIs(filter1,pipe[0])
+        self.assertIs(filter2,pipe[1])
+        self.assertIs(sink   ,pipe[2])
+
+        self.assertIs(sink   ,pipe[-1])
+        self.assertIs(filter2,pipe[-2])
+        self.assertIs(filter1,pipe[-3])
+
 class PipesLine_Tests(unittest.TestCase):
 
     def test_init_source_sink(self):
@@ -258,6 +309,15 @@ class PipesLine_Tests(unittest.TestCase):
         line = Pipes.join(ParamsSource(), ParamsFilter(), ParamsSink())
         self.assertEqual({'source':'ParamsSource','sink':'ParamsSink','filter':'ParamsFilter'}, line.params)
 
+    def test_len(self):
+        self.assertEqual(2, len(Pipes.Line(ReprSource([1,2]), Foreach(ReprSink()))))
+
+    def test_getitem(self):
+        source = ReprSource([1,2])
+        sink   = Foreach(ReprSink())
+
+        self.assertIs(Pipes.Line(source, sink)[0],source)
+        self.assertIs(Pipes.Line(source, sink)[1],sink)
 
 class Foreach_Tests(unittest.TestCase):
 

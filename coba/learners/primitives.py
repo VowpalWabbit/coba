@@ -126,7 +126,21 @@ class SafeLearner(CbLearner):
         return (predict,info)
 
     def learn(self, *args, **kwargs) -> None:
-        self._learner.learn(*args, **kwargs)
+        try:
+            self._learner.learn(*args, **kwargs)
+        except TypeError:
+            try:
+                if 'info' in kwargs:
+                    kwargs.pop('info')
+                    self._learner.learn(*args, **kwargs)
+                else:
+                    self._learner.learn(*args[:-1], **kwargs)
+            except:
+                still_failed = True
+            else:
+                still_failed = False
+
+            if still_failed: raise
 
     def __str__(self) -> str:
         return self.full_name

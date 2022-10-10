@@ -36,7 +36,7 @@ class MockResponse:
 
 class Environments_Tests(unittest.TestCase):
     def test_set_caching_directory(self):
-        Environments.set_caching_directory('abc')
+        Environments.set_cache_directory('abc')
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertEqual("abc", CobaContext.cacher.cache_directory)
 

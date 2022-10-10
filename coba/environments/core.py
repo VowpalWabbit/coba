@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable
 from coba.backports import Literal
 
-from coba.contexts   import CobaContext,DiskCacher
+from coba.contexts   import CobaContext, DiskCacher
 from coba.random     import CobaRandom
 from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode
 from coba.exceptions import CobaException
@@ -29,7 +29,7 @@ class Environments:
     """A friendly wrapper around commonly used environment functionality."""
 
     @staticmethod
-    def set_caching_directory(path:Union[str,Path]) -> None:
+    def set_cache_directory(path:Union[str,Path]) -> None:
         CobaContext.cacher = DiskCacher(path)
 
     @overload

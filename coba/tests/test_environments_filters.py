@@ -985,13 +985,13 @@ class Noise_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(actual_interactions))
 
-        self.assertEqual((7.625980571131966,), actual_interactions[0].context)
-        self.assertEqual([1,2]               , actual_interactions[0].actions)
-        self.assertEqual([.2,.3]             , actual_interactions[0].rewards)
+        self.assertAlmostEqual(7.62598057113, actual_interactions[0].context[0],5)
+        self.assertEqual      ([1,2]        , actual_interactions[0].actions     )
+        self.assertEqual      ([.2,.3]      , actual_interactions[0].rewards     )
 
-        self.assertEqual((1.613090568018391,), actual_interactions[1].context)
-        self.assertEqual([2,3]               , actual_interactions[1].actions)
-        self.assertEqual([.1,.5]             , actual_interactions[1].rewards)
+        self.assertAlmostEqual(1.61309056801, actual_interactions[1].context[0],5)
+        self.assertEqual      ([2,3]        , actual_interactions[1].actions     )
+        self.assertEqual      ([.1,.5]      , actual_interactions[1].rewards     )
 
     def test_context_noise1(self):
 

@@ -7,7 +7,7 @@ import coba.random
 
 from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
-from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale
+from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale, ToInteractionGrounded
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes import IterableSource
@@ -144,7 +144,7 @@ class Performance_Tests(unittest.TestCase):
 
         time = min(timeit.repeat(lambda:coba.random.shuffle(to_shuffle), repeat=10, number=3))
 
-        #best observed 0.01
+        #best observed 0.008
         if print_time: print(time)
         self.assertLess(time,.1)
 
@@ -152,17 +152,17 @@ class Performance_Tests(unittest.TestCase):
 
         time = min(timeit.repeat(lambda:coba.random.randoms(5000), repeat=100, number=1))
 
-        #best observed 0.0017
+        #best observed 0.0011
         if print_time: print(time)
-        self.assertLess(time,.017)
+        self.assertLess(time,.011)
 
     def test_gausses_performance(self):
 
         time = min(timeit.repeat(lambda:coba.random.gausses(5000,0,1), repeat=10, number=3))
 
-        #best observed 0.011
+        #best observed 0.009
         if print_time: print(time)
-        self.assertLess(time,.11)
+        self.assertLess(time,.09)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_str_performance(self):
@@ -262,9 +262,9 @@ class Performance_Tests(unittest.TestCase):
         reader = ArffReader()
         time = timeit.timeit(lambda:list(reader.filter(arff)), number = 1)
 
-        #.045 was my final time
+        #.014 was my final time
         if print_time: print(time)
-        self.assertLess(time, 0.45)
+        self.assertLess(time, 0.14)
 
     def test_structure_performance(self):
 
@@ -328,9 +328,19 @@ class Performance_Tests(unittest.TestCase):
         time = timeit.timeit(lambda: R[1], number=100000)
         #time = timeit.timeit(lambda: ints[1](row[1]), number=100000)
 
-        #.075 was my final time
+        #.098 was my final time
         if print_time: print(time)
-        self.assertLess(time, .75)
+        self.assertLess(time, .98)
+
+    def test_to_interaction_grounded(self):
+        interactions    = [SimulatedInteraction(1, [1,2,3,4,5,6,7], [0,0,0,1,0,0,0])]
+        grounded_filter = ToInteractionGrounded(100,50,100,50,1)
+
+        time = timeit.timeit(lambda: list(grounded_filter.filter(interactions*5000)), number=1)
+
+        #.04 was my final time
+        if print_time: print(time)
+        self.assertLess(time, .40)
 
 if __name__ == '__main__':
     unittest.main()

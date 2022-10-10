@@ -62,7 +62,7 @@ class CorralLearner(CbLearner):
         self._mode = mode
 
         self._random_pick   = CobaRandom(seed)
-        self._random_reject = CobaRandom(CobaRandom(seed).randint(0,10000))
+        self._random_reject = CobaRandom(CobaRandom(seed).randint(0,1000))
 
     @property
     def params(self) -> Dict[str, Any]:

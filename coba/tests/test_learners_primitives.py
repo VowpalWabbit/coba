@@ -36,6 +36,13 @@ class NoParamsLearner:
     def learn(self, context, action, reward, probability, info):
         pass
 
+class NoParamsLearnerNoInfo:
+    def predict(self, context, actions):
+        pass
+
+    def learn(self, context, action, reward, probability):
+        pass
+
 class UnsafeFixedLearner:
     def __init__(self, pmf, info):
         self._pmf = pmf
@@ -119,6 +126,19 @@ class SafeLearner_Tests(unittest.TestCase):
 
         self.assertEqual([1/2,1/2], predict[0])
         self.assertEqual(1, predict[1])
+
+    def test_no_exception_without_info_args(self):
+        SafeLearner(NoParamsLearnerNoInfo()).learn(1,2,3,4)
+        SafeLearner(NoParamsLearnerNoInfo()).learn(1,2,3,4,None)
+
+    def test_no_exception_without_info_kwargs(self):
+        SafeLearner(NoParamsLearnerNoInfo()).learn(context=1,action=2,reward=3,probability=4)
+        SafeLearner(NoParamsLearnerNoInfo()).learn(context=1,action=2,reward=3,probability=4,info=None)
+
+    def test_exception_with_too_man_args(self):
+        with self.assertRaises(TypeError) as e:
+            SafeLearner(NoParamsLearnerNoInfo()).learn(context=1,action=2,reward=3,probability=4,madeup=5)
+        self.assertIn("learn() got an unexpected keyword argument 'madeup'", str(e.exception))
 
 if __name__ == '__main__':
     unittest.main()

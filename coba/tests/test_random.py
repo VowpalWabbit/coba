@@ -27,6 +27,14 @@ class CobaRandom_Tests(unittest.TestCase):
             self.assertLessEqual(n, 1)
             self.assertGreaterEqual(n, 0)
 
+        numbers = coba.random.randoms(500000,0,10)
+
+        self.assertEqual(len(numbers), 500000)
+
+        for n in numbers:
+            self.assertLessEqual(n, 10)
+            self.assertGreaterEqual(n, 0)
+
     def test_value_of_shuffle(self):
 
         numbers = coba.random.shuffle(list(range(500000)))
@@ -59,6 +67,32 @@ class CobaRandom_Tests(unittest.TestCase):
         shuffle = coba.random.shuffle(list(range(20)))
 
         self.assertEqual([1, 4, 0, 19, 6, 15, 3, 16, 11, 10, 7, 17, 13, 8, 9, 14, 18, 12, 5, 2],shuffle)
+
+    def test_coba_randint_is_unchaged(self):
+
+        coba.random.seed(10)
+
+        self.assertEqual(1,coba.random.randint(1,10))
+        self.assertEqual(2,coba.random.randint(1,10))
+        self.assertEqual(2,coba.random.randint(1,10))
+        self.assertEqual(10,coba.random.randint(1,10))
+        self.assertEqual(2,coba.random.randint(1,10))
+        self.assertEqual(7,coba.random.randint(1,10))
+
+        coba.random.seed(10)
+
+        self.assertEqual(1,coba.random.randint(1,10))
+        self.assertEqual(2,coba.random.randint(1,10))
+        self.assertEqual(2,coba.random.randint(1,10))
+        self.assertEqual(10,coba.random.randint(1,10))
+        self.assertEqual(2,coba.random.randint(1,10))
+        self.assertEqual(7,coba.random.randint(1,10))
+
+    def test_coba_randints_is_unchaged(self):
+
+        coba.random.seed(10)
+        self.assertEqual([1, 2, 2, 10, 2, 7, 10, 8, 3, 2],coba.random.randints(10,1,10))
+        self.assertEqual([6, 7, 2, 6, 4, 4, 7, 0, 5, 1],coba.random.randints(10,0,10))
 
     def test_randoms_repeatability(self):
 
@@ -102,6 +136,7 @@ class CobaRandom_Tests(unittest.TestCase):
         for i in range(100):
             observed_ints.add(coba.random.randint(0,2))
 
+        self.assertEqual(3, len(set(observed_ints)))
         self.assertIn(0, observed_ints)
         self.assertIn(1, observed_ints)
         self.assertIn(2, observed_ints)
@@ -112,9 +147,21 @@ class CobaRandom_Tests(unittest.TestCase):
         for i in range(100):
             observed_ints.add(coba.random.randint(-3,-1))
 
+        self.assertEqual(3, len(set(observed_ints)))
         self.assertIn(-3, observed_ints)
         self.assertIn(-2, observed_ints)
         self.assertIn(-1, observed_ints)
+
+    def test_randints(self):
+        observed_ints = []
+
+        for i in range(100):
+            observed_ints.extend(coba.random.randints(10,0,2))
+
+        self.assertEqual(3, len(set(observed_ints)))
+        self.assertIn(0, observed_ints)
+        self.assertIn(1, observed_ints)
+        self.assertIn(2, observed_ints)
 
     def test_choice1(self):
         choices = [(0,1), (1,0)]
@@ -137,11 +184,11 @@ class CobaRandom_Tests(unittest.TestCase):
 
         self.assertIn("The sum of weights cannot be zero", str(e.exception))
 
-    def test_randoms_n_0(self):
+    def test_randoms_n_neg_1(self):
         with self.assertRaises(ValueError) as e:
             coba.random.CobaRandom().randoms(-1)
 
-        self.assertIn("n must be an integer greater than or equal 0", str(e.exception))
+        self.assertIn("n must be an integer greater than or equal to 0", str(e.exception))
 
     def test_randoms_n_2(self):
         cr1 = coba.random.CobaRandom(seed=1)

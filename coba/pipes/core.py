@@ -32,6 +32,17 @@ class SourceFilters(Source):
     def __str__(self) -> str:
         return ",".join(map(str,[self._source, self._filter]))
 
+    def __getitem__(self, index:int) -> Union[Source,Filter]:
+        if index == 0 or index == -len(self):
+            return self._source
+        elif index < 0:
+            return self._filter[index]
+        else:
+            return self._filter[index-1]
+
+    def __len__(self) -> int:
+        return len(self._filter)+1
+
 class FiltersFilter(Filter):
 
     def __init__(self, *pipes: Filter):
@@ -48,6 +59,12 @@ class FiltersFilter(Filter):
 
     def __str__(self) -> str:
         return ",".join(map(str,self._filters))
+
+    def __getitem__(self, index: int) -> Filter:
+        return self._filters[index]
+    
+    def __len__(self) -> int:
+        return len(self._filters)
 
 class FiltersSink(Sink):
 
@@ -79,6 +96,17 @@ class FiltersSink(Sink):
     def __str__(self) -> str:
         return ",".join(map(str,[self._filter, self._sink]))
 
+    def __getitem__(self, index: int) -> Union[Filter,Sink]:
+        if index == -1 or index == len(self._filter):
+            return self._sink
+        elif index < 0:
+            return self._filter[index+1] 
+        else:
+            return self._filter[index]
+    
+    def __len__(self) -> int:
+        return len(self._filter)+1
+
 class Pipes:
     """A helper class to compose sequences of pipes."""
     class Line:
@@ -106,6 +134,12 @@ class Pipes:
 
         def __str__(self) -> str:
             return ",".join(filter(None,map(str,self.pipes)))
+
+        def __len__(self) -> int:
+            return len(self.pipes)
+        
+        def __getitem__(self, index:int) -> Union[Source,Filter,Sink]:
+            return self.pipes[index]
 
     @staticmethod
     def join(*pipes: Union[Source, Filter, Sink]) -> Union[Source, Filter, Sink, Line]:
