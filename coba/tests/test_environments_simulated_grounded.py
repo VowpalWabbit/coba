@@ -183,11 +183,7 @@ class ToInteractionGrounded_Tests(unittest.TestCase):
 
     def test_params(self):
         params = ToInteractionGrounded(10,5,4,2,1).params
-        
-        self.assertEqual(list(range(10)), params['userids'])
-        self.assertEqual(list(range( 4)), params['wordids'])
-        self.assertEqual(list(range(5)), params['normalids'])
-        self.assertEqual(list(range(2)), params['goodwords'])
+
         self.assertEqual(10, params['n_users'])
         self.assertEqual( 5, params['n_normal'])
         self.assertEqual( 4, params['n_words'])

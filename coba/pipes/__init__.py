@@ -10,7 +10,7 @@ from coba.pipes.primitives import Filter, Source, Sink
 from coba.pipes.multiprocessing import Multiprocessor
 
 from coba.pipes.filters import Take, Shuffle, Drop, Structure, Identity, Flatten, Default, Reservoir
-from coba.pipes.filters import Encode, JsonDecode, JsonEncode
+from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache
 
 from coba.pipes.rows    import DenseRow, SparseRow, IDenseRow, ISparseRow, EncodeRow, IndexRow, LabelRow
 from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
@@ -62,5 +62,6 @@ __all__ = [
     "ISparseRow",
     "EncodeRow",
     "IndexRow",
-    "LabelRow"
+    "LabelRow",
+    "Cache"
 ]

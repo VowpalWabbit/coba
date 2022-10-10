@@ -368,3 +368,16 @@ class Default(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,
                     if k not in row: row[k] = v
 
             yield row
+
+class Cache(Filter[Iterable[Any], Iterable[Any]]):
+
+    def __init__(self) -> None:
+        self._cache = []
+
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        if self._cache: 
+            yield from self._cache
+        else:
+            for item in items:
+                self._cache.append(item)
+                yield item

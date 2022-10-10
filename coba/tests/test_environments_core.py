@@ -423,9 +423,9 @@ class Environments_Tests(unittest.TestCase):
 
         envs = envs.materialize()
         env  = envs[0]
-        self.assertIsInstance(env.read(),list)
 
-        interactions = env.read()
+        self.assertEqual(100,len(env[-1]._cache))
+        interactions = list(env.read())
 
         self.assertEqual(1     , len(envs))
         self.assertEqual(100   , len(interactions))

@@ -47,6 +47,7 @@ class SimulatedInteraction(Interaction):
         """The reward for each action in the interaction."""
         return self._rewards
 
+
 class SimulatedEnvironment(Environment):
     """An environment made from SimulatedInteractions."""
 

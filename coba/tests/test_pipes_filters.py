@@ -1,7 +1,8 @@
 import unittest
-from coba.exceptions import CobaException
 
-from coba.pipes import Flatten, Encode, JsonEncode, Structure, Drop, Take, Identity, Shuffle, Default, Reservoir
+
+from coba.pipes import Flatten, Encode, JsonEncode, Structure
+from coba.pipes import Drop, Take, Identity, Shuffle, Default, Reservoir, Cache
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.contexts import NullLogger, CobaContext
 
@@ -494,12 +495,19 @@ class Drops_Tests(unittest.TestCase):
 class Default_Tests(unittest.TestCase):
 
     def test_default_sparse(self):
-
         self.assertEqual([{"A":1},{"A":2}], list(Default({"A":1}).filter([{},{"A":2}])))
 
     def test_default_dense(self):
-
         self.assertEqual(['abc','def'], list(Default({"A":1}).filter(['abc', 'def'])))
+
+class Cache_Tests(unittest.TestCase):
+
+    def test_cache(self):
+        cache = Cache()
+        self.assertEqual([], cache._cache)
+        self.assertEqual([1,2,3],list(cache.filter([1,2,3])))
+        self.assertEqual([1,2,3],cache._cache)
+        self.assertEqual([1,2,3],list(cache.filter([4,5,6])))
 
 if __name__ == '__main__':
     unittest.main()

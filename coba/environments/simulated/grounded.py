@@ -30,10 +30,6 @@ class ToInteractionGrounded(EnvironmentFilter):
     @property
     def params(self) -> Dict[str, Any]:
         return {
-            "userids"  : self.userids,
-            "wordids"  : self.wordids,
-            "normalids": self.normalids,
-            "goodwords": self.goodwords,
             "n_users"  : self._n_users,
             "n_normal" : self._n_normal,
             "n_good"   : self._n_good,

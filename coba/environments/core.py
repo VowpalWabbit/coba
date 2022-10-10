@@ -11,7 +11,7 @@ from coba.exceptions import CobaException
 
 from coba.environments.filters   import EnvironmentFilter
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
-from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten
+from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 
 from coba.environments          .primitives import Environment
@@ -287,7 +287,9 @@ class Environments:
 
     def materialize(self) -> 'Environments':
         """Convert from generated environments to materialized environments."""
-        return Environments([MemorySimulation(list(env.read()), env.params) for env in self])
+        environments = self.filter(Cache())
+        for env in environments: list(env.read()) #force read to pre-load cache
+        return environments
 
     def grounded(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int=1) -> 'Environments':
         """Convert from simulated environments to interaction grounded environments."""

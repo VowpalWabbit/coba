@@ -96,14 +96,18 @@ class DenseRow(abc.MutableSequence, IDenseRow):
 
     def __getitem__(self, key: Union[str,int]):
         if self._cmds: self._run_cmds()
-        key  = self._label_key if key == self._label_ali else key
-        enc2 = self._label_enc if key == self._label_key else None
-        key  = self._indexes[key] if key.__class__ is int else self.headers[key]
-        val  = self._loaded[key]
-        enc1 = self.encoders[key] if self.encoders else None
-        if enc1: val = enc1(val)
-        if enc2: val = enc2(val)
-        return val
+
+        if self._label_key:
+            if key == self._label_ali or key == self._label_key:
+                key = self._label_key
+                key = self._indexes[key] if key.__class__ is int else self.headers[key]
+                val = self._loaded[key]
+                if self.encoders : val = self.encoders[key](val)
+                if self._label_enc: val = self._label_enc(val)
+                return val
+
+        key = self._indexes[key] if key.__class__ is int else self.headers[key]
+        return self.encoders[key](self._loaded[key]) if self.encoders else self._loaded[key]
 
     def __setitem__(self, key: Hashable, item: Any):
         if self._loaded is None:
@@ -116,7 +120,11 @@ class DenseRow(abc.MutableSequence, IDenseRow):
         if self._loaded is None:
             self._cmds.appendleft((self.__delitem__,(key,)))
         else:
-            key = self._label_key if key == self._label_ali else key
+            if self._label_key and (key == self._label_key) or (key == self._label_ali):
+                key = self._label_key
+                self._label_key = None
+                self._label_ali = None
+            
             key = self._indexes[key] if key.__class__ is int else self.headers[key]
             del self._indexes[bisect_left(self._indexes,key)]
 
@@ -140,6 +148,24 @@ class DenseRow(abc.MutableSequence, IDenseRow):
         self._label_key = key
         self._label_ali = alias
         self._label_enc = encoding
+
+    def to_builtin(self):
+        if self._cmds: self._run_cmds()
+        
+        V = map(self._loaded.__getitem__, self._indexes)
+        if self.encoders:
+            E = map(self.encoders.__getitem__, self._indexes)
+            L = [ e(v) for e,v in zip(E,V) ]
+        else:
+            L = list(map(self._loaded.__getitem__, self._indexes))
+
+        if self._label_enc:
+            key = self._label_key
+            ind = self._indexes[key] if key.__class__ is int else self.headers[key]
+            lbl = bisect_left(self._indexes,ind)
+            L[lbl] = self._label_enc(L[lbl])
+
+        return tuple(L)
 
     @property
     def feats(self) -> Sequence[Any]:
@@ -180,14 +206,18 @@ class SparseRow(abc.MutableMapping, ISparseRow):
 
     def __getitem__(self, key: Hashable):
         if self._cmds: self._run_cmds()
-        key  = self._label_key if key == self._label_ali else key
-        enc2 = self._label_enc if key == self._label_key else None
+        if self._label_key:
+            if key == self._label_ali or key == self._label_key:
+                key = self._label_key
+                key  = key if not self.headers else self.headers[key]
+                val = self._loaded.get(key,0)
+                if self.encoders  : val = self.encoders[key](val)
+                if self._label_enc: val = self._label_enc(val)
+                return val
+
         key  = key if not self.headers else self.headers[key]
         val  = self._loaded.get(key,0)
-        enc1 = self.encoders[key] if self.encoders else None
-        if enc1: val = enc1(val)
-        if enc2: val = enc2(val)
-        return val
+        return self.encoders[key](val) if self.encoders else val
 
     def __setitem__(self, key: Hashable, item: Any):
         if self._loaded is None:
@@ -200,13 +230,16 @@ class SparseRow(abc.MutableMapping, ISparseRow):
         if self._loaded is None:
             self._cmds.appendleft( (self.__delitem__, (key,)) )
         else:
-            key = self._label_key if key == self._label_ali else key
+            if self._label_key and (key == self._label_key) or (key == self._label_ali):
+                key = self._label_key
+                self._label_key = None
+                self._label_ali = None
+
             key = key if not self.headers else self.headers[key]
             if key in self._loaded: del self._loaded[key]
 
     def __iter__(self) -> Iterator:
         if self._cmds: self._run_cmds()
-        
         return iter(self._loaded if not self.headers_inv else map(self.headers_inv.__getitem__,self._loaded))
 
     def __len__(self) -> int:
@@ -229,6 +262,22 @@ class SparseRow(abc.MutableMapping, ISparseRow):
         self._label_enc = encoding
         self._label_ali = alias
     
+    def to_builtin(self):
+        from coba.utilities import HashableDict
+
+        if self._cmds: self._run_cmds()
+        if self.encoders:
+            L = { k:self.encoders[k](v) for k,v in self._loaded.items() }
+        else:
+            L = dict(self._loaded)
+
+        if self._label_enc:
+            key    = self._label_key
+            key    = key if not self.headers else self.headers[key]
+            L[key] = self._label_enc(L[key])
+
+        return HashableDict(L)
+
     @property
     def feats(self) -> Dict[str,Any]:
         if self._cmds: self._run_cmds()

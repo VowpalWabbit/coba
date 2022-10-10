@@ -11,7 +11,7 @@ from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, S
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes import IterableSource
-from coba.pipes import EncodeRow, DenseRow
+from coba.pipes import EncodeRow, DenseRow, SparseRow
 from coba.experiments.results import Result, moving_average
 
 print_time = False
@@ -119,7 +119,7 @@ class Performance_Tests(unittest.TestCase):
         if print_time: print(time)
         self.assertLess(time, 1.7)
 
-    def test_interaction_context_performance(self):
+    def test_interaction_context_performance1(self):
 
         interaction = SimulatedInteraction([1,2,3]*100, (1,2,3), (4,5,6))
 
@@ -128,6 +128,22 @@ class Performance_Tests(unittest.TestCase):
         #best observed was 0.0075
         if print_time: print(time)
         self.assertLess(time, .075)
+
+    def test_interaction_context_performance2(self):
+
+        time = timeit.timeit(lambda: SimulatedInteraction([1,2,3]*100, (1,2,3), (4,5,6)).context, number=10000)
+
+        #best observed was 0.039
+        if print_time: print(time)
+        self.assertLess(time, .39)
+
+    def test_interaction_context_performance3(self):
+        row = DenseRow(loaded=[1,2,3]*100)
+        time = timeit.timeit(lambda: SimulatedInteraction(row, (1,2,3), (4,5,6)).context, number=1000)
+
+        #best observed was 0.013
+        if print_time: print(time)
+        self.assertLess(time, .13)
 
     def test_hashable_dict_performance(self):
 
@@ -288,9 +304,9 @@ class Performance_Tests(unittest.TestCase):
         env = IterableSource([SimulatedInteraction((3193.0, 151.0, 17.0, 484.0, -137.0, 319.0, 239.0, 238.0, 121.0, 3322.0, 0.0, 1.0, 0.0, 0.0, '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'),[1,2,3],[4,5,6])]*1000)
         time = timeit.timeit(lambda:list(Scale().filter(env.read())), number=1)
 
-        #.11 was my final 
+        #.032 was my final 
         if print_time: print(time)
-        self.assertLess(time, 1.1)
+        self.assertLess(time, .32)
 
     def test_result_filter_env(self):
         envs = { k:{ 'mod': k%100 } for k in range(1000) }
@@ -331,6 +347,30 @@ class Performance_Tests(unittest.TestCase):
         #.098 was my final time
         if print_time: print(time)
         self.assertLess(time, .98)
+
+    def test_dense_row_to_builtin(self):
+        row  = ['1']*1000
+
+        r = DenseRow(loaded=row)
+        r.encoders = [int]*1000
+
+        time = timeit.timeit(lambda: r.to_builtin(), number=100)
+
+        #.018
+        if print_time: print(time)
+        self.assertLess(time, .18)
+
+    def test_sparse_row_to_builtin(self):
+        row  = dict(zip(range(1000),['1']*1000))
+
+        r = SparseRow(loaded=row)
+        r.encoders = dict(zip(range(1000),[int]*1000))
+
+        time = timeit.timeit(lambda: r.to_builtin(), number=100)
+
+        #.031
+        if print_time: print(time)
+        self.assertLess(time, .18)
 
     def test_to_interaction_grounded(self):
         interactions    = [SimulatedInteraction(1, [1,2,3,4,5,6,7], [0,0,0,1,0,0,0])]

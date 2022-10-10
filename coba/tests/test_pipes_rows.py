@@ -1,6 +1,7 @@
 
 import unittest
 
+from coba.utilities import HashableDict
 from coba.exceptions import CobaException
 from coba.pipes.rows import EncodeRow, IndexRow, LabelRow, DenseRow, SparseRow
 
@@ -198,6 +199,22 @@ class DenseRow_Tests(unittest.TestCase):
         self.assertEqual('2',l.pop('lbl'))
         self.assertEqual(['1','3'],l)
 
+    def test_to_builtin_no_encoders(self):
+        l = DenseRow(loader=lambda:['1','2','3'])
+        self.assertEqual(('1','2','3'),l.to_builtin())
+        self.assertIsInstance(l.to_builtin(),tuple)
+
+    def test_to_builtin_encoders(self):
+        l = DenseRow(loader=lambda:['1','2','3'])
+        l.encoders = [int,int,int]
+        self.assertEqual((1,2,3),l.to_builtin())
+
+    def test_to_builtin_lbl_encoders(self):
+        l = DenseRow(loader=lambda:['1','2','3'])
+        l.encoders = [int,int,int]
+        l.set_label(1,None,lambda v: v*2)
+        self.assertEqual((1,4,3),l.to_builtin())
+
     def test_str_and_repr(self):
         l = DenseRow(loader=lambda:[1,2,3])
 
@@ -303,6 +320,22 @@ class SparseRow_Tests(unittest.TestCase):
         l = SparseRow(loader=lambda:{'0':1,'1':2,'2':3})
         with self.assertRaises(CobaException):
             l.label
+
+    def test_to_builtin_no_encoders(self):
+        l = SparseRow(loader=lambda:{'0':'1','1':'2','2':'3'})
+        self.assertEqual({'0':'1','1':'2','2':'3'},l.to_builtin())
+
+    def test_to_builtin_encoders(self):
+        l = SparseRow(loader=lambda:{'0':'1','1':'2','2':'3'})
+        l.encoders = {'0':int,'1':int,'2':int}
+        self.assertEqual({'0':1,'1':2,'2':3},l.to_builtin())
+        self.assertIsInstance(l.to_builtin(), HashableDict)
+
+    def test_to_builtin_lbl_encoders(self):
+        l = SparseRow(loader=lambda:{'0':'1','1':'2','2':'3'})
+        l.encoders = {'0':int,'1':int,'2':int}
+        l.set_label('1',None,lambda v: v*2)
+        self.assertEqual({'0':1,'1':4,'2':3},l.to_builtin())
 
     def test_str_and_repr(self):
         l = SparseRow(loader=lambda:{'a':1,'b':2,'c':3})

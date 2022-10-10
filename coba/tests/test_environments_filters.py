@@ -450,13 +450,15 @@ class Scale_Tests(unittest.TestCase):
         nan = float('nan')
 
         interactions = [
-            LoggedInteraction((7,2  , 'A'), 1, 1),
-            LoggedInteraction((1,9  , 'B'), 1, 1),
+            LoggedInteraction((7,  2, 'A'), 1, 1),
+            LoggedInteraction((1,  9, 'B'), 1, 1),
             LoggedInteraction((8,nan, nan), 1, 1)
         ]
 
         mem_interactions = interactions
-        scl_interactions = list(Scale("min","minmax").filter(interactions))
+    
+        with self.assertWarns(Warning):
+            scl_interactions = list(Scale("min","minmax").filter(interactions))
 
         self.assertEqual((7,2,'A'), mem_interactions[0].context)
         self.assertEqual((1,9,'B'), mem_interactions[1].context)

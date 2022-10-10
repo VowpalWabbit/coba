@@ -36,13 +36,16 @@ class Interaction:
 
     def _make_hashable(self, feats):
 
-        if isinstance(feats, collections.abc.Mapping):
-            return HashableDict(feats)
+        try:
+            return feats.to_builtin()
+        except Exception:
+            if isinstance(feats, collections.abc.Sequence):
+                return tuple(feats)
 
-        if isinstance(feats,collections.abc.Sequence) and not isinstance(feats,str):
-            return tuple(feats)
+            if isinstance(feats, collections.abc.Mapping):
+                return HashableDict(feats)
 
-        return feats
+            return feats
 
 class Environment(Source[Iterable[Interaction]], ABC):
     """An Environment that produces Contextual Bandit data"""
