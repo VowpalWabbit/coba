@@ -1,5 +1,6 @@
 import unittest
 import importlib.util
+import pickle
 
 from collections import Counter
 
@@ -246,6 +247,12 @@ class CobaRandom_Tests(unittest.TestCase):
         base = list(range(5))
         frequencies = Counter([tuple(coba.random.shuffle(base)) for _ in range(100000)])
         self.assertLess(0.00001, chisquare(list(frequencies.values())).pvalue)
+
+    def test_pickle(self):
+
+        cr = pickle.loads(pickle.dumps(coba.random.CobaRandom(seed=5)))
+
+        self.assertEqual(5, cr._seed)
 
 if __name__ == '__main__':
     unittest.main()

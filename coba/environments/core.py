@@ -1,7 +1,7 @@
 import collections.abc
 
 from pathlib import Path
-from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable
+from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping
 from coba.backports import Literal
 
 from coba.contexts   import CobaContext, DiskCacher
@@ -11,12 +11,12 @@ from coba.exceptions import CobaException
 
 from coba.environments.filters   import EnvironmentFilter
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
-from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache
+from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 
 from coba.environments          .primitives import Environment
 from coba.environments.logged   .primitives import LoggedEnvironment
-from coba.environments.simulated.primitives import SimulatedEnvironment, MemorySimulation
+from coba.environments.simulated.primitives import SimulatedEnvironment
 from coba.environments.warmstart.primitives import WarmStartEnvironment
 
 from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
@@ -25,7 +25,7 @@ from coba.environments.simulated.openml     import OpenmlSimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
 from coba.environments.simulated.grounded   import ToInteractionGrounded
 
-class Environments:
+class Environments (collections.abc.Sequence):
     """A friendly wrapper around commonly used environment functionality."""
 
     @staticmethod
@@ -246,6 +246,10 @@ class Environments:
         """Cycle all rewards associated with actions by one place."""
         return self.filter(Cycle(after))
 
+    def params(self, params: Mapping[str,Any]) -> 'Environments':
+        """Add params to the environments."""
+        return self.filter(Params(params))
+
     def take(self, n_interactions: int) -> 'Environments':
         """Take a fixed number of interactions from the Environments."""
         return self.filter(Take(n_interactions))
@@ -279,7 +283,7 @@ class Environments:
         reward : Callable[[float,CobaRandom], float] = None,
         seed   : int = 1) -> 'Environments':
         """Add noise to an environment's context, actions and rewards."""
-        return self.filter(Noise(context,action,reward,seed))
+        return Environments(*self).filter(Noise(context,action,reward,seed))
 
     def flat(self) -> 'Environments':
         """Flatten environment's context and actions."""
@@ -298,8 +302,7 @@ class Environments:
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
-        self._environments = [ Pipes.join(e,f) for e in self._environments for f in filters ]
-        return self
+        return Environments([Pipes.join(e,f) for e in self._environments for f in filters ])
 
     def __getitem__(self, index:int) -> Union[SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment]:
         return self._environments[index]
@@ -311,7 +314,7 @@ class Environments:
         return len(self._environments)
 
     def __add__(self, other: 'Environments') -> 'Environments':
-        return Environments(self._environments,other._environments)
+        return Environments(self._environments+other._environments)
 
     def __str__(self) -> str:
         return "\n".join([f"{i+1}. {e}" for i,e in enumerate(self._environments)])

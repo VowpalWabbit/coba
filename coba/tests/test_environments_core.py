@@ -479,6 +479,24 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[1].params['shuffle'])
         self.assertEqual(1   , envs[1].params['take'])
 
+    def test_params(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).params({'a':123})
+
+        self.assertEqual(2  , len(envs))
+        self.assertEqual('A', envs[0].params['id'])
+        self.assertEqual(123, envs[0].params['a'])
+        self.assertEqual('B', envs[1].params['id'])
+        self.assertEqual(123, envs[1].params['a'])
+
+    def test_filter_new(self):
+        envs1 = Environments(TestEnvironment('A'))
+        envs2 = envs1.params({'a':123})
+
+        self.assertEqual(1  , len(envs1))
+        self.assertEqual(1  , len(envs2))
+        self.assertEqual({'id':'A'}, envs1[0].params)
+        self.assertEqual({'id':'A','a':123}, envs2[0].params)
+
     def test_ipython_display(self):
         with unittest.mock.patch("builtins.print") as mock:
             envs = Environments(TestEnvironment('A'),TestEnvironment('B'))

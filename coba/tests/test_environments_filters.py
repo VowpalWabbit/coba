@@ -7,7 +7,7 @@ from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.environments import LoggedInteraction, SimulatedInteraction
 
-from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten
+from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle
 
 class TestEnvironment:
@@ -1245,6 +1245,12 @@ class Flatten_Tests(unittest.TestCase):
 
     def test_params(self):
         self.assertEqual({'flat':True}, Flatten().params)
+
+class Params_Tests(unittest.TestCase):
+    def test_params(self): 
+        params_filter = Params({'a':123})
+        self.assertEqual({'a':123}, params_filter.params)
+        self.assertEqual(1, params_filter.filter(1))
 
 if __name__ == '__main__':
     unittest.main()

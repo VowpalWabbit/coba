@@ -210,6 +210,9 @@ class CobaRandom:
             self._seed = (self._a * self._seed + self._c) & (self._m_minus_1)
             yield self._seed/self._m
 
+    def __reduce__(self):
+        return (CobaRandom,(self._seed,))
+
 _random = CobaRandom()
 
 def seed(seed: Optional[float]) -> None:

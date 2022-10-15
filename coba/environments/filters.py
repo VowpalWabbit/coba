@@ -46,6 +46,10 @@ class Reservoir(pipes.Reservoir, EnvironmentFilter):
     """Take a fixed number of random Interactions from an Environment."""
     pass
 
+class Cache(pipes.Cache, EnvironmentFilter):
+    """Cache all interactions that come before this filter and use the cache in the future."""
+    pass
+
 class Scale(EnvironmentFilter):
     """Shift and scale features to precondition them before learning."""
 
@@ -694,6 +698,14 @@ class Noise(EnvironmentFilter):
 
         return value if not isinstance(value,(int,float)) else noiser(value, rng)
 
-class Cache(pipes.Cache):
-    """Cache all interactions that come before this filter and use the cache in the future."""
-    pass
+class Params(EnvironmentFilter):
+    """Add parameters to an environment."""
+    def __init__(self, params: Mapping[str, Any]) -> None:
+        self._params = params
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return self._params
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        return interactions
