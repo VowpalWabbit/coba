@@ -186,30 +186,51 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
 
     def filter(self, data: Iterable[Any]) -> Iterable[Any]:
 
-        for row in data:
+        try:
+            data  = iter(data)
+            first = next(data)
+        except StopIteration:
+            return []
 
-            if isinstance(row,dict):
-                row = dict(row)
-                for k in list(row.keys()):
-                    if isinstance(row[k],(list,tuple)):
-                        row.update([(f"{k}_{i}", v) for i,v in enumerate(row.pop(k))])
+        if isinstance(first,list):
+            first_type = "list" 
+        elif isinstance(first,dict):
+            first_type = "dict"
+        elif isinstance(first,tuple):
+            first_type = "tuple"
+        else:
+            first_type = None
 
-            elif isinstance(row,list):
-                row = list(row)
-                for k in reversed(range(len(row))):
-                    if isinstance(row[k],(list,tuple)):
-                        for v in reversed(row.pop(k)):
-                            row.insert(k,v)
+        flattable = []
+        if first_type in ["list","tuple"]:
+            flattable = [ isinstance(v,(list,tuple)) for v in first ]
+            any_flattable = any(flattable)
+        elif first_type == "dict":
+            #we assume that flattable entries will be populated in every row even though the dataset is sparse
+            flattable = {k:[f"{k}_{i}" for i in range(len(v))] for k,v in first.items() if isinstance(v,(list,tuple)) }
+            any_flattable = bool(flattable)
+        else:
+            any_flattable = False
 
-            elif isinstance(row,tuple):
-                row = list(row)
-                for k in reversed(range(len(row))):
-                    if isinstance(row[k],(list,tuple)):
-                        for v in reversed(row.pop(k)):
-                            row.insert(k,v)
-                row = tuple(row)
+        def flatter_list(row):
+            for f,r in zip(flattable,row):
+                if f: yield from r 
+                else: yield r
 
-            yield row
+        for row in chain([first], data):
+
+            if not any_flattable:
+                yield row
+
+            else:
+                if first_type == "list":
+                    row = list(flatter_list(row))
+                elif isinstance(row,tuple):
+                    row = tuple(flatter_list(row))
+                elif first_type == "dict":
+                    #in-line dict comprehension was faster than a generator like we did with list
+                    row = { k:v for k,v in row.items() for k,v in ( zip(flattable[k],v) if k in flattable else ((k,v),)) }
+                yield row
 
 class Encode(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
     """A filter which encodes features in table shaped data."""

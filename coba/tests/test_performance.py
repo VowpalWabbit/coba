@@ -3,11 +3,12 @@ import timeit
 import statistics
 import importlib.util
 
+import coba.pipes
 import coba.random
 
 from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
-from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale, ToInteractionGrounded
+from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale, Flatten, ToInteractionGrounded
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes import IterableSource
@@ -307,6 +308,41 @@ class Performance_Tests(unittest.TestCase):
         #.032 was my final 
         if print_time: print(time)
         self.assertLess(time, .32)
+
+    def test_environments_flat_tuple(self):
+
+        numbers = [3193.0, 151.0, 17.0, 484.0, -137.0, 319.0, 239.0, 238.0, 121.0, 3322.0, 0.0, 1.0, 0.0, 0.0]
+        onehots = [(0,1)]*30
+
+        env  = IterableSource([SimulatedInteraction(numbers+onehots,[1,2,3],[4,5,6])]*1000)
+        time = timeit.timeit(lambda:list(Flatten().filter(env.read())), number=1)
+
+        #.010 was my final 
+        if print_time: print(time)
+        self.assertLess(time, .1)
+
+    def test_pipes_flat_tuple(self):
+
+        numbers = [3193.0, 151.0, 17.0, 484.0, -137.0, 319.0, 239.0, 238.0, 121.0, 3322.0, 0.0, 1.0, 0.0, 0.0]
+        onehots = [(0,1)]*30
+
+        time = timeit.timeit(lambda:list(coba.pipes.Flatten().filter([tuple(numbers+onehots)]*1000)), number=10)
+
+        #.05 was my final 
+        if print_time: print(time)
+        self.assertLess(time, .5)
+
+    def test_pipes_flat_dict(self):
+
+        numbers = [3193.0, 151.0, 17.0, 484.0, -137.0, 319.0, 239.0, 238.0, 121.0, 3322.0, 0.0, 1.0, 0.0, 0.0]
+        onehots = [(0,1)]*30
+
+        time = timeit.timeit(lambda:list(coba.pipes.Flatten().filter([dict(enumerate(numbers+onehots))]*1000)), number=5)
+
+        #.07 was my final 
+        if print_time: print(time)
+        self.assertLess(time, .7)
+
 
     def test_result_filter_env(self):
         envs = { k:{ 'mod': k%100 } for k in range(1000) }

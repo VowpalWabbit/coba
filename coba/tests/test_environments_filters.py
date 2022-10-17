@@ -1228,8 +1228,8 @@ class Flatten_Tests(unittest.TestCase):
     def test_flatten(self):
         
         interactions = [
-            SimulatedInteraction((7,(1,0)), [(1,(2,3)),2], [.2,.3]),
-            SimulatedInteraction((1,"abc"), [(1,"def"),3], [.1,.5]),
+            SimulatedInteraction((7,(1,0)), [(1,"def"),2], [.2,.3]),
+            SimulatedInteraction((1,(0,1)), [(1,"ghi"),3], [.1,.5]),
         ]
 
         flatten_filter = Flatten()
@@ -1237,10 +1237,10 @@ class Flatten_Tests(unittest.TestCase):
 
         self.assertEqual(2            , len(actual_interactions))
         self.assertEqual((7,1,0)      , actual_interactions[0].context)
-        self.assertEqual([(1,2,3)  ,2], actual_interactions[0].actions)
+        self.assertEqual([(1,"def"),2], actual_interactions[0].actions)
         self.assertEqual([.2,.3]      , actual_interactions[0].rewards)
-        self.assertEqual((1,"abc")    , actual_interactions[1].context)
-        self.assertEqual([(1,"def"),3], actual_interactions[1].actions)
+        self.assertEqual((1,0,1)      , actual_interactions[1].context)
+        self.assertEqual([(1,"ghi"),3], actual_interactions[1].actions)
         self.assertEqual([.1,.5]      , actual_interactions[1].rewards)
 
     def test_params(self):

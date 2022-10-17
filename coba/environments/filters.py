@@ -1,14 +1,13 @@
 import pickle
 import warnings
 import collections.abc
-import time
 
 from math import isnan
 from statistics import mean, median, stdev, mode
 from abc import abstractmethod, ABC
 from numbers import Number
 from collections import defaultdict
-from itertools import islice, chain
+from itertools import islice, chain, tee
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
 from coba.backports import Literal
 
@@ -450,9 +449,16 @@ class Flatten(EnvironmentFilter):
         return { "flat": True }
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+        
+        I1,I2,I3 = tee(interactions,3)
+
+        interactions      = I1
+        flat_context_iter = self._flattener.filter( i.context  for i in I2                    )
+        flat_actions_iter = self._flattener.filter( a          for i in I3 for a in i.actions )
+
         for interaction in interactions:
-            flat_context = next(iter(self._flattener.filter([interaction.context])))
-            flat_actions = list(self._flattener.filter(interaction.actions))
+            flat_context = next(flat_context_iter)
+            flat_actions = list(islice(flat_actions_iter,len(interaction.actions)))
             yield SimulatedInteraction(flat_context, flat_actions, interaction.rewards, **interaction.kwargs)
 
 class Binary(EnvironmentFilter):

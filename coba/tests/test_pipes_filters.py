@@ -234,6 +234,9 @@ class Flatten_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(Flatten().filter(given)) )
 
+    def test_empty_flatten(self):
+        self.assertEqual([], list(Flatten().filter([])) )
+
 class Encode_Tests(unittest.TestCase):
 
     def test_encode_empty(self):
