@@ -1,7 +1,7 @@
 import collections.abc
 
 from pathlib import Path
-from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping
+from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type
 from coba.backports import Literal
 
 from coba.contexts   import CobaContext, DiskCacher
@@ -29,8 +29,9 @@ class Environments (collections.abc.Sequence):
     """A friendly wrapper around commonly used environment functionality."""
 
     @staticmethod
-    def set_cache_directory(path:Union[str,Path]) -> None:
+    def cache(path:Union[str,Path]) -> Type['Environments']:
         CobaContext.cacher = DiskCacher(path)
+        return Environments
 
     @overload
     @staticmethod
@@ -291,7 +292,7 @@ class Environments (collections.abc.Sequence):
 
     def materialize(self) -> 'Environments':
         """Convert from generated environments to materialized environments."""
-        environments = self.filter(Cache())
+        environments = Environments([Pipes.join(e,Cache()) for e in self._environments])
         for env in environments: list(env.read()) #force read to pre-load cache
         return environments
 
@@ -302,7 +303,7 @@ class Environments (collections.abc.Sequence):
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
-        return Environments([Pipes.join(e,f) for e in self._environments for f in filters ])
+        return Environments([Pipes.join(e,f) for e in self._environments for f in filters])
 
     def __getitem__(self, index:int) -> Union[SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment]:
         return self._environments[index]

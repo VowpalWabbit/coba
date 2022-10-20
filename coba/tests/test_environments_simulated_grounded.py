@@ -10,7 +10,7 @@ from coba.environments import ToInteractionGrounded, SimulatedInteraction
 CobaContext.logger = NullLogger()
 
 class ToInteractionGrounded_Tests(unittest.TestCase):
-    
+
     def test_bad_users(self):
         with self.assertRaises(CobaException) as e:
             ToInteractionGrounded(10,20,5,2,1)
@@ -22,6 +22,16 @@ class ToInteractionGrounded_Tests(unittest.TestCase):
             ToInteractionGrounded(10,5,5,10,1)
 
         self.assertIn("Igl conversion can't have more good words", str(e.exception))
+
+    def test_bad_n_users(self):
+        with self.assertRaises(CobaException) as e:
+            ToInteractionGrounded(10.5,20,5,2,1)
+
+        self.assertIn("n_users must be a whole number and not 10.5.", str(e.exception))
+
+    def test_n_users_float_but_integer(self):
+        filter = ToInteractionGrounded(10.0,5.0,5.0,2.0,1)
+        self.assertEqual(filter._n_users, 10)
 
     def test_interaction_count(self):
         interactions = [

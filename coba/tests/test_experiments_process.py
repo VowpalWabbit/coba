@@ -2,9 +2,9 @@ import unittest
 
 from typing import cast, Iterable
 
-from coba.contexts     import CobaContext, NullLogger
+from coba.contexts     import CobaContext, BasicLogger
 from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation
-from coba.pipes        import Pipes
+from coba.pipes        import Pipes, ListSink
 from coba.learners     import CbLearner
 
 from coba.experiments.results import Result
@@ -18,6 +18,7 @@ from coba.experiments.process import (
 class ModuloLearner(CbLearner):
     def __init__(self, param:str="0"):
         self._param = param
+        self.n_learns = 0
 
     @property
     def params(self):
@@ -27,7 +28,7 @@ class ModuloLearner(CbLearner):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
 
     def learn(self, key, context, action, reward, probability):
-        pass
+        self.n_learns += 1
 
 class ObserveTask:
     def __init__(self):
@@ -35,7 +36,12 @@ class ObserveTask:
 
     def process(self, *items):
         self.observed = items
-        return {}
+
+        if len(items) == 2 and isinstance(items[0], CbLearner): #eval task
+            items[0].learn(None, None, None, None, None)
+            return []
+        else: #learner or environment task
+            return {}
 
 class ExceptionTask:
     def __init__(self):
@@ -46,11 +52,14 @@ class ExceptionTask:
 
 class CountReadSimulation:
     def __init__(self) -> None:
-        self._reads = 0
+        self.n_reads = 0
 
     def read(self) -> Iterable[SimulatedInteraction]:
-        yield SimulatedInteraction(self._reads, [0,1], [0,1])
-        self._reads += 1
+        yield SimulatedInteraction(self.n_reads, [0,1], [0,1])
+        self.n_reads += 1
+
+    def __str__(self) -> str:
+        return "CountRead"
 
 class ExceptionSimulation:
     def read(self) -> Iterable[SimulatedInteraction]:
@@ -58,13 +67,12 @@ class ExceptionSimulation:
 
 class CountFilter:
     def __init__(self) -> None:
-        self._count = 0
+        self.n_filter = 0
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
         for interaction in interactions:
-            yield SimulatedInteraction((interaction.context, self._count), interaction.actions, interaction.rewards, **interaction.kwargs)
-
-        self._count += 1
+            yield SimulatedInteraction((interaction.context, self.n_filter), interaction.actions, interaction.rewards, **interaction.kwargs)
+        self.n_filter += 1
 #for testing purposes
 
 class CreateWorkItems_Tests(unittest.TestCase):
@@ -224,7 +232,7 @@ class MaxChunkSize_Tests(unittest.TestCase):
 class ProcessTasks_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
-        CobaContext.logger = NullLogger()
+        CobaContext.logger = BasicLogger(ListSink())
 
     def test_simple(self):
 
@@ -239,7 +247,110 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task.observed[1]), 5)
         self.assertEqual(['T3', (1,1), []], transactions[0])
 
-    def test_two_eval_tasks_one_source_one_env(self):
+    def test_one_source_environment_reused(self):
+
+        sim1 = CountReadSimulation()
+
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
+
+        task1 = ObserveTask()
+        task2 = ObserveTask()
+        task3 = ObserveTask()
+
+        items = [ 
+            WorkItem(0, None, sim1, None, task1), 
+            WorkItem(0, 0   , sim1, lrn1, task2), 
+            WorkItem(0, 1   , sim1, lrn2, task3) 
+        ]
+
+        transactions = list(ProcessWorkItems().filter(items))
+
+        self.assertEqual(len(task1.observed[1]), 1)
+        self.assertEqual(len(task2.observed[1]), 1)
+        self.assertEqual(len(task3.observed[1]), 1)
+
+        self.assertEqual(task1.observed[1][0].context, 0)
+        self.assertEqual(task2.observed[1][0].context, 0)
+
+        self.assertEqual(['T2',    0 , {}], transactions[0])
+        self.assertEqual(['T3', (0,0), []], transactions[1])
+        self.assertEqual(['T3', (0,1), []], transactions[2])
+
+        self.assertEqual(sim1.n_reads, 1)
+
+        self.assertGreater(lrn1.n_learns, 0)
+        self.assertGreater(lrn2.n_learns, 0)
+
+    def test_one_pipe_environment_reused(self):
+
+        sim1 = CountReadSimulation()
+        flt1 = CountFilter()
+        env1 = Pipes.join(sim1, flt1)
+
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
+
+        task1 = ObserveTask()
+        task2 = ObserveTask()
+        task3 = ObserveTask()
+
+        items = [ 
+            WorkItem(0, None, env1, None, task1), 
+            WorkItem(0, 0   , env1, lrn1, task2), 
+            WorkItem(0, 1   , env1, lrn2, task3) 
+        ]
+
+        transactions = list(ProcessWorkItems().filter(items))
+
+        self.assertEqual(len(task1.observed[1]), 1)
+        self.assertEqual(len(task2.observed[1]), 1)
+        self.assertEqual(len(task3.observed[1]), 1)
+
+        self.assertEqual(task1.observed[1][0].context, (0,0) )
+        self.assertEqual(task2.observed[1][0].context, (0,0) )
+
+        self.assertEqual(['T2',    0 , {}], transactions[0])
+        self.assertEqual(['T3', (0,0), []], transactions[1])
+        self.assertEqual(['T3', (0,1), []], transactions[2])
+
+        self.assertEqual(sim1.n_reads , 1)
+        self.assertEqual(flt1.n_filter, 1)
+
+        self.assertEqual(lrn1.n_learns, 1)
+        self.assertEqual(lrn2.n_learns, 1)
+
+    def test_one_learner_evaluated_twice_is_deep_copied(self):
+
+        #make sure both environments are read and learner is deepcopied
+
+        sim1 = CountReadSimulation()
+        sim2 = CountReadSimulation()
+
+        lrn1 = ModuloLearner("1")
+
+        task1 = ObserveTask()
+        task2 = ObserveTask()
+
+        items = [ WorkItem(0, 0, sim1, lrn1, task1), WorkItem(1, 1, sim2, lrn1, task2) ]
+
+        transactions = list(ProcessWorkItems().filter(items))
+
+        self.assertEqual(len(task1.observed[1]), 1)
+        self.assertEqual(len(task2.observed[1]), 1)
+
+        self.assertEqual(task1.observed[1][0].context, 0)
+        self.assertEqual(task2.observed[1][0].context, 0)
+
+        self.assertIn(['T3', (0,0), []], transactions)
+        self.assertIn(['T3', (1,1), []], transactions)
+
+        self.assertEqual(sim1.n_reads, 1)
+        self.assertEqual(sim2.n_reads, 1)
+
+        self.assertEqual(lrn1.n_learns, 0)
+
+    def test_two_learners_evaluated_once_are_not_deep_copied(self):
 
         sim1 = CountReadSimulation()
 
@@ -262,7 +373,14 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(['T3', (0,0), []], transactions[0])
         self.assertEqual(['T3', (0,1), []], transactions[1])
 
+        self.assertEqual(sim1.n_reads, 1)
+
+        self.assertEqual(lrn1.n_learns, 1)
+        self.assertEqual(lrn2.n_learns, 1)
+
     def test_two_eval_tasks_two_source_two_env(self):
+
+        #make both environments are read and learners aren't deepcopied
 
         sim1 = CountReadSimulation()
         sim2 = CountReadSimulation()
@@ -286,12 +404,21 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertIn(['T3', (0,0), []], transactions)
         self.assertIn(['T3', (1,1), []], transactions)
 
-    def test_two_eval_tasks_one_source_two_env(self):
+        self.assertGreater(lrn1.n_learns, 0)
+        self.assertGreater(lrn2.n_learns, 0)
 
-        filter = CountFilter()
+        self.assertEqual(sim1.n_reads, 1)
+        self.assertEqual(sim2.n_reads, 1)
+
+    def test_one_source_in_two_env_is_read_once(self):
+
+        filt1 = CountFilter()
+        filt2 = CountFilter()
+
         src1   = CountReadSimulation()
-        sim1   = Pipes.join(src1, filter)
-        sim2   = Pipes.join(src1, filter)
+        sim1   = Pipes.join(src1, filt1)
+        sim2   = Pipes.join(src1, filt2)
+
         lrn1   = ModuloLearner("1")
         lrn2   = ModuloLearner("2")
 
@@ -302,11 +429,50 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         transactions = list(ProcessWorkItems().filter(items))
 
+        self.assertEqual(src1.n_reads  , 1)
+        self.assertEqual(filt1.n_filter, 1)
+        self.assertEqual(filt2.n_filter, 1)
+
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
 
         self.assertEqual(task1.observed[1][0].context, (0,0))
-        self.assertEqual(task2.observed[1][0].context, (0,1))
+        self.assertEqual(task2.observed[1][0].context, (0,0))
+
+        self.assertEqual(['T3', (0,0), []], transactions[0])
+        self.assertEqual(['T3', (1,1), []], transactions[1])
+
+    def test_one_source_in_two_env_and_materialized_is_not_read(self):
+
+        filt1 = CountFilter()
+        filt2 = CountFilter()
+
+        src1   = CountReadSimulation()
+        envs   = Environments([Pipes.join(src1, filt1), Pipes.join(src1, filt2)]).materialize()
+        env1   = envs[0]
+        env2   = envs[1]
+
+        lrn1   = ModuloLearner("1")
+        lrn2   = ModuloLearner("2")
+
+        task1 = ObserveTask()
+        task2 = ObserveTask()
+
+        items = [ WorkItem(0, 0, env1, lrn1, task1), WorkItem(1, 1, env2, lrn2, task2) ]
+
+        transactions = list(ProcessWorkItems().filter(items))
+
+        self.assertEqual(CobaContext.logger.sink.items[1], 'Loading CountRead...')
+
+        self.assertEqual(src1.n_reads  , 2)
+        self.assertEqual(filt1.n_filter, 1)
+        self.assertEqual(filt2.n_filter, 1)
+
+        self.assertEqual(len(task1.observed[1]), 1)
+        self.assertEqual(len(task2.observed[1]), 1)
+
+        self.assertEqual(task1.observed[1][0].context, (0,0))
+        self.assertEqual(task2.observed[1][0].context, (1,0)) #note that we load the source twice
 
         self.assertEqual(['T3', (0,0), []], transactions[0])
         self.assertEqual(['T3', (1,1), []], transactions[1])
@@ -331,6 +497,9 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         self.assertEqual(['T1', 0, {}], transactions[0])
         self.assertEqual(['T1', 1, {}], transactions[1])
+
+        self.assertEqual(lrn1.n_learns, 0)
+        self.assertEqual(lrn2.n_learns, 0)
 
     def test_two_environment_tasks(self):
 
@@ -357,8 +526,8 @@ class ProcessTasks_Tests(unittest.TestCase):
 
     def test_two_environment_tasks_first_environment_is_empty(self):
 
-        src1   = LinearSyntheticSimulation(n_interactions=0)
-        src2   = LinearSyntheticSimulation(n_interactions=5)
+        src1  = LinearSyntheticSimulation(n_interactions=0)
+        src2  = LinearSyntheticSimulation(n_interactions=5)
 
         task1 = ObserveTask()
         task2 = ObserveTask()

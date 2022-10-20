@@ -305,8 +305,6 @@ class OpenmlSimulation(SupervisedSimulation):
         params = [
             f"data={self.params['openml_data']}" if self.params.get('openml_data') else f"task={self.params['openml_task']}",
             f"target={self.params['openml_target']}" if self.params.get('openml_target') else "",
-            f"cat_as_str={self.params['cat_as_str']}",
-            f"drop_missing={self.params['drop_missing']}"
         ]
 
         return f"Openml({str.join(', ', filter(None,params))})"

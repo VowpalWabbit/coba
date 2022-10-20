@@ -35,10 +35,11 @@ class MockResponse:
         pass
 
 class Environments_Tests(unittest.TestCase):
-    def test_set_caching_directory(self):
-        Environments.set_cache_directory('abc')
+    def test_cache(self):
+        env = Environments.cache('abc').from_linear_synthetic(100)[0]
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertEqual("abc", CobaContext.cacher.cache_directory)
+        self.assertEqual(len(list(env.read())),100)
 
     def test_from_definition_path(self):
         if Path("coba/tests/.temp/from_file.env").exists():
@@ -417,23 +418,25 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('*', envs[0].params['sort'])
 
     def test_materialize(self):
-        envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
-        env  = envs[0]
-        self.assertNotIsInstance(env.read(),list)
-
+        envs  = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
+        envs += Environments.from_linear_synthetic(10 ,2,3,4,["xa"],6)
+        
         envs = envs.materialize()
-        env  = envs[0]
 
-        self.assertEqual(100,len(env[-1]._cache))
-        interactions = list(env.read())
+        self.assertEqual(100,len(envs[0][-1]._cache))
+        self.assertEqual(10 ,len(envs[1][-1]._cache))
 
-        self.assertEqual(1     , len(envs))
+        interactions = list(envs[0].read())
+
+        self.assertEqual(2     , len(envs))
         self.assertEqual(100   , len(interactions))
         self.assertEqual(2     , len(interactions[0].actions))
         self.assertEqual(3     , len(interactions[0].context))
         self.assertEqual(4     , len(interactions[0].actions[0]))
-        self.assertEqual(['xa'], env.params['reward_features'])
-        self.assertEqual(5     , env.params['seed'])
+        self.assertEqual(['xa'], envs[0].params['reward_features'])
+        
+        self.assertEqual(5     , envs[0].params['seed'])
+        self.assertEqual(6     , envs[1].params['seed'])
 
     def test_grounded(self):
         envs = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)        

@@ -9,7 +9,7 @@ from coba.learners import CbLearner
 from coba.contexts import CobaContext
 from coba.pipes import Source, Filter
 from coba.pipes.core import SourceFilters
-from coba.environments import SimulatedEnvironment
+from coba.environments import SimulatedEnvironment, Cache
 
 from coba.experiments.tasks import LearnerTask, EnvironmentTask, EvaluationTask
 from coba.experiments.results import Result
@@ -155,10 +155,12 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                     if env_source is None:
                         loaded_source = None
                     else:
-                        with CobaContext.logger.time(f"Loading {env_source}..."):
+                        with CobaContext.logger.time(f"Loading {env_source._source if isinstance(env_source,SourceFilters) else env_source}..."):
                             #This is not ideal. I'm not sure how it should be improved so it is being left for now.
                             #Maybe add a flag to the Experiment to say whether the source should be stashed in mem?
                             loaded_source = list(env_source.read())
+
+                    #if a learner only has one eval 
 
                     filter_groups = [ (k,list(g)) for k,g in groupby(sorted(work_for_env_source, key=self._get_id_filter_sort), key=self._get_id_filter) ]
 
@@ -195,7 +197,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                                 if workitem.environ and workitem.learner:
                                     with CobaContext.logger.time(f"Evaluating Learner {workitem.learner_id} on Environment {workitem.environ_id}..."):
  
-                                        if len([i for i in chunk if i.environ and i.learner]) > 1:
+                                        if len([i for i in chunk if i.environ and i.learner is workitem.learner]) > 1:
                                             learner = deepcopy(workitem.learner)
                                         else:
                                             learner = workitem.learner
@@ -213,7 +215,10 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
         if task.environ is None:
             return None
         elif isinstance(task.environ, SourceFilters):
-            return task.environ._source
+            if isinstance(task.environ[-1], Cache):
+                return task.environ
+            else:
+                return task.environ._source
         else:
             return task.environ
 

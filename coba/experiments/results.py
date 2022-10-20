@@ -540,7 +540,7 @@ class MatplotlibPlotter(Plotter):
 
             padding = .05
             ax.margins(0)
-            ax.set_xticks([min(ax.get_xlim()[1], max(ax.get_xlim()[0],x)) for x in ax.get_xticks()])
+            ax.set_xticks(ax.get_xticks() if not xlim else [min(ax.get_xlim()[1], max(ax.get_xlim()[0],x)) for x in ax.get_xticks()])
             ax.margins(padding)
 
             if xlim:
@@ -980,11 +980,10 @@ class Result:
         style = "-" if x == ['index'] else "."
 
         for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
-
             lrn_rows = list(lrn_rows)
             XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
             color    = i if not colors else i+max(colors) if isinstance(colors[0],int) else colors[i] if i < len(colors) else i
-            label    = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
+            label    = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']            
             lines.append(Points(*zip(*XYE), color, 1, label, style))
 
         lines  = sorted(lines, key=lambda line: -line[1][-1])

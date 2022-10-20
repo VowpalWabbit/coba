@@ -1,6 +1,6 @@
 from collections import abc
 from itertools import chain
-from typing import Dict, Any, Iterable
+from typing import Dict, Any, Iterable, Union
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
@@ -8,12 +8,13 @@ from coba.environments.simulated.primitives import SimulatedInteraction
 from coba.environments.filters import EnvironmentFilter
 
 class ToInteractionGrounded(EnvironmentFilter):
+
     def __init__(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int) -> None:
-        self._n_users   = n_users
-        self._n_normal  = n_normal
-        self._n_words   = n_words
-        self._n_good    = n_good
-        self._seed      = seed
+        self._n_users  = self._try_int(n_users, "n_users")
+        self._n_normal = self._try_int(n_normal, "n_normal")
+        self._n_words  = self._try_int(n_words, "n_words")
+        self._n_good   = self._try_int(n_good, "n_good")
+        self._seed     = seed
 
         if n_normal > n_users:
             raise CobaException("Igl conversion can't have more normal users (n_normal) than total users (n_users).")
@@ -39,7 +40,7 @@ class ToInteractionGrounded(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
         rng = CobaRandom(self._seed)
-        
+
         #we make it a set for faster contains checks
         normalids       = set(self.normalids) 
         isnormal        = [u in normalids for u in self.userids]
@@ -74,7 +75,7 @@ class ToInteractionGrounded(EnvironmentFilter):
 
             igl_rewards = interaction.rewards
 
-            if not_10_rewards:                
+            if not_10_rewards:
                 max_index              = igl_rewards.index(max(igl_rewards))
                 igl_rewards            = [0]*len(igl_rewards)
                 igl_rewards[max_index] = 1
@@ -94,3 +95,8 @@ class ToInteractionGrounded(EnvironmentFilter):
                 igl_context = (userid, interaction.context)
 
             yield SimulatedInteraction(igl_context, interaction.actions, igl_rewards, **interaction.kwargs, userid=userid, feedbacks=words, isnormal=isnormal)
+    
+    def _try_int(self, value:Union[float,int], value_name:str) -> int:
+        if isinstance(value, int): return value
+        if isinstance(value, float) and value.is_integer(): return int(value)
+        raise CobaException(f"{value_name} must be a whole number and not {value}.")
