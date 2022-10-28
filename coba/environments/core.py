@@ -11,19 +11,15 @@ from coba.exceptions import CobaException
 
 from coba.environments.filters   import EnvironmentFilter
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
-from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params
+from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 
-from coba.environments          .primitives import Environment
-from coba.environments.logged   .primitives import LoggedEnvironment
-from coba.environments.simulated.primitives import SimulatedEnvironment
-from coba.environments.warmstart.primitives import WarmStartEnvironment
+from coba.environments.primitives import Environment
 
 from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
-from coba.environments.simulated.grounded   import ToInteractionGrounded
 
 class Environments (collections.abc.Sequence):
     """A friendly wrapper around commonly used environment functionality."""
@@ -298,17 +294,17 @@ class Environments (collections.abc.Sequence):
 
     def grounded(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int=1) -> 'Environments':
         """Convert from simulated environments to interaction grounded environments."""
-        return self.filter(ToInteractionGrounded(n_users, n_normal, n_words, n_good, seed))
+        return self.filter(Grounded(n_users, n_normal, n_words, n_good, seed))
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
         return Environments([Pipes.join(e,f) for e in self._environments for f in filters])
 
-    def __getitem__(self, index:int) -> Union[SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment]:
+    def __getitem__(self, index:int) -> Environment:
         return self._environments[index]
 
-    def __iter__(self) -> Iterator[Union[SimulatedEnvironment, LoggedEnvironment, WarmStartEnvironment]]:
+    def __iter__(self) -> Iterator[Environment]:
         return self._environments.__iter__()
 
     def __len__(self) -> int:

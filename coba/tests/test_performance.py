@@ -8,7 +8,7 @@ import coba.random
 
 from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
-from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale, Flatten, ToInteractionGrounded
+from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale, Flatten, Grounded
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes import IterableSource
@@ -410,7 +410,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_to_interaction_grounded(self):
         interactions    = [SimulatedInteraction(1, [1,2,3,4,5,6,7], [0,0,0,1,0,0,0])]
-        grounded_filter = ToInteractionGrounded(100,50,100,50,1)
+        grounded_filter = Grounded(100,50,100,50,1)
 
         time = timeit.timeit(lambda: list(grounded_filter.filter(interactions*5000)), number=1)
 

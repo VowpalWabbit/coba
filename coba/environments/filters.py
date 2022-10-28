@@ -17,9 +17,7 @@ from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import HashableDict
 
-from coba.environments.primitives import Interaction
-from coba.environments.logged.primitives import LoggedInteraction
-from coba.environments.simulated.primitives import SimulatedInteraction
+from coba.environments.primitives import Interaction, LoggedInteraction, SimulatedInteraction, GroundedInteraction
 
 class EnvironmentFilter(pipes.Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
     """A filter that can be applied to an Environment."""
@@ -715,3 +713,97 @@ class Params(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         return interactions
+
+class Grounded(EnvironmentFilter):
+
+    def __init__(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int) -> None:
+        self._n_users  = self._cast_int(n_users, "n_users")
+        self._n_normal = self._cast_int(n_normal, "n_normal")
+        self._n_words  = self._cast_int(n_words, "n_words")
+        self._n_good   = self._cast_int(n_good, "n_good")
+        self._seed     = seed
+
+        if n_normal > n_users:
+            raise CobaException("Igl conversion can't have more normal users (n_normal) than total users (n_users).")
+
+        if n_good > n_words:
+            raise CobaException("Igl conversion can't have more good words (n_good) than total words (n_words).")
+
+        self.userids   = list(range(self._n_users))
+        self.normalids = self.userids[:self._n_normal]
+        self.wordids   = list(range(self._n_words))
+        self.goodwords = self.wordids[:self._n_good]
+        self.badwords  = self.wordids[self._n_good:]
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return {
+            "n_users"  : self._n_users,
+            "n_normal" : self._n_normal,
+            "n_good"   : self._n_good,
+            "n_words"  : self._n_words,
+            "igl_seed" : self._seed
+        }
+
+    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[GroundedInteraction]:
+        rng = CobaRandom(self._seed)
+
+        #we make it a set for faster contains checks
+        normalids       = set(self.normalids) 
+        isnormal        = [u in normalids for u in self.userids]
+        userid_isnormal = list(zip(self.userids,isnormal))
+
+        interactions = iter(interactions)
+        first        = next(interactions)
+
+        not_binary_rewards = bool((set(first.rewards)-{0,1}))
+
+        goodwords = self.goodwords
+        badwords  = self.badwords
+
+        if isinstance(first.context, collections.abc.Mapping):
+            context_type = 0
+        elif isinstance(first.context,collections.abc.Sequence) and not isinstance(first.context,str):
+            context_type = 1
+        else:
+            context_type = 2
+
+        def batched_rand_int_iter(sequence):
+            b=len(sequence)-1
+            while True:
+                for r in rng.randints(1000,0,b):
+                    yield sequence[r]
+
+        goods = batched_rand_int_iter([(g,) for g in goodwords])
+        bads  = batched_rand_int_iter([(b,) for b in badwords ])
+        users = batched_rand_int_iter(userid_isnormal)
+
+        for interaction in chain([first], interactions):
+
+            igl_rewards = interaction.rewards
+
+            if not_binary_rewards:
+                max_index              = igl_rewards.index(max(igl_rewards))
+                igl_rewards            = [0]*len(igl_rewards)
+                igl_rewards[max_index] = 1
+
+            userid,isnormal = next(users)
+
+            if isnormal:
+                words = tuple(next(goods) if r==1 else next(bads) for r in igl_rewards)
+            else:
+                words = tuple(next(goods) if r==0 else next(bads) for r in igl_rewards)
+
+            if context_type == 0:
+                igl_context = dict(userid=userid,**interaction.context)
+            elif context_type == 1:
+                igl_context = (userid,)+tuple(interaction.context)
+            else:
+                igl_context = (userid, interaction.context)
+
+            yield GroundedInteraction(igl_context, interaction.actions, igl_rewards, words, userid=userid, isnormal=isnormal, **interaction.kwargs)
+
+    def _cast_int(self, value:Union[float,int], value_name:str) -> int:
+        if isinstance(value, int): return value
+        if isinstance(value, float) and value.is_integer(): return int(value)
+        raise CobaException(f"{value_name} must be a whole number and not {value}.")

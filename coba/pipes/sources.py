@@ -2,7 +2,7 @@ import requests
 import gzip
 
 from queue import Queue
-from typing import Callable, Iterable, Any, Union
+from typing import Callable, Iterable, Any, Union, Mapping
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
@@ -13,6 +13,28 @@ class NullSource(Source[Any]):
 
     def read(self) -> Iterable[Any]:
         return []
+
+class IdentitySource(Source[Any]):
+    """A source which reads from an iterable."""
+
+    def __init__(self, item: Any, params: Mapping[str,Any] = None):
+        """Instantiate an IterableSource.
+
+        Args:
+            item: The item to return from read.
+            params: Teh params descirbing the source.
+        """
+        self._item = item
+        self._params = params or {}
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return self._params
+
+    def read(self) -> Iterable[Any]:
+        return self._item
+
+
 
 class DiskSource(Source[Iterable[str]]):
     """A source which reads a file from disk.
@@ -107,7 +129,7 @@ class IterableSource(Source[Iterable[Any]]):
         """Instantiate an IterableSource.
 
         Args:
-            items: The iterable we should read from.
+            iterable: The iterable we should read from.
         """
         self.iterable = [] if iterable is None else iterable
 

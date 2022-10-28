@@ -8,7 +8,7 @@ from queue import Queue
 from pathlib import Path
 
 from coba.exceptions import CobaException
-from coba.pipes import DiskSource, QueueSource, NullSource, HttpSource, LambdaSource, IterableSource, UrlSource
+from coba.pipes import IdentitySource, DiskSource, QueueSource, NullSource, HttpSource, LambdaSource, IterableSource, UrlSource
 from coba.contexts import NullLogger, CobaContext
 
 CobaContext.logger = NullLogger()
@@ -27,6 +27,16 @@ class BrokenQueue:
 class NullSource_Tests(unittest.TestCase):
     def test_read(self):
         self.assertEqual(0, len(NullSource().read()))
+
+class IdentitySource_Tests(unittest.TestCase):
+
+    def test_read(self):
+        item = [1,2,3]
+        self.assertIs(item, IdentitySource(item).read())
+
+    def test_params(self):
+        self.assertEqual({}, IdentitySource(None).params)
+        self.assertEqual({'a','b'}, IdentitySource(None,params={'a','b'}).params)
 
 class DiskSource_Tests(unittest.TestCase):
 

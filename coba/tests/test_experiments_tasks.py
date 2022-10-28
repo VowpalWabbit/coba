@@ -7,7 +7,8 @@ import warnings
 
 from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext
-from coba.environments import SimulatedInteraction, LoggedInteraction, Shuffle, SupervisedSimulation, Noise
+from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
+from coba.environments import Shuffle, Noise
 from coba.learners     import CbLearner, IgLearner
 from coba.pipes        import Pipes
 
@@ -580,8 +581,8 @@ class InteractionGroundedEval_Tests(unittest.TestCase):
 
         learner = DummyIglLearner([[1,0,0],[0,0,1]])
         interactions = [
-            SimulatedInteraction(0,[1,2,3],[1,0,0],userid=0,isnormal=False,feedbacks=[4,5,6]),
-            SimulatedInteraction(1,[1,2,3],[0,1,0],userid=1,isnormal=True ,feedbacks=[7,8,9]),
+            GroundedInteraction(0,[1,2,3],[1,0,0],[4,5,6],userid=0,isnormal=False),
+            GroundedInteraction(1,[1,2,3],[0,1,0],[7,8,9],userid=1,isnormal=True),
         ]
 
         expected_predict_calls = [

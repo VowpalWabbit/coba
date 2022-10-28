@@ -5,11 +5,10 @@ from itertools import groupby, islice
 from collections import defaultdict
 from typing import Iterable, Sequence, Any, Optional, Tuple, Union
 
+from coba.pipes import Source, Filter, SourceFilters
 from coba.learners import CbLearner
 from coba.contexts import CobaContext
-from coba.pipes import Source, Filter
-from coba.pipes.core import SourceFilters
-from coba.environments import SimulatedEnvironment, Cache
+from coba.environments import Environment, Cache, EnvironmentFilter
 
 from coba.experiments.tasks import LearnerTask, EnvironmentTask, EvaluationTask
 from coba.experiments.results import Result
@@ -19,7 +18,7 @@ class WorkItem:
     def __init__(self,
         environ_id: Optional[int],
         learner_id: Optional[int],
-        environ   : Optional[SimulatedEnvironment],
+        environ   : Optional[Environment],
         learner   : Optional[CbLearner],
         task      : Union[LearnerTask, EnvironmentTask, EvaluationTask]) -> None:
 
@@ -32,7 +31,7 @@ class WorkItem:
 class CreateWorkItems(Source[Iterable[WorkItem]]):
 
     def __init__(self,
-        environs        : Sequence[SimulatedEnvironment],
+        environs        : Sequence[Environment],
         learners        : Sequence[CbLearner],
         learner_task    : LearnerTask,
         environment_task: EnvironmentTask,
@@ -211,7 +210,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                 except Exception as e:
                     CobaContext.logger.log(e)
 
-    def _get_source(self, task:WorkItem) -> SimulatedEnvironment:
+    def _get_source(self, task:WorkItem) -> Environment:
         if task.environ is None:
             return None
         elif isinstance(task.environ, SourceFilters):
@@ -225,7 +224,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
     def _get_source_sort(self, task:WorkItem) -> int:
         return self._source_id.get(id(self._get_source(task)),-1)
 
-    def _get_id_filter(self, task:WorkItem) -> Tuple[int, Filter[SimulatedEnvironment,SimulatedEnvironment]]:
+    def _get_id_filter(self, task:WorkItem) -> Tuple[int, EnvironmentFilter]:
         if task.environ is None:
             return (-1,None)
         elif isinstance(task.environ, SourceFilters):

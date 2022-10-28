@@ -1,12 +1,14 @@
 from itertools import islice
 from typing import Dict, Any, Iterable, Union
 
+from coba.exceptions import CobaException
 from coba.pipes import Sink, Source, UrlSource, JsonDecode, JsonEncode, LambdaSource
-from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
+
+from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
 
 class SerializedSimulation(SimulatedEnvironment):
 
-    def _make_serialized_source(self, sim: SimulatedEnvironment) -> Source[Iterable[str]]:
+    def _make_serialized_source(self, sim: Source[Iterable[SimulatedInteraction]]) -> Source[Iterable[str]]:
 
         def serialized_generator() -> Iterable[str]:
             json_encoder = JsonEncode()
@@ -22,14 +24,19 @@ class SerializedSimulation(SimulatedEnvironment):
 
         return LambdaSource(serialized_generator)
 
-    def __init__(self, source: Union[str, Source[Iterable[str]], SimulatedEnvironment]) -> None:
+    def __init__(self, source: Union[str, Source[Iterable[str]], Source[Iterable[SimulatedInteraction]]]) -> None:
 
         if isinstance(source,str):
             self._source= UrlSource(source)
-        elif isinstance(source, SimulatedEnvironment):
-            self._source = self._make_serialized_source(source)
         else:
-            self._source = source
+            _first = next(iter(source.read()))
+
+            if isinstance(_first,str):
+                self._source = source
+            elif isinstance(_first,SimulatedInteraction):
+                self._source = self._make_serialized_source(source)
+            else:
+                raise CobaException("We were unable to determine how to handle the source given to SerializedSimulation.")
 
         self._decoder = JsonDecode()
 

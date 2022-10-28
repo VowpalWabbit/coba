@@ -16,7 +16,8 @@ from coba.learners import CbLearner, SafeLearner, IgLearner
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker
 from coba.contexts import CobaContext
-from coba.environments import Environment, Interaction, SimulatedInteraction, LoggedInteraction, SafeEnvironment
+from coba.environments import Environment, SafeEnvironment
+from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction
 
 class LearnerTask(ABC):
     """A task which describes a Learner."""
@@ -569,7 +570,7 @@ class OnlineGroundedEval(EvaluationTask):
     def __init__(self, seed:int = 1) -> None:
         self._seed = seed
 
-    def process(self, learner: IgLearner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
+    def process(self, learner: IgLearner, interactions: Iterable[GroundedInteraction]) -> Iterable[Dict[Any,Any]]:
 
         rng = CobaRandom(self._seed)
 
@@ -582,9 +583,7 @@ class OnlineGroundedEval(EvaluationTask):
             context   = interaction.context
             actions   = interaction.actions
             rewards   = interaction.rewards
-            feedbacks = interaction.kwargs['feedbacks']
-            userid    = interaction.kwargs['userid']
-            isnormal  = interaction.kwargs['isnormal']
+            feedbacks = interaction.feedbacks
 
             probabilities,info = learner.predict(context=context, actions=interaction.actions)
 
@@ -597,4 +596,4 @@ class OnlineGroundedEval(EvaluationTask):
             learner.learn(context, actions, action, feedback, probability, info)
 
             #Anything can be returned here for later analysis. I simply guessed at what was needed.
-            yield { "reward": reward, "feedback": feedback, "userid": userid, "isnormal": isnormal, "probability": probability, **CobaContext.learning_info}
+            yield { "reward": reward, "feedback": feedback, "probability": probability, **interaction.kwargs, **CobaContext.learning_info}

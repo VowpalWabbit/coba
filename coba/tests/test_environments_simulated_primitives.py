@@ -2,7 +2,7 @@ import unittest
 
 from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext, NullLogger
-from coba.environments import SimulatedInteraction, MemorySimulation
+from coba.environments import SimulatedInteraction
 
 CobaContext.logger = NullLogger()
 
@@ -37,22 +37,6 @@ class SimulatedInteraction_Tests(unittest.TestCase):
     def test_rewards_actions_mismatch(self):
         with self.assertRaises(CobaException):
             SimulatedInteraction((1,2), (1,2,3), [4,5])
-
-class MemorySimulation_Tests(unittest.TestCase):
-
-    def test_interactions(self):
-        simulation   = MemorySimulation([SimulatedInteraction(1, [1,2,3], [0,1,2]), SimulatedInteraction(2, [4,5,6], [2,3,4])])
-        interactions = list(simulation.read())
-
-        self.assertEqual(interactions[0], interactions[0])
-        self.assertEqual(interactions[1], interactions[1])
-
-    def test_params(self):
-        simulation = MemorySimulation([],params={'a','b'})
-        self.assertEqual({'a','b'}, simulation.params)
-
-    def test_str(self):
-        self.assertEqual("MemorySimulation", str(MemorySimulation([])))
 
 if __name__ == '__main__':
     unittest.main()

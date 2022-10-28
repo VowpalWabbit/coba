@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, TypeVar, Generic, Dict
+from typing import Any, TypeVar, Generic, Mapping
 
 _T_out = TypeVar("_T_out", bound=Any, covariant    =True)
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
@@ -7,7 +7,7 @@ _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
 class Pipe:
 
     @property
-    def params(self) -> Dict[str,Any]:
+    def params(self) -> Mapping[str,Any]:
         """Parameters describing the pipe."""
         return { }
 

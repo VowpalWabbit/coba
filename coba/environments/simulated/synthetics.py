@@ -9,8 +9,7 @@ from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.encodings import InteractionsEncoder, OneHotEncoder
 
-from coba.environments.primitives import Context, Action
-from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction, MemorySimulation
+from coba.environments.primitives import Context, Action, SimulatedEnvironment, SimulatedInteraction
 
 class LambdaSimulation(SimulatedEnvironment):
     """A simulation created from generative lambda functions."""
@@ -83,12 +82,16 @@ class LambdaSimulation(SimulatedEnvironment):
     def __str__(self) -> str:
         return "LambdaSimulation"
 
-    class Spoof(MemorySimulation):
-
+    class Spoof:
         def __init__(self, interactions, _params, _str, _name) -> None:
-            type(self).__name__ = _name
             self._str           = _str
-            super().__init__(interactions, _params)
+            self._interactions  = interactions
+            self._params        = _params
+            type(self).__name__ = _name
+
+        @property
+        def params(self) -> Dict[str, Any]:
+            return self._params
 
         def read(self):
             return self._interactions
@@ -110,7 +113,7 @@ class LambdaSimulation(SimulatedEnvironment):
                 "on a single process rather than multiple, (2) re-design your LambdaSimulation as a class that inherits "
                 "from LambdaSimulation and implements __reduce__ (see coba.environments.simulations.LinearSyntheticSimulation "
                 "for an example), or (3) specify a finite number for n_interactions in the LambdaSimulation constructor (this "
-                "allows us to create the interactions in memory ahead of time and convert to a MemorySimulation when pickling).")
+                "allows us to create the interactions in memory ahead of time and convert to an in-memory simulation to pickle).")
             raise CobaException(message)
 
 class NeighborsSyntheticSimulation(LambdaSimulation):

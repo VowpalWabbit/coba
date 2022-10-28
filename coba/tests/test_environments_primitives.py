@@ -1,7 +1,7 @@
 import unittest
 
-from coba.environments import SafeEnvironment
-from coba.pipes import Pipes, Identity, Shuffle
+from coba.environments import SafeEnvironment, LoggedInteraction
+from coba.pipes import Pipes, Shuffle
 
 class DummyEnvironment:
 
@@ -25,6 +25,11 @@ class SafeEnvironment_Tests(unittest.TestCase):
 
     def test_with_pipes(self):
         self.assertEqual({'type': 'DummyEnvironment', "shuffle":1}, SafeEnvironment(Pipes.join(DummyEnvironment(), Shuffle(1))) .params)
+
+class LoggedInteraction_Tests(unittest.TestCase):
+    def test_IPS(self):
+        interaction = LoggedInteraction(1,2,3,1/2,[1,2,3])
+        self.assertEqual([0,6,0], interaction.rewards)
 
 if __name__ == '__main__':
     unittest.main()

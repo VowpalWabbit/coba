@@ -285,7 +285,7 @@ class InteractionsEncoder:
         self.n           = 0
         self._constant   = sum(num_interactions)
         self._cross_pows = OrderedDict(zip(interactions,map(OrderedDict,map(Counter,str_interactions))))
-        self._ns_max_pow = { n:max(p.get(n,0) for p in self._cross_pows.values()) for n in set(''.join(str_interactions)) }
+        self._ns_max_pow = { n:int(max(p.get(n,0) for p in self._cross_pows.values())) for n in set(''.join(str_interactions)) }
 
     def encode(self, **ns_raw_values: Union[str, float, Sequence[Union[str,float]], Dict[Union[str,int],Union[str,float]]]) -> Union[Sequence[float], Dict[str,float]]:
 
@@ -319,15 +319,18 @@ class InteractionsEncoder:
             ns_values = { ns:make_list(v) for ns,v in ns_raw_values.items() if ns in self._ns_max_pow}
         self.times[0] += time.time()-start
 
+        pows = self._pows
+        cross = self._cross
+
         if is_sparse:
             start = time.time()
-            key_pows = { ns: self._pows(list(ns_values[ns].keys()  ), max_pow) for ns, max_pow in self._ns_max_pow.items() }
-            val_pows = { ns: self._pows(list(ns_values[ns].values()), max_pow) for ns, max_pow in self._ns_max_pow.items() }
+            key_pows = { ns: pows(list(ns_values[ns].keys()  ), max_pow) for ns, max_pow in self._ns_max_pow.items() }
+            val_pows = { ns: pows(list(ns_values[ns].values()), max_pow) for ns, max_pow in self._ns_max_pow.items() }
             self.times[1] += time.time()-start
 
             start = time.time()
-            key_crosses = [ self._cross(key_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
-            val_crosses = [ self._cross(val_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
+            key_crosses = [ cross(key_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
+            val_crosses = [ cross(val_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
             self.times[2] += time.time()-start
 
             start = time.time()
@@ -339,11 +342,11 @@ class InteractionsEncoder:
             return encoded
         else:
             start = time.time()
-            val_pows = { ns: self._pows(ns_values[ns], max_pow) for ns, max_pow in self._ns_max_pow.items() }
+            val_pows = { ns: pows(ns_values[ns], max_pow) for ns, max_pow in self._ns_max_pow.items() }
             self.times[1] += time.time()-start
 
             start = time.time()
-            val_crosses = [ self._cross(val_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
+            val_crosses = [ cross(val_pows, cross_pow) for cross_pow in self._cross_pows.values() ]
             self.times[2] += time.time()-start
 
             start = time.time()
@@ -354,11 +357,11 @@ class InteractionsEncoder:
 
             return encoded
 
-    def _pows(self, values, degree):
+    def _pows(self, values: Sequence[Union[str,float]], degree):
         #WARNING: This function has been extremely optimized. Please baseline performance before and after making any changes.
         #WARNING: You can find three existing performance tests in test_performance.
 
-        if values in [[],{}]: return []
+        if not values: return []
 
         starts = [1]*len(values)
         terms  = [['']] if isinstance(values[0],str) else [[1]]
@@ -381,7 +384,7 @@ class InteractionsEncoder:
 
         values = [ ns_pows[ns][p] for ns,p in cross_pow.items() ]
         cross  = values[0]
-
+        
         if isinstance(cross[0],str):
             for vs in values[1:]: cross = [ o+v for o in cross for v in vs ]
         else:

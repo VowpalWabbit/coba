@@ -9,7 +9,7 @@ from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 from coba.encodings import OneHotEncoder
 from coba.statistics import percentile
 
-from coba.environments.simulated.primitives import SimulatedEnvironment, SimulatedInteraction
+from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
 
 class CsvSource(Source[Iterable[MutableSequence]]):
     """Load a source (either local or remote) in CSV format.

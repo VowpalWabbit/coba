@@ -7,22 +7,17 @@ can be applied to environments to modify them in useful ways (e.g., shuffling, s
 
 from coba.environments.core       import Environments
 from coba.environments.primitives import Context, Action, Interaction, Environment, SafeEnvironment
+from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
 from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
-from coba.environments.filters    import Binary, Warm, Sparse, Where, Noise
+from coba.environments.filters    import Binary, Warm, Sparse, Where, Noise, Grounded
 from coba.environments.filters    import EnvironmentFilter
 
-from coba.environments.simulated.primitives import SimulatedInteraction, SimulatedEnvironment
-from coba.environments.simulated.synthetics import MemorySimulation, LambdaSimulation
-from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments.simulated.synthetics import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation, OpenmlSource
 from coba.environments.simulated.supervised import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
 from coba.environments.simulated.serialized import SerializedSimulation
-from coba.environments.simulated.grounded   import ToInteractionGrounded
-
-from coba.environments.logged.primitives import LoggedInteraction, LoggedEnvironment
-from coba.environments.warmstart.primitives import WarmStartEnvironment
 
 __all__ = [
     'Context',
@@ -30,13 +25,10 @@ __all__ = [
     'Interaction',
     'SimulatedInteraction',
     'LoggedInteraction',
+    'GroundedInteraction',
     'Environment',
     'SafeEnvironment',
-    'SimulatedEnvironment',
-    'LoggedEnvironment',
-    'WarmStartEnvironment',
     'Environments',
-    'MemorySimulation',
     'LambdaSimulation',
     'OpenmlSimulation',
     'OpenmlSource',
@@ -68,5 +60,5 @@ __all__ = [
     'Flatten',
     'Params',
     'Cache',
-    'ToInteractionGrounded'
+    'Grounded'
 ]

@@ -14,7 +14,8 @@ from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache
 
 from coba.pipes.rows    import DenseRow, SparseRow, IDenseRow, ISparseRow, EncodeRow, IndexRow, LabelRow
 from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
-from coba.pipes.sources import NullSource, DiskSource, IterableSource, QueueSource, HttpSource, LambdaSource, UrlSource
+from coba.pipes.sources import NullSource, IdentitySource, DiskSource, IterableSource
+from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource
 from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink
 
 from coba.pipes.core import Pipes, Foreach, QueueIO, SourceFilters
@@ -32,6 +33,7 @@ __all__ = [
     "ArffReader",
     "LibsvmReader",
     "ManikReader",
+    "IdentitySource",
     "UrlSource",
     "NullSource",
     "DiskSource",

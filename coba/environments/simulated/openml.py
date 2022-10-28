@@ -4,7 +4,7 @@ import json
 from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
 
 from coba.random import random
-from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader, IterableSource, Foreach
+from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader
 from coba.pipes import LabelRow, DenseRow, SparseRow
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
