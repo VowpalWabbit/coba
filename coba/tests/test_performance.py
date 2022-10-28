@@ -14,6 +14,7 @@ from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes import IterableSource
 from coba.pipes import EncodeRow, DenseRow, SparseRow
 from coba.experiments.results import Result, moving_average
+from coba.experiments import SimpleEvaluation
 
 print_time = False
 
@@ -343,7 +344,6 @@ class Performance_Tests(unittest.TestCase):
         if print_time: print(time)
         self.assertLess(time, .7)
 
-
     def test_result_filter_env(self):
         envs = { k:{ 'mod': k%100 } for k in range(1000) }
         lrns = { 1:{}, 2:{}, 3:{}}
@@ -417,6 +417,22 @@ class Performance_Tests(unittest.TestCase):
         #.04 was my final time
         if print_time: print(time)
         self.assertLess(time, .40)
+
+    def test_simple_evaluation(self):
+        
+        class DummyLearner:
+            def predict(*args):
+                return [1,0,0]
+            def learn(*args):
+                pass
+
+        interactions = [SimulatedInteraction(1,[1,2,3],[1,2,3])]*10000
+
+        time = timeit.timeit(lambda: list(SimpleEvaluation().process(DummyLearner(), interactions)), number=1)
+
+        #.09 was my final time
+        if print_time: print(time)
+        self.assertLess(time, .90)
 
 if __name__ == '__main__':
     unittest.main()

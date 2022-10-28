@@ -7,15 +7,12 @@ import warnings
 
 from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext
-from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
+from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
 from coba.environments import Shuffle, Noise
 from coba.learners     import CbLearner, IgLearner
 from coba.pipes        import Pipes
 
-from coba.experiments.tasks import (
-    OnlineOnPolicyEval, ClassEnvironmentInfo, SimpleEnvironmentInfo, 
-    OnlineOffPolicyEval, OnlineWarmStartEval, OnlineGroundedEval
-)
+from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo, SimpleEvaluation
 
 #for testing purposes
 class RecordingLearner(CbLearner):
@@ -71,7 +68,11 @@ class DummyIglLearner(IgLearner):
         self._learn_calls.append(args)
 #for testing purposes
 
-class SimpleEnvironmentTask_Tests(unittest.TestCase):
+class SimpleLearnerInfo_Tests(unittest.TestCase):
+    def test_simple(self):
+        self.assertEqual({"full_name":"Recording", "family":"Recording"}, SimpleLearnerInfo().process(RecordingLearner()))
+
+class SimpleEnvironmentInfo_Tests(unittest.TestCase):
 
     def test_classification_statistics_dense(self):
 
@@ -89,7 +90,7 @@ class SimpleEnvironmentTask_Tests(unittest.TestCase):
 
         self.assertEqual({**env.params}, task.process(env,ints))
 
-class ClassEnvironmentTask_Tests(unittest.TestCase):
+class ClassEnvironmentInfo_Tests(unittest.TestCase):
 
     def test_classification_statistics_dense_sans_sklearn(self):
         with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
@@ -271,14 +272,14 @@ class ClassEnvironmentTask_Tests(unittest.TestCase):
         Y = [1,1,2,2]
         self.assertAlmostEqual(.529, ClassEnvironmentInfo()._max_directional_fisher_discriminant_ratio(X,Y), places=3)
 
-class OnlineOnPolicyEval_Tests(unittest.TestCase):
+class SimpleEvaluation_Tests(unittest.TestCase):
 
     def test_no_metrics(self):
         with self.assertRaises(CobaException):
-            OnlineOnPolicyEval(None)
+            SimpleEvaluation(None)
 
-    def test_one_metric(self):
-        task         = OnlineOnPolicyEval("reward",time=False)
+    def test_simulated_interaction_one_metric(self):
+        task         = SimpleEvaluation("reward",time_metrics=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(None,[1,2,3],[7,8,9]),
@@ -292,9 +293,9 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
         expected_task_results    = [
-            {"reward":7},
-            {"reward":5},
-            {"reward":3}
+            {"reward":7, 'probability':1},
+            {"reward":5, 'probability':1},
+            {"reward":3, 'probability':1}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -302,9 +303,9 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_process_none_rewards_no_info_no_logs_no_kwargs(self):
+    def test_simulated_interaction_all_reward_metrics(self):
 
-        task         = OnlineOnPolicyEval(time=False)
+        task         = SimpleEvaluation(["reward","reward_pct","rank","rank_pct","regret","regret_pct"])
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(None,[1,2,3],[7,8,9]),
@@ -318,9 +319,9 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
         expected_task_results    = [
-            {"reward":7,"reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0},
-            {"reward":5,"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5},
-            {"reward":3,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0}
+            {"reward":7,"reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0,'probability':1},
+            {"reward":5,"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5,'probability':1},
+            {"reward":3,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0,'probability':1}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -328,9 +329,35 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_process_sparse_rewards_no_info_no_logs_no_kwargs(self):
+    def test_none_simulated_interaction_no_info_no_logs_no_kwargs(self):
 
-        task         = OnlineOnPolicyEval(time=False)
+        task         = SimpleEvaluation()
+        learner      = RecordingLearner(with_info=False, with_log=False)
+        interactions = [
+            SimulatedInteraction(None,[1,2,3],[7,8,9]),
+            SimulatedInteraction(None,[4,5,6],[4,5,6]),
+            SimulatedInteraction(None,[7,8,9],[1,2,3]),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+
+        expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
+        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
+        expected_learn_calls     = [(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
+        expected_task_results    = [
+            {"reward":7,'probability':1},
+            {"reward":5,'probability':1},
+            {"reward":3,'probability':1}
+        ]
+
+        self.assertEqual(expected_predict_calls, learner.predict_calls)
+        self.assertEqual(expected_predict_returns, learner.predict_returns)
+        self.assertEqual(expected_learn_calls, learner.learn_calls)
+        self.assertEqual(expected_task_results, task_results)
+
+    def test_sparse_simulated_interaction_no_info_no_logs_no_kwargs(self):
+
+        task         = SimpleEvaluation()
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction({'c':1},[{'a':1},{'a':2}],[7,8]),
@@ -343,8 +370,8 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         expected_predict_returns = [[1,0],[0,1]]
         expected_learn_calls     = [({'c':1},{'a':1},7,1,None),({'c':2},{'a':5},5,1,None)]
         expected_task_results    = [
-            {"reward":7,"reward_pct":0.0,'rank':2,'rank_pct':1.0,'regret':1,'regret_pct':1.0},
-            {"reward":5,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0},
+            {"reward":7,'probability':1},
+            {"reward":5,'probability':1},
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -352,9 +379,9 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_process_rewards_no_info_no_logs_no_kwargs(self):
+    def test_dense_simulated_interaction_no_info_no_logs_no_kwargs(self):
 
-        task         = OnlineOnPolicyEval(time=False)
+        task         = SimpleEvaluation()
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9]),
@@ -368,9 +395,9 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(1,1,7,1,None),(2,5,5,1,None),(3,9,3,1,None)]
         expected_task_results    = [
-            {"reward":7,"reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0},
-            {"reward":5,"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5},
-            {"reward":3,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0}
+            {"reward":7,'probability':1},
+            {"reward":5,'probability':1},
+            {"reward":3,'probability':1}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -378,9 +405,9 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_process_rewards_info_logs_kwargs(self):
+    def test_simulated_interaction_info_logs_kwargs(self):
 
-        task         = OnlineOnPolicyEval(time=False)
+        task         = SimpleEvaluation()
         learner      = RecordingLearner(with_info=True, with_log=True)
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9],letters=['a','b','c'],I=1),
@@ -394,9 +421,9 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
         expected_learn_calls     = [(1,1,7,1,1),(2,5,5,1,2),(3,9,3,1,3)]
         expected_task_results    = [
-            {"reward":7,"letters":'a','learn':1,'predict':1,'I':1,"reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0},
-            {"reward":5,'letters':'e','learn':2,'predict':2,'I':2,"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5},
-            {"reward":3,'letters':'i','learn':3,'predict':3,'I':3,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0}
+            {"reward":7,"letters":'a','learn':1,'predict':1,'I':1,'probability':1},
+            {"reward":5,'letters':'e','learn':2,'predict':2,'I':2,'probability':1},
+            {"reward":3,'letters':'i','learn':3,'predict':3,'I':3,'probability':1}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -404,9 +431,9 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_process_rewards_info_logs_kwargs_partial(self):
+    def test_simulated_interaction_info_logs_kwargs_partial(self):
 
-        task         = OnlineOnPolicyEval(time=False)
+        task         = SimpleEvaluation()
         learner      = RecordingLearner(with_info=True, with_log=True)
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9]),
@@ -420,9 +447,9 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
         expected_learn_calls     = [(1,1,7,1,1),(2,5,5,1,2),(3,9,3,1,3)]
         expected_task_results    = [
-            {"reward":7,'learn':1,'predict':1,              "reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0},
-            {"reward":5,'learn':2,'predict':2,'letters':'e',"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5},
-            {"reward":3,'learn':3,'predict':3,'letters':'i',"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0}
+            {"reward":7,'learn':1,'predict':1,              "probability":1},
+            {"reward":5,'learn':2,'predict':2,'letters':'e',"probability":1},
+            {"reward":3,'learn':3,'predict':3,'letters':'i',"probability":1}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -430,21 +457,8 @@ class OnlineOnPolicyEval_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_time(self):
-
-        task         = OnlineOnPolicyEval(time=True)
-        learner      = RecordingLearner()
-        interactions = [SimulatedInteraction(1,[1,2,3],[7,8,9])]
-
-        task_results = list(task.process(learner, interactions))
-
-        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
-        self.assertAlmostEqual(0, task_results[0]["learn_time"  ], places=1)
-
-class OnlineOffPolicyEval_Tests(unittest.TestCase):
-
-    def test_process_reward_no_actions_no_probability_no_info_no_logs(self):
-        task    = OnlineOffPolicyEval(time=False)
+    def test_logged_interaction_no_actions_no_probability_no_info_no_logs(self):
+        task    = SimpleEvaluation()
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3),
@@ -464,8 +478,8 @@ class OnlineOffPolicyEval_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_process_reward_actions_no_probability_no_info_no_logs(self):
-        task    = OnlineOffPolicyEval(time=False)
+    def test_logged_interaction_actions_no_probability_no_info_no_logs(self):
+        task    = SimpleEvaluation(time_metrics=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3, actions=[2,5,8]),
@@ -475,8 +489,8 @@ class OnlineOffPolicyEval_Tests(unittest.TestCase):
 
         task_results = list(task.process(learner, interactions))
 
-        expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
-        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
+        expected_predict_calls   = []
+        expected_predict_returns = []
         expected_learn_calls     = [(1,2,3,None,None),(2,3,4,None,None),(3,4,5,None,None)]
         expected_task_results    = [{},{},{}]
 
@@ -485,8 +499,8 @@ class OnlineOffPolicyEval_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_process_reward_actions_probability_no_info_no_logs(self):
-        task    = OnlineOffPolicyEval(time=False)
+    def test_logged_interaction_actions_probability_no_info_no_logs(self):
+        task    = SimpleEvaluation(time_metrics=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3, .2, [2,5,8]),
@@ -499,15 +513,15 @@ class OnlineOffPolicyEval_Tests(unittest.TestCase):
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(1,2,3,.2,None),(2,3,4,.3,None),(3,4,5,.4,None)]
-        expected_task_results    = [{'reward':3/.2},{'reward':0},{'reward':0}]
+        expected_task_results    = [{'reward':3/.2,'probability':1},{'reward':0,'probability':1},{'reward':0,'probability':1}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_process_reward_actions_probability_info_logs_kwargs(self):
-        task    = OnlineOffPolicyEval(time=False)
+    def test_logged_interaction_actions_probability_info_logs_kwargs(self):
+        task    = SimpleEvaluation(time_metrics=False)
         learner = RecordingLearner(with_info=True,with_log=True)
         interactions = [
             LoggedInteraction(1, 2, 3, .2, [2,5,8], L='a'),
@@ -521,9 +535,9 @@ class OnlineOffPolicyEval_Tests(unittest.TestCase):
         expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
         expected_learn_calls     = [(1,2,3,.2,1),(2,3,4,.3,2),(3,4,5,.4,3)]
         expected_task_results    = [
-            {'reward':3/.2, 'learn':1, 'predict':1, 'L':'a'},
-            {'reward':0   , 'learn':2, 'predict':2, 'L':'b'},
-            {'reward':0   , 'learn':3, 'predict':3, 'L':'c'}
+            {'reward':3/.2, 'learn':1, 'predict':1, 'L':'a', 'probability':1},
+            {'reward':0   , 'learn':2, 'predict':2, 'L':'b', 'probability':1},
+            {'reward':0   , 'learn':3, 'predict':3, 'L':'c', 'probability':1}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -531,21 +545,8 @@ class OnlineOffPolicyEval_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-    def test_time(self):
-
-        task         = OnlineOffPolicyEval(time=True)
-        learner      = RecordingLearner()
-        interactions = [LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.2)]
-
-        task_results = list(task.process(learner, interactions))
-
-        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
-        self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
-
-class OnlineWarmStartEval_Tests(unittest.TestCase):
-
-    def test_process_reward_no_actions_no_probability_no_info_no_logs(self):
-        task         = OnlineWarmStartEval(time=False)
+    def test_logged_and_simulated_interactions(self):
+        task         = SimpleEvaluation()
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3),
@@ -565,9 +566,9 @@ class OnlineWarmStartEval_Tests(unittest.TestCase):
             {},
             {},
             {},
-            {"reward":7,"reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0},
-            {"reward":5,"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5},
-            {"reward":3,"reward_pct":1.0,'rank':1,'rank_pct':0.0,'regret':0,'regret_pct':0.0}
+            {"reward":7,"probability":1},
+            {"reward":5,"probability":1},
+            {"reward":3,"probability":1}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -575,9 +576,7 @@ class OnlineWarmStartEval_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner.learn_calls)
         self.assertEqual(expected_task_results, task_results)
 
-class InteractionGroundedEval_Tests(unittest.TestCase):
-
-    def test_two_eval_iterations(self):
+    def test_two_grounded_interactions(self):
 
         learner = DummyIglLearner([[1,0,0],[0,0,1]])
         interactions = [
@@ -600,11 +599,32 @@ class InteractionGroundedEval_Tests(unittest.TestCase):
             dict(reward=0,feedback=9,userid=1,isnormal=True ,probability=1,n_predict=2)
         ]
 
-        actual_results = list(OnlineGroundedEval().process(learner,interactions))
+        actual_results = list(SimpleEvaluation().process(learner,interactions))
 
         self.assertEqual(expected_results, actual_results)
         self.assertEqual(expected_predict_calls, learner._predict_calls)
         self.assertEqual(expected_learn_calls, learner._learn_calls)
+
+    def test_time(self):
+        task         = SimpleEvaluation(time_metrics=True)
+        learner      = RecordingLearner()
+        interactions = [LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.2)]
+
+        task_results = list(task.process(learner, interactions))
+
+        self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
+        self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
+
+    def test_bad_interaction(self):
+        
+        class DummyInteraction(Interaction):
+            pass
+
+        with self.assertRaises(CobaException) as e:
+            list(SimpleEvaluation().process(None, [DummyInteraction(1,[1,2],[3,4])]))
+
+        self.assertEqual("An unknown interaction type was received.", str(e.exception))
+
 
 if __name__ == '__main__':
     unittest.main()

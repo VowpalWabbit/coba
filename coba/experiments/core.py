@@ -11,7 +11,7 @@ from coba.exceptions import CobaException
 
 from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems, MaxChunkSize
 from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
-from coba.experiments.tasks   import SimpleLearnerInfo, SimpleEnvironmentInfo, OnlineOnPolicyEval
+from coba.experiments.tasks   import SimpleLearnerInfo, SimpleEnvironmentInfo, SimpleEvaluation
 from coba.experiments.results import Result, TransactionIO
 
 class Experiment:
@@ -23,7 +23,7 @@ class Experiment:
         description     : str = None,
         learner_task    : LearnerTask     = SimpleLearnerInfo(),
         environment_task: EnvironmentTask = SimpleEnvironmentInfo(),
-        evaluation_task : EvaluationTask  = OnlineOnPolicyEval()) -> None:
+        evaluation_task : EvaluationTask  = SimpleEvaluation()) -> None:
         """Instantiate an Experiment.
 
         Args:

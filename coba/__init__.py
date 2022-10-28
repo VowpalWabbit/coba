@@ -1,6 +1,6 @@
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import Environments
-from coba.experiments  import Experiment, Result, OnlineGroundedEval, OnlineOnPolicyEval
+from coba.experiments  import Experiment, Result
 
 from coba.random import CobaRandom
 

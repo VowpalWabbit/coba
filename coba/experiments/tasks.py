@@ -6,13 +6,13 @@ import warnings
 
 from abc import ABC, abstractmethod
 from statistics import mean
-from itertools import takewhile, combinations
+from itertools import combinations
 from typing import Iterable, Any, Dict, Sequence, Hashable, Union
 
 from coba.statistics import percentile
 from coba.exceptions import CobaExit, CobaException
 from coba.random import CobaRandom
-from coba.learners import CbLearner, SafeLearner, IgLearner
+from coba.learners import CbLearner, SafeLearner
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker
 from coba.contexts import CobaContext
@@ -66,168 +66,139 @@ class EvaluationTask(ABC):
         """
         ...
 
-class OnlineOnPolicyEval(EvaluationTask):
-    """Evaluate a Learner on a SimulatedEnvironment."""
+class SimpleEvaluation(EvaluationTask):
 
-    def __init__(self, 
-        metrics: Union[str,Sequence[str]] = ["reward","reward_pct","rank","rank_pct","regret","regret_pct"],
-        time:bool = True, 
-        seed:int = 1) -> None:
-        """Instantiate an OnlineOnPolicyEvalTask.
-
+    def __init__(self, reward_metrics: Union[str,Sequence[str]] = "reward", time_metrics: bool = False) -> None:
+        """
         Args:
-            metrics: The metrics to keep track of while evaluating learners in addition to reward.
-            time: Indicate whether time statistcs should be tracked during evaluation.
-            seed: A random seed which determines which action is taken given predictions.
+            reward_metrics: The reward metrics to that should be recorded for each example. 
+                The metric options include: reward_pct, rank, rank_pct, regret, and regret_pct.
+            time_metrics: Indicates whether time metrics should be recorded.
         """
 
-        if not metrics:
+        if not reward_metrics:
             raise CobaException("At least one performance metric is required.")
 
-        if isinstance(metrics,str): 
-            metrics = [metrics]
+        if isinstance(reward_metrics,str): 
+            reward_metrics = [reward_metrics]
 
-        self._metrics = metrics
-        self._time    = time
-        self._seed    = seed
-
-    def process(self, learner: CbLearner, interactions: Iterable[SimulatedInteraction]) -> Iterable[Dict[Any,Any]]:
-
-        random = CobaRandom(self._seed)
-
-        if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
-        if not interactions: return
-
-        for interaction in interactions:
-
-            CobaContext.learning_info.clear()
-
-            context = interaction.context
-            actions = interaction.actions
-
-            start_time         = time.time()
-            probabilities,info = learner.predict(context, actions)
-            predict_time       = time.time() - start_time
-
-            action       = random.choice(actions, probabilities)
-            action_index = actions.index(action)
-            reward       = interaction.rewards[action_index]
-            probability  = probabilities[action_index]
-
-            start_time = time.time()
-            learner.learn(context, action, reward, probability, info)
-            learn_time = time.time() - start_time
-
-            interaction_info = { k:(v[action_index] if isinstance(v,(list,tuple)) else v) for k,v in interaction.kwargs.items() }
-
-            eval_stats = {
-                'reward'      : reward,
-                'max_reward'  : max(interaction.rewards),
-                'min_reward'  : min(interaction.rewards),
-                'rank'        : 1+sorted(interaction.rewards,reverse=True).index(reward),
-                'min_rank'    : 1,
-                'max_rank'    : len(set(interaction.rewards)),
-            }
-
-            eval_metrics = {
-                'reward': eval_stats['reward'],
-                'reward_pct': (eval_stats['reward']-eval_stats['min_reward'])/(eval_stats['max_reward']-eval_stats['min_reward']),
-                'rank': eval_stats['rank'],
-                'rank_pct': (eval_stats['rank']-1)/(eval_stats['max_rank']-1),
-                'regret': eval_stats['max_reward']-eval_stats['reward'],
-                'regret_pct': (eval_stats['max_reward']-eval_stats['reward'])/(eval_stats['max_reward']-eval_stats['min_reward'])
-            }
-
-            eval_times = {} if not self._time else {"predict_time": predict_time, "learn_time": learn_time}
-
-            yield {**CobaContext.learning_info, **interaction_info, **eval_times, **{k:eval_metrics[k] for k in self._metrics}}
-
-class OnlineOffPolicyEval(EvaluationTask):
-    """Evaluate a Learner on a LoggedEnvironment."""
-
-    def __init__(self, time:bool = True) -> None:
-        self._time = time
-
-    def process(self, learner: CbLearner, interactions: Iterable[LoggedInteraction]) -> Iterable[Dict[Any,Any]]:
-
-        learn_time = 0
-        predict_time = 0
-
-        if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
-        if not interactions: return
-
-        for interaction in interactions:
-
-            CobaContext.learning_info.clear()
-
-            if not interaction.actions:
-                info             = None
-                interaction_info = {}
-
-            if interaction.actions:
-                actions          = list(interaction.actions)
-                start_time       = time.time()
-                probs,info       = learner.predict(interaction.context, actions)
-                predict_time     = time.time()-start_time
-                interaction_info = {}
-
-            if interaction.probability and interaction.actions:
-                ratio            = probs[actions.index(interaction.action)] / interaction.probability
-                interaction_info = {'reward': ratio*interaction.reward}
-
-            for k,v in interaction.kwargs.items():
-                interaction_info[k] = v
-
-            reveal = interaction.reward
-            prob   = interaction.probability
-
-            start_time = time.time()
-            learner.learn(interaction.context, interaction.action, reveal, prob, info)
-            learn_time = time.time()-start_time
-
-            time_info = {"predict_time": predict_time, "learn_time": learn_time} if self._time else {}
-
-            yield { **CobaContext.learning_info, **interaction_info, **time_info}
-
-class OnlineWarmStartEval(EvaluationTask):
-    """Evaluate a Learner on a WarmStartEnvironment."""
-
-    def __init__(self, time:bool = True, seed:int = 1) -> None:
-        """Instantiate an OnlineOnPolicyEvalTask.
-
-        Args:
-            seed: A random seed which determines which action is taken given predictions.
-        """
-        self._seed = seed
-        self._time = time
+        self._metrics = reward_metrics
+        self._time    = time_metrics
 
     def process(self, learner: CbLearner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
 
+        rng = CobaRandom(1)
+
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
 
-        separable_interactions = iter(self._repeat_first_simulated_interaction(interactions))
-
-        logged_interactions    = takewhile(lambda i: isinstance(i,LoggedInteraction), separable_interactions)
-        simulated_interactions = separable_interactions
-
-        for row in OnlineOffPolicyEval(time=self._time).process(learner, logged_interactions):
-            yield row
-
-        for row in OnlineOnPolicyEval(time=self._time, seed=self._seed).process(learner, simulated_interactions):
-            yield row
-
-    def _repeat_first_simulated_interaction(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-
-        any_simulated_found = False
+        predict = learner.predict
+        learn   = learner.learn
 
         for interaction in interactions:
-            yield interaction
 
-            if isinstance(interaction, SimulatedInteraction) and not any_simulated_found:
-                yield interaction
+            CobaContext.learning_info.clear()
 
-            any_simulated_found = any_simulated_found or isinstance(interaction, SimulatedInteraction)
+            if isinstance(interaction, SimulatedInteraction):
+                context = interaction.context
+                actions = interaction.actions
+                rewards = interaction.rewards
+
+                start_time   = time.time()
+                probs,info   = predict(context, actions)
+                predict_time = time.time()-start_time
+
+                action       = rng.choice(actions, probs)
+                action_index = actions.index(action)
+                reward       = rewards[action_index]
+                probability  = probs[action_index]
+
+                start_time = time.time()
+                learn(context, action, reward, probability, info)
+                learn_time = time.time() - start_time
+
+                misc_out = {}
+
+            elif isinstance(interaction, LoggedInteraction):
+                context = interaction.context
+                actions = interaction.actions
+                rewards = interaction.rewards
+
+                if not actions or not rewards:
+                    predict_time = None
+                    reward       = None
+                    probability  = None
+                    info         = None
+                else:
+                    start_time   = time.time()
+                    probs,info   = predict(context, actions)
+                    predict_time = time.time()-start_time
+
+                    action       = rng.choice(actions, probs)
+                    action_index = actions.index(action)
+                    reward       = rewards[action_index]
+                    probability  = probs[action_index]
+
+                start_time = time.time()
+                learn(context, interaction.action, interaction.reward, interaction.probability, info)
+                learn_time = time.time()-start_time
+
+                misc_out = {}
+
+            elif isinstance(interaction, GroundedInteraction):
+                context   = interaction.context
+                actions   = interaction.actions
+                rewards   = interaction.rewards
+                feedbacks = interaction.feedbacks
+
+                start_time   = time.time()
+                probs,info   = predict(context, actions)
+                predict_time = time.time()-start_time
+
+                action       = rng.choice(actions, probs)
+                action_index = actions.index(action)
+                reward       = rewards[action_index]
+                feedback     = feedbacks[action_index]
+                probability  = probs[action_index]
+
+                start_time = time.time()
+                learn(context, actions, action, feedback, probability, info)
+                learn_time = time.time()-start_time
+
+                misc_out = {'feedback': feedback}
+            
+            else:
+                raise CobaException("An unknown interaction type was received.")
+
+            reward_out = {}
+
+            if reward is not None and rewards:
+                eval_stats = {
+                    'reward'    : reward,
+                    'max_reward': max(rewards),
+                    'min_reward': min(rewards),
+                    'rank'      : 1+sorted(rewards,reverse=True).index(reward),
+                    'min_rank'  : 1,
+                    'max_rank'  : len(set(rewards)),
+                }
+
+                eval_metrics = {
+                    'reward'    : eval_stats['reward'],
+                    'reward_pct': (eval_stats['reward']-eval_stats['min_reward'])/(eval_stats['max_reward']-eval_stats['min_reward']),
+                    'rank'      : eval_stats['rank'],
+                    'rank_pct'  : (eval_stats['rank']-1)/(eval_stats['max_rank']-1),
+                    'regret'    : eval_stats['max_reward']-eval_stats['reward'],
+                    'regret_pct': (eval_stats['max_reward']-eval_stats['reward'])/(eval_stats['max_reward']-eval_stats['min_reward'])
+                }
+
+                reward_out = {k:eval_metrics[k] for k in self._metrics}
+
+            time_out   = {} if not self._time else dict(predict_time=predict_time, learn_time=learn_time)
+            prob_out   = dict(probability=probability) if probability is not None else dict()
+            kwargs_out = { k:(v[action_index] if isinstance(v,(list,tuple)) else v) for k,v in interaction.kwargs.items() }
+
+            yield { **reward_out, **time_out, **misc_out, **prob_out,  **CobaContext.learning_info, **kwargs_out}
+            CobaContext.learning_info.clear()
 
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""
@@ -564,36 +535,3 @@ class ClassEnvironmentInfo(EnvironmentTask):
         lim_f  = { f: percentile(X_by_f[f],[lower,upper]) for f in range(len(X_by_f)) }
         X_bin  = [ [ round((n_bins-1)*(x[f]-lim_f[f][0])/((lim_f[f][1]-lim_f[f][0]) or 1)) for f in range(len(X_by_f)) ] for x in X]
         return X_bin
-
-class OnlineGroundedEval(EvaluationTask):
-
-    def __init__(self, seed:int = 1) -> None:
-        self._seed = seed
-
-    def process(self, learner: IgLearner, interactions: Iterable[GroundedInteraction]) -> Iterable[Dict[Any,Any]]:
-
-        rng = CobaRandom(self._seed)
-
-        if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
-
-        for interaction in interactions:
-
-            CobaContext.learning_info.clear()
-
-            context   = interaction.context
-            actions   = interaction.actions
-            rewards   = interaction.rewards
-            feedbacks = interaction.feedbacks
-
-            probabilities,info = learner.predict(context=context, actions=interaction.actions)
-
-            action       = rng.choice(actions, probabilities)
-            action_index = actions.index(action)
-            reward       = rewards[action_index]
-            feedback     = feedbacks[action_index]
-            probability  = probabilities[action_index]
-
-            learner.learn(context, actions, action, feedback, probability, info)
-
-            #Anything can be returned here for later analysis. I simply guessed at what was needed.
-            yield { "reward": reward, "feedback": feedback, "probability": probability, **interaction.kwargs, **CobaContext.learning_info}
