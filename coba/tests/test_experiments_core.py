@@ -32,7 +32,7 @@ class ModuloLearner(CbLearner):
     def predict(self, context, actions):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
 
-    def learn(self, context, action, reward, probability, info):
+    def learn(self, context, actions, action, reward, probability):
         self._learn_calls += 1
 
 class BrokenLearner(CbLearner):
@@ -44,7 +44,7 @@ class BrokenLearner(CbLearner):
     def predict(self, context, actions):
         raise Exception("Broken Learner")
 
-    def learn(self, context, action, reward, probability, info):
+    def learn(self, context, actions, action, reward, probability):
         pass
 
 class PredictInfoLearner(CbLearner):
@@ -56,9 +56,9 @@ class PredictInfoLearner(CbLearner):
         return {"family": "Modulo", "p":self._param}
 
     def predict(self, context, actions):
-        return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ], (0,1)
+        return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ], {'info':(0,1)}
 
-    def learn(self, context, action, reward, probability, info):
+    def learn(self, context, actions, action, reward, probability, info):
         assert info == (0,1)
 
 class LearnInfoLearner(CbLearner):
@@ -72,7 +72,7 @@ class LearnInfoLearner(CbLearner):
     def predict(self, context, actions):
         return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
 
-    def learn(self, context, action, reward, probability, info):
+    def learn(self, context, actions, action, reward, probability):
         CobaContext.learning_info.update({"Modulo": self._param})
 
 class NotPicklableLearner(ModuloLearner):
@@ -474,6 +474,19 @@ class Experiment_Single_Tests(unittest.TestCase):
             Experiment([],[None])
 
         self.assertEqual("A Learner was given whose value was None, which can't be processed.", str(raised.exception))
+
+    def test_quiet(self):
+        
+        sim      = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        learner1 = PredictInfoLearner("0") #type: ignore
+        logger   = BasicLogger(ListSink())
+
+
+        CobaContext.logger = logger
+        Experiment(sim,learner1).run(quiet=True)
+
+        self.assertIs(CobaContext.logger, logger)
+        self.assertEqual([],logger.sink.items)
 
 class Experiment_Multi_Tests(Experiment_Single_Tests):
 

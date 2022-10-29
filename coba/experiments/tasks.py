@@ -87,8 +87,6 @@ class SimpleEvaluation(EvaluationTask):
 
     def process(self, learner: CbLearner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
 
-        rng = CobaRandom(1)
-
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
 
@@ -104,17 +102,13 @@ class SimpleEvaluation(EvaluationTask):
                 actions = interaction.actions
                 rewards = interaction.rewards
 
-                start_time   = time.time()
-                probs,info   = predict(context, actions)
-                predict_time = time.time()-start_time
-
-                action       = rng.choice(actions, probs)
-                action_index = actions.index(action)
-                reward       = rewards[action_index]
-                probability  = probs[action_index]
+                start_time       = time.time()
+                action,prob,info = predict(context, actions)
+                reward           = rewards[actions.index(action)]
+                predict_time     = time.time()-start_time
 
                 start_time = time.time()
-                learn(context, action, reward, probability, info)
+                learn(context, actions, action, reward, prob, **info)
                 learn_time = time.time() - start_time
 
                 misc_out = {}
@@ -127,20 +121,16 @@ class SimpleEvaluation(EvaluationTask):
                 if not actions or not rewards:
                     predict_time = None
                     reward       = None
-                    probability  = None
+                    prob         = None
                     info         = None
                 else:
                     start_time   = time.time()
-                    probs,info   = predict(context, actions)
+                    action,prob  = predict(context, actions)[:2]
+                    reward       = rewards[actions.index(action)]
                     predict_time = time.time()-start_time
 
-                    action       = rng.choice(actions, probs)
-                    action_index = actions.index(action)
-                    reward       = rewards[action_index]
-                    probability  = probs[action_index]
-
                 start_time = time.time()
-                learn(context, interaction.action, interaction.reward, interaction.probability, info)
+                learn(context, actions, interaction.action, interaction.reward, interaction.probability)
                 learn_time = time.time()-start_time
 
                 misc_out = {}
@@ -151,22 +141,19 @@ class SimpleEvaluation(EvaluationTask):
                 rewards   = interaction.rewards
                 feedbacks = interaction.feedbacks
 
-                start_time   = time.time()
-                probs,info   = predict(context, actions)
-                predict_time = time.time()-start_time
-
-                action       = rng.choice(actions, probs)
-                action_index = actions.index(action)
-                reward       = rewards[action_index]
-                feedback     = feedbacks[action_index]
-                probability  = probs[action_index]
-
+                start_time       = time.time()
+                action,prob,info = predict(context, actions)
+                index            = actions.index(action)
+                reward           = rewards[index]
+                feedback         = feedbacks[index]
+                predict_time     = time.time()-start_time
+                
                 start_time = time.time()
-                learn(context, actions, action, feedback, probability, info)
+                learn(context, actions, action, feedback, prob, **info)
                 learn_time = time.time()-start_time
 
                 misc_out = {'feedback': feedback}
-            
+
             else:
                 raise CobaException("An unknown interaction type was received.")
 
@@ -194,10 +181,11 @@ class SimpleEvaluation(EvaluationTask):
                 reward_out = {k:eval_metrics[k] for k in self._metrics}
 
             time_out   = {} if not self._time else dict(predict_time=predict_time, learn_time=learn_time)
-            prob_out   = dict(probability=probability) if probability is not None else dict()
-            kwargs_out = { k:(v[action_index] if isinstance(v,(list,tuple)) else v) for k,v in interaction.kwargs.items() }
+            prob_out   = dict(probability=prob) if prob is not None else dict()
+            kwargs_out = interaction.kwargs
+            learn_info = CobaContext.learning_info
 
-            yield { **reward_out, **time_out, **misc_out, **prob_out,  **CobaContext.learning_info, **kwargs_out}
+            yield { **reward_out, **time_out, **misc_out, **prob_out, **learn_info, **kwargs_out}
             CobaContext.learning_info.clear()
 
 class SimpleLearnerInfo(LearnerTask):

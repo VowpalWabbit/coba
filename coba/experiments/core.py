@@ -6,7 +6,7 @@ from coba.pipes import Pipes, Foreach
 from coba.learners import CbLearner
 from coba.environments import Environment, Environments
 from coba.multiprocessing import CobaMultiprocessor
-from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger
+from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, NullLogger
 from coba.exceptions import CobaException
 
 from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems, MaxChunkSize
@@ -113,13 +113,17 @@ class Experiment:
         """The maximum number of tasks allowed in a chunk before breaking a chunk into smaller chunks."""
         return self._maxtasksperchunk if self._maxtasksperchunk is not None else CobaContext.experiment.maxtasksperchunk
 
-    def run(self, result_file:str = None) -> Result:
+    def run(self, result_file:str = None, quiet:bool = False) -> Result:
         """Run the experiment and return the results.
 
         Args:
             result_file: The file for writing and restoring results .
         """
         cb, mp, mc, mt = self.chunk_by, self.processes, self.maxchunksperchild, self.maxtasksperchunk
+
+        if quiet: 
+            old_logger = CobaContext.logger
+            CobaContext.logger = NullLogger()
 
         if mp > 1 or mc != 0:
             #Add name so that we know which process-id the logs came from in addition to the time of the log
@@ -161,6 +165,8 @@ class Experiment:
 
         if isinstance(CobaContext.logger, DecoratedLogger):
             CobaContext.logger = CobaContext.logger.undecorate()
+
+        if quiet: CobaContext.logger = old_logger
 
         return sink.read()
 

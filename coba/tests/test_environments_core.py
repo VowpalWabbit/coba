@@ -223,6 +223,17 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(True, env[1].params['cat_as_str'])
         self.assertEqual(100 , env[1].params['reservoir_count'])
 
+    def test_from_lambda(self):
+        context = lambda index,rng               : [ round(r,2) for r in rng.randoms(5) ]
+        actions = lambda index,context,rng       : [rng.randoms(5) for _ in range(3)]
+        rewards = lambda index,context,action,rng: sum(c*a for c,a in zip(context,action))
+
+        env = Environments.from_lambda(1, context, actions, rewards, 1)[0]
+
+        self.assertEqual(1, len(list(env.read())))
+        self.assertEqual((0.11, 0.8, 0.44, 0.17, 0.42), list(env.read())[0].context)
+        self.assertEqual(3, len(list(env.read())[0].actions))
+
     def test_init_args(self):
         env = Environments(TestEnvironment('A'), TestEnvironment('B'))
 

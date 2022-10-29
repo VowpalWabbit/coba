@@ -6,7 +6,7 @@ from coba.environments import Context, Action
 from coba.pipes import Flatten
 from coba.encodings import InteractionsEncoder
 
-from coba.learners.primitives import Probs, Info, CbLearner
+from coba.learners.primitives import Probs, Actions, CbLearner
 
 class LinUCBLearner(CbLearner):
     """A contextual bandit learner that represents expected reward as a
@@ -56,7 +56,7 @@ class LinUCBLearner(CbLearner):
     def params(self) -> Dict[str, Any]:
         return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X}
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
+    def predict(self, context: Context, actions: Actions) -> Probs:
 
         import numpy as np #type: ignore
 
@@ -79,9 +79,9 @@ class LinUCBLearner(CbLearner):
         action_values = point_estimate + self._alpha*np.sqrt(point_bounds)
         max_indexes   = np.where(action_values == np.amax(action_values))[0]
 
-        return [ int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))]
+        return Probs([int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))])
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
+    def learn(self, context: Context, actions: Actions, action: Action, reward: float, probability: float) -> None:
 
         import numpy as np
 

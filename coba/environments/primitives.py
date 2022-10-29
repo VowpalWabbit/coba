@@ -1,20 +1,24 @@
-import collections.abc
-
+from collections import abc
 from numbers import Number
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, Optional
+from typing import Any, Union, Iterable, Sequence, Mapping, Optional, Callable
 
 from coba.utilities import HashableDict
 from coba.pipes import Source, SourceFilters
 from coba.exceptions import CobaException
 
-Action  = Union[str, Number, tuple, HashableDict]
-Context = Union[None, str, Number, tuple, HashableDict]
+Context   = Union[None, str, Number, tuple, HashableDict]
+Action    = Union[str, Number, tuple, HashableDict]
+Actions   = Sequence[Action]
+Reward    = float
+Rewards   = Union[Callable[[Action],Reward], Sequence[Reward]]
+Feedback  = Any 
+Feedbacks = Union[Callable[[Action],Feedback], Sequence[Feedback]]
 
 class Interaction:
     """An individual interaction that occurs in an Environment."""
 
-    def __init__(self, context: Context, actions: Optional[Sequence[Action]], rewards: Optional[Sequence[float]], **kwargs) -> None:
+    def __init__(self, context: Context, actions: Optional[Actions], rewards: Optional[Rewards], **kwargs) -> None:
         """Instantiate an Interaction.
 
         Args:
@@ -24,26 +28,34 @@ class Interaction:
         self._actions = actions
         self._rewards = rewards
         self._kwargs  = kwargs
+        self._hashed  = set()
 
-        if rewards and actions and len(rewards) != len(actions):
-            raise CobaException("An interaction's reward count must equal its action count.")
+        try:
+            if len(rewards) != len(actions):
+                raise CobaException("An interaction's reward count must equal its action count.")
+        except CobaException:
+            raise
+        except Exception:
+            pass
 
     @property
     def context(self) -> Context:
         """The context in which the interaction occured."""
-        if not isinstance(self._context, collections.abc.Hashable):
+        if "context" not in self._hashed:
             self._context = self._make_hashable(self._context)
+            self._hashed.add("context")
         return self._context
 
     @property
-    def actions(self) -> Sequence[Action]:
+    def actions(self) -> Actions:
         """The actions available in the interaction."""
-        if not isinstance(self._actions[0], collections.abc.Hashable):
+        if "actions" not in self._hashed:
             self._actions = list(map(self._make_hashable,self._actions))
+            self._hashed.add("actions")
         return self._actions
 
     @property
-    def rewards(self) -> Sequence[float]:
+    def rewards(self) -> Rewards:
         return self._rewards
 
     @property
@@ -52,15 +64,15 @@ class Interaction:
         return self._kwargs
 
     def _make_hashable(self, feats):
+        if isinstance(feats,abc.Hashable): 
+            return feats
         try:
             return feats.to_builtin()
         except Exception:
-            if isinstance(feats, collections.abc.Sequence):
+            if isinstance(feats, abc.Sequence):
                 return tuple(feats)
-
-            if isinstance(feats, collections.abc.Mapping):
+            if isinstance(feats, abc.Mapping):
                 return HashableDict(feats)
-
             return feats
 
 class GroundedInteraction(Interaction):
@@ -68,9 +80,9 @@ class GroundedInteraction(Interaction):
 
     def __init__(self,
         context: Context,
-        actions: Sequence[Action],
-        rewards: Sequence[float],
-        feedbacks: Sequence[Any],
+        actions: Actions,
+        rewards: Rewards,
+        feedbacks: Feedbacks,
         **kwargs) -> None:
         ...
         """Instantiate GroundedInteraction.
@@ -84,11 +96,10 @@ class GroundedInteraction(Interaction):
         """
 
         super().__init__(context, actions, rewards, **kwargs)
-
         self._feedbacks = feedbacks
 
     @property
-    def feedbacks(self) -> Sequence[Any]:
+    def feedbacks(self) -> Feedbacks:
         """The feedback for each action in the interaction."""
         return self._feedbacks
 
@@ -100,8 +111,8 @@ class LoggedInteraction(Interaction):
         action: Action,
         reward: float,
         probability: Optional[float] = None,
-        actions: Optional[Sequence[Action]] = None,
-        rewards: Optional[Sequence[float]] = None,
+        actions: Optional[Actions] = None,
+        rewards: Optional[Rewards] = None,
         **kwargs) -> None:
         """Instantiate LoggedInteraction.
 
@@ -117,18 +128,24 @@ class LoggedInteraction(Interaction):
             **kwargs : Additional information that should be recorded in the interactions table of an experiment result. If
                 any data is a sequence with length equal to actions only the data at the selected action index will be recorded.
         """
-        self._action      = self._make_hashable(action)
+        self._action      = action
         self._reward      = reward
         self._probability = probability
 
         if probability and actions and rewards is None:
-            rewards = [ int(a==action)*reward/probability for a in actions ]
+            try:
+                rewards = [ int(a==action)*reward/probability for a in actions ]
+            except:
+                rewards = lambda a: int(a==action)*reward/probability
 
         super().__init__(context, actions, rewards, **kwargs)
 
     @property
     def action(self) -> Action:
         """The action that was taken."""
+        if "action" not in self._hashed:
+            self._action = self._make_hashable(self._action)
+            self._hashed.add("action")
         return self._action
 
     @property
@@ -142,12 +159,12 @@ class LoggedInteraction(Interaction):
         return self._probability
 
     @property
-    def actions(self) -> Optional[Sequence[Action]]:
+    def actions(self) -> Optional[Actions]:
         """The actions that were available to the logging policy."""
         return self._actions
 
     @property
-    def rewards(self) -> Optional[Sequence[Action]]:
+    def rewards(self) -> Optional[Rewards]:
         """The rewards to use for off policy evaluation."""
         return self._rewards
 
@@ -156,8 +173,8 @@ class SimulatedInteraction(Interaction):
 
     def __init__(self,
         context : Context,
-        actions : Sequence[Action],
-        rewards : Sequence[float],
+        actions : Actions,
+        rewards : Rewards,
         **kwargs) -> None:
         ...
         """Instantiate SimulatedInteraction.

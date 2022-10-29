@@ -1,12 +1,17 @@
 import unittest
 
-from coba.environments import SafeEnvironment, LoggedInteraction
+from coba.environments import SafeEnvironment, Interaction, SimulatedInteraction, LoggedInteraction
+from coba.exceptions import CobaException
 from coba.pipes import Pipes, Shuffle
 
 class DummyEnvironment:
 
     def read(self):
         return []
+
+class Interaction_Tests(unittest.TestCase):
+    def test_hashable(self):
+        self.assertEqual({1,2,3}, Interaction(1,2,3)._make_hashable({1,2,3}))
 
 class SafeEnvironment_Tests(unittest.TestCase):
 
@@ -27,9 +32,62 @@ class SafeEnvironment_Tests(unittest.TestCase):
         self.assertEqual({'type': 'DummyEnvironment', "shuffle":1}, SafeEnvironment(Pipes.join(DummyEnvironment(), Shuffle(1))) .params)
 
 class LoggedInteraction_Tests(unittest.TestCase):
-    def test_IPS(self):
+    def test_IPS_sequence(self):
         interaction = LoggedInteraction(1,2,3,1/2,[1,2,3])
         self.assertEqual([0,6,0], interaction.rewards)
+
+    def test_IPS_function(self):
+        interaction = LoggedInteraction(1,2,3,1/2,1)
+        self.assertEqual([0,6,0], [interaction.rewards(a) for a in [1,2,3]])
+
+    def test_simple_with_actions(self):
+        interaction = LoggedInteraction(1, 2, 3, .2, [1,2,3])
+
+        self.assertEqual(1, interaction.context)
+        self.assertEqual(2, interaction.action)
+        self.assertEqual(3, interaction.reward)
+        self.assertEqual(.2, interaction.probability)
+        self.assertEqual([1,2,3], interaction.actions)
+
+    def test_simple_sans_actions(self):
+        interaction = LoggedInteraction(1, 2, 3, .2)
+
+        self.assertEqual(1, interaction.context)
+        self.assertEqual(2, interaction.action)
+        self.assertEqual(3, interaction.reward)
+        self.assertEqual(.2, interaction.probability)
+
+class SimulatedInteraction_Tests(unittest.TestCase):
+    def test_context_none(self):
+        self.assertEqual(None, SimulatedInteraction(None, (1,2,3), (4,5,6)).context)
+
+    def test_context_str(self):
+        self.assertEqual("A", SimulatedInteraction("A", (1,2,3), (4,5,6)).context)
+
+    def test_context_dense(self):
+        self.assertEqual((1,2,3), SimulatedInteraction((1,2,3), (1,2,3), (4,5,6)).context)
+
+    def test_context_dense_2(self):
+        self.assertEqual((1,2,3,(0,0,1)), SimulatedInteraction((1,2,3,(0,0,1)), (1,2,3), (4,5,6)).context)
+
+    def test_context_sparse_dict(self):
+        self.assertEqual({1:0}, SimulatedInteraction({1:0}, (1,2,3), (4,5,6)).context)
+
+    def test_actions_correct_1(self) -> None:
+        self.assertSequenceEqual([1,2], SimulatedInteraction(None, [1,2], [1,2]).actions)
+
+    def test_actions_correct_2(self) -> None:
+        self.assertSequenceEqual(["A","B"], SimulatedInteraction(None, ["A","B"], [1,2]).actions)
+
+    def test_actions_correct_3(self) -> None:
+        self.assertSequenceEqual([(1,2), (3,4)], SimulatedInteraction(None, [(1,2), (3,4)], [1,2]).actions)
+
+    def test_rewards_correct(self):
+        self.assertEqual([4,5,6], SimulatedInteraction((1,2), (1,2,3), [4,5,6]).rewards)
+
+    def test_rewards_actions_mismatch(self):
+        with self.assertRaises(CobaException):
+            SimulatedInteraction((1,2), (1,2,3), [4,5])
 
 if __name__ == '__main__':
     unittest.main()

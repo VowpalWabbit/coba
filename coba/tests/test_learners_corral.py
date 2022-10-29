@@ -3,7 +3,6 @@ import unittest
 from statistics import mean
 
 from coba.contexts import CobaContext
-from coba.random import CobaRandom
 from coba.learners import CorralLearner, FixedLearner, LinUCBLearner
 
 class ReceivedLearnFixedLearner(FixedLearner):
@@ -13,8 +12,8 @@ class ReceivedLearnFixedLearner(FixedLearner):
         self.key            = key
         super().__init__(fixed_pmf)
 
-    def learn(self, context, action, reward, probability, info) -> None:
-        self.received_learn = (context, action, reward, probability)
+    def learn(self, context, actions, action, reward, probability) -> None:
+        self.received_learn = (context, actions, action, reward, probability)
         CobaContext.learning_info.update({self.key:1})
 
 class FamilyLearner:
@@ -31,15 +30,15 @@ class CorralLearner_Tests(unittest.TestCase):
 
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="importance")
 
-        mean_predict = list(map(mean, zip(*[learner.predict(None, [1,2])[0] for _ in range(1000)])) )
+        mean_predict = list(map(mean, zip(*[learner.predict(None, [1,2])[0] for _ in range(10000)])) )
 
         self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_predict[0], 2)
         self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_predict[1], 2)
 
     def test_importance_learn(self):
         actions      = [1,2]
-        base1        = ReceivedLearnFixedLearner([1/2,1/2])
-        base2        = ReceivedLearnFixedLearner([1/4,3/4])
+        base1        = ReceivedLearnFixedLearner([1,0])
+        base2        = ReceivedLearnFixedLearner([0,1])
         learner      = CorralLearner([base1, base2], eta=0.5, mode="importance")
         predict,info = learner.predict(None, actions)
 
@@ -47,19 +46,19 @@ class CorralLearner_Tests(unittest.TestCase):
         probability = predict[0]
         reward      = 1/2
 
-        learner.learn(None, action, reward, probability, info)
+        learner.learn(None, actions, action, reward, probability, **info)
 
-        self.assertEqual((None, 1, 1, 1/2), base1.received_learn)
-        self.assertEqual((None, 2, 0, 3/4), base2.received_learn)
+        self.assertEqual((None, actions, 1, 1, 1), base1.received_learn)
+        self.assertEqual((None, actions, 2, 0, 1), base2.received_learn)
 
     def test_off_policy_predict(self):
 
         learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="off-policy")
 
-        predict = learner.predict(None, [1,2])[0]
+        mean_predict = list(map(mean, zip(*[learner.predict(None, [1,2])[0] for _ in range(10000)])) )
 
-        self.assertEqual(.375, predict[0])
-        self.assertEqual(.625, predict[1])
+        self.assertAlmostEqual(1/2*1/2+1/2*1/4, mean_predict[0], 2)
+        self.assertAlmostEqual(1/2*1/2+1/2*3/4, mean_predict[1], 2)
 
     def test_off_policy_learn(self):
 
@@ -73,56 +72,10 @@ class CorralLearner_Tests(unittest.TestCase):
         probability = predict[0]
         reward      = 1
 
-        learner.learn(None, action, reward, probability, info)
-        info = CobaContext.learning_info
+        learner.learn(None, actions, action, reward, probability, **info)
 
-        self.assertDictEqual({'a':1,'b':1, **info}, info)
-        self.assertEqual((None, action, reward, predict[0]), base1.received_learn)
-        self.assertEqual((None, action, reward, predict[0]), base2.received_learn)
-
-    def test_rejection_predict(self):
-
-        learner = CorralLearner([FixedLearner([1/2,1/2]), FixedLearner([1/4,3/4])], eta=0.5, mode="rejection")
-
-        predict = learner.predict(None, [1,2])[0]
-
-        self.assertEqual(.375, predict[0])
-        self.assertEqual(.625, predict[1])
-
-    def test_rejection_learn(self):
-
-        actions      = [0,1]
-        base1        = ReceivedLearnFixedLearner([1/2,1/2], 'a')
-        base2        = ReceivedLearnFixedLearner([1/4,3/4], 'b')
-        learner      = CorralLearner([base1, base2], eta=0.5, mode="rejection")
-        predict,info = learner.predict(None, actions)
-
-        action      = actions[0]
-        probability = predict[0]
-        reward      = 1
-
-        base1_learn_cnt = [0,0]
-        base2_learn_cnt = [0,0]
-
-        random = CobaRandom(1)
-
-        for _ in range(1000):
-
-            action      = random.choice(actions, predict)
-            probability = predict[actions.index(action)]
-
-            learner.learn(None, action, reward, probability, info)
-            base1_learn_cnt[action] += int(base1.received_learn is not None)
-            base2_learn_cnt[action] += int(base2.received_learn is not None)
-
-            base1.received_learn = None
-            base2.received_learn = None
-
-        self.assertLessEqual(abs(base1_learn_cnt[0]/sum(base1_learn_cnt) - 1/2), .02)
-        self.assertLessEqual(abs(base1_learn_cnt[1]/sum(base1_learn_cnt) - 1/2), .02)
-
-        self.assertLessEqual(abs(base2_learn_cnt[0]/sum(base2_learn_cnt) - 1/4), .02)
-        self.assertLessEqual(abs(base2_learn_cnt[1]/sum(base2_learn_cnt) - 3/4), .02)
+        self.assertEqual((None, actions, action, reward, predict[0]), base1.received_learn)
+        self.assertEqual((None, actions, action, reward, predict[0]), base2.received_learn)
 
     def test_params(self):
 

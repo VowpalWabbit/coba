@@ -1,6 +1,6 @@
 import unittest
 
-from coba.learners import SafeLearner
+from coba.learners import SafeLearner, FixedLearner, ActionScore, Probs
 
 class ParamsLearner:
     def __init__(self, params):
@@ -40,7 +40,7 @@ class NoParamsLearnerNoInfo:
     def predict(self, context, actions):
         pass
 
-    def learn(self, context, action, reward, probability):
+    def learn(self, context, actions, action, reward, probability, **kwargs):
         pass
 
 class UnsafeFixedLearner:
@@ -52,7 +52,15 @@ class UnsafeFixedLearner:
         if self._info is None:
             return self._pmf
         else:
-            return self._pmf, self._info
+            return self._pmf, {'info':self._info}
+
+class AmbiguousPredictionLearner:
+
+    def predict(self, context, actions):
+        return [1,0]
+
+    def learn(self, context, actions, action, reward, probability) -> None:
+        pass
 
 class SafeLearner_Tests(unittest.TestCase):
 
@@ -113,32 +121,50 @@ class SafeLearner_Tests(unittest.TestCase):
 
     def test_sum_one_no_info_action_match_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/2,1/2], None))
-
         predict = learner.predict(None, [1,2])
 
-        self.assertEqual([1/2,1/2], predict[0])
-        self.assertEqual(None, predict[1])
+        self.assertEqual(1  , predict[0])
+        self.assertEqual(1/2, predict[1])
+        self.assertEqual({} , predict[2])
 
     def test_sum_one_info_action_match_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/2,1/2], 1))
 
         predict = learner.predict(None, [1,2])
 
-        self.assertEqual([1/2,1/2], predict[0])
-        self.assertEqual(1, predict[1])
+        self.assertEqual(1         , predict[0])
+        self.assertEqual(1/2       , predict[1])
+        self.assertEqual({'info':1}, predict[2])
 
     def test_no_exception_without_info_args(self):
-        SafeLearner(NoParamsLearnerNoInfo()).learn(1,2,3,4)
-        SafeLearner(NoParamsLearnerNoInfo()).learn(1,2,3,4,None)
+        SafeLearner(NoParamsLearnerNoInfo()).learn(1,[1,2],2,3,4)
+        SafeLearner(NoParamsLearnerNoInfo()).learn(1,[1,2],2,3,4,**{})
 
     def test_no_exception_without_info_kwargs(self):
-        SafeLearner(NoParamsLearnerNoInfo()).learn(context=1,action=2,reward=3,probability=4)
-        SafeLearner(NoParamsLearnerNoInfo()).learn(context=1,action=2,reward=3,probability=4,info=None)
+        SafeLearner(NoParamsLearnerNoInfo()).learn(context=1,actions=[1,2],action=2,reward=3,probability=4)
+        SafeLearner(NoParamsLearnerNoInfo()).learn(context=1,actions=[1,2],action=2,reward=3,probability=4,info=None)
 
-    def test_exception_with_too_man_args(self):
-        with self.assertRaises(TypeError) as e:
-            SafeLearner(NoParamsLearnerNoInfo()).learn(context=1,action=2,reward=3,probability=4,madeup=5)
-        self.assertIn("learn() got an unexpected keyword argument 'madeup'", str(e.exception))
+    def test_ambiguous_prediction(self):
+        with self.assertWarns(UserWarning) as w:
+            SafeLearner(AmbiguousPredictionLearner()).predict(None,[0,1])
+
+    def test_pdf_prediction(self):
+        action,score,kwargs = SafeLearner(FixedLearner(lambda a: 1 if a == 0 else 0)).predict(None,[0,1])
+        self.assertEqual(0, action)
+        self.assertEqual(1, score)
+
+
+class ActionScore_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        self.assertEqual((1,.5), ActionScore(1,.5))
+        self.assertIsInstance(ActionScore(1,2), ActionScore)
+
+class Probs_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        self.assertEqual([1/4,1/2,1/4], Probs([1/4,1/2,1/4]))
+        self.assertIsInstance(Probs([1/4,1/2,1/4]), Probs)
 
 if __name__ == '__main__':
     unittest.main()

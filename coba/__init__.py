@@ -1,5 +1,6 @@
 from coba.contexts     import CobaContext, NullLogger
-from coba.environments import Environments
+from coba.environments import Environments, ArffSource, CsvSource, LibSvmSource, ManikSource
+from coba.environments import Context, Action, SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.experiments  import Experiment, Result
 
 from coba.random import CobaRandom
@@ -40,5 +41,14 @@ __all__ = [
     'OnlineGroundedEval',
     'OnlineOnPolicyEval',
     'CobaRandom',
-    'NullLogger'
+    'NullLogger',
+    'ArffSource', 
+    'CsvSource',
+    'LibSvmSource',
+    'ManikSource',
+    'SimulatedInteraction', 
+    'LoggedInteraction', 
+    'GroundedInteraction',
+    'Context',
+    'Action'
 ]

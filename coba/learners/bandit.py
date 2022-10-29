@@ -1,11 +1,11 @@
 import math
 
-from collections import defaultdict
-from typing import Any, Dict, Sequence, Optional, cast, Hashable
+from collections import defaultdict, abc
+from typing import Any, Dict, Optional, cast, Hashable, Union
 
-from coba.environments import Context, Action
+from coba.environments import Context, Action, Actions
 from coba.statistics import OnlineVariance
-from coba.learners.primitives import CbLearner, Probs, Info
+from coba.learners.primitives import CbLearner, Probs, PMF, PDF
 
 class EpsilonBanditLearner(CbLearner):
     """A bandit learner using epsilon-greedy for exploration."""
@@ -26,7 +26,7 @@ class EpsilonBanditLearner(CbLearner):
     def params(self) -> Dict[str, Any]:
         return {"family": "epsilon_bandit", "epsilon": self._epsilon }
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
+    def predict(self, context: Context, actions: Actions) -> Probs:
         values      = [ self._Q[action] for action in actions ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
@@ -34,9 +34,9 @@ class EpsilonBanditLearner(CbLearner):
         prob_selected_randomly = [1/len(actions) * self._epsilon] * len(actions)
         prob_selected_greedily = [ int(i in max_indexes)/len(max_indexes) * (1-self._epsilon) for i in range(len(actions))]
 
-        return [ p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)]
+        return Probs([p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)])
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
+    def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
 
         alpha = 1/(self._N[action]+1)
 
@@ -69,7 +69,7 @@ class UcbBanditLearner(CbLearner):
 
         return { "family": "UCB_bandit" }
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
+    def predict(self, context: Context, actions: Actions) -> Probs:
 
         self._t += 1
         never_observed_actions = [ a for a in actions if a not in self._m ]
@@ -81,9 +81,9 @@ class UcbBanditLearner(CbLearner):
             max_value   = max(values)
             max_actions = [ a for a,v in zip(actions,values) if v==max_value ]
 
-        return [ int(action in max_actions)/len(max_actions) for action in actions ]
+        return Probs([int(action in max_actions)/len(max_actions) for action in actions])
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
+    def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
 
         assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
 
@@ -132,28 +132,30 @@ class UcbBanditLearner(CbLearner):
 class FixedLearner(CbLearner):
     """A learner that selects actions according to a fixed distribution."""
 
-    def __init__(self, fixed_pmf: Sequence[float]) -> None:
+    def __init__(self, fixed_pmf_pdf: Union[PMF,PDF]) -> None:
         """Instantiate a FixedLearner.
 
         Args:
-            fixed_pmf: A PMF whose values are the probability of taking each action.
+            fixed_pmf_pdf: A PMF or PDF whose values are the probability of taking each action.
         """
 
-        assert round(sum(fixed_pmf),3) == 1, "The given pmf must sum to one to be a valid pmf."
-        assert all([p >= 0 for p in fixed_pmf]), "All given probabilities of the pmf must be greater than or equal to 0."
-
-        self._fixed_pmf = fixed_pmf
+        if callable(fixed_pmf_pdf):
+            self._fixed_pmf = None
+            self._fixed_pdf = fixed_pmf_pdf
+        else:
+            assert round(sum(fixed_pmf_pdf),3) == 1, "The given pmf must sum to one to be a valid pmf."
+            assert all([p >= 0 for p in fixed_pmf_pdf]), "All given probabilities of the pmf must be greater than or equal to 0."
+            self._fixed_pmf = fixed_pmf_pdf
+            self._fixed_pdf = None
 
     @property
     def params(self) -> Dict[str, Any]:
-
         return {"family":"fixed"}
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
+    def predict(self, context: Context, actions: Actions) -> Probs:
+        return Probs(self._fixed_pmf) if self._fixed_pmf else self._fixed_pdf
 
-        return self._fixed_pmf
-
-    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
+    def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
         pass
 
 class RandomLearner(CbLearner):
@@ -167,8 +169,8 @@ class RandomLearner(CbLearner):
     def params(self) -> Dict[str, Any]:
         return {"family":"random"}
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
-        return [1/len(actions)] * len(actions)
+    def predict(self, context: Context, actions: Actions) -> Probs:
+        return Probs([1/len(actions)]*len(actions))
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
+    def learn(self, context: Context, actions: Actions, action: Action, reward: float, probability: float) -> None:
         pass

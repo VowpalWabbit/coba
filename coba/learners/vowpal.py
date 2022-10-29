@@ -2,7 +2,7 @@ import re
 
 from sys import platform
 from itertools import repeat, compress
-from typing import Any, Dict, Union, Sequence, Optional, Tuple
+from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple
 from coba.backports import Literal
 
 from coba.pipes import Flatten
@@ -10,7 +10,7 @@ from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
 
-from coba.learners.primitives import CbLearner, Probs, Info
+from coba.learners.primitives import CbLearner, Probs, Actions
 
 Feature       = Union[str,int,float]
 Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]
@@ -258,10 +258,10 @@ class VowpalLearner(CbLearner):
         self._vw = vw or VowpalMediator()
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Tuple[Probs, Info]:
+    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
 
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
@@ -285,13 +285,12 @@ class VowpalLearner(CbLearner):
         if not self._adf and len(actions) != self._n_actions:
             raise CobaException("The number of actions doesn't match the `--cb` action count given in args.")
 
-        info = (actions if self._adf else self._actions)
-
         context = {'x':self._flat(context)}
         adfs    = None if not self._adf else [{'a':self._flat(action)} for action in actions]
 
         if self._adf and self._explore:
             probs = self._vw.predict(self._vw.make_examples(context, adfs, None))
+            if probs is None: probs = [1/len(actions)] * len(actions)
 
         if self._adf and not self._explore:
             losses    = self._vw.predict(self._vw.make_examples(context,adfs, None))
@@ -302,14 +301,15 @@ class VowpalLearner(CbLearner):
 
         if not self._adf and self._explore:
             probs = self._vw.predict(self._vw.make_example(context, None))
+            if probs is None: probs = [1/len(actions)] * len(actions)
 
         if not self._adf and not self._explore:
             index = self._vw.predict(self._vw.make_example(context, None))
             probs = [ int(i==index) for i in range(1,len(actions)+1) ]
 
-        return probs, info
+        return Probs(probs)
 
-    def learn(self, context: Context, action: Action, reward: float, probability: float, info: Info) -> None:
+    def learn(self, context: Context, actions:Actions, action: Action, reward: float, probability: float) -> None:
 
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
@@ -320,7 +320,6 @@ class VowpalLearner(CbLearner):
         if not self._vw.is_initialized and not self._adf and not self._n_actions:
             raise CobaException("When using `cb` without `adf` predict must be called before learn to initialize the vw learner")
 
-        actions = info
         labels  = self._labels(actions, action, reward, probability)
         label   = labels[actions.index(action)]
 

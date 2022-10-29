@@ -6,7 +6,8 @@ can be applied to environments to modify them in useful ways (e.g., shuffling, s
 """
 
 from coba.environments.core       import Environments
-from coba.environments.primitives import Context, Action, Interaction, Environment, SafeEnvironment
+from coba.environments.primitives import Context, Action, Actions, Reward, Rewards, Feedback, Feedbacks
+from coba.environments.primitives import Interaction, Environment, SafeEnvironment
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
 from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
@@ -22,6 +23,11 @@ from coba.environments.simulated.serialized import SerializedSimulation
 __all__ = [
     'Context',
     'Action',
+    'Actions',
+    'Reward',
+    'Rewards',
+    'Feedback',
+    'Feedbacks',
     'Interaction',
     'SimulatedInteraction',
     'LoggedInteraction',

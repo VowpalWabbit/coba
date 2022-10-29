@@ -14,10 +14,10 @@ from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 
-from coba.environments.primitives import Environment
+from coba.environments.primitives import Environment, Context, Action
 
 from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
-from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
+from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation
 from coba.environments.simulated.supervised import SupervisedSimulation
 
@@ -203,6 +203,28 @@ class Environments (collections.abc.Sequence):
     def from_supervised(*args, **kwargs) -> 'Environments':
         """Create a SimulatedEnvironment from a supervised dataset"""
         return Environments(SupervisedSimulation(*args, **kwargs))
+
+    @overload
+    def from_lambda(self,
+        n_interactions: Optional[int],
+        context       : Callable[[int               ],Context         ],
+        actions       : Callable[[int,Context       ],Sequence[Action]],
+        reward        : Callable[[int,Context,Action],float           ]) -> 'Environments':
+        """Create a SimulatedEnvironment from lambda functions."""
+
+    @overload
+    def from_lambda(self,
+        n_interactions: Optional[int],
+        context       : Callable[[int               ,CobaRandom],Context         ],
+        actions       : Callable[[int,Context       ,CobaRandom],Sequence[Action]],
+        reward        : Callable[[int,Context,Action,CobaRandom],float           ],
+        seed          : int) -> 'Environments':
+        """Create a SimulatedEnvironment from lambda functions."""
+
+    @staticmethod
+    def from_lambda(*args,**kwargs) -> 'Environments':
+        """Create a SimulatedEnvironment from lambda functions."""
+        return Environments(LambdaSimulation(*args,**kwargs))
 
     def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
         """Instantiate an Environments class.

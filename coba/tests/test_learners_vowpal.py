@@ -235,7 +235,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_predict_cb_explore_adf(self):
 
         vw = VowpalMediatorMocked([.25, .75])
-        p  = VowpalLearner("--cb_explore_adf",vw).predict(None, ['yes','no'])[0]
+        p  = VowpalLearner("--cb_explore_adf",vw).predict(None, ['yes','no'])
 
         self.assertEqual(2, len(vw._predict_calls[0]))
 
@@ -252,7 +252,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_predict_cb_adf(self):
 
         vw = VowpalMediatorMocked([.25, .75])
-        p  = VowpalLearner("--cb_adf",vw).predict(None, ['yes','no'])[0]
+        p  = VowpalLearner("--cb_adf",vw).predict(None, ['yes','no'])
 
         self.assertEqual(2, len(vw._predict_calls[0]))
 
@@ -269,7 +269,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_predict_cb_explore(self):
 
         vw = VowpalMediatorMocked([0.25, 0.75])
-        p = VowpalLearner("--cb_explore 2", vw).predict(None, ['yes','no'])[0]
+        p = VowpalLearner("--cb_explore 2", vw).predict(None, ['yes','no'])
 
         self.assertIsInstance(vw._predict_calls[0], VowpalEaxmpleMock)
 
@@ -281,7 +281,7 @@ class VowpalLearner_Tests(unittest.TestCase):
     def test_predict_cb(self):
 
         vw = VowpalMediatorMocked(2)
-        p = VowpalLearner("--cb 2", vw).predict(None, ['yes','no'])[0]
+        p = VowpalLearner("--cb 2", vw).predict(None, ['yes','no'])
 
         self.assertEqual([0,1], p)
 
@@ -291,7 +291,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner("--cb_explore_adf",vw)
 
         learner.predict(None, ['yes','no'])
-        learner.learn(None, 'yes', 1, 0.2, ['yes','no'])
+        learner.learn(None, ['yes','no'], 'yes', 1, 0.2)
 
         self.assertEqual(2, len(vw._learn_calls[0]))
 
@@ -309,7 +309,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner("--cb_explore", vw)
 
         learner.predict(None, ['yes','no'])
-        learner.learn(None, 'no', .5, 0.2, ['yes','no'])
+        learner.learn(None, ['yes','no'], 'no', .5, 0.2)
 
         self.assertIsInstance(vw._learn_calls[0], VowpalEaxmpleMock)
 
@@ -322,7 +322,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner("--cb_explore", vw)
 
         learner.predict([(0,0,1)], ['yes','no'])
-        learner.learn({'l':(0,0,1), 'j':1 }, 'no', .5, 0.2, ['yes','no'])
+        learner.learn({'l':(0,0,1), 'j':1 }, ['yes','no'], 'no', .5, 0.2)
 
         self.assertIsInstance(vw._learn_calls[0], VowpalEaxmpleMock)
 
@@ -334,11 +334,7 @@ class VowpalLearner_Tests(unittest.TestCase):
 
     def test_cb_no_predict_for_inference(self):
         with self.assertRaises(CobaException):
-            VowpalLearner("--cb", VowpalMediatorMocked()).learn(None,1,.2,.2,None)
-
-    def test_cb_no_predict_for_inference(self):
-        with self.assertRaises(CobaException):
-            VowpalLearner("--cb", VowpalMediatorMocked()).learn(None,1,.2,.2,None)
+            VowpalLearner("--cb", VowpalMediatorMocked()).learn(None,None,1,.2,.2)
 
     def test_cb_predict_action_change(self):
 
@@ -359,11 +355,11 @@ class VowpalLearner_Tests(unittest.TestCase):
 
     def test_cb_learn_before_predict(self):
         learner = VowpalLearner("--cb 3", VowpalMediatorMocked())
-        learner.learn(None,1,1,1,[1,2,3])
+        learner.learn(None,[1,2,3],1,1,1)
 
     def test_cb_adf_learn_before_predict(self):
         learner = VowpalLearner("--cb_adf", VowpalMediatorMocked())
-        learner.learn(None,1,1,1,[1,2,3])
+        learner.learn(None,[1,2,3],1,1,1)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
     def test_cb_adf_learning(self):
@@ -384,7 +380,7 @@ class VowpalLearner_Tests(unittest.TestCase):
             rewards = [ sum([a*c for a,c in zip(action,context)]) for action in actions ]
             rewards = [ int(r == max(rewards)) for r in rewards ]
 
-            pre_learn_rewards.append(rng.choice(rewards,learner.predict(context, actions)[0]))
+            pre_learn_rewards.append(rng.choice(rewards,learner.predict(context, actions)))
 
         for context in contexts[:int(.9*n_examples)]:
 
@@ -392,10 +388,10 @@ class VowpalLearner_Tests(unittest.TestCase):
             rewards = [ sum([a*c for a,c in zip(action,context)]) for action in actions ]
             rewards = [ int(r == max(rewards)) for r in rewards ]
 
-            probs,info = learner.predict(context, actions)
+            probs  = learner.predict(context, actions)
             choice = rng.choice(list(range(3)), probs)
 
-            learner.learn(context, actions[choice], rewards[choice], probs[choice], info)
+            learner.learn(context, actions, actions[choice], rewards[choice], probs[choice])
 
         post_learn_rewards = []
 
@@ -404,7 +400,7 @@ class VowpalLearner_Tests(unittest.TestCase):
             rewards = [ sum([a*c for a,c in zip(action,context)]) for action in actions ]
             rewards = [ int(r == max(rewards)) for r in rewards ]
 
-            post_learn_rewards.append(rng.choice(rewards,learner.predict(context, actions)[0]))
+            post_learn_rewards.append(rng.choice(rewards,learner.predict(context, actions)))
 
         average_pre_learn_reward  = sum(pre_learn_rewards)/len(pre_learn_rewards)
         average_post_learn_reward = sum(post_learn_rewards)/len(post_learn_rewards)

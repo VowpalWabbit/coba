@@ -4,6 +4,7 @@ from itertools import chain, repeat
 from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping
 from coba.backports import Literal
 
+from coba.random import CobaRandom
 from coba.pipes import Pipes, Source, IterableSource, Structure, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 from coba.encodings import OneHotEncoder

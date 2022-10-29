@@ -40,15 +40,15 @@ class RecordingLearner(CbLearner):
         self.predict_calls.append((context, actions))
 
         probs = [ int(i == action_index) for i in range(len(actions)) ]
-        self.predict_returns.append((probs, self._i) if self._with_info else probs)
+        self.predict_returns.append((probs, {'i':self._i}) if self._with_info else probs)
         return self.predict_returns[-1]
 
-    def learn(self, context, action, reward, probability, info):
+    def learn(self, context, actions, action, reward, probability, **kwargs):
 
         if self._with_log:
             CobaContext.learning_info.update(learn=self._i)
 
-        self.learn_calls.append((context, action, reward, probability, info))
+        self.learn_calls.append((context, actions, action, reward, probability, kwargs))
 
 class DummyIglLearner(IgLearner):
 
@@ -64,8 +64,8 @@ class DummyIglLearner(IgLearner):
         self._predict_calls.append(args)
         return self._predictions.pop(0)
 
-    def learn(self, *args):
-        self._learn_calls.append(args)
+    def learn(self, *args, **kwargs):
+        self._learn_calls.append((*args, kwargs))
 #for testing purposes
 
 class SimpleLearnerInfo_Tests(unittest.TestCase):
@@ -291,7 +291,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
+        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
         expected_task_results    = [
             {"reward":7, 'probability':1},
             {"reward":5, 'probability':1},
@@ -317,7 +317,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
+        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
         expected_task_results    = [
             {"reward":7,"reward_pct":0.0,'rank':3,'rank_pct':1.0,'regret':2,'regret_pct':1.0,'probability':1},
             {"reward":5,"reward_pct":0.5,'rank':2,'rank_pct':0.5,'regret':1,'regret_pct':0.5,'probability':1},
@@ -343,7 +343,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
+        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
         expected_task_results    = [
             {"reward":7,'probability':1},
             {"reward":5,'probability':1},
@@ -368,7 +368,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [({'c':1},[{'a':1},{'a':2}]),({'c':2},[{'a':4},{'a':5}])]
         expected_predict_returns = [[1,0],[0,1]]
-        expected_learn_calls     = [({'c':1},{'a':1},7,1,None),({'c':2},{'a':5},5,1,None)]
+        expected_learn_calls     = [({'c':1},[{'a':1},{'a':2}],{'a':1},7,1,{}),({'c':2},[{'a':4},{'a':5}],{'a':5},5,1,{})]
         expected_task_results    = [
             {"reward":7,'probability':1},
             {"reward":5,'probability':1},
@@ -393,7 +393,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(1,1,7,1,None),(2,5,5,1,None),(3,9,3,1,None)]
+        expected_learn_calls     = [(1,[1,2,3],1,7,1,{}),(2,[4,5,6],5,5,1,{}),(3,[7,8,9],9,3,1,{})]
         expected_task_results    = [
             {"reward":7,'probability':1},
             {"reward":5,'probability':1},
@@ -410,20 +410,20 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         task         = SimpleEvaluation()
         learner      = RecordingLearner(with_info=True, with_log=True)
         interactions = [
-            SimulatedInteraction(1,[1,2,3],[7,8,9],letters=['a','b','c'],I=1),
-            SimulatedInteraction(2,[4,5,6],[4,5,6],letters=['d','e','f'],I=2),
-            SimulatedInteraction(3,[7,8,9],[1,2,3],letters=['g','h','i'],I=3),
+            SimulatedInteraction(1,[1,2,3],[7,8,9],I=1),
+            SimulatedInteraction(2,[4,5,6],[4,5,6],I=2),
+            SimulatedInteraction(3,[7,8,9],[1,2,3],I=3),
         ]
 
         task_results = list(task.process(learner, interactions))
 
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
-        expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
-        expected_learn_calls     = [(1,1,7,1,1),(2,5,5,1,2),(3,9,3,1,3)]
+        expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
+        expected_learn_calls     = [(1,[1,2,3],1,7,1,{'i':1}),(2,[4,5,6],5,5,1,{'i':2}),(3,[7,8,9],9,3,1,{'i':3})]
         expected_task_results    = [
-            {"reward":7,"letters":'a','learn':1,'predict':1,'I':1,'probability':1},
-            {"reward":5,'letters':'e','learn':2,'predict':2,'I':2,'probability':1},
-            {"reward":3,'letters':'i','learn':3,'predict':3,'I':3,'probability':1}
+            {"reward":7,'learn':1,'predict':1,'I':1,'probability':1},
+            {"reward":5,'learn':2,'predict':2,'I':2,'probability':1},
+            {"reward":3,'learn':3,'predict':3,'I':3,'probability':1}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -437,19 +437,19 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         learner      = RecordingLearner(with_info=True, with_log=True)
         interactions = [
             SimulatedInteraction(1,[1,2,3],[7,8,9]),
-            SimulatedInteraction(2,[4,5,6],[4,5,6],letters=['d','e','f']),
-            SimulatedInteraction(3,[7,8,9],[1,2,3],letters=['g','h','i']),
+            SimulatedInteraction(2,[4,5,6],[4,5,6],letter='d'),
+            SimulatedInteraction(3,[7,8,9],[1,2,3],letter='g'),
         ]
 
         task_results = list(task.process(learner, interactions))
 
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
-        expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
-        expected_learn_calls     = [(1,1,7,1,1),(2,5,5,1,2),(3,9,3,1,3)]
+        expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
+        expected_learn_calls     = [(1,[1,2,3],1,7,1,{'i':1}),(2,[4,5,6],5,5,1,{'i':2}),(3,[7,8,9],9,3,1,{'i':3})]
         expected_task_results    = [
-            {"reward":7,'learn':1,'predict':1,              "probability":1},
-            {"reward":5,'learn':2,'predict':2,'letters':'e',"probability":1},
-            {"reward":3,'learn':3,'predict':3,'letters':'i',"probability":1}
+            {"reward":7,'learn':1,'predict':1,             "probability":1},
+            {"reward":5,'learn':2,'predict':2,'letter':'d',"probability":1},
+            {"reward":3,'learn':3,'predict':3,'letter':'g',"probability":1}
         ]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -470,7 +470,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = []
         expected_predict_returns = []
-        expected_learn_calls     = [(1,2,3,None,None),(2,3,4,None,None),(3,4,5,None,None)]
+        expected_learn_calls     = [(1,None,2,3,None,{}),(2,None,3,4,None,{}),(3,None,4,5,None,{})]
         expected_task_results    = [{},{},{}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -491,7 +491,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = []
         expected_predict_returns = []
-        expected_learn_calls     = [(1,2,3,None,None),(2,3,4,None,None),(3,4,5,None,None)]
+        expected_learn_calls     = [(1,[2,5,8],2,3,None,{}),(2,[3,6,9],3,4,None,{}),(3,[4,7,0],4,5,None,{})]
         expected_task_results    = [{},{},{}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -512,7 +512,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(1,2,3,.2,None),(2,3,4,.3,None),(3,4,5,.4,None)]
+        expected_learn_calls     = [(1,[2,5,8],2,3,.2,{}),(2,[3,6,9],3,4,.3,{}),(3,[4,7,0],4,5,.4,{})]
         expected_task_results    = [{'reward':3/.2,'probability':1},{'reward':0,'probability':1},{'reward':0,'probability':1}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
@@ -532,8 +532,8 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         task_results = list(task.process(learner, interactions))
 
         expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
-        expected_predict_returns = [([1,0,0],1),([0,1,0],2),([0,0,1],3)]
-        expected_learn_calls     = [(1,2,3,.2,1),(2,3,4,.3,2),(3,4,5,.4,3)]
+        expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
+        expected_learn_calls     = [(1,[2,5,8],2,3,.2,{}),(2,[3,6,9],3,4,.3,{}),(3,[4,7,0],4,5,.4,{})]
         expected_task_results    = [
             {'reward':3/.2, 'learn':1, 'predict':1, 'L':'a', 'probability':1},
             {'reward':0   , 'learn':2, 'predict':2, 'L':'b', 'probability':1},
@@ -561,7 +561,14 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(1,2,3,None,None),(2,3,4,None,None),(3,4,5,None,None),(None,1,7,1,None),(None,5,5,1,None),(None,9,3,1,None)]
+        expected_learn_calls     = [
+            (1,None,2,3,None,{}),
+            (2,None,3,4,None,{}),
+            (3,None,4,5,None,{}),
+            (None,[1,2,3],1,7,1,{}),
+            (None,[4,5,6],5,5,1,{}),
+            (None,[7,8,9],9,3,1,{})
+        ]
         expected_task_results    = [
             {},
             {},
@@ -590,8 +597,8 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         ]
 
         expected_learn_calls = [
-            (0,[1,2,3],1,4,1,None),
-            (1,[1,2,3],3,9,1,None)
+            (0,[1,2,3],1,4,1,{}),
+            (1,[1,2,3],3,9,1,{})
         ]
 
         expected_results = [
@@ -624,7 +631,6 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             list(SimpleEvaluation().process(None, [DummyInteraction(1,[1,2],[3,4])]))
 
         self.assertEqual("An unknown interaction type was received.", str(e.exception))
-
 
 if __name__ == '__main__':
     unittest.main()

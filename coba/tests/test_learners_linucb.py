@@ -20,7 +20,7 @@ class LinUCBLearner_Tests(unittest.TestCase):
 
         learner = LinUCBLearner()
         probs   = learner.predict(None, [1,1,1])
-        learner.learn(None, 1, 1, .5, None)
+        learner.learn(None, [1,1,1], 1, 1, .5)
 
         self.assertEqual(probs, [1/3,1/3,1/3])
         self.assertEqual(learner._theta.shape, (2,))
@@ -39,7 +39,7 @@ class LinUCBLearner_Tests(unittest.TestCase):
     def test_learn_something(self):
 
         learner = LinUCBLearner(alpha=0.2)
-        learner.learn([1,2,3], 1, 1, 1/3, None)
+        learner.learn([1,2,3], [1,1,1], 1, 1, 1/3)
 
         self.assertEqual(learner._theta.shape, (5,))
         self.assertEqual(learner._A_inv.shape, (5,5))
@@ -50,10 +50,10 @@ class LinUCBLearner_Tests(unittest.TestCase):
         learner = LinUCBLearner(alpha=0.2)
 
         with self.assertRaises(CobaException):
-            learner.learn({}, 1, 1, 1/3, None)
+            learner.learn({}, [1,1], 1, 1, 1/3)
 
         with self.assertRaises(CobaException):
-            learner.learn(None, {}, 1, 1/3, None)
+            learner.learn(None, [1,1], {}, 1, 1/3)
 
         with self.assertRaises(CobaException):
             learner.predict({}, [1,2,3])
