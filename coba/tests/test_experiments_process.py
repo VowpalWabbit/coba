@@ -5,7 +5,7 @@ from typing import cast, Iterable
 from coba.contexts     import CobaContext, BasicLogger
 from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation
 from coba.pipes        import Pipes, ListSink
-from coba.learners     import CbLearner
+from coba.learners     import Learner
 
 from coba.experiments.results import Result
 from coba.experiments.process import (
@@ -15,7 +15,7 @@ from coba.experiments.process import (
 )
 
 #for testing purposes
-class ModuloLearner(CbLearner):
+class ModuloLearner(Learner):
     def __init__(self, param:str="0"):
         self._param = param
         self.n_learns = 0
@@ -37,7 +37,7 @@ class ObserveTask:
     def process(self, *items):
         self.observed = items
 
-        if len(items) == 2 and isinstance(items[0], CbLearner): #eval task
+        if len(items) == 2 and isinstance(items[0], Learner): #eval task
             items[0].learn(None, None, None, None, None)
             return []
         else: #learner or environment task

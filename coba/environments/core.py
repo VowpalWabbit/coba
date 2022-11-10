@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type
 from coba.backports import Literal
 
+from coba            import pipes
 from coba.contexts   import CobaContext, DiskCacher
 from coba.random     import CobaRandom
 from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode
@@ -248,8 +249,28 @@ class Environments (collections.abc.Sequence):
         """Convert an environment from a dense representation to sparse. This has little utility beyond debugging."""
         return self.filter(Sparse(context,action))
 
-    def shuffle(self, seeds: Union[Sequence[int],int] = 1) -> 'Environments':
+    @overload
+    def shuffle(self, seed: int = 1) -> 'Environments':
+        ...
+
+    @overload
+    def shuffle(self, seeds: Iterable[int]) -> 'Environments':
+        ...
+
+    @overload
+    def shuffle(self, *, n:int) -> 'Environments':
+        ...
+
+    def shuffle(self, *args,**kwargs) -> 'Environments':
         """Shuffle the order of the interactions in the Environments."""
+
+        flat = lambda a: next(pipes.Flatten().filter([a]))
+
+        if kwargs:
+            seeds = range(kwargs['n'])
+        else:
+            seeds = flat(args) or [1]
+                
         if isinstance(seeds,int): seeds = [seeds]
         return self.filter([Shuffle(seed) for seed in seeds])
 
@@ -279,7 +300,7 @@ class Environments (collections.abc.Sequence):
         return self.filter([Reservoir(n_interactions,seed) for seed in seeds])
 
     def scale(self,
-        shift: Union[float,Literal["min","mean","med"]] = 0,
+        shift: Union[float,Literal["min","mean","med"]] = "min",
         scale: Union[float,Literal["minmax","std","iqr","maxabs"]] = "minmax",
         target: Literal["features","rewards"] = "features",
         using: Optional[int] = None) -> 'Environments':

@@ -8,7 +8,8 @@ import coba.random
 
 from coba.learners import VowpalMediator
 from coba.utilities import HashableDict
-from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, Scale, Flatten, Grounded
+from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, ScaleReward, L1Reward
+from coba.environments import Scale, Flatten, Grounded
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes import IterableSource
@@ -301,14 +302,30 @@ class Performance_Tests(unittest.TestCase):
         if print_time: print(time)
         self.assertLess(time, 2.2)
 
-    def test_scale(self):
+    def test_scale_target_features(self):
 
-        env = IterableSource([SimulatedInteraction((3193.0, 151.0, 17.0, 484.0, -137.0, 319.0, 239.0, 238.0, 121.0, 3322.0, 0.0, 1.0, 0.0, 0.0, '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'),[1,2,3],[4,5,6])]*1000)
-        time = timeit.timeit(lambda:list(Scale().filter(env.read())), number=1)
+        inter = SimulatedInteraction((3193.0, 151.0, 17.0, 484.0, -137.0, 319.0, 239.0, 238.0, 121.0, 3322.0, 0.0, 1.0, 0.0, 0.0, '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '1', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'),[1,2,3],[4,5,6])
+        items = [inter]*1000
+        scale = Scale("min","minmax",target="features")
+        
+        time = timeit.timeit(lambda:list(scale.filter(items)), number=1)
 
-        #.032 was my final 
+        #.025 was my final 
         if print_time: print(time)
-        self.assertLess(time, .32)
+        self.assertLess(time, .25)
+
+    def test_scale_target_rewards(self):
+
+        inter = SimulatedInteraction((3193.0, 151.0),[1,2,3],[4,5,6])
+        items = [inter]*1000
+        scale = Scale("min","minmax",target="rewards")
+        
+        time = timeit.timeit(lambda:list(scale.filter(items)), number=1)
+
+        #.008 was my final 
+        if print_time: print(time)
+        self.assertLess(time, .08)
+
 
     def test_environments_flat_tuple(self):
 
@@ -414,9 +431,9 @@ class Performance_Tests(unittest.TestCase):
 
         time = timeit.timeit(lambda: list(grounded_filter.filter(interactions*5000)), number=1)
 
-        #.04 was my final time
+        #.03 was my final time
         if print_time: print(time)
-        self.assertLess(time, .40)
+        self.assertLess(time, .30)
 
     def test_simple_evaluation(self):
         
@@ -433,6 +450,15 @@ class Performance_Tests(unittest.TestCase):
         #.09 was my final time
         if print_time: print(time)
         self.assertLess(time, .90)
+
+    def test_scale_reward(self):
+        reward = ScaleReward(L1Reward(1), 1, 2, "argmax")
+
+        time = timeit.timeit(lambda: reward.eval(4), number=100000)
+
+        #.026 was my final time
+        if print_time: print(time)
+        self.assertLess(time, .26)        
 
 if __name__ == '__main__':
     unittest.main()

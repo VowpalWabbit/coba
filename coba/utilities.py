@@ -1,7 +1,9 @@
 import warnings
 import importlib
 
+from itertools import chain
 from collections import defaultdict
+from typing import TypeVar, Iterable, Tuple
 
 from coba.exceptions import CobaExit
 
@@ -119,3 +121,12 @@ class KeyDefaultDict(defaultdict):
             value = self.default_factory(key)
             self[key] = value
             return value
+
+_T = TypeVar("_T")
+def peek_first(items: Iterable[_T]) -> Tuple[_T, Iterable[_T]]:
+    items = iter(items)
+    try:
+        first = next(items)
+        return first, chain([first],items)
+    except StopIteration:
+        return None, []

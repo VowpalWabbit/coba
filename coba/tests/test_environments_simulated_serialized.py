@@ -75,9 +75,9 @@ class SerializedSimulation_Tests(unittest.TestCase):
 
     def test_bad_source(self):
         expected_env = IdentitySource([None])
-        
+
         with self.assertRaises(CobaException):
             SerializedSimulation(expected_env)
-        
+
 if __name__ == '__main__':
     unittest.main()

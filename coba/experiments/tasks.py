@@ -7,14 +7,13 @@ import warnings
 from abc import ABC, abstractmethod
 from statistics import mean
 from itertools import combinations
-from typing import Iterable, Any, Dict, Sequence, Hashable, Union
+from typing import Iterable, Any, Sequence, Mapping, Hashable, Union
 
 from coba.statistics import percentile
 from coba.exceptions import CobaExit, CobaException
-from coba.random import CobaRandom
-from coba.learners import CbLearner, SafeLearner
+from coba.learners import Learner, SafeLearner
 from coba.encodings import InteractionsEncoder
-from coba.utilities import PackageChecker
+from coba.utilities import PackageChecker, peek_first
 from coba.contexts import CobaContext
 from coba.environments import Environment, SafeEnvironment
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction
@@ -23,7 +22,7 @@ class LearnerTask(ABC):
     """A task which describes a Learner."""
 
     @abstractmethod
-    def process(self, learner: CbLearner) -> Dict[Any,Any]:
+    def process(self, learner: Learner) -> Mapping[Any,Any]:
         """Process the LearnerTask.
 
         Args:
@@ -38,7 +37,7 @@ class EnvironmentTask(ABC):
     """A task which describes an Environment."""
 
     @abstractmethod
-    def process(self, environment: Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
+    def process(self, environment: Environment, interactions: Iterable[Interaction]) -> Mapping[Any,Any]:
         """Process the EnvironmentTask.
 
         Args:
@@ -54,7 +53,7 @@ class EvaluationTask(ABC):
     """A task which evaluates a Learner on an Environment."""
 
     @abstractmethod
-    def process(self, learner: CbLearner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
+    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
         """Process the EvaluationTask.
 
         Args:
@@ -68,12 +67,16 @@ class EvaluationTask(ABC):
 
 class SimpleEvaluation(EvaluationTask):
 
-    def __init__(self, reward_metrics: Union[str,Sequence[str]] = "reward", time_metrics: bool = False) -> None:
+    def __init__(self, 
+        reward_metrics: Union[str,Sequence[str]] = "reward", 
+        time_metrics: bool = False,
+        probability: bool = False) -> None:
         """
         Args:
             reward_metrics: The reward metrics to that should be recorded for each example. 
-                The metric options include: reward_pct, rank, rank_pct, regret, and regret_pct.
+                The metric options include: reward, rank, regret.
             time_metrics: Indicates whether time metrics should be recorded.
+            probability: Indicates whether the action's probability should be recorded.
         """
 
         if not reward_metrics:
@@ -84,14 +87,22 @@ class SimpleEvaluation(EvaluationTask):
 
         self._metrics = reward_metrics
         self._time    = time_metrics
+        self._prob    = probability
 
-    def process(self, learner: CbLearner, interactions: Iterable[Interaction]) -> Iterable[Dict[Any,Any]]:
+    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
 
         if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
         if not interactions: return
 
-        predict = learner.predict
-        learn   = learner.learn
+        first, interactions = peek_first(interactions)
+
+        predict  = learner.predict
+        learn    = learner.learn
+
+        discrete = (first and first.is_discrete)
+
+        if 'rank' in self._metrics and not discrete:
+            warnings.warn(f"The rank metric can only be calculated for discrete environments")
 
         for interaction in interactions:
 
@@ -104,7 +115,7 @@ class SimpleEvaluation(EvaluationTask):
 
                 start_time       = time.time()
                 action,prob,info = predict(context, actions)
-                reward           = rewards[actions.index(action)]
+                reward           = rewards.eval(action)
                 predict_time     = time.time()-start_time
 
                 start_time = time.time()
@@ -126,11 +137,11 @@ class SimpleEvaluation(EvaluationTask):
                 else:
                     start_time   = time.time()
                     action,prob  = predict(context, actions)[:2]
-                    reward       = rewards[actions.index(action)]
+                    reward       = rewards.eval(action)
                     predict_time = time.time()-start_time
 
                 start_time = time.time()
-                learn(context, actions, interaction.action, interaction.reward, interaction.probability)
+                learn(context, actions, interaction.action, interaction.reward, interaction.probability,info={})
                 learn_time = time.time()-start_time
 
                 misc_out = {}
@@ -143,9 +154,8 @@ class SimpleEvaluation(EvaluationTask):
 
                 start_time       = time.time()
                 action,prob,info = predict(context, actions)
-                index            = actions.index(action)
-                reward           = rewards[index]
-                feedback         = feedbacks[index]
+                reward           = rewards.eval(action)
+                feedback         = feedbacks.eval(action)
                 predict_time     = time.time()-start_time
                 
                 start_time = time.time()
@@ -159,29 +169,18 @@ class SimpleEvaluation(EvaluationTask):
 
             reward_out = {}
 
-            if reward is not None and rewards:
-                eval_stats = {
-                    'reward'    : reward,
-                    'max_reward': max(rewards),
-                    'min_reward': min(rewards),
-                    'rank'      : 1+sorted(rewards,reverse=True).index(reward),
-                    'min_rank'  : 1,
-                    'max_rank'  : len(set(rewards)),
-                }
+            if 'rank' in self._metrics and discrete:
+                list_rwds = list(map(rewards.eval,actions))
+                reward_out['rank'] = sorted(list_rwds).index(reward)/(len(list_rwds)-1)
 
-                eval_metrics = {
-                    'reward'    : eval_stats['reward'],
-                    'reward_pct': (eval_stats['reward']-eval_stats['min_reward'])/(eval_stats['max_reward']-eval_stats['min_reward']),
-                    'rank'      : eval_stats['rank'],
-                    'rank_pct'  : (eval_stats['rank']-1)/(eval_stats['max_rank']-1),
-                    'regret'    : eval_stats['max_reward']-eval_stats['reward'],
-                    'regret_pct': (eval_stats['max_reward']-eval_stats['reward'])/(eval_stats['max_reward']-eval_stats['min_reward'])
-                }
+            if 'reward' in self._metrics and reward is not None:
+                reward_out['reward'] = reward
 
-                reward_out = {k:eval_metrics[k] for k in self._metrics}
+            if 'regret' in self._metrics:
+                reward_out['regret'] = rewards.max()-reward
 
             time_out   = {} if not self._time else dict(predict_time=predict_time, learn_time=learn_time)
-            prob_out   = dict(probability=prob) if prob is not None else dict()
+            prob_out   = dict(probability=prob) if prob is not None and self._prob else dict()
             kwargs_out = interaction.kwargs
             learn_info = CobaContext.learning_info
 
@@ -191,14 +190,14 @@ class SimpleEvaluation(EvaluationTask):
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""
 
-    def process(self, item: CbLearner) -> Dict[Any,Any]:
+    def process(self, item: Learner) -> Mapping[Any,Any]:
         item = SafeLearner(item)
         return {"full_name": item.full_name, **item.params}
 
 class SimpleEnvironmentInfo(EnvironmentTask):
     """Describe an Environment using its Environment and Filter parameters."""
 
-    def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Dict[Any,Any]:
+    def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Mapping[Any,Any]:
         if not isinstance(environment, SafeEnvironment): environment = SafeEnvironment(environment)
         return { k:v for k,v in environment.params.items() if v is not None }
 
@@ -210,7 +209,7 @@ class ClassEnvironmentInfo(EnvironmentTask):
     finished. To make the most of this Task sklearn should be installed.
     """
 
-    def process(self, environment: Environment, interactions: Iterable[SimulatedInteraction]) -> Dict[Any,Any]:
+    def process(self, environment: Environment, interactions: Iterable[SimulatedInteraction]) -> Mapping[Any,Any]:
 
         #sources:
         #[1]: https://arxiv.org/pdf/1808.03591.pdf (lorena2019complex)

@@ -13,14 +13,12 @@ from coba.environments.simulated.supervised import SupervisedSimulation
 
 class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],Any]]]):
     """Load a source from openml.org (or from disk if previously cached).
-
     This is primarily used by OpenmlSimulation to create Environments for Experiments.
     """
 
     @overload
     def __init__(self, *, data_id:int, cat_as_str:bool=False, drop_missing:bool=True, skip_structure:bool=False):
         """Instantiate an OpenmlSource.
-
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
             cat_as_str: Categorical features should be encoded as a string rather than one hot encoded.
@@ -32,7 +30,6 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     @overload
     def __init__(self, *, task_id:int, cat_as_str:bool=False, drop_missing:bool=True, skip_structure:bool=False):
         """Instantiate an OpenmlSource.
-
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label
             cat_as_str: Categorical features should be encoded as a string rather than one hot encoded.
@@ -263,14 +260,12 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
 class OpenmlSimulation(SupervisedSimulation):
     """A supervised simulation created from an openml dataset.
-
     Download a dataset from openml.org and create a SupervisedSimulation.
     """
 
     @overload
     def __init__(self, data_id: int, cat_as_str: bool = False, drop_missing: bool = True, take: int = None):
         """Instantiate an OpenmlSimulation.
-
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
             cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded.
@@ -282,7 +277,6 @@ class OpenmlSimulation(SupervisedSimulation):
     @overload
     def __init__(self, *, task_id: int, cat_as_str: bool = False, drop_missing: bool = True, take: int=None):
         """Instantiate an OpenmlSimulation.
-
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label
             cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded.

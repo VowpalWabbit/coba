@@ -1292,9 +1292,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         self.assertEqual(["1","2"], interactions[1].actions)
         self.assertEqual(["1","2"], interactions[2].actions)
 
-        self.assertEqual([0,1], interactions[0].rewards)
-        self.assertEqual([0,1], interactions[1].rewards)
-        self.assertEqual([1,0], interactions[2].rewards)
+        self.assertEqual([0,1], list(map(interactions[0].rewards.eval,interactions[0].actions)))
+        self.assertEqual([0,1], list(map(interactions[1].rewards.eval,interactions[1].actions)))
+        self.assertEqual([1,0], list(map(interactions[2].rewards.eval,interactions[2].actions)))
 
     def test_simple_openml_source_regression_offline(self) -> None:
 
@@ -1354,20 +1354,18 @@ class OpenmlSimulation_Tests(unittest.TestCase):
         for rnd in interactions:
 
             hash(rnd.context)    #make sure these are hashable
-            hash(rnd.actions[0]) #make sure these are hashable
-            hash(rnd.actions[1]) #make sure these are hashable
 
         self.assertEqual((27,1410,(1,0),(1,0)), interactions[0].context)
         self.assertEqual((29,1180,(1,0),(1,0)), interactions[1].context)
         self.assertEqual((27,1020,(0,1),(0,1)), interactions[2].context)
 
-        self.assertEqual([(1,0,0), (0,1,0), (0,0,1)], interactions[0].actions)
-        self.assertEqual([(1,0,0), (0,1,0), (0,0,1)], interactions[1].actions)
-        self.assertEqual([(1,0,0), (0,1,0), (0,0,1)], interactions[2].actions)
+        self.assertEqual([], interactions[0].actions)
+        self.assertEqual([], interactions[1].actions)
+        self.assertEqual([], interactions[2].actions)
 
-        self.assertEqual([ 1, .5,  0], [ round(r,2) for r in interactions[0].rewards])
-        self.assertEqual([.5,  1, .5], [ round(r,2) for r in interactions[1].rewards])
-        self.assertEqual([ 0, .5,  1], [ round(r,2) for r in interactions[2].rewards])
+        self.assertEqual(8.1,interactions[0].rewards.argmax())
+        self.assertEqual(8.2,interactions[1].rewards.argmax())
+        self.assertEqual(8.3,interactions[2].rewards.argmax())
 
     def test_str(self):
         self.assertEqual('Openml(data=150)', str(OpenmlSimulation(150)))

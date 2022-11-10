@@ -7,9 +7,9 @@ from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.environments import Context, Action
 
-from coba.learners.primitives import CbLearner, SafeLearner, PMF, kwargs, Actions
+from coba.learners.primitives import Learner, SafeLearner, PMF, kwargs, Actions
 
-class CorralLearner(CbLearner):
+class CorralLearner(Learner):
     """A meta-learner that takes a collection of learners and determines
     which is best in an environment.
 
@@ -23,7 +23,7 @@ class CorralLearner(CbLearner):
     """
 
     def __init__(self,
-        learners: Sequence[CbLearner],
+        learners: Sequence[Learner],
         eta     : float = 0.075,
         T       : float = math.inf,
         mode    : Literal["importance","rejection","off-policy"] ="importance",

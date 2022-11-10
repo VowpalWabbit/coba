@@ -1,7 +1,8 @@
 from collections import abc
 from numbers import Number
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, Optional, Callable
+from typing import Any, Union, Iterable, Sequence, Mapping, Optional, TypeVar, Generic, overload
+from coba.backports import Literal
 
 from coba.utilities import HashableDict
 from coba.pipes import Source, SourceFilters
@@ -10,15 +11,129 @@ from coba.exceptions import CobaException
 Context   = Union[None, str, Number, tuple, HashableDict]
 Action    = Union[str, Number, tuple, HashableDict]
 Actions   = Sequence[Action]
-Reward    = float
-Rewards   = Union[Callable[[Action],Reward], Sequence[Reward]]
-Feedback  = Any 
-Feedbacks = Union[Callable[[Action],Feedback], Sequence[Feedback]]
+
+T = TypeVar('T')
+
+class Feedback(ABC, Generic[T]):
+    @abstractmethod
+    def eval(self, arg: Action) -> T:
+        ...
+
+class DiscreteFeedback(Sequence, Feedback[T]):
+    def __init__(self, actions: Sequence[Action], values: Sequence[T]) -> None:
+        self._actions = actions
+        self._values  = values
+        self._lookup  = dict(zip(actions,values))
+
+    def eval(self, arg: Any) -> T:
+        return self._lookup[arg]
+
+    def __getitem__(self, index: int) -> T:
+        return self._values[index]
+    
+    def __len__(self) -> int:
+        return len(self._values)
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o,abc.Sequence) and list(o) == list(self._values)
+
+class Reward(Feedback[float]):
+    @abstractmethod
+    def argmax(self) -> Action:
+        ...
+
+    def max(self) -> float:
+        return self.eval(self.argmax())
+
+class L1Reward(Reward):
+
+    def __init__(self, label: float) -> None:
+        self._label = label
+        self.eval = lambda arg: arg-label if label > arg else label-arg 
+
+    def argmax(self) -> float:
+        return self._label
+
+    def eval(self, arg: Any) -> float:#pragma: no cover
+        #defined in __init__ for performance
+        raise NotImplementedError("This should have been defined in __init__.")
+
+class HammingReward(Reward):
+    def __init__(self, label: Sequence[Any]) -> None:
+        self._is_seq = isinstance(label,abc.Sequence) and not isinstance(label,(str,tuple))
+        self._label  = set(label) if self._is_seq else label
+
+    def argmax(self) -> Union[Any,Sequence[Any]]:
+        return self._label
+
+    def eval(self, arg: Union[Any, Sequence[Any]]) -> float:
+        if self._is_seq:
+            return len(self._label.intersection(arg))/len(self._label)
+        else:
+            return int(self._label==arg)
+
+class BinaryReward(Reward):
+
+    def __init__(self, value: Action):
+        self._argmax = value
+
+    def argmax(self) -> Action:
+        return self._argmax
+
+    def eval(self, arg: Action) -> float:
+        return float(self._argmax==arg)
+
+class ScaleReward(Reward):
+
+    def __init__(self, reward: Reward, shift: float, scale: float, target: Literal["argmax","value"]) -> None:
+
+        if target not in ["argmax","value"]:
+            raise CobaException("An unrecognized scaling target was requested for a Reward.")
+
+        self._shift  = shift
+        self._scale  = scale
+        self._target = target
+        self._reward = reward
+
+        old_argmax = reward.argmax()
+        new_argmax = (old_argmax+shift)*scale if target == "argmax" else old_argmax
+
+        self._old_argmax = old_argmax
+        self._new_argmax = new_argmax
+
+        old_eval = reward.eval
+
+        if self._target == "argmax":
+            self.eval = lambda arg: old_eval(old_argmax + (arg-new_argmax))
+        if self._target == "value":
+            self.eval = lambda arg: (old_eval(arg)+shift)*scale
+
+    def argmax(self) -> float:
+        return self._new_argmax
+
+    def eval(self, arg: Any) -> float: #pragma: no cover
+        #defined in __init__ for performance
+        raise NotImplementedError("This should have been defined in __init__.")
+
+class DiscreteReward(Reward, DiscreteFeedback[float]):
+
+    def argmax(self) -> Action:
+        max_r = -float('inf')
+        max_a = None
+        for a,r in zip(self._actions,self._values):
+            if r > max_r: 
+                max_a = a
+                max_r = r
+        return max_a
 
 class Interaction:
     """An individual interaction that occurs in an Environment."""
 
-    def __init__(self, context: Context, actions: Optional[Actions], rewards: Optional[Rewards], **kwargs) -> None:
+    def __init__(self, 
+        context: Context, 
+        actions: Actions,
+        rewards: Union[Reward, Sequence[float]], 
+        **kwargs) -> None:
         """Instantiate an Interaction.
 
         Args:
@@ -31,12 +146,19 @@ class Interaction:
         self._hashed  = set()
 
         try:
-            if len(rewards) != len(actions):
+            if self.is_discrete and len(rewards) != len(actions):
                 raise CobaException("An interaction's reward count must equal its action count.")
         except CobaException:
             raise
         except Exception:
             pass
+
+    @property
+    def is_discrete(self) -> bool:
+        try:
+            return len(self.actions) > 0
+        except:
+            return False
 
     @property
     def context(self) -> Context:
@@ -50,12 +172,25 @@ class Interaction:
     def actions(self) -> Actions:
         """The actions available in the interaction."""
         if "actions" not in self._hashed:
-            self._actions = list(map(self._make_hashable,self._actions))
+            if self._actions is not None:
+                try:
+                    self._actions = list(map(self._make_hashable,self._actions))
+                except:
+                    pass
             self._hashed.add("actions")
         return self._actions
 
     @property
-    def rewards(self) -> Rewards:
+    def rewards(self) -> Reward:
+        
+        if "rewards" not in self._hashed:
+            if self._rewards and self.actions:
+                try:
+                    self._rewards = DiscreteReward(self.actions,self._rewards)
+                except (TypeError, AttributeError):
+                    pass            
+            self._hashed.add("rewards")
+
         return self._rewards
 
     @property
@@ -81,8 +216,8 @@ class GroundedInteraction(Interaction):
     def __init__(self,
         context: Context,
         actions: Actions,
-        rewards: Rewards,
-        feedbacks: Feedbacks,
+        rewards: Union[Reward, Sequence[float]],
+        feedbacks: Union[Feedback, Sequence[Any]],
         **kwargs) -> None:
         ...
         """Instantiate GroundedInteraction.
@@ -99,8 +234,15 @@ class GroundedInteraction(Interaction):
         self._feedbacks = feedbacks
 
     @property
-    def feedbacks(self) -> Feedbacks:
+    def feedbacks(self) -> Feedback:
         """The feedback for each action in the interaction."""
+        if "feedback" not in self._hashed:
+            try:
+                self._feedbacks = DiscreteFeedback(self.actions,self._feedbacks)
+            except:
+                pass
+            self._hashed.add("feedback")
+
         return self._feedbacks
 
 class LoggedInteraction(Interaction):
@@ -110,9 +252,9 @@ class LoggedInteraction(Interaction):
         context: Context,
         action: Action,
         reward: float,
-        probability: Optional[float] = None,
-        actions: Optional[Actions] = None,
-        rewards: Optional[Rewards] = None,
+        probability: float = None,
+        actions: Actions = None,
+        rewards: Union[Reward, Sequence[float]] = None,
         **kwargs) -> None:
         """Instantiate LoggedInteraction.
 
@@ -158,23 +300,13 @@ class LoggedInteraction(Interaction):
         """The probability the action was taken."""
         return self._probability
 
-    @property
-    def actions(self) -> Optional[Actions]:
-        """The actions that were available to the logging policy."""
-        return self._actions
-
-    @property
-    def rewards(self) -> Optional[Rewards]:
-        """The rewards to use for off policy evaluation."""
-        return self._rewards
-
 class SimulatedInteraction(Interaction):
     """Simulated data that describes an interaction where the choice is up to you."""
 
     def __init__(self,
         context : Context,
         actions : Actions,
-        rewards : Rewards,
+        rewards : Union[Reward, Sequence[float]],
         **kwargs) -> None:
         ...
         """Instantiate SimulatedInteraction.

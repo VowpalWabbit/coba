@@ -5,7 +5,7 @@ from typing import cast
 
 from coba.environments import Environment, LambdaSimulation
 from coba.pipes import Source, ListSink
-from coba.learners import CbLearner
+from coba.learners import Learner
 from coba.contexts import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment, SimpleEvaluation
 from coba.exceptions import CobaException
@@ -20,7 +20,7 @@ class NoParamsEnvironment:
     def read(self):
         return LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a)).read()
 
-class ModuloLearner(CbLearner):
+class ModuloLearner(Learner):
     def __init__(self, param:str="0"):
         self._param = param
         self._learn_calls = 0
@@ -35,7 +35,7 @@ class ModuloLearner(CbLearner):
     def learn(self, context, actions, action, reward, probability):
         self._learn_calls += 1
 
-class BrokenLearner(CbLearner):
+class BrokenLearner(Learner):
 
     @property
     def params(self):
@@ -47,7 +47,7 @@ class BrokenLearner(CbLearner):
     def learn(self, context, actions, action, reward, probability):
         pass
 
-class PredictInfoLearner(CbLearner):
+class PredictInfoLearner(Learner):
     def __init__(self, param:str="0"):
         self._param = param
 
@@ -61,7 +61,7 @@ class PredictInfoLearner(CbLearner):
     def learn(self, context, actions, action, reward, probability, info):
         assert info == (0,1)
 
-class LearnInfoLearner(CbLearner):
+class LearnInfoLearner(Learner):
     def __init__(self, param:str="0"):
         self._param = param
 
@@ -88,7 +88,7 @@ class NotPicklableLearnerWithReduce(NotPicklableLearner):
     def __reduce__(self):
         return (NotPicklableLearnerWithReduce, ())
 
-class WrappedLearner(CbLearner):
+class WrappedLearner(Learner):
 
     @property
     def params(self):
@@ -154,8 +154,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'}
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "probability": 1},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "probability": 1}
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1}
         ]
 
         self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
@@ -188,8 +188,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'}
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "probability": 1},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "probability": 1}
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1}
         ]
 
         self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
@@ -222,11 +222,11 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":1, "type":'LambdaSimulation'}
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "probability": 1},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "probability": 1},
-            {"environment_id":1, "learner_id":0, "index":1, "reward":3, "probability": 1},
-            {"environment_id":1, "learner_id":0, "index":2, "reward":4, "probability": 1},
-            {"environment_id":1, "learner_id":0, "index":3, "reward":5, "probability": 1}
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
+            {"environment_id":1, "learner_id":0, "index":1, "reward":3},
+            {"environment_id":1, "learner_id":0, "index":2, "reward":4},
+            {"environment_id":1, "learner_id":0, "index":3, "reward":5}
         ]
 
         self.assertDictEqual({"description":"abc", "n_learners":1, "n_environments":2}, result.experiment)
@@ -249,10 +249,10 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "probability": 1},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "probability": 1},
-            {"environment_id":0, "learner_id":1, "index":1, "reward":0, "probability": 1},
-            {"environment_id":0, "learner_id":1, "index":2, "reward":1, "probability": 1},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
+            {"environment_id":0, "learner_id":1, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":1, "index":2, "reward":1},
         ]
 
         result              = experiment.evaluate()
@@ -282,8 +282,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "probability": 1, "Modulo":"0"},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "probability": 1, "Modulo":"0"},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "Modulo":"0"},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "Modulo":"0"},
         ]
 
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, actual_result.experiment)
@@ -309,8 +309,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "probability": 1},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "probability": 1},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
         ]
 
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, actual_result.experiment)
@@ -346,8 +346,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'LambdaSimulation'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "probability": 1},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "probability": 1},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
         ]
 
         self.assertIsInstance(CobaContext.logger, IndentLogger)
@@ -375,8 +375,8 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "type":'NoParamsEnvironment'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "probability": 1},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "probability": 1},
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
         ]
 
         self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, result.experiment)
@@ -406,11 +406,11 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":1, "type":'LambdaSimulation'},
         ]
         expected_interactions = [
-            {"environment_id":0, "learner_id":0, "index":1, "reward":0, "probability": 1},
-            {"environment_id":0, "learner_id":0, "index":2, "reward":1, "probability": 1},
-            {"environment_id":1, "learner_id":0, "index":1, "reward":3, "probability": 1},
-            {"environment_id":1, "learner_id":0, "index":2, "reward":4, "probability": 1},
-            {"environment_id":1, "learner_id":0, "index":3, "reward":5, "probability": 1}
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
+            {"environment_id":1, "learner_id":0, "index":1, "reward":3},
+            {"environment_id":1, "learner_id":0, "index":2, "reward":4},
+            {"environment_id":1, "learner_id":0, "index":3, "reward":5}
         ]
 
         self.assertIsInstance(CobaContext.logger, IndentLogger)

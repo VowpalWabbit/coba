@@ -3,7 +3,7 @@ from typing import Sequence, Optional, Union
 from coba.backports import Literal
 
 from coba.pipes import Pipes, Foreach
-from coba.learners import CbLearner
+from coba.learners import Learner
 from coba.environments import Environment, Environments
 from coba.multiprocessing import CobaMultiprocessor
 from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, NullLogger
@@ -19,7 +19,7 @@ class Experiment:
 
     def __init__(self,
         environments    : Union[Environment, Sequence[Environment]],
-        learners        : Union[CbLearner,Sequence[CbLearner]],
+        learners        : Union[Learner,Sequence[Learner]],
         description     : str = None,
         learner_task    : LearnerTask     = SimpleLearnerInfo(),
         environment_task: EnvironmentTask = SimpleEnvironmentInfo(),

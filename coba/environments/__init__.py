@@ -6,9 +6,11 @@ can be applied to environments to modify them in useful ways (e.g., shuffling, s
 """
 
 from coba.environments.core       import Environments
-from coba.environments.primitives import Context, Action, Actions, Reward, Rewards, Feedback, Feedbacks
+from coba.environments.primitives import Context, Action, Actions, Reward, Feedback
 from coba.environments.primitives import Interaction, Environment, SafeEnvironment
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, GroundedInteraction
+from coba.environments.primitives import Reward, L1Reward, HammingReward, ScaleReward, BinaryReward, DiscreteReward
+from coba.environments.primitives import Feedback, DiscreteFeedback
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
 from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
 from coba.environments.filters    import Binary, Warm, Sparse, Where, Noise, Grounded
@@ -25,9 +27,7 @@ __all__ = [
     'Action',
     'Actions',
     'Reward',
-    'Rewards',
     'Feedback',
-    'Feedbacks',
     'Interaction',
     'SimulatedInteraction',
     'LoggedInteraction',
@@ -66,5 +66,12 @@ __all__ = [
     'Flatten',
     'Params',
     'Cache',
-    'Grounded'
+    'Grounded',
+    'L1Reward', 
+    'HammingReward', 
+    'ScaleReward',
+    'BinaryReward',
+    'DiscreteReward',
+    'Feedback',
+    'DiscreteFeedback'
 ]

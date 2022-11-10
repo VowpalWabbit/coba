@@ -48,9 +48,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([(1,0),(0,1)], interactions[1].actions)
         self.assertEqual([(1,0),(0,1)], interactions[2].actions)
 
-        self.assertEqual([1,0], interactions[0].rewards)
-        self.assertEqual([1,0], interactions[1].rewards)
-        self.assertEqual([0,1], interactions[2].rewards)
+        self.assertEqual([1,0], list(map(interactions[0].rewards.eval,interactions[0].actions)))
+        self.assertEqual([1,0], list(map(interactions[1].rewards.eval,interactions[1].actions)))
+        self.assertEqual([0,1], list(map(interactions[2].rewards.eval,interactions[2].actions)))
 
     def test_source_reader_regression_less_than_10(self):
 
@@ -76,20 +76,18 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         for rnd in interactions:
 
             hash(rnd.context)    #make sure these are hashable
-            hash(rnd.actions[0]) #make sure these are hashable
-            hash(rnd.actions[1]) #make sure these are hashable
 
         self.assertEqual((27,1410,(1,0),(0,1)), interactions[0].context)
         self.assertEqual((29,1180,(1,0),(0,1)), interactions[1].context)
         self.assertEqual((27,1020,(0,1),(1,0)), interactions[2].context)
 
-        self.assertEqual([(1,0,0),(0,1,0),(0,0,1)], interactions[0].actions)
-        self.assertEqual([(1,0,0),(0,1,0),(0,0,1)], interactions[1].actions)
-        self.assertEqual([(1,0,0),(0,1,0),(0,0,1)], interactions[2].actions)
+        self.assertEqual([], interactions[0].actions)
+        self.assertEqual([], interactions[1].actions)
+        self.assertEqual([], interactions[2].actions)
 
-        self.assertEqual([ 1, .5,  0], [round(r,2) for r in interactions[0].rewards])
-        self.assertEqual([.5,  1, .5], [round(r,2) for r in interactions[1].rewards])
-        self.assertEqual([ 0, .5,  1], [round(r,2) for r in interactions[2].rewards])
+        self.assertEqual([-1,0], list(map(interactions[0].rewards.eval,[9.1,8.1])))
+        self.assertEqual([-1,0], list(map(interactions[1].rewards.eval,[9.2,8.2])))
+        self.assertEqual([-1,0], list(map(interactions[2].rewards.eval,[9.3,8.3])))
 
     def test_source_reader_too_large_take_no_min(self):
 
@@ -212,9 +210,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([1,2,3,4], interactions[1].actions)
         self.assertEqual([1,2,3,4], interactions[2].actions)
 
-        self.assertEqual([1,1,1,1], interactions[0].rewards)
-        self.assertEqual([1,1,0,0], interactions[1].rewards)
-        self.assertEqual([1,0,0,0], interactions[2].rewards)
+        self.assertEqual(1, interactions[0].rewards.eval([1,2,3,4]))
+        self.assertEqual(1, interactions[1].rewards.eval([1,2]))
+        self.assertEqual(1, interactions[2].rewards.eval([1]))
 
     def test_X_Y_regression_more_than_10(self):
         features = list(range(12))
@@ -237,13 +235,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual(10, interactions[10].context)
         self.assertEqual(11, interactions[11].context)
 
-        actions = [
-            (1, 0, 0, 0, 0, 0, 0, 0, 0, 0), (0, 1, 0, 0, 0, 0, 0, 0, 0, 0),
-            (0, 0, 1, 0, 0, 0, 0, 0, 0, 0), (0, 0, 0, 1, 0, 0, 0, 0, 0, 0),
-            (0, 0, 0, 0, 1, 0, 0, 0, 0, 0), (0, 0, 0, 0, 0, 1, 0, 0, 0, 0),
-            (0, 0, 0, 0, 0, 0, 1, 0, 0, 0), (0, 0, 0, 0, 0, 0, 0, 1, 0, 0),
-            (0, 0, 0, 0, 0, 0, 0, 0, 1, 0), (0, 0, 0, 0, 0, 0, 0, 0, 0, 1),
-        ]
+        actions = []
 
         self.assertEqual(actions, interactions[0].actions)
         self.assertEqual(actions, interactions[1].actions)
@@ -259,7 +251,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual(actions, interactions[11].actions)
 
         for i in range(12):
-            self.assertEqual([round(1-abs(round((a.index(1)+1)/11,3)-i/11),3) for a in interactions[i].actions], interactions[i].rewards)
+            self.assertEqual(i, interactions[i].rewards.argmax())
 
     def test_X_Y_too_large_take(self):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]

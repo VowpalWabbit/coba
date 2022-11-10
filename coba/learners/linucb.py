@@ -6,9 +6,9 @@ from coba.environments import Context, Action
 from coba.pipes import Flatten
 from coba.encodings import InteractionsEncoder
 
-from coba.learners.primitives import Probs, Actions, CbLearner
+from coba.learners.primitives import Probs, Actions, Learner
 
-class LinUCBLearner(CbLearner):
+class LinUCBLearner(Learner):
     """A contextual bandit learner that represents expected reward as a
     linear function of context and action features. Exploration is carried
     out according to upper confidence bound estimates.

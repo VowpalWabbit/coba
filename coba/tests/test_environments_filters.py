@@ -6,7 +6,7 @@ from math import isnan
 
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.environments import LoggedInteraction, SimulatedInteraction
+from coba.environments import LoggedInteraction, SimulatedInteraction, L1Reward
 
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
@@ -561,15 +561,15 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(None, scl_interactions[1].context)
         self.assertEqual(None, scl_interactions[2].context)
 
-        self.assertEqual([-1/2,1/2], scl_interactions[0].rewards)
-        self.assertEqual([-1/2,1/2], scl_interactions[1].rewards)
-        self.assertEqual([-1/2,1/2], scl_interactions[2].rewards)
+        self.assertEqual([-1/2,1/2], [scl_interactions[0].rewards.eval(a) for a in [1,2]])
+        self.assertEqual([-1/2,1/2], [scl_interactions[1].rewards.eval(a) for a in [1,2]])
+        self.assertEqual([-1/2,1/2], [scl_interactions[2].rewards.eval(a) for a in [1,2]])
 
-    def test_scale_number_and_absmax_target_rewards(self):
+    def test_scale_number_and_absmax_target_discrete_rewards(self):
 
         interactions = [
             SimulatedInteraction(None, [1,3], [1,3]),
-            SimulatedInteraction(None, [1,3], [1,3]),
+            SimulatedInteraction(None, [1,3], [3,1]),
             SimulatedInteraction(None, [1,3], [1,3])
         ]
 
@@ -581,9 +581,29 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(None, scl_interactions[1].context)
         self.assertEqual(None, scl_interactions[2].context)
 
-        self.assertEqual([-1,0], scl_interactions[0].rewards)
-        self.assertEqual([-1,0], scl_interactions[1].rewards)
-        self.assertEqual([-1,0], scl_interactions[2].rewards)
+        self.assertEqual([-1,0], [scl_interactions[0].rewards.eval(a) for a in [1,3]])
+        self.assertEqual([0,-1], [scl_interactions[1].rewards.eval(a) for a in [1,3]])
+        self.assertEqual([-1,0], [scl_interactions[2].rewards.eval(a) for a in [1,3]])
+
+    def test_scale_min_and_minmax_target_argmax(self):
+
+        interactions = [
+            SimulatedInteraction(None, [], L1Reward(3)),
+            SimulatedInteraction(None, [], L1Reward(1)),
+            SimulatedInteraction(None, [], L1Reward(2))
+        ]
+
+        scl_interactions = list(Scale("min", "minmax", target="argmax").filter(interactions))
+
+        self.assertEqual(3, len(scl_interactions))
+
+        self.assertEqual(None, scl_interactions[0].context)
+        self.assertEqual(None, scl_interactions[1].context)
+        self.assertEqual(None, scl_interactions[2].context)
+
+        self.assertEqual(1 , scl_interactions[0].rewards.argmax())
+        self.assertEqual(0 , scl_interactions[1].rewards.argmax())
+        self.assertEqual(.5, scl_interactions[2].rewards.argmax())
 
     def test_params(self):
         self.assertEqual({"scale_shift":"mean","scale_scale":"std","scale_using":None,"scale_target":"features"}, Scale(shift="mean",scale="std").params)
@@ -876,9 +896,9 @@ class Binary_Tests(unittest.TestCase):
 
         binary_interactions = list(Binary().filter(interactions))
 
-        self.assertEqual([0,1], binary_interactions[0].rewards)
-        self.assertEqual([0,1], binary_interactions[1].rewards)
-        self.assertEqual([1,0], binary_interactions[2].rewards)
+        self.assertEqual([0,1], [binary_interactions[0].rewards.eval(a) for a in [1,2]])
+        self.assertEqual([0,1], [binary_interactions[1].rewards.eval(a) for a in [1,2]])
+        self.assertEqual([1,0], [binary_interactions[2].rewards.eval(a) for a in [1,2]])
 
     def test_params(self):
         self.assertEqual({'binary':True}, Binary().params)
@@ -1226,7 +1246,7 @@ class Riffle_Tests(unittest.TestCase):
         self.assertEqual({'riffle_spacing':2, 'riffle_seed':3}, Riffle(2,3).params)
 
 class Flatten_Tests(unittest.TestCase):
-    def test_flatten(self):
+    def test_flatten_context(self):
         
         interactions = [
             SimulatedInteraction((7,(1,0)), [(1,"def"),2], [.2,.3]),
@@ -1243,6 +1263,24 @@ class Flatten_Tests(unittest.TestCase):
         self.assertEqual((1,0,1)      , actual_interactions[1].context)
         self.assertEqual([(1,"ghi"),3], actual_interactions[1].actions)
         self.assertEqual([.1,.5]      , actual_interactions[1].rewards)
+
+    def test_flatten_actions(self):
+        
+        interactions = [
+            SimulatedInteraction((7,1,0), [(1,("def",1)),2], [.2,.3]),
+            SimulatedInteraction((1,0,1), [(1,("ghi",2)),3], [.1,.5]),
+        ]
+
+        flatten_filter = Flatten()
+        actual_interactions = list(flatten_filter.filter(interactions))
+
+        self.assertEqual(2              , len(actual_interactions))
+        self.assertEqual((7,1,0)        , actual_interactions[0].context)
+        self.assertEqual([(1,"def",1),2], actual_interactions[0].actions)
+        self.assertEqual([.2,.3]        , actual_interactions[0].rewards)
+        self.assertEqual((1,0,1)        , actual_interactions[1].context)
+        self.assertEqual([(1,"ghi",2),3], actual_interactions[1].actions)
+        self.assertEqual([.1,.5]        , actual_interactions[1].rewards)
 
     def test_params(self):
         self.assertEqual({'flat':True}, Flatten().params)
@@ -1295,13 +1333,17 @@ class Grounded_Tests(unittest.TestCase):
         to_igl_filter    = Grounded(10,5,4,2,4)
         igl_interactions = list(to_igl_filter.filter(interactions))
 
+        feedbacks_0 = [igl_interactions[0].feedbacks.eval(a) for a in igl_interactions[0].actions ]
+
         self.assertEqual(True,igl_interactions[0].kwargs['isnormal'])
         self.assertEqual(4, igl_interactions[0].kwargs['userid'])
-        self.assertEqual(((1,),(2,),(2,)), igl_interactions[0].feedbacks)
+        self.assertEqual([(0,), (2,), (3,)], feedbacks_0)
+
+        feedbacks_1 = [igl_interactions[1].feedbacks.eval(a) for a in igl_interactions[1].actions ]
 
         self.assertEqual(True,igl_interactions[1].kwargs['isnormal'])
         self.assertEqual(2, igl_interactions[1].kwargs['userid'])
-        self.assertEqual(((2,),(1,),(3,)), igl_interactions[1].feedbacks)
+        self.assertEqual([(3,),(0,),(3,)], feedbacks_1)
 
     def test_number_context_01_rewards(self):
         interactions = [
@@ -1318,16 +1360,18 @@ class Grounded_Tests(unittest.TestCase):
         word_counts = Counter()
 
         for interaction in igl_interactions:
+
+            feedbacks = [interaction.feedbacks.eval(a) for a in interaction.actions ]
+            rewards   = [interaction.rewards.eval(a) for a in interaction.actions ]
+
             normal_count += int(interaction.kwargs['isnormal'])
             bizaro_count += int(not interaction.kwargs['isnormal'])
-            word_counts  += Counter(interaction.feedbacks)
+            word_counts  += Counter(feedbacks)
 
             self.assertEqual(interaction.context, (interaction.kwargs['userid'], interaction.kwargs['c']))
-            self.assertEqual(interaction.kwargs['isnormal'],interaction.kwargs['userid'] in to_igl_filter.normalids)
-            
-            self.assertEqual(len(interaction.rewards), len(interaction.feedbacks))
+            self.assertEqual(interaction.kwargs['isnormal'],interaction.kwargs['userid'] in to_igl_filter.normalids)            
 
-            for word,reward in zip(interaction.feedbacks,interaction.rewards):
+            for word,reward in zip(feedbacks,rewards):
                 if reward == 1: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.goodwords)
                 if reward == 0: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.badwords)
 
@@ -1351,16 +1395,18 @@ class Grounded_Tests(unittest.TestCase):
         word_counts = Counter()
 
         for interaction in igl_interactions:
+
+            feedbacks = [interaction.feedbacks.eval(a) for a in interaction.actions ]
+            rewards   = [interaction.rewards.eval(a) for a in interaction.actions ]
+
             normal_count += int(interaction.kwargs['isnormal'])
             bizaro_count += int(not interaction.kwargs['isnormal'])
-            word_counts  += Counter(interaction.feedbacks)
+            word_counts  += Counter(feedbacks)
 
             self.assertEqual(interaction.context, tuple([interaction.kwargs['userid']]+interaction.kwargs['c']))
             self.assertEqual(interaction.kwargs['isnormal'],interaction.kwargs['userid'] in to_igl_filter.normalids)
             
-            self.assertEqual(len(interaction.rewards), len(interaction.feedbacks))
-
-            for word,reward in zip(interaction.feedbacks,interaction.rewards):
+            for word,reward in zip(feedbacks,rewards):
                 if reward == 1: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.goodwords)
                 if reward == 0: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.badwords)
 
@@ -1384,16 +1430,18 @@ class Grounded_Tests(unittest.TestCase):
         word_counts = Counter()
 
         for interaction in igl_interactions:
+
+            feedbacks = [ interaction.feedbacks.eval(a) for a in interaction.actions ]
+            rewards   = [ interaction.rewards.eval(a) for a in interaction.actions ]
+
             normal_count += int(interaction.kwargs['isnormal'])
             bizaro_count += int(not interaction.kwargs['isnormal'])
-            word_counts  += Counter(interaction.feedbacks)
+            word_counts  += Counter(feedbacks)
 
             self.assertEqual(interaction.context, dict(userid=interaction.kwargs['userid'],**interaction.kwargs['c']))
             self.assertEqual(interaction.kwargs['isnormal'],interaction.kwargs['userid'] in to_igl_filter.normalids)
-            
-            self.assertEqual(len(interaction.rewards), len(interaction.feedbacks))
 
-            for word,reward in zip(interaction.feedbacks,interaction.rewards):
+            for word,reward in zip(feedbacks,rewards):
                 if reward == 1: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.goodwords)
                 if reward == 0: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.badwords)
 
@@ -1417,16 +1465,18 @@ class Grounded_Tests(unittest.TestCase):
         word_counts = Counter()
 
         for interaction in igl_interactions:
+
+            feedbacks = [interaction.feedbacks.eval(a) for a in interaction.actions ]
+            rewards   = [interaction.rewards.eval(a) for a in interaction.actions ]
+
             normal_count += int(interaction.kwargs['isnormal'])
             bizaro_count += int(not interaction.kwargs['isnormal'])
-            word_counts  += Counter(interaction.feedbacks)
+            word_counts  += Counter(feedbacks)
 
             self.assertEqual(interaction.context, (interaction.kwargs['userid'], interaction.kwargs['c']))
             self.assertEqual(interaction.kwargs['isnormal'],interaction.kwargs['userid'] in to_igl_filter.normalids)
             
-            self.assertEqual(len(interaction.rewards), len(interaction.feedbacks))
-
-            for word,reward in zip(interaction.feedbacks,interaction.rewards):
+            for word,reward in zip(feedbacks,rewards):
                 if reward == 1: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.goodwords)
                 if reward == 0: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.badwords)
 
@@ -1434,6 +1484,21 @@ class Grounded_Tests(unittest.TestCase):
 
         for word,count in word_counts.items():
             self.assertAlmostEqual(1/4,count/sum(word_counts.values()),1)
+
+    def test_feedback_repeatable(self):
+        interactions = [
+            SimulatedInteraction(0,[1,2,3],[.1,0,0],c=0),
+            SimulatedInteraction(1,[1,2,3],[0,.1,0],c=1),
+            SimulatedInteraction(2,[1,2,3],[0,0,.1],c=2),
+        ]
+        to_igl_filter    = Grounded(10,5,4,2,1)
+        igl_interactions = list(to_igl_filter.filter(interactions*3000))
+
+        for interaction in igl_interactions:
+            f1 = [interaction.feedbacks.eval(a) for a in interaction.actions ]
+            f2 = [interaction.feedbacks.eval(a) for a in interaction.actions ]
+            self.assertEqual(f1,f2)
+    
 
     def test_params(self):
         params = Grounded(10,5,4,2,1).params

@@ -5,9 +5,9 @@ from typing import Any, Dict, Optional, cast, Hashable, Union
 
 from coba.environments import Context, Action, Actions
 from coba.statistics import OnlineVariance
-from coba.learners.primitives import CbLearner, Probs, PMF, PDF
+from coba.learners.primitives import Learner, Probs, PMF, PDF
 
-class EpsilonBanditLearner(CbLearner):
+class EpsilonBanditLearner(Learner):
     """A bandit learner using epsilon-greedy for exploration."""
 
     def __init__(self, epsilon: float=.05) -> None:
@@ -45,7 +45,7 @@ class EpsilonBanditLearner(CbLearner):
         self._Q[action] = (1-alpha) * old_Q + alpha * reward
         self._N[action] = self._N[action] + 1
 
-class UcbBanditLearner(CbLearner):
+class UcbBanditLearner(Learner):
     """A bandit learner using upper confidence bound estimates for exploration.
 
     This algorithm is an implementation of Auer et al. (2002) UCB1-Tuned algorithm
@@ -129,7 +129,7 @@ class UcbBanditLearner(CbLearner):
 
         return var + math.sqrt(2*ln(t)/s)
 
-class FixedLearner(CbLearner):
+class FixedLearner(Learner):
     """A learner that selects actions according to a fixed distribution."""
 
     def __init__(self, fixed_pmf_pdf: Union[PMF,PDF]) -> None:
@@ -158,7 +158,7 @@ class FixedLearner(CbLearner):
     def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
         pass
 
-class RandomLearner(CbLearner):
+class RandomLearner(Learner):
     """A learner that selects actions according to a uniform distribution."""
 
     def __init__(self):

@@ -4,13 +4,11 @@ from itertools import chain, repeat
 from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping
 from coba.backports import Literal
 
-from coba.random import CobaRandom
 from coba.pipes import Pipes, Source, IterableSource, Structure, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
-from coba.encodings import OneHotEncoder
-from coba.statistics import percentile
 
 from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
+from coba.environments.primitives import L1Reward, DiscreteReward, HammingReward
 
 class CsvSource(Source[Iterable[MutableSequence]]):
     """Load a source (either local or remote) in CSV format.
@@ -203,38 +201,21 @@ class SupervisedSimulation(SimulatedEnvironment):
         self._params['label_type'] = self._label_type
 
         if self._label_type == "R":
-            max_n_actions = 10
-
-            #Scale the labels so that the rewards are all in [0,1].
-            labels       = [float(l) for l in labels]
-            min_l, max_l = min(labels), max(labels)
-            labels       = [(l-min_l)/(max_l-min_l) for l in labels]
-
-            if len(labels) <= max_n_actions:
-                actions = labels
-            else:
-                actions = percentile(labels, [i/(max_n_actions+1) for i in range(1,max_n_actions+1)])
-
-            actions = sorted(list(set([round(a,3) for a in actions])))
-            values  = dict(zip(OneHotEncoder().fit_encodes(actions), actions))
-            actions = list(values.keys())
-
-            reward = lambda action,label: round(1-abs(values[action]-float(label)),3)
+            actions = []
+            reward  = L1Reward
         else:
             #how can we tell the difference between featurized labels and multilabels????
             #for now we will assume multilables will be passed in as arrays as opposed to tuples...
-            if isinstance(labels[0], list):
-                actions = list(chain.from_iterable(labels))
+            actions = labels if not isinstance(labels[0], list) else list(chain(*labels))
+            actions = sorted(set(actions),reverse=isinstance(actions[0],tuple))
+            
+            if isinstance(labels[0],list):
+                reward = HammingReward
             else:
-                actions = list(labels)
-
-            is_label      = lambda action,label: action == label
-            in_multilabel = lambda action,label: isinstance(label,collections.abc.Sequence) and not isinstance(label,str) and action in label
-            reward        = lambda action,label: int(is_label(action,label) or in_multilabel(action,label))
+                reward = lambda label: DiscreteReward(actions, [ int(a == label) for a in actions])
 
         contexts = features
-        actions  = sorted(set(actions),reverse=isinstance(actions[0],tuple))
-        rewards  = [ [ reward(action,label) for action in actions ] for label in labels ]
+        rewards  = map(reward,labels)
 
         for c,a,r in zip(contexts, repeat(actions), rewards):
             yield SimulatedInteraction(c,a,r)

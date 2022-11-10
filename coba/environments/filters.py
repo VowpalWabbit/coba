@@ -7,17 +7,19 @@ from statistics import mean, median, stdev, mode
 from abc import abstractmethod, ABC
 from numbers import Number
 from collections import defaultdict
+from functools import lru_cache
 from itertools import islice, chain, tee
-from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
+from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping, TypeVar
 from coba.backports import Literal
 
 from coba            import pipes
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
-from coba.utilities  import HashableDict
+from coba.utilities  import HashableDict, peek_first
 
-from coba.environments.primitives import Interaction, LoggedInteraction, SimulatedInteraction, GroundedInteraction
+from coba.environments.primitives import Interaction, LoggedInteraction, SimulatedInteraction, GroundedInteraction 
+from coba.environments.primitives import ScaleReward, DiscreteReward, BinaryReward, Feedback
 
 class EnvironmentFilter(pipes.Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
     """A filter that can be applied to an Environment."""
@@ -53,7 +55,7 @@ class Scale(EnvironmentFilter):
     def __init__(self,
         shift: Union[Number,Literal["min","mean","med"]] = 0,
         scale: Union[Number,Literal["minmax","std","iqr","maxabs"]] = "minmax",
-        target: Literal["features","rewards"] = "features",
+        target: Literal["features","rewards","argmax"] = "features",
         using: Optional[int] = None):
         """Instantiate a Scale filter.
 
@@ -102,6 +104,8 @@ class Scale(EnvironmentFilter):
         if context_type == 1 and self._shift != 0:
             raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
 
+        is_discrete = fitting_interactions[0].is_discrete
+
         not_numeric = set()
         mixed_types = set()
 
@@ -135,7 +139,11 @@ class Scale(EnvironmentFilter):
                             not_numeric.add(key)
 
             if self._target == "rewards":
-               unscaled["rewards"].extend(interaction.rewards)
+                if is_discrete:
+                    unscaled["rewards"].extend(map(interaction.rewards.eval,interaction.actions))
+
+            if self._target == "argmax":
+                unscaled["argmax"].append(interaction.rewards.argmax())
         #self._times[0] = time.time()-start
 
         if mixed_types: 
@@ -187,7 +195,7 @@ class Scale(EnvironmentFilter):
         for interaction in chain(fitting_interactions, iter_interactions):
 
             final_context = interaction.context
-            final_rewards = None
+            final_rewards = interaction.rewards
 
             if self._target == "features":
 
@@ -210,15 +218,17 @@ class Scale(EnvironmentFilter):
                         final_context = interaction.context
 
             if self._target == "rewards":
-                final_rewards = [ (r-shifts['rewards'])*scales['rewards'] for r in interaction.rewards ]
+                final_rewards = ScaleReward(final_rewards, -shifts['rewards'], scales['rewards'], 'value')
+
+            if self._target == "argmax":
+                final_rewards = ScaleReward(final_rewards, -shifts["argmax"], scales["argmax"], "argmax")
 
             if isinstance(interaction, SimulatedInteraction):
                 yield SimulatedInteraction(
                     final_context,
                     interaction.actions,
-                    final_rewards or interaction.rewards,
-                    **interaction.kwargs
-                )
+                    final_rewards,
+                    **interaction.kwargs)
 
             elif isinstance(interaction, LoggedInteraction):
                 yield LoggedInteraction(
@@ -227,8 +237,7 @@ class Scale(EnvironmentFilter):
                     interaction.reward,
                     interaction.probability,
                     interaction.actions,
-                    **interaction.kwargs
-                )
+                    **interaction.kwargs)
 
             else: #pragma: no cover
                 raise CobaException("Unknown interactions were given to Scale.")
@@ -417,24 +426,21 @@ class Cycle(EnvironmentFilter):
         for interaction in sans_cycle_interactions:
             yield interaction
 
-        try:
-            first_interaction = next(with_cycle_interactions)
+        first, with_cycle_interactions = peek_first(with_cycle_interactions)
 
-            action_set              = set(first_interaction.actions)
-            n_actions               = len(action_set)
-            featureless_actions     = [tuple([0]*n+[1]+[0]*(n_actions-n-1)) for n in range(n_actions)]
-            with_cycle_interactions = chain([first_interaction], with_cycle_interactions)
+        if first:
+            action_set          = set(first.actions)
+            n_actions           = len(action_set)
+            featureless_actions = [tuple([0]*n+[1]+[0]*(n_actions-n-1)) for n in range(n_actions)]
 
-            if len(set(action_set) & set(featureless_actions)) != len(action_set):
-                warnings.warn("Cycle only works for environments without action features. It will be ignored in this case.")
+            if not first.is_discrete or len(set(action_set) & set(featureless_actions)) != len(action_set):
+                warnings.warn("Cycle only works for discrete environments without action features. It will be ignored in this case.")
                 for interaction in with_cycle_interactions:
                     yield interaction
             else:
                 for interaction in with_cycle_interactions:
                     rewards = interaction.rewards[-1:] + interaction.rewards[:-1]
                     yield SimulatedInteraction(interaction.context, interaction.actions, rewards, **interaction.kwargs)
-        except StopIteration:
-            pass
 
 class Flatten(EnvironmentFilter):
     """Flatten the context and action features for interactions."""
@@ -467,12 +473,8 @@ class Binary(EnvironmentFilter):
         return { "binary": True }
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-
         for interaction in interactions:
-
-            max_rwd = max(interaction.rewards)
-            rewards = [int(r==max_rwd) for r in interaction.rewards]
-
+            rewards = BinaryReward(interaction.rewards.argmax())
             yield SimulatedInteraction(interaction.context, interaction.actions, rewards, **interaction.kwargs)
 
 class Sort(EnvironmentFilter):
@@ -716,11 +718,27 @@ class Params(EnvironmentFilter):
 
 class Grounded(EnvironmentFilter):
 
+    class GroundedFeedback(Feedback):
+        def __init__(self, goods, bads, argmax, seed):
+            self._rng    = None
+            self._goods  = goods
+            self._bads   = bads
+            self._seed   = seed
+            self._argmax = argmax
+
+        @lru_cache(maxsize=None)
+        def eval(self, arg):
+            if not self._rng: self._rng = CobaRandom(self._seed)
+            if arg == self._argmax:
+                return self._rng.choice(self._goods) 
+            else:
+                return self._rng.choice(self._bads) 
+
     def __init__(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int) -> None:
-        self._n_users  = self._cast_int(n_users, "n_users")
+        self._n_users  = self._cast_int(n_users , "n_users" )
         self._n_normal = self._cast_int(n_normal, "n_normal")
-        self._n_words  = self._cast_int(n_words, "n_words")
-        self._n_good   = self._cast_int(n_good, "n_good")
+        self._n_words  = self._cast_int(n_words , "n_words" )
+        self._n_good   = self._cast_int(n_good  , "n_good"  )
         self._seed     = seed
 
         if n_normal > n_users:
@@ -750,58 +768,45 @@ class Grounded(EnvironmentFilter):
 
         #we make it a set for faster contains checks
         normalids       = set(self.normalids) 
-        isnormal        = [u in normalids for u in self.userids]
-        userid_isnormal = list(zip(self.userids,isnormal))
+        normal          = [u in normalids for u in self.userids]
+        userid_isnormal = list(zip(self.userids,normal))
 
-        interactions = iter(interactions)
-        first        = next(interactions)
+        first,interactions = peek_first(interactions)
 
-        not_binary_rewards = bool((set(first.rewards)-{0,1}))
+        if first:
+            binary_rewards = not (set(first.rewards)-{0,1})
 
-        goodwords = self.goodwords
-        badwords  = self.badwords
-
-        if isinstance(first.context, collections.abc.Mapping):
-            context_type = 0
-        elif isinstance(first.context,collections.abc.Sequence) and not isinstance(first.context,str):
-            context_type = 1
-        else:
-            context_type = 2
-
-        def batched_rand_int_iter(sequence):
-            b=len(sequence)-1
-            while True:
-                for r in rng.randints(1000,0,b):
-                    yield sequence[r]
-
-        goods = batched_rand_int_iter([(g,) for g in goodwords])
-        bads  = batched_rand_int_iter([(b,) for b in badwords ])
-        users = batched_rand_int_iter(userid_isnormal)
-
-        for interaction in chain([first], interactions):
-
-            igl_rewards = interaction.rewards
-
-            if not_binary_rewards:
-                max_index              = igl_rewards.index(max(igl_rewards))
-                igl_rewards            = [0]*len(igl_rewards)
-                igl_rewards[max_index] = 1
-
-            userid,isnormal = next(users)
-
-            if isnormal:
-                words = tuple(next(goods) if r==1 else next(bads) for r in igl_rewards)
+            if isinstance(first.context, collections.abc.Mapping):
+                context_type = 0
+            elif isinstance(first.context,collections.abc.Sequence) and not isinstance(first.context,str):
+                context_type = 1
             else:
-                words = tuple(next(goods) if r==0 else next(bads) for r in igl_rewards)
+                context_type = 2
+
+            goods = [(g,) for g in self.goodwords]
+            bads  = [(b,) for b in self.badwords]
+
+        for seed,interaction in enumerate(interactions,self._seed):
+
+            argmax      = interaction.rewards.argmax()
+            igl_actions = interaction.actions
+            igl_rewards = interaction.rewards if binary_rewards else BinaryReward(argmax)
+
+            userid,normal = rng.choice(userid_isnormal)
+
+            if normal:
+                feedback = Grounded.GroundedFeedback(goods,bads,argmax,seed)
+            else:
+                feedback = Grounded.GroundedFeedback(bads,goods,argmax,seed)
 
             if context_type == 0:
                 igl_context = dict(userid=userid,**interaction.context)
             elif context_type == 1:
-                igl_context = (userid,)+tuple(interaction.context)
+                igl_context = (userid,)+interaction.context
             else:
                 igl_context = (userid, interaction.context)
 
-            yield GroundedInteraction(igl_context, interaction.actions, igl_rewards, words, userid=userid, isnormal=isnormal, **interaction.kwargs)
+            yield GroundedInteraction(igl_context, igl_actions, igl_rewards, feedback, userid=userid, isnormal=normal, **interaction.kwargs)
 
     def _cast_int(self, value:Union[float,int], value_name:str) -> int:
         if isinstance(value, int): return value

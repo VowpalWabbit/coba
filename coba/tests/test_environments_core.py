@@ -297,6 +297,7 @@ class Environments_Tests(unittest.TestCase):
 
     def test_shuffle_default(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle()
+
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(1   , envs[0].params['shuffle'])
@@ -305,6 +306,7 @@ class Environments_Tests(unittest.TestCase):
 
     def test_shuffle_int(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle(1)
+
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(1   , envs[0].params['shuffle'])
@@ -313,6 +315,7 @@ class Environments_Tests(unittest.TestCase):
 
     def test_shuffle_sequence(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle([1,2])
+
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(1   , envs[0].params['shuffle'])
@@ -323,9 +326,21 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B' , envs[3].params['id'])
         self.assertEqual(2   , envs[3].params['shuffle'])
 
+    def test_shuffle_n(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle(n=2)
+
+        self.assertEqual(4   , len(envs))
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(0   , envs[0].params['shuffle'])
+        self.assertEqual('A' , envs[1].params['id'])
+        self.assertEqual(1   , envs[1].params['shuffle'])
+        self.assertEqual('B' , envs[2].params['id'])
+        self.assertEqual(0   , envs[2].params['shuffle'])
+        self.assertEqual('B' , envs[3].params['id'])
+        self.assertEqual(1   , envs[3].params['shuffle'])
+
     def test_sparse(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).sparse(False,True)
-
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(False, envs[0].params['sparse_C'])

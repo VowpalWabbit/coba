@@ -1,5 +1,6 @@
 import unittest
 
+from coba.exceptions import CobaException
 from coba.learners import SafeLearner, FixedLearner, ActionScore, Probs
 
 class ParamsLearner:
@@ -36,11 +37,32 @@ class NoParamsLearner:
     def learn(self, context, action, reward, probability, info):
         pass
 
-class NoParamsLearnerNoInfo:
+class LearnerType1:
+    def predict(self, context, actions):
+        pass
+
+    def learn(self, context, action, reward, probability):
+        pass
+
+class LearnerType2:
+    def predict(self, context, actions):
+        pass
+
+    def learn(self, context, action, reward, probability, info):
+        pass
+
+class LearnerType3:
     def predict(self, context, actions):
         pass
 
     def learn(self, context, actions, action, reward, probability, **kwargs):
+        pass
+
+class BrokenLearnSignature:
+    def predict(self, context, actions):
+        pass
+
+    def learn(self, context):
         pass
 
 class UnsafeFixedLearner:
@@ -98,25 +120,25 @@ class SafeLearner_Tests(unittest.TestCase):
     def test_no_sum_one_no_info_action_match_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/3,1/2], None))
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(CobaException):
             learner.predict(None, [1,2])
 
     def test_no_sum_one_info_action_match_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/3,1/2], 1))
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(CobaException):
             learner.predict(None, [1,2])
 
     def test_sum_one_no_info_action_mismatch_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/2,1/2], None))
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(CobaException):
             learner.predict(None, [1,2,3])
 
     def test_sum_one_info_action_mismatch_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/2,1/2], 1))
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(CobaException):
             learner.predict(None, [1,2,3])
 
     def test_sum_one_no_info_action_match_predict(self):
@@ -125,7 +147,7 @@ class SafeLearner_Tests(unittest.TestCase):
 
         self.assertEqual(1  , predict[0])
         self.assertEqual(1/2, predict[1])
-        self.assertEqual({} , predict[2])
+        self.assertEqual({} , predict[2]['info'])
 
     def test_sum_one_info_action_match_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/2,1/2], 1))
@@ -134,25 +156,72 @@ class SafeLearner_Tests(unittest.TestCase):
 
         self.assertEqual(1         , predict[0])
         self.assertEqual(1/2       , predict[1])
-        self.assertEqual({'info':1}, predict[2])
+        self.assertEqual({'info':1}, predict[2]['info'])
 
-    def test_no_exception_without_info_args(self):
-        SafeLearner(NoParamsLearnerNoInfo()).learn(1,[1,2],2,3,4)
-        SafeLearner(NoParamsLearnerNoInfo()).learn(1,[1,2],2,3,4,**{})
+    def test_no_exception_with_learner_type1(self):
+        learner = SafeLearner(LearnerType1())
+        learner.learn(1,[1,2],2,3,4,info={})
+        learner.learn(1,[1,2],2,3,4,info={})
+    
+    def test_no_exception_with_learner_type2(self):
+        learner = SafeLearner(LearnerType2())
+        learner.learn(1,[1,2],2,3,4,info=1)
+        learner.learn(1,[1,2],2,3,4,info=1)
+    
+    def test_no_exception_with_learner_type3(self):
+        learner = SafeLearner(LearnerType3())
+        learner.learn(1,[1,2],2,3,4,info={})
+        learner.learn(1,[1,2],2,3,4,info={})
 
-    def test_no_exception_without_info_kwargs(self):
-        SafeLearner(NoParamsLearnerNoInfo()).learn(context=1,actions=[1,2],action=2,reward=3,probability=4)
-        SafeLearner(NoParamsLearnerNoInfo()).learn(context=1,actions=[1,2],action=2,reward=3,probability=4,info=None)
+    def test_exception_with_broken_learn_signature(self):
+        learner = SafeLearner(BrokenLearnSignature())
+        with self.assertRaises(Exception) as e:
+            learner.learn(1,[1,2],2,3,4,info={})
 
-    def test_ambiguous_prediction(self):
-        with self.assertWarns(UserWarning) as w:
-            SafeLearner(AmbiguousPredictionLearner()).predict(None,[0,1])
+        self.assertIn("takes 2 positional arguments but 6 were given", str(e.exception))
 
     def test_pdf_prediction(self):
         action,score,kwargs = SafeLearner(FixedLearner(lambda a: 1 if a == 0 else 0)).predict(None,[0,1])
         self.assertEqual(0, action)
         self.assertEqual(1, score)
 
+    def test_infer_types(self):
+        learner = SafeLearner(None)
+
+        #can't be action/score because 0 is not in actions
+        self.assertEqual(learner.get_inferred_type((0,1),[1,2]),2)
+
+        with self.assertRaises(CobaException):
+            #can be either 2 or 3 because 0 is in actions and (0,1) is a valid PMF
+            learner.get_inferred_type((0,1),[0,2])
+
+        #can't be a pmf because pred_0 does not add to 1
+        self.assertEqual(learner.get_inferred_type(((0,1,3),1),[]),3)
+
+        #can't be a pmf because pred_0 does not add to 1
+        self.assertEqual(learner.get_inferred_type(((0,1,3),1),[]),3)
+
+        with self.assertRaises(CobaException):
+            #This is either a pmf with info or and action/score without any info
+            learner.get_inferred_type(((0,1,0),1),[(1,0,0),(0,1,0),(0,0,1)])
+
+    def test_definite_types(self):
+        learner = SafeLearner(None)
+
+        #this is definitely a pdf because it is callable
+        self.assertEqual(learner.get_definite_type(lambda a: 1),1)
+
+        #this is definitely a pmf because of how long it is
+        self.assertEqual(learner.get_definite_type((0,1,0,0,0,0)),2)
+
+        #this is definitely a pmf because it is explicitly typed
+        self.assertEqual(learner.get_definite_type(Probs([0,1])),2)
+
+        #this is definitely an action-score pair because it is explicitly typed
+        self.assertEqual(learner.get_definite_type(ActionScore(0,1)),3)
+
+        #this can't be determined
+        self.assertEqual(learner.get_definite_type((0,1)),None)
 
 class ActionScore_Tests(unittest.TestCase):
 

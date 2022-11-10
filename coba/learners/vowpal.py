@@ -10,7 +10,7 @@ from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
 
-from coba.learners.primitives import CbLearner, Probs, Actions
+from coba.learners.primitives import Learner, Probs, Actions
 
 Feature       = Union[str,int,float]
 Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]
@@ -172,7 +172,7 @@ class VowpalMediator:
 
         return keys
 
-class VowpalLearner(CbLearner):
+class VowpalLearner(Learner):
     """A friendly wrapper around Vowpal Wabbit's python interface to support CB learning.
 
     Remarks:
