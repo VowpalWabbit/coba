@@ -87,9 +87,9 @@ class CreateWorkItems_Tests(unittest.TestCase):
 
         self.assertEqual(8, len(tasks))
 
-        self.assertEqual(2, len([t for t in tasks if not t.environ and t.learner]) )
-        self.assertEqual(2, len([t for t in tasks if t.environ and not t.learner]) )
-        self.assertEqual(4, len([t for t in tasks if t.environ and t.learner]) )
+        self.assertEqual(2, len([t for t in tasks if not t.env and t.lrn]) )
+        self.assertEqual(2, len([t for t in tasks if t.env and not t.lrn]) )
+        self.assertEqual(4, len([t for t in tasks if t.env and t.lrn]) )
 
 class RemoveFinished_Tests(unittest.TestCase):
 
@@ -332,7 +332,7 @@ class ProcessTasks_Tests(unittest.TestCase):
         task1 = ObserveTask()
         task2 = ObserveTask()
 
-        items = [ WorkItem(0, 0, sim1, lrn1, task1), WorkItem(1, 1, sim2, lrn1, task2) ]
+        items = [ WorkItem(0, 1, sim1, lrn1, task1), WorkItem(1, 1, sim2, lrn1, task2) ]
 
         transactions = list(ProcessWorkItems().filter(items))
 
@@ -342,7 +342,7 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(task1.observed[1][0].context, 0)
         self.assertEqual(task2.observed[1][0].context, 0)
 
-        self.assertIn(['T3', (0,0), []], transactions)
+        self.assertIn(['T3', (0,1), []], transactions)
         self.assertIn(['T3', (1,1), []], transactions)
 
         self.assertEqual(sim1.n_reads, 1)
@@ -492,8 +492,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertNotEqual(task1.observed[0], (lrn1,))
         self.assertNotEqual(task2.observed[0], (lrn2,))
 
-        self.assertEqual(task1.observed[0]._param, "1")
-        self.assertEqual(task2.observed[0]._param, "2")
+        self.assertEqual(task1.observed[0].params['p'], "1")
+        self.assertEqual(task2.observed[0].params['p'], "2")
 
         self.assertEqual(['T1', 0, {}], transactions[0])
         self.assertEqual(['T1', 1, {}], transactions[1])

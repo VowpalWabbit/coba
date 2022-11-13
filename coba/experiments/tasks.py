@@ -195,8 +195,7 @@ class SimpleEnvironmentInfo(EnvironmentTask):
     """Describe an Environment using its Environment and Filter parameters."""
 
     def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Mapping[Any,Any]:
-        if not isinstance(environment, SafeEnvironment): environment = SafeEnvironment(environment)
-        return { k:v for k,v in environment.params.items() if v is not None }
+        return { k:v for k,v in SafeEnvironment(environment).params.items() if v is not None }
 
 class ClassEnvironmentInfo(EnvironmentTask):
     """Describe an Environment made from a Classification dataset.

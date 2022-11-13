@@ -81,7 +81,7 @@ class Learner(ABC):
         """
         ...
 
-class SafeLearner:
+class SafeLearner(Learner):
     """A wrapper for learner-likes that guarantees interface consistency."""
 
     def __init__(self, learner: Learner) -> None:

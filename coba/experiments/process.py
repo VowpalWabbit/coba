@@ -8,7 +8,7 @@ from typing import Iterable, Sequence, Any, Optional, Tuple, Union
 from coba.pipes import Source, Filter, SourceFilters
 from coba.learners import Learner
 from coba.contexts import CobaContext
-from coba.environments import Environment, Cache, EnvironmentFilter
+from coba.environments import Environment, Cache, EnvironmentFilter, Finalize
 
 from coba.experiments.tasks import LearnerTask, EnvironmentTask, EvaluationTask
 from coba.experiments.results import Result
@@ -16,17 +16,17 @@ from coba.experiments.results import Result
 class WorkItem:
 
     def __init__(self,
-        environ_id: Optional[int],
-        learner_id: Optional[int],
-        environ   : Optional[Environment],
-        learner   : Optional[Learner],
-        task      : Union[LearnerTask, EnvironmentTask, EvaluationTask]) -> None:
+        env_id: Optional[int],
+        lrn_id: Optional[int],
+        env   : Optional[Environment],
+        lrn   : Optional[Learner],
+        task  : Union[LearnerTask, EnvironmentTask, EvaluationTask]) -> None:
 
-        self.learner_id = learner_id
-        self.environ_id = environ_id
-        self.learner    = learner
-        self.environ    = environ
-        self.task       = task
+        self.lrn_id = lrn_id
+        self.env_id = env_id
+        self.lrn    = lrn
+        self.env    = env
+        self.task   = task
 
 class CreateWorkItems(Source[Iterable[WorkItem]]):
 
@@ -69,17 +69,17 @@ class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
 
         for task in tasks:
 
-            is_learner_task = task.environ_id is None
-            is_environ_task = task.learner_id is None
+            is_learner_task = task.env_id is None
+            is_environ_task = task.lrn_id is None
             is_eval_task    = not (is_learner_task or is_environ_task)
 
             if not self._restored:
                 yield task
-            elif is_learner_task and task.learner_id not in self._restored.learners:
+            elif is_learner_task and task.lrn_id not in self._restored.learners:
                 yield task
-            elif is_environ_task and task.environ_id not in self._restored.environments:
+            elif is_environ_task and task.env_id not in self._restored.environments:
                 yield task
-            elif is_eval_task and (task.environ_id, task.learner_id) not in self._restored._interactions:
+            elif is_eval_task and (task.env_id, task.lrn_id) not in self._restored._interactions:
                 yield task
 
 class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
@@ -89,17 +89,17 @@ class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
         items  = list(items)
         chunks = defaultdict(list)
 
-        sans_source_items = [t for t in items if t.environ_id is None]
-        with_source_items = [t for t in items if t.environ_id is not None]
+        sans_source_items = [t for t in items if t.env_id is None]
+        with_source_items = [t for t in items if t.env_id is not None]
 
         for env_item in with_source_items:
-            chunks[self._get_source(env_item.environ)].append(env_item)
+            chunks[self._get_source(env_item.env)].append(env_item)
 
         for lrn_item in sans_source_items:
             yield [lrn_item]
 
-        for chunk in sorted(chunks.values(), key=lambda chunk: min([c.environ_id for c in chunk])):
-            yield list(sorted(chunk, key=lambda c: (c.environ_id, -1 if c.learner_id is None else c.learner_id)))
+        for chunk in sorted(chunks.values(), key=lambda chunk: min([c.env_id for c in chunk])):
+            yield list(sorted(chunk, key=lambda c: (c.env_id, -1 if c.lrn_id is None else c.lrn_id)))
 
     def _get_source(self, env):
         return env._source if isinstance(env, SourceFilters) else env
@@ -139,9 +139,9 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
         self._source_id = {}
 
         for item in chunk:
-            if item.environ_id is not None:
+            if item.env_id is not None:
                 source = id(self._get_source(item))
-                self._source_id[source] = min(self._source_id.get(source,float('inf')), item.environ_id)
+                self._source_id[source] = min(self._source_id.get(source,item.env_id), item.env_id)
 
         if not chunk: return
 
@@ -150,7 +150,6 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
             for env_source, work_for_env_source in groupby(sorted(chunk, key=self._get_source_sort), key=self._get_source):
 
                 try:
-
                     if env_source is None:
                         loaded_source = None
                     else:
@@ -171,6 +170,8 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                             with CobaContext.logger.time(f"Creating Environment {env_id} from Loaded Source..."):
                                 interactions = list(env_filter.filter(loaded_source)) if env_filter else loaded_source
 
+                            interactions = list(Finalize().filter(interactions))
+
                             if len(filter_groups) == 1:
                                 #this will hopefully help with memory...
                                 loaded_source = None
@@ -183,26 +184,26 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                         for workitem in work_for_env_filter:
                             try:
 
-                                if workitem.environ is None:
-                                    with CobaContext.logger.time(f"Recording Learner {workitem.learner_id} parameters..."):
-                                        row = workitem.task.process(deepcopy(workitem.learner))
-                                        yield ["T1", workitem.learner_id, row]
+                                if workitem.env is None:
+                                    with CobaContext.logger.time(f"Recording Learner {workitem.lrn_id} parameters..."):
+                                        row = workitem.task.process(deepcopy(workitem.lrn))
+                                        yield ["T1", workitem.lrn_id, row]
 
-                                if workitem.learner is None:
-                                    with CobaContext.logger.time(f"Recording Environment {workitem.environ_id} statistics..."):
-                                        row = workitem.task.process(workitem.environ,interactions)
-                                        yield ["T2", workitem.environ_id, row]
+                                if workitem.lrn is None:
+                                    with CobaContext.logger.time(f"Recording Environment {workitem.env_id} statistics..."):
+                                        row = workitem.task.process(workitem.env,interactions)
+                                        yield ["T2", workitem.env_id, row]
 
-                                if workitem.environ and workitem.learner:
-                                    with CobaContext.logger.time(f"Evaluating Learner {workitem.learner_id} on Environment {workitem.environ_id}..."):
+                                if workitem.env and workitem.lrn:
+                                    with CobaContext.logger.time(f"Evaluating Learner {workitem.lrn_id} on Environment {workitem.env_id}..."):
  
-                                        if len([i for i in chunk if i.environ and i.learner is workitem.learner]) > 1:
-                                            learner = deepcopy(workitem.learner)
+                                        if len([i for i in chunk if i.env and i.lrn and i.lrn_id == workitem.lrn_id]) > 1:
+                                            learner = deepcopy(workitem.lrn)
                                         else:
-                                            learner = workitem.learner
+                                            learner = workitem.lrn
 
                                         row = list(workitem.task.process(learner, interactions))
-                                        yield ["T3", (workitem.environ_id, workitem.learner_id), row]
+                                        yield ["T3", (workitem.env_id, workitem.lrn_id), row]
 
                             except Exception as e:
                                 CobaContext.logger.log(e)
@@ -211,26 +212,23 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                     CobaContext.logger.log(e)
 
     def _get_source(self, task:WorkItem) -> Environment:
-        if task.environ is None:
+        if task.env is None:
             return None
-        elif isinstance(task.environ, SourceFilters):
-            if isinstance(task.environ[-1], Cache):
-                return task.environ
-            else:
-                return task.environ._source
+        elif isinstance(task.env, SourceFilters) and not isinstance(task.env[-1], Cache):
+            return task.env._source
         else:
-            return task.environ
+            return task.env
 
     def _get_source_sort(self, task:WorkItem) -> int:
         return self._source_id.get(id(self._get_source(task)),-1)
 
     def _get_id_filter(self, task:WorkItem) -> Tuple[int, EnvironmentFilter]:
-        if task.environ is None:
+        if task.env is None:
             return (-1,None)
-        elif isinstance(task.environ, SourceFilters):
-            return (task.environ_id, task.environ._filter)
+        elif isinstance(task.env, SourceFilters):
+            return (task.env_id, task.env._filter)
         else:
-            return (task.environ_id, None)
+            return (task.env_id, None)
 
     def _get_id_filter_sort(self, task:WorkItem) -> int:
         return self._get_id_filter(task)[0]

@@ -1,9 +1,9 @@
 import unittest
 
 from coba.environments import SafeEnvironment
-from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction
-from coba.environments import L1Reward, HammingReward, ScaleReward, BinaryReward, DiscreteReward
-from coba.environments import DiscreteFeedback
+from coba.environments import SimulatedInteraction, LoggedInteraction
+from coba.environments import L1Reward, HammingReward, ScaleReward, BinaryReward, SequenceReward
+from coba.environments import SequenceFeedback, MulticlassReward
 from coba.exceptions import CobaException
 from coba.pipes import Pipes, Shuffle
 
@@ -11,10 +11,6 @@ class DummyEnvironment:
 
     def read(self):
         return []
-
-class Interaction_Tests(unittest.TestCase):
-    def test_hashable(self):
-        self.assertEqual({1,2,3}, Interaction(1,2,3)._make_hashable({1,2,3}))
 
 class SafeEnvironment_Tests(unittest.TestCase):
 
@@ -178,7 +174,7 @@ class ScaleReward_Tests(unittest.TestCase):
 
 class SequenceReward_Tests(unittest.TestCase):
     def test_sequence(self):
-        rwd = DiscreteReward([1,2,3],[4,5,6])
+        rwd = SequenceReward([1,2,3],[4,5,6])
 
         self.assertEqual(3,len(rwd))
         self.assertEqual([4,5,6],rwd)
@@ -188,9 +184,21 @@ class SequenceReward_Tests(unittest.TestCase):
         self.assertEqual(5,rwd.eval(2))
         self.assertEqual(6,rwd.eval(3))
 
+class MulticlassReward_Tests(unittest.TestCase):
+    def test_simple(self):
+        rwd = MulticlassReward([1,2,3],2)
+
+        self.assertEqual(3,len(rwd))
+        self.assertEqual([0,1,0],rwd)
+        self.assertEqual(1,rwd.max())
+        self.assertEqual(2,rwd.argmax())
+        self.assertEqual(0,rwd.eval(1))
+        self.assertEqual(1,rwd.eval(2))
+        self.assertEqual(0,rwd.eval(3))
+
 class SequenceFeedback_Tests(unittest.TestCase):
     def test_sequence(self):
-        fb = DiscreteFeedback([1,2,3],[4,5,6])
+        fb = SequenceFeedback([1,2,3],[4,5,6])
 
         self.assertEqual(3,len(fb))
         self.assertEqual([4,5,6],fb)

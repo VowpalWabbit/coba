@@ -4,12 +4,14 @@ import unittest
 from collections import Counter
 from math import isnan
 
+from coba.utilities    import HashableDict
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.environments import LoggedInteraction, SimulatedInteraction, L1Reward
-
+from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedInteraction
+from coba.environments import L1Reward
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
+from coba.environments import Finalize
 
 class TestEnvironment:
 
@@ -1026,10 +1028,10 @@ class Noise_Tests(unittest.TestCase):
         actual_interactions = list(Noise(context=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
         self.assertEqual(2      , len(actual_interactions))
-        self.assertEqual((8,5)  , actual_interactions[0].context)
+        self.assertEqual([8,5]  , actual_interactions[0].context)
         self.assertEqual([1,2]  , actual_interactions[0].actions)
         self.assertEqual([.2,.3], actual_interactions[0].rewards)
-        self.assertEqual((2,7)  , actual_interactions[1].context)
+        self.assertEqual([2,7]  , actual_interactions[1].context)
         self.assertEqual([2,3]  , actual_interactions[1].actions)
         self.assertEqual([.1,.5], actual_interactions[1].rewards)
 
@@ -1070,35 +1072,35 @@ class Noise_Tests(unittest.TestCase):
     def test_action_noise1(self):
 
         interactions = [
-            SimulatedInteraction((7,), [1,2], [.2,.3]),
-            SimulatedInteraction((1,), [2,3], [.1,.5]),
+            SimulatedInteraction([7], [1,2], [.2,.3]),
+            SimulatedInteraction([1], [2,3], [.1,.5]),
         ]
 
         actual_interactions = list(Noise(action=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
         self.assertEqual(2      , len(actual_interactions))
-        self.assertEqual((7,)   , actual_interactions[0].context)
+        self.assertEqual([7]    , actual_interactions[0].context)
         self.assertEqual([2,2]  , actual_interactions[0].actions)
         self.assertEqual([.2,.3], actual_interactions[0].rewards)
-        self.assertEqual((1,)   , actual_interactions[1].context)
+        self.assertEqual([1]    , actual_interactions[1].context)
         self.assertEqual([3,4]  , actual_interactions[1].actions)
         self.assertEqual([.1,.5], actual_interactions[1].rewards)
 
     def test_action_noise2(self):
 
         interactions = [
-            SimulatedInteraction((7,), [(1,),(2,)], [.2,.3]),
-            SimulatedInteraction((1,), [(2,),(3,)], [.1,.5]),
+            SimulatedInteraction([7], [[1],[2]], [.2,.3]),
+            SimulatedInteraction([1], [[2],[3]], [.1,.5]),
         ]
 
         actual_interactions = list(Noise(action=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
         self.assertEqual(2      , len(actual_interactions))
-        self.assertEqual((7,)   , actual_interactions[0].context)
-        self.assertEqual([(2,),(2,)]  , actual_interactions[0].actions)
+        self.assertEqual([7]   , actual_interactions[0].context)
+        self.assertEqual([[2],[2]]  , actual_interactions[0].actions)
         self.assertEqual([.2,.3], actual_interactions[0].rewards)
-        self.assertEqual((1,)   , actual_interactions[1].context)
-        self.assertEqual([(3,),(4,)]  , actual_interactions[1].actions)
+        self.assertEqual([1]   , actual_interactions[1].context)
+        self.assertEqual([[3],[4]]  , actual_interactions[1].actions)
         self.assertEqual([.1,.5], actual_interactions[1].rewards)
 
     def test_action_noise3(self):
@@ -1117,25 +1119,25 @@ class Noise_Tests(unittest.TestCase):
     def test_reward_noise(self):
 
         interactions = [
-            SimulatedInteraction((7,), [1,2], [.2,.3]),
-            SimulatedInteraction((1,), [2,3], [.1,.5]),
+            SimulatedInteraction([7], [1,2], [.2,.3]),
+            SimulatedInteraction([1], [2,3], [.1,.5]),
         ]
 
         actual_interactions = list(Noise(reward=lambda v,r: v+r.randint(0,1), seed=5).filter(interactions))
 
         self.assertEqual(2        , len(actual_interactions))
-        self.assertEqual((7,)     , actual_interactions[0].context)
+        self.assertEqual([7]      , actual_interactions[0].context)
         self.assertEqual([1,2]    , actual_interactions[0].actions)
         self.assertEqual([1.2,.3] , actual_interactions[0].rewards)
-        self.assertEqual((1,)     , actual_interactions[1].context)
+        self.assertEqual([1]      , actual_interactions[1].context)
         self.assertEqual([2,3]    , actual_interactions[1].actions)
         self.assertEqual([1.1,1.5], actual_interactions[1].rewards)
 
     def test_noise_repeatable(self):
 
         interactions = [
-            SimulatedInteraction((7,), [1,2], [.2,.3]),
-            SimulatedInteraction((1,), [2,3], [.1,.5]),
+            SimulatedInteraction([7], [1,2], [.2,.3]),
+            SimulatedInteraction([1], [2,3], [.1,.5]),
         ]
 
         noise_filter = Noise(action=lambda v,r: v+r.randint(0,1), seed=5)
@@ -1143,20 +1145,20 @@ class Noise_Tests(unittest.TestCase):
         actual_interactions = list(noise_filter.filter(interactions))
 
         self.assertEqual(2      , len(actual_interactions))
-        self.assertEqual((7,)   , actual_interactions[0].context)
+        self.assertEqual([7]    , actual_interactions[0].context)
         self.assertEqual([2,2]  , actual_interactions[0].actions)
         self.assertEqual([.2,.3], actual_interactions[0].rewards)
-        self.assertEqual((1,)   , actual_interactions[1].context)
+        self.assertEqual([1]    , actual_interactions[1].context)
         self.assertEqual([3,4]  , actual_interactions[1].actions)
         self.assertEqual([.1,.5], actual_interactions[1].rewards)
 
         actual_interactions = list(noise_filter.filter(interactions))
 
         self.assertEqual(2      , len(actual_interactions))
-        self.assertEqual((7,)   , actual_interactions[0].context)
+        self.assertEqual([7]    , actual_interactions[0].context)
         self.assertEqual([2,2]  , actual_interactions[0].actions)
         self.assertEqual([.2,.3], actual_interactions[0].rewards)
-        self.assertEqual((1,)   , actual_interactions[1].context)
+        self.assertEqual([1]    , actual_interactions[1].context)
         self.assertEqual([3,4]  , actual_interactions[1].actions)
         self.assertEqual([.1,.5], actual_interactions[1].rewards)
 
@@ -1403,7 +1405,7 @@ class Grounded_Tests(unittest.TestCase):
             bizaro_count += int(not interaction.kwargs['isnormal'])
             word_counts  += Counter(feedbacks)
 
-            self.assertEqual(interaction.context, tuple([interaction.kwargs['userid']]+interaction.kwargs['c']))
+            self.assertEqual(interaction.context, [interaction.kwargs['userid']]+interaction.kwargs['c'])
             self.assertEqual(interaction.kwargs['isnormal'],interaction.kwargs['userid'] in to_igl_filter.normalids)
             
             for word,reward in zip(feedbacks,rewards):
@@ -1508,6 +1510,46 @@ class Grounded_Tests(unittest.TestCase):
         self.assertEqual( 4, params['n_words'])
         self.assertEqual( 2, params['n_good'])
         self.assertEqual( 1, params['igl_seed'])
+
+class Finalize_Tests(unittest.TestCase):
+
+    def test_dense_simulated(self):
+        interactions = [SimulatedInteraction([1,2,3],[[1,2],[3,4]], [1,2])]
+
+        actual = list(Finalize().filter(interactions))
+
+        self.assertEqual(len(actual),1)
+        self.assertEqual(actual[0].context, (1,2,3))
+        self.assertEqual(actual[0].actions, [(1,2),(3,4)])
+
+    def test_sparse_simulated(self):
+        interactions = [SimulatedInteraction({1:2},[[1,2],[3,4]], [1,2])]
+
+        actual = list(Finalize().filter(interactions))
+
+        self.assertEqual(len(actual),1)
+        self.assertIsInstance(actual[0].context, HashableDict)
+        self.assertEqual(actual[0].actions, [(1,2),(3,4)])
+
+    def test_logged(self):
+        interactions = [LoggedInteraction([1,2,3], [1,2], 1, 1, [[1,2],[3,4]], [1,2])]
+
+        actual = list(Finalize().filter(interactions))
+
+        self.assertEqual(len(actual),1)
+        self.assertEqual(actual[0].context, (1,2,3))
+        self.assertEqual(actual[0].action, (1,2))
+        self.assertEqual(actual[0].actions, [(1,2),(3,4)])
+
+    def test_grounded(self):
+        interactions = [GroundedInteraction([1,2,3],[[1,2],[3,4]], [1,2], [3,4])]
+
+        actual = list(Finalize().filter(interactions))
+
+        self.assertEqual(len(actual),1)
+        self.assertEqual(actual[0].context, (1,2,3))
+        self.assertEqual(actual[0].actions, [(1,2),(3,4)])
+
 
 if __name__ == '__main__':
     unittest.main()

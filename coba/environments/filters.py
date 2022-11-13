@@ -1,12 +1,10 @@
 import pickle
 import warnings
-import collections.abc
 
 from math import isnan
 from statistics import mean, median, stdev, mode
-from abc import abstractmethod, ABC
 from numbers import Number
-from collections import defaultdict
+from collections import defaultdict, abc
 from functools import lru_cache
 from itertools import islice, chain, tee
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping, TypeVar
@@ -19,15 +17,7 @@ from coba.statistics import iqr
 from coba.utilities  import HashableDict, peek_first
 
 from coba.environments.primitives import Interaction, LoggedInteraction, SimulatedInteraction, GroundedInteraction 
-from coba.environments.primitives import ScaleReward, DiscreteReward, BinaryReward, Feedback
-
-class EnvironmentFilter(pipes.Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
-    """A filter that can be applied to an Environment."""
-
-    @abstractmethod
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        """Apply a filter to an Environment's interactions."""
-        ...
+from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, EnvironmentFilter
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""
@@ -94,9 +84,9 @@ class Scale(EnvironmentFilter):
         scales  : Dict[Hashable,float]     = defaultdict(lambda:1)
         unscaled: Dict[Hashable,List[Any]] = defaultdict(list)
 
-        if isinstance(fitting_interactions[0].context, collections.abc.Sequence):
+        if isinstance(fitting_interactions[0].context, abc.Sequence):
             context_type = 0
-        elif isinstance(fitting_interactions[0].context, collections.abc.Mapping):
+        elif isinstance(fitting_interactions[0].context, abc.Mapping):
             context_type = 1
         else:
             context_type = 2
@@ -691,11 +681,11 @@ class Noise(EnvironmentFilter):
 
     def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
 
-        if isinstance(value, collections.abc.Mapping):
+        if isinstance(value, abc.Mapping):
             #we sort so that noise generation is deterministic with respect to seed
             return { k:self._noise(v, rng, noiser) for k,v in sorted(value.items()) }
 
-        if isinstance(value, collections.abc.Sequence) and not isinstance(value, str):
+        if isinstance(value, abc.Sequence) and not isinstance(value, str):
             return [ self._noise(v, rng, noiser) for v in value ]
 
         return self._noise(value, rng, noiser)
@@ -776,9 +766,9 @@ class Grounded(EnvironmentFilter):
         if first:
             binary_rewards = not (set(first.rewards)-{0,1})
 
-            if isinstance(first.context, collections.abc.Mapping):
+            if isinstance(first.context,abc.Mapping):
                 context_type = 0
-            elif isinstance(first.context,collections.abc.Sequence) and not isinstance(first.context,str):
+            elif isinstance(first.context,abc.Sequence) and not isinstance(first.context,str):
                 context_type = 1
             else:
                 context_type = 2
@@ -802,7 +792,7 @@ class Grounded(EnvironmentFilter):
             if context_type == 0:
                 igl_context = dict(userid=userid,**interaction.context)
             elif context_type == 1:
-                igl_context = (userid,)+interaction.context
+                igl_context = [userid]+list(interaction.context)
             else:
                 igl_context = (userid, interaction.context)
 
@@ -812,3 +802,36 @@ class Grounded(EnvironmentFilter):
         if isinstance(value, int): return value
         if isinstance(value, float) and value.is_integer(): return int(value)
         raise CobaException(f"{value_name} must be a whole number and not {value}.")
+
+class Finalize(EnvironmentFilter):
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        for interaction in interactions:
+            if isinstance(interaction, SimulatedInteraction):
+                interaction._context = self._make_hashable(interaction.context)
+                if interaction.actions:
+                    interaction._actions = list(map(self._make_hashable,interaction.actions))
+                
+            elif isinstance(interaction, LoggedInteraction):
+                interaction._context = self._make_hashable(interaction.context)
+                interaction._action  = self._make_hashable(interaction.action)
+                if interaction.actions:
+                    interaction._actions = list(map(self._make_hashable,interaction.actions))
+
+            elif isinstance(interaction, GroundedInteraction):
+                interaction._context = self._make_hashable(interaction.context)
+                if interaction.actions:
+                    interaction._actions = list(map(self._make_hashable,interaction.actions))
+
+            yield interaction
+
+    def _make_hashable(self, feats):
+        try:
+            return feats.to_builtin()
+        except Exception:
+            if isinstance(feats, abc.Sequence):
+                return tuple(feats)
+            if isinstance(feats, abc.Mapping):
+                return HashableDict(feats)
+            return feats

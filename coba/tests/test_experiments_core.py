@@ -207,7 +207,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         sim2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
-        experiment = Experiment([sim1,sim2], [learner], "abc", evaluation_task=SimpleEvaluation(time_metrics=False))
+        experiment = Experiment([sim1,sim2], [learner], "abc")
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_dicts()
@@ -233,7 +233,6 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
-        self.assertEqual(0, learner._learn_calls)
 
     def test_learners(self):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))

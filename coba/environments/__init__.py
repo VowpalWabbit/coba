@@ -9,12 +9,13 @@ from coba.environments.core       import Environments
 from coba.environments.primitives import Context, Action, Actions, Reward, Feedback
 from coba.environments.primitives import Interaction, Environment, SafeEnvironment
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, GroundedInteraction
-from coba.environments.primitives import Reward, L1Reward, HammingReward, ScaleReward, BinaryReward, DiscreteReward
-from coba.environments.primitives import Feedback, DiscreteFeedback
+from coba.environments.primitives import Reward, L1Reward, HammingReward, ScaleReward, BinaryReward
+from coba.environments.primitives import SequenceReward, MulticlassReward
+from coba.environments.primitives import Feedback, SequenceFeedback, EnvironmentFilter
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
 from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
 from coba.environments.filters    import Binary, Warm, Sparse, Where, Noise, Grounded
-from coba.environments.filters    import EnvironmentFilter
+from coba.environments.filters    import Finalize
 
 from coba.environments.simulated.synthetics import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
@@ -71,7 +72,9 @@ __all__ = [
     'HammingReward', 
     'ScaleReward',
     'BinaryReward',
-    'DiscreteReward',
+    'SequenceReward',
     'Feedback',
-    'DiscreteFeedback'
+    'SequenceFeedback',
+    'Finalize',
+    'MulticlassReward'
 ]

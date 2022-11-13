@@ -8,7 +8,7 @@ import warnings
 from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
-from coba.environments import Shuffle, Noise, DiscreteReward
+from coba.environments import Shuffle, Noise, SequenceReward
 from coba.learners     import Learner
 from coba.pipes        import Pipes
 
@@ -422,9 +422,9 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         task         = SimpleEvaluation(reward_metrics=["reward","rank"])
         learner      = FixedActionScoreLearner([0,1,2])
         interactions = [
-            SimulatedInteraction(1,None,DiscreteReward([0,1,2],[7,8,9])),
-            SimulatedInteraction(2,None,DiscreteReward([0,1,2],[4,5,6])),
-            SimulatedInteraction(3,None,DiscreteReward([0,1,2],[1,2,3])),
+            SimulatedInteraction(1,None,SequenceReward([0,1,2],[7,8,9])),
+            SimulatedInteraction(2,None,SequenceReward([0,1,2],[4,5,6])),
+            SimulatedInteraction(3,None,SequenceReward([0,1,2],[1,2,3])),
         ]
         
         with self.assertWarns(UserWarning) as w:

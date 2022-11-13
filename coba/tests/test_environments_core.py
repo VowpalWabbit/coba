@@ -231,7 +231,7 @@ class Environments_Tests(unittest.TestCase):
         env = Environments.from_lambda(1, context, actions, rewards, 1)[0]
 
         self.assertEqual(1, len(list(env.read())))
-        self.assertEqual((0.11, 0.8, 0.44, 0.17, 0.42), list(env.read())[0].context)
+        self.assertEqual([0.11, 0.8, 0.44, 0.17, 0.42], list(env.read())[0].context)
         self.assertEqual(3, len(list(env.read())[0].actions))
 
     def test_init_args(self):

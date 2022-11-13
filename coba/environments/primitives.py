@@ -5,7 +5,7 @@ from typing import Any, Union, Iterable, Sequence, Mapping, Optional, TypeVar, G
 from coba.backports import Literal
 
 from coba.utilities import HashableDict
-from coba.pipes import Source, SourceFilters
+from coba.pipes import Source, SourceFilters, Filter
 from coba.exceptions import CobaException
 
 Context   = Union[None, str, Number, tuple, HashableDict]
@@ -19,14 +19,14 @@ class Feedback(ABC, Generic[T]):
     def eval(self, arg: Action) -> T:
         ...
 
-class DiscreteFeedback(Sequence, Feedback[T]):
+class SequenceFeedback(Sequence, Feedback[T]):
     def __init__(self, actions: Sequence[Action], values: Sequence[T]) -> None:
         self._actions = actions
-        self._values  = values
-        self._lookup  = dict(zip(actions,values))
+        self._values  = list(values)
 
     def eval(self, arg: Any) -> T:
-        return self._lookup[arg]
+        for a,v in zip(self._actions,self._values):
+            if a == arg: return v
 
     def __getitem__(self, index: int) -> T:
         return self._values[index]
@@ -115,7 +115,7 @@ class ScaleReward(Reward):
         #defined in __init__ for performance
         raise NotImplementedError("This should have been defined in __init__.")
 
-class DiscreteReward(Reward, DiscreteFeedback[float]):
+class SequenceReward(Reward, SequenceFeedback[float]):
 
     def argmax(self) -> Action:
         max_r = -float('inf')
@@ -126,13 +126,16 @@ class DiscreteReward(Reward, DiscreteFeedback[float]):
                 max_r = r
         return max_a
 
-class MulticlassReward(Sequence, Feedback[T]):
+class MulticlassReward(Sequence, Reward):
     def __init__(self, actions: Sequence[Action], label: Action) -> None:
         self._actions = actions
         self._label   = label
 
     def eval(self, action: Any) -> T:
         return int(self._label == action)
+
+    def argmax(self) -> Action:
+        return self._label
 
     def __getitem__(self, index: int) -> T:
         return self._actions[index] == self._label
@@ -142,15 +145,6 @@ class MulticlassReward(Sequence, Feedback[T]):
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(o) == list(self)
-
-#context should be hashable (perf-test)
-#actions should be hashable (perf-test)
-#rewards should be converted if a sequence
-#action should be hashable
-#high-performance duplication would be nice
-
-#_rough
-#_clean
 
 class Interaction:
     """An individual interaction that occurs in an Environment."""
@@ -189,21 +183,11 @@ class Interaction:
     @property
     def context(self) -> Context:
         """The context in which the interaction occured."""
-        if "context" not in self._hashed:
-            self._context = self._make_hashable(self._context)
-            self._hashed.add("context")
         return self._context
 
     @property
     def actions(self) -> Actions:
         """The actions available in the interaction."""
-        if "actions" not in self._hashed:
-            if self._actions is not None:
-                try:
-                    self._actions = list(map(self._make_hashable,self._actions))
-                except:
-                    pass
-            self._hashed.add("actions")
         return self._actions
 
     @property
@@ -212,7 +196,7 @@ class Interaction:
         if "rewards" not in self._hashed:
             if self._rewards and self.actions:
                 try:
-                    self._rewards = DiscreteReward(self.actions,self._rewards)
+                    self._rewards = SequenceReward(self.actions,self._rewards)
                 except (TypeError, AttributeError):
                     pass            
             self._hashed.add("rewards")
@@ -223,18 +207,6 @@ class Interaction:
     def kwargs(self) -> Mapping[str,Any]:
         """Additional information associatd with the Interaction."""
         return self._kwargs
-
-    def _make_hashable(self, feats):
-        if isinstance(feats,abc.Hashable): 
-            return feats
-        try:
-            return feats.to_builtin()
-        except Exception:
-            if isinstance(feats, abc.Sequence):
-                return tuple(feats)
-            if isinstance(feats, abc.Mapping):
-                return HashableDict(feats)
-            return feats
 
 class GroundedInteraction(Interaction):
     """Logged data that describes an interaction where the choice was already made."""
@@ -264,7 +236,7 @@ class GroundedInteraction(Interaction):
         """The feedback for each action in the interaction."""
         if "feedback" not in self._hashed:
             try:
-                self._feedbacks = DiscreteFeedback(self.actions,self._feedbacks)
+                self._feedbacks = SequenceFeedback(self.actions,self._feedbacks)
             except:
                 pass
             self._hashed.add("feedback")
@@ -311,9 +283,6 @@ class LoggedInteraction(Interaction):
     @property
     def action(self) -> Action:
         """The action that was taken."""
-        if "action" not in self._hashed:
-            self._action = self._make_hashable(self._action)
-            self._hashed.add("action")
         return self._action
 
     @property
@@ -346,6 +315,14 @@ class SimulatedInteraction(Interaction):
         """
 
         super().__init__(context, actions, rewards, **kwargs)
+
+class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
+    """A filter that can be applied to an Environment."""
+
+    @abstractmethod
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        """Apply a filter to an Environment's interactions."""
+        ...
 
 class Environment(Source[Iterable[Interaction]], ABC):
     """An Environment that produces Contextual Bandit data"""

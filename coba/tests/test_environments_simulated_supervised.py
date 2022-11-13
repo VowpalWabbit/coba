@@ -34,15 +34,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(len(interactions), 3)
 
-        for rnd in interactions:
-
-            hash(rnd.context)    #make sure these are hashable
-            hash(rnd.actions[0]) #make sure these are hashable
-            hash(rnd.actions[1]) #make sure these are hashable
-
-        self.assertEqual((8.1,27,1410,(0,1)), interactions[0].context)
-        self.assertEqual((8.2,29,1180,(0,1)), interactions[1].context)
-        self.assertEqual((8.3,27,1020,(1,0)), interactions[2].context)
+        self.assertEqual([8.1,27,1410,(0,1)], interactions[0].context)
+        self.assertEqual([8.2,29,1180,(0,1)], interactions[1].context)
+        self.assertEqual([8.3,27,1020,(1,0)], interactions[2].context)
 
         self.assertEqual([(1,0),(0,1)], interactions[0].actions)
         self.assertEqual([(1,0),(0,1)], interactions[1].actions)
@@ -73,13 +67,9 @@ class SupervisedSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(len(interactions), 3)
 
-        for rnd in interactions:
-
-            hash(rnd.context)    #make sure these are hashable
-
-        self.assertEqual((27,1410,(1,0),(0,1)), interactions[0].context)
-        self.assertEqual((29,1180,(1,0),(0,1)), interactions[1].context)
-        self.assertEqual((27,1020,(0,1),(1,0)), interactions[2].context)
+        self.assertEqual([27,1410,(1,0),(0,1)], interactions[0].context)
+        self.assertEqual([29,1180,(1,0),(0,1)], interactions[1].context)
+        self.assertEqual([27,1020,(0,1),(1,0)], interactions[2].context)
 
         self.assertEqual([], interactions[0].actions)
         self.assertEqual([], interactions[1].actions)
@@ -195,12 +185,6 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         interactions = list(SupervisedSimulation(features, labels).read())
 
         self.assertEqual(len(interactions), 3)
-
-        for rnd in interactions:
-
-            hash(rnd.context)    #make sure these are hashable
-            hash(rnd.actions[0]) #make sure these are hashable
-            hash(rnd.actions[1]) #make sure these are hashable
 
         self.assertEqual((8.1,27,1410,(0,1)), interactions[0].context)
         self.assertEqual((8.2,29,1180,(0,1)), interactions[1].context)
