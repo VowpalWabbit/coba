@@ -128,11 +128,11 @@ class Scale(EnvironmentFilter):
                         else:
                             not_numeric.add(key)
 
-            if self._target == "rewards":
+            elif self._target == "rewards":
                 if is_discrete:
                     unscaled["rewards"].extend(map(interaction.rewards.eval,interaction.actions))
 
-            if self._target == "argmax":
+            elif self._target == "argmax":
                 unscaled["argmax"].append(interaction.rewards.argmax())
         #self._times[0] = time.time()-start
 
@@ -207,10 +207,10 @@ class Scale(EnvironmentFilter):
                     else:
                         final_context = interaction.context
 
-            if self._target == "rewards":
+            elif self._target == "rewards":
                 final_rewards = ScaleReward(final_rewards, -shifts['rewards'], scales['rewards'], 'value')
 
-            if self._target == "argmax":
+            elif self._target == "argmax":
                 final_rewards = ScaleReward(final_rewards, -shifts["argmax"], scales["argmax"], "argmax")
 
             if isinstance(interaction, SimulatedInteraction):
@@ -809,20 +809,20 @@ class Finalize(EnvironmentFilter):
 
         for interaction in interactions:
             if isinstance(interaction, SimulatedInteraction):
-                interaction._context = self._make_hashable(interaction.context)
+                interaction.context = self._make_hashable(interaction.context)
                 if interaction.actions:
-                    interaction._actions = list(map(self._make_hashable,interaction.actions))
-                
+                    interaction.actions = list(map(self._make_hashable,interaction.actions))
+
             elif isinstance(interaction, LoggedInteraction):
-                interaction._context = self._make_hashable(interaction.context)
-                interaction._action  = self._make_hashable(interaction.action)
+                interaction.context = self._make_hashable(interaction.context)
+                interaction.action  = self._make_hashable(interaction.action)
                 if interaction.actions:
-                    interaction._actions = list(map(self._make_hashable,interaction.actions))
+                    interaction.actions = list(map(self._make_hashable,interaction.actions))
 
             elif isinstance(interaction, GroundedInteraction):
-                interaction._context = self._make_hashable(interaction.context)
+                interaction.context = self._make_hashable(interaction.context)
                 if interaction.actions:
-                    interaction._actions = list(map(self._make_hashable,interaction.actions))
+                    interaction.actions = list(map(self._make_hashable,interaction.actions))
 
             yield interaction
 

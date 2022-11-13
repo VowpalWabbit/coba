@@ -81,35 +81,10 @@ class Performance_Tests(unittest.TestCase):
         c       = [2,3]
         self._assert_scale_time(c, lambda x: encoder.encode(a=a,b=b,c=x), .075, False, number=1000)
 
-    def test_interaction_context_performance1(self):
-        item = SimulatedInteraction([1,2,3]*100, (1,2,3), (4,5,6))
-        self._assert_call_time(lambda: item.context, .00035, False, number=1000)
-
-    def test_interaction_context_performance2(self):        
-        setup = '\n'.join([
-            "from coba.environments import SimulatedInteraction",
-            "item = SimulatedInteraction([1,2,3]*100, (1,2,3), (4,5,6))"
-        ])
-        stmt  = "item.context"
-        self._assert_call_time(stmt, .0029, False, number=1000, setup=setup)
-        
-    def test_interaction_context_performance3(self):
-        setup = '\n'.join([
-            "from coba.pipes import DenseRow",
-            "from coba.environments import SimulatedInteraction",
-            "item = SimulatedInteraction(DenseRow(loaded=[1]*100), (1,2,3), (4,5,6))"
-        ])
-        stmt  = "item.context"
-        self._assert_call_time(stmt, .008, False, number=1000, setup=setup)
-
-    def test_interaction_context_performance4(self):
-        setup = '\n'.join([
-            "from coba.pipes import SparseRow",
-            "from coba.environments import SimulatedInteraction",
-            "item = SimulatedInteraction(SparseRow(loaded=dict(enumerate(['1']*100))), (1,2,3), (4,5,6))"
-        ])
-        stmt  = "item.context"
-        self._assert_call_time(stmt, .01, False, number=1000, setup=setup)
+    def test_interaction_performance1(self):
+        i = SimulatedInteraction(1, [1,2], 3)
+        self._assert_call_time(lambda: SimulatedInteraction(1,[1,2],[0,1]), .013, False, number=10000)
+        self._assert_call_time(lambda: SimulatedInteraction(i.context,i.actions,i.rewards), .009, False, number=10000)
 
     def test_hashable_dict_performance(self):
         items = list(enumerate(range(100)))
@@ -209,7 +184,7 @@ class Performance_Tests(unittest.TestCase):
     def test_scale_target_features(self):
         items = [SimulatedInteraction((3193.0, 151.0, '0', '0', '0'),[1,2,3],[4,5,6])]*10
         scale = Scale("min","minmax",target="features")
-        self._assert_scale_time(items, lambda x:list(scale.filter(x)), .11, False, number=1000)
+        self._assert_scale_time(items, lambda x:list(scale.filter(x)), .05, False, number=1000)
 
     def test_scale_target_rewards(self):
         items = [SimulatedInteraction((3193.0, 151.0),[1,2,3],[4,5,6])]*10

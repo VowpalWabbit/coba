@@ -35,10 +35,6 @@ class LoggedInteraction_Tests(unittest.TestCase):
         interaction = LoggedInteraction(1,2,3,1/2,[1,2,3])
         self.assertEqual([0,6,0], interaction.rewards)
 
-    def test_IPS_function(self):
-        interaction = LoggedInteraction(1,2,3,1/2,1)
-        self.assertEqual([0,6,0], [interaction.rewards(a) for a in [1,2,3]])
-
     def test_simple_with_actions(self):
         interaction = LoggedInteraction(1, 2, 3, .2, [1,2,3])
 
@@ -178,11 +174,13 @@ class SequenceReward_Tests(unittest.TestCase):
 
         self.assertEqual(3,len(rwd))
         self.assertEqual([4,5,6],rwd)
+        self.assertEqual(4,rwd[0])
         self.assertEqual(6,rwd.max())
         self.assertEqual(3,rwd.argmax())
         self.assertEqual(4,rwd.eval(1))
         self.assertEqual(5,rwd.eval(2))
         self.assertEqual(6,rwd.eval(3))
+        self.assertEqual(rwd,rwd)
 
 class MulticlassReward_Tests(unittest.TestCase):
     def test_simple(self):
@@ -202,6 +200,7 @@ class SequenceFeedback_Tests(unittest.TestCase):
 
         self.assertEqual(3,len(fb))
         self.assertEqual([4,5,6],fb)
+        self.assertEqual(4,fb[0])
         self.assertEqual(4,fb.eval(1))
         self.assertEqual(5,fb.eval(2))
         self.assertEqual(6,fb.eval(3))

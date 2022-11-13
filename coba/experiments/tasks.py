@@ -195,6 +195,7 @@ class SimpleEnvironmentInfo(EnvironmentTask):
     """Describe an Environment using its Environment and Filter parameters."""
 
     def process(self, environment:Environment, interactions: Iterable[Interaction]) -> Mapping[Any,Any]:
+
         return { k:v for k,v in SafeEnvironment(environment).params.items() if v is not None }
 
 class ClassEnvironmentInfo(EnvironmentTask):
@@ -218,8 +219,8 @@ class ClassEnvironmentInfo(EnvironmentTask):
         contexts,actions,rewards = zip(*[ (i.context, i.actions, i.rewards) for i in interactions ])
         env_stats = {}
 
-        X = [ InteractionsEncoder('x').encode(x=c) for c   in contexts             ]
-        Y = [ a[r.index(max(r))]                   for a,r in zip(actions,rewards) ]
+        X = [ InteractionsEncoder('x').encode(x=c) for c in contexts ]
+        Y = [ r.argmax()                           for r in rewards  ]
         X = self._dense(X)
 
         classes = list(set(Y))

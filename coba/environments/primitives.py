@@ -1,7 +1,7 @@
 from collections import abc
 from numbers import Number
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, Optional, TypeVar, Generic
+from typing import Any, Union, Iterable, Sequence, Mapping, TypeVar, Iterator
 from coba.backports import Literal
 
 from coba.utilities import HashableDict
@@ -14,21 +14,20 @@ Actions   = Sequence[Action]
 
 T = TypeVar('T')
 
-class Feedback(ABC, Generic[T]):
+class Feedback(ABC):
     @abstractmethod
-    def eval(self, arg: Action) -> T:
+    def eval(self, arg: Action) -> Any:
         ...
 
-class SequenceFeedback(Sequence, Feedback[T]):
-    def __init__(self, actions: Sequence[Action], values: Sequence[T]) -> None:
+class SequenceFeedback(Feedback):
+    def __init__(self, actions: Sequence[Action], values: Sequence[Any]) -> None:
         self._actions = actions
         self._values  = list(values)
 
-    def eval(self, arg: Any) -> T:
-        for a,v in zip(self._actions,self._values):
-            if a == arg: return v
+    def eval(self, arg: Any) -> Any:
+        return self._values[self._actions.index(arg)]
 
-    def __getitem__(self, index: int) -> T:
+    def __getitem__(self, index: int) -> Any:
         return self._values[index]
     
     def __len__(self) -> int:
@@ -37,11 +36,16 @@ class SequenceFeedback(Sequence, Feedback[T]):
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(o) == list(self._values)
 
-class Reward(Feedback[float]):
+class Reward(ABC):
+    
+    @abstractmethod
+    def eval(self, arg: Action) -> float:
+        ...
+
     @abstractmethod
     def argmax(self) -> Action:
         ...
-
+    
     def max(self) -> float:
         return self.eval(self.argmax())
 
@@ -115,18 +119,42 @@ class ScaleReward(Reward):
         #defined in __init__ for performance
         raise NotImplementedError("This should have been defined in __init__.")
 
-class SequenceReward(Reward, SequenceFeedback[float]):
+class SequenceReward(Reward):
+    __slots__ = ('_actions', '_values')
+    def __init__(self, actions: Sequence[Action], values: Sequence[T]) -> None:
+        if len(actions) != len(values):
+            raise CobaException("Interaction reward counts must equal action counts.")
+        self._actions = actions
+        self._values  = values
+
+    def eval(self, arg: Any) -> T:
+        return self._values[self._actions.index(arg)]
 
     def argmax(self) -> Action:
-        max_r = -float('inf')
-        max_a = None
+        max_r = self._values[0]
+        max_a = self._actions[0]
         for a,r in zip(self._actions,self._values):
             if r > max_r: 
                 max_a = a
                 max_r = r
         return max_a
 
-class MulticlassReward(Sequence, Reward):
+    def __getitem__(self, index: int) -> T:
+        return self._values[index]
+    
+    def __len__(self) -> int:
+        return len(self._actions)
+
+    def __iter__(self) -> Iterator[float]:
+        return iter(map(self.__getitem__,range(len(self._values))))
+
+    def __eq__(self, o: object) -> bool:
+        try:
+            return list(o) == list(self)
+        except:#pragma: no cover
+            return False
+
+class MulticlassReward(Reward):
     def __init__(self, actions: Sequence[Action], label: Action) -> None:
         self._actions = actions
         self._label   = label
@@ -143,73 +171,49 @@ class MulticlassReward(Sequence, Reward):
     def __len__(self) -> int:
         return len(self._actions)
 
+    def __iter__(self) -> Iterator[float]:
+        return iter(map(self.__getitem__,range(len(self._actions))))
+
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(o) == list(self)
 
-class Interaction:
+class Interaction(ABC):
     """An individual interaction that occurs in an Environment."""
 
-    def __init__(self, 
-        context: Context, 
-        actions: Actions,
-        rewards: Union[Reward, Sequence[float]], 
+    __slots__ = ('context','actions','rewards','kwargs','is_discrete')
+
+    def __init__(self,
+        context : Context,
+        actions : Actions,
+        rewards : Union[Reward, Sequence[float]],
         **kwargs) -> None:
-        """Instantiate an Interaction.
+        ...
+        """Instantiate SimulatedInteraction.
 
-        Args:
-            context: The context in which the interaction occured.
+        Args
+            context : Features describing the interaction's context.
+            actions : Features describing available actions during the interaction.
+            rewards : The reward for each action in the interaction.
+            **kwargs: Any additional information.
         """
-        self._context = context
-        self._actions = actions
-        self._rewards = rewards
-        self._kwargs  = kwargs
-        self._hashed  = set()
+        self.context = context
+        self.actions = actions
+        self.kwargs  = kwargs        
+        self.rewards = rewards
 
-        try:
-            if len(rewards) != len(actions):
-                raise CobaException("An interaction's reward count must equal its action count.")
-        except CobaException:
-            raise
-        except Exception:
-            pass
+        if isinstance(rewards,(list,tuple)):
+            self.rewards = SequenceReward(actions,rewards)
 
-    @property
-    def is_discrete(self) -> bool:
-        try:
-            return len(self.actions) > 0
-        except:
-            return False
+        self.is_discrete = actions and len(actions)>0
 
-    @property
-    def context(self) -> Context:
-        """The context in which the interaction occured."""
-        return self._context
-
-    @property
-    def actions(self) -> Actions:
-        """The actions available in the interaction."""
-        return self._actions
-
-    @property
-    def rewards(self) -> Reward:
-        
-        if "rewards" not in self._hashed:
-            if self._rewards and self.actions:
-                try:
-                    self._rewards = SequenceReward(self.actions,self._rewards)
-                except (TypeError, AttributeError):
-                    pass            
-            self._hashed.add("rewards")
-
-        return self._rewards
-
-    @property
-    def kwargs(self) -> Mapping[str,Any]:
-        """Additional information associatd with the Interaction."""
-        return self._kwargs
+class SimulatedInteraction(Interaction):
+    """Simulated data that describes an interaction where the choice is up to you."""
+    pass
 
 class GroundedInteraction(Interaction):
     """Logged data that describes an interaction where the choice was already made."""
+
+    __slots__ = ('feedbacks',)
 
     def __init__(self,
         context: Context,
@@ -229,22 +233,11 @@ class GroundedInteraction(Interaction):
         """
 
         super().__init__(context, actions, rewards, **kwargs)
-        self._feedbacks = feedbacks
-
-    @property
-    def feedbacks(self) -> Feedback:
-        """The feedback for each action in the interaction."""
-        if "feedback" not in self._hashed:
-            try:
-                self._feedbacks = SequenceFeedback(self.actions,self._feedbacks)
-            except:
-                pass
-            self._hashed.add("feedback")
-
-        return self._feedbacks
+        self.feedbacks = SequenceFeedback(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
 
 class LoggedInteraction(Interaction):
     """Logged data that describes an interaction where the choice was already made."""
+    __slots__ = ('action','reward','probability')
 
     def __init__(self,
         context: Context,
@@ -265,56 +258,18 @@ class LoggedInteraction(Interaction):
             rewards: The rewards to use for off policy evaluation. These rewards will not be shown to any learners. They will
                 only be recorded in experimental results. If probability and actions is provided and rewards is None then 
                 rewards will be initialized using the IPS estimator.
-            **kwargs : Additional information that should be recorded in the interactions table of an experiment result. If
-                any data is a sequence with length equal to actions only the data at the selected action index will be recorded.
+            **kwargs : Any additional information.
         """
-        self._action      = action
-        self._reward      = reward
-        self._probability = probability
-
         if probability and actions and rewards is None:
-            try:
-                rewards = [ int(a==action)*reward/probability for a in actions ]
-            except:
-                rewards = lambda a: int(a==action)*reward/probability
+            #try:
+            rewards = [ int(a==action)*reward/probability for a in actions ]
+            #except:
+            #    rewards = ScaleReward(BinaryReward(action), 0, reward/probability, 'value')                
 
         super().__init__(context, actions, rewards, **kwargs)
-
-    @property
-    def action(self) -> Action:
-        """The action that was taken."""
-        return self._action
-
-    @property
-    def reward(self) -> float:
-        """The reward that was observed after taking the given action."""
-        return self._reward
-
-    @property
-    def probability(self) -> Optional[float]:
-        """The probability the action was taken."""
-        return self._probability
-
-class SimulatedInteraction(Interaction):
-    """Simulated data that describes an interaction where the choice is up to you."""
-
-    def __init__(self,
-        context : Context,
-        actions : Actions,
-        rewards : Union[Reward, Sequence[float]],
-        **kwargs) -> None:
-        ...
-        """Instantiate SimulatedInteraction.
-
-        Args
-            context : Features describing the interaction's context.
-            actions : Features describing available actions during the interaction.
-            rewards : The reward for each action in the interaction.
-            **kwargs: Additional information that should be recorded in the interactions table of an experiment result. If any
-                data is a sequence with length equal to actions only the data at the selected action index will be recorded.
-        """
-
-        super().__init__(context, actions, rewards, **kwargs)
+        self.action = action
+        self.probability = probability
+        self.reward = reward
 
 class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
     """A filter that can be applied to an Environment."""
