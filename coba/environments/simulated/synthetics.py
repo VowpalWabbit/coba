@@ -70,7 +70,7 @@ class LambdaSimulation(SimulatedEnvironment):
 
         _context = lambda i    : self._context(i    ,rng) if rng else self._context(i   )
         _actions = lambda i,c  : self._actions(i,c  ,rng) if rng else self._actions(i,c )
-        _reward  = lambda i,c,a: self._reward (i,c,a,rng) if rng else self._reward(i,c,a)
+        _reward  = lambda i,c,a: self._reward (i,c,a,rng) if rng else self._reward (i,c,a)
 
         for i in islice(count(), self._n_interactions):
             context  = _context(i)
@@ -234,7 +234,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
         rng           = CobaRandom(seed)
         feats_encoder = InteractionsEncoder(reward_features)
 
-        feats_gen     = lambda n: tuple(rng.randoms(n,-1.5,1.5))
+        feats_gen     = rng.randoms(None,-1.5,1.5)
         one_hot_acts = OneHotEncoder().fit_encodes(range(n_actions))
 
         feature_count = len(feats_encoder.encode(x=[1]*n_context_features,a=[1]*n_action_features))
@@ -245,10 +245,10 @@ class LinearSyntheticSimulation(LambdaSimulation):
         self._biases  = [ 0 ] * weight_parts
 
         def context(index:int) -> Context:
-            return feats_gen(n_context_features) if n_context_features else None
+            return list(islice(feats_gen,n_context_features)) or None
 
         def actions(index:int,context: Context) -> Sequence[Action]:
-            return [ feats_gen(n_action_features) for _ in range(n_actions) ] if n_action_features else one_hot_acts
+            return [ list(islice(feats_gen,n_action_features)) for _ in range(n_actions) ] if n_action_features else one_hot_acts
 
         def reward(index:int,context:Context, action:Action) -> float:
 

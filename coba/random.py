@@ -15,7 +15,7 @@ import math
 import itertools
 import time
 
-from typing import Optional, Sequence, Any
+from typing import Optional, Iterable, Sequence, Any
 
 class CobaRandom:
     """A random number generator that is consistent across python implementations."""
@@ -37,17 +37,14 @@ class CobaRandom:
             and good lattice structure." Mathematics of Computation 68.225 (1999): 249-260.
         """
 
-        self._m = 2**30 #this must be a power of 2 for our math to work correctly
-        self._a = 116646453
-        self._c = 9
-
-        self._m_minus_1 = self._m-1
-        self._generator = self._next()
-
         if isinstance(seed,int) or (isinstance(seed,float) and seed.is_integer()):
-            self._seed = int(seed)
+            seed = int(seed)
         else:
-            self._seed = int.from_bytes(str(seed or time.time()).encode('utf-8'),"big") % 2**20
+            seed = int.from_bytes(str(seed or time.time()).encode('utf-8'),"big") % 2**20
+
+        self._seed = seed
+        self._randu = self._next_uniform(116646453,seed,9,2**30)
+        self._randg = self._next_gaussian()
 
     def randoms(self, n:int, min:float=0, max:float=1) -> Sequence[float]:
         """Generate `n` uniform random numbers in [`min`,`max`).
@@ -60,16 +57,18 @@ class CobaRandom:
         Returns:
             The `n` generated random numbers in [`min`,`max`].
         """
-        if n < 0 or not isinstance(n, int):
+        if (n is not None) and (n < 0 or not isinstance(n, int)):
             raise ValueError("n must be an integer greater than or equal to 0")
-        
+
         if min == 0 and max == 1:
-            return list(itertools.islice(self._generator,n))
+            iterable = itertools.islice(self._randu,n)
         elif min == 0:
-            return [ max*r for r in itertools.islice(self._generator,n) ]
+            iterable = ( max*r for r in itertools.islice(self._randu,n) )
         else:
             r_range = max-min
-            return [ min+r_range*r for r in itertools.islice(self._generator,n) ]
+            iterable = (min+r_range*r for r in itertools.islice(self._randu,n))
+        
+        return list(iterable) if n is not None else iterable
 
     def random(self, min:float=0, max:float=1) -> float:
         """Generate a uniform random number in [`min`,`max`].
@@ -81,7 +80,7 @@ class CobaRandom:
         Returns:
             The generated random number in [`min`,`max`].
         """
-        return min+(max-min)*next(self._generator)        
+        return min+(max-min)*next(self._randu)        
 
     def shuffle(self, sequence: Sequence[Any]) -> Sequence[Any]:
         """Shuffle the order of items in a sequence.
@@ -103,8 +102,8 @@ class CobaRandom:
 
         #i goes from 0 to n-2
         #j is always i <= j < n
-        for i,r in enumerate(itertools.islice(self._generator,n-1)):
-            j = int(i+r*(n-i)) 
+        for i,r in itertools.islice(enumerate(self._randu),n-1):
+            j = i+int(r*(n-i)) 
             l[i], l[j] = l[j], l[i]
         return l
 
@@ -116,7 +115,7 @@ class CobaRandom:
             b: The inclusive upper bound for the random integer.
         """
 
-        return a+int((b-a+1)*next(self._generator))
+        return a+int((b-a+1)*next(self._randu))
 
     def randints(self, n:int, a:int, b:int) -> Sequence[int]:
         """Generate `n` uniform random integers in [a, b].
@@ -128,10 +127,10 @@ class CobaRandom:
         """
         b=b+1
         if a == 0:
-            return [int(b*r) for r in itertools.islice(self._generator,n)]
+            return [int(b*r) for r in itertools.islice(self._randu,n)]
         else:
             r_range = b-a
-            return [int(r_range*r) + a for r in itertools.islice(self._generator,n)]
+            return [int(r_range*r) + a for r in itertools.islice(self._randu,n)]
 
     def choice(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Any:
         """Choose a random item from the given sequence.
@@ -142,15 +141,15 @@ class CobaRandom:
         """
 
         if weights is None:
-            return seq[int(len(seq)*next(self._generator))]
+            return seq[int(len(seq)*next(self._randu))]
         else:
-            if sum(weights) == 0:
-                raise ValueError("The sum of weights cannot be zero.")
 
             cdf = list(itertools.accumulate(weights))
-            rng = self.random() * sum(weights)
+            if cdf[-1] == 0: raise ValueError("The sum of weights cannot be zero.")
+            rng = next(self._randu) * cdf[-1]
 
-            return seq[[rng <= c for c in cdf].index(True)]
+            for s,c in zip(seq,cdf):
+                if rng <= c: return s
 
     def gauss(self, mu:float=0, sigma:float=1) -> float:
         """Generate a random number from N(mu,sigma).
@@ -175,40 +174,37 @@ class CobaRandom:
         Returns:
             The `n` random numbers drawn from N(mu,sigma).
         """
-        #Box-muller transform. Generates independent pseudo-normal random variable pairs.
+        return [mu+sigma*g for g in itertools.islice(self._randg,n) ]
 
-        if n == 0: return []
+    def _next_uniform(self, a, s, c, m) -> Iterable[float]:
+        """Generate uniform random numbers in [0,1).
 
-        n_pairs = math.ceil(n/2)
+        Random numbers are generated using a linear congruential generator.
+        """
+        m_1 = m-1
+        while True:
+            #when m is a power of 2 
+            #this is equal to modulo m
+            s = (a * s + c) & (m_1)
+            yield s/m
 
-        Rs = [math.sqrt(-2*math.log(u)) for u in itertools.islice(self._generator,n_pairs)]
-        Ss = [2*math.pi*u               for u in itertools.islice(self._generator,n_pairs)]
-
-        Ns = []
-        for R,S in zip(Rs,Ss):
-            Ns.append(mu+sigma*R*math.cos(S))
-            Ns.append(mu+sigma*R*math.sin(S))
-
-        if len(Ns) > n: Ns.pop()
-
-        return Ns
-
-    def _next(self) -> Sequence[int]:
-        """Generate `n` uniform random numbers in [0,m-1]
-
-        Random numbers are generated using a linear congruential generator
-
-        Args:
-            n: The number of random numbers to generate.
-
-        Returns:
-            The `n` generated random numbers in [0,m-1].
+    def _next_gaussian(self) -> Iterable[float]:
+        """Generate `n` gaussian random numbers in N(0,1).
+        
+        Random numbers are generated using the Box-Muller transform.
         """
 
+        sqrt = math.sqrt
+        log  = math.log
+        pi   = math.pi
+        cos  = math.cos
+        sin  = math.sin
+
         while True:
-            #when _m is a power of 2 this is equal to modulo _m
-            self._seed = (self._a * self._seed + self._c) & (self._m_minus_1)
-            yield self._seed/self._m
+            R = sqrt(-2*log(next(self._randu)))
+            S = 2*pi*next(self._randu)
+            yield R*cos(S)
+            yield R*sin(S)
 
     def __reduce__(self):
         return (CobaRandom,(self._seed,))

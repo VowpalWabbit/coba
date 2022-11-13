@@ -198,7 +198,7 @@ class SafeLearner:
         elif pred_type == 2:
             return pred[1] if not isinstance(pred[0],(int,float)) else {}
         else: #pred_type==3
-            return pred[1] if len(pred) == 3 else {}
+            return pred[2] if len(pred) == 3 else {}
 
     def _is_type_1(self, pred):
         #PDF

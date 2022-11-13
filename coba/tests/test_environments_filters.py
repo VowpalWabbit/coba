@@ -1012,7 +1012,7 @@ class Noise_Tests(unittest.TestCase):
         self.assertEqual      ([1,2]        , actual_interactions[0].actions     )
         self.assertEqual      ([.2,.3]      , actual_interactions[0].rewards     )
 
-        self.assertAlmostEqual(1.61309056801, actual_interactions[1].context[0],5)
+        self.assertAlmostEqual(-1.0118803935, actual_interactions[1].context[0],5)
         self.assertEqual      ([2,3]        , actual_interactions[1].actions     )
         self.assertEqual      ([.1,.5]      , actual_interactions[1].rewards     )
 

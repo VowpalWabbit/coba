@@ -206,7 +206,7 @@ class CobaContext_meta(type):
         These values are stored in the Result.interactions table. This means leaners can log information on
         each learn/predict call and researchers can access it after the experiment for in-depth analysis.
         """
-        cls._learning_info = cls._learning_info if cls._learning_info else {}
+        cls._learning_info = cls._learning_info if cls._learning_info is not None else {}
         return cls._learning_info
 
 class CobaContext(metaclass=CobaContext_meta):

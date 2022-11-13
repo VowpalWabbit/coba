@@ -164,7 +164,7 @@ class LinearSyntheticSimulation_Tests(unittest.TestCase):
         self.assertEqual(4, len(interactions[0].actions[0]))
 
         rewards = [ r for i in interactions for r in i.rewards ]
-        self.assertLess(max(rewards),1.2)
+        self.assertLess(max(rewards),1.22)
         self.assertGreater(max(rewards),.75)
         self.assertLess(min(rewards),.25)
         self.assertGreater(min(rewards),-.2)
@@ -402,7 +402,7 @@ class KernelSyntheticSimulation_Tests(unittest.TestCase):
             self.assertEqual(4, len(interactions[0].actions[0]))
 
             rewards = [ r for i in interactions for r in i.rewards ]
-            self.assertLess(max(rewards),1.2)
+            self.assertLess(max(rewards),1.4)
             self.assertGreater(max(rewards),.75)
             self.assertLess(min(rewards),.25)
             self.assertGreater(min(rewards),-.2)

@@ -90,9 +90,8 @@ class SimpleEvaluation(EvaluationTask):
         self._prob    = probability
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
-
-        if not isinstance(learner, SafeLearner): learner = SafeLearner(learner)
-        if not interactions: return
+        
+        learner = SafeLearner(learner)
 
         first, interactions = peek_first(interactions)
 
@@ -101,28 +100,35 @@ class SimpleEvaluation(EvaluationTask):
 
         discrete = (first and first.is_discrete)
 
+        learning_info = CobaContext.learning_info
+
         if 'rank' in self._metrics and not discrete:
             warnings.warn(f"The rank metric can only be calculated for discrete environments")
 
+        calc_rank = 'rank' in self._metrics and discrete
+        calc_reward = 'reward' in self._metrics
+        calc_regret = 'regret' in self._metrics
+        
         for interaction in interactions:
-
-            CobaContext.learning_info.clear()
+            
+            learning_info.clear()
+            out = {}
 
             if isinstance(interaction, SimulatedInteraction):
+                
                 context = interaction.context
                 actions = interaction.actions
                 rewards = interaction.rewards
 
                 start_time       = time.time()
                 action,prob,info = predict(context, actions)
-                reward           = rewards.eval(action)
                 predict_time     = time.time()-start_time
 
+                reward = rewards.eval(action)
+                
                 start_time = time.time()
                 learn(context, actions, action, reward, prob, **info)
                 learn_time = time.time() - start_time
-
-                misc_out = {}
 
             elif isinstance(interaction, LoggedInteraction):
                 context = interaction.context
@@ -144,8 +150,6 @@ class SimpleEvaluation(EvaluationTask):
                 learn(context, actions, interaction.action, interaction.reward, interaction.probability,info={})
                 learn_time = time.time()-start_time
 
-                misc_out = {}
-
             elif isinstance(interaction, GroundedInteraction):
                 context   = interaction.context
                 actions   = interaction.actions
@@ -162,30 +166,23 @@ class SimpleEvaluation(EvaluationTask):
                 learn(context, actions, action, feedback, prob, **info)
                 learn_time = time.time()-start_time
 
-                misc_out = {'feedback': feedback}
+                out['feedback'] = feedback
 
             else:
                 raise CobaException("An unknown interaction type was received.")
 
-            reward_out = {}
+            if calc_reward and reward is not None: out['reward'] = reward
+            if calc_rank  : out['rank'  ] = sorted(map(rewards.eval,actions)).index(reward)/(len(actions)-1)
+            if calc_regret: out['regret'] = rewards.max()-reward
 
-            if 'rank' in self._metrics and discrete:
-                list_rwds = list(map(rewards.eval,actions))
-                reward_out['rank'] = sorted(list_rwds).index(reward)/(len(list_rwds)-1)
+            if self._time: out.update(predict_time=predict_time, learn_time=learn_time)
+            if self._prob and prob is not None: out.update(probability=prob)
 
-            if 'reward' in self._metrics and reward is not None:
-                reward_out['reward'] = reward
+            out.update(interaction.kwargs)
+            out.update(learning_info)
 
-            if 'regret' in self._metrics:
-                reward_out['regret'] = rewards.max()-reward
-
-            time_out   = {} if not self._time else dict(predict_time=predict_time, learn_time=learn_time)
-            prob_out   = dict(probability=prob) if prob is not None and self._prob else dict()
-            kwargs_out = interaction.kwargs
-            learn_info = CobaContext.learning_info
-
-            yield { **reward_out, **time_out, **misc_out, **prob_out, **learn_info, **kwargs_out}
-            CobaContext.learning_info.clear()
+            yield out
+            learning_info.clear()
 
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""
