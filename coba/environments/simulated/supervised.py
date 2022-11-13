@@ -1,5 +1,4 @@
-import collections.abc
-
+from functools import partial
 from itertools import chain, repeat
 from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping
 from coba.backports import Literal
@@ -8,7 +7,7 @@ from coba.pipes import Pipes, Source, IterableSource, Structure, Reservoir, UrlS
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 
 from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
-from coba.environments.primitives import L1Reward, DiscreteReward, HammingReward
+from coba.environments.primitives import L1Reward, MulticlassReward, HammingReward
 
 class CsvSource(Source[Iterable[MutableSequence]]):
     """Load a source (either local or remote) in CSV format.
@@ -204,18 +203,15 @@ class SupervisedSimulation(SimulatedEnvironment):
             actions = []
             reward  = L1Reward
         else:
+            
             #how can we tell the difference between featurized labels and multilabels????
             #for now we will assume multilables will be passed in as arrays as opposed to tuples...
-            actions = labels if not isinstance(labels[0], list) else list(chain(*labels))
-            actions = sorted(set(actions),reverse=isinstance(actions[0],tuple))
-            
-            if isinstance(labels[0],list):
-                reward = HammingReward
-            else:
-                reward = lambda label: DiscreteReward(actions, [ int(a == label) for a in actions])
+            multiclass = not isinstance(labels[0], list)
+            actions    = labels if multiclass else list(chain(*labels))
+            actions    = sorted(set(actions),reverse=isinstance(actions[0],tuple))
+            reward     = partial(MulticlassReward,actions) if multiclass else HammingReward
 
         contexts = features
         rewards  = map(reward,labels)
 
-        for c,a,r in zip(contexts, repeat(actions), rewards):
-            yield SimulatedInteraction(c,a,r)
+        yield from map(SimulatedInteraction, contexts, repeat(actions), rewards)

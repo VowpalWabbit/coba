@@ -1,7 +1,7 @@
 from collections import abc
 from numbers import Number
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, Optional, TypeVar, Generic, overload
+from typing import Any, Union, Iterable, Sequence, Mapping, Optional, TypeVar, Generic
 from coba.backports import Literal
 
 from coba.utilities import HashableDict
@@ -126,6 +126,32 @@ class DiscreteReward(Reward, DiscreteFeedback[float]):
                 max_r = r
         return max_a
 
+class MulticlassReward(Sequence, Feedback[T]):
+    def __init__(self, actions: Sequence[Action], label: Action) -> None:
+        self._actions = actions
+        self._label   = label
+
+    def eval(self, action: Any) -> T:
+        return int(self._label == action)
+
+    def __getitem__(self, index: int) -> T:
+        return self._actions[index] == self._label
+    
+    def __len__(self) -> int:
+        return len(self._actions)
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o,abc.Sequence) and list(o) == list(self)
+
+#context should be hashable (perf-test)
+#actions should be hashable (perf-test)
+#rewards should be converted if a sequence
+#action should be hashable
+#high-performance duplication would be nice
+
+#_rough
+#_clean
+
 class Interaction:
     """An individual interaction that occurs in an Environment."""
 
@@ -146,7 +172,7 @@ class Interaction:
         self._hashed  = set()
 
         try:
-            if self.is_discrete and len(rewards) != len(actions):
+            if len(rewards) != len(actions):
                 raise CobaException("An interaction's reward count must equal its action count.")
         except CobaException:
             raise
