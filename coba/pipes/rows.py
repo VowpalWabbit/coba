@@ -7,7 +7,7 @@ from typing import Any, Union, Callable, Iterator, List, Dict, Deque
 from typing import Hashable, Sequence, Mapping, Optional, Iterable, Tuple
 
 from coba.exceptions import CobaException
-from coba.pipes.primitives import Filter, Source
+from coba.pipes.primitives import Filter
 
 class IDenseRow(ABC):
 
@@ -60,6 +60,233 @@ class ISparseRow(ABC):
     @abstractmethod
     def pop(self, key) -> Any:
         ...
+
+class IRow(ABC):
+
+    @abstractmethod
+    def __getitem__(self, key) -> Any:
+        ...
+
+    @abstractmethod
+    def __setitem__(self, key, item) -> None:
+        ...
+
+    @abstractmethod
+    def __len__(self) -> int:
+        ...
+
+    @abstractmethod
+    def __iter__(self) -> Iterator:
+        ...
+
+class DenseRow2(IRow):
+
+    def __init__(self, loader: Callable[[],Sequence] = None, loaded: Sequence = None) -> None:
+        self._loader = loader
+        self._loaded = loaded
+
+    def _load_or_get(self):
+        loaded = self._loaded
+        if loaded is None: 
+            loaded = self._loader()
+            self._loaded = loaded
+        return loaded
+
+    def __getitem__(self, key: int):
+        return self._load_or_get()[key]
+
+    def __setitem__(self, key: Union[str,int], item: Any):
+        self._load_or_get()[key] = item
+
+    def __len__(self) -> int:
+        return len(self._load_or_get())
+
+    def __eq__(self, o: object) -> bool:
+        try:
+            return list(self) == list(o)
+        except:
+            return False
+
+    def __iter__(self) -> Iterator:
+        return iter(self._load_or_get())
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return f"DenseRow: {str(self._loaded) if self._loaded is not None else 'Unloaded'}"
+ 
+class SparseRow2(IRow):
+
+    def __init__(self, loader: Callable[[],Mapping] = None, loaded: Mapping = None) -> None:
+        self._loader = loader
+        self._loaded = loaded
+
+    def _load_or_get(self):
+        loaded = self._loaded
+        if loaded is None: 
+            loaded = self._loader()
+            self._loaded = loaded
+        return loaded
+
+    def __getitem__(self, key: str):
+        return self._load_or_get()[key]
+
+    def __setitem__(self, key: str, item: Any):
+        self._load_or_get()[key] = item
+
+    def __len__(self) -> int:
+        return len(self._load_or_get())
+
+    def __eq__(self, o: object) -> bool:
+        try:
+            return dict(self) == dict(o)
+        except:
+            return False
+
+    def keys(self):
+        return self._load_or_get().keys()
+
+    def __iter__(self) -> Iterator:
+        return iter(self._load_or_get())
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return f"SparseRow: {str(self._loaded) if self._loaded is not None else 'Unloaded'}"
+
+class HeaderRow(IRow):
+
+    def __init__(self, row: IRow, head_map: Mapping[str,int], head_seq: Sequence[str] = None) -> None:
+        self._row      = row
+        self._head_map = head_map
+        self.headers   = head_seq or sorted(head_map.keys(), key=lambda k: head_map[k])
+
+    def _row_index(self, key:Union[int,str]) -> int:
+        return key if key.__class__ is int else self._head_map[key]
+
+    def __getitem__(self, key: Union[str,int]):
+        return self._row[self._row_index(key)]
+
+    def __setitem__(self, key: Union[str,int], item: Any):
+        self._row[self._row_index(key)] = item
+
+    def __len__(self) -> int:
+        return len(self._row)
+
+    def __eq__(self, o: object) -> bool:
+        return self._row == o
+
+    def __iter__(self) -> Iterator:
+        return iter(self._row)
+
+    def __repr__(self) -> str:
+        return str(self._row)
+
+    def __getattr__(self, name):
+        return getattr(self._row, name)
+
+class EncoderRow(IRow):
+
+    def __init__(self, row: IRow, encoders: Sequence) -> None:
+        self._row      = row
+        self._encoders = encoders
+
+    def __getitem__(self, key: int):
+        return self._encoders[key](self._row[key])
+
+    def __setitem__(self, key: int, item: Any):
+        self._encoders[key] = lambda x:x
+        self._row[key] = item
+
+    def __len__(self) -> int:
+        return len(self._row)
+
+    def __eq__(self, o: object) -> bool:
+        return list(self) == list(o)
+
+    def __iter__(self) -> Iterator:
+        return iter( e(v) for e,v in zip(self._encoders, self._row))
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return str(self._row)
+
+    def __getattr__(self, name):
+        return getattr(self._row, name)
+
+class SelectRow(IRow):
+    
+    def __init__(self, row: IRow, select: Sequence) -> None:
+        self._row        = row
+        self._select_seq = select
+        self._select_set = set(select)
+
+    def _key_check(self,key):
+        if key.__class__ is int:
+            return self._select_seq[key]
+        elif key in self._select_set:
+            return key
+        else:
+            raise KeyError(key)
+
+    def __getitem__(self, key: Union[int,str]):
+        return self._row[self._key_check(key)]
+
+    def __setitem__(self, key: Union[int,str], item: Any):
+        self._row[self._key_check(key)] = item
+
+    def __len__(self) -> int:
+        return len(self._select_seq)
+
+    def __eq__(self, o: object) -> bool:
+        return list(self) == list(o)
+
+    def __iter__(self) -> Iterator:
+        return iter(map(self._row.__getitem__, self._select_seq))
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return str(list(self))
+
+    def __getattr__(self, name):
+        return getattr(self._row, name)
+
+class LabelRow2(IRow):
+
+    def __init__(self, row: IRow, label: Union[str,int], label_alias: str) -> None:
+        self._row       = row
+        self._lbl_key   = label
+        self._lbl_alias = label_alias
+
+    def __getitem__(self, key: Union[int,str]):
+        return self._row[self._lbl_key if key == self._lbl_alias else key]
+
+    def __setitem__(self, key: Union[int,str], item: Any):
+        self._row[self._lbl_key if key == self._lbl_alias else key] = item
+
+    def __len__(self) -> int:
+        return len(self._row)
+
+    def __eq__(self, o: object) -> bool:
+        return self._row == o
+
+    def __iter__(self) -> Iterator:
+        return iter(self._row)
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return str(self._row)
+
+    def __getattr__(self, name):
+        return getattr(self._row, name)
 
 class DenseRow(abc.MutableSequence, IDenseRow):
 

@@ -234,6 +234,16 @@ class Flatten_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(Flatten().filter(given)) )
 
+    def test_iterable_row_flatten(self):
+        given_row0 = [ range(2), range(2) ]
+        expected_row0 = [ 0,1,0,1 ]
+
+        given    = [ given_row0    ]
+        expected = [ expected_row0 ]
+
+        self.assertEqual(expected, list(Flatten().filter(given)) )
+
+
     def test_empty_flatten(self):
         self.assertEqual([], list(Flatten().filter([])) )
 

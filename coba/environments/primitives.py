@@ -196,10 +196,11 @@ class Interaction(ABC):
             rewards : The reward for each action in the interaction.
             **kwargs: Any additional information.
         """
+
         self.context = context
         self.actions = actions
-        self.kwargs  = kwargs        
         self.rewards = rewards
+        self.kwargs  = kwargs        
 
         if isinstance(rewards,(list,tuple)):
             self.rewards = SequenceReward(actions,rewards)

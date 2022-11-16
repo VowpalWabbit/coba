@@ -339,6 +339,32 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B' , envs[3].params['id'])
         self.assertEqual(1   , envs[3].params['shuffle'])
 
+    def test_shuffle_args(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle(0,1)
+
+        self.assertEqual(4   , len(envs))
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(0   , envs[0].params['shuffle'])
+        self.assertEqual('A' , envs[1].params['id'])
+        self.assertEqual(1   , envs[1].params['shuffle'])
+        self.assertEqual('B' , envs[2].params['id'])
+        self.assertEqual(0   , envs[2].params['shuffle'])
+        self.assertEqual('B' , envs[3].params['id'])
+        self.assertEqual(1   , envs[3].params['shuffle'])
+
+    def test_shuffle_iterable(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle(range(2))
+
+        self.assertEqual(4   , len(envs))
+        self.assertEqual('A' , envs[0].params['id'])
+        self.assertEqual(0   , envs[0].params['shuffle'])
+        self.assertEqual('A' , envs[1].params['id'])
+        self.assertEqual(1   , envs[1].params['shuffle'])
+        self.assertEqual('B' , envs[2].params['id'])
+        self.assertEqual(0   , envs[2].params['shuffle'])
+        self.assertEqual('B' , envs[3].params['id'])
+        self.assertEqual(1   , envs[3].params['shuffle'])
+
     def test_sparse(self):
         envs = Environments(TestEnvironment('A'),TestEnvironment('B')).sparse(False,True)
         self.assertEqual(2   , len(envs))

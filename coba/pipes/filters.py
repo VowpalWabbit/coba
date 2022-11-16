@@ -192,22 +192,24 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
         except StopIteration:
             return []
 
-        if isinstance(first,list):
+        if isinstance(first,abc.MutableSequence):
             first_type = "list" 
         elif isinstance(first,dict):
             first_type = "dict"
-        elif isinstance(first,tuple):
+        elif isinstance(first,abc.Sequence):
             first_type = "tuple"
         else:
             first_type = None
 
+        is_flattable = lambda v: isinstance(v,abc.Iterable) and not isinstance(v,str)
+
         flattable = []
         if first_type in ["list","tuple"]:
-            flattable = [ isinstance(v,(list,tuple)) for v in first ]
+            flattable = [ is_flattable(v) for v in first ]
             any_flattable = any(flattable)
         elif first_type == "dict":
             #we assume that flattable entries will be populated in every row even though the dataset is sparse
-            flattable = {k:[f"{k}_{i}" for i in range(len(v))] for k,v in first.items() if isinstance(v,(list,tuple)) }
+            flattable = {k:[f"{k}_{i}" for i in range(len(v))] for k,v in first.items() if is_flattable(v) }
             any_flattable = bool(flattable)
         else:
             any_flattable = False

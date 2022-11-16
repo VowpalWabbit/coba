@@ -4,6 +4,7 @@ import unittest
 from coba.utilities import HashableDict
 from coba.exceptions import CobaException
 from coba.pipes.rows import EncodeRow, IndexRow, LabelRow, DenseRow, SparseRow
+from coba.pipes.rows import DenseRow2, HeaderRow, EncoderRow, SelectRow, SparseRow2, LabelRow2
 
 class EncodeRow_Tests(unittest.TestCase):
     def test_encode_dense(self):
@@ -219,12 +220,12 @@ class DenseRow_Tests(unittest.TestCase):
         l = DenseRow(loader=lambda:[1,2,3])
 
         self.assertEqual("DenseRow: Unloaded", str(l))
-        self.assertEqual("DenseRow: Unloaded", l.__repr__())
+        self.assertEqual("DenseRow: Unloaded", repr(l))
 
         l[1]
 
         self.assertEqual("DenseRow: [1, 2, 3]", str(l))
-        self.assertEqual("DenseRow: [1, 2, 3]", l.__repr__())
+        self.assertEqual("DenseRow: [1, 2, 3]", repr(l))
 
 class SparseRow_Tests(unittest.TestCase):
 
@@ -341,12 +342,231 @@ class SparseRow_Tests(unittest.TestCase):
         l = SparseRow(loader=lambda:{'a':1,'b':2,'c':3})
 
         self.assertEqual("SparseRow: Unloaded", str(l))
-        self.assertEqual("SparseRow: Unloaded", l.__repr__())
+        self.assertEqual("SparseRow: Unloaded", repr(l))
 
         l[1]
 
         self.assertEqual("SparseRow: {'a': 1, 'b': 2, 'c': 3}", str(l))
-        self.assertEqual("SparseRow: {'a': 1, 'b': 2, 'c': 3}", l.__repr__())
+        self.assertEqual("SparseRow: {'a': 1, 'b': 2, 'c': 3}", repr(l))
+
+class DenseRow2_Tests(unittest.TestCase):
+
+    def test_loaded(self):
+        l = DenseRow2(loaded=[1,2,3])
+        self.assertEqual([1,2,3],l)
+
+    def test_loader_get(self):
+        l = DenseRow2(loader=lambda:[1,2,3])
+        self.assertEqual([1,2,3],l)
+
+    def test_loader_set(self):
+        l = DenseRow2(loader=lambda:[1,2,3])
+        l[1] = 5
+        self.assertEqual([1,5,3],l)
+
+    def test_loader_len(self):
+        l = DenseRow2(loader=lambda:[1,2,3])
+        self.assertEqual(3,len(l))
+
+    def test_bad_eq(self):
+        l = DenseRow2(loader=lambda:[1,2,3])
+        self.assertNotEqual(3,l)
+
+    def test_str_and_repr(self):
+        l = DenseRow2(loader=lambda:[1,2,3])
+
+        self.assertEqual("DenseRow: Unloaded", str(l))
+        self.assertEqual("DenseRow: Unloaded", repr(l))
+
+        l[1]
+
+        self.assertEqual("DenseRow: [1, 2, 3]", str(l))
+        self.assertEqual("DenseRow: [1, 2, 3]", repr(l))
+
+class SparseRow2_Tests(unittest.TestCase):
+
+    def test_loaded_equal(self):
+        sparse = {'a':1,'b':2,'c':3}
+        self.assertEqual(SparseRow2(loaded=sparse),sparse) 
+
+    def test_loader_get(self):
+        r = SparseRow2(loader=lambda:{'a':1,'b':2,'c':3})
+        self.assertEqual(1,r['a'])
+        self.assertEqual(2,r['b'])
+        self.assertEqual(3,r['c'])
+        self.assertEqual({'a':1,'b':2,'c':3},r)
+
+    def test_loader_set(self):
+        r = SparseRow2(loader=lambda:{'a':1,'b':2,'c':3})
+        r['a'] = 5
+        self.assertEqual({'a':5,'b':2,'c':3},r)
+
+    def test_loader_len(self):
+        r = SparseRow2(loader=lambda:{'a':1,'b':2,'c':3})
+        self.assertEqual(3,len(r))
+
+    def test_bad_eq(self):
+        l = SparseRow2(loader=lambda:{'a':1})
+        self.assertNotEqual(3,l)
+
+    def test_iter(self):
+        r = SparseRow2(loader=lambda:{'a':1,'b':2,'c':3})
+        self.assertEqual(['a','b','c'],list(r))
+
+    def test_str_and_repr(self):
+        r = SparseRow2(loader=lambda:{'a':1,'b':2,'c':3})
+
+        self.assertEqual("SparseRow: Unloaded", str(r))
+        self.assertEqual("SparseRow: Unloaded", repr(r))
+
+        r['a']
+
+        self.assertEqual("SparseRow: {'a': 1, 'b': 2, 'c': 3}", str(r))
+        self.assertEqual("SparseRow: {'a': 1, 'b': 2, 'c': 3}", repr(r))
+
+class HeaderRow_Tests(unittest.TestCase):
+
+    def test_get(self):
+
+        r = HeaderRow([1,2,3], {"a":0, "b":1, "c": 2})
+        self.assertEqual([1,2,3],r)
+        self.assertEqual(1,r["a"])
+        self.assertEqual(2,r["b"])
+        self.assertEqual(3,r["c"])
+        self.assertEqual(1,r[0])
+        self.assertEqual(2,r[1])
+        self.assertEqual(3,r[2])
+
+    def test_set(self):
+        r = HeaderRow([1,2,3], {"a":0, "b":1, "c": 2})
+
+        r[1] = 5
+        self.assertEqual([1,5,3],r)
+
+        r["a"] = 8
+        self.assertEqual([8,5,3],r)
+
+    def test_iter(self):
+        r = HeaderRow([1,2,3], {"a":0, "b":1, "c": 2})
+        self.assertEqual([1,2,3],list(r))
+
+    def test_len(self):
+        r = HeaderRow([1,2,3], {"a":0, "b":1, "c": 2})
+        self.assertEqual(3,len(r))
+
+    def test_str_repr(self):
+        r = HeaderRow([1,2,3], {"a":0, "b":1, "c": 2})
+        self.assertEqual('[1, 2, 3]',str(r))
+        self.assertEqual('[1, 2, 3]',repr(r))
+
+    def test_cascading_getattr(self):
+        r = HeaderRow([1,2,3], {"a":0, "b":1, "c": 2})
+        self.assertEqual(1,r.index(2))
+
+class EncoderRow_Tests(unittest.TestCase):
+
+    def test_get(self):
+
+        r = EncoderRow(['1',2,'3'], [int,str,int])
+        self.assertEqual([1,'2',3],r)
+        self.assertEqual(1  ,r[0])
+        self.assertEqual('2',r[1])
+        self.assertEqual(3  ,r[2])
+
+    def test_set(self):
+        r = EncoderRow(['1',2,'3'], [int,str,int])
+
+        r[1] = 5
+        self.assertEqual([1,5,3],r)
+
+        r[0] = '8'
+        self.assertEqual(['8',5,3],list(r))
+
+    def test_len(self):
+        r = EncoderRow(['1',2,'3'], [int,str,int])
+        self.assertEqual(3,len(r))
+
+    def test_str_repr(self):
+        r = EncoderRow([1,2,3], [str,str,str])
+        self.assertEqual('[1, 2, 3]',str(r))
+        self.assertEqual('[1, 2, 3]',repr(r))
+
+    def test_cascading_getattr(self):
+        r = EncoderRow([1,2,3], [str,str,str])
+        self.assertEqual(1,r.index(2))
+
+class SelectRow_Tests(unittest.TestCase):
+
+    def test_get_int(self):
+        r = SelectRow([1,2,3], [0,2])
+        self.assertEqual([1,3],r)
+        self.assertEqual(1,r[0])
+        self.assertEqual(3,r[1])
+
+    def test_get_str(self):
+        r = SelectRow(HeaderRow([1,2],{'a':0,'b':1}), ['a'])
+        self.assertEqual([1],r)
+        self.assertEqual(1,r[0])
+        self.assertEqual(1,r['a'])
+
+    def test_get_str_bad(self):
+        r = SelectRow(HeaderRow([1,2],{'a':0,'b':1}), ['a'])
+
+        with self.assertRaises(KeyError):
+            self.assertEqual(1,r['b'])
+
+    def test_set(self):
+        r = SelectRow([1,2,3], [0,2])
+        r[1] = 5
+        self.assertEqual([1,5],r)
+        r[0] = '8'
+        self.assertEqual(['8',5],r)
+
+    def test_len(self):
+        r = SelectRow([1,2,3], [0,2])
+        self.assertEqual(2,len(r))
+
+    def test_str_repr(self):
+        r = SelectRow([1,2,3], [0,2])
+        self.assertEqual('[1, 3]',str(r))
+        self.assertEqual('[1, 3]',repr(r))
+
+    def test_cascading_getattr(self):
+        r = SelectRow([1,2,3], [0,2])
+        self.assertEqual(1,r.index(2))
+
+class LabelRow2_Tests(unittest.TestCase):
+
+    def test_get(self):
+        r = LabelRow2([1,2,3],2,'lbl')
+        self.assertEqual(1, r[0])
+        self.assertEqual(2, r[1])
+        self.assertEqual(3, r[2])
+        self.assertEqual(3, r['lbl'])
+        self.assertEqual([1,2,3],list(r))
+
+    def test_set(self):
+        r = LabelRow2([1,2,3],2,'lbl')
+        r[1] = 5
+        r['lbl'] = 10
+        self.assertEqual([1,5,10],r)
+
+    def test_len(self):
+        r = LabelRow2([1,2,3],2,'lbl')
+        self.assertEqual(3,len(r))
+
+    def test_eq(self):
+        r = LabelRow2([1,2,3],2,'lbl')
+        self.assertEqual(r,[1,2,3])
+
+    def test_cascading_getattr(self):
+        r = LabelRow2([1,2,3],2,'lbl')
+        self.assertEqual(1,r.index(2))
+
+    def test_str_and_repr(self):
+        r = LabelRow2([1,2,3],2,'lbl')
+        self.assertEqual("[1, 2, 3]", str(r))
+        self.assertEqual("[1, 2, 3]", repr(r))
 
 if __name__ == '__main__':
     unittest.main()

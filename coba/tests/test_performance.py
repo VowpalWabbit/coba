@@ -14,7 +14,7 @@ from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, S
 from coba.environments import Scale, Flatten, Grounded
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
-from coba.pipes import EncodeRow, DenseRow, SparseRow
+from coba.pipes.rows import EncodeRow, DenseRow, SparseRow, DenseRow2, EncoderRow, HeaderRow, SelectRow
 from coba.experiments.results import Result, moving_average
 from coba.experiments import SimpleEvaluation
 
@@ -223,11 +223,37 @@ class Performance_Tests(unittest.TestCase):
 
     def test_encoder_row(self):
         R = next(EncodeRow([int]*100).filter([DenseRow(loaded=['1']*100)]))
-        self._assert_call_time(lambda:R[1], .0009, False, number=1000)
+        self._assert_call_time(lambda:R[1], .0009, True, number=1000)
+        
+        r2 = EncoderRow(DenseRow2(loaded=['1']*100),[int]*100)
+        self._assert_call_time(lambda:r2[1], .0009, True, number=1000)
 
     def test_dense_row_to_builtin(self):
         r = next(EncodeRow([int]*100).filter([DenseRow(loaded=['1']*100)]))
-        self._assert_call_time(lambda:r.to_builtin(), .023, False, number=1000)
+        self._assert_call_time(lambda:r.to_builtin(), .023, True, number=1000)
+
+        r2 = EncoderRow(DenseRow2(loaded=['1']*100),[int]*100)
+        self._assert_call_time(lambda:list(r2), .023, True, number=1000)
+
+    def test_headers(self):
+        headers = list(map(str,range(100)))
+        r2 = HeaderRow(DenseRow2(loaded=['1']*100),dict(zip(headers,count())))
+        r3 = EncoderRow(r2,[int]*100)
+        r4 = EncoderRow(r3,[int]*100)
+
+        self._assert_call_time(lambda:hasattr(r2,'headers'), .023, True, number=1000)
+        self._assert_call_time(lambda:hasattr(r3,'headers'), .023, True, number=1000)
+        self._assert_call_time(lambda:hasattr(r4,'headers'), .023, True, number=1000)
+
+    def test_del(self):
+        r1 = next(EncodeRow([int]*100).filter([DenseRow(loaded=['1']*100)]))
+        r2 = EncoderRow(DenseRow2(loaded=['1']*100), [int]*100)
+
+        del r1[99]
+        r2 = SelectRow(r2,tuple(range(99)))
+
+        self._assert_call_time(lambda:r1[3], .023, True, number=1000)
+        self._assert_call_time(lambda:r2[3], .023, True, number=1000)
 
     def test_sparse_row_to_builtin(self):
         r = SparseRow(loaded=dict(enumerate(['1']*100)))
@@ -252,7 +278,6 @@ class Performance_Tests(unittest.TestCase):
         eval  = SimpleEvaluation()
         learn = DummyLearner()
         self._assert_scale_time(items,lambda x:list(eval.process(learn, x)), .06, False, number=100)
-        #self._assert_call_time(lambda:list(eval.process(learn, items)), .11, False, number=1000)
 
     def test_safe_learner_predict(self):
         

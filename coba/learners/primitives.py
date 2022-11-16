@@ -133,7 +133,7 @@ class SafeLearner(Learner):
             self._with_info = bool(pred_info)
         else:
             pred_type = self._pred_type
-            pred_info = pred[1] if self._with_info else {}
+            pred_info = pred[-1] if self._with_info else {}
 
         if self._pred_type == 1 or self._pred_type == 2:
             pmf_or_pdf = pred[0] if pred_info else pred
@@ -149,7 +149,7 @@ class SafeLearner(Learner):
 
     def learn(self, context, actions, action, reward, probability, info) -> None:
         if self._learn_type==3:
-            self._learner.learn(context, actions, action, reward, probability, **info)
+            self._learner.learn(context, actions, action, reward, probability, **(info or {}))
         elif self._learn_type==2:
             self._learner.learn(context, action, reward, probability, info)
         elif self._learn_type==1:
