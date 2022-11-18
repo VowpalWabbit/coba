@@ -106,7 +106,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
 
-        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
+        features,labels = zip(*[ r.labeled for r in OpenmlSource(data_id=42693).read()])
 
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels  ), 5)
@@ -186,7 +186,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
 
-        features,labels = zip(*[(r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
+        features,labels = zip(*[r.labeled for r in OpenmlSource(data_id=42693).read()])
 
         self.assertEqual(len(features), 3)
         self.assertEqual(len(labels  ), 3)
@@ -243,7 +243,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
 
-        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693,cat_as_str=True).read()])
+        features,labels = zip(*[ r.labeled for r in OpenmlSource(data_id=42693,cat_as_str=True).read()])
 
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels  ), 5)
@@ -304,7 +304,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_042693_arff' , arff.splitlines() )
 
-        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
+        features,labels = zip(*[ r.labeled for r in OpenmlSource(data_id=42693).read()])
 
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels  ), 5)
@@ -365,7 +365,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_042693_arff' , arff.splitlines() )
 
-        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
+        features,labels = zip(*[ r.labeled for r in OpenmlSource(data_id=42693).read()])
 
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels  ), 5)
@@ -443,7 +443,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
 
-        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
+        features,labels = zip(*[ r.labeled for r in OpenmlSource(data_id=42693).read()])
 
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels  ), 5)
@@ -515,7 +515,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_001594_arff', arff.splitlines())
 
-        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=1594).read()])
+        features,labels = zip(*[ r.labeled for r in OpenmlSource(data_id=1594).read()])
 
         self.assertEqual(len(features), 4)
         self.assertEqual(len(labels  ), 4)
@@ -594,7 +594,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_001594_arff', arff.splitlines())
 
-        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(task_id=1111).read()])
+        features,labels = zip(*[ r.labeled for r in OpenmlSource(task_id=1111).read()])
 
         self.assertEqual(len(features), 4)
         self.assertEqual(len(labels  ), 4)
@@ -740,7 +740,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_001594_arff', arff.splitlines())
         
-        features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(task_id=1111).read()])
+        features,labels = zip(*[ r.labeled for r in OpenmlSource(task_id=1111).read()])
 
         self.assertEqual(len(features), 4)
         self.assertEqual(len(labels  ), 4)
@@ -983,7 +983,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
             for _ in range(2):
-                features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(data_id=42693).read()])
+                features,labels = zip(*[ r.labeled for r in OpenmlSource(data_id=42693).read()])
 
                 self.assertEqual(len(features), 5)
                 self.assertEqual(len(labels  ), 5)
@@ -1079,7 +1079,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
             def thread_1():
-                features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(task_id=123).read()])
+                features,labels = zip(*[ r.labeled for r in OpenmlSource(task_id=123).read()])
 
             t1 = Thread(None, thread_1)
             t1.start()
@@ -1097,7 +1097,7 @@ class OpenmlSource_Tests(unittest.TestCase):
 
             #this should complete despite us acquiring above 
             #because it doesn't lock since everything is cached
-            features,labels = zip(*[ (r.feats,r.label) for r in OpenmlSource(task_id=123).read()])
+            features,labels = zip(*[ r.labeled for r in OpenmlSource(task_id=123).read()])
 
             self.assertEqual(len(features), 5)
             self.assertEqual(len(labels  ), 5)

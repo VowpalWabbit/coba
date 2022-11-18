@@ -197,7 +197,7 @@ class SupervisedSimulation(SimulatedEnvironment):
         try:
             features,labels = zip(*items)
         except:
-            features,labels = zip(*[(i.feats, i.label) for i in items])
+            features,labels = zip(*[ i.labeled for i in items])
 
         self._label_type = self._label_type or ("R" if isinstance(labels[0], (int,float)) else "C")
         self._params['label_type'] = self._label_type

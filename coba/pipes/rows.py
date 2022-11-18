@@ -1,8 +1,6 @@
-from abc import ABC, abstractmethod
-
 from collections import abc
-from itertools import count, chain
-from typing import Any, Union, Callable, Iterator, Sequence, Mapping, Iterable
+from itertools import count
+from typing import Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple
 
 from coba.utilities import peek_first
 from coba.pipes.primitives import Filter, Sparse, Dense
@@ -69,7 +67,7 @@ class HeadDense(Dense):
 
 class EncodeDense(Dense):
 
-    def __init__(self, row: Dense, encoders: Union[Sequence,Mapping]) -> None:
+    def __init__(self, row: Dense, encoders: Sequence) -> None:
         self._row      = row
         self._encoders = encoders
 
@@ -81,7 +79,7 @@ class EncodeDense(Dense):
             return val
 
     def __iter__(self) -> Iterator:
-        return iter( e(v) for e,v in zip(self._encoders, self._row))
+        return iter( e(v) if e else v for e,v in zip(self._encoders, self._row))
 
     def __len__(self) -> int:
         return len(self._row)
@@ -115,27 +113,23 @@ class KeepDense(Dense):
 
 class LabelDense(Dense):
 
-    def __init__(self, row: Dense, label: int) -> None:
-        self._row = row
+    def __init__(self, row: Dense, label: int, label_enc = None) -> None:
+        self._row     = row
         self._lbl_key = label
 
     def __getitem__(self, key: Union[int,str]):
         return self._row[key]
 
     def __iter__(self) -> Iterator:
-        return iter(self._row)
+        return iter(v for i,v in enumerate(self._row))
 
     def __len__(self) -> int:
         return len(self._row)
 
     @property
-    def label(self) -> Any:
-        return self._row[self._lbl_key]
-
-    @property
-    def feats(self) -> Dense:
-        feat_indexes = chain(range(self._lbl_key), range(self._lbl_key+1, len(self._row)))
-        return list(map(self._row.__getitem__, feat_indexes))
+    def labeled(self)-> Tuple[Dense,Any]:
+        items = list(self._row)
+        return (items, items.pop(self._lbl_key))
 
 class LazySparse(Sparse):
 
@@ -285,12 +279,11 @@ class LabelSparse(Sparse):
         yield self._row.items()
 
     @property
-    def label(self) -> Any:
-        return self._row[self._lbl_key]
-
-    @property
-    def feats(self) -> Sparse:
-        return dict(item for item in self._row.items() if item[0] != self._lbl_key)
+    def labeled(self)-> Tuple[Dense,Any]:
+        items = dict(self._row.items())
+        label = self._row[self._lbl_key]
+        items.pop(self._lbl_key,None)
+        return (items, label)
 
 class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
 
@@ -302,6 +295,11 @@ class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Spars
         first, rows = peek_first(rows)
 
         if first and isinstance(first,Dense):
+            if isinstance(encoders,abc.Mapping):
+                if isinstance(list(encoders.keys())[0],str):
+                    encoders = [ encoders.get(h) for h in first.headers ]
+                else:
+                    encoders = [ encoders.get(h) for h in range(len(first)) ]
             yield from (EncodeDense(row, encoders) for row in rows)
         else:
             yield from (EncodeSparse(row, encoders) for row in rows)

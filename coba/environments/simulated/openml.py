@@ -113,6 +113,8 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             label     = LabelRows(self._target)
             label_enc = EncodeRows({self._target:str_if_num if task_type == 1 else lambda x:x})
 
+            #return Pipes.join(reader).filter(lines)
+
             return Pipes.join(reader, drop, label_enc, label).filter(lines)
 
         except KeyboardInterrupt:

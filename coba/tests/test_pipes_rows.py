@@ -28,27 +28,27 @@ class LabelRows_Tests(unittest.TestCase):
     def test_lazy_dense(self):
         row = next(LabelRows(1).filter([LazyDense([1,2,3])]))
         self.assertEqual([1,2,3],list(row))
-        self.assertEqual(2,row.label)
-        self.assertEqual([1,3],list(row.feats))
+        self.assertEqual(2,row.labeled[1])
+        self.assertEqual([1,3],list(row.labeled[0]))
 
     def test_list(self):
         row = next(LabelRows(1).filter([[1,2,3]]))
         self.assertEqual([1,2,3],list(row))
-        self.assertEqual(2,row.label)
-        self.assertEqual([1,3],list(row.feats))
+        self.assertEqual(2,row.labeled[1])
+        self.assertEqual([1,3],list(row.labeled[0]))
 
     def test_lazy_sparse(self):
         row = LazySparse({'a':1,'b':2,'c':3})
         row = next(LabelRows('b').filter([row]))
         self.assertEqual({'a':1,'b':2,'c':3},dict(row))
-        self.assertEqual(2,row.label)
-        self.assertEqual({'a':1,'c':3},dict(row.feats))
+        self.assertEqual(2,row.labeled[1])
+        self.assertEqual({'a':1,'c':3},dict(row.labeled[0]))
 
     def test_dict(self):
         row = next(LabelRows('b').filter([{'a':1,'b':2,'c':3}]))
         self.assertEqual({'a':1,'b':2,'c':3},dict(row))
-        self.assertEqual(2,row.label)
-        self.assertEqual({'a':1,'c':3},dict(row.feats))
+        self.assertEqual(2,row.labeled[1])
+        self.assertEqual({'a':1,'c':3},dict(row.labeled[0]))
 
 class LazyDense_Tests(unittest.TestCase):
 
@@ -146,8 +146,8 @@ class LabelDense_Tests(unittest.TestCase):
 
     def test_feats_and_label(self):
         r = LabelDense([1,2,3],2)
-        self.assertEqual(3,r.label)
-        self.assertEqual([1,2],list(r.feats))
+        self.assertEqual(3,r.labeled[1])
+        self.assertEqual([1,2],list(r.labeled[0]))
 
     def test_iter(self):
         r = LabelDense([1,2,3],2)
