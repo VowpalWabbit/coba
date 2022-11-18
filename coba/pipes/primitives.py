@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Any, TypeVar, Generic, Mapping
+from collections import abc
+from typing import Any, TypeVar, Generic, Mapping, Iterable, Iterator
 
 _T_out = TypeVar("_T_out", bound=Any, covariant    =True)
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
@@ -37,3 +38,48 @@ class Sink(ABC, Pipe, Generic[_T_in]):
     def write(self, item: _T_in) -> None:
         """Write the item."""
         ...
+
+class Dense(ABC):
+
+    @abstractmethod
+    def __getitem__(self, key) -> Any:
+        ...
+
+    @abstractmethod
+    def __len__(self) -> int:
+        ...
+
+    @abstractmethod
+    def __iter__(self) -> Iterator:
+        ...
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._row, attr)
+
+class Sparse(ABC):
+
+    @abstractmethod
+    def __getitem__(self, key) -> Any:
+        ...
+
+    @abstractmethod
+    def __len__(self) -> int:
+        ...
+
+    @abstractmethod
+    def __iter__(self) -> Iterator:
+        ...
+
+    @abstractmethod
+    def keys(self) -> abc.KeysView:
+        ...
+
+    @abstractmethod
+    def items(self) -> Iterable:
+        ...
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._row, attr)
+
+Sparse.register(abc.Mapping)
+Dense.register(abc.Sequence)

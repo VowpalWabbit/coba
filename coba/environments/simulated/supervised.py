@@ -3,7 +3,7 @@ from itertools import chain, repeat
 from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping
 from coba.backports import Literal
 
-from coba.pipes import Pipes, Source, IterableSource, Structure, Reservoir, UrlSource, CsvReader
+from coba.pipes import Pipes, Source, IterableSource, LabelRows, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 
 from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
@@ -170,7 +170,7 @@ class SupervisedSimulation(SimulatedEnvironment):
             label_type = args[2] if len(args) > 2 else kwargs.get("label_type", None)
             take       = args[3] if len(args) > 3 else kwargs.get("take", None)
             if take      is not None: source = Pipes.join(source, Reservoir(take))
-            if label_col is not None: source = Pipes.join(source, Structure((None,label_col)))
+            if label_col is not None: source = Pipes.join(source, LabelRows(label_col))
             params = source.params
 
         else:
@@ -194,7 +194,10 @@ class SupervisedSimulation(SimulatedEnvironment):
 
         if not items: return []
 
-        features,labels = zip(*items)
+        try:
+            features,labels = zip(*items)
+        except:
+            features,labels = zip(*[(i.feats, i.label) for i in items])
 
         self._label_type = self._label_type or ("R" if isinstance(labels[0], (int,float)) else "C")
         self._params['label_type'] = self._label_type

@@ -399,7 +399,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drop(drop_cols=[1]).filter(given)) )
+        self.assertEqual(expected, list(map(list,Drop(drop_cols=[1]).filter(given))) )
 
     def test_dense_sans_header_drop_double_col(self):
 
@@ -412,7 +412,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drop(drop_cols=[1,2]).filter(given)) )
+        self.assertEqual( expected, list(map(list,Drop(drop_cols=[1,2]).filter(given))) )
 
     def test_dense_with_header_drop_single_col(self):
 
@@ -425,7 +425,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [['a','b','c'], given_row0, given_row1]
         expected = [['a','c'], expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drop(drop_cols=[1]).filter(given)) )
+        self.assertEqual( expected, list(map(list,Drop(drop_cols=[1]).filter(given))) )
 
     def test_dense_with_header_drop_double_col(self):
 
@@ -438,7 +438,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [['a','b','c'], given_row0, given_row1]
         expected = [['a'], expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drop(drop_cols=[1,2]).filter(given)) )
+        self.assertEqual( expected, list(map(list,Drop(drop_cols=[1,2]).filter(given))) )
 
     def test_sparse_sans_header_drop_single_col(self):
 
@@ -448,10 +448,10 @@ class Drops_Tests(unittest.TestCase):
         expected_row0 = { 0:1, 2:3 }
         expected_row1 = { 0:4, 2:6 }
 
-        given    = [None, given_row0, given_row1]
-        expected = [None, expected_row0, expected_row1]
+        given    = [given_row0, given_row1]
+        expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drop(drop_cols=[1]).filter(given)) )
+        self.assertEqual( expected, list(map(dict,Drop(drop_cols=[1]).filter(given))) )
 
     def test_sparse_sans_header_drop_double_col(self):
 
@@ -461,10 +461,10 @@ class Drops_Tests(unittest.TestCase):
         expected_row0 = { 0:1 }
         expected_row1 = { 0:4 }
 
-        given    = [None, given_row0, given_row1]
-        expected = [None, expected_row0, expected_row1]
+        given    = [given_row0, given_row1]
+        expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drop(drop_cols=[1,2]).filter(given)) )
+        self.assertEqual( expected, list(map(dict,Drop(drop_cols=[1,2]).filter(given))) )
 
     def test_sparse_with_header_drop_single_col(self):
 
@@ -474,10 +474,10 @@ class Drops_Tests(unittest.TestCase):
         expected_row0 = { 0:1, 2:3 }
         expected_row1 = { 0:4, 2:6 }
 
-        given    = [['a','b','c'], given_row0, given_row1]
-        expected = [['a',    'c'], expected_row0, expected_row1]
+        given    = [given_row0, given_row1]
+        expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drop(drop_cols=[1]).filter(given)) )
+        self.assertEqual( expected, list(map(dict,Drop(drop_cols=[1]).filter(given))) )
 
     def test_sparse_with_header_drop_double_col(self):
 
@@ -487,10 +487,10 @@ class Drops_Tests(unittest.TestCase):
         expected_row0 = { 0:1 }
         expected_row1 = { 0:4 }
 
-        given    = [['a','b','c'], given_row0, given_row1]
-        expected = [['a'        ], expected_row0, expected_row1]
+        given    = [given_row0, given_row1]
+        expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drop(drop_cols=[1,2]).filter(given)) )
+        self.assertEqual( expected, list(map(dict,Drop(drop_cols=[1,2]).filter(given))) )
 
     def test_empty_drop(self):
 
@@ -503,7 +503,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(Drop(drop_cols=[]).filter(given)) )
+        self.assertEqual( expected, list(map(list,Drop(drop_cols=[]).filter(given))) )
 
 class Default_Tests(unittest.TestCase):
 

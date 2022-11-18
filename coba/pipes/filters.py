@@ -8,8 +8,10 @@ from typing import Iterable, Any, Sequence, Mapping, Callable, Optional, Union
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
+from coba.utilities import peek_first
 
-from coba.pipes.primitives import Filter
+from coba.pipes.rows import DropSparse, KeepDense
+from coba.pipes.primitives import Filter, Dense
 
 class Identity(Filter[Any, Any]):
     """A filter which returns what is given."""
@@ -307,19 +309,30 @@ class Drop(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Map
             drop_row: A function that accepts a row and returns True if it should be dropped.
         """
 
-        self._drop_cols = sorted(drop_cols, reverse=True)
+        self._drop_cols = set(drop_cols)
         self._drop_row  = drop_row
 
     def filter(self, rows: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
 
-        drop_cols = self._drop_cols
-        has_drop  = bool(drop_cols)
-        rows      = rows if not self._drop_row else filterfalse(self._drop_row, rows)
+        drop_cols   = self._drop_cols
+        first, rows = peek_first(rows)
 
-        for row in rows:
-            if has_drop and row is not None:
-                for c in self._drop_cols: del row[c]
-            yield row
+        rows = rows if not self._drop_row else filterfalse(self._drop_row, rows)
+
+        if not drop_cols:
+            yield from rows
+        elif isinstance(first,Dense):
+            try:
+                headers,indexes = zip(*[I for I in enumerate(self.headers) if not any(i in drop_cols for i in I)])
+                headers_set = set(headers)
+            except:
+                headers, headers_set = None, None
+                indexes = [i for i in range(len(first)) if i not in drop_cols]
+                
+            yield from ( KeepDense(row, indexes, headers, headers_set) for row in rows)
+        else:
+            drop_set = set(drop_cols)
+            yield from ( DropSparse(row, drop_set) for row in rows)
 
 class Structure(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Any]]):
     """A filter which restructures rows in table shaped data."""
@@ -331,7 +344,7 @@ class Structure(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Any]]):
             structure: The structure that each row should be reformed into. Items in the structure should be
                 feature names. A None value indicates the location that all left-over features will be placed.
         """
-        
+
         self._structure = []
         stack = [structure]
         while stack:

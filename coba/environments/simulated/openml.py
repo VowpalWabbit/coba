@@ -5,7 +5,7 @@ from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, Mutabl
 
 from coba.random import random
 from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader
-from coba.pipes import LabelRow, DenseRow, SparseRow
+from coba.pipes import LabelRows, LazyDense, LazySparse, EncodeRows
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 
@@ -17,24 +17,22 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     """
 
     @overload
-    def __init__(self, *, data_id:int, cat_as_str:bool=False, drop_missing:bool=True, skip_structure:bool=False):
+    def __init__(self, *, data_id:int, cat_as_str:bool=False, drop_missing:bool=True):
         """Instantiate an OpenmlSource.
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
             cat_as_str: Categorical features should be encoded as a string rather than one hot encoded.
             drop_missing: Drop data rows with missing values.
-            skip_structure: Skip structuring the rows (i.e. return flat rows instead of tuples of label and features).
         """
         ...
 
     @overload
-    def __init__(self, *, task_id:int, cat_as_str:bool=False, drop_missing:bool=True, skip_structure:bool=False):
+    def __init__(self, *, task_id:int, cat_as_str:bool=False, drop_missing:bool=True):
         """Instantiate an OpenmlSource.
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label
             cat_as_str: Categorical features should be encoded as a string rather than one hot encoded.
             drop_missing: Drop data rows with missing values.
-            skip_structure: Skip structuring the rows (i.e. return flat rows instead of tuples of label and features).
         """
         ...
 
@@ -46,14 +44,13 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         self._target         = None
         self._cat_as_str     = kwargs.get('cat_as_str',False)
         self._drop_missing   = kwargs.get('drop_missing',True)
-        self._skip_structure = kwargs.get('skip_structure',False)
 
     @property
     def params(self) -> Dict[str,Any]:
         """Parameters describing the openml source."""
         return  { "openml_data": self._data_id, "openml_task": self._task_id, "openml_target": self._target, "cat_as_str": self._cat_as_str, "drop_missing": self._drop_missing }
 
-    def read(self) -> Iterable[Union[DenseRow,SparseRow]]:
+    def read(self) -> Iterable[Union[LazyDense,LazySparse]]:
         """Read and parse the openml source."""
 
         try:
@@ -109,13 +106,14 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
                 v = int(v) if isinstance(v,float) and v.is_integer() else v
                 return str(v) if isinstance(v,(int,float)) else v
 
-            drop_row = (lambda r: r.missing) if self._drop_missing else None
-            lines    = self._get_arff_lines(data_descr["file_id"], None)
-            reader   = ArffReader(cat_as_str=self._cat_as_str)
-            drop     = Drop(drop_cols=ignore, drop_row=drop_row)
-            label    = LabelRow(self._target, "coba_openml_lbl", str_if_num if task_type == 1 else None)
+            drop_row  = (lambda r: r.missing) if self._drop_missing else None
+            lines     = self._get_arff_lines(data_descr["file_id"], None)
+            reader    = ArffReader(cat_as_str=self._cat_as_str)
+            drop      = Drop(drop_cols=ignore, drop_row=drop_row)
+            label     = LabelRows(self._target)
+            label_enc = EncodeRows({self._target:str_if_num if task_type == 1 else lambda x:x})
 
-            return Pipes.join(reader, drop, label).filter(lines)
+            return Pipes.join(reader, drop, label_enc, label).filter(lines)
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt
@@ -288,7 +286,7 @@ class OpenmlSimulation(SupervisedSimulation):
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate an OpenmlSimulation."""
         kwargs.update(zip(['data_id','cat_as_str','drop_missing','take'], args))
-        super().__init__(OpenmlSource(**kwargs), "coba_openml_lbl", None, kwargs.get('take',None))
+        super().__init__(OpenmlSource(**kwargs), None, None, kwargs.get('take',None))
 
     @property
     def params(self) -> Dict[str, Any]:

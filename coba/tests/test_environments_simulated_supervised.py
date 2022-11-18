@@ -278,7 +278,7 @@ class ArffSource_Tests(unittest.TestCase):
             [2, 3]
         ]
 
-        self.assertEqual(expected, list(ArffSource(IterableSource(lines)).read()))
+        self.assertEqual(expected, list(map(list,ArffSource(IterableSource(lines)).read())))
         self.assertEqual({}, ArffSource(IterableSource(lines)).params)
         self.assertEqual('{},{}', str(ArffSource(IterableSource(lines))))
 

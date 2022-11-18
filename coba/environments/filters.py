@@ -7,14 +7,14 @@ from numbers import Number
 from collections import defaultdict, abc
 from functools import lru_cache
 from itertools import islice, chain, tee
-from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping, TypeVar
+from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
 from coba.backports import Literal
 
 from coba            import pipes
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
-from coba.utilities  import HashableDict, peek_first
+from coba.utilities  import HashableDict, HashableList, peek_first
 
 from coba.environments.primitives import Interaction, LoggedInteraction, SimulatedInteraction, GroundedInteraction 
 from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, EnvironmentFilter
@@ -831,7 +831,7 @@ class Finalize(EnvironmentFilter):
             return feats.to_builtin()
         except Exception:
             if isinstance(feats, abc.Sequence):
-                return tuple(feats)
+                return HashableList(feats)
             if isinstance(feats, abc.Mapping):
                 return HashableDict(feats)
             return feats

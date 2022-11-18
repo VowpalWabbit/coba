@@ -3,7 +3,7 @@ import timeit
 import importlib.util
 
 from itertools import count
-from typing import Callable,Any
+from typing import Callable, Any
 
 import coba.pipes
 import coba.random
@@ -14,7 +14,7 @@ from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, S
 from coba.environments import Scale, Flatten, Grounded
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
-from coba.pipes.rows import EncodeRow, DenseRow, SparseRow, DenseRow2, EncoderRow, HeaderRow, SelectRow
+from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense
 from coba.experiments.results import Result, moving_average
 from coba.experiments import SimpleEvaluation
 
@@ -204,7 +204,7 @@ class Performance_Tests(unittest.TestCase):
     def test_pipes_flat_dict(self):
         items = [dict(enumerate([1,2,3]+[(0,1)]*5))]*10
         flat  = coba.pipes.Flatten()
-        self._assert_scale_time(items, lambda x:list(flat.filter(x)), .035, False, number=1000)
+        self._assert_scale_time(items, lambda x:list(flat.filter(x)), .038, False, number=1000)
 
     def test_result_filter_env(self):
         envs = { k:{'mod': k%100} for k in range(5) }
@@ -221,44 +221,34 @@ class Performance_Tests(unittest.TestCase):
         items = [1,0]*300
         self._assert_scale_time(items, lambda x:list(moving_average(x)), .07, False, number=1000)
 
-    def test_encoder_row(self):
-        R = next(EncodeRow([int]*100).filter([DenseRow(loaded=['1']*100)]))
-        self._assert_call_time(lambda:R[1], .0009, True, number=1000)
-        
-        r2 = EncoderRow(DenseRow2(loaded=['1']*100),[int]*100)
-        self._assert_call_time(lambda:r2[1], .0009, True, number=1000)
+    def test_encode_dense(self):
+        R = EncodeDense(['1']*100,[int]*100)
+        self._assert_call_time(lambda:R[1], .0008, False, number=1000)
+
+    def test_dense_row_headers(self):
+        headers = list(map(str,range(100)))
+        r2 = HeadDense(LazyDense(['1']*100),dict(zip(headers,count())))
+        r3 = EncodeDense(r2,[int]*100)
+        r4 = EncodeDense(r3,[int]*100)
+
+        self._assert_call_time(lambda:r2.headers, .0003, False, number=1000)
+        self._assert_call_time(lambda:r3.headers, .0009, False, number=1000)
+        self._assert_call_time(lambda:r4.headers, .0014, False, number=1000)
+
+    def test_dense_row_drop(self):
+        r1 = KeepDense(EncodeDense(LazyDense(['1']*100),[int]*100),tuple(range(99)))
+        self._assert_call_time(lambda:r1[3], .00175, False, number=1000)
 
     def test_dense_row_to_builtin(self):
-        r = next(EncodeRow([int]*100).filter([DenseRow(loaded=['1']*100)]))
-        self._assert_call_time(lambda:r.to_builtin(), .023, True, number=1000)
-
-        r2 = EncoderRow(DenseRow2(loaded=['1']*100),[int]*100)
-        self._assert_call_time(lambda:list(r2), .023, True, number=1000)
-
-    def test_headers(self):
-        headers = list(map(str,range(100)))
-        r2 = HeaderRow(DenseRow2(loaded=['1']*100),dict(zip(headers,count())))
-        r3 = EncoderRow(r2,[int]*100)
-        r4 = EncoderRow(r3,[int]*100)
-
-        self._assert_call_time(lambda:hasattr(r2,'headers'), .023, True, number=1000)
-        self._assert_call_time(lambda:hasattr(r3,'headers'), .023, True, number=1000)
-        self._assert_call_time(lambda:hasattr(r4,'headers'), .023, True, number=1000)
-
-    def test_del(self):
-        r1 = next(EncodeRow([int]*100).filter([DenseRow(loaded=['1']*100)]))
-        r2 = EncoderRow(DenseRow2(loaded=['1']*100), [int]*100)
-
-        del r1[99]
-        r2 = SelectRow(r2,tuple(range(99)))
-
-        self._assert_call_time(lambda:r1[3], .023, True, number=1000)
-        self._assert_call_time(lambda:r2[3], .023, True, number=1000)
+        r = LazyDense(['1']*100)
+        self._assert_call_time(lambda:list(r), .023, False, number=1000)
 
     def test_sparse_row_to_builtin(self):
-        r = SparseRow(loaded=dict(enumerate(['1']*100)))
-        r.encoders = dict(enumerate([int]*100))
-        self._assert_call_time(lambda:r.to_builtin(), .04, False, number=1000)
+        d = dict(enumerate(['1']*100))
+        r = LazySparse(d)
+
+        #self._assert_call_time(lambda:dict(d), .04, False, number=1000)
+        self._assert_call_time(lambda:dict(r.items()), .005, False, number=1000)
 
     def test_to_grounded_interaction(self):
         items    = [SimulatedInteraction(1, [1,2,3,4], [0,0,0,1])]*10

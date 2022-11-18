@@ -186,7 +186,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
                                 if workitem.env is None:
                                     with CobaContext.logger.time(f"Recording Learner {workitem.lrn_id} parameters..."):
-                                        row = workitem.task.process(deepcopy(workitem.lrn))
+                                        row = workitem.task.process(workitem.lrn)
                                         yield ["T1", workitem.lrn_id, row]
 
                                 if workitem.lrn is None:

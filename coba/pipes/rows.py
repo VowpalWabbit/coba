@@ -1,167 +1,59 @@
 from abc import ABC, abstractmethod
 
-from bisect import bisect_left
-from collections import abc, deque
-from itertools import chain
-from typing import Any, Union, Callable, Iterator, List, Dict, Deque
-from typing import Hashable, Sequence, Mapping, Optional, Iterable, Tuple
+from collections import abc
+from itertools import count, chain
+from typing import Any, Union, Callable, Iterator, Sequence, Mapping, Iterable
 
-from coba.exceptions import CobaException
-from coba.pipes.primitives import Filter
+from coba.utilities import peek_first
+from coba.pipes.primitives import Filter, Sparse, Dense
 
-class IDenseRow(ABC):
+class LazyDense(Dense):
 
-    @abstractmethod
-    def __getitem__(self, key) -> Any:
-        ...
-
-    @abstractmethod
-    def __setitem__(self, key, item) -> None:
-        ...
-
-    @abstractmethod
-    def __delitem__(self, key) -> None:
-        ...
-
-    @abstractmethod
-    def __len__(self) -> int:
-        ...
-
-    @abstractmethod
-    def __iter__(self) -> Iterator:
-        ...
-
-    @abstractmethod
-    def pop(self, key) -> Any:
-        ...
-
-class ISparseRow(ABC):
-
-    @abstractmethod
-    def __getitem__(self, key) -> Any:
-        ...
-
-    @abstractmethod
-    def __setitem__(self, key, item) -> None:
-        ...
-
-    @abstractmethod
-    def __delitem__(self, key) -> None:
-        ...
-    
-    @abstractmethod
-    def __len__(self) -> int:
-        ...
-
-    @abstractmethod
-    def __iter__(self) -> Iterator:
-        ...
-    
-    @abstractmethod
-    def pop(self, key) -> Any:
-        ...
-
-class IRow(ABC):
-
-    @abstractmethod
-    def __getitem__(self, key) -> Any:
-        ...
-
-    @abstractmethod
-    def __setitem__(self, key, item) -> None:
-        ...
-
-    @abstractmethod
-    def __len__(self) -> int:
-        ...
-
-    @abstractmethod
-    def __iter__(self) -> Iterator:
-        ...
-
-class DenseRow2(IRow):
-
-    def __init__(self, loader: Callable[[],Sequence] = None, loaded: Sequence = None) -> None:
-        self._loader = loader
-        self._loaded = loaded
+    def __init__(self, loader_or_row: Union[Callable[[],Sequence],Sequence]) -> None:
+        
+        if callable(loader_or_row):
+            self._loader = loader_or_row
+            self._row    = None
+        else:
+            self._loader = None
+            self._row    = loader_or_row
 
     def _load_or_get(self):
-        loaded = self._loaded
-        if loaded is None: 
-            loaded = self._loader()
-            self._loaded = loaded
-        return loaded
+        row = self._row
+        if row is None: 
+            row = self._loader()
+            self._row = row
+        return row
 
     def __getitem__(self, key: int):
         return self._load_or_get()[key]
 
-    def __setitem__(self, key: Union[str,int], item: Any):
-        self._load_or_get()[key] = item
+    def __iter__(self) -> Iterator:
+        return iter(self._load_or_get())
 
     def __len__(self) -> int:
         return len(self._load_or_get())
 
-    def __eq__(self, o: object) -> bool:
-        try:
-            return list(self) == list(o)
-        except:
-            return False
+class MissingDense(Dense):
+    def __init__(self, row: Dense, missing:bool) -> None:
+        self._row = row
+        self.missing = missing
+    
+    def __getitem__(self, key: Union[str,int]):
+        return self._row[key]
 
     def __iter__(self) -> Iterator:
-        return iter(self._load_or_get())
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    def __str__(self) -> str:
-        return f"DenseRow: {str(self._loaded) if self._loaded is not None else 'Unloaded'}"
- 
-class SparseRow2(IRow):
-
-    def __init__(self, loader: Callable[[],Mapping] = None, loaded: Mapping = None) -> None:
-        self._loader = loader
-        self._loaded = loaded
-
-    def _load_or_get(self):
-        loaded = self._loaded
-        if loaded is None: 
-            loaded = self._loader()
-            self._loaded = loaded
-        return loaded
-
-    def __getitem__(self, key: str):
-        return self._load_or_get()[key]
-
-    def __setitem__(self, key: str, item: Any):
-        self._load_or_get()[key] = item
+        return iter(self._row)
 
     def __len__(self) -> int:
-        return len(self._load_or_get())
+        return len(self._row)
 
-    def __eq__(self, o: object) -> bool:
-        try:
-            return dict(self) == dict(o)
-        except:
-            return False
+class HeadDense(Dense):
 
-    def keys(self):
-        return self._load_or_get().keys()
-
-    def __iter__(self) -> Iterator:
-        return iter(self._load_or_get())
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    def __str__(self) -> str:
-        return f"SparseRow: {str(self._loaded) if self._loaded is not None else 'Unloaded'}"
-
-class HeaderRow(IRow):
-
-    def __init__(self, row: IRow, head_map: Mapping[str,int], head_seq: Sequence[str] = None) -> None:
+    def __init__(self, row: Dense, head_seq: Sequence[str], head_map: Mapping[str,int] = None) -> None:
         self._row      = row
-        self._head_map = head_map
-        self.headers   = head_seq or sorted(head_map.keys(), key=lambda k: head_map[k])
+        self.headers   = head_seq
+        self._head_map = head_map or dict(zip(head_seq, count()))
 
     def _row_index(self, key:Union[int,str]) -> int:
         return key if key.__class__ is int else self._head_map[key]
@@ -169,424 +61,284 @@ class HeaderRow(IRow):
     def __getitem__(self, key: Union[str,int]):
         return self._row[self._row_index(key)]
 
-    def __setitem__(self, key: Union[str,int], item: Any):
-        self._row[self._row_index(key)] = item
-
-    def __len__(self) -> int:
-        return len(self._row)
-
-    def __eq__(self, o: object) -> bool:
-        return self._row == o
-
     def __iter__(self) -> Iterator:
         return iter(self._row)
 
-    def __repr__(self) -> str:
-        return str(self._row)
-
-    def __getattr__(self, name):
-        return getattr(self._row, name)
-
-class EncoderRow(IRow):
-
-    def __init__(self, row: IRow, encoders: Sequence) -> None:
-        self._row      = row
-        self._encoders = encoders
-
-    def __getitem__(self, key: int):
-        return self._encoders[key](self._row[key])
-
-    def __setitem__(self, key: int, item: Any):
-        self._encoders[key] = lambda x:x
-        self._row[key] = item
-
     def __len__(self) -> int:
         return len(self._row)
 
-    def __eq__(self, o: object) -> bool:
-        return list(self) == list(o)
+class EncodeDense(Dense):
+
+    def __init__(self, row: Dense, encoders: Union[Sequence,Mapping]) -> None:
+        self._row      = row
+        self._encoders = encoders
+
+    def __getitem__(self, key: Union[int,str]):
+        val = self._row[key]
+        try:
+            return self._encoders[key](val)
+        except KeyError:
+            return val
 
     def __iter__(self) -> Iterator:
         return iter( e(v) for e,v in zip(self._encoders, self._row))
 
-    def __repr__(self) -> str:
-        return str(self)
+    def __len__(self) -> int:
+        return len(self._row)
 
-    def __str__(self) -> str:
-        return str(self._row)
+class KeepDense(Dense):
 
-    def __getattr__(self, name):
-        return getattr(self._row, name)
+    def __init__(self, row: Dense, indexes: Sequence[int], headers: Sequence[str] = None, headers_set: set = None) -> None:
 
-class SelectRow(IRow):
-    
-    def __init__(self, row: IRow, select: Sequence) -> None:
-        self._row        = row
-        self._select_seq = select
-        self._select_set = set(select)
+        self._row     = row
+        self._indexes = indexes
+
+        if headers is not None:
+            self.headers = headers
+            self._headers_set = headers_set or set(headers)
 
     def _key_check(self,key):
         if key.__class__ is int:
-            return self._select_seq[key]
-        elif key in self._select_set:
+            return self._indexes[key]
+        if self._headers_set is None or key in self._headers_set:
             return key
-        else:
-            raise KeyError(key)
+        raise IndexError()
 
     def __getitem__(self, key: Union[int,str]):
         return self._row[self._key_check(key)]
 
-    def __setitem__(self, key: Union[int,str], item: Any):
-        self._row[self._key_check(key)] = item
+    def __iter__(self) -> Iterator:
+        return iter(map(self._row.__getitem__, self._indexes))
 
     def __len__(self) -> int:
-        return len(self._select_seq)
+        return len(self._indexes)
 
-    def __eq__(self, o: object) -> bool:
-        return list(self) == list(o)
+class LabelDense(Dense):
 
-    def __iter__(self) -> Iterator:
-        return iter(map(self._row.__getitem__, self._select_seq))
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    def __str__(self) -> str:
-        return str(list(self))
-
-    def __getattr__(self, name):
-        return getattr(self._row, name)
-
-class LabelRow2(IRow):
-
-    def __init__(self, row: IRow, label: Union[str,int], label_alias: str) -> None:
-        self._row       = row
-        self._lbl_key   = label
-        self._lbl_alias = label_alias
+    def __init__(self, row: Dense, label: int) -> None:
+        self._row = row
+        self._lbl_key = label
 
     def __getitem__(self, key: Union[int,str]):
-        return self._row[self._lbl_key if key == self._lbl_alias else key]
-
-    def __setitem__(self, key: Union[int,str], item: Any):
-        self._row[self._lbl_key if key == self._lbl_alias else key] = item
-
-    def __len__(self) -> int:
-        return len(self._row)
-
-    def __eq__(self, o: object) -> bool:
-        return self._row == o
+        return self._row[key]
 
     def __iter__(self) -> Iterator:
         return iter(self._row)
 
-    def __repr__(self) -> str:
-        return str(self)
-
-    def __str__(self) -> str:
-        return str(self._row)
-
-    def __getattr__(self, name):
-        return getattr(self._row, name)
-
-class DenseRow(abc.MutableSequence, IDenseRow):
-
-    def __init__(self, loader: Callable[[],List] = None, loaded: List = None, missing: bool = False) -> None:
-
-        self._loader : Callable[[],List] = loader
-        self._loaded : List              = loaded
-        self._indexes: List[int]         = []
-
-        self._cmds: Deque = deque()
-
-        self.encoders    : Union[Sequence,Mapping] = None
-        self.headers     : Mapping[str,int]        = None
-        self.headers_inv : Mapping[int,str]        = None
-        self.missing     : bool                    = missing
-
-        self._label_key = None
-        self._label_enc = None
-        self._label_ali = None
-
-        if self._loader:
-            def load():
-                self._loaded  = self._loader()
-                self._indexes = list(range(len(self._loaded)))
-            self._cmds.appendleft((load,()))
-        
-        elif self._loaded:
-            self._indexes = list(range(len(self._loaded)))
-
-    def _run_cmds(self) -> None:
-        while self._cmds: 
-            f,a = self._cmds.pop()
-            f(*a)
-
-    def __getitem__(self, key: Union[str,int]):
-        if self._cmds: self._run_cmds()
-
-        if self._label_key:
-            if key == self._label_ali or key == self._label_key:
-                key = self._label_key
-                key = self._indexes[key] if key.__class__ is int else self.headers[key]
-                val = self._loaded[key]
-                if self.encoders : val = self.encoders[key](val)
-                if self._label_enc: val = self._label_enc(val)
-                return val
-
-        key = self._indexes[key] if key.__class__ is int else self.headers[key]
-        return self.encoders[key](self._loaded[key]) if self.encoders else self._loaded[key]
-
-    def __setitem__(self, key: Hashable, item: Any):
-        if self._loaded is None:
-            self._cmds.appendleft((self.__setitem__,(key,item)))
-        else:
-            key = self._indexes[key] if key.__class__ is int else self.headers[key]
-            self._loaded[key] = item
-
-    def __delitem__(self, key: Hashable):
-        if self._loaded is None:
-            self._cmds.appendleft((self.__delitem__,(key,)))
-        else:
-            if self._label_key and (key == self._label_key) or (key == self._label_ali):
-                key = self._label_key
-                self._label_key = None
-                self._label_ali = None
-            
-            key = self._indexes[key] if key.__class__ is int else self.headers[key]
-            del self._indexes[bisect_left(self._indexes,key)]
-
-    def insert(self, key: int, item: Any):
-        raise NotImplementedError()
-
     def __len__(self) -> int:
-        if self._cmds: self._run_cmds()
-        return len(self._loaded)
-
-    def __eq__(self, o: object) -> bool:
-        return isinstance(o,abc.Sequence) and list(self) == list(o)
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    def __str__(self) -> str:
-        return f"DenseRow: {str(self._loaded) if self._loaded is not None else 'Unloaded'}"
-
-    def set_label(self, key: Hashable, alias: Hashable, encoding: Callable[[Any],Any]) -> None:
-        self._label_key = key
-        self._label_ali = alias
-        self._label_enc = encoding
-
-    def to_builtin(self):
-        if self._cmds: self._run_cmds()
-        
-        V = map(self._loaded.__getitem__, self._indexes)
-        if self.encoders:
-            E = map(self.encoders.__getitem__, self._indexes)
-            L = [ e(v) for e,v in zip(E,V) ]
-        else:
-            L = list(map(self._loaded.__getitem__, self._indexes))
-
-        if self._label_enc:
-            key = self._label_key
-            ind = self._indexes[key] if key.__class__ is int else self.headers[key]
-            lbl = bisect_left(self._indexes,ind)
-            L[lbl] = self._label_enc(L[lbl])
-
-        return tuple(L)
-
-    @property
-    def feats(self) -> Sequence[Any]:
-        if self._cmds: self._run_cmds()
-        label_index = self._label_key if not self.headers else self.headers.get(self._label_key,self._label_key)
-        return [ self[i] for i in range(len(self._indexes)) if self._indexes[i] != label_index]
+        return len(self._row)
 
     @property
     def label(self) -> Any:
-        if self._label_key is not None: return self.__getitem__(self._label_key)
-        else: raise CobaException("This row has no defined label.")
+        return self._row[self._lbl_key]
 
-class SparseRow(abc.MutableMapping, ISparseRow):
+    @property
+    def feats(self) -> Dense:
+        feat_indexes = chain(range(self._lbl_key), range(self._lbl_key+1, len(self._row)))
+        return list(map(self._row.__getitem__, feat_indexes))
 
-    def __init__(self, loader: Callable[[],Dict] = None, loaded: List = None, missing: bool = False) -> None:
-        self._loader = loader
-        self._loaded = loaded
+class LazySparse(Sparse):
 
-        self._cmds: Deque[Tuple[Callable,Tuple]] = deque()
-
-        self.encoders   : Union[Sequence,Mapping] = None
-        self.headers    : Mapping[str,str]        = None
-        self.headers_inv: Mapping[str,str]        = None
-        self.missing    : bool                    = missing
-
-        self._label_key   = None
-        self._label_enc   = None
-        self._label_ali = None
-
-        if self._loader:
-            def load(): self._loaded = self._loader()
-            self._cmds.appendleft((load,()))
-
-    def _run_cmds(self):
-        while self._cmds: 
-            f,a = self._cmds.pop()
-            f(*a)
-
-    def __getitem__(self, key: Hashable):
-        if self._cmds: self._run_cmds()
-        if self._label_key:
-            if key == self._label_ali or key == self._label_key:
-                key = self._label_key
-                key  = key if not self.headers else self.headers[key]
-                val = self._loaded.get(key,0)
-                if self.encoders  : val = self.encoders[key](val)
-                if self._label_enc: val = self._label_enc(val)
-                return val
-
-        key  = key if not self.headers else self.headers[key]
-        val  = self._loaded.get(key,0)
-        return self.encoders[key](val) if self.encoders else val
-
-    def __setitem__(self, key: Hashable, item: Any):
-        if self._loaded is None:
-            self._cmds.appendleft((self.__setitem__,(key,item)))
+    def __init__(self, loader_or_row: Union[Callable[[],Mapping],Mapping]) -> None:
+        if callable(loader_or_row):
+            self._loader = loader_or_row
+            self._row    = None
         else:
-            key = key if not self.headers else self.headers[key]
-            self._loaded[key] = item
+            self._loader = None
+            self._row    = loader_or_row
 
-    def __delitem__(self, key: Hashable):
-        if self._loaded is None:
-            self._cmds.appendleft( (self.__delitem__, (key,)) )
-        else:
-            if self._label_key and (key == self._label_key) or (key == self._label_ali):
-                key = self._label_key
-                self._label_key = None
-                self._label_ali = None
+    def _load_or_get(self):
+        row = self._row
+        if row is None: 
+            row = self._loader()
+            self._row = row
+        return row
 
-            key = key if not self.headers else self.headers[key]
-            if key in self._loaded: del self._loaded[key]
+    def __getitem__(self, key: str):
+        return self._load_or_get()[key]
 
     def __iter__(self) -> Iterator:
-        if self._cmds: self._run_cmds()
-        return iter(self._loaded if not self.headers_inv else map(self.headers_inv.__getitem__,self._loaded))
+        return iter(self._load_or_get())
 
     def __len__(self) -> int:
-        while self._cmds: 
-            f,a = self._cmds.pop()
-            f(*a)
-        return len(self._loaded)
+        return len(self._load_or_get())
 
-    def __eq__(self, o: object) -> bool:
-        return isinstance(o,abc.Mapping) and dict(self) == dict(o)
+    def keys(self) -> abc.KeysView:
+        return self._load_or_get().keys()
 
-    def __repr__(self) -> str:
-        return str(self)
+    def items(self) -> Iterable:
+        return self._load_or_get().items()
 
-    def __str__(self) -> str:
-        return f"SparseRow: {str(self._loaded) if self._loaded else 'Unloaded'}"
+class MissingSparse(Sparse):
 
-    def set_label(self, key: Hashable, alias:Hashable, encoding: Optional[Callable[[Any],Any]]) -> None:
-        self._label_key = key
-        self._label_enc = encoding
-        self._label_ali = alias
-    
-    def to_builtin(self):
-        from coba.utilities import HashableDict
+    def __init__(self, row: Sparse, missing: bool) -> None:
+        self._row = row
+        self.missing = missing
 
-        if self._cmds: self._run_cmds()
-        if self.encoders:
-            L = { k:self.encoders[k](v) for k,v in self._loaded.items() }
-        else:
-            L = dict(self._loaded)
+    def __getitem__(self, key: str):
+        return self._row[key]
 
-        if self._label_enc:
-            key    = self._label_key
-            key    = key if not self.headers else self.headers[key]
-            L[key] = self._label_enc(L[key])
+    def __iter__(self) -> Iterator:
+        return iter(self._row)
 
-        return HashableDict(L)
+    def __len__(self) -> int:
+        return len(self._row)
 
-    @property
-    def feats(self) -> Dict[str,Any]:
-        if self._cmds: self._run_cmds()
-        return { k:self[k] for k in self if k != self._label_key }
+    def keys(self) -> abc.KeysView:
+        return self._row.keys()
+
+    def items(self) -> Iterable:
+        return self._row.items()
+
+class HeadSparse(Sparse):
+
+    def __init__(self, row: Sparse, head_map: Mapping[str,str]) -> None:
+        self._row      = row
+        self._head_map = head_map
+
+    def __getitem__(self, key: Union[str,int]):
+        return self._row[self._head_map[key]]
+
+    def __iter__(self) -> Iterator:
+        return iter(self.keys())
+
+    def __len__(self) -> int:
+        return len(self._row)
+
+    def keys(self) -> abc.KeysView:
+        row_keys = self._row.keys()
+        return set(k1 for k1,k2 in self._head_map.items() if k2 in row_keys)
+
+    def items(self) -> Iterable:
+        row = self._row
+        row_keys = self._row.keys()
+        yield from ((k1,row[k2]) for k1,k2 in self._head_map.items() if k2 in row_keys)
+
+class EncodeSparse(Sparse):
+
+    def __init__(self, row: Sparse, encoders: Mapping) -> None:
+        self._row      = row
+        self._encoders = encoders
+
+    def __getitem__(self, key: Union[int,str]):
+        return self._encoders[key](self._row[key])
+
+    def __iter__(self) -> Iterator:
+        return iter(self._row)
+
+    def __len__(self) -> int:
+        return len(self._row)
+
+    def keys(self) -> abc.KeysView:
+        return self._row.keys()
+
+    def items(self) -> Iterable:
+        enc = self._encoders
+        yield from ((k, enc[k](v) if k in enc else v ) for k,v in self._row.items())
+
+class DropSparse(Sparse):
+
+    def __init__(self, row: Sparse, drop_set: set = None) -> None:
+        self._row      = row
+        self._drop_set = drop_set
+
+    def _key_check(self,key):
+        if key not in self._drop_set:
+            return key
+        raise KeyError(key)
+
+    def __getitem__(self, key: Union[int,str]):
+        return self._row[self._key_check(key)]
+
+    def __iter__(self) -> Iterator:
+        return iter(self._select_set)
+
+    def __len__(self) -> int:
+        return len(self.keys())
+
+    def keys(self) -> abc.KeysView:
+        return self._row.keys() - self._drop_set
+
+    def items(self) -> Iterable:
+        drop = self._drop_set
+        yield from (item for item in self._row.items() if item[0] not in drop) 
+
+class LabelSparse(Sparse):
+
+    def __init__(self, row: Sparse, label: str) -> None:
+        self._row     = row
+        self._lbl_key = label
+
+    def __getitem__(self, key: str):
+        return self._row[key]
+
+    def __iter__(self) -> Iterator:
+        return iter(self._row)
+
+    def __len__(self) -> int:
+        return len(self._row)
+
+    def keys(self) -> abc.KeysView:
+        return self._row.keys()
+
+    def items(self) -> Iterable:
+        yield self._row.items()
 
     @property
     def label(self) -> Any:
-        if self._label_key is not None: return self.__getitem__(self._label_key)
-        else: raise CobaException("This row has no defined label.")
+        return self._row[self._lbl_key]
 
-class EncodeRow(Filter[Iterable[Union[IDenseRow,ISparseRow]],Iterable[Union[IDenseRow,ISparseRow]]]):
+    @property
+    def feats(self) -> Sparse:
+        return dict(item for item in self._row.items() if item[0] != self._lbl_key)
+
+class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
 
     def __init__(self, encoders: Union[Sequence,Mapping]) -> None:
         self._encoders = encoders
 
-    def filter(self, items: Iterable[Union[IDenseRow,ISparseRow]]) -> Iterable[Union[IDenseRow,ISparseRow]]:
-
-        first = next(iter(items))
-        items = chain([first],items)
-
+    def filter(self, rows: Iterable[Union[Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
         encoders = self._encoders
+        first, rows = peek_first(rows)
 
-        if isinstance(first,(SparseRow,DenseRow)):
-            for item in items:
-                item.encoders = encoders
-                yield item
+        if first and isinstance(first,Dense):
+            yield from (EncodeDense(row, encoders) for row in rows)
         else:
-            for item in items:
-                item = SparseRow(loaded=item) if isinstance(item,dict) else DenseRow(loaded=item)
-                item.encoders    = self._encoders
-                yield item
+            yield from (EncodeSparse(row, encoders) for row in rows)
 
-class IndexRow(Filter[Iterable[Union[IDenseRow,ISparseRow]],Iterable[Union[IDenseRow,ISparseRow]]]):
+class HeadRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
 
-    def __init__(self, index: Mapping) -> None:
-        self._fwd_index = index
-        self._rev_index = { v:k for k,v in index.items()}
-
-    def filter(self, items: Iterable[Union[IDenseRow,ISparseRow]]) -> Iterable[Union[IDenseRow,ISparseRow]]:
-
-        first = next(iter(items))
-        items = chain([first],items)
-
-        fwd_index = self._fwd_index
-        rev_index = self._rev_index
-
-        if isinstance(first,(SparseRow,DenseRow)):
-            for item in items:
-                item.headers     = fwd_index
-                item.headers_inv = rev_index
-                yield item
+    def __init__(self, headers: Union[Sequence,Mapping]) -> None:
+        if isinstance(headers, abc.Mapping):
+            self._sequence = None
+            self._mapping  = headers
         else:
-            for item in items:
-                item = SparseRow(loaded=item) if isinstance(item,dict) else DenseRow(loaded=item)
-                item.headers     = self._fwd_index
-                item.headers_inv = self._rev_index
-                yield item
+            self._sequence = headers
+            self._mapping  = dict(zip(headers, count()))
 
-class LabelRow(Filter[Iterable[Union[IDenseRow,ISparseRow]],Iterable[Union[IDenseRow,ISparseRow]]]):
+    def filter(self, rows: Iterable[Union[Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
+        first, rows = peek_first(rows)
 
-    def __init__(self, label: Union[int,str], alias:str = None, encoder: Callable[[Any],Any]=None) -> None:
-        self._label    = label
-        self._alias    = alias
-        self._encoding = encoder
-
-    def filter(self, items: Iterable[Union[IDenseRow,ISparseRow]]) -> Iterable[Union[IDenseRow,ISparseRow]]:
-
-        first = next(iter(items))
-        items = chain([first],items)
-
-        label    = self._label
-        encoding = self._encoding
-        alias    = self._alias
-
-        if isinstance(first,(SparseRow,DenseRow)):
-            for item in items:
-                item._label_key = label
-                item._label_enc = encoding
-                item._label_ali = alias
-                yield item
+        if isinstance(first, Dense):
+            sequence = self._sequence or sorted(self._mapping, key=lambda k:self._mapping[k])
+            mapping  = self._mapping
+            yield from (HeadDense(row, sequence, mapping) for row in rows)
         else:
-            for item in items:
-                item = SparseRow(loaded=item) if isinstance(item,dict) else DenseRow(loaded=item)
-                item.set_label(label, alias, encoding)
-                yield item
+            mapping  = self._mapping
+            yield from (HeadSparse(row, mapping) for row in rows)
+
+class LabelRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
+
+    def __init__(self, label: Union[int,str]) -> None:
+        self.label = label
+
+    def filter(self, rows: Iterable[Union[Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
+        label = self.label
+
+        first, rows = peek_first(rows)
+
+        if isinstance(first,Dense):
+            if isinstance(label,str): label = first.headers.index(label)
+            yield from (LabelDense(row, label) for row in rows)
+        else:
+            yield from (LabelSparse(row, label) for row in rows)

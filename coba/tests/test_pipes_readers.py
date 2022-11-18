@@ -57,7 +57,7 @@ class ArffReader_Tests(unittest.TestCase):
             [2,3,(0,1,0)]
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_dense_with_spaces_after_tabs(self):
         lines = [
@@ -75,7 +75,7 @@ class ArffReader_Tests(unittest.TestCase):
             [2,3,(0,1,0)]
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_dense_with_spaces_in_quotes(self):
         lines = [
@@ -93,7 +93,7 @@ class ArffReader_Tests(unittest.TestCase):
             [2,3,(0,1,0)]
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_dense_duplicate_headers(self):
         lines = [
@@ -104,11 +104,6 @@ class ArffReader_Tests(unittest.TestCase):
             "@data",
             "1,2,class_B",
             "2,3,0",
-        ]
-
-        expected = [
-            [1,2,(0,1,0,0)],
-            [2,3,(1,0,0,0)]
         ]
 
         with self.assertRaises(CobaException) as e:
@@ -132,7 +127,7 @@ class ArffReader_Tests(unittest.TestCase):
             [2,3,None]
         ]
 
-        self.assertEqual(expected, list(ArffReader(missing_value=None).filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader(missing_value=None).filter(lines))))
 
     def test_dense_with_empty_lines(self):
         lines = [
@@ -153,7 +148,7 @@ class ArffReader_Tests(unittest.TestCase):
             [2,3,(1,0,0,0)]
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_dense_with_comments(self):
         lines = [
@@ -172,7 +167,7 @@ class ArffReader_Tests(unittest.TestCase):
             [2,3,(1,0,0,0)]
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_dense_with_strings(self):
         lines = [
@@ -190,7 +185,7 @@ class ArffReader_Tests(unittest.TestCase):
             ['2','3',(1,0,0,0)]
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_sparse(self):
         lines = [
@@ -212,7 +207,7 @@ class ArffReader_Tests(unittest.TestCase):
             {       'a':1, 'c':(0,0,0,1)}
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
 
     def test_sparse_full_sparse(self):
         lines = [
@@ -232,7 +227,7 @@ class ArffReader_Tests(unittest.TestCase):
             {'c':(1,0,0,0)}
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
 
     def test_sparse_categorical_0_value(self):
 
@@ -260,7 +255,7 @@ class ArffReader_Tests(unittest.TestCase):
             {'a':1,        'c':(0,0,0,1)}
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
 
     def test_sparse_with_empty_lines(self):
         lines = [
@@ -285,7 +280,7 @@ class ArffReader_Tests(unittest.TestCase):
             {'a':1,        'c':(0,0,0,1)}
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
 
     def test_sparse_with_spaces_after_comma(self):
         lines = [
@@ -307,7 +302,7 @@ class ArffReader_Tests(unittest.TestCase):
             {'a':1,      'c':(0,0,0,1)}
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
 
     def test_leading_and_trailing_comments(self):
         lines = [
@@ -328,7 +323,7 @@ class ArffReader_Tests(unittest.TestCase):
             ['2','3',(1,0,0,0)]
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_bad_class_labels_throws_exception(self):
         lines = [
@@ -356,7 +351,7 @@ class ArffReader_Tests(unittest.TestCase):
         expected = [ [1] ]
 
         items = list(ArffReader().filter(lines))
-        self.assertEqual(expected, items)
+        self.assertEqual(expected, list(map(list,items)))
         self.assertEqual(1, items[0]["a%3"])
 
     def test_spaces_in_attribute_name(self):
@@ -370,7 +365,7 @@ class ArffReader_Tests(unittest.TestCase):
         expected = [ [1] ]
 
         items = list(ArffReader().filter(lines))
-        self.assertEqual(expected, items)
+        self.assertEqual(expected, list(map(list,items)))
         self.assertEqual(1, items[0]["a a"])
 
     def test_escaped_single_quote_in_attribute_name(self):
@@ -384,7 +379,7 @@ class ArffReader_Tests(unittest.TestCase):
         expected = [ [1] ]
         items = list(ArffReader().filter(lines))
 
-        self.assertEqual(expected, items)
+        self.assertEqual(expected, list(map(list,items)))
         self.assertEqual(1, items[0]["a'a"])
 
     def test_escaped_double_quote_in_attribute_name(self):
@@ -398,7 +393,7 @@ class ArffReader_Tests(unittest.TestCase):
         expected = [ [1] ]
         items = list(ArffReader().filter(lines))
 
-        self.assertEqual(expected, items)
+        self.assertEqual(expected, list(map(list,items)))
         self.assertEqual(1, items[0]['a"a'])
 
     def test_tab_delimieted_attributes(self):
@@ -415,7 +410,7 @@ class ArffReader_Tests(unittest.TestCase):
             ['1','2',(1,0,0)],
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_capitalized_attribute_tag(self):
         lines = [
@@ -431,7 +426,7 @@ class ArffReader_Tests(unittest.TestCase):
             [1,'2',(1,0,0)],
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_capitalized_attribute_type(self):
         lines = [
@@ -446,7 +441,7 @@ class ArffReader_Tests(unittest.TestCase):
             [1,'a'],
         ]
 
-        self.assertEqual(expected, list(ArffReader().filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_bad_attribute_type_raises_exception(self):
         lines = [
@@ -491,7 +486,7 @@ class ArffReader_Tests(unittest.TestCase):
             [2,"0"]
         ]
 
-        self.assertEqual(expected, list(ArffReader(cat_as_str=True).filter(lines)))
+        self.assertEqual(expected, list(map(list,ArffReader(cat_as_str=True).filter(lines))))
 
     def test_too_many_dense_elements(self):
         lines = [
@@ -564,7 +559,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         items = list(ArffReader(cat_as_str=True).filter(lines))
 
-        self.assertEqual(expected, items)
+        self.assertEqual(expected, list(map(list,items)))
         self.assertEqual(1         , items[0]['A'])
         self.assertEqual("'classB'", items[0]['B'])
 
@@ -585,7 +580,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         items = list(ArffReader(cat_as_str=True).filter(lines))
 
-        self.assertEqual(expected, items)
+        self.assertEqual(expected, list(map(list,items)))
         self.assertEqual(1, items[0]['A  a'])
         self.assertEqual("class'B", items[0]['"'])
         self.assertEqual('"class_C"', items[0]["'"])
@@ -622,7 +617,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         items = list(ArffReader(cat_as_str=False).filter(lines))
 
-        self.assertEqual(expected, items)
+        self.assertEqual(expected, list(map(list,items)))
         self.assertEqual(1, items[0]['A  a'])
         self.assertEqual((0,1,0,0,0,0), items[0]['"'])
         self.assertEqual((0,0,1,0,0,0), items[0]["'"])
@@ -643,7 +638,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         items = list(ArffReader(cat_as_str=False).filter(lines))
 
-        self.assertEqual(expected, items)
+        self.assertEqual(expected, list(map(list,items)))
         self.assertEqual(1    , items[0]['value'])
         self.assertEqual((1,0), items[0]['class'])
 

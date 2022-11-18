@@ -199,64 +199,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual((0,1), labels[1])
         self.assertEqual((0,1), labels[2])
 
-    def test_skip_structure_openmlreader(self):
-
-        data = {
-            "data_set_description":{
-                "id":"42693",
-                "file_id":"22044555",
-                "status":"active",
-                "default_target_attribute":"play"
-            }
-        }
-
-        feat = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        arff = """
-            @relation weather
-
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {no, yes}
-
-            @data
-            ?,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
-
-        raw = list(OpenmlSource(data_id=42693, drop_missing=False, skip_structure=True).read())
-        
-        self.assertNotEqual(raw[0][0],raw[0][0])
-        
-        self.assertEqual([27, 1410, (1,0),(1,0)], list(raw[0])[1:])
-        self.assertEqual([8.2, 29, 1180, (1,0),(1,0)], raw[1])
-        
-        self.assertEqual(8.2, raw[2][0])
-        self.assertNotEqual(raw[2][1],raw[2][1])
-        self.assertEqual([1410, (1,0),(0,1)], list(raw[2])[2:])
-        
-        self.assertEqual([8.3, 27, 1020, (0,1),(0,1)], raw[3])
-        self.assertEqual([7.6, 23, 4700, (0,1),(0,1)], raw[4])
-
     def test_cat_as_str(self):
 
         data = {

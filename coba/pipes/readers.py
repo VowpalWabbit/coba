@@ -1,8 +1,8 @@
 import re
 import csv
 
-from collections import deque
-from itertools import islice, chain, count
+from collections import deque, defaultdict
+from itertools import islice, chain
 from typing import Iterable, Sequence, List, Union, Any, Pattern, Tuple, Dict
 from typing import MutableSequence, MutableMapping
 
@@ -10,7 +10,7 @@ from coba.exceptions import CobaException
 from coba.encodings import Encoder, OneHotEncoder
 
 from coba.pipes.core import Pipes
-from coba.pipes.rows import EncodeRow, IndexRow, DenseRow, SparseRow
+from coba.pipes.rows import Dense, Sparse, LazyDense, LazySparse, EncodeRows, HeadRows, MissingDense, MissingSparse
 from coba.pipes.primitives import Filter
 
 class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
@@ -26,17 +26,17 @@ class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
         self._dialect    = dialect
         self._has_header = has_header
 
-    def filter(self, items: Iterable[str]) -> Iterable[DenseRow]:
+    def filter(self, items: Iterable[str]) -> Iterable[Dense]:
 
         lines = iter(csv.reader(iter(filter(None,(i.strip() for i in items))), **self._dialect))
         first = next(lines)
 
         if self._has_header:
-            return IndexRow(dict(zip(first, count()))).filter(DenseRow(loaded=line) for line in lines)
+            return HeadRows(first).filter(lines)
         else:
-            return (DenseRow(loaded=line) for line in chain([first],lines))
+            return chain([first],lines)
 
-class ArffReader(Filter[Iterable[str], Iterable[Union[DenseRow,SparseRow]]]):
+class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
     """A filter capable of parsing ARFF formatted data.
 
     For a complete description of the ARFF format see `here`__.
@@ -66,9 +66,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[DenseRow,SparseRow]]]):
             if keys and (max(keys) >= self._max_key or min(keys) < 0):
                 raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
 
-            final = { **self._sparse_onehots, ** dict(zip(keys,vals)) }
-
-            return final
+            return defaultdict(int,{ **self._sparse_onehots, ** dict(zip(keys,vals)) })
 
     class DenseRowParser:
         def __init__(self, column_count:int) -> None:
@@ -138,7 +136,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[DenseRow,SparseRow]]]):
         self._cat_as_str    = cat_as_str
         self._missing_value = missing_value
 
-    def filter(self, source: Iterable[str]) -> Iterable[Union[DenseRow,SparseRow]]:
+    def filter(self, source: Iterable[str]) -> Iterable[Union[Dense,Sparse]]:
         headers  : List[str    ] = []
         encodings: List[Encoder] = []
 
@@ -169,23 +167,23 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[DenseRow,SparseRow]]]):
         if len(headers) != len(set(headers)):
             raise CobaException("Two columns in the ARFF file had identical header values.")
 
-        row_encoder = EncodeRow(encoders)
-        row_indexer = IndexRow(dict(zip(headers,count())))
+        row_encoder = EncodeRows(encoders)
+        row_indexer = HeadRows(headers)
 
         data = chain([first_data_line], lines)
         rows = self._dense_rows(data, encoders) if is_dense else self._sparse_rows(data, encoders)
 
         return Pipes.join(row_encoder, row_indexer).filter(rows)
 
-    def _dense_rows(self, lines: Iterable[str], encoders: Sequence[Encoder]) -> Iterable[DenseRow]:
+    def _dense_rows(self, lines: Iterable[str], encoders: Sequence[Encoder]) -> Iterable[Dense]:
 
         parser = ArffReader.DenseRowParser(len(encoders))
 
         for i,line in enumerate(lines):
-            
+
             line = line.strip()
             if not line or line[0] == "%": continue
-            
+
             if "?" not in line:
                 missing = False
             elif line[0:2] == "?,":
@@ -196,9 +194,9 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[DenseRow,SparseRow]]]):
                 compact = line.translate(str.maketrans('','', ' \t\n\r\v\f'))
                 missing = compact[0] in '?,' or compact.find(',?,') != -1 or compact.find(',,') != -1 or compact[-1] in '?,'
 
-            yield DenseRow(loader=lambda line=line,i=i:parser.parse(i,line), missing=missing)
+            yield MissingDense(LazyDense(lambda line=line,i=i:parser.parse(i,line)),missing)
 
-    def _sparse_rows(self, lines: Iterable[str], encoders: Sequence[Encoder]) -> Iterable[SparseRow]:
+    def _sparse_rows(self, lines: Iterable[str], encoders: Sequence[Encoder]) -> Iterable[Sparse]:
 
         #if there is a column excluded due to sparsity but it isn't actually 0 when encoded
         #we want to be sure to fill it in so we don't mistakenly assume that its value is 0.
@@ -206,12 +204,12 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[DenseRow,SparseRow]]]):
         parser  = ArffReader.SparseRowParser(len(encoders), onehots)
 
         for i,line in enumerate(lines):
-            
+
             line = line.strip()
             if not line or line[0] == "%": continue
-            
+
             missing = " ?," in line or line[-2:] == " ?"
-            yield SparseRow(loader=lambda line=line,i=i:parser.parse(i,line),missing=missing)
+            yield MissingSparse(LazySparse(lambda line=line,i=i:parser.parse(i,line)),missing)
 
     def _pattern_split(self, line: str, pattern: Pattern[str], n=None):
 
