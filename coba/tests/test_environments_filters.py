@@ -4,14 +4,13 @@ import unittest
 from collections import Counter
 from math import isnan
 
-from coba.utilities    import HashableDict
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments import L1Reward
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
-from coba.environments import Finalize
+from coba.environments import Finalize, HashableSeq, HashableMap
 
 class TestEnvironment:
 
@@ -1528,7 +1527,7 @@ class Finalize_Tests(unittest.TestCase):
         actual = list(Finalize().filter(interactions))
 
         self.assertEqual(len(actual),1)
-        self.assertIsInstance(actual[0].context, HashableDict)
+        self.assertIsInstance(actual[0].context, HashableMap)
         self.assertEqual(actual[0].actions, [(1,2),(3,4)])
 
     def test_logged(self):
@@ -1549,7 +1548,6 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0].context, (1,2,3))
         self.assertEqual(actual[0].actions, [(1,2),(3,4)])
-
 
 if __name__ == '__main__':
     unittest.main()

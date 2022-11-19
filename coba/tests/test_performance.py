@@ -9,9 +9,8 @@ import coba.pipes
 import coba.random
 
 from coba.learners import VowpalMediator, SafeLearner
-from coba.utilities import HashableDict
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, ScaleReward, L1Reward
-from coba.environments import Scale, Flatten, Grounded
+from coba.environments import Scale, Flatten, Grounded, HashableMap
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense
@@ -88,7 +87,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_hashable_dict_performance(self):
         items = list(enumerate(range(100)))
-        self._assert_scale_time(items, HashableDict, .007, False, number=1000)
+        self._assert_scale_time(items, HashableMap, .007, True, number=1000)
 
     def test_shuffle_performance(self):
         items = list(range(50))

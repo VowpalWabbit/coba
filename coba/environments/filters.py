@@ -14,10 +14,10 @@ from coba            import pipes
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
-from coba.utilities  import HashableDict, HashableList, peek_first
+from coba.utilities  import peek_first
 
 from coba.environments.primitives import Interaction, LoggedInteraction, SimulatedInteraction, GroundedInteraction 
-from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, EnvironmentFilter
+from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, EnvironmentFilter, HashableMap, HashableSeq
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""
@@ -199,7 +199,7 @@ class Scale(EnvironmentFilter):
                     scaled_context = dict(interaction.context)
                     for key in (scaled_context.keys() & shifts.keys()):
                         scaled_context[key] = (scaled_context[key]-shifts[key])*scales[key]
-                    final_context = HashableDict(scaled_context)
+                    final_context = HashableMap(scaled_context)
 
                 else:
                     if 0 in shifts:
@@ -831,7 +831,7 @@ class Finalize(EnvironmentFilter):
             return feats.to_builtin()
         except Exception:
             if isinstance(feats, abc.Sequence):
-                return HashableList(feats)
+                return HashableSeq(feats)
             if isinstance(feats, abc.Mapping):
-                return HashableDict(feats)
+                return HashableMap(feats)
             return feats

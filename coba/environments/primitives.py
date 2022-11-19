@@ -1,18 +1,67 @@
+import operator
+
 from collections import abc
 from numbers import Number
 from abc import abstractmethod, ABC
 from typing import Any, Union, Iterable, Sequence, Mapping, TypeVar, Iterator
 from coba.backports import Literal
 
-from coba.utilities import HashableDict
 from coba.pipes import Source, SourceFilters, Filter
 from coba.exceptions import CobaException
 
-Context   = Union[None, str, Number, tuple, HashableDict]
-Action    = Union[str, Number, tuple, HashableDict]
+Context   = Union[None, str, Number, 'HashableSeq', 'HashableMap']
+Action    = Union[str, Number, 'HashableSeq', 'HashableMap']
 Actions   = Sequence[Action]
 
 T = TypeVar('T')
+
+class HashableMap(Mapping):
+    def __init__(self, item: Mapping) -> None:
+        self._item = item
+
+    def __getitem__(self, key):
+        return self._item[key]
+
+    def __iter__(self):
+        return iter(self._item)
+
+    def __len__(self):
+        return len(self._item)
+
+    def _get_hash(self):
+        _hash = hash(tuple(self._item.items()))
+        self._hash = _hash
+        self._get_hash = lambda: _hash
+        return _hash
+
+    def __hash__(self) -> int:
+        return self._get_hash()
+
+class HashableSeq(Sequence):
+
+    def __init__(self, item: Mapping) -> None:
+        self._item = item
+
+    def __getitem__(self, index):
+        return self._item[index]
+
+    def __len__(self) -> int:
+        return len(self._item)
+
+    def __eq__(self, o: object) -> bool:
+        try:
+            return all(map(operator.eq, self._item, o))
+        except:
+            return False
+    
+    def _get_hash(self):
+        _hash = hash(tuple(self._item))
+        self._hash = _hash
+        self._get_hash = lambda:_hash
+        return _hash
+
+    def __hash__(self) -> int:
+        return self._get_hash()
 
 class Feedback(ABC):
     @abstractmethod

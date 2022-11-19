@@ -3,7 +3,7 @@ import unittest
 import unittest.mock
 
 from coba.exceptions import CobaExit, sans_tb_sys_except_hook
-from coba.utilities import PackageChecker, HashableDict, KeyDefaultDict, coba_exit
+from coba.utilities import PackageChecker, KeyDefaultDict, coba_exit
 
 class coba_exit_Tests(unittest.TestCase):
     def test_coba_exit(self):
@@ -65,23 +65,6 @@ class PackageChecker_with_package_Tests(unittest.TestCase):
 
     def test_check_sklearn_support(self):
         PackageChecker.sklearn("")
-
-class HashableDict_Tests(unittest.TestCase):
-
-    def test_hash(self):
-
-        hash_dict = HashableDict({'a':1,'b':2})
-
-        self.assertEqual(hash(hash_dict), hash(hash_dict))
-        self.assertEqual(hash_dict,hash_dict)
-
-    def test_mutable_fail(self):
-
-        hash_dict = HashableDict({'a':1,'b':2})
-        hash_dict["b"] = 3
-
-        with self.assertRaises(AssertionError):
-            hash(hash_dict)
 
 class KeyDefaultDict_Tests(unittest.TestCase):
 

@@ -104,26 +104,6 @@ class PackageChecker:
     def _handle_import_error(caller_name:str, pkg_name:str):
         coba_exit(f"ERROR: {caller_name} requires the {pkg_name} package. You can install this package via `pip install {pkg_name}`.")
 
-class HashableDict(dict):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self._hash = hash(tuple(self.items()))
-
-    def __hash__(self) -> int:
-        assert self._hash == hash(tuple(self.items()))
-        return self._hash
-
-class HashableList(tuple):
-    #we do this for __eq__
-    def __eq__(self, __o: object) -> bool:
-        try:
-            return super().__eq__(tuple(__o))
-        except:
-            return False
-    
-    def __hash__(self) -> int:
-        return super().__hash__()
-
 class KeyDefaultDict(defaultdict):
     def __missing__(self, key):
         if self.default_factory is None:

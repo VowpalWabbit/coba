@@ -1,6 +1,6 @@
 import unittest
 
-from coba.environments import SafeEnvironment
+from coba.environments import SafeEnvironment, HashableMap, HashableSeq
 from coba.environments import SimulatedInteraction, LoggedInteraction
 from coba.environments import L1Reward, HammingReward, ScaleReward, BinaryReward, SequenceReward
 from coba.environments import SequenceFeedback, MulticlassReward
@@ -11,6 +11,29 @@ class DummyEnvironment:
 
     def read(self):
         return []
+
+class HashableMap_Tests(unittest.TestCase):
+
+    def test_hash(self):
+        hash_dict = HashableMap({'a':1,'b':2})
+        self.assertEqual(hash(hash_dict), hash(hash_dict))
+        self.assertEqual(hash_dict,hash_dict)
+
+    def test_eq(self):
+        hash_dict = HashableMap({'a':1,'b':2})
+        self.assertEqual({'a':1,'b':2},hash_dict)
+
+class HashableSeq_Tests(unittest.TestCase):
+
+    def test_hash(self):
+        hash_seq = HashableSeq([1,2,3])
+        self.assertEqual(hash(hash_seq), hash(hash_seq))
+        self.assertEqual(hash_seq,hash_seq)
+
+    def test_eq(self):
+        hash_seq = HashableSeq([1,2,3])
+        self.assertEqual([1,2,3],hash_seq)
+        self.assertEqual((1,2,3),hash_seq)
 
 class SafeEnvironment_Tests(unittest.TestCase):
 
