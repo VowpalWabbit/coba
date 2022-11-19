@@ -2,7 +2,7 @@ import unittest
 
 
 from coba.pipes import Flatten, Encode, JsonEncode, Structure
-from coba.pipes import Drop, Take, Identity, Shuffle, Default, Reservoir, Cache
+from coba.pipes import DropRows, Take, Identity, Shuffle, Default, Reservoir, Cache
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.contexts import NullLogger, CobaContext
 
@@ -399,7 +399,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual(expected, list(map(list,Drop(drop_cols=[1]).filter(given))) )
+        self.assertEqual(expected, list(map(list,DropRows(drop_cols=[1]).filter(given))) )
 
     def test_dense_sans_header_drop_double_col(self):
 
@@ -412,7 +412,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(map(list,Drop(drop_cols=[1,2]).filter(given))) )
+        self.assertEqual( expected, list(map(list,DropRows(drop_cols=[1,2]).filter(given))) )
 
     def test_dense_with_header_drop_single_col(self):
 
@@ -425,7 +425,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [['a','b','c'], given_row0, given_row1]
         expected = [['a','c'], expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(map(list,Drop(drop_cols=[1]).filter(given))) )
+        self.assertEqual( expected, list(map(list,DropRows(drop_cols=[1]).filter(given))) )
 
     def test_dense_with_header_drop_double_col(self):
 
@@ -438,7 +438,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [['a','b','c'], given_row0, given_row1]
         expected = [['a'], expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(map(list,Drop(drop_cols=[1,2]).filter(given))) )
+        self.assertEqual( expected, list(map(list,DropRows(drop_cols=[1,2]).filter(given))) )
 
     def test_sparse_sans_header_drop_single_col(self):
 
@@ -451,7 +451,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(map(dict,Drop(drop_cols=[1]).filter(given))) )
+        self.assertEqual( expected, list(map(dict,DropRows(drop_cols=[1]).filter(given))) )
 
     def test_sparse_sans_header_drop_double_col(self):
 
@@ -464,7 +464,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(map(dict,Drop(drop_cols=[1,2]).filter(given))) )
+        self.assertEqual( expected, list(map(dict,DropRows(drop_cols=[1,2]).filter(given))) )
 
     def test_sparse_with_header_drop_single_col(self):
 
@@ -477,7 +477,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(map(dict,Drop(drop_cols=[1]).filter(given))) )
+        self.assertEqual( expected, list(map(dict,DropRows(drop_cols=[1]).filter(given))) )
 
     def test_sparse_with_header_drop_double_col(self):
 
@@ -490,7 +490,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(map(dict,Drop(drop_cols=[1,2]).filter(given))) )
+        self.assertEqual( expected, list(map(dict,DropRows(drop_cols=[1,2]).filter(given))) )
 
     def test_empty_drop(self):
 
@@ -503,7 +503,7 @@ class Drops_Tests(unittest.TestCase):
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
 
-        self.assertEqual( expected, list(map(list,Drop(drop_cols=[]).filter(given))) )
+        self.assertEqual( expected, list(map(list,DropRows(drop_cols=[]).filter(given))) )
 
 class Default_Tests(unittest.TestCase):
 

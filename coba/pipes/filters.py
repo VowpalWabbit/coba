@@ -3,7 +3,7 @@ import math
 import copy
 
 from collections import defaultdict, abc
-from itertools import islice, chain, filterfalse
+from itertools import islice, chain, filterfalse, compress
 from typing import Iterable, Any, Sequence, Mapping, Callable, Optional, Union
 
 from coba.random import CobaRandom
@@ -295,44 +295,6 @@ class Encode(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,M
                     val = item[k]
                     item[k] = encoders[k].encode(val) if val not in ['',self._missing_val] else val
             yield item
-
-class Drop(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
-    """A filter which drops rows and columns from in table shaped data."""
-
-    def __init__(self,
-        drop_cols: Sequence[Union[str,int]] = [],
-        drop_row: Callable[[Union[Sequence,Mapping]], bool] = None) -> None:
-        """Instantiate a Drop filter.
-
-        Args:
-            drop_cols: Feature names which should be dropped.
-            drop_row: A function that accepts a row and returns True if it should be dropped.
-        """
-
-        self._drop_cols = set(drop_cols)
-        self._drop_row  = drop_row
-
-    def filter(self, rows: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
-
-        drop_cols   = self._drop_cols
-        first, rows = peek_first(rows)
-
-        rows = rows if not self._drop_row else filterfalse(self._drop_row, rows)
-
-        if not drop_cols:
-            yield from rows
-        elif isinstance(first,Dense):
-            try:
-                headers,indexes = zip(*[I for I in enumerate(self.headers) if not any(i in drop_cols for i in I)])
-                headers_set = set(headers)
-            except:
-                headers, headers_set = None, None
-                indexes = [i for i in range(len(first)) if i not in drop_cols]
-                
-            yield from ( KeepDense(row, indexes, headers, headers_set) for row in rows)
-        else:
-            drop_set = set(drop_cols)
-            yield from ( DropSparse(row, drop_set) for row in rows)
 
 class Structure(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Any]]):
     """A filter which restructures rows in table shaped data."""

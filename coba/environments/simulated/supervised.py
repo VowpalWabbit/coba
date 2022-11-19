@@ -195,18 +195,19 @@ class SupervisedSimulation(SimulatedEnvironment):
         if not items: return []
 
         try:
-            features,labels = zip(*items)
-        except:
             features,labels = zip(*[ i.labeled for i in items])
+        except:
+            features,labels = zip(*items)
+            
 
-        self._label_type = self._label_type or ("R" if isinstance(labels[0], (int,float)) else "C")
-        self._params['label_type'] = self._label_type
+        label_type = self._label_type or ("R" if isinstance(labels[0], (int,float)) else "C")
+        self._params['label_type'] = label_type
 
-        if self._label_type == "R":
+        if label_type == "R":
             actions = []
             reward  = L1Reward
         else:
-            
+
             #how can we tell the difference between featurized labels and multilabels????
             #for now we will assume multilables will be passed in as arrays as opposed to tuples...
             multiclass = not isinstance(labels[0], list)

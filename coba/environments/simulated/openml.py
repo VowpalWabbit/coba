@@ -4,8 +4,8 @@ import json
 from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
 
 from coba.random import random
-from coba.pipes import Pipes, Source, HttpSource, Drop, ArffReader
-from coba.pipes import LabelRows, LazyDense, LazySparse, EncodeRows
+from coba.pipes import Pipes, Source, Dense, Sparse
+from coba.pipes import HttpSource, ArffReader, DropRows, LabelRows
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
 
@@ -50,7 +50,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         """Parameters describing the openml source."""
         return  { "openml_data": self._data_id, "openml_task": self._task_id, "openml_target": self._target, "cat_as_str": self._cat_as_str, "drop_missing": self._drop_missing }
 
-    def read(self) -> Iterable[Union[LazyDense,LazySparse]]:
+    def read(self) -> Iterable[Union[Dense,Sparse]]:
         """Read and parse the openml source."""
 
         try:
@@ -102,20 +102,18 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             if self._target in ignore: ignore.pop(ignore.index(self._target))
 
-            def str_if_num(v):
-                v = int(v) if isinstance(v,float) and v.is_integer() else v
-                return str(v) if isinstance(v,(int,float)) else v
+            def ensure_str(v):
+                return v if not isinstance(v,(int,float)) else str(v).replace(".0","")
+
+            label_encoder = ensure_str if task_type == 1 else None
 
             drop_row  = (lambda r: r.missing) if self._drop_missing else None
             lines     = self._get_arff_lines(data_descr["file_id"], None)
             reader    = ArffReader(cat_as_str=self._cat_as_str)
-            drop      = Drop(drop_cols=ignore, drop_row=drop_row)
-            label     = LabelRows(self._target)
-            label_enc = EncodeRows({self._target:str_if_num if task_type == 1 else lambda x:x})
+            drop      = DropRows(drop_cols=ignore, drop_row=drop_row)
+            label     = LabelRows(self._target, label_encoder)
 
-            #return Pipes.join(reader).filter(lines)
-
-            return Pipes.join(reader, drop, label_enc, label).filter(lines)
+            return Pipes.join(reader, drop, label).filter(lines)
 
         except KeyboardInterrupt:
             #we don't want to clear the cache in the case of a KeyboardInterrupt

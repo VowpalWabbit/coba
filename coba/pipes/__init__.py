@@ -9,10 +9,10 @@ in coba.pipes can help one understand how to best take advantage what Coba has t
 from coba.pipes.primitives import Filter, Source, Sink
 from coba.pipes.multiprocessing import Multiprocessor
 
-from coba.pipes.filters import Take, Shuffle, Drop, Structure, Identity, Flatten, Default, Reservoir
+from coba.pipes.filters import Take, Shuffle, Structure, Identity, Flatten, Default, Reservoir
 from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache
 
-from coba.pipes.rows    import LabelRows, EncodeRows, HeadRows
+from coba.pipes.rows    import LabelRows, EncodeRows, HeadRows, DropRows
 from coba.pipes.rows    import Dense, LazyDense, EncodeDense, LabelDense, KeepDense, HeadDense
 from coba.pipes.rows    import Sparse, LazySparse, EncodeSparse, LabelSparse, DropSparse
 from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
@@ -46,7 +46,6 @@ __all__ = [
     "Encode",
     "Flatten",
     "Default",
-    "Drop",
     "Structure",
     "Identity",
     "Take",
@@ -75,4 +74,5 @@ __all__ = [
     "LabelRows", 
     "EncodeRows", 
     "HeadRows",
+    "DropRows"
 ]

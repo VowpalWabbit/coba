@@ -111,7 +111,7 @@ class EncodeDense_Tests(unittest.TestCase):
 class KeepDense_Tests(unittest.TestCase):
 
     def test_get_by_index(self):
-        r = KeepDense([1,2,3], [0,2])
+        r = KeepDense([1,2,3], {0:0,1:2}, [True,False,True], 2)
         self.assertEqual(1,r[0])
         self.assertEqual(3,r[1])
 
@@ -119,7 +119,7 @@ class KeepDense_Tests(unittest.TestCase):
             r[2]
 
     def test_get_by_header(self):
-        r = KeepDense(HeadDense([1,2],{'a':0,'b':1}), [1], ['b'])
+        r = KeepDense(HeadDense([1,2],{'a':0, 'b':1}), {'b':1, 0:1}, [False, True], 1)
         self.assertEqual(2,r[0])
         self.assertEqual(2,r['b'])
         
@@ -129,32 +129,32 @@ class KeepDense_Tests(unittest.TestCase):
             r['a']
 
     def test_len(self):
-        r = KeepDense([1,2,3], [0,2])
+        r = KeepDense([1,2,3], [0,2], [True,False,True], 2)
         self.assertEqual(2,len(r))
     
     def test_iter(self):
-        r = KeepDense([1,2,3], [0,2])
+        r = KeepDense([1,2,3], [0,2], [True,False,True], 2)
         self.assertEqual([1,3],list(r))
 
 class LabelDense_Tests(unittest.TestCase):
 
     def test_get(self):
-        r = LabelDense([1,2,3],2)
+        r = LabelDense([1,2,3], (2,), None)
         self.assertEqual(1, r[0])
         self.assertEqual(2, r[1])
         self.assertEqual(3, r[2])
 
     def test_feats_and_label(self):
-        r = LabelDense([1,2,3],2)
+        r = LabelDense([1,2,3], (2,), None)
         self.assertEqual(3,r.labeled[1])
         self.assertEqual([1,2],list(r.labeled[0]))
 
     def test_iter(self):
-        r = LabelDense([1,2,3],2)
+        r = LabelDense([1,2,3],  (2,), None)
         self.assertEqual([1,2,3], list(r))
 
     def test_len(self):
-        r = LabelDense([1,2,3],2)
+        r = LabelDense([1,2,3], (2,), None)
         self.assertEqual(3,len(r))
 
 class LazySparse_Tests(unittest.TestCase):

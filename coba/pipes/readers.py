@@ -1,7 +1,7 @@
 import re
 import csv
 
-from collections import deque, defaultdict
+from collections import deque
 from itertools import islice, chain
 from typing import Iterable, Sequence, List, Union, Any, Pattern, Tuple, Dict
 from typing import MutableSequence, MutableMapping
@@ -10,7 +10,7 @@ from coba.exceptions import CobaException
 from coba.encodings import Encoder, OneHotEncoder
 
 from coba.pipes.core import Pipes
-from coba.pipes.rows import Dense, Sparse, LazyDense, LazySparse, EncodeRows, HeadRows, MissingDense, MissingSparse
+from coba.pipes.rows import Dense, Sparse, LazyDense, LazySparse, EncodeRows, HeadRows
 from coba.pipes.primitives import Filter
 
 class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
@@ -66,7 +66,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
             if keys and (max(keys) >= self._max_key or min(keys) < 0):
                 raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
 
-            return defaultdict(int,{ **self._sparse_onehots, ** dict(zip(keys,vals)) })
+            return { **self._sparse_onehots, ** dict(zip(keys,vals)) }
 
     class DenseRowParser:
         def __init__(self, column_count:int) -> None:
@@ -194,7 +194,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
                 compact = line.translate(str.maketrans('','', ' \t\n\r\v\f'))
                 missing = compact[0] in '?,' or compact.find(',?,') != -1 or compact.find(',,') != -1 or compact[-1] in '?,'
 
-            yield MissingDense(LazyDense(lambda line=line,i=i:parser.parse(i,line)),missing)
+            yield LazyDense(lambda line=line,i=i:parser.parse(i,line), missing)
 
     def _sparse_rows(self, lines: Iterable[str], encoders: Sequence[Encoder]) -> Iterable[Sparse]:
 
@@ -209,7 +209,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
             if not line or line[0] == "%": continue
 
             missing = " ?," in line or line[-2:] == " ?"
-            yield MissingSparse(LazySparse(lambda line=line,i=i:parser.parse(i,line)),missing)
+            yield LazySparse(lambda line=line,i=i:parser.parse(i,line),missing)
 
     def _pattern_split(self, line: str, pattern: Pattern[str], n=None):
 
