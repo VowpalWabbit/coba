@@ -37,9 +37,6 @@ class HeadDense(Dense):
         self._head_map = head_map or dict(zip(head_seq, count()))
         self.headers   = head_seq
 
-    def _row_index(self, key:Union[int,str]) -> int:
-        return 
-
     def __getitem__(self, key: Union[str,int]):
         return self._row[key if key.__class__ is int else self._head_map[key]]
 
@@ -57,11 +54,8 @@ class EncodeDense(Dense):
         self._encoders = encoders
 
     def __getitem__(self, key: Union[int,str]):
-        val = self._row[key]
-        try:
-            return self._encoders[key](val)
-        except KeyError:
-            return val
+        enc = self._encoders[key]
+        return enc(self._row[key]) if enc else self._row[key]
 
     def __iter__(self) -> Iterator:
         return iter( e(v) if e else v for e,v in zip(self._encoders, self._row))
@@ -99,7 +93,12 @@ class LabelDense(Dense):
         return self._row[key]            
 
     def __iter__(self) -> Iterator:
-        return iter(self._row)
+        enc = self._lbl_enc
+        if not enc:
+            return iter(self._row)
+        else:
+            key = self._lbl_keys[0]
+            return iter(v if i!= key else enc(v) for i,v in enumerate(self._row))
 
     def __len__(self) -> int:
         return len(self._row)
@@ -139,17 +138,18 @@ class LazySparse(Sparse):
     def keys(self) -> abc.KeysView:
         return self._load_or_get().keys()
 
-    def items(self) -> Iterable:
-        return self._load_or_get().items()
+    def items(self) -> Sequence:
+        return tuple(self._load_or_get().items())
 
 class HeadSparse(Sparse):
 
-    def __init__(self, row: Sparse, head_map: Mapping[str,str]) -> None:
-        self._row      = row
-        self._head_map = head_map
+    def __init__(self, row: Sparse, head_map_fwd: Mapping[str,str], head_map_inv: Mapping[str,str]) -> None:
+        self._row          = row
+        self._head_map_fwd = head_map_fwd
+        self._head_map_inv = head_map_inv
 
     def __getitem__(self, key: Union[str,int]):
-        return self._row[self._head_map[key]]
+        return self._row[self._head_map_fwd[key]]
 
     def __iter__(self) -> Iterator:
         return iter(self.keys())
@@ -158,13 +158,12 @@ class HeadSparse(Sparse):
         return len(self._row)
 
     def keys(self) -> abc.KeysView:
-        row_keys = self._row.keys()
-        return set(k1 for k1,k2 in self._head_map.items() if k2 in row_keys)
+        head_map_inv_get = self._head_map_inv.__getitem__ 
+        return set(map(head_map_inv_get, self._row.keys()))
 
-    def items(self) -> Iterable:
-        row = self._row
-        row_keys = self._row.keys()
-        yield from ((k1,row[k2]) for k1,k2 in self._head_map.items() if k2 in row_keys)
+    def items(self) -> Sequence:
+        head_map_inv_get = self._head_map_inv.__getitem__ 
+        return tuple((head_map_inv_get(k),v) for k,v in self._row.items())
 
 class EncodeSparse(Sparse):
 
@@ -184,9 +183,9 @@ class EncodeSparse(Sparse):
     def keys(self) -> abc.KeysView:
         return self._row.keys()
 
-    def items(self) -> Iterable:
+    def items(self) -> Sequence:
         enc = self._encoders
-        yield from ((k, enc[k](v) if k in enc else v ) for k,v in self._row.items())
+        return tuple((k, enc[k](v) if k in enc else v ) for k,v in self._row.items())
 
 class DropSparse(Sparse):
 
@@ -203,7 +202,7 @@ class DropSparse(Sparse):
         return self._row[self._key_check(key)]
 
     def __iter__(self) -> Iterator:
-        return iter(self._select_set)
+        return iter(self._row.keys()-self._drop_set)
 
     def __len__(self) -> int:
         return len(self.keys())
@@ -211,7 +210,7 @@ class DropSparse(Sparse):
     def keys(self) -> abc.KeysView:
         return self._row.keys() - self._drop_set
 
-    def items(self) -> Iterable:
+    def items(self) -> Sequence:
         drop = self._drop_set
         yield from (item for item in self._row.items() if item[0] not in drop) 
 
@@ -222,22 +221,42 @@ class LabelSparse(Sparse):
         self._lbl_key = label
         self._lbl_enc = encoder
 
+        lbl_key_set = {label}
+        self._keys = lambda: self._row.keys() | lbl_key_set
+
     def __getitem__(self, key: str):
-        if self._lbl_enc and key == self._lbl_key:
-            return self._lbl_enc(self._row[key])
-        return self._row[key]  
+        if key != self._lbl_key:
+            return self._row[key]
+        else:
+            enc = self._lbl_enc
+            try:
+                val = self._row[key]
+            except KeyError:
+                val = 0
+            return val if not enc else enc(val)
 
     def __iter__(self) -> Iterator:
-        return iter(self._row)
+        return iter(self._keys())
 
     def __len__(self) -> int:
-        return len(self._row)
+        return len(self._keys())
 
     def keys(self) -> abc.KeysView:
-        return self._row.keys()
+        return self._keys()
 
-    def items(self) -> Iterable:
-        yield self._row.items()
+    def items(self) -> Sequence:
+        enc  = self._lbl_enc
+        key  = self._lbl_key
+        if key in self._row.keys():
+            if not enc:
+                return tuple(self._row.items())
+            else:
+                return tuple(kv if kv[0]!=key else (kv[0],enc(kv[1])) for kv in self._row.items())
+        else:
+            if not enc:
+                return tuple(self._row.items()) + ((key,0),)
+            else:
+                return tuple(self._row.items()) + ((key,enc(0)),)
 
     @property
     def labeled(self)-> Tuple[Dense,Any]:
@@ -254,18 +273,19 @@ class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Spars
         self._encoders = encoders
 
     def filter(self, rows: Iterable[Union[Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
-        encoders = self._encoders
+        encs = self._encoders
         first, rows = peek_first(rows)
 
         if first and isinstance(first,Dense):
-            if isinstance(encoders,abc.Mapping):
-                if isinstance(list(encoders.keys())[0],str):
-                    encoders = [ encoders.get(h) for h in first.headers ]
+            if isinstance(encs,abc.Mapping):
+                if isinstance(list(encs.keys())[0],str):
+                    encs = [ encs.get(h) for h in first.headers ]
                 else:
-                    encoders = [ encoders.get(h) for h in range(len(first)) ]
-            yield from (EncodeDense(row, encoders) for row in rows)
+                    encs = [ encs.get(h) for h in range(len(first)) ]
+            yield from (EncodeDense(row, encs) for row in rows)
         else:
-            yield from (EncodeSparse(row, encoders) for row in rows)
+            if isinstance(encs, abc.Sequence): encs = dict(enumerate(encs))
+            yield from (EncodeSparse(row, encs) for row in rows)
 
 class HeadRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
 
@@ -285,8 +305,9 @@ class HeadRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]
             mapping  = self._mapping
             yield from (HeadDense(row, sequence, mapping) for row in rows)
         else:
-            mapping  = self._mapping
-            yield from (HeadSparse(row, mapping) for row in rows)
+            mapping     = self._mapping
+            mapping_inv = dict((v,k) for k,v in self._mapping.items()) 
+            yield from (HeadSparse(row, mapping, mapping_inv) for row in rows)
 
 class LabelRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
 

@@ -1,3 +1,4 @@
+from operator import eq
 from abc import ABC, abstractmethod
 from collections import abc
 from typing import Any, TypeVar, Generic, Mapping, Iterable, Iterator
@@ -56,6 +57,12 @@ class Dense(ABC):
     def __getattr__(self, attr: str) -> Any:
         return getattr(self._row, attr)
 
+    def __eq__(self, o) -> bool:
+        try:
+            return len(self) == len(o) and all(map(eq, self, o))
+        except:
+            return False
+
 class Sparse(ABC):
 
     @abstractmethod
@@ -80,6 +87,12 @@ class Sparse(ABC):
 
     def __getattr__(self, attr: str) -> Any:
         return getattr(self._row, attr)
+
+    def __eq__(self, o: object) -> bool:
+        try:
+            return set(self.items()) == set(o.items())
+        except:
+            return False
 
 Sparse.register(abc.Mapping)
 Dense.register(abc.Sequence)

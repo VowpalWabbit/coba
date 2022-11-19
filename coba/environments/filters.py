@@ -827,11 +827,8 @@ class Finalize(EnvironmentFilter):
             yield interaction
 
     def _make_hashable(self, feats):
-        try:
-            return feats.to_builtin()
-        except Exception:
-            if isinstance(feats, abc.Sequence):
-                return HashableSeq(feats)
-            if isinstance(feats, abc.Mapping):
-                return HashableMap(feats)
-            return feats
+        if isinstance(feats, abc.Sequence):
+            return HashableSeq(feats)
+        if isinstance(feats, abc.Mapping):
+            return HashableMap(feats)
+        return feats

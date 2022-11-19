@@ -2,7 +2,7 @@ import unittest
 
 
 from coba.pipes import Flatten, Encode, JsonEncode, Structure
-from coba.pipes import DropRows, Take, Identity, Shuffle, Default, Reservoir, Cache
+from coba.pipes import Take, Identity, Shuffle, Default, Reservoir, Cache
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.contexts import NullLogger, CobaContext
 
@@ -385,125 +385,6 @@ class Structure_Tests(unittest.TestCase):
         expected = [expected_row0, expected_row1]
 
         self.assertEqual( expected, list(Structure([None, 2]).filter(given)) )
-
-class Drops_Tests(unittest.TestCase):
-
-    def test_dense_sans_header_drop_single_col(self):
-
-        given_row0 = [1,2,3]
-        given_row1 = [4,5,6]
-
-        expected_row0 = [ 1, 3 ]
-        expected_row1 = [ 4, 6 ]
-
-        given    = [given_row0, given_row1]
-        expected = [expected_row0, expected_row1]
-
-        self.assertEqual(expected, list(map(list,DropRows(drop_cols=[1]).filter(given))) )
-
-    def test_dense_sans_header_drop_double_col(self):
-
-        given_row0 = [1,2,3]
-        given_row1 = [4,5,6]
-
-        expected_row0 = [ 1 ]
-        expected_row1 = [ 4 ]
-
-        given    = [given_row0, given_row1]
-        expected = [expected_row0, expected_row1]
-
-        self.assertEqual( expected, list(map(list,DropRows(drop_cols=[1,2]).filter(given))) )
-
-    def test_dense_with_header_drop_single_col(self):
-
-        given_row0 = [1,2,3]
-        given_row1 = [4,5,6]
-
-        expected_row0 = [ 1, 3 ]
-        expected_row1 = [ 4, 6 ]
-
-        given    = [['a','b','c'], given_row0, given_row1]
-        expected = [['a','c'], expected_row0, expected_row1]
-
-        self.assertEqual( expected, list(map(list,DropRows(drop_cols=[1]).filter(given))) )
-
-    def test_dense_with_header_drop_double_col(self):
-
-        given_row0 = [1,2,3]
-        given_row1 = [4,5,6]
-
-        expected_row0 = [ 1 ]
-        expected_row1 = [ 4 ]
-
-        given    = [['a','b','c'], given_row0, given_row1]
-        expected = [['a'], expected_row0, expected_row1]
-
-        self.assertEqual( expected, list(map(list,DropRows(drop_cols=[1,2]).filter(given))) )
-
-    def test_sparse_sans_header_drop_single_col(self):
-
-        given_row0 = {0:1,1:2,2:3}
-        given_row1 = {0:4,1:5,2:6}
-
-        expected_row0 = { 0:1, 2:3 }
-        expected_row1 = { 0:4, 2:6 }
-
-        given    = [given_row0, given_row1]
-        expected = [expected_row0, expected_row1]
-
-        self.assertEqual( expected, list(map(dict,DropRows(drop_cols=[1]).filter(given))) )
-
-    def test_sparse_sans_header_drop_double_col(self):
-
-        given_row0 = {0:1,1:2,2:3}
-        given_row1 = {0:4,1:5,2:6}
-
-        expected_row0 = { 0:1 }
-        expected_row1 = { 0:4 }
-
-        given    = [given_row0, given_row1]
-        expected = [expected_row0, expected_row1]
-
-        self.assertEqual( expected, list(map(dict,DropRows(drop_cols=[1,2]).filter(given))) )
-
-    def test_sparse_with_header_drop_single_col(self):
-
-        given_row0 = {0:1,1:2,2:3}
-        given_row1 = {0:4,1:5,2:6}
-
-        expected_row0 = { 0:1, 2:3 }
-        expected_row1 = { 0:4, 2:6 }
-
-        given    = [given_row0, given_row1]
-        expected = [expected_row0, expected_row1]
-
-        self.assertEqual( expected, list(map(dict,DropRows(drop_cols=[1]).filter(given))) )
-
-    def test_sparse_with_header_drop_double_col(self):
-
-        given_row0 = {0:1,1:2,2:3}
-        given_row1 = {0:4,1:5,2:6}
-
-        expected_row0 = { 0:1 }
-        expected_row1 = { 0:4 }
-
-        given    = [given_row0, given_row1]
-        expected = [expected_row0, expected_row1]
-
-        self.assertEqual( expected, list(map(dict,DropRows(drop_cols=[1,2]).filter(given))) )
-
-    def test_empty_drop(self):
-
-        given_row0 = [1,2,3]
-        given_row1 = [4,5,6]
-
-        expected_row0 = given_row0
-        expected_row1 = given_row1
-
-        given    = [given_row0, given_row1]
-        expected = [expected_row0, expected_row1]
-
-        self.assertEqual( expected, list(map(list,DropRows(drop_cols=[]).filter(given))) )
 
 class Default_Tests(unittest.TestCase):
 

@@ -1,5 +1,4 @@
-import operator
-
+from operator import eq
 from collections import abc
 from numbers import Number
 from abc import abstractmethod, ABC
@@ -50,7 +49,7 @@ class HashableSeq(Sequence):
 
     def __eq__(self, o: object) -> bool:
         try:
-            return all(map(operator.eq, self._item, o))
+            return len(self._item) == len(o) and all(map(eq, self._item, o))
         except:
             return False
     

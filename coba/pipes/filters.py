@@ -323,7 +323,13 @@ class Structure(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Any]]):
                 self._structure.insert(0,item)
 
     def filter(self, data: Iterable[Union[Sequence,Mapping]]) -> Iterable[Any]:
+        first, data = peek_first(data)
+        is_dense = isinstance(first, Dense)
+
         for row in data:
+
+            row = list(row) if is_dense else dict(row.items())
+
             stack   = []
             working = []
             for item in self._structure:
