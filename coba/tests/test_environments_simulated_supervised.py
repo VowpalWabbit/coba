@@ -182,7 +182,7 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         features = [(8.1,27,1410,(0,1)), (8.2,29,1180,(0,1)), (8.3,27,1020,(1,0))]
         labels   = [[1,2,3,4],[1,2],[1]]
 
-        interactions = list(SupervisedSimulation(features, labels).read())
+        interactions = list(SupervisedSimulation(features, labels, "M").read())
 
         self.assertEqual(len(interactions), 3)
 

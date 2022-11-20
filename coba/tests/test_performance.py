@@ -13,7 +13,7 @@ from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, S
 from coba.environments import Scale, Flatten, Grounded, HashableMap
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
-from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense
+from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense
 from coba.experiments.results import Result, moving_average
 from coba.experiments import SimpleEvaluation
 
@@ -152,7 +152,7 @@ class Performance_Tests(unittest.TestCase):
 
         shared   = { 'a': list(range(100))}
         separate = [{ 'x': list(range(25)) }, { 'x': list(range(25)) }]
-        self._assert_call_time(lambda:vw.make_examples(shared, separate, None), .06, print_time, number=1000)
+        self._assert_call_time(lambda:vw.make_examples(shared, separate, None), .1, print_time, number=1000)
 
     def test_reservoir_performance(self):
         res = Reservoir(2,seed=1)
@@ -238,6 +238,17 @@ class Performance_Tests(unittest.TestCase):
     def test_dense_row_drop(self):
         r1 = KeepDense(['1']*100,dict(enumerate(range(99))), [True]*99+[False], 99)
         self._assert_call_time(lambda:r1[3], .0008, print_time, number=1000)
+
+    def test_dense_label_row(self):
+        vals = ['1']*100
+        encs = [int]*100
+
+        r1 = LabelDense(EncodeDense(vals,encs),50,'c', EncodeDense(vals,encs))
+        self._assert_call_time(lambda:r1.labeled, .005, print_time, number=1000)
+
+    def test_dense_label_init(self):
+        row, key, feats = list(range(1000)), (100,), []
+        self._assert_call_time(lambda:LabelDense(row, key, feats, None), .0006, print_time, number=1000)
 
     def test_dense_row_to_builtin(self):
         r = LazyDense(['1']*100)

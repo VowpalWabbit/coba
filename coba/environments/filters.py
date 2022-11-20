@@ -84,9 +84,9 @@ class Scale(EnvironmentFilter):
         scales  : Dict[Hashable,float]     = defaultdict(lambda:1)
         unscaled: Dict[Hashable,List[Any]] = defaultdict(list)
 
-        if isinstance(fitting_interactions[0].context, abc.Sequence):
+        if isinstance(fitting_interactions[0].context, pipes.Dense):
             context_type = 0
-        elif isinstance(fitting_interactions[0].context, abc.Mapping):
+        elif isinstance(fitting_interactions[0].context, pipes.Sparse):
             context_type = 1
         else:
             context_type = 2
@@ -101,19 +101,14 @@ class Scale(EnvironmentFilter):
 
         #start = time.time()
         for interaction in fitting_interactions:
-
             if self._target == "features":
-
                 for key,value in self._kv_pairs(context_type,interaction.context):
-                    numeric = isinstance(value,(int,float))
-                    is_nan  = numeric and isnan(value)
+                    numeric = isinstance(value,(float,int))
 
                     if key in unscaled:
-                        if is_nan: 
-                            continue
-                        if numeric: 
+                        if numeric and not isnan(value): 
                             unscaled[key].append(value)
-                        if not numeric: 
+                        elif not numeric:
                             del unscaled[key]
                             mixed_types.add(key)
                             not_numeric.add(key)
@@ -121,8 +116,8 @@ class Scale(EnvironmentFilter):
                         if numeric: 
                             if key in not_numeric:
                                 mixed_types.add(key)
-                            elif is_nan:
-                                unscaled[key]
+                            elif isnan(value):
+                                unscaled[key] = []
                             else: 
                                 unscaled[key].append(value)
                         else:
@@ -297,9 +292,9 @@ class Impute(EnvironmentFilter):
 
             if interaction.context is None:
                 final_context = None
-            elif isinstance(interaction.context,dict):
+            elif isinstance(interaction.context,pipes.Sparse):
                 final_context = kv_imputed_context
-            elif isinstance(interaction.context,tuple):
+            elif isinstance(interaction.context,pipes.Dense):
                 final_context = tuple(kv_imputed_context[k] for k,_ in self._context_as_name_values(interaction.context))
             else:
                 final_context = kv_imputed_context[1]
@@ -681,11 +676,11 @@ class Noise(EnvironmentFilter):
 
     def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
 
-        if isinstance(value, abc.Mapping):
+        if isinstance(value, pipes.Sparse):
             #we sort so that noise generation is deterministic with respect to seed
             return { k:self._noise(v, rng, noiser) for k,v in sorted(value.items()) }
 
-        if isinstance(value, abc.Sequence) and not isinstance(value, str):
+        if isinstance(value, pipes.Dense):
             return [ self._noise(v, rng, noiser) for v in value ]
 
         return self._noise(value, rng, noiser)
@@ -766,9 +761,9 @@ class Grounded(EnvironmentFilter):
         if first:
             binary_rewards = not (set(first.rewards)-{0,1})
 
-            if isinstance(first.context,abc.Mapping):
+            if isinstance(first.context,pipes.Sparse):
                 context_type = 0
-            elif isinstance(first.context,abc.Sequence) and not isinstance(first.context,str):
+            elif isinstance(first.context,pipes.Dense):
                 context_type = 1
             else:
                 context_type = 2
@@ -827,8 +822,8 @@ class Finalize(EnvironmentFilter):
             yield interaction
 
     def _make_hashable(self, feats):
-        if isinstance(feats, abc.Sequence):
+        if isinstance(feats, pipes.Dense):
             return HashableSeq(feats)
-        if isinstance(feats, abc.Mapping):
+        if isinstance(feats, pipes.Sparse):
             return HashableMap(feats)
         return feats

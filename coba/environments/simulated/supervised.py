@@ -132,7 +132,7 @@ class SupervisedSimulation(SimulatedEnvironment):
     def __init__(self,
         source: Source = None,
         label_col: Union[int,str] = None,
-        label_type: Literal["C","R"] = None,
+        label_type: Literal["C","R","M"] = None,
         take: int = None) -> None:
         """Instantiate a SupervisedSimulation.
 
@@ -151,7 +151,7 @@ class SupervisedSimulation(SimulatedEnvironment):
     def __init__(self,
         X: Sequence[Any],
         Y: Sequence[Any],
-        label_type: Literal["C","R"] = None) -> None:
+        label_type: Literal["C","R","M"] = None) -> None:
         """Instantiate a SupervisedSimulation.
 
         Args:
@@ -170,7 +170,7 @@ class SupervisedSimulation(SimulatedEnvironment):
             label_type = args[2] if len(args) > 2 else kwargs.get("label_type", None)
             take       = args[3] if len(args) > 3 else kwargs.get("take", None)
             if take      is not None: source = Pipes.join(source, Reservoir(take))
-            if label_col is not None: source = Pipes.join(source, LabelRows(label_col))
+            if label_col is not None: source = Pipes.join(source, LabelRows(label_col,label_type))
             params = source.params
 
         else:
@@ -191,29 +191,33 @@ class SupervisedSimulation(SimulatedEnvironment):
     def read(self) -> Iterable[SimulatedInteraction]:
 
         items = list(self._source.read())
+        tipes = None
 
         if not items: return []
 
         try:
-            features,labels = zip(*[ i.labeled for i in items])
+            features,labels,tipes = zip(*[i.labeled for i in items])
         except:
             features,labels = zip(*items)
-            
 
-        label_type = self._label_type or ("R" if isinstance(labels[0], (int,float)) else "C")
-        self._params['label_type'] = label_type
+        if not tipes or tipes[0] is None:
+            label_type = self._label_type or ("R" if isinstance(labels[0], (int,float)) else "C")
+        else:
+            label_type = self._label_type or tipes[0]
 
-        if label_type == "R":
+        label_type = label_type.lower()
+        self._params['label_type'] = label_type.upper()
+
+        if label_type == "r":
             actions = []
             reward  = L1Reward
+        elif label_type == "m":
+            actions  = list(chain(*labels))
+            actions = sorted(set(actions),reverse=isinstance(actions[0],tuple))
+            reward  = HammingReward
         else:
-
-            #how can we tell the difference between featurized labels and multilabels????
-            #for now we will assume multilables will be passed in as arrays as opposed to tuples...
-            multiclass = not isinstance(labels[0], list)
-            actions    = labels if multiclass else list(chain(*labels))
-            actions    = sorted(set(actions),reverse=isinstance(actions[0],tuple))
-            reward     = partial(MulticlassReward,actions) if multiclass else HammingReward
+            actions = sorted(set(labels),reverse=isinstance(labels[0],tuple))
+            reward  = partial(MulticlassReward,actions)
 
         contexts = features
         rewards  = map(reward,labels)

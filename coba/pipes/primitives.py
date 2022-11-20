@@ -41,7 +41,7 @@ class Sink(ABC, Pipe, Generic[_T_in]):
         ...
 
 class Dense(ABC):
-
+    __slots__ = ()
     @abstractmethod
     def __getitem__(self, key) -> Any:
         ...
@@ -95,4 +95,5 @@ class Sparse(ABC):
             return False
 
 Sparse.register(abc.Mapping)
-Dense.register(abc.Sequence)
+Dense.register(list)
+Dense.register(tuple)

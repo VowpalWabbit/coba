@@ -47,44 +47,39 @@ class HeadRows_Tests(unittest.TestCase):
 class LabelRows_Tests(unittest.TestCase):
     
     def test_lazy_dense(self):
-        row = next(LabelRows(1).filter([LazyDense([1,2,3])]))
+        row = next(LabelRows(1,'c').filter([LazyDense([1,2,3])]))
         self.assertEqual([1,2,3],row)
-        self.assertEqual(([1,3],2),row.labeled)
+        self.assertEqual(([1,3],2,'c'),row.labeled)
 
     def test_head_dense_str(self):
-        row = next(LabelRows('b').filter([HeadDense([1,2,3],['a','b','c'])]))
+        row = next(LabelRows('b','c').filter([HeadDense([1,2,3],['a','b','c'])]))
         self.assertEqual([1,2,3],row)
-        self.assertEqual(([1,3],2),row.labeled)
+        self.assertEqual(([1,3],2,'c'),row.labeled)
 
     def test_head_dense_int(self):
-        row = next(LabelRows(1).filter([HeadDense([1,2,3],['a','b','c'])]))
+        row = next(LabelRows(1,'c').filter([HeadDense([1,2,3],['a','b','c'])]))
         self.assertEqual([1,2,3],row)
-        self.assertEqual(([1,3],2),row.labeled)
+        self.assertEqual(([1,3],2,'c'),row.labeled)
 
-    def test_list_sans_encode(self):
-        row = next(LabelRows(1).filter([[1,2,3]]))
+    def test_list(self):
+        row = next(LabelRows(1,'c').filter([[1,2,3]]))
         self.assertEqual([1,2,3],row)
-        self.assertEqual(([1,3],2),row.labeled)
-
-    def test_list_with_encode(self):
-        row = next(LabelRows(1,str).filter([[1,2,3]]))
-        self.assertEqual([1,'2',3],row)
-        self.assertEqual(([1,3],'2'),row.labeled)
+        self.assertEqual(([1,3],2,'c'),row.labeled)
 
     def test_lazy_sparse(self):
-        row = next(LabelRows('b').filter([LazySparse({'a':1,'b':2,})]))
+        row = next(LabelRows('b','c').filter([LazySparse({'a':1,'b':2,})]))
         self.assertEqual({'a':1,'b':2},row)
-        self.assertEqual(({'a':1},2),row.labeled)
+        self.assertEqual(({'a':1},2,'c'),row.labeled)
 
     def test_dict_sans_encode(self):
-        row = next(LabelRows('b').filter([{'a':1,'b':2,}]))
+        row = next(LabelRows('b','c').filter([{'a':1,'b':2,}]))
         self.assertEqual({'a':1,'b':2},row)
-        self.assertEqual(({'a':1},2),row.labeled)
+        self.assertEqual(({'a':1},2,'c'),row.labeled)
     
     def test_dict_with_encode(self):
-        row = next(LabelRows('b').filter([{'a':1,'b':2}]))
+        row = next(LabelRows('b','c').filter([{'a':1,'b':2}]))
         self.assertEqual({'a':1,'b':2},row)
-        self.assertEqual(({'a':1},2),row.labeled)
+        self.assertEqual(({'a':1},2,'c'),row.labeled)
 
 class DropRows_Tests(unittest.TestCase):
 
@@ -316,7 +311,7 @@ class KeepDense_Tests(unittest.TestCase):
 class LabelDense_Tests(unittest.TestCase):
 
     def test_header(self):
-        r = LabelDense(HeadDense([1,2,3],['a','b','c']), (2,'c'), None) 
+        r = LabelDense(HeadDense([1,2,3],['a','b','c']), (2,'c'), None, [1,3]) 
         self.assertEqual(1, r[0])
         self.assertEqual(2, r[1])
         self.assertEqual(3, r[2])
@@ -325,39 +320,39 @@ class LabelDense_Tests(unittest.TestCase):
         self.assertEqual(3, r['c'])
 
     def test_get_sans_encode(self):
-        r = LabelDense([1,2,3], (2,), None)
+        r = LabelDense([1,2,3], (2,), None, [1,3])
         self.assertEqual(1, r[0])
         self.assertEqual(2, r[1])
         self.assertEqual(3, r[2])
 
     def test_get_with_encode(self):
-        r = LabelDense([1,2,3], (2,), str)
+        r = LabelDense([1,2,3], 2, 'c', [1,3])
         self.assertEqual(1, r[0])
         self.assertEqual(2, r[1])
-        self.assertEqual('3', r[2])
+        self.assertEqual(3, r[2])
 
     def test_feats_and_label_sans_encode(self):
-        r = LabelDense([1,2,3], (2,), None)
-        self.assertEqual(([1,2],3),r.labeled)
+        r = LabelDense([1,2,3], 2, 'c', [1,2])
+        self.assertEqual(([1,2],3,'c'),r.labeled)
 
     def test_feats_and_label_with_encode(self):
-        r = LabelDense([1,2,3], (2,), str)
-        self.assertEqual(([1,2],'3'),r.labeled)
+        r = LabelDense([1,2,3], 2, 'c', [1,2])
+        self.assertEqual(([1,2],3,'c'),r.labeled)
 
     def test_iter_sans_encode(self):
-        r = LabelDense([1,2,3],  (2,), None)
+        r = LabelDense([1,2,3],  (2,), None, [1,2])
         self.assertEqual([1,2,3], list(r))
 
     def test_iter_with_encode(self):
-        r = LabelDense([1,2,3],  (2,), str)
-        self.assertEqual([1,2,'3'], list(r))
+        r = LabelDense([1,2,3],  2, 'c', [1,2])
+        self.assertEqual([1,2,3], list(r))
 
     def test_len(self):
-        r = LabelDense([1,2,3], (2,), None)
+        r = LabelDense([1,2,3], (2,), None, [1,2])
         self.assertEqual(3,len(r))
 
     def test_eq(self):
-        r = LabelDense([1,2,3],  (2,), None)
+        r = LabelDense([1,2,3],  (2,), None, [1,2])
         self.assertEqual([1,2,3], r)
 
 class LazySparse_Tests(unittest.TestCase):
@@ -482,71 +477,53 @@ class DropSparse_Tests(unittest.TestCase):
 
 class LabelSparse_Tests(unittest.TestCase):
 
-    def test_get_sans_encode(self):
-        r = LabelSparse({'a':1,'b':2}, 'b', None)
+    def test_get(self):
+        r = LabelSparse({'a':1,'b':2}, 'b', 'c', {'a':1})
         self.assertEqual(1, r['a'])
         self.assertEqual(2, r['b'])
 
-    def test_get_with_encode(self):
-        r = LabelSparse({'a':1,'b':2}, 'b', str)
-        self.assertEqual(1  , r['a'])
-        self.assertEqual('2', r['b'])
-
-    def test_items_sans_encode(self):
-        r = LabelSparse({'a':1,'b':2}, 'b', None)
+    def test_items(self):
+        r = LabelSparse({'a':1,'b':2}, 'b', 'c', {'a':1})
         self.assertCountEqual((('a',1),('b',2)), r.items())
 
-    def test_items_with_encode(self):
-        r = LabelSparse({'a':1,'b':2}, 'b', str)
-        self.assertCountEqual((('a',1),('b','2')), r.items())
-
-    def test_feats_and_label_sans_encode(self):
-        r = LabelSparse({'a':1,'b':2}, 'b', None)
-        self.assertEqual(({'a':1},2),r.labeled)
-
-    def test_feats_and_label_with_encode(self):
-        r = LabelSparse({'a':1,'b':2}, 'b', str)
-        self.assertEqual(({'a':1},'2'),r.labeled)
+    def test_labeled(self):
+        r = LabelSparse({'a':1,'b':2}, 'b', 'c', {'a':1})
+        self.assertEqual(({'a':1},2,'c'),r.labeled)
 
     def test_keys(self):
-        r = LabelSparse({'a':1,'b':2}, 'b', None)
+        r = LabelSparse({'a':1,'b':2}, 'b', None, {'a':1})
         self.assertEqual({'a','b'},r.keys())
 
     def test_iter(self):
-        r = LabelSparse({'a':1,'b':2}, 'b', str)
+        r = LabelSparse({'a':1,'b':2}, 'b', str, {'a':1})
         self.assertCountEqual(['a','b'], list(r))
 
     def test_len(self):
-        r = LabelSparse({'a':1,'b':2}, 'b', str)
+        r = LabelSparse({'a':1,'b':2}, 'b', str, {'a':1})
         self.assertEqual(2,len(r))
 
     def test_eq(self):
-        r = LabelSparse({'a':1,'b':2}, 'b', str)
-        self.assertEqual({'a':1,'b':'2'},r)
+        r = LabelSparse({'a':1,'b':2}, 'b', 'c', {'a':1})
+        self.assertEqual({'a':1,'b':2}, r)
+
+    def test_bad_get(self):
+        r = LabelSparse({'a':1,'b':2}, 'b', 'c', {'a':1})
+        with self.assertRaises(KeyError):
+            r['not_real_key']
 
     def test_keys_sparse_label(self):
-        r = LabelSparse({'a':1,'b':2}, 'c', None)
+        r = LabelSparse({'a':1,'b':2}, 'c', 'c', {'a':1})
         self.assertEqual({'a','b','c'},r.keys())
 
-    def test_sparse_label_column_sans_encode(self):
-        r = LabelSparse({'a':1,'b':2}, 'c', None)
+    def test_sparse_label_column(self):
+        r = LabelSparse({'a':1,'b':2}, 'c', 'c', {'a':1,'b':2})
         self.assertEqual(1, r['a'])
         self.assertEqual(2, r['b'])
         self.assertEqual(0, r['c'])
-        self.assertEqual(({'a':1,'b':2},0),r.labeled)
+        self.assertEqual(({'a':1,'b':2},0,'c'),r.labeled)
         self.assertEqual({'a':1,'b':2,'c':0},r)
         self.assertCountEqual(['a','b','c'],list(r))
-        self.assertCountEqual((('a',1),('b',2),('c',0)),r.items())
-    
-    def test_sparse_label_column_with_encode(self):
-        r = LabelSparse({'a':1,'b':2}, 'c', str)
-        self.assertEqual(1, r['a'])
-        self.assertEqual(2, r['b'])
-        self.assertEqual('0', r['c'])
-        self.assertEqual(({'a':1,'b':2},'0'),r.labeled)
-        self.assertEqual({'a':1,'b':2,'c':'0'},r)
-        self.assertCountEqual(['a','b','c'],list(r))
-        self.assertCountEqual((('a',1),('b',2),('c','0')),r.items())
+        self.assertCountEqual((('a',1),('b',2),('c',0)),r.items())    
 
 if __name__ == '__main__':
     unittest.main()

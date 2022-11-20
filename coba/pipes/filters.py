@@ -3,15 +3,14 @@ import math
 import copy
 
 from collections import defaultdict, abc
-from itertools import islice, chain, filterfalse, compress
-from typing import Iterable, Any, Sequence, Mapping, Callable, Optional, Union
+from itertools import islice, chain
+from typing import Iterable, Any, Sequence, Mapping, Optional, Union
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
 from coba.utilities import peek_first
 
-from coba.pipes.rows import DropSparse, KeepDense
-from coba.pipes.primitives import Filter, Dense
+from coba.pipes.primitives import Filter, Dense, Sparse
 
 class Identity(Filter[Any, Any]):
     """A filter which returns what is given."""
@@ -261,7 +260,7 @@ class Encode(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,M
         except StopIteration:
             return []
 
-        is_dense = isinstance(first_item,abc.Sequence)
+        is_dense = isinstance(first_item,Dense)
 
         if not is_dense:
             encoders = self._encoders
@@ -366,7 +365,7 @@ class Default(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,
 
         for row in data:
 
-            if isinstance(row,abc.Mapping):
+            if isinstance(row, Sparse):
                 row = dict(row)
                 for k,v in self._defaults.items():
                     if k not in row: row[k] = v

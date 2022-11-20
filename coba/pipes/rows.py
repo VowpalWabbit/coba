@@ -1,23 +1,24 @@
 from collections import abc
 from itertools import count, compress, chain, filterfalse
 from typing import Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple
+from coba.backports import Literal
 
 from coba.utilities import peek_first
 from coba.pipes.primitives import Filter, Sparse, Dense
 
 class LazyDense(Dense):
-    __slots__ = ('_row','missing')
-    
-    def __init__(self, row: Union[Callable[[],Sequence],Sequence], missing: bool = None) -> None:        
+    __slots__ = ('_row','missing','_loaded')
+
+    def __init__(self, row: Union[Callable[[],Sequence],Sequence], missing: bool = None) -> None:
         self._row    = row
         self.missing = missing
+        self._loaded = not callable(row)
 
     def _load_or_get(self) -> Sequence:
-        row = self._row
-        if callable(row):
-            row = self._row()
-            self._row = row
-        self._load_or_get = lambda : row
+        if self._loaded: return self._row
+        self._loaded = True
+        row = self._row()
+        self._row = row        
         return row
 
     def __getitem__(self, key: int):
@@ -48,7 +49,7 @@ class HeadDense(Dense):
 
 class EncodeDense(Dense):
     __slots__=('_row','_encoders')
-    
+
     def __init__(self, row: Dense, encoders: Sequence) -> None:
         self._row      = row
         self._encoders = encoders
@@ -81,39 +82,32 @@ class KeepDense(Dense):
         return self._len
 
 class LabelDense(Dense):
-    __slots__=('_row', '_lbl_keys', '_lbl_enc')
-    def __init__(self, row: Dense, keys: Union[Tuple[int],Tuple[int,str]], encoder: Callable[[Any],Any]) -> None:
+    __slots__=('_row', '_labeled')
+    
+    def __init__(self, 
+        row: Dense, 
+        key: Union[int,str],
+        tipe: Literal['c','r','m'],
+        feats: Dense) -> None:
         self._row      = row
-        self._lbl_keys = keys
-        self._lbl_enc  = encoder
+        self._labeled  = lambda: (feats, row[key], tipe)
 
     def __getitem__(self, key: Union[int,str]):
-        if self._lbl_enc and key in self._lbl_keys:
-            return self._lbl_enc(self._row[key])
-        return self._row[key]            
+        return self._row[key]
 
     def __iter__(self) -> Iterator:
-        enc = self._lbl_enc
-        if not enc:
-            return iter(self._row)
-        else:
-            key = self._lbl_keys[0]
-            return iter(v if i!= key else enc(v) for i,v in enumerate(self._row))
+        return iter(self._row)
 
     def __len__(self) -> int:
         return len(self._row)
 
     @property
-    def labeled(self)-> Tuple[Dense,Any]:
-        feats = list(self._row)
-        label = feats.pop(self._lbl_keys[0])
-        if self._lbl_enc:
-            return (feats, self._lbl_enc(label))
-        else:
-            return (feats, label)
+    def labeled(self)-> Tuple[Dense,Any,Literal['c','r','m']]:
+        return self._labeled()    
 
 class LazySparse(Sparse):
-
+    __slots__=('_row', '_row', '_missing')
+    
     def __init__(self, row: Union[Callable[[],Mapping],Mapping], missing:bool = None) -> None:
         self._row  = row
         self.missing = missing 
@@ -143,6 +137,8 @@ class LazySparse(Sparse):
 
 class HeadSparse(Sparse):
 
+    __slots__=('_row', '_head_map_fwd', '_head_map_inv')
+
     def __init__(self, row: Sparse, head_map_fwd: Mapping[str,str], head_map_inv: Mapping[str,str]) -> None:
         self._row          = row
         self._head_map_fwd = head_map_fwd
@@ -166,6 +162,7 @@ class HeadSparse(Sparse):
         return tuple((head_map_inv_get(k),v) for k,v in self._row.items())
 
 class EncodeSparse(Sparse):
+    __slots__=('_row', '_encoders')
 
     def __init__(self, row: Sparse, encoders: Mapping) -> None:
         self._row      = row
@@ -188,7 +185,8 @@ class EncodeSparse(Sparse):
         return tuple((k, enc[k](v) if k in enc else v ) for k,v in self._row.items())
 
 class DropSparse(Sparse):
-
+    __slots__=('_row','_drop_set')
+    
     def __init__(self, row: Sparse, drop_set: set = None) -> None:
         self._row      = row
         self._drop_set = drop_set
@@ -215,25 +213,30 @@ class DropSparse(Sparse):
         yield from (item for item in self._row.items() if item[0] not in drop) 
 
 class LabelSparse(Sparse):
+    __slots__=('_row','_lbl_key', '_labeled', '_keys')
+    
+    def __init__(self, row: Sparse, label: str, tipe: Literal['c','r','m'], feats: Sparse) -> None:
 
-    def __init__(self, row: Sparse, label: str, encoder: Callable[[Any],Any] = None) -> None:
-        self._row     = row
-        self._lbl_key = label
-        self._lbl_enc = encoder
-
-        lbl_key_set = {label}
-        self._keys = lambda: self._row.keys() | lbl_key_set
-
-    def __getitem__(self, key: str):
-        if key != self._lbl_key:
-            return self._row[key]
-        else:
-            enc = self._lbl_enc
+        def labeled():
             try:
-                val = self._row[key]
+                val = row[label]
             except KeyError:
                 val = 0
-            return val if not enc else enc(val)
+
+            return (feats, val, tipe)
+
+        self._row     = row
+        self._lbl_key = label
+        self._labeled = labeled
+        self._keys    = lambda: self._row.keys() | {label}
+
+    def __getitem__(self, key: str):
+        try:
+            return self._row[key]
+        except KeyError:
+            if key == self._lbl_key: 
+                return 0
+            raise
 
     def __iter__(self) -> Iterator:
         return iter(self._keys())
@@ -245,27 +248,16 @@ class LabelSparse(Sparse):
         return self._keys()
 
     def items(self) -> Sequence:
-        enc  = self._lbl_enc
-        key  = self._lbl_key
-        if key in self._row.keys():
-            if not enc:
-                return tuple(self._row.items())
-            else:
-                return tuple(kv if kv[0]!=key else (kv[0],enc(kv[1])) for kv in self._row.items())
-        else:
-            if not enc:
-                return tuple(self._row.items()) + ((key,0),)
-            else:
-                return tuple(self._row.items()) + ((key,enc(0)),)
+        key = self._lbl_key
+        row = self._row
+        items = tuple(row.items())
+        if key not in row.keys():
+            items += ((key,0),)
+        return items
 
     @property
-    def labeled(self)-> Tuple[Dense,Any]:
-        feats = dict(self._row.items())
-        label = feats.pop(self._lbl_key,0)
-        if self._lbl_enc:
-            return (feats, self._lbl_enc(label))
-        else:
-            return (feats, label)
+    def labeled(self)-> Tuple[Dense,Any,Literal['c','r','m']]:
+        return self._labeled()
 
 class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
 
@@ -311,24 +303,25 @@ class HeadRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]
 
 class LabelRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
 
-    def __init__(self, label: Union[int,str], encoder: Callable[[Any],Any] = None) -> None:
-        self.label  = label
-        self.encoder = encoder
+    def __init__(self, label: Union[int,str], tipe: Literal['c','r','m']) -> None:
+        self.label = label
+        self.tipe  = tipe
 
     def filter(self, rows: Iterable[Union[Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
         label = self.label
+        tipe  = self.tipe
         first, rows = peek_first(rows)
 
         if isinstance(first,Dense):
-            if isinstance(label,str): 
-                keys = (first.headers.index(label),label)
-            elif hasattr(first,'headers'):
-                keys = (label, first.headers[label])
-            else:
-                keys = (label,)
-            yield from (LabelDense(row, keys, self.encoder) for row in rows)
+            mapping, selects, length = DropRows.make_drop_row_args(first, [label])            
+            for row in rows:
+                feats = KeepDense(row, mapping, selects, length)
+                yield LabelDense(row, label, tipe, feats)
         else:
-            yield from (LabelSparse(row, label, self.encoder) for row in rows)
+            drop_set = DropRows.make_drop_row_args(first, [label])
+            for row in rows:
+                feats = DropSparse(row, drop_set)
+                yield LabelSparse(row, label, tipe, feats)
 
 class DropRows(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
     """A filter which drops rows and columns from in table shaped data."""
@@ -346,16 +339,9 @@ class DropRows(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence
         self._drop_cols = set(drop_cols)
         self._drop_row  = drop_row
 
-    def filter(self, rows: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
-
-        drop_cols   = self._drop_cols
-        first, rows = peek_first(rows)
-
-        rows = rows if not self._drop_row else filterfalse(self._drop_row, rows)
-
-        if not drop_cols:
-            yield from rows
-        elif isinstance(first,Dense):
+    @staticmethod
+    def make_drop_row_args(first, drop_cols) -> Tuple:
+        if isinstance(first,Dense):
             try:
                 selects = [ not any(i in drop_cols for i in I) for I in enumerate(first.headers) ]
                 headers = list(compress(first.headers, selects))
@@ -367,7 +353,22 @@ class DropRows(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence
 
             mapping = {k:v for k,v in chain(enumerate(indexes),zip(headers,indexes))}
             length  = len(indexes)
+            return mapping, selects, length
+        else:
+            return set(drop_cols)
+
+    def filter(self, rows: Iterable[Union[Sequence,Mapping]]) -> Iterable[Union[Sequence,Mapping]]:
+
+        drop_cols   = self._drop_cols
+        first, rows = peek_first(rows)
+
+        rows = rows if not self._drop_row else filterfalse(self._drop_row, rows)
+
+        if not drop_cols:
+            yield from rows
+        elif isinstance(first,Dense):
+            mapping, selects, length = DropRows.make_drop_row_args(first, drop_cols)
             yield from (KeepDense(row, mapping, selects, length) for row in rows)
         else:
-            drop_set = set(drop_cols)
+            drop_set = DropRows.make_drop_row_args(first, drop_cols)
             yield from (DropSparse(row, drop_set) for row in rows)

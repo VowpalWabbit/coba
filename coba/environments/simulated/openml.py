@@ -102,16 +102,13 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             if self._target in ignore: ignore.pop(ignore.index(self._target))
 
-            def ensure_str(v):
-                return v if not isinstance(v,(int,float)) else str(v).replace(".0","")
-
-            label_encoder = ensure_str if task_type == 1 else None
+            label_type = 'c' if task_type==1 else 'r' if task_type==2 else None
 
             drop_row  = (lambda r: r.missing) if self._drop_missing else None
             lines     = self._get_arff_lines(data_descr["file_id"], None)
             reader    = ArffReader(cat_as_str=self._cat_as_str)
             drop      = DropRows(drop_cols=ignore, drop_row=drop_row)
-            label     = LabelRows(self._target, label_encoder)
+            label     = LabelRows(self._target, label_type)
 
             return Pipes.join(reader, drop, label).filter(lines)
 
