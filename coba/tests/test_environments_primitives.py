@@ -39,6 +39,15 @@ class HashableMap_Tests(unittest.TestCase):
         hash_dict = HashableMap({'a':1,'b':2})
         self.assertEqual({'a':1,'b':2},hash_dict)
 
+    def test_repr(self):
+        hash_dict = HashableMap({'a':1,'b':2})
+        self.assertEqual("{'a': 1, 'b': 2}",repr(hash_dict))
+    
+    def test_str(self):
+        hash_dict = HashableMap({'a':1,'b':2})
+        self.assertEqual("{'a': 1, 'b': 2}",str(hash_dict))
+
+
 class HashableSeq_Tests(unittest.TestCase):
 
     def test_get(self):
@@ -64,6 +73,14 @@ class HashableSeq_Tests(unittest.TestCase):
         self.assertNotEqual([1,2,4],hash_seq)
         self.assertNotEqual([1,2,3,4],hash_seq)
         self.assertNotEqual(1,hash_seq)
+    
+    def test_repr(self):
+        hash_seq = HashableSeq([1,2,3])
+        self.assertEqual("[1, 2, 3]",repr(hash_seq))
+    
+    def test_str(self):
+        hash_seq = HashableSeq([1,2,3])
+        self.assertEqual("[1, 2, 3]",str(hash_seq))
 
 class SafeEnvironment_Tests(unittest.TestCase):
 

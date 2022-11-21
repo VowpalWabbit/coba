@@ -90,7 +90,7 @@ class SimpleEvaluation(EvaluationTask):
         self._prob    = probability
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
-        
+
         learner = SafeLearner(learner)
 
         first, interactions = peek_first(interactions)
@@ -108,14 +108,14 @@ class SimpleEvaluation(EvaluationTask):
         calc_rank = 'rank' in self._metrics and discrete
         calc_reward = 'reward' in self._metrics
         calc_regret = 'regret' in self._metrics
-        
+
         for interaction in interactions:
             
             learning_info.clear()
             out = {}
 
             if isinstance(interaction, SimulatedInteraction):
-                
+
                 context = interaction.context
                 actions = interaction.actions
                 rewards = interaction.rewards
@@ -125,7 +125,7 @@ class SimpleEvaluation(EvaluationTask):
                 predict_time     = time.time()-start_time
 
                 reward = rewards.eval(action)
-                
+
                 start_time = time.time()
                 learn(context, actions, action, reward, prob, **info)
                 learn_time = time.time() - start_time
@@ -161,7 +161,7 @@ class SimpleEvaluation(EvaluationTask):
                 reward           = rewards.eval(action)
                 feedback         = feedbacks.eval(action)
                 predict_time     = time.time()-start_time
-                
+
                 start_time = time.time()
                 learn(context, actions, action, feedback, prob, **info)
                 learn_time = time.time()-start_time
@@ -236,7 +236,7 @@ class ClassEnvironmentInfo(EnvironmentTask):
         entropy_Y = self._entropy(Y)
         entropy_X = [self._entropy(x) for x in X_bin_by_f]
 
-        mutual_XY_infos  = sorted([self._mutual_info(x,Y)              for  x in X_bin_by_f                ], reverse=True)
+        mutual_XY_infos  = sorted([self._mutual_info(x,Y) for x in X_bin_by_f], reverse=True)
 
         #Information-Theoretic Meta-features
         env_stats["class_count"          ] = k
@@ -272,7 +272,7 @@ class ClassEnvironmentInfo(EnvironmentTask):
             PackageChecker.sklearn("ClassEnvironmentTask.process")
 
             import numpy as np
-            
+
             from sklearn.decomposition import TruncatedSVD
             from sklearn.neighbors import KNeighborsClassifier
             from sklearn.naive_bayes import GaussianNB
@@ -384,7 +384,7 @@ class ClassEnvironmentInfo(EnvironmentTask):
                 xf = x[f]
                 X_by_fy[f][y].append(xf)
                 X_by_f[f].append(xf)
-        
+
         mean_f  = { f:      mean(X_by_f[f])                      for f in feats}
         mean_fy = { f: { y: mean(X_by_fy[f][y]) for y in Y_set } for f in feats} 
 
@@ -405,14 +405,14 @@ class ClassEnvironmentInfo(EnvironmentTask):
 
         try:
             PackageChecker.sklearn('')
-            
+
             import numpy as np
             from sklearn.covariance import shrunk_covariance
 
             Y_set = set(Y)
             X     = np.array(X).T #transpose so that equations align with paper
             Y     = np.array(Y)
-            
+
             X_by_y = { y: X[:,Y==y]  for y in Y_set }
             OVO    = []
 

@@ -4,7 +4,7 @@ import warnings
 from math import isnan
 from statistics import mean, median, stdev, mode
 from numbers import Number
-from collections import defaultdict, abc
+from collections import defaultdict
 from functools import lru_cache
 from itertools import islice, chain, tee
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
@@ -787,7 +787,7 @@ class Grounded(EnvironmentFilter):
             if context_type == 0:
                 igl_context = dict(userid=userid,**interaction.context)
             elif context_type == 1:
-                igl_context = [userid]+list(interaction.context)
+                igl_context = (userid,)+tuple(interaction.context)
             else:
                 igl_context = (userid, interaction.context)
 

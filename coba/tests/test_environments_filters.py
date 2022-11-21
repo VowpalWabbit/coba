@@ -1326,10 +1326,13 @@ class Grounded_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(igl_interactions))
 
-    def test_fixed_with_respect_to_seed(self):
+    def test_fixed_for_seed_new_version(self):
         interactions = [
-            SimulatedInteraction(0,[1,2,3],[1,0,0],c=0),
-            SimulatedInteraction(1,[1,2,3],[0,1,0],c=1),
+            SimulatedInteraction(0,[1,2,3],[1,0,0]),
+            SimulatedInteraction(1,[1,2,3],[0,1,0]),
+            SimulatedInteraction(1,[1,2,3],[0,1,0]),
+            SimulatedInteraction(1,[1,2,3],[0,1,0]),
+            SimulatedInteraction(1,[1,2,3],[0,1,0]),
         ]
         to_igl_filter    = Grounded(10,5,4,2,4)
         igl_interactions = list(to_igl_filter.filter(interactions))
@@ -1346,161 +1349,101 @@ class Grounded_Tests(unittest.TestCase):
         self.assertEqual(2, igl_interactions[1].kwargs['userid'])
         self.assertEqual([(3,),(0,),(3,)], feedbacks_1)
 
-    def test_number_context_01_rewards(self):
+    @unittest.skip("This is correct for the new version but we're using old version for now")
+    def test_fixed_for_seed_old_version(self):
         interactions = [
-            SimulatedInteraction(0,[1,2,3],[1,0,0],c=0),
-            SimulatedInteraction(1,[1,2,3],[0,1,0],c=1),
-            SimulatedInteraction(2,[1,2,3],[0,0,1],c=2),
+            SimulatedInteraction(0,[1,2,3],[1,0,0]),
+            SimulatedInteraction(1,[1,2,3],[0,1,0]),
         ]
-        to_igl_filter    = Grounded(10,5,4,2,1)
-        igl_interactions = list(to_igl_filter.filter(interactions*3000))
 
-        normal_count = 0
-        bizaro_count = 0
+        to_igl_filter    = Grounded(10,5,4,2,4)
+        igl_interactions = list(to_igl_filter.filter(interactions))
 
-        word_counts = Counter()
+        feedbacks_0 = [igl_interactions[0].feedbacks.eval(a) for a in igl_interactions[0].actions ]
 
-        for interaction in igl_interactions:
+        self.assertEqual(True,igl_interactions[0].kwargs['isnormal'])
+        self.assertEqual(4, igl_interactions[0].kwargs['userid'])
+        self.assertEqual([(1,),(2,),(2,)], feedbacks_0)
 
-            feedbacks = [interaction.feedbacks.eval(a) for a in interaction.actions ]
-            rewards   = [interaction.rewards.eval(a) for a in interaction.actions ]
+        feedbacks_1 = [igl_interactions[1].feedbacks.eval(a) for a in igl_interactions[0].actions ]
 
-            normal_count += int(interaction.kwargs['isnormal'])
-            bizaro_count += int(not interaction.kwargs['isnormal'])
-            word_counts  += Counter(feedbacks)
+        self.assertEqual(True,igl_interactions[1].kwargs['isnormal'])
+        self.assertEqual(2, igl_interactions[1].kwargs['userid'])
+        self.assertEqual([(2,),(1,),(3,)], feedbacks_1)
 
-            self.assertEqual(interaction.context, (interaction.kwargs['userid'], interaction.kwargs['c']))
-            self.assertEqual(interaction.kwargs['isnormal'],interaction.kwargs['userid'] in to_igl_filter.normalids)            
+    def test_number_context(self):
+        sim_interactions = [ SimulatedInteraction(0,[1,2,3],[1,0,0]) ]
+        igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
+        self.assertEqual(igl_interactions[0].context, (igl_interactions[0].kwargs['userid'], 0))
+
+    def test_list_context(self):
+        sim_interactions = [ SimulatedInteraction([0],[1,2,3],[1,0,0]) ]
+        igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
+        self.assertEqual(igl_interactions[0].context, (igl_interactions[0].kwargs['userid'], 0))
+
+    def test_dict_context(self):
+        sim_interactions = [ SimulatedInteraction({'a':1},[1,2,3],[1,0,0]) ]
+        igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
+        self.assertEqual(igl_interactions[0].context, {'userid':igl_interactions[0].kwargs['userid'], 'a':1})
+    
+    def test_01_reward(self):
+        sim_interactions = [ SimulatedInteraction(0,[1,2,3],[1,0,0]) ]
+        igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
+        self.assertEqual(igl_interactions[0].rewards, [1,0,0])
+
+    def test_not_01_reward(self):
+        sim_interactions = [ SimulatedInteraction(0,[1,2,3],[0,.2,.5]) ]
+        igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
+        self.assertEqual(igl_interactions[0].rewards.eval(1), 0)
+        self.assertEqual(igl_interactions[0].rewards.eval(2), 0)
+        self.assertEqual(igl_interactions[0].rewards.eval(3), 1)
+
+    def test_normal_bizzaro_users(self):
+        to_igl           = Grounded(10,5,4,2,1)
+        sim_interactions = [ SimulatedInteraction(0,[1,2,3],[0,.2,.5]) ] * 6000
+        igl_interactions = list(to_igl.filter(sim_interactions))
+
+        c = Counter()
+        for i in igl_interactions:
+            self.assertEqual(i.kwargs['isnormal'],i.kwargs['userid'] in to_igl.normalids)
+            c.update(['normal' if i.kwargs['isnormal'] else 'bizzaro'])
+
+        self.assertAlmostEqual(1,c['normal']/c['bizzaro'],1)
+
+    def test_feedbacks(self):
+        n_words          = 50
+        to_igl           = Grounded(10,5,n_words,25,1)
+        sim_interactions = [ SimulatedInteraction(0,[1,2,3],[0,.2,.5]) ] * 50000
+        igl_interactions = list(to_igl.filter(sim_interactions))
+
+        c = Counter()
+        for i in igl_interactions:
+            feedbacks = [i.feedbacks.eval(a) for a in i.actions ]
+            rewards   = [i.rewards.eval(a) for a in i.actions ]
 
             for word,reward in zip(feedbacks,rewards):
-                if reward == 1: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.goodwords)
-                if reward == 0: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.badwords)
+                if reward == 1: self.assertEqual(i.kwargs['isnormal'], word[0] in to_igl.goodwords)
+                if reward == 0: self.assertEqual(i.kwargs['isnormal'], word[0] in to_igl.badwords)
 
-        self.assertAlmostEqual(1,normal_count/bizaro_count,1)
+            c.update(feedbacks)
 
-        for word,count in word_counts.items():
-            self.assertAlmostEqual(1/4,count/sum(word_counts.values()),1)
-
-    def test_list_context_01_rewards(self):
-        interactions = [
-            SimulatedInteraction([0],[1,2,3],[1,0,0],c=[0]),
-            SimulatedInteraction([1],[1,2,3],[0,1,0],c=[1]),
-            SimulatedInteraction([2],[1,2,3],[0,0,1],c=[2]),
-        ]
-        to_igl_filter    = Grounded(10,5,4,2,1)
-        igl_interactions = list(to_igl_filter.filter(interactions*3000))
-
-        normal_count = 0
-        bizaro_count = 0
-
-        word_counts = Counter()
-
-        for interaction in igl_interactions:
-
-            feedbacks = [interaction.feedbacks.eval(a) for a in interaction.actions ]
-            rewards   = [interaction.rewards.eval(a) for a in interaction.actions ]
-
-            normal_count += int(interaction.kwargs['isnormal'])
-            bizaro_count += int(not interaction.kwargs['isnormal'])
-            word_counts  += Counter(feedbacks)
-
-            self.assertEqual(interaction.context, [interaction.kwargs['userid']]+interaction.kwargs['c'])
-            self.assertEqual(interaction.kwargs['isnormal'],interaction.kwargs['userid'] in to_igl_filter.normalids)
-            
-            for word,reward in zip(feedbacks,rewards):
-                if reward == 1: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.goodwords)
-                if reward == 0: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.badwords)
-
-        self.assertAlmostEqual(1,normal_count/bizaro_count,1)
-
-        for word,count in word_counts.items():
-            self.assertAlmostEqual(1/4,count/sum(word_counts.values()),1)
-
-    def test_dict_context_01_rewards(self):
-        interactions = [
-            SimulatedInteraction({'a':0},[1,2,3],[1,0,0],c={'a':0}),
-            SimulatedInteraction({'b':1},[1,2,3],[0,1,0],c={'b':1}),
-            SimulatedInteraction({'c':2},[1,2,3],[0,0,1],c={'c':2}),
-        ]
-        to_igl_filter    = Grounded(10,5,4,2,1)
-        igl_interactions = list(to_igl_filter.filter(interactions*3000))
-
-        normal_count = 0
-        bizaro_count = 0
-
-        word_counts = Counter()
-
-        for interaction in igl_interactions:
-
-            feedbacks = [ interaction.feedbacks.eval(a) for a in interaction.actions ]
-            rewards   = [ interaction.rewards.eval(a) for a in interaction.actions ]
-
-            normal_count += int(interaction.kwargs['isnormal'])
-            bizaro_count += int(not interaction.kwargs['isnormal'])
-            word_counts  += Counter(feedbacks)
-
-            self.assertEqual(interaction.context, dict(userid=interaction.kwargs['userid'],**interaction.kwargs['c']))
-            self.assertEqual(interaction.kwargs['isnormal'],interaction.kwargs['userid'] in to_igl_filter.normalids)
-
-            for word,reward in zip(feedbacks,rewards):
-                if reward == 1: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.goodwords)
-                if reward == 0: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.badwords)
-
-        self.assertAlmostEqual(1,normal_count/bizaro_count,1)
-
-        for word,count in word_counts.items():
-            self.assertAlmostEqual(1/4,count/sum(word_counts.values()),1)
-
-    def test_number_context_not_01_rewards(self):
-        interactions = [
-            SimulatedInteraction(0,[1,2,3],[.1,0,0],c=0),
-            SimulatedInteraction(1,[1,2,3],[0,.1,0],c=1),
-            SimulatedInteraction(2,[1,2,3],[0,0,.1],c=2),
-        ]
-        to_igl_filter    = Grounded(10,5,4,2,1)
-        igl_interactions = list(to_igl_filter.filter(interactions*3000))
-
-        normal_count = 0
-        bizaro_count = 0
-
-        word_counts = Counter()
-
-        for interaction in igl_interactions:
-
-            feedbacks = [interaction.feedbacks.eval(a) for a in interaction.actions ]
-            rewards   = [interaction.rewards.eval(a) for a in interaction.actions ]
-
-            normal_count += int(interaction.kwargs['isnormal'])
-            bizaro_count += int(not interaction.kwargs['isnormal'])
-            word_counts  += Counter(feedbacks)
-
-            self.assertEqual(interaction.context, (interaction.kwargs['userid'], interaction.kwargs['c']))
-            self.assertEqual(interaction.kwargs['isnormal'],interaction.kwargs['userid'] in to_igl_filter.normalids)
-            
-            for word,reward in zip(feedbacks,rewards):
-                if reward == 1: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.goodwords)
-                if reward == 0: self.assertEqual(interaction.kwargs['isnormal'], word[0] in to_igl_filter.badwords)
-
-        self.assertAlmostEqual(1,normal_count/bizaro_count,1)
-
-        for word,count in word_counts.items():
-            self.assertAlmostEqual(1/4,count/sum(word_counts.values()),1)
+        self.assertEqual(len(c),n_words)
+        self.assertLess(abs(1-min(c.values())/max(c.values())), .15)
 
     def test_feedback_repeatable(self):
         interactions = [
-            SimulatedInteraction(0,[1,2,3],[.1,0,0],c=0),
-            SimulatedInteraction(1,[1,2,3],[0,.1,0],c=1),
-            SimulatedInteraction(2,[1,2,3],[0,0,.1],c=2),
-        ]
+            SimulatedInteraction(0,[1,2,3],[.1,0,0]),
+            SimulatedInteraction(1,[1,2,3],[0,.1,0]),
+            SimulatedInteraction(2,[1,2,3],[0,0,.1]),
+        ] * 3000
         to_igl_filter    = Grounded(10,5,4,2,1)
-        igl_interactions = list(to_igl_filter.filter(interactions*3000))
+        igl_interactions = list(to_igl_filter.filter(interactions))
 
         for interaction in igl_interactions:
             f1 = [interaction.feedbacks.eval(a) for a in interaction.actions ]
             f2 = [interaction.feedbacks.eval(a) for a in interaction.actions ]
             self.assertEqual(f1,f2)
     
-
     def test_params(self):
         params = Grounded(10,5,4,2,1).params
 

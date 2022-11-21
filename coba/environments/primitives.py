@@ -36,6 +36,12 @@ class HashableMap(Mapping):
     def __hash__(self) -> int:
         return self._get_hash()
 
+    def __repr__(self) -> str:
+        return repr(self._item)
+
+    def __str__(self) -> str:
+        return str(self._item)
+
 class HashableSeq(Sequence):
 
     def __init__(self, item: Mapping) -> None:
@@ -61,6 +67,12 @@ class HashableSeq(Sequence):
 
     def __hash__(self) -> int:
         return self._get_hash()
+
+    def __repr__(self) -> str:
+        return repr(self._item)
+
+    def __str__(self) -> str:
+        return str(self._item)
 
 class Feedback(ABC):
     @abstractmethod
