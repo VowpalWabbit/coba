@@ -221,9 +221,24 @@ class Performance_Tests(unittest.TestCase):
         items = [1,0]*300
         self._assert_scale_time(items, lambda x:list(moving_average(x)), .07, print_time, number=1000)
 
-    def test_encode_dense(self):
-        R = EncodeDense(['1']*100,[int]*100)
-        self._assert_call_time(lambda:R[1], .0008, print_time, number=1000)
+    def test_lazy_dense_init_get(self):
+        I = ['1']*100
+        self._assert_call_time(lambda:LazyDense(lambda:I)[2], .095, print_time, number=100000)
+
+    def test_encode_dense_init_get(self):
+        I = ['1']*100
+        E = [int]*100
+        self._assert_call_time(lambda:EncodeDense(I,E)[1], .092, print_time, number=100000)
+
+    def test_encode_dense_init_iter(self):
+        I = ['1']*100
+        E = [int]*100
+        self._assert_call_time(lambda:tuple(EncodeDense(I,E)), .017, print_time, number=1000)
+
+    def test_label_dense_init_labeled(self):
+        vals  = ['1']*50
+        feats = vals[:-1]
+        self._assert_call_time(lambda:LabelDense(vals, 49, 'c', feats).labeled, .075, print_time, number=100000)
 
     def test_dense_row_headers(self):
         headers = list(map(str,range(100)))
@@ -238,17 +253,6 @@ class Performance_Tests(unittest.TestCase):
     def test_dense_row_drop(self):
         r1 = KeepDense(['1']*100,dict(enumerate(range(99))), [True]*99+[False], 99)
         self._assert_call_time(lambda:r1[3], .0008, print_time, number=1000)
-
-    def test_dense_label_row(self):
-        vals = ['1']*100
-        encs = [int]*100
-
-        r1 = LabelDense(EncodeDense(vals,encs),50,'c', EncodeDense(vals,encs))
-        self._assert_call_time(lambda:r1.labeled, .005, print_time, number=1000)
-
-    def test_dense_label_init(self):
-        row, key, feats = list(range(1000)), (100,), []
-        self._assert_call_time(lambda:LabelDense(row, key, feats, None), .0006, print_time, number=1000)
 
     def test_dense_row_to_builtin(self):
         r = LazyDense(['1']*100)

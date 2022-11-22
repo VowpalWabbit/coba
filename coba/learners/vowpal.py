@@ -5,7 +5,7 @@ from itertools import repeat, compress
 from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple
 from coba.backports import Literal
 
-from coba.pipes import Flatten
+from coba.pipes import Flatten, Sparse, Dense
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
@@ -131,7 +131,7 @@ class VowpalMediator:
                 elif feats.__class__ is int or feats.__class__ is float:
                     yield (ns, [(self._get_namespace_keys(ns,1)[0], feats)])
                 else:
-                    feats = feats.items() if feats.__class__ is dict else enumerate(feats,self._get_namespace_keys(ns,len(feats)))
+                    feats = feats.items() if isinstance(feats, Sparse) else enumerate(feats,self._get_namespace_keys(ns,len(feats)))
                     yield (ns, [f"{k}={v}" if v.__class__ is str else (k, v) for k,v in feats if v!= 0])
         else: #pragma: no cover
             #the strange type checks below were faster than traditional methods when performance testing
@@ -142,7 +142,7 @@ class VowpalMediator:
                     yield (ns, [f"{self._get_namespace_keys(ns,1)[0]}={feats}"])
                 elif feats.__class__ is int or feats.__class__ is float:
                     yield (ns, [(self._get_namespace_keys(ns,1)[0], feats)])
-                elif feats.__class__ is dict:
+                elif isinstance(feats,Sparse):
                     yield (ns, feats)
                 else:
                     d={}

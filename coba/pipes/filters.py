@@ -228,7 +228,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
             else:
                 if first_type == "list":
                     row = list(flatter_list(row))
-                elif isinstance(row,tuple):
+                elif first_type == "tuple":
                     row = tuple(flatter_list(row))
                 elif first_type == "dict":
                     #in-line dict comprehension was faster than a generator like we did with list

@@ -1,7 +1,7 @@
 import unittest
 
 
-from coba.pipes import Flatten, Encode, JsonEncode, Structure
+from coba.pipes import Flatten, Encode, JsonEncode, Structure, LazyDense, LazySparse
 from coba.pipes import Take, Identity, Shuffle, Default, Reservoir, Cache
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.contexts import NullLogger, CobaContext
@@ -243,6 +243,31 @@ class Flatten_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(Flatten().filter(given)) )
 
+    def test_lazy_dense_onehot_flatten(self):
+
+        given_row0 = LazyDense([(0,1), 1])
+        given_row1 = LazyDense([(1,0), 2])
+
+        expected_row0 = (0, 1, 1)
+        expected_row1 = (1, 0, 2)
+
+        given    = [given_row0   , given_row1   ]
+        expected = [expected_row0, expected_row1]
+
+        self.assertEqual(expected, list(Flatten().filter(given)) )
+    
+    def test_lazy_sparse_onehot_flatten(self):
+
+        given_row0 = LazySparse({0: (0,1), 1:1 })
+        given_row1 = LazySparse({0: (1,0), 1:1 })
+
+        expected_row0 = { '0_0': 0, '0_1': 1, 1:1}
+        expected_row1 = { '0_0': 1, '0_1': 0, 1:1}
+
+        given    = [given_row0, given_row1]
+        expected = [expected_row0, expected_row1]
+
+        self.assertEqual(expected, list(Flatten().filter(given)) )
 
     def test_empty_flatten(self):
         self.assertEqual([], list(Flatten().filter([])) )

@@ -10,7 +10,7 @@ from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedI
 from coba.environments import L1Reward
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
-from coba.environments import Finalize, HashableSeq, HashableMap
+from coba.environments import Finalize, HashableMap
 
 class TestEnvironment:
 
@@ -1268,20 +1268,20 @@ class Flatten_Tests(unittest.TestCase):
     def test_flatten_actions(self):
         
         interactions = [
-            SimulatedInteraction((7,1,0), [(1,("def",1)),2], [.2,.3]),
-            SimulatedInteraction((1,0,1), [(1,("ghi",2)),3], [.1,.5]),
+            SimulatedInteraction((7,1,0), [(1,("d",1)),(1,("j",1))], [.2,.3]),
+            SimulatedInteraction((1,0,1), [(1,("g",2)),(1,("l",1))], [.1,.5]),
         ]
 
         flatten_filter = Flatten()
         actual_interactions = list(flatten_filter.filter(interactions))
 
-        self.assertEqual(2              , len(actual_interactions))
-        self.assertEqual((7,1,0)        , actual_interactions[0].context)
-        self.assertEqual([(1,"def",1),2], actual_interactions[0].actions)
-        self.assertEqual([.2,.3]        , actual_interactions[0].rewards)
-        self.assertEqual((1,0,1)        , actual_interactions[1].context)
-        self.assertEqual([(1,"ghi",2),3], actual_interactions[1].actions)
-        self.assertEqual([.1,.5]        , actual_interactions[1].rewards)
+        self.assertEqual(2                    , len(actual_interactions))
+        self.assertEqual((7,1,0)              , actual_interactions[0].context)
+        self.assertEqual([(1,"d",1),(1,"j",1)], actual_interactions[0].actions)
+        self.assertEqual([.2,.3]              , actual_interactions[0].rewards)
+        self.assertEqual((1,0,1)              , actual_interactions[1].context)
+        self.assertEqual([(1,"g",2),(1,"l",1)], actual_interactions[1].actions)
+        self.assertEqual([.1,.5]              , actual_interactions[1].rewards)
 
     def test_params(self):
         self.assertEqual({'flat':True}, Flatten().params)

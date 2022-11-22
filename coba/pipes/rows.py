@@ -7,17 +7,16 @@ from coba.utilities import peek_first
 from coba.pipes.primitives import Filter, Sparse, Dense
 
 class LazyDense(Dense):
-    __slots__ = ('_row','missing','_loaded')
+    __slots__ = ('_row','missing')
 
     def __init__(self, row: Union[Callable[[],Sequence],Sequence], missing: bool = None) -> None:
         self._row    = row
         self.missing = missing
-        self._loaded = not callable(row)
 
     def _load_or_get(self) -> Sequence:
-        if self._loaded: return self._row
-        self._loaded = True
-        row = self._row()
+        row = self._row
+        if not callable(row): return row
+        row = row()
         self._row = row        
         return row
 
@@ -31,15 +30,15 @@ class LazyDense(Dense):
         return len(self._load_or_get())
 
 class HeadDense(Dense):
-    __slots__=('_row','_head_map','headers')
+    __slots__=('_row','_map','headers')
 
     def __init__(self, row: Dense, head_seq: Sequence[str], head_map: Mapping[str,int] = None) -> None:
-        self._row      = row
-        self._head_map = head_map or dict(zip(head_seq, count()))
-        self.headers   = head_seq
+        self._row    = row
+        self._map    = head_map or dict(zip(head_seq, count()))
+        self.headers = head_seq
 
     def __getitem__(self, key: Union[str,int]):
-        return self._row[key if key.__class__ is int else self._head_map[key]]
+        return self._row[key if key.__class__ is int else self._map[key]]
 
     def __iter__(self) -> Iterator:
         return iter(self._row)
@@ -55,11 +54,10 @@ class EncodeDense(Dense):
         self._encoders = encoders
 
     def __getitem__(self, key: Union[int,str]):
-        enc = self._encoders[key]
-        return enc(self._row[key]) if enc else self._row[key]
+        return self._encoders[key](self._row[key])
 
     def __iter__(self) -> Iterator:
-        return iter( e(v) if e else v for e,v in zip(self._encoders, self._row))
+        return (e(v) for e,v in zip(self._encoders, self._row))
 
     def __len__(self) -> int:
         return len(self._row)
@@ -83,14 +81,10 @@ class KeepDense(Dense):
 
 class LabelDense(Dense):
     __slots__=('_row', '_labeled')
-    
-    def __init__(self, 
-        row: Dense, 
-        key: Union[int,str],
-        tipe: Literal['c','r','m'],
-        feats: Dense) -> None:
-        self._row      = row
-        self._labeled  = lambda: (feats, row[key], tipe)
+
+    def __init__(self, row: Dense, key: Union[int,str], tipe: Literal['c','r','m'], feats: Dense) -> None:
+        self._row     = row
+        self._labeled = (feats, row[key], tipe)
 
     def __getitem__(self, key: Union[int,str]):
         return self._row[key]
@@ -103,7 +97,7 @@ class LabelDense(Dense):
 
     @property
     def labeled(self)-> Tuple[Dense,Any,Literal['c','r','m']]:
-        return self._labeled()    
+        return self._labeled
 
 class LazySparse(Sparse):
     __slots__=('_row', '_row', '_missing')
@@ -271,9 +265,9 @@ class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Spars
         if first and isinstance(first,Dense):
             if isinstance(encs,abc.Mapping):
                 if isinstance(list(encs.keys())[0],str):
-                    encs = [ encs.get(h) for h in first.headers ]
+                    encs = [ encs.get(h, lambda x:x) for h in first.headers ]
                 else:
-                    encs = [ encs.get(h) for h in range(len(first)) ]
+                    encs = [ encs.get(h, lambda x:x) for h in range(len(first)) ]
             yield from (EncodeDense(row, encs) for row in rows)
         else:
             if isinstance(encs, abc.Sequence): encs = dict(enumerate(encs))
