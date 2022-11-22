@@ -195,14 +195,14 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
 
         if isinstance(first,abc.MutableSequence):
             first_type = "list" 
-        elif isinstance(first,dict):
-            first_type = "dict"
-        elif isinstance(first,abc.Sequence):
+        elif isinstance(first,Dense):
             first_type = "tuple"
+        elif isinstance(first,Sparse):
+            first_type = "dict"
         else:
             first_type = None
 
-        is_flattable = lambda v: isinstance(v,abc.Iterable) and not isinstance(v,str)
+        is_flattable = lambda v: isinstance(v,Dense) or (isinstance(v,abc.Iterable) and not isinstance(v,str))
 
         flattable = []
         if first_type in ["list","tuple"]:
