@@ -5,7 +5,7 @@ from coba.pipes.rows import EncodeRows, HeadRows, LabelRows, DropRows, EncodeCat
 from coba.pipes.rows import LazyDense, EncodeDense, HeadDense, LabelDense, KeepDense
 from coba.pipes.rows import LazySparse, EncodeSparse, HeadSparse, LabelSparse, DropSparse
 
-class OneHotRows_Tests(unittest.TestCase):
+class EncodeCatRows_Tests(unittest.TestCase):
     
     def test_onehot_dense_with_categorical(self):
 

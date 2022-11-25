@@ -405,9 +405,9 @@ class EncodeCatRows(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Seq
         elif isinstance(first,Sparse):
             enc = { k: make_encoder(v.levels) for k,v in first.items() if isinstance(v,Categorical) }
 
-        rows = EncodeRows(enc).filter(rows)
-
-        if self._tipe =='onehot':
-            rows = Flatten().filter(rows)
+        if enc:
+            rows = EncodeRows(enc).filter(rows)
+            if self._tipe =='onehot':
+                rows = Flatten().filter(rows)
 
         return rows

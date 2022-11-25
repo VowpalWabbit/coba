@@ -264,13 +264,10 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
                     #to all sparse categorical one-hot encoders to protect against this.
                     categories = ["0"] + categories
 
-                def encoder(x:str,cats=categories,get=OneHotEncoder(categories)._onehots.__getitem__):
+                def encoder(x:str,cats=set(categories),get=OneHotEncoder(categories)._onehots.__getitem__):
 
                     if x =="?":
                         return self._missing_value
-
-                    #if x not in cats and x[0] in self._quotes and x[0]==x[-1] and len(x) > 1:
-                    #    x = x[1:-1]
 
                     if x not in cats:
                         raise CobaException("We were unable to find one of the categorical values in the arff data.")

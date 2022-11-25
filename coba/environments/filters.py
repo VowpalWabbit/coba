@@ -802,7 +802,7 @@ class Finalize(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        for interaction in interactions:
+        for interaction in pipes.EncodeCatRows("onehot").filter(interactions):
             if isinstance(interaction, SimulatedInteraction):
                 interaction.context = self._make_hashable(interaction.context)
                 if interaction.actions:
