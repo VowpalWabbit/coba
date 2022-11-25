@@ -217,8 +217,8 @@ class Flatten_Tests(unittest.TestCase):
         given_row0 = {0: (0,1), 1:1 }
         given_row1 = {0: (1,0), 1:1 }
 
-        expected_row0 = { '0_0': 0, '0_1': 1, 1:1}
-        expected_row1 = { '0_0': 1, '0_1': 0, 1:1}
+        expected_row0 = { '0_1': 1, 1:1}
+        expected_row1 = { '0_0': 1, 1:1}
 
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]
@@ -255,14 +255,14 @@ class Flatten_Tests(unittest.TestCase):
         expected = [expected_row0, expected_row1]
 
         self.assertEqual(expected, list(Flatten().filter(given)) )
-    
+
     def test_lazy_sparse_onehot_flatten(self):
 
         given_row0 = LazySparse({0: (0,1), 1:1 })
         given_row1 = LazySparse({0: (1,0), 1:1 })
 
-        expected_row0 = { '0_0': 0, '0_1': 1, 1:1}
-        expected_row1 = { '0_0': 1, '0_1': 0, 1:1}
+        expected_row0 = { '0_1': 1, 1:1}
+        expected_row1 = { '0_0': 1, 1:1}
 
         given    = [given_row0, given_row1]
         expected = [expected_row0, expected_row1]

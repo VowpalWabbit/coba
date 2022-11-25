@@ -329,7 +329,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual({'x':[0,0,1]}, vw._predict_calls[0].ns)
         self.assertEqual(None, vw._predict_calls[0].label)
 
-        self.assertEqual({'x':{'l_0':0, 'l_1':0, 'l_2':1, 'j':1}}, vw._learn_calls[0].ns)
+        self.assertEqual({'x':{'l_2':1, 'j':1}}, vw._learn_calls[0].ns)
         self.assertEqual("2:-0.5:0.2", vw._learn_calls[0].label)
 
     def test_cb_no_predict_for_inference(self):

@@ -4,14 +4,13 @@ import json
 import time
 
 from numbers import Number
+from abc import ABC, abstractmethod
 from collections import Counter, OrderedDict, defaultdict
 from itertools import count, accumulate, chain
-from abc import ABC, abstractmethod
-
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Dict
 
 from coba.exceptions import CobaException
-from coba.pipes.rows import Sparse, Dense
+from coba.pipes.primitives import Sparse, Dense
 
 _T_out = TypeVar('_T_out', bound=Any, covariant=True)
 
@@ -294,7 +293,7 @@ class InteractionsEncoder:
         ns_raw_values = { k:v if v is not None else [] for k,v in ns_raw_values.items() }
 
         is_str = lambda v: isinstance(v,str)
-        is_seq = lambda v: isinstance(v,Dense) and not is_str(v)
+        is_seq = lambda v: isinstance(v,Dense)
         is_map = lambda v: isinstance(v,Sparse)
 
         is_sparse_type = lambda f: is_map(f) or is_str(f)

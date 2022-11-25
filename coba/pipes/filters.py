@@ -232,7 +232,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
                     row = tuple(flatter_list(row))
                 elif first_type == "dict":
                     #in-line dict comprehension was faster than a generator like we did with list
-                    row = { k:v for k,v in row.items() for k,v in ( zip(flattable[k],v) if k in flattable else ((k,v),)) }
+                    row = { k:v for k,v in row.items() for k,v in ( zip(flattable[k],v) if k in flattable else ((k,v),)) if v != 0 }
                 yield row
 
 class Encode(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):

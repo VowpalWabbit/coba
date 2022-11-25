@@ -3,8 +3,15 @@ from itertools import count, compress, chain, filterfalse
 from typing import Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple
 from coba.backports import Literal
 
+from coba.encodings import OneHotEncoder
 from coba.utilities import peek_first
 from coba.pipes.primitives import Filter, Sparse, Dense
+from coba.pipes.filters import Flatten
+
+class Categorical:
+    def __init__(self, value: Any, levels: Sequence[Any]) -> None:
+        self.value = value
+        self.levels = levels
 
 class LazyDense(Dense):
     __slots__ = ('_row','missing')
@@ -17,7 +24,7 @@ class LazyDense(Dense):
         row = self._row
         if not callable(row): return row
         row = row()
-        self._row = row        
+        self._row = row
         return row
 
     def __getitem__(self, key: int):
@@ -156,27 +163,33 @@ class HeadSparse(Sparse):
         return tuple((head_map_inv_get(k),v) for k,v in self._row.items())
 
 class EncodeSparse(Sparse):
-    __slots__=('_row', '_encoders')
+    __slots__=('_row', '_enc','_nsp')
 
-    def __init__(self, row: Sparse, encoders: Mapping) -> None:
-        self._row      = row
-        self._encoders = encoders
+    def __init__(self, row: Sparse, encoders: Mapping, not_sparse: set) -> None:
+        self._row = row
+        self._enc = encoders
+        self._nsp = not_sparse
 
     def __getitem__(self, key: Union[int,str]):
-        return self._encoders[key](self._row[key])
+        try:
+            val = self._row[key]
+        except KeyError:
+            val = "0"
+        return self._enc.get(key, lambda x:x)(val)
 
     def __iter__(self) -> Iterator:
-        return iter(self._row)
+        return iter(self._row.keys() | self._nsp)
 
     def __len__(self) -> int:
-        return len(self._row)
+        return len(self._row.keys() | self._nsp)
 
     def keys(self) -> abc.KeysView:
-        return self._row.keys()
+        return self._row.keys() | self._nsp
 
     def items(self) -> Sequence:
-        enc = self._encoders
-        return tuple((k, enc[k](v) if k in enc else v ) for k,v in self._row.items())
+        t1 = tuple((k, self._enc.get(k,lambda x:x)(v)) for k,v in self._row.items())
+        t2 = tuple((k, self._enc[k]("0")) for k in self._nsp-self._row.keys())
+        return t1+t2
 
 class DropSparse(Sparse):
     __slots__=('_row','_drop_set')
@@ -262,16 +275,21 @@ class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Spars
         encs = self._encoders
         first, rows = peek_first(rows)
 
-        if first and isinstance(first,Dense):
+        if first is None:
+            return rows
+
+        if isinstance(first,Dense):
             if isinstance(encs,abc.Mapping):
-                if isinstance(list(encs.keys())[0],str):
-                    encs = [ encs.get(h, lambda x:x) for h in first.headers ]
+                if hasattr(first, 'headers'):
+                    encs = [ encs.get(h, encs.get(i, lambda x:x)) for i,h in enumerate(first.headers) ]
                 else:
-                    encs = [ encs.get(h, lambda x:x) for h in range(len(first)) ]
-            yield from (EncodeDense(row, encs) for row in rows)
-        else:
+                    encs = [ encs.get(i, lambda x:x)              for i   in range(len(first))        ]
+            return ( EncodeDense(row, encs) for row in rows )
+
+        if isinstance(first,Sparse):
             if isinstance(encs, abc.Sequence): encs = dict(enumerate(encs))
-            yield from (EncodeSparse(row, encs) for row in rows)
+            not_sparse_encoding = set(k for k,v in encs.items() if v('0')!=0)
+            return ( EncodeSparse(row, encs, not_sparse_encoding) for row in rows )
 
 class HeadRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
 
@@ -366,3 +384,30 @@ class DropRows(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence
         else:
             drop_set = DropRows.make_drop_row_args(first, drop_cols)
             yield from (DropSparse(row, drop_set) for row in rows)
+
+class EncodeCatRows(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
+    def __init__(self, tipe=Literal["onehot","onehot_tuple","string"]) -> None:
+        self._tipe = tipe
+
+    def filter(self, rows: Iterable[Union[Any,Sequence,Mapping]]) -> Iterable[Union[Any,Sequence,Mapping]]:
+
+        first, rows = peek_first(rows)
+        
+        if self._tipe == 'string':
+            make_encoder = lambda levels: (lambda c: str(c.value if isinstance(c, Categorical) else c))
+        else:
+            make_encoder = lambda levels: (lambda c, e=OneHotEncoder(levels):e.encode(c.value if isinstance(c, Categorical) else c))
+
+        if not isinstance(first,(Dense,Sparse)):
+            return rows
+        elif isinstance(first,Dense):
+            enc = { i: make_encoder(v.levels) for i,v in enumerate(first) if isinstance(v,Categorical) }
+        elif isinstance(first,Sparse):
+            enc = { k: make_encoder(v.levels) for k,v in first.items() if isinstance(v,Categorical) }
+
+        rows = EncodeRows(enc).filter(rows)
+
+        if self._tipe =='onehot':
+            rows = Flatten().filter(rows)
+
+        return rows

@@ -1,9 +1,109 @@
 
 import unittest
 
-from coba.pipes.rows import EncodeRows, HeadRows, LabelRows, DropRows
+from coba.pipes.rows import EncodeRows, HeadRows, LabelRows, DropRows, EncodeCatRows, Categorical
 from coba.pipes.rows import LazyDense, EncodeDense, HeadDense, LabelDense, KeepDense
 from coba.pipes.rows import LazySparse, EncodeSparse, HeadSparse, LabelSparse, DropSparse
+
+class OneHotRows_Tests(unittest.TestCase):
+    
+    def test_onehot_dense_with_categorical(self):
+
+        given = [[1,2,Categorical(1,[1,2])], [4,5,Categorical(2,[1,2])]]
+        expected = [(1,2,1,0),(4,5,0,1)]
+        actual = list(EncodeCatRows("onehot").filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_string_dense_with_categorical(self):
+
+        given = [[1,2,Categorical(1,[1,2])], [4,5,Categorical(2,[1,2])]]
+        expected = [(1,2,"1"),(4,5,"2")]
+        actual = list(EncodeCatRows("string").filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_onehot_dense_sans_categorical(self):
+
+        given = [[1,2], [4,5]]
+        expected = [[1,2],[4,5]]
+        actual = list(EncodeCatRows("onehot").filter(given))
+
+        self.assertEqual(actual,expected)
+    
+    def test_onehot_tuple_dense_with_categorical(self):
+
+        given = [[1,2,Categorical(1,[1,2])], [4,5,Categorical(2,[1,2])]]
+        expected = [[1,2,(1,0)],[4,5,(0,1)]]
+        actual = list(EncodeCatRows("onehot_tuple").filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_onehot_tuple_dense_sans_categorical(self):
+
+        given = [[1,2], [4,5]]
+        expected = [[1,2],[4,5]]
+        actual = list(EncodeCatRows("onehot_tuple").filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_onehot_sparse_with_categorical(self):
+
+        given = [{1:2, 2:Categorical(1,[1,2])}, {4:5, 2:Categorical(2,[1,2])}]
+        expected = [{1:2, "2_0":1}, {4:5, "2_1":1}]
+        actual = list(EncodeCatRows("onehot").filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_string_sparse_with_categorical(self):
+
+        given = [{1:2, 2:Categorical(1,[1,2])}, {4:5, 2:Categorical(2,[1,2])}]
+        expected = [{1:2, 2:"1"}, {4:5, 2:"2"}]
+        actual = list(EncodeCatRows("string").filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_onehot_sparse_sans_categorical(self):
+
+        given = [{1:2}, {4:5}]
+        expected = [{1:2}, {4:5}]
+        actual = list(EncodeCatRows("onehot").filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_onehot_tuple_sparse_with_categorical(self):
+
+        given = [{1:2, 2:Categorical(1,[1,2])}, {4:5, 2:Categorical(2,[1,2])}]
+        expected = [{1:2, 2:(1,0)}, {4:5, 2:(0,1)}]
+        actual = list(EncodeCatRows("onehot_tuple").filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_onehot_tuple_sparse_sans_categorical(self):
+
+        given = [{1:2}, {4:5}]
+        expected = [{1:2}, {4:5}]
+        actual = list(EncodeCatRows("onehot_tuple").filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_empty(self):
+
+        given = []
+        expected = []
+        actual = list(EncodeCatRows(False).filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_value(self):
+
+        given = [1,2,3]
+        expected = [1,2,3]
+        actual = list(EncodeCatRows(False).filter(given))
+
+        self.assertEqual(actual,expected)
+
+
 
 class EncodeRows_Tests(unittest.TestCase):
 
@@ -26,6 +126,9 @@ class EncodeRows_Tests(unittest.TestCase):
     def test_encode_sparse_seq(self):
         row = next(EncodeRows([int,int,float]).filter([{0:'0',1:'1',2:'2.2'}]))
         self.assertEqual({0:0,1:1,2:2.2}, row)
+
+    def test_encode_empty_sequence(self):
+        self.assertEqual([], EncodeRows([int,str]).filter([]))
 
 class HeadRows_Tests(unittest.TestCase):
     
@@ -417,28 +520,50 @@ class HeadSparse_Tests(unittest.TestCase):
 class EncodeSparse_Tests(unittest.TestCase):
 
     def test_get(self):
-        r = EncodeSparse({0:'1',1:2}, {0:int,1:str})
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str}, {1})
+        self.assertEqual(1  ,r[0])
+        self.assertEqual('2',r[1])
+
+    def test_get_with_non_zero_sparse_encoding(self):
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str,2:str}, {1,2})
         self.assertEqual(1  ,r[0])
         self.assertEqual('2',r[1]) 
+        self.assertEqual('0',r[2])
 
     def test_len(self):
-        r = EncodeSparse({0:'1',1:2}, {0:int,1:str})
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str}, {1})
         self.assertEqual(2,len(r))
 
+    def test_len_with_non_zero_sparse_encoding(self):
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str,2:str}, {1,2})
+        self.assertEqual(3,len(r))
+
     def test_iter(self):
-        r = EncodeSparse({0:'1',1:2}, {0:int,1:str})
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str}, {1})
         self.assertCountEqual([0,1],list(r))
 
+    def test_iter_with_non_zero_sparse_encoding(self):
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str,2:str}, {1,2})
+        self.assertCountEqual([0,1,2],list(r))
+
     def test_keys(self):
-        r = EncodeSparse({0:'1',1:2}, {0:int,1:str})
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str}, {1})
         self.assertEqual({0,1},r.keys())
 
+    def test_keys_with_non_zero_sparse_encoding(self):
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str,2:str}, {1,2})
+        self.assertEqual({0,1,2},r.keys())
+
     def test_items(self):
-        r = EncodeSparse({0:'1',1:2}, {0:int,1:str})
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str}, {1})
         self.assertCountEqual(((0,1),(1,'2')),r.items())
 
+    def test_items_with_non_zero_sparse_encoding(self):
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str,2:str}, {1,2})
+        self.assertCountEqual(((0,1),(1,'2'),(2,"0")),r.items())
+
     def test_eq(self):
-        r = EncodeSparse({0:'1',1:2}, {0:int,1:str})
+        r = EncodeSparse({0:'1',1:2}, {0:int,1:str}, {1})
         self.assertEqual({0:1,1:'2'},r)
 
 class DropSparse_Tests(unittest.TestCase):
