@@ -8,10 +8,15 @@ from coba.utilities import peek_first
 from coba.pipes.primitives import Filter, Sparse, Dense
 from coba.pipes.filters import Flatten
 
-class Categorical:
-    def __init__(self, value: Any, levels: Sequence[Any]) -> None:
-        self.value = value
+class Categorical(str):
+    def __new__(cls, value:str, levels: Sequence[str]) -> str:
+        return str.__new__(cls,value)
+    
+    def __init__(self, value:str, levels: Sequence[str]) -> None:
         self.levels = levels
+    
+    def __repr__(self) -> str:
+        return f"Categorical('{self}',{self.levels})"
 
 class LazyDense(Dense):
     __slots__ = ('_row','missing')
@@ -393,17 +398,23 @@ class EncodeCatRows(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Seq
 
         first, rows = peek_first(rows)
         
-        if self._tipe == 'string':
-            make_encoder = lambda levels: (lambda c: str(c.value if isinstance(c, Categorical) else c))
+        if self._tipe is None:
+            make_encoder = lambda levels: (lambda c: c)
+        elif self._tipe == 'string':
+            make_encoder = lambda levels: str
         else:
-            make_encoder = lambda levels: (lambda c, e=OneHotEncoder(levels):e.encode(c.value if isinstance(c, Categorical) else c))
+            make_encoder = lambda levels: OneHotEncoder(levels).encode
 
-        if not isinstance(first,(Dense,Sparse)):
-            return rows
+        if isinstance(first,Categorical):
+            rows = ([r] for r in rows)
+            enc = { 0: make_encoder(first.levels) }
         elif isinstance(first,Dense):
             enc = { i: make_encoder(v.levels) for i,v in enumerate(first) if isinstance(v,Categorical) }
         elif isinstance(first,Sparse):
             enc = { k: make_encoder(v.levels) for k,v in first.items() if isinstance(v,Categorical) }
+        else:
+            return rows
+
 
         if enc:
             rows = EncodeRows(enc).filter(rows)

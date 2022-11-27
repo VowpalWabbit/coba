@@ -126,7 +126,7 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
 class JsonEncode(Filter[Any, str]):
     """A filter which turn a Python object into JSON strings."""
 
-    def _min(self,obj):
+    def _min(self, obj):
         #WARNING: This method doesn't handle primitive types such int, float, or str. We handle this shortcoming
         #WARNING: by making sure no primitive type is passed to this method in filter. Accepting the shortcoming
         #WARNING: improves the performance of this method by a few percentage points.

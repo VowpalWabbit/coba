@@ -4,13 +4,14 @@ import unittest
 from collections import Counter
 from math import isnan
 
+from coba.pipes        import Categorical
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments import L1Reward
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
-from coba.environments import Finalize, HashableMap
+from coba.environments import Finalize, HashableMap, Repr
 
 class TestEnvironment:
 
@@ -1453,6 +1454,28 @@ class Grounded_Tests(unittest.TestCase):
         self.assertEqual( 2, params['n_good'])
         self.assertEqual( 1, params['igl_seed'])
 
+class Repr_Tests(unittest.TestCase):
+    def test_no_categorical(self):
+        out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[1,2],[1,2])]))
+
+        self.assertEqual([1,2,3],out.context)
+        self.assertEqual([1,2]  ,out.actions)
+        self.assertEqual([1,2] ,out.rewards)
+    
+    def test_context_categorical(self):
+        out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,Categorical('1',['1','2'])],[1,2],[1,2])]))
+
+        self.assertEqual((1,2,1,0),out.context)
+        self.assertEqual([1,2]    ,out.actions)
+        self.assertEqual([1,2]    ,out.rewards)
+
+    def test_actions_categorical(self):
+        out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
+
+        self.assertEqual([1,2,3]      , out.context)
+        self.assertEqual([(1,0),(0,1)], out.actions)
+        self.assertEqual([1,2]        , out.rewards)
+
 class Finalize_Tests(unittest.TestCase):
 
     def test_dense_simulated(self):
@@ -1461,8 +1484,8 @@ class Finalize_Tests(unittest.TestCase):
         actual = list(Finalize().filter(interactions))
 
         self.assertEqual(len(actual),1)
-        self.assertEqual(actual[0].context, (1,2,3))
-        self.assertEqual(actual[0].actions, [(1,2),(3,4)])
+        self.assertEqual(actual[0].context, [1,2,3])
+        self.assertEqual(actual[0].actions, [[1,2],[3,4]])
 
     def test_sparse_simulated(self):
         interactions = [SimulatedInteraction({1:2},[[1,2],[3,4]], [1,2])]
@@ -1471,7 +1494,7 @@ class Finalize_Tests(unittest.TestCase):
 
         self.assertEqual(len(actual),1)
         self.assertIsInstance(actual[0].context, HashableMap)
-        self.assertEqual(actual[0].actions, [(1,2),(3,4)])
+        self.assertEqual(actual[0].actions, [[1,2],[3,4]])
 
     def test_logged(self):
         interactions = [LoggedInteraction([1,2,3], [1,2], 1, 1, [[1,2],[3,4]], [1,2])]
@@ -1481,7 +1504,7 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0].context, (1,2,3))
         self.assertEqual(actual[0].action, (1,2))
-        self.assertEqual(actual[0].actions, [(1,2),(3,4)])
+        self.assertEqual(actual[0].actions, [[1,2],[3,4]])
 
     def test_grounded(self):
         interactions = [GroundedInteraction([1,2,3],[[1,2],[3,4]], [1,2], [3,4])]
@@ -1489,8 +1512,8 @@ class Finalize_Tests(unittest.TestCase):
         actual = list(Finalize().filter(interactions))
 
         self.assertEqual(len(actual),1)
-        self.assertEqual(actual[0].context, (1,2,3))
-        self.assertEqual(actual[0].actions, [(1,2),(3,4)])
+        self.assertEqual(actual[0].context, [1,2,3])
+        self.assertEqual(actual[0].actions, [[1,2],[3,4]])
 
 if __name__ == '__main__':
     unittest.main()

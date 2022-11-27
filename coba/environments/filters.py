@@ -798,28 +798,42 @@ class Grounded(EnvironmentFilter):
         if isinstance(value, float) and value.is_integer(): return int(value)
         raise CobaException(f"{value_name} must be a whole number and not {value}.")
 
+class Repr(EnvironmentFilter):
+    def __init__(self, 
+        cat_context:Literal["onehot","onehot_tuple","string"] = None, 
+        cat_actions:Literal["onehot","onehot_tuple","string"] = None) -> None:
+        self._cat_context = cat_context
+        self._cat_actions = cat_actions
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        I1,I2,I3 = tee(interactions,3)
+
+        interactions      = I1
+        cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter( i['context'] for i in I2                       )
+        cat_actions_iter = pipes.EncodeCatRows(self._cat_actions).filter( a            for i in I3 for a in i['actions'] )
+
+        for interaction in interactions:
+            cat_context = next(cat_context_iter)
+            cat_actions = list(islice(cat_actions_iter,len(interaction['actions'])))
+            
+            interaction.copy()
+            interaction.update(context=cat_context,actions=cat_actions)
+            yield interaction
+
 class Finalize(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        for interaction in pipes.EncodeCatRows("onehot").filter(interactions):
-            if isinstance(interaction, SimulatedInteraction):
-                interaction.context = self._make_hashable(interaction.context)
-                if interaction.actions:
-                    interaction.actions = list(map(self._make_hashable,interaction.actions))
+        for interaction in Repr("onehot","onehot").filter(interactions):
 
-            elif isinstance(interaction, LoggedInteraction):
-                interaction.context = self._make_hashable(interaction.context)
-                interaction.action  = self._make_hashable(interaction.action)
-                if interaction.actions:
-                    interaction.actions = list(map(self._make_hashable,interaction.actions))
+            new = interaction.copy()
 
-            elif isinstance(interaction, GroundedInteraction):
-                interaction.context = self._make_hashable(interaction.context)
-                if interaction.actions:
-                    interaction.actions = list(map(self._make_hashable,interaction.actions))
+            if 'context' in new: new['context'] = self._make_hashable(new['context'])
+            if 'actions' in new: new['actions'] = self._make_hashable(new['actions'])
+            if 'action'  in new: new['action' ] = self._make_hashable(new['action'])
 
-            yield interaction
+            yield new
 
     def _make_hashable(self, feats):
         if isinstance(feats, pipes.Dense):

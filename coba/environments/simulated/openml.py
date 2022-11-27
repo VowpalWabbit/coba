@@ -17,21 +17,19 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     """
 
     @overload
-    def __init__(self, *, data_id:int, cat_as_str:bool=False, drop_missing:bool=True):
+    def __init__(self, *, data_id:int, drop_missing:bool=True):
         """Instantiate an OpenmlSource.
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
-            cat_as_str: Categorical features should be encoded as a string rather than one hot encoded.
             drop_missing: Drop data rows with missing values.
         """
         ...
 
     @overload
-    def __init__(self, *, task_id:int, cat_as_str:bool=False, drop_missing:bool=True):
+    def __init__(self, *, task_id:int, drop_missing:bool=True):
         """Instantiate an OpenmlSource.
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label
-            cat_as_str: Categorical features should be encoded as a string rather than one hot encoded.
             drop_missing: Drop data rows with missing values.
         """
         ...
@@ -42,13 +40,12 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
         self._data_id        = kwargs.get('data_id',None)
         self._task_id        = kwargs.get('task_id',None)
         self._target         = None
-        self._cat_as_str     = kwargs.get('cat_as_str',False)
         self._drop_missing   = kwargs.get('drop_missing',True)
 
     @property
     def params(self) -> Dict[str,Any]:
         """Parameters describing the openml source."""
-        return  { "openml_data": self._data_id, "openml_task": self._task_id, "openml_target": self._target, "cat_as_str": self._cat_as_str, "drop_missing": self._drop_missing }
+        return  { "openml_data": self._data_id, "openml_task": self._task_id, "openml_target": self._target, "drop_missing": self._drop_missing }
 
     def read(self) -> Iterable[Union[Dense,Sparse]]:
         """Read and parse the openml source."""
@@ -106,7 +103,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             drop_row  = (lambda r: r.missing) if self._drop_missing else None
             lines     = self._get_arff_lines(data_descr["file_id"], None)
-            reader    = ArffReader(cat_as_str=self._cat_as_str)
+            reader    = ArffReader()
             drop      = DropRows(drop_cols=ignore, drop_row=drop_row)
             label     = LabelRows(self._target, label_type)
 
@@ -259,22 +256,20 @@ class OpenmlSimulation(SupervisedSimulation):
     """
 
     @overload
-    def __init__(self, data_id: int, cat_as_str: bool = False, drop_missing: bool = True, take: int = None):
+    def __init__(self, data_id: int, drop_missing: bool = True, take: int = None):
         """Instantiate an OpenmlSimulation.
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
-            cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded.
             drop_missing: Drop data rows with missing values.
             take: The number of interactions we'd like the simulation to have (these will be selected at random).
         """
         ...
 
     @overload
-    def __init__(self, *, task_id: int, cat_as_str: bool = False, drop_missing: bool = True, take: int=None):
+    def __init__(self, *, task_id: int, drop_missing: bool = True, take: int=None):
         """Instantiate an OpenmlSimulation.
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label
-            cat_as_str: Indicates if categorical features should be encoded as a string rather than one hot encoded.
             drop_missing: Drop data rows with missing values.
             take: The number of interactions we'd like the simulation to have (these will be selected at random).
         """
@@ -282,7 +277,7 @@ class OpenmlSimulation(SupervisedSimulation):
 
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate an OpenmlSimulation."""
-        kwargs.update(zip(['data_id','cat_as_str','drop_missing','take'], args))
+        kwargs.update(zip(['data_id','drop_missing','take'], args))
         super().__init__(OpenmlSource(**kwargs), None, None, kwargs.get('take',None))
 
     @property

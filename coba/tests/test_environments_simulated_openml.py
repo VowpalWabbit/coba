@@ -3,10 +3,10 @@ import unittest.mock
 import unittest
 import json
 
-from math import isnan
 from threading import Semaphore, Event, Thread
 from typing import cast, Tuple
 
+from coba.pipes        import Categorical
 from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext, CobaContext, NullLogger, MemoryCacher, NullCacher
 from coba.environments import OpenmlSimulation
@@ -92,36 +92,36 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.2,28,1410,2,y
+            8.3,27,1020,1,y
+            7.6,23,4700,1,y
         """
 
         CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
 
-        features,labels,_ = zip(*[ r.labeled for r in OpenmlSource(data_id=42693).read()])
+        features,labels,_ = zip(*[r.labeled for r in OpenmlSource(data_id=42693).read()])
 
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels  ), 5)
 
-        self.assertEqual([8.1, 27, 1410, (1,0)], features[0])
-        self.assertEqual([8.2, 29, 1180, (1,0)], features[1])
-        self.assertEqual([8.2, 28, 1410, (1,0)], features[2])
-        self.assertEqual([8.3, 27, 1020, (0,1)], features[3])
-        self.assertEqual([7.6, 23, 4700, (0,1)], features[4])
+        self.assertEqual([8.1, 27, 1410, Categorical('2',['2','1'])], features[0])
+        self.assertEqual([8.2, 29, 1180, Categorical('2',['2','1'])], features[1])
+        self.assertEqual([8.2, 28, 1410, Categorical('2',['2','1'])], features[2])
+        self.assertEqual([8.3, 27, 1020, Categorical('1',['2','1'])], features[3])
+        self.assertEqual([7.6, 23, 4700, Categorical('1',['2','1'])], features[4])
 
-        self.assertEqual((1,0), labels[0])
-        self.assertEqual((1,0), labels[1])
-        self.assertEqual((0,1), labels[2])
-        self.assertEqual((0,1), labels[3])
-        self.assertEqual((0,1), labels[4])
+        self.assertEqual(Categorical('n',['n','y']), labels[0])
+        self.assertEqual(Categorical('n',['n','y']), labels[1])
+        self.assertEqual(Categorical('y',['n','y']), labels[2])
+        self.assertEqual(Categorical('y',['n','y']), labels[3])
+        self.assertEqual(Categorical('y',['n','y']), labels[4])
 
     def test_data_deactivated(self):
 
@@ -172,14 +172,14 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            ?,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,?,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
+            ?,27,1410,2,n
+            8.2,29,1180,2,n
+            8.2,?,1410,2,y
+            8.3,27,1020,1,y
+            7.6,23,4700,1,y
         """
 
         CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
@@ -191,74 +191,13 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(features), 3)
         self.assertEqual(len(labels  ), 3)
 
-        self.assertEqual([8.2, 29, 1180, (1,0)], features[0])
-        self.assertEqual([8.3, 27, 1020, (0,1)], features[1])
-        self.assertEqual([7.6, 23, 4700, (0,1)], features[2])
+        self.assertEqual([8.2, 29, 1180, Categorical('2',['2','1'])], features[0])
+        self.assertEqual([8.3, 27, 1020, Categorical('1',['2','1'])], features[1])
+        self.assertEqual([7.6, 23, 4700, Categorical('1',['2','1'])], features[2])
 
-        self.assertEqual((1,0), labels[0])
-        self.assertEqual((0,1), labels[1])
-        self.assertEqual((0,1), labels[2])
-
-    def test_cat_as_str(self):
-
-        data = {
-            "data_set_description":{
-                "id":"42693",
-                "file_id":"22044555",
-                "status":"active",
-                "default_target_attribute":"play"
-            }
-        }
-
-        feat = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        arff = """
-            @relation weather
-
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {no, yes}
-
-            @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
-        """
-
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
-
-        features,labels,_ = zip(*[ r.labeled for r in OpenmlSource(data_id=42693,cat_as_str=True).read()])
-
-        self.assertEqual(len(features), 5)
-        self.assertEqual(len(labels  ), 5)
-
-        self.assertEqual([8.1, 27, 1410, '2'], features[0])
-        self.assertEqual([8.2, 29, 1180, '2'], features[1])
-        self.assertEqual([8.2, 28, 1410, '2'], features[2])
-        self.assertEqual([8.3, 27, 1020, '1'], features[3])
-        self.assertEqual([7.6, 23, 4700, '1'], features[4])
-
-        self.assertEqual('no' , labels[0])
-        self.assertEqual('no' , labels[1])
-        self.assertEqual('yes', labels[2])
-        self.assertEqual('yes', labels[3])
-        self.assertEqual('yes', labels[4])
+        self.assertEqual(Categorical('n',['n','y']), labels[0])
+        self.assertEqual(Categorical('y',['n','y']), labels[1])
+        self.assertEqual(Categorical('y',['n','y']), labels[2])
 
     def test_data_classification(self):
 
@@ -290,14 +229,14 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.2,28,1410,2,y
+            8.3,27,1020,1,y
+            7.6,23,4700,1,y
         """
 
         CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
@@ -309,17 +248,17 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels  ), 5)
 
-        self.assertEqual([8.1, 27, 1410, (1,0)], features[0])
-        self.assertEqual([8.2, 29, 1180, (1,0)], features[1])
-        self.assertEqual([8.2, 28, 1410, (1,0)], features[2])
-        self.assertEqual([8.3, 27, 1020, (0,1)], features[3])
-        self.assertEqual([7.6, 23, 4700, (0,1)], features[4])
+        self.assertEqual([8.1, 27, 1410, Categorical('2',['2','1'])], features[0])
+        self.assertEqual([8.2, 29, 1180, Categorical('2',['2','1'])], features[1])
+        self.assertEqual([8.2, 28, 1410, Categorical('2',['2','1'])], features[2])
+        self.assertEqual([8.3, 27, 1020, Categorical('1',['2','1'])], features[3])
+        self.assertEqual([7.6, 23, 4700, Categorical('1',['2','1'])], features[4])
 
-        self.assertEqual((1,0), labels[0])
-        self.assertEqual((1,0), labels[1])
-        self.assertEqual((0,1), labels[2])
-        self.assertEqual((0,1), labels[3])
-        self.assertEqual((0,1), labels[4])
+        self.assertEqual(Categorical('n',['n','y']), labels[0])
+        self.assertEqual(Categorical('n',['n','y']), labels[1])
+        self.assertEqual(Categorical('y',['n','y']), labels[2])
+        self.assertEqual(Categorical('y',['n','y']), labels[3])
+        self.assertEqual(Categorical('y',['n','y']), labels[4])
 
     def test_data_regression(self):
 
@@ -351,30 +290,30 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.2,28,1410,2,y
+            8.3,27,1020,1,y
+            7.6,23,4700,1,y
         """
 
         CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_042693_arff' , arff.splitlines() )
 
-        features,labels,_ = zip(*[ r.labeled for r in OpenmlSource(data_id=42693).read()])
+        features,labels,_ = zip(*[r.labeled for r in OpenmlSource(data_id=42693).read()])
 
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels  ), 5)
 
-        self.assertEqual([27, 1410, (1,0), (1,0)], features[0])
-        self.assertEqual([29, 1180, (1,0), (1,0)], features[1])
-        self.assertEqual([28, 1410, (1,0), (0,1)], features[2])
-        self.assertEqual([27, 1020, (0,1), (0,1)], features[3])
-        self.assertEqual([23, 4700, (0,1), (0,1)], features[4])
+        self.assertEqual([27, 1410, Categorical('2',['2','1']), Categorical('n',['n','y'])], features[0])
+        self.assertEqual([29, 1180, Categorical('2',['2','1']), Categorical('n',['n','y'])], features[1])
+        self.assertEqual([28, 1410, Categorical('2',['2','1']), Categorical('y',['n','y'])], features[2])
+        self.assertEqual([27, 1020, Categorical('1',['2','1']), Categorical('y',['n','y'])], features[3])
+        self.assertEqual([23, 4700, Categorical('1',['2','1']), Categorical('y',['n','y'])], features[4])
 
         self.assertEqual(8.1, labels[0])
         self.assertEqual(8.2, labels[1])
@@ -429,14 +368,14 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.2,28,1410,2,y
+            8.3,27,1020,1,y
+            7.6,23,4700,1,y
         """
 
         CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
@@ -448,17 +387,17 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(len(features), 5)
         self.assertEqual(len(labels  ), 5)
 
-        self.assertEqual([8.1, 27, 1410, (1,0)], features[0])
-        self.assertEqual([8.2, 29, 1180, (1,0)], features[1])
-        self.assertEqual([8.2, 28, 1410, (0,1)], features[2])
-        self.assertEqual([8.3, 27, 1020, (0,1)], features[3])
-        self.assertEqual([7.6, 23, 4700, (0,1)], features[4])
+        self.assertEqual([8.1, 27, 1410, Categorical('n',['n','y'])], features[0])
+        self.assertEqual([8.2, 29, 1180, Categorical('n',['n','y'])], features[1])
+        self.assertEqual([8.2, 28, 1410, Categorical('y',['n','y'])], features[2])
+        self.assertEqual([8.3, 27, 1020, Categorical('y',['n','y'])], features[3])
+        self.assertEqual([7.6, 23, 4700, Categorical('y',['n','y'])], features[4])
 
-        self.assertEqual((1,0), labels[0])
-        self.assertEqual((1,0), labels[1])
-        self.assertEqual((1,0), labels[2])
-        self.assertEqual((0,1), labels[3])
-        self.assertEqual((0,1), labels[4])
+        self.assertEqual(Categorical('2',['2','1']), labels[0])
+        self.assertEqual(Categorical('2',['2','1']), labels[1])
+        self.assertEqual(Categorical('2',['2','1']), labels[2])
+        self.assertEqual(Categorical('1',['2','1']), labels[3])
+        self.assertEqual(Categorical('1',['2','1']), labels[4])
 
     def test_sparse_classification_target(self):
 
@@ -525,10 +464,10 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(dict(zip(map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), features[2])
         self.assertEqual(dict(zip(map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), features[3])
 
-        self.assertEqual((1,0,0,0), labels[0])
-        self.assertEqual((0,1,0,0), labels[1])
-        self.assertEqual((0,0,1,0), labels[2])
-        self.assertEqual((0,0,0,1), labels[3])
+        self.assertEqual(Categorical('0',['0','B','C','D']), labels[0])
+        self.assertEqual(Categorical('B',['0','B','C','D']), labels[1])
+        self.assertEqual(Categorical('C',['0','B','C','D']), labels[2])
+        self.assertEqual(Categorical('D',['0','B','C','D']), labels[3])
 
     def test_task(self):
 
@@ -604,10 +543,10 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertEqual(dict(zip( map(str,(0,1,2,3,4,5,6)), (3,1,1,9,1,1,1))), features[2])
         self.assertEqual(dict(zip( map(str,(0,3,6,7,8,9))  , (1,1,1,1,1,2)  )), features[3])
 
-        self.assertEqual((1,0,0,0), labels[0])
-        self.assertEqual((0,1,0,0), labels[1])
-        self.assertEqual((0,0,1,0), labels[2])
-        self.assertEqual((0,0,0,1), labels[3])
+        self.assertEqual(Categorical('0',['0','B','C','D']), labels[0])
+        self.assertEqual(Categorical('B',['0','B','C','D']), labels[1])
+        self.assertEqual(Categorical('C',['0','B','C','D']), labels[2])
+        self.assertEqual(Categorical('D',['0','B','C','D']), labels[3])
 
     def test_task_without_source_data(self):
 
@@ -846,14 +785,14 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.2,28,1410,2,y
+            8.3,27,1020,1,y
+            7.6,23,4700,1,y
         """
 
         CobaContext.cacher = ExceptionCacher('openml_042693_arff', KeyboardInterrupt())
@@ -904,14 +843,14 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.2,28,1410,2,y
+            8.3,27,1020,1,y
+            7.6,23,4700,1,y
         """
 
         CobaContext.cacher = ExceptionCacher('openml_042693_arff', CobaException())
@@ -962,14 +901,14 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.2,28,1410,2,y
+            8.3,27,1020,1,y
+            7.6,23,4700,1,y
         """
 
         request_dict = {
@@ -985,22 +924,22 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
             for _ in range(2):
-                features,labels,_ = zip(*[ r.labeled for r in OpenmlSource(data_id=42693).read()])
+                features,labels,_ = zip(*[r.labeled for r in OpenmlSource(data_id=42693).read()])
 
                 self.assertEqual(len(features), 5)
                 self.assertEqual(len(labels  ), 5)
 
-                self.assertEqual([8.1, 27, 1410, (1,0)], features[0])
-                self.assertEqual([8.2, 29, 1180, (1,0)], features[1])
-                self.assertEqual([8.2, 28, 1410, (1,0)], features[2])
-                self.assertEqual([8.3, 27, 1020, (0,1)], features[3])
-                self.assertEqual([7.6, 23, 4700, (0,1)], features[4])
+                self.assertEqual([8.1, 27, 1410, Categorical('2',["2","1"])], features[0])
+                self.assertEqual([8.2, 29, 1180, Categorical('2',["2","1"])], features[1])
+                self.assertEqual([8.2, 28, 1410, Categorical('2',["2","1"])], features[2])
+                self.assertEqual([8.3, 27, 1020, Categorical('1',["2","1"])], features[3])
+                self.assertEqual([7.6, 23, 4700, Categorical('1',["2","1"])], features[4])
 
-                self.assertEqual((1,0), labels[0])
-                self.assertEqual((1,0), labels[1])
-                self.assertEqual((0,1), labels[2])
-                self.assertEqual((0,1), labels[3])
-                self.assertEqual((0,1), labels[4])
+                self.assertEqual(Categorical('n',["n","y"]), labels[0])
+                self.assertEqual(Categorical('n',["n","y"]), labels[1])
+                self.assertEqual(Categorical('y',["n","y"]), labels[2])
+                self.assertEqual(Categorical('y',["n","y"]), labels[3])
+                self.assertEqual(Categorical('y',["n","y"]), labels[4])
 
                 self.assertIn('openml_042693_data', CobaContext.cacher)
                 self.assertIn('openml_042693_feat', CobaContext.cacher)
@@ -1054,14 +993,14 @@ class OpenmlSource_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.2,28,1410,2,yes
-            8.3,27,1020,1,yes
-            7.6,23,4700,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.2,28,1410,2,y
+            8.3,27,1020,1,y
+            7.6,23,4700,1,y
         """
 
         request_dict = {
@@ -1099,22 +1038,22 @@ class OpenmlSource_Tests(unittest.TestCase):
 
             #this should complete despite us acquiring above 
             #because it doesn't lock since everything is cached
-            features,labels,_ = zip(*[ r.labeled for r in OpenmlSource(task_id=123).read()])
+            features,labels,_ = zip(*[r.labeled for r in OpenmlSource(task_id=123).read()])
 
             self.assertEqual(len(features), 5)
             self.assertEqual(len(labels  ), 5)
 
-            self.assertEqual([8.1, 27, 1410, (1,0)], features[0])
-            self.assertEqual([8.2, 29, 1180, (1,0)], features[1])
-            self.assertEqual([8.2, 28, 1410, (1,0)], features[2])
-            self.assertEqual([8.3, 27, 1020, (0,1)], features[3])
-            self.assertEqual([7.6, 23, 4700, (0,1)], features[4])
+            self.assertEqual([8.1, 27, 1410, Categorical('2',["2","1"])], features[0])
+            self.assertEqual([8.2, 29, 1180, Categorical('2',["2","1"])], features[1])
+            self.assertEqual([8.2, 28, 1410, Categorical('2',["2","1"])], features[2])
+            self.assertEqual([8.3, 27, 1020, Categorical('1',["2","1"])], features[3])
+            self.assertEqual([7.6, 23, 4700, Categorical('1',["2","1"])], features[4])
 
-            self.assertEqual((1,0), labels[0])
-            self.assertEqual((1,0), labels[1])
-            self.assertEqual((0,1), labels[2])
-            self.assertEqual((0,1), labels[3])
-            self.assertEqual((0,1), labels[4])
+            self.assertEqual(Categorical('n',["n","y"]), labels[0])
+            self.assertEqual(Categorical('n',["n","y"]), labels[1])
+            self.assertEqual(Categorical('y',["n","y"]), labels[2])
+            self.assertEqual(Categorical('y',["n","y"]), labels[3])
+            self.assertEqual(Categorical('y',["n","y"]), labels[4])
 
             self.assertIn('openml_042693_data', CobaContext.cacher)
             self.assertIn('openml_042693_feat', CobaContext.cacher)
@@ -1206,29 +1145,29 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.3,27,1020,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.3,27,1020,1,y
         """
 
         CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
         CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
         CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
 
-        interactions = list(OpenmlSimulation(data_id=42693, cat_as_str=True).read())
+        interactions = list(OpenmlSimulation(data_id=42693).read())
 
         self.assertEqual(len(interactions), 3)
 
-        self.assertEqual([8.1,27,1410,'no'], interactions[0].context)
-        self.assertEqual([8.2,29,1180,'no'], interactions[1].context)
-        self.assertEqual([8.3,27,1020,'yes'], interactions[2].context)
+        self.assertEqual([8.1,27,1410,Categorical('n',["n","y"])], interactions[0].context)
+        self.assertEqual([8.2,29,1180,Categorical('n',["n","y"])], interactions[1].context)
+        self.assertEqual([8.3,27,1020,Categorical('y',["n","y"])], interactions[2].context)
 
-        self.assertEqual(["1","2"], interactions[0].actions)
-        self.assertEqual(["1","2"], interactions[1].actions)
-        self.assertEqual(["1","2"], interactions[2].actions)
+        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[0].actions)
+        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[1].actions)
+        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[2].actions)
 
         self.assertEqual([0,1], list(map(interactions[0].rewards.eval,interactions[0].actions)))
         self.assertEqual([0,1], list(map(interactions[1].rewards.eval,interactions[1].actions)))
@@ -1273,12 +1212,12 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {no, yes}
+            @attribute play {n, y}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.3,27,1020,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.3,27,1020,1,y
         """
 
         CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
@@ -1289,9 +1228,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(len(interactions), 3)
 
-        self.assertEqual([27,1410,(1,0),(1,0)], interactions[0].context)
-        self.assertEqual([29,1180,(1,0),(1,0)], interactions[1].context)
-        self.assertEqual([27,1020,(0,1),(0,1)], interactions[2].context)
+        self.assertEqual([27,1410,Categorical('2',["2","1"]),Categorical('n',["n","y"])], interactions[0].context)
+        self.assertEqual([29,1180,Categorical('2',["2","1"]),Categorical('n',["n","y"])], interactions[1].context)
+        self.assertEqual([27,1020,Categorical('1',["2","1"]),Categorical('y',["n","y"])], interactions[2].context)
 
         self.assertEqual([], interactions[0].actions)
         self.assertEqual([], interactions[1].actions)

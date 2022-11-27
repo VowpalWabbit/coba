@@ -659,7 +659,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             pass
 
         with self.assertRaises(CobaException) as e:
-            list(SimpleEvaluation().process(None, [DummyInteraction(1,[1,2],[3,4])]))
+            list(SimpleEvaluation().process(None, [DummyInteraction('dummy',1,[1,2],[3,4])]))
 
         self.assertEqual("An unknown interaction type was received.", str(e.exception))
 

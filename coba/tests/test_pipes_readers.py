@@ -2,7 +2,7 @@ import unittest
 
 from coba.exceptions import CobaException
 
-from coba.pipes import LibsvmReader, ArffReader, CsvReader, ManikReader
+from coba.pipes import LibsvmReader, ArffReader, CsvReader, ManikReader, Categorical
 from coba.contexts import NullLogger, CobaContext
 
 CobaContext.logger = NullLogger()
@@ -33,7 +33,7 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a numeric",
             "@attribute B numeric",
-            "@attribute c {0, class_B, class_C, class_D}",
+            "@attribute c {0, B, C, D}",
             "@data",
         ]
 
@@ -46,15 +46,15 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a numeric",
             "@attribute B numeric",
-            "@attribute c {class_B, class_C, class_D}",
+            "@attribute c {B, C, D}",
             "@data",
-            "1,  2,  class_B",
-            "2,  3,  class_C",
+            "1,  2,  B",
+            "2,  3,  C",
         ]
 
         expected = [
-            [1,2,(1,0,0)],
-            [2,3,(0,1,0)]
+            [1,2,Categorical("B", ["B","C","D"])],
+            [2,3,Categorical("C", ["B","C","D"])]
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
@@ -64,15 +64,15 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a numeric",
             "@attribute B numeric",
-            "@attribute c {class_B, class_C, class_D}",
+            "@attribute c {B, C, D}",
             "@data",
-            "1\t  2\t  class_B",
-            "2\t  3\t  class_C",
+            "1\t  2\t  B",
+            "2\t  3\t  C",
         ]
 
         expected = [
-            [1,2,(1,0,0)],
-            [2,3,(0,1,0)]
+            [1,2,Categorical("B", ["B","C","D"])],
+            [2,3,Categorical("C", ["B","C","D"])]
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
@@ -89,8 +89,8 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            [1,2,(1,0,0)],
-            [2,3,(0,1,0)]
+            [1,2,Categorical(" B", [" B"," C"," D"])],
+            [2,3,Categorical(" C", [" B"," C"," D"])]
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
@@ -100,9 +100,9 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a numeric",
             "@attribute a numeric",
-            "@attribute c {0, class_B, class_C, class_D}",
+            "@attribute c {0, B, C, D}",
             "@data",
-            "1,2,class_B",
+            "1,2,B",
             "2,3,0",
         ]
 
@@ -116,14 +116,14 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a numeric",
             "@attribute B numeric",
-            "@attribute c {class_B, class_C, class_D}",
+            "@attribute c {B, C, D}",
             "@data",
-            "1,2,class_B",
+            "1,2,B",
             "2,3,?",
         ]
 
         expected = [
-            [1,2,(1,0,0)],
+            [1,2,Categorical("B", ["B","C","D"])],
             [2,3,None]
         ]
 
@@ -134,18 +134,18 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute A numeric",
             "@attribute B numeric",
-            "@attribute C {0, class_B, class_C, class_D}",
+            "@attribute C {0, B, C, D}",
             "@data",
             "",
             "",
-            "1,2,class_B",
+            "1,2,B",
             "2,3,0",
             ""
         ]
 
         expected = [
-            [1,2,(0,1,0,0)],
-            [2,3,(1,0,0,0)]
+            [1,2,Categorical("B", ["0","B","C","D"])],
+            [2,3,Categorical("0", ["0","B","C","D"])]
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
@@ -156,15 +156,15 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
-            "@attribute c {0, class_B, class_C, class_D}",
+            "@attribute c {0, B, C, D}",
             "@data",
-            "1,2,class_B",
+            "1,2,B",
             "2,3,0"
         ]
 
         expected = [
-            [1,2,(0,1,0,0)],
-            [2,3,(1,0,0,0)]
+            [1,2,Categorical("B", ["0","B","C","D"])],
+            [2,3,Categorical("0", ["0","B","C","D"])]
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
@@ -174,15 +174,15 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a string",
             "@attribute b string",
-            "@attribute c {0, class_B, class_C, class_D}",
+            "@attribute c {0, B, C, D}",
             "@data",
-            "1,2,class_B",
+            "1,2,B",
             "2,3,0"
         ]
 
         expected = [
-            ['1','2',(0,1,0,0)],
-            ['2','3',(1,0,0,0)]
+            ['1','2',Categorical("B", ["0","B","C","D"])],
+            ['2','3',Categorical("0", ["0","B","C","D"])]
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
@@ -192,19 +192,19 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
-            "@attribute c {class_B, class_C, class_D}",
+            "@attribute c {B, C, D}",
             "@data",
             "{0 2,1 3}",
-            "{0 1,1 1,2 class_B}",
+            "{0 1,1 1,2 B}",
             "{1 1}",
-            "{0 1,2 class_D}",
+            "{0 1,2 D}",
         ]
 
         expected = [
-            {'a':2, 'b':3, 'c':(1,0,0,0)},
-            {'a':1, 'b':1, 'c':(0,1,0,0)},
-            {       'b':1, 'c':(1,0,0,0)},
-            {       'a':1, 'c':(0,0,0,1)}
+            {'a':2, 'b':3, 'c':Categorical("0", ["0","B","C","D"])},
+            {'a':1, 'b':1, 'c':Categorical("B", ["0","B","C","D"])},
+            {       'b':1, 'c':Categorical("0", ["0","B","C","D"])},
+            {       'a':1, 'c':Categorical("D", ["0","B","C","D"])}
         ]
 
         self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
@@ -214,7 +214,7 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
-            "@attribute c {class_B, class_C, class_D}",
+            "@attribute c {B, C, D}",
             "@data",
             "{0 2,1 3}",
             "{ }",
@@ -222,9 +222,9 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            {'a':2, 'b':3, 'c':(1,0,0,0)},
-            {'c':(1,0,0,0)},
-            {'c':(1,0,0,0)}
+            {'a':2, 'b':3, 'c':Categorical("0", ["0","B","C","D"])},
+            {              'c':Categorical("0", ["0","B","C","D"])},
+            {              'c':Categorical("0", ["0","B","C","D"])}
         ]
 
         self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
@@ -234,25 +234,25 @@ class ArffReader_Tests(unittest.TestCase):
         #this is a bug in ARFF, it is not uncommon for the first class value in an ARFF class list
         #to be dropped from the actual data because it is encoded as 0. Therefore our ARFF reader
         #automatically adds a 0 value to all categorical one-hot encoders to protect against this.
-        #Below is what a dataset with this bug would look like, there is no class_B, instead all
-        #class_B's are encoded as 0.
+        #Below is what a dataset with this bug would look like, there is no B, instead all
+        #B's are encoded as 0.
         lines = [
             "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
-            "@attribute c {class_B, class_C, class_D}",
+            "@attribute c {B, C, D}",
             "@data",
             "{0 2,1 3}",
-            "{0 1,1 1,2 class_C}",
+            "{0 1,1 1,2 C}",
             "{1 1}",
-            "{0 1,2 class_D}",
+            "{0 1,2 D}",
         ]
 
         expected = [
-            {'a':2, 'b':3, 'c':(1,0,0,0)},
-            {'a':1, 'b':1, 'c':(0,0,1,0)},
-            {'b':1,        'c':(1,0,0,0)},
-            {'a':1,        'c':(0,0,0,1)}
+            {'a':2, 'b':3, 'c':Categorical("0", ["0","B","C","D"])},
+            {'a':1, 'b':1, 'c':Categorical("C", ["0","B","C","D"])},
+            {'b':1,        'c':Categorical("0", ["0","B","C","D"])},
+            {'a':1,        'c':Categorical("D", ["0","B","C","D"])}
         ]
 
         self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
@@ -262,22 +262,22 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
-            "@attribute c {class_B, class_C, class_D}",
+            "@attribute c {B, C, D}",
             "@data",
             "",
             "{0 2,1 3}",
-            "{0 1,1 1,2 class_B}",
+            "{0 1,1 1,2 B}",
             "",
             "",
             "{1 1}",
-            "{0 1,2 class_D}",
+            "{0 1,2 D}",
         ]
 
         expected = [
-            {'a':2, 'b':3, 'c':(1,0,0,0)},
-            {'a':1, 'b':1, 'c':(0,1,0,0)},
-            {'b':1,        'c':(1,0,0,0)},
-            {'a':1,        'c':(0,0,0,1)}
+            {'a':2, 'b':3, 'c':Categorical("0", ["0","B","C","D"])},
+            {'a':1, 'b':1, 'c':Categorical("B", ["0","B","C","D"])},
+            {'b':1,        'c':Categorical("0", ["0","B","C","D"])},
+            {'a':1,        'c':Categorical("D", ["0","B","C","D"])}
         ]
 
         self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
@@ -287,19 +287,19 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a numeric",
             "@attribute b numeric",
-            "@attribute c {class_B, class_C, class_D}",
+            "@attribute c {B, C, D}",
             "@data",
             "{0 2, 1 3}",
-            "{0 1, 1 1,2 class_B}",
+            "{0 1, 1 1,2 B}",
             "{1 1}",
-            "{0 1, 2 class_D}",
+            "{0 1, 2 D}",
         ]
 
         expected = [
-            {'a':2, 'b':3, 'c':(1,0,0,0)},
-            {'a':1, 'b':1, 'c':(0,1,0,0)},
-            {     'b':1, 'c':(1,0,0,0)},
-            {'a':1,      'c':(0,0,0,1)}
+            {'a':2, 'b':3, 'c':Categorical("0", ["0","B","C","D"])},
+            {'a':1, 'b':1, 'c':Categorical("B", ["0","B","C","D"])},
+            {       'b':1, 'c':Categorical("0", ["0","B","C","D"])},
+            {'a':1,        'c':Categorical("D", ["0","B","C","D"])}
         ]
 
         self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
@@ -311,28 +311,28 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a string",
             "@attribute b string",
-            "@attribute c {0, class_B, class_C, class_D}",
+            "@attribute c {0, B, C, D}",
             "@data",
-            "1,2,class_B",
+            "1,2,B",
             "2,3,0",
             "%"
         ]
 
         expected = [
-            ['1','2',(0,1,0,0)],
-            ['2','3',(1,0,0,0)]
+            ['1','2',Categorical("B", ["0","B","C","D"])],
+            ['2','3',Categorical("0", ["0","B","C","D"])]
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
-    def test_bad_class_labels_throws_exception(self):
+    def test_bad_labels_throws_exception(self):
         lines = [
             "@relation test",
             "@attribute 'a' string",
             "@attribute 'b' string",
-            "@attribute 'c' {class_B, class_C, class_D}",
+            "@attribute 'c' {B, C, D}",
             "@data",
-            "1,2,class_A",
+            "1,2,A",
         ]
 
         with self.assertRaises(CobaException) as e:
@@ -401,13 +401,13 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@attribute a\tstring",
             '@attribute b\tstring',
-            "@attribute c\t{class_B, class_C, class_D}",
+            "@attribute c\t{B, C, D}",
             "@data",
-            "1,2,class_B",
+            "1,2,B",
         ]
 
         expected = [
-            ['1','2',(1,0,0)],
+            ['1','2',Categorical("B", ["B","C","D"])],
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
@@ -417,13 +417,13 @@ class ArffReader_Tests(unittest.TestCase):
             "@relation test",
             "@ATTRIBUTE 'a\\'a' numeric",
             "@attribute 'b b' string",
-            "@attribute 'c c' {class_B, class_C, class_D}",
+            "@attribute 'c c' {B, C, D}",
             "@data",
-            "1,2,class_B",
+            "1,2,B",
         ]
 
         expected = [
-            [1,'2',(1,0,0)],
+            [1,'2',Categorical("B", ["B","C","D"])],
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
@@ -463,38 +463,20 @@ class ArffReader_Tests(unittest.TestCase):
             "@ATTRIBUTE b integer",
             "@ATTRIBUTE c real",
             "@attribute d date",
-            "@attribute e {class_B, class_C, class_D}",
+            "@attribute e {B, C, D}",
             "@attribute f relational",
             "@data",
         ]
 
         list(ArffReader().filter(lines))
 
-    def test_str_as_cat(self):
-
-        lines = [
-            "@relation test",
-            "@attribute A numeric",
-            "@attribute C {0, class_B, class_C, class_D}",
-            "@data",
-            "1,class_B",
-            "2,0",
-        ]
-
-        expected = [
-            [1,"class_B"],
-            [2,"0"]
-        ]
-
-        self.assertEqual(expected, list(map(list,ArffReader(cat_as_str=True).filter(lines))))
-
     def test_too_many_dense_elements(self):
         lines = [
             "@relation test",
             "@attribute A numeric",
-            "@attribute C {0, class_B, class_C, class_D}",
+            "@attribute C {0, B, C, D}",
             "@data",
-            "1,0,class_B",
+            "1,0,B",
         ]
 
         with self.assertRaises(CobaException) as e:
@@ -506,7 +488,7 @@ class ArffReader_Tests(unittest.TestCase):
         lines = [
             "@relation test",
             "@attribute A numeric",
-            "@attribute C {0, class_B, class_C, class_D}",
+            "@attribute C {0, B, C, D}",
             "@data",
             "1",
         ]
@@ -520,7 +502,7 @@ class ArffReader_Tests(unittest.TestCase):
         lines = [
             "@relation test",
             "@attribute A numeric",
-            "@attribute C {0, class_B, class_C, class_D}",
+            "@attribute C {0, B, C, D}",
             "@data",
             "{-1 2,0 2,1 3}",
         ]
@@ -534,7 +516,7 @@ class ArffReader_Tests(unittest.TestCase):
         lines = [
             "@relation test",
             "@attribute A numeric",
-            "@attribute C {0, class_B, class_C, class_D}",
+            "@attribute C {0, B, C, D}",
             "@data",
             "{0 2,1 3,2 4}",
         ]
@@ -548,80 +530,70 @@ class ArffReader_Tests(unittest.TestCase):
         lines = [
             "@relation test",
             "@attribute A numeric",
-            "@attribute B {'\\'classA\\'', '\\'classB\\''}",
+            "@attribute B {'\\'A\\'', '\\'B\\''}",
             "@data",
-            "1, '\\'classB\\''",
+            "1, '\\'B\\''",
         ]
 
         expected = [
-            [1, "'classB'"]
+            [1, Categorical("'B'",["'A'","'B'"])]
         ]
 
-        items = list(ArffReader(cat_as_str=True).filter(lines))
+        items = list(ArffReader().filter(lines))
 
-        self.assertEqual(expected, list(map(list,items)))
-        self.assertEqual(1         , items[0]['A'])
-        self.assertEqual("'classB'", items[0]['B'])
+        self.assertEqual(expected                        , items        )
+        self.assertEqual(1                               , items[0]['A'])
+        self.assertEqual(Categorical("'B'",["'A'","'B'"]), items[0]['B'])
 
-    def test_quotes_from_hell_dense_cat_as_str_true_good_categories(self):
+    def test_quotes_from_hell_dense_good_categories(self):
         lines = [
             "@relation test",
             "@attribute 'A  a' numeric",
-            "@attribute '\"' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
-            "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
-            "@attribute ',' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
+            "@attribute '\"' {0, \"class'B\", '\"C\"', 'class\",D'}",
+            "@attribute '\'' {0, \"class'B\", '\"C\"', 'class\",D'}",
+            "@attribute ','  {0, \"class'B\", '\"C\"', 'class\",D'}",
             "@data",
-            "1,    'class\\'B', '\"class_C\"', \"class\\\",D\"",
+            "1,    'class\\'B', '\"C\"', \"class\\\",D\"",
         ]
+
+        cats = ['0',"class'B",'"C"','class",D']
 
         expected = [
-            [1, "class'B", '"class_C"', 'class",D']
+            [1, Categorical(cats[1],cats), Categorical(cats[2],cats), Categorical(cats[3],cats)]
         ]
 
-        items = list(ArffReader(cat_as_str=True).filter(lines))
+        items = list(ArffReader().filter(lines))
 
-        self.assertEqual(expected, list(map(list,items)))
-        self.assertEqual(1, items[0]['A  a'])
-        self.assertEqual("class'B", items[0]['"'])
-        self.assertEqual('"class_C"', items[0]["'"])
-        self.assertEqual('class",D', items[0][","])
+        self.assertEqual(expected, items)
+        self.assertEqual(1                        , items[0]['A  a'])
+        self.assertEqual(Categorical(cats[1],cats), items[0]['"'])
+        self.assertEqual(Categorical(cats[2],cats), items[0]["'"])
+        self.assertEqual(Categorical(cats[3],cats), items[0][","])
 
-    def test_quotes_from_hell_dense_cat_as_str_true_bad_categories(self):
+    def test_quotes_from_hell_dense(self):
         lines = [
             "@relation test",
             "@attribute 'A  a' numeric",
-            "@attribute '\"' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
-            "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
-            "@attribute ',' {0, \"class'B\", '\"class_C\"', 'class\",D'}",
+            "@attribute '\"' {0, \"class'B\", '\"C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
+            "@attribute '\'' {0, \"class'B\", '\"C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
+            "@attribute ','  {0, \"class'B\", '\"C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
             "@data",
-            "1,    'class\\'B', '\"class_C\"', 'class\",G'",
+            "1,    'class\\'B', '\"C\"', 'class\",D'",
         ]
 
-        with self.assertRaises(CobaException):
-            [ list(l) for l in ArffReader(cat_as_str=True).filter(lines) ]
-
-    def test_quotes_from_hell_dense_cat_as_str_false(self):
-        lines = [
-            "@relation test",
-            "@attribute 'A  a' numeric",
-            "@attribute '\"' {0, \"class'B\", '\"class_C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
-            "@attribute '\'' {0, \"class'B\", '\"class_C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
-            "@attribute ','  {0, \"class'B\", '\"class_C\"', 'class\",D', 'class\\',E', 'class\\'   ,F'}",
-            "@data",
-            "1,    'class\\'B', '\"class_C\"', 'class\",D'",
-        ]
+        cats = ['0',"class'B",'"C"','class",D',"class',E","class'   ,F"]
 
         expected = [
-            [1, (0,1,0,0,0,0),(0,0,1,0,0,0),(0,0,0,1,0,0)]
+            [1, Categorical(cats[1],cats),Categorical(cats[2],cats),Categorical(cats[3],cats)]
         ]
 
-        items = list(ArffReader(cat_as_str=False).filter(lines))
+        items = list(ArffReader().filter(lines))
 
-        self.assertEqual(expected, list(map(list,items)))
-        self.assertEqual(1, items[0]['A  a'])
-        self.assertEqual((0,1,0,0,0,0), items[0]['"'])
-        self.assertEqual((0,0,1,0,0,0), items[0]["'"])
-        self.assertEqual((0,0,0,1,0,0), items[0][","])
+        self.assertEqual(expected, items)
+        self.assertEqual(1                        , items[0]['A  a'])
+        self.assertEqual(Categorical(cats[1],cats), items[0]['"'])
+        self.assertEqual(Categorical(cats[2],cats), items[0]["'"])
+        self.assertEqual(Categorical(cats[3],cats), items[0][","])
 
     def test_quotes_with_csv(self):
         lines = [
@@ -633,14 +605,14 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         expected = [
-            [1, (1,0)]
+            [1, Categorical('0',['0','1'])]
         ]
 
-        items = list(ArffReader(cat_as_str=False).filter(lines))
+        items = list(ArffReader().filter(lines))
 
-        self.assertEqual(expected, list(map(list,items)))
-        self.assertEqual(1    , items[0]['value'])
-        self.assertEqual((1,0), items[0]['class'])
+        self.assertEqual(expected                  , items)
+        self.assertEqual(1                         , items[0]['value'])
+        self.assertEqual(Categorical('0',['0','1']), items[0]['class'])
 
 class LibsvmReader_Tests(unittest.TestCase):
     def test_sparse(self):

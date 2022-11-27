@@ -5,11 +5,38 @@ from coba.pipes.rows import EncodeRows, HeadRows, LabelRows, DropRows, EncodeCat
 from coba.pipes.rows import LazyDense, EncodeDense, HeadDense, LabelDense, KeepDense
 from coba.pipes.rows import LazySparse, EncodeSparse, HeadSparse, LabelSparse, DropSparse
 
-class EncodeCatRows_Tests(unittest.TestCase):
+class Categorical_Tests(unittest.TestCase):
+    def test_value(self):
+        self.assertEqual("A", Categorical("A",["A","B"]))
     
+    def test_levels(self):
+        self.assertEqual(["A","B"], Categorical("A",["A","B"]).levels)
+
+    def test_eq(self):
+        self.assertEqual(Categorical("A",["A","B"]), Categorical("A",["A","B"]))
+
+    def test_ne(self):
+        self.assertNotEqual(1, Categorical("A",["A","B"]))
+
+    def test_str(self):
+        self.assertEqual("A", str(Categorical("A",["A","B"])))
+
+    def test_repr(self):
+        self.assertEqual("Categorical('A',['A', 'B'])", repr(Categorical("A",["A","B"])))
+
+class EncodeCatRows_Tests(unittest.TestCase):
+
+    def test_none_dense_with_categorical(self):
+
+        given = [[1,2,Categorical('1',['1','2'])], [4,5,Categorical('2',['1','2'])]]
+        expected = [[1,2,Categorical('1',['1','2'])], [4,5,Categorical('2',['1','2'])]]
+        actual = list(EncodeCatRows(None).filter(given))
+
+        self.assertEqual(actual,expected)
+
     def test_onehot_dense_with_categorical(self):
 
-        given = [[1,2,Categorical(1,[1,2])], [4,5,Categorical(2,[1,2])]]
+        given = [[1,2,Categorical('1',['1','2'])], [4,5,Categorical('2',['1','2'])]]
         expected = [(1,2,1,0),(4,5,0,1)]
         actual = list(EncodeCatRows("onehot").filter(given))
 
@@ -17,7 +44,7 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
     def test_string_dense_with_categorical(self):
 
-        given = [[1,2,Categorical(1,[1,2])], [4,5,Categorical(2,[1,2])]]
+        given = [[1,2,Categorical('1',['1','2'])], [4,5,Categorical('2',['1','2'])]]
         expected = [(1,2,"1"),(4,5,"2")]
         actual = list(EncodeCatRows("string").filter(given))
 
@@ -33,7 +60,7 @@ class EncodeCatRows_Tests(unittest.TestCase):
     
     def test_onehot_tuple_dense_with_categorical(self):
 
-        given = [[1,2,Categorical(1,[1,2])], [4,5,Categorical(2,[1,2])]]
+        given = [[1,2,Categorical('1',['1','2'])], [4,5,Categorical('2',['1','2'])]]
         expected = [[1,2,(1,0)],[4,5,(0,1)]]
         actual = list(EncodeCatRows("onehot_tuple").filter(given))
 
@@ -49,7 +76,7 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
     def test_onehot_sparse_with_categorical(self):
 
-        given = [{1:2, 2:Categorical(1,[1,2])}, {4:5, 2:Categorical(2,[1,2])}]
+        given = [{1:2, 2:Categorical('1',['1','2'])}, {4:5, 2:Categorical('2',['1','2'])}]
         expected = [{1:2, "2_0":1}, {4:5, "2_1":1}]
         actual = list(EncodeCatRows("onehot").filter(given))
 
@@ -73,7 +100,7 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
     def test_onehot_tuple_sparse_with_categorical(self):
 
-        given = [{1:2, 2:Categorical(1,[1,2])}, {4:5, 2:Categorical(2,[1,2])}]
+        given = [{1:2, 2:Categorical('1',['1','2'])}, {4:5, 2:Categorical('2',['1','2'])}]
         expected = [{1:2, 2:(1,0)}, {4:5, 2:(0,1)}]
         actual = list(EncodeCatRows("onehot_tuple").filter(given))
 
@@ -102,8 +129,6 @@ class EncodeCatRows_Tests(unittest.TestCase):
         actual = list(EncodeCatRows(False).filter(given))
 
         self.assertEqual(actual,expected)
-
-
 
 class EncodeRows_Tests(unittest.TestCase):
 

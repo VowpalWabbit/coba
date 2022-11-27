@@ -3,14 +3,14 @@ import csv
 
 from collections import deque
 from itertools import islice, chain
-from typing import Iterable, Sequence, List, Union, Any, Pattern, Tuple, Dict
+from typing import Iterable, Sequence, List, Union, Any, Pattern, Tuple, Mapping
 from typing import MutableSequence, MutableMapping
 
 from coba.exceptions import CobaException
-from coba.encodings import Encoder, OneHotEncoder
+from coba.encodings import Encoder
 
 from coba.pipes.core import Pipes
-from coba.pipes.rows import Dense, Sparse, LazyDense, LazySparse, EncodeRows, HeadRows
+from coba.pipes.rows import Dense, Sparse, LazyDense, LazySparse, EncodeRows, HeadRows, Categorical
 from coba.pipes.primitives import Filter
 
 class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
@@ -49,11 +49,10 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
     """
 
     class SparseRowParser:
-        def __init__(self, max_key:int, sparse_onehots:Dict[int,str]) -> None:
+        def __init__(self, max_key:int) -> None:
             self._max_key = max_key
-            self._sparse_onehots = sparse_onehots
 
-        def parse(self, i:int, line:str) -> Dict[str,str]:
+        def parse(self, i:int, line:str) -> Mapping[str,str]:
             keys_and_vals = re.split('\s*,\s*|\s+', line.strip("} {"))
 
             if keys_and_vals != ['']:
@@ -66,7 +65,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
             if keys and (max(keys) >= self._max_key or min(keys) < 0):
                 raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
 
-            return { **self._sparse_onehots, ** dict(zip(keys,vals)) }
+            return { **dict(zip(keys,vals)) }
 
     class DenseRowParser:
         def __init__(self, column_count:int) -> None:
@@ -124,16 +123,14 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
 
             return final
 
-    def __init__(self, cat_as_str: bool =False, missing_value: Any = float('nan')):
+    def __init__(self, missing_value: Any = float('nan')):
         """Instantiate an ArffReader.
 
         Args:
-            cat_as_str: Indicates that categorical features should be encoded as a string rather than one hot encoded.
             missing_value: The value to replace missing values with
         """
 
         self._quotes        = '"'+"'"
-        self._cat_as_str    = cat_as_str
         self._missing_value = missing_value
 
     def filter(self, source: Iterable[str]) -> Iterable[Union[Dense,Sparse]]:
@@ -168,12 +165,12 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
             raise CobaException("Two columns in the ARFF file had identical header values.")
 
         row_encoder = EncodeRows(encoders)
-        row_indexer = HeadRows(headers)
+        row_header = HeadRows(headers)
 
         data = chain([first_data_line], lines)
         rows = self._dense_rows(data, encoders) if is_dense else self._sparse_rows(data, encoders)
 
-        return Pipes.join(row_encoder, row_indexer).filter(rows)
+        return Pipes.join(row_encoder, row_header).filter(rows)
 
     def _dense_rows(self, lines: Iterable[str], encoders: Sequence[Encoder]) -> Iterable[Dense]:
 
@@ -198,10 +195,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
 
     def _sparse_rows(self, lines: Iterable[str], encoders: Sequence[Encoder]) -> Iterable[Sparse]:
 
-        #if there is a column excluded due to sparsity but it isn't actually 0 when encoded
-        #we want to be sure to fill it in so we don't mistakenly assume that its value is 0.
-        onehots = { k:"0" for k in range(len(encoders)) if encoders[k]("0") != 0 }
-        parser  = ArffReader.SparseRowParser(len(encoders), onehots)
+        parser  = ArffReader.SparseRowParser(len(encoders))
 
         for i,line in enumerate(lines):
 
@@ -264,15 +258,15 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
                     #to all sparse categorical one-hot encoders to protect against this.
                     categories = ["0"] + categories
 
-                def encoder(x:str,cats=set(categories),get=OneHotEncoder(categories)._onehots.__getitem__):
+                def encoder(x:str,cats=categories,cats_set=set(categories)):
 
                     if x =="?":
                         return self._missing_value
 
-                    if x not in cats:
+                    if x not in cats_set:
                         raise CobaException("We were unable to find one of the categorical values in the arff data.")
 
-                    return x if self._cat_as_str else get(x)
+                    return Categorical(x, cats)
 
                 yield encoder
             else:
@@ -286,6 +280,7 @@ class LibsvmReader(Filter[Iterable[str], Iterable[Tuple[MutableMapping,Any]]]):
     __ https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/
     __ https://github.com/cjlin1/libsvm
     """
+
     def filter(self, lines: Iterable[str]) -> Iterable[Tuple[MutableMapping, Any]]:
 
         for line in filter(None,lines):

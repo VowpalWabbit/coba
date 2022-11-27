@@ -1,7 +1,7 @@
 import unittest.mock
 import unittest
 
-from coba.pipes        import IterableSource
+from coba.pipes        import IterableSource, Categorical
 from coba.contexts     import CobaContext, CobaContext, NullLogger
 from coba.environments import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
 
@@ -22,29 +22,29 @@ class SupervisedSimulation_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {y, n}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.3,27,1020,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.3,27,1020,1,y
         """.splitlines()))
 
         interactions = list(SupervisedSimulation(source, "coli").read())
 
         self.assertEqual(len(interactions), 3)
 
-        self.assertEqual([8.1,27,1410,(0,1)], interactions[0].context)
-        self.assertEqual([8.2,29,1180,(0,1)], interactions[1].context)
-        self.assertEqual([8.3,27,1020,(1,0)], interactions[2].context)
+        self.assertEqual([8.1,27,1410,Categorical("n",["y","n"])], interactions[0].context)
+        self.assertEqual([8.2,29,1180,Categorical("n",["y","n"])], interactions[1].context)
+        self.assertEqual([8.3,27,1020,Categorical("y",["y","n"])], interactions[2].context)
 
-        self.assertEqual([(1,0),(0,1)], interactions[0].actions)
-        self.assertEqual([(1,0),(0,1)], interactions[1].actions)
-        self.assertEqual([(1,0),(0,1)], interactions[2].actions)
+        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[0].actions)
+        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[1].actions)
+        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[2].actions)
 
-        self.assertEqual([1,0], list(map(interactions[0].rewards.eval,interactions[0].actions)))
-        self.assertEqual([1,0], list(map(interactions[1].rewards.eval,interactions[1].actions)))
-        self.assertEqual([0,1], list(map(interactions[2].rewards.eval,interactions[2].actions)))
+        self.assertEqual([0,1], list(map(interactions[0].rewards.eval,interactions[0].actions)))
+        self.assertEqual([0,1], list(map(interactions[1].rewards.eval,interactions[1].actions)))
+        self.assertEqual([1,0], list(map(interactions[2].rewards.eval,interactions[2].actions)))
 
     def test_source_reader_regression_less_than_10(self):
 
@@ -55,21 +55,21 @@ class SupervisedSimulation_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {y, n}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.3,27,1020,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.3,27,1020,1,y
         """.splitlines()))
 
         interactions = list(SupervisedSimulation(source, "pH", label_type="R").read())
 
         self.assertEqual(len(interactions), 3)
 
-        self.assertEqual([27,1410,(1,0),(0,1)], interactions[0].context)
-        self.assertEqual([29,1180,(1,0),(0,1)], interactions[1].context)
-        self.assertEqual([27,1020,(0,1),(1,0)], interactions[2].context)
+        self.assertEqual([27,1410,Categorical('2',["2","1"]),Categorical("n",["y","n"])], interactions[0].context)
+        self.assertEqual([29,1180,Categorical('2',["2","1"]),Categorical("n",["y","n"])], interactions[1].context)
+        self.assertEqual([27,1020,Categorical('1',["2","1"]),Categorical("y",["y","n"])], interactions[2].context)
 
         self.assertEqual([], interactions[0].actions)
         self.assertEqual([], interactions[1].actions)
@@ -88,12 +88,12 @@ class SupervisedSimulation_Tests(unittest.TestCase):
             @attribute temperature real
             @attribute conductivity real
             @attribute coli {2, 1}
-            @attribute play {yes, no}
+            @attribute play {y, n}
 
             @data
-            8.1,27,1410,2,no
-            8.2,29,1180,2,no
-            8.3,27,1020,1,yes
+            8.1,27,1410,2,n
+            8.2,29,1180,2,n
+            8.3,27,1020,1,y
         """.splitlines()))
 
         interactions = list(SupervisedSimulation(source, "coli", take=5).read())

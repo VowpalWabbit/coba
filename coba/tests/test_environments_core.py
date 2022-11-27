@@ -52,7 +52,6 @@ class Environments_Tests(unittest.TestCase):
 
             self.assertEqual(1    , len(env))
             self.assertEqual(150  , env[0].params['openml_data'])
-            self.assertEqual(False, env[0].params['cat_as_str'])
 
         finally:
             if Path("coba/tests/.temp/from_file.env").exists():
@@ -69,7 +68,6 @@ class Environments_Tests(unittest.TestCase):
 
             self.assertEqual(1    , len(env))
             self.assertEqual(150  , env[0].params['openml_data'])
-            self.assertEqual(False, env[0].params['cat_as_str'])
 
         finally:
             if Path("coba/tests/.temp/from_file.env").exists():
@@ -181,46 +179,40 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual("R" , env[0].params['label_type'])
 
     def test_from_openml_data_id(self):
-        env = Environments.from_openml(100,True,True,100)
+        env = Environments.from_openml(100,True,100)
         self.assertEqual(1   , len(env))
         self.assertEqual(100 , env[0].params['openml_data'])
-        self.assertEqual(True, env[0].params['cat_as_str'])
         self.assertEqual(True, env[0].params['drop_missing'])
         self.assertEqual(None, env[0].params['label_type'])
         self.assertEqual(100 , env[0].params['reservoir_count'])
 
     def test_from_openml_data_ids(self):
-        env = Environments.from_openml([100,200],True,True,100)
+        env = Environments.from_openml([100,200],True,100)
 
         self.assertEqual(2   , len(env))
         self.assertEqual(100 , env[0].params['openml_data'])
-        self.assertEqual(True, env[0].params['cat_as_str'])
         self.assertEqual(True, env[0].params['drop_missing'])
         self.assertEqual(None, env[0].params['label_type'])
         self.assertEqual(100 , env[0].params['reservoir_count'])
         self.assertEqual(200 , env[1].params['openml_data'])
-        self.assertEqual(True, env[1].params['cat_as_str'])
         self.assertEqual(True, env[1].params['drop_missing'])
         self.assertEqual(None, env[1].params['label_type'])
         self.assertEqual(100 , env[1].params['reservoir_count'])
 
     def test_from_openml_task_id(self):
-        env = Environments.from_openml(task_id=100,cat_as_str=True,take=100)
+        env = Environments.from_openml(task_id=100,take=100)
         self.assertEqual(1   , len(env))
         self.assertEqual(100 , env[0].params['openml_task'])
-        self.assertEqual(True, env[0].params['cat_as_str'])
         self.assertEqual(None, env[0].params['label_type'])
         self.assertEqual(100 , env[0].params['reservoir_count'])
 
     def test_from_openml_task_ids(self):
-        env = Environments.from_openml(task_id=[100,200],cat_as_str=True,take=100)
+        env = Environments.from_openml(task_id=[100,200],take=100)
 
         self.assertEqual(2   , len(env))
         self.assertEqual(100 , env[0].params['openml_task'])
-        self.assertEqual(True, env[0].params['cat_as_str'])
         self.assertEqual(100 , env[0].params['reservoir_count'])
         self.assertEqual(200 , env[1].params['openml_task'])
-        self.assertEqual(True, env[1].params['cat_as_str'])
         self.assertEqual(100 , env[1].params['reservoir_count'])
 
     def test_from_lambda(self):

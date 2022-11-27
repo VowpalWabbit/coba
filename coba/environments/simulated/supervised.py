@@ -212,11 +212,10 @@ class SupervisedSimulation(SimulatedEnvironment):
             actions = []
             reward  = L1Reward
         elif label_type == "m":
-            actions  = list(chain(*labels))
-            actions = sorted(set(actions),reverse=isinstance(actions[0],tuple))
+            actions = sorted(set(list(chain(*labels))))
             reward  = HammingReward
         else:
-            actions = sorted(set(labels),reverse=isinstance(labels[0],tuple))
+            actions = sorted(set(labels))
             reward  = partial(MulticlassReward,actions)
 
         contexts = features

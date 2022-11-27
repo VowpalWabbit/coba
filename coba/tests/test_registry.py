@@ -408,7 +408,6 @@ class JsonMakerV2Regression_Tests(unittest.TestCase):
 
         self.assertIsInstance(sim, OpenmlSimulation)
         self.assertEqual(sim.params['openml_data'], 1)
-        self.assertEqual(sim.params['cat_as_str'], False)
         self.assertEqual(sim.params['drop_missing'], True)
         self.assertEqual(sim.params['drop_missing'], True)
         self.assertNotIn('reservoir_take', sim.params)
@@ -417,39 +416,34 @@ class JsonMakerV2Regression_Tests(unittest.TestCase):
 
         self.assertIsInstance(sim, OpenmlSimulation)
         self.assertEqual(sim.params['openml_data'], 1)
-        self.assertEqual(sim.params['cat_as_str'], True)
         self.assertEqual(sim.params['drop_missing'], True)
         self.assertNotIn('reservoir_take', sim.params)
 
-        sim = JsonMakerV2(CobaRegistry.registry).make({"OpenmlSimulation":[1,True,False]})
+        sim = JsonMakerV2(CobaRegistry.registry).make({"OpenmlSimulation":[1,False]})
 
         self.assertIsInstance(sim, OpenmlSimulation)
         self.assertEqual(sim.params['openml_data'], 1)
-        self.assertEqual(sim.params['cat_as_str'], True)
         self.assertEqual(sim.params['drop_missing'], False)
         self.assertNotIn('reservoir_take', sim.params)
 
-        sim = JsonMakerV2(CobaRegistry.registry).make({"OpenmlSimulation":[1,True,False,100]})
+        sim = JsonMakerV2(CobaRegistry.registry).make({"OpenmlSimulation":[1,False,100]})
 
         self.assertIsInstance(sim, OpenmlSimulation)
         self.assertEqual(sim.params['openml_data'], 1)
-        self.assertEqual(sim.params['cat_as_str'], True)
         self.assertEqual(sim.params['drop_missing'], False)
         self.assertEqual(sim.params['reservoir_count'], 100)
 
-        sim = JsonMakerV2(CobaRegistry.registry).make({"OpenmlSimulation":{"data_id":1,"cat_as_str":True,"drop_missing":False,"take":100}})
+        sim = JsonMakerV2(CobaRegistry.registry).make({"OpenmlSimulation":{"data_id":1,"drop_missing":False,"take":100}})
 
         self.assertIsInstance(sim, OpenmlSimulation)
         self.assertEqual(sim.params['openml_data'], 1)
-        self.assertEqual(sim.params['cat_as_str'], True)
         self.assertEqual(sim.params['drop_missing'], False)
         self.assertEqual(sim.params['reservoir_count'], 100)
 
-        sim = JsonMakerV2(CobaRegistry.registry).make({"OpenmlSimulation":{"task_id":1,"cat_as_str":True,"drop_missing":False,"take":100}})
+        sim = JsonMakerV2(CobaRegistry.registry).make({"OpenmlSimulation":{"task_id":1,"drop_missing":False,"take":100}})
 
         self.assertIsInstance(sim, OpenmlSimulation)
         self.assertEqual(sim.params['openml_task'], 1)
-        self.assertEqual(sim.params['cat_as_str'], True)
         self.assertEqual(sim.params['drop_missing'], False)
         self.assertEqual(sim.params['reservoir_count'], 100)
 
