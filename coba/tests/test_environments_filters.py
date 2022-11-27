@@ -933,6 +933,15 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0].actions)
         self.assertEqual([0,1], sparse_interactions[0].rewards)
 
+    def test_sparse_simulated_with_sparse_actions(self):
+
+        sparse_interactions = list(Sparse(context=False,action=True).filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
+
+        self.assertEqual(1, len(sparse_interactions))
+        self.assertEqual("a", sparse_interactions[0].context)
+        self.assertEqual([{1:2},{3:4}], sparse_interactions[0].actions)
+        self.assertEqual([0,1], sparse_interactions[0].rewards)
+
     def test_sparse_simulated_tuple_context(self):
 
         sparse_interactions = list(Sparse().filter([SimulatedInteraction((1,2,3), [{1:2},{3:4}], [0,1]) ]))
@@ -974,21 +983,21 @@ class Warm_Tests(unittest.TestCase):
 
         warmstart_interactions = list(Warm(2).filter(interactions))
 
-        self.assertIsInstance(warmstart_interactions[0], LoggedInteraction)
-        self.assertIsInstance(warmstart_interactions[1], LoggedInteraction)
-        self.assertIsInstance(warmstart_interactions[2], SimulatedInteraction)
+        self.assertEqual(warmstart_interactions[0]['type'], 'logged')
+        self.assertEqual(warmstart_interactions[1]['type'], 'logged')
+        self.assertEqual(warmstart_interactions[2]['type'], 'simulated')
 
         self.assertEqual((7,2), warmstart_interactions[0].context)
-        self.assertEqual(1, warmstart_interactions[0].action)
         self.assertEqual([1,2], warmstart_interactions[0].actions)
-        self.assertEqual(1/2, warmstart_interactions[0].probability)
-        self.assertEqual(.2, warmstart_interactions[0].reward)
+        self.assertEqual(1, warmstart_interactions[0]['action'])
+        self.assertEqual(1/2, warmstart_interactions[0]['probability'])
+        self.assertEqual(.2, warmstart_interactions[0]['reward'])
 
         self.assertEqual((1,9), warmstart_interactions[1].context)
-        self.assertEqual(2, warmstart_interactions[1].action)
         self.assertEqual([1,2], warmstart_interactions[1].actions)
-        self.assertEqual(1/2, warmstart_interactions[1].probability)
-        self.assertEqual(.5, warmstart_interactions[1].reward)
+        self.assertEqual(2, warmstart_interactions[1]['action'])
+        self.assertEqual(1/2, warmstart_interactions[1]['probability'])
+        self.assertEqual(.5, warmstart_interactions[1]['reward'])
 
         self.assertEqual((8,3), warmstart_interactions[2].context)
         self.assertEqual([1,2], warmstart_interactions[2].actions)
@@ -1162,10 +1171,6 @@ class Noise_Tests(unittest.TestCase):
         self.assertEqual([3,4]  , actual_interactions[1].actions)
         self.assertEqual([.1,.5], actual_interactions[1].rewards)
 
-    def test_noise_error(self):
-        with self.assertRaises(CobaException):
-            list(Noise().filter([LoggedInteraction((7,), 1, 1)]))
-
     def test_params(self):
         self.assertEqual({"context_noise": True, "noise_seed":1}, Noise().params)
 
@@ -1338,13 +1343,13 @@ class Grounded_Tests(unittest.TestCase):
         to_igl_filter    = Grounded(10,5,4,2,4)
         igl_interactions = list(to_igl_filter.filter(interactions))
 
-        feedbacks_0 = [igl_interactions[0].feedbacks.eval(a) for a in igl_interactions[0].actions ]
+        feedbacks_0 = [igl_interactions[0]['feedbacks'].eval(a) for a in igl_interactions[0].actions ]
 
         self.assertEqual(True,igl_interactions[0].kwargs['isnormal'])
         self.assertEqual(4, igl_interactions[0].kwargs['userid'])
         self.assertEqual([(0,), (2,), (3,)], feedbacks_0)
 
-        feedbacks_1 = [igl_interactions[1].feedbacks.eval(a) for a in igl_interactions[1].actions ]
+        feedbacks_1 = [igl_interactions[1]['feedbacks'].eval(a) for a in igl_interactions[1].actions ]
 
         self.assertEqual(True,igl_interactions[1].kwargs['isnormal'])
         self.assertEqual(2, igl_interactions[1].kwargs['userid'])
@@ -1419,7 +1424,7 @@ class Grounded_Tests(unittest.TestCase):
 
         c = Counter()
         for i in igl_interactions:
-            feedbacks = [i.feedbacks.eval(a) for a in i.actions ]
+            feedbacks = [i['feedbacks'].eval(a) for a in i.actions ]
             rewards   = [i.rewards.eval(a) for a in i.actions ]
 
             for word,reward in zip(feedbacks,rewards):
@@ -1441,8 +1446,8 @@ class Grounded_Tests(unittest.TestCase):
         igl_interactions = list(to_igl_filter.filter(interactions))
 
         for interaction in igl_interactions:
-            f1 = [interaction.feedbacks.eval(a) for a in interaction.actions ]
-            f2 = [interaction.feedbacks.eval(a) for a in interaction.actions ]
+            f1 = [interaction['feedbacks'].eval(a) for a in interaction.actions ]
+            f2 = [interaction['feedbacks'].eval(a) for a in interaction.actions ]
             self.assertEqual(f1,f2)
     
     def test_params(self):

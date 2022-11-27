@@ -16,8 +16,13 @@ from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first
 
-from coba.environments.primitives import Interaction, LoggedInteraction, SimulatedInteraction, GroundedInteraction 
-from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, EnvironmentFilter, HashableMap, HashableSeq
+from coba.environments.primitives import EnvironmentFilter, Interaction, HashableMap, HashableSeq
+from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, SequenceReward
+
+def _copy_interaction(interaction: dict, **kwargs):
+    new = interaction.copy()
+    new.update(**kwargs)
+    return new
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""
@@ -67,7 +72,7 @@ class Scale(EnvironmentFilter):
         self._target = target
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return {
             "scale_shift": self._shift,
             "scale_scale": self._scale,
@@ -84,9 +89,9 @@ class Scale(EnvironmentFilter):
         scales  : Dict[Hashable,float]     = defaultdict(lambda:1)
         unscaled: Dict[Hashable,List[Any]] = defaultdict(list)
 
-        if isinstance(fitting_interactions[0].context, pipes.Dense):
+        if isinstance(fitting_interactions[0]['context'], pipes.Dense):
             context_type = 0
-        elif isinstance(fitting_interactions[0].context, pipes.Sparse):
+        elif isinstance(fitting_interactions[0]['context'], pipes.Sparse):
             context_type = 1
         else:
             context_type = 2
@@ -94,7 +99,7 @@ class Scale(EnvironmentFilter):
         if context_type == 1 and self._shift != 0:
             raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
 
-        is_discrete = fitting_interactions[0].is_discrete
+        is_discrete = fitting_interactions[0]['is_discrete']
 
         not_numeric = set()
         mixed_types = set()
@@ -102,7 +107,7 @@ class Scale(EnvironmentFilter):
         #start = time.time()
         for interaction in fitting_interactions:
             if self._target == "features":
-                for key,value in self._kv_pairs(context_type,interaction.context):
+                for key,value in self._kv_pairs(context_type,interaction['context']):
                     numeric = isinstance(value,(float,int))
 
                     if key in unscaled:
@@ -128,7 +133,7 @@ class Scale(EnvironmentFilter):
                     unscaled["rewards"].extend(map(interaction.rewards.eval,interaction.actions))
 
             elif self._target == "argmax":
-                unscaled["argmax"].append(interaction.rewards.argmax())
+                unscaled["argmax"].append(interaction['rewards'].argmax())
         #self._times[0] = time.time()-start
 
         if mixed_types: 
@@ -137,9 +142,9 @@ class Scale(EnvironmentFilter):
         #start = time.time()
         has_sparse_zero = set()
 
-        for interaction in fitting_interactions:
-            if context_type == 1:
-                has_sparse_zero |= unscaled.keys() - interaction.context.keys() - {"rewards"}
+        if context_type == 1:
+            for interaction in fitting_interactions:
+                has_sparse_zero |= unscaled.keys() - interaction['context'].keys() - {"rewards"}
 
         for key in has_sparse_zero:
             unscaled[key].append(0)
@@ -179,28 +184,24 @@ class Scale(EnvironmentFilter):
         #start = time.time()
         for interaction in chain(fitting_interactions, iter_interactions):
 
-            final_context = interaction.context
-            final_rewards = interaction.rewards
+            final_context = interaction['context']
+            final_rewards = interaction['rewards']
 
             if self._target == "features":
 
                 if context_type == 0:
-                    scaled_context = list(interaction.context)
+                    final_context = list(final_context)
                     for key in shifts:
-                        scaled_context[key] = (scaled_context[key]-shifts[key])*scales[key]
-                    final_context = tuple(scaled_context)
+                        final_context[key] = (final_context[key]-shifts[key])*scales[key]
+                    final_context = tuple(final_context)
 
                 elif context_type == 1:
-                    scaled_context = dict(interaction.context)
-                    for key in (scaled_context.keys() & shifts.keys()):
-                        scaled_context[key] = (scaled_context[key]-shifts[key])*scales[key]
-                    final_context = HashableMap(scaled_context)
+                    final_context = dict(final_context)
+                    for key in (final_context.keys() & shifts.keys()):
+                        final_context[key] = (final_context[key]-shifts[key])*scales[key]
 
-                else:
-                    if 0 in shifts:
-                        final_context = (interaction.context-shifts[0])*scales[0]
-                    else:
-                        final_context = interaction.context
+                elif 0 in shifts:
+                    final_context = (final_context-shifts[0])*scales[0]
 
             elif self._target == "rewards":
                 final_rewards = ScaleReward(final_rewards, -shifts['rewards'], scales['rewards'], 'value')
@@ -208,24 +209,7 @@ class Scale(EnvironmentFilter):
             elif self._target == "argmax":
                 final_rewards = ScaleReward(final_rewards, -shifts["argmax"], scales["argmax"], "argmax")
 
-            if isinstance(interaction, SimulatedInteraction):
-                yield SimulatedInteraction(
-                    final_context,
-                    interaction.actions,
-                    final_rewards,
-                    **interaction.kwargs)
-
-            elif isinstance(interaction, LoggedInteraction):
-                yield LoggedInteraction(
-                    final_context,
-                    interaction.action,
-                    interaction.reward,
-                    interaction.probability,
-                    interaction.actions,
-                    **interaction.kwargs)
-
-            else: #pragma: no cover
-                raise CobaException("Unknown interactions were given to Scale.")
+            yield _copy_interaction(interaction, context=final_context, rewards=final_rewards)
         #self._times[3] = time.time()-start
 
         #print(self._times)
@@ -268,7 +252,7 @@ class Impute(EnvironmentFilter):
         features: Dict[Hashable,List[Number]] = defaultdict(list)
 
         for interaction in train_interactions:
-            for name,value in self._context_as_name_values(interaction.context):
+            for name,value in self._context_as_name_values(interaction['context']):
                 if isinstance(value,Number) and not isnan(value):
                     features[name].append(value)
 
@@ -286,37 +270,21 @@ class Impute(EnvironmentFilter):
         for interaction in test_interactions:
 
             kv_imputed_context = {}
+            context = interaction['context']
 
-            for name,value in self._context_as_name_values(interaction.context):
+            for name,value in self._context_as_name_values(context):
                 kv_imputed_context[name] = stats[name] if isinstance(value,Number) and isnan(value) else value
 
-            if interaction.context is None:
+            if context is None:
                 final_context = None
-            elif isinstance(interaction.context,pipes.Sparse):
+            elif isinstance(context, pipes.Sparse):
                 final_context = kv_imputed_context
-            elif isinstance(interaction.context,pipes.Dense):
-                final_context = tuple(kv_imputed_context[k] for k,_ in self._context_as_name_values(interaction.context))
+            elif isinstance(context, pipes.Dense):
+                final_context = tuple(kv_imputed_context[k] for k,_ in self._context_as_name_values(context))
             else:
                 final_context = kv_imputed_context[1]
 
-            if isinstance(interaction, SimulatedInteraction):
-                yield SimulatedInteraction(
-                    final_context,
-                    interaction.actions,
-                    interaction.rewards,
-                    **interaction.kwargs
-                )
-
-            elif isinstance(interaction, LoggedInteraction):
-                yield LoggedInteraction(
-                    final_context,
-                    interaction.action,
-                    interaction.reward,
-                    **interaction.kwargs
-                )
-
-            else: #pragma: no cover
-                raise CobaException("Unknown interactions were given to Impute.")
+            yield _copy_interaction(interaction, context=final_context)
 
     def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
 
@@ -351,37 +319,26 @@ class Sparse(EnvironmentFilter):
 
         for interaction in interactions:
 
-            sparse_context = self._make_sparse(interaction.context) if self._context else interaction.context
+            new = interaction.copy()            
 
-            if isinstance(interaction, SimulatedInteraction):
-                sparse_actions = list(map(self._make_sparse,interaction.actions)) if self._action else interaction.actions
+            if self._context:
+                new['context'] = self._make_sparse(new['context'])
+            
+            if self._action and 'actions' in new and new['actions']:
+                new['actions'] = list(map(self._make_sparse,new['actions']))
 
-                yield SimulatedInteraction(
-                    sparse_context,
-                    sparse_actions,
-                    interaction.rewards
-                )
+            if self._action and 'action' in new:
+                new['action'] = self._make_sparse(new['action'])
 
-            elif isinstance(interaction, LoggedInteraction):
-                sparse_action = self._make_sparse(interaction.action) if self._action else interaction.action
-
-                yield LoggedInteraction(
-                    sparse_context,
-                    sparse_action,
-                    interaction.reward,
-                    interaction.probability,
-                    interaction.actions,
-                    **interaction.kwargs
-                )
-
-            else: #pragma: no cover
-                raise CobaException("Unknown interactions were given to Sparse.")
+            yield new
 
     def _make_sparse(self, value) -> Optional[dict]:
-        if isinstance(value,dict) or value is None:
+        if value is None:
             return value
-        if isinstance(value,(list,tuple)):
+        if isinstance(value,pipes.Dense):
             return dict(enumerate(value))
+        if isinstance(value,pipes.Sparse):
+            return value
         return {0:value}
 
 class Cycle(EnvironmentFilter):
@@ -402,30 +359,29 @@ class Cycle(EnvironmentFilter):
     def params(self) -> Dict[str, Any]:
         return { "cycle_after": self._after }
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         underlying_iterable     = iter(interactions)
         sans_cycle_interactions = islice(underlying_iterable, self._after)
         with_cycle_interactions = underlying_iterable
 
-        for interaction in sans_cycle_interactions:
-            yield interaction
+        yield from sans_cycle_interactions
 
         first, with_cycle_interactions = peek_first(with_cycle_interactions)
 
         if first:
-            action_set          = set(first.actions)
+            action_set          = set(first['actions'])
             n_actions           = len(action_set)
             featureless_actions = [tuple([0]*n+[1]+[0]*(n_actions-n-1)) for n in range(n_actions)]
 
-            if not first.is_discrete or len(set(action_set) & set(featureless_actions)) != len(action_set):
+            if not first['is_discrete'] or len(set(action_set) & set(featureless_actions)) != len(action_set):
                 warnings.warn("Cycle only works for discrete environments without action features. It will be ignored in this case.")
-                for interaction in with_cycle_interactions:
-                    yield interaction
+                yield from with_cycle_interactions
             else:
                 for interaction in with_cycle_interactions:
-                    rewards = interaction.rewards[-1:] + interaction.rewards[:-1]
-                    yield SimulatedInteraction(interaction.context, interaction.actions, rewards, **interaction.kwargs)
+                    rewards = interaction['rewards']
+                    rewards = SequenceReward(interaction['actions'],rewards[-1:] + rewards[:-1])
+                    yield _copy_interaction(interaction, rewards=rewards)
 
 class Flatten(EnvironmentFilter):
     """Flatten the context and action features for interactions."""
@@ -437,18 +393,18 @@ class Flatten(EnvironmentFilter):
     def params(self) -> Dict[str, Any]:
         return { "flat": True }
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
-        
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
         I1,I2,I3 = tee(interactions,3)
 
         interactions      = I1
-        flat_context_iter = self._flattener.filter( i.context  for i in I2                    )
-        flat_actions_iter = self._flattener.filter( a          for i in I3 for a in i.actions )
+        flat_context_iter = self._flattener.filter( i['context'] for i in I2                       )
+        flat_actions_iter = self._flattener.filter( a            for i in I3 for a in i['actions'] )
 
         for interaction in interactions:
             flat_context = next(flat_context_iter)
-            flat_actions = list(islice(flat_actions_iter,len(interaction.actions)))
-            yield SimulatedInteraction(flat_context, flat_actions, interaction.rewards, **interaction.kwargs)
+            flat_actions = list(islice(flat_actions_iter,len(interaction['actions'])))            
+            yield _copy_interaction(interaction, context=flat_context, actions=flat_actions)
 
 class Binary(EnvironmentFilter):
     """Binarize all rewards to either 1 (max rewards) or 0 (all others)."""
@@ -457,10 +413,9 @@ class Binary(EnvironmentFilter):
     def params(self) -> Dict[str, Any]:
         return { "binary": True }
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         for interaction in interactions:
-            rewards = BinaryReward(interaction.rewards.argmax())
-            yield SimulatedInteraction(interaction.context, interaction.actions, rewards, **interaction.kwargs)
+            yield _copy_interaction(interaction, rewards=BinaryReward(interaction['rewards'].argmax()))
 
 class Sort(EnvironmentFilter):
     """Sort a sequence of Interactions in an Environment."""
@@ -480,12 +435,12 @@ class Sort(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        full_sorter = lambda interaction: tuple(interaction.context                                 )
-        list_sorter = lambda interaction: tuple(interaction.context[key]       for key in self._keys)
-        dict_sorter = lambda interaction: tuple(interaction.context.get(key,0) for key in self._keys)
+        full_sorter = lambda interaction: tuple(interaction['context']                                 )
+        list_sorter = lambda interaction: tuple(interaction['context'][key]       for key in self._keys)
+        dict_sorter = lambda interaction: tuple(interaction['context'].get(key,0) for key in self._keys)
 
-        interactions = list(interactions)
-        is_sparse    = isinstance(interactions[0].context,dict)
+        first, interactions = peek_first(interactions)
+        is_sparse           = isinstance(first['context'],dict)
 
         sorter = full_sorter if not self._keys else dict_sorter if is_sparse else list_sorter
 
@@ -556,7 +511,7 @@ class Warm(EnvironmentFilter):
     def params(self) -> Dict[str, Any]:
         return { "n_warm": self._n_warm }
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[Interaction]:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         self._rng = CobaRandom(self._seed)
 
@@ -566,17 +521,18 @@ class Warm(EnvironmentFilter):
 
         return chain(logged_interactions, simulated_interactions)
 
-    def _to_logged_interaction(self, interaction: SimulatedInteraction) -> LoggedInteraction:
-        num_actions   = len(interaction.actions)
+    def _to_logged_interaction(self, interaction: Interaction) -> Interaction:
+        actions       = interaction['actions']
+        rewards       = interaction['rewards']
+        num_actions   = len(actions)
         probabilities = [1/num_actions] * num_actions
 
         idx     = self._rng.choice(list(range(num_actions)), probabilities)
-        actions = interaction.actions
-        action  = interaction.actions[idx]
+        action  = actions[idx]
         prob    = probabilities[idx]
-        reward  = interaction.rewards[idx]
+        reward  = rewards[idx]
 
-        return LoggedInteraction(interaction.context, action, reward, prob, actions)
+        return _copy_interaction(interaction, type='logged', action=action, reward=reward, probability=prob)
 
 class Riffle(EnvironmentFilter):
     """Riffle shuffle Interactions by taking actions from the end and evenly distributing into the beginning."""
@@ -659,20 +615,19 @@ class Noise(EnvironmentFilter):
 
         return params
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         rng = CobaRandom(self._seed)
 
         for interaction in interactions:
 
-            if isinstance(interaction, LoggedInteraction):
-                raise CobaException("We do not currently support adding noise to a LoggedInteraction.")
+            noisy_context = self._noises(interaction['context'], rng, self._context_noise)
+            noisy_actions = [self._noises(a, rng, self._action_noise) for a in interaction['actions'] ]
+            noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in interaction['rewards'] ]
 
-            noisy_context = self._noises(interaction.context, rng, self._context_noise)
-            noisy_actions = [ self._noises(a, rng, self._action_noise) for a in interaction.actions ]
-            noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in interaction.rewards ]
+            noisy_rewards = SequenceReward(noisy_actions,noisy_rewards)
 
-            yield SimulatedInteraction(noisy_context, noisy_actions, noisy_rewards, **interaction.kwargs)
+            yield _copy_interaction(interaction, context=noisy_context, actions=noisy_actions, rewards= noisy_rewards)
 
     def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
 
@@ -748,7 +703,7 @@ class Grounded(EnvironmentFilter):
             "igl_seed" : self._seed
         }
 
-    def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[GroundedInteraction]:
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         rng = CobaRandom(self._seed)
 
         #we make it a set for faster contains checks
@@ -759,11 +714,11 @@ class Grounded(EnvironmentFilter):
         first,interactions = peek_first(interactions)
 
         if first:
-            binary_rewards = not (set(first.rewards)-{0,1})
+            binary_rewards = not (set(first['rewards'])-{0,1})
 
-            if isinstance(first.context,pipes.Sparse):
+            if isinstance(first['context'],pipes.Sparse):
                 context_type = 0
-            elif isinstance(first.context,pipes.Dense):
+            elif isinstance(first['context'],pipes.Dense):
                 context_type = 1
             else:
                 context_type = 2
@@ -773,25 +728,31 @@ class Grounded(EnvironmentFilter):
 
         for seed,interaction in enumerate(interactions,self._seed):
 
-            argmax      = interaction.rewards.argmax()
-            igl_actions = interaction.actions
-            igl_rewards = interaction.rewards if binary_rewards else BinaryReward(argmax)
-
             userid,normal = rng.choice(userid_isnormal)
+            argmax        = interaction['rewards'].argmax()
+
+            new         = interaction.copy()
+            new['type'] = 'grounded'
+
+            if not binary_rewards:
+                new['rewards'] = BinaryReward(argmax)
 
             if normal:
-                feedback = Grounded.GroundedFeedback(goods,bads,argmax,seed)
+                new['feedbacks'] = Grounded.GroundedFeedback(goods,bads,argmax,seed)
             else:
-                feedback = Grounded.GroundedFeedback(bads,goods,argmax,seed)
+                new['feedbacks'] = Grounded.GroundedFeedback(bads,goods,argmax,seed)
 
             if context_type == 0:
-                igl_context = dict(userid=userid,**interaction.context)
+                new['context'] = dict(userid=userid,**new['context'])
             elif context_type == 1:
-                igl_context = (userid,)+tuple(interaction.context)
+                new['context'] = (userid,)+tuple(new['context'])
             else:
-                igl_context = (userid, interaction.context)
+                new['context'] = (userid, new['context'])
 
-            yield GroundedInteraction(igl_context, igl_actions, igl_rewards, feedback, userid=userid, isnormal=normal, **interaction.kwargs)
+            new['userid'] = userid
+            new['isnormal'] = normal
+
+            yield new
 
     def _cast_int(self, value:Union[float,int], value_name:str) -> int:
         if isinstance(value, int): return value
@@ -816,10 +777,7 @@ class Repr(EnvironmentFilter):
         for interaction in interactions:
             cat_context = next(cat_context_iter)
             cat_actions = list(islice(cat_actions_iter,len(interaction['actions'])))
-            
-            interaction.copy()
-            interaction.update(context=cat_context,actions=cat_actions)
-            yield interaction
+            yield _copy_interaction(interaction,context=cat_context,actions=cat_actions)
 
 class Finalize(EnvironmentFilter):
 

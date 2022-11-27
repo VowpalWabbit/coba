@@ -253,7 +253,7 @@ class Interaction(dict):
             rewards : The reward for each action in the interaction.
             **kwargs: Any additional information.
         """
-        
+
         self['type']    = type
         self['context'] = context
         self['actions'] = actions
@@ -263,7 +263,7 @@ class Interaction(dict):
             self['is_discrete'] = True
         else:
             self['rewards'] = rewards
-            self['is_discrete'] = actions and len(actions)>0        
+            self['is_discrete'] = actions and len(actions)>0
 
         if kwargs: self.update(kwargs)
 
@@ -292,13 +292,13 @@ class Interaction(dict):
 
 class SimulatedInteraction(Interaction):
     """Simulated data that describes an interaction where the choice is up to you."""
-     
+
     def __init__(self,
         context : Context,
         actions : Actions,
         rewards : Union[Reward, Sequence[float]],
         **kwargs) -> None:
-        
+
         """Instantiate SimulatedInteraction.
 
         Args
@@ -309,6 +309,7 @@ class SimulatedInteraction(Interaction):
         """
         kwargs.pop('type',None)
         super().__init__('simulated',context,actions,rewards,**kwargs)
+        if actions is None: kwargs.pop('actions')
 
 class GroundedInteraction(Interaction):
     """Logged data that describes an interaction where the choice was already made."""
@@ -376,6 +377,7 @@ class LoggedInteraction(Interaction):
         self['reward']      = reward
 
         super().__init__('logged',context, actions, rewards,**kwargs)
+        #if actions is None: self.pop('actions')
 
     @property
     def action(self):
