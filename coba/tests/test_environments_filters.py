@@ -1572,6 +1572,15 @@ class Batch_Tests(unittest.TestCase):
         self.assertEqual({'batched':True,'a':[1,1,1],'b':[2,2,2]},batches[0])
         self.assertEqual({'batched':True, 'a':[1]    ,'b':[2]},batches[1])
 
+    def test_batch1(self):
+        batch = Batch(1)
+        
+        self.assertEqual({'batched':1}, batch.params)
+        batches = list(batch.filter([{'a':1,'b':2}]*2))
+
+        self.assertEqual({'batched':True,'a':[1],'b':[2]},batches[0])
+        self.assertEqual({'batched':True,'a':[1],'b':[2]},batches[1])
+
     def test_empty(self):
         self.assertEqual([],list(Batch(3).filter([])))
 
