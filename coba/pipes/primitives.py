@@ -91,7 +91,7 @@ class Sparse(ABC):
 
     def __eq__(self, o: object) -> bool:
         try:
-            return set(self.items()) == set(o.items())
+            return dict(self.items()) == dict(o.items())
         except:
             return False
 

@@ -416,7 +416,7 @@ class Flatten(EnvironmentFilter):
 
         interactions      = I1
         flat_context_iter = self._flattener.filter(i['context'] for i in I2                   )
-        flat_actions_iter = self._flattener.filter(a         for i in I3 for a in i['actions'])
+        flat_actions_iter = self._flattener.filter(a            for i in I3 for a in i['actions'])
 
         for interaction in interactions:
             new = interaction.copy()

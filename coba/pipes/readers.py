@@ -194,9 +194,14 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
 
         parser = ArffReader.SparseRowParser(len(headers))
         encs   = dict(enumerate(encoders))
-        nsp    = set(k for k,v in encs.items() if v('0')!=0)
         fwd    = dict(zip(headers,count()))
         inv    = {v:k for k,v in fwd.items()}
+
+        nsp = set()
+        for k,v in encs.items():
+            try:
+                if v('0')!=0: nsp.add(k)
+            except: pass #pragma: no cover
 
         for i,line in enumerate(lines):
 

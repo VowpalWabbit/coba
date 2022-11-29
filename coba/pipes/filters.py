@@ -187,11 +187,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
 
     def filter(self, data: Iterable[Any]) -> Iterable[Any]:
 
-        try:
-            data  = iter(data)
-            first = next(data)
-        except StopIteration:
-            return []
+        first, data = peek_first(data)
 
         if isinstance(first,abc.MutableSequence):
             first_type = "list" 
@@ -204,7 +200,6 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
 
         is_flattable = lambda v: isinstance(v,Dense) or not isinstance(v,str) and (isinstance(v,abc.Iterable))
 
-        flattable = []
         if first_type in ["list","tuple"]:
             flattable = [ is_flattable(v) for v in first ]
             any_flattable = any(flattable)
@@ -213,6 +208,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
             flattable = {k:[f"{k}_{i}" for i in range(len(v))] for k,v in first.items() if is_flattable(v) }
             any_flattable = bool(flattable)
         else:
+            flattable = []
             any_flattable = False
 
         def flatter_list(row):
@@ -220,20 +216,16 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
                 if f: yield from r 
                 else: yield r
 
-        for row in chain([first], data):
-
-            if not any_flattable:
-                yield row
-
-            else:
-                if first_type == "list":
-                    row = list(flatter_list(row))
-                elif first_type == "tuple":
-                    row = tuple(flatter_list(row))
-                elif first_type == "dict":
-                    #in-line dict comprehension was faster than a generator like we did with list
-                    row = { k:v for k,v in row.items() for k,v in ( zip(flattable[k],v) if k in flattable else ((k,v),)) if v != 0 }
-                yield row
+        if not any_flattable or first_type is None:
+            yield from data
+        elif first_type == "list":
+            yield from (list(flatter_list(row)) for row in data)
+        elif first_type == "tuple":
+            yield from (tuple(flatter_list(row)) for row in data)
+        elif first_type == "dict":
+            for row in data:
+                #in-line dict comprehension was faster than a generator like we did with list
+                yield {k:v for k,v in row.items() for k,v in ( zip(flattable[k],v) if k in flattable else ((k,v),)) if v != 0 }
 
 class Encode(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,Mapping]]]):
     """A filter which encodes features in table shaped data."""

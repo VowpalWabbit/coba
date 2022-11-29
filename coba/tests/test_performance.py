@@ -13,11 +13,12 @@ import coba.random
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, ScaleReward, L1Reward
 from coba.environments import Scale, Flatten, Grounded, HashableMap
-from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder, CategoricalEncoder
-from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, EncodeRows
-from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense
+from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
+from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
+from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.experiments.results import Result, moving_average
 from coba.experiments import SimpleEvaluation
+from coba.utilities import Categorical
 
 Timeable = Callable[[],Any]
 Scalable = Callable[[int],Timeable]
@@ -191,12 +192,12 @@ class Performance_Tests(unittest.TestCase):
     def test_environments_flat_tuple(self):
         items = [SimulatedInteraction([1,2,3,4]+[(0,1)]*3,[1,2,3],[4,5,6])]*10
         flat  = Flatten()
-        self._assert_scale_time(items, lambda x:list(flat.filter(x)), .06, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(flat.filter(x)), .04, print_time, number=1000)
 
     def test_pipes_flat_tuple(self):
         items = [tuple([1,2,3]+[(0,1)]*5)]*10
         flat  = coba.pipes.Flatten()
-        self._assert_scale_time(items, lambda x:list(flat.filter(x)), .03, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(flat.filter(x)), .025, print_time, number=1000)
 
     def test_pipes_flat_dict(self):
         items = [dict(enumerate([1,2,3]+[(0,1)]*5))]*10
@@ -319,6 +320,12 @@ class Performance_Tests(unittest.TestCase):
         #si2 = Interaction2(1,[1,2],[3,4])
         #self._assert_call_time(lambda: si2.actions, .0022, print_time, number=1000000)
 
+    def test_simulated_interaction_get_context(self):
+        si1 = SimulatedInteraction(1,[1,2],[3,4])
+        self._assert_call_time(lambda: si1['actions'], .0022, print_time, number=10000)
+        #si2 = Interaction2(1,[1,2],[3,4])
+        #self._assert_call_time(lambda: si2.actions, .0022, print_time, number=1000000)
+
     @unittest.skip("An interesting and revealing test but not good to run regularly")
     def test_integration_performance(self):
         import coba as cb
@@ -336,6 +343,11 @@ class Performance_Tests(unittest.TestCase):
         environment = environment.grounded(n_users, n_users/2, n_words, n_words/2, seed=1) #(4) turn into an igl problem
 
         self._assert_call_time(lambda: environment.materialize(), 48, print_time, number=1)
+
+    def test_encode_cat_rows(self):
+        rows = [[Categorical('1',list(map(str,range(20))))]*5]*5
+        enc  = EncodeCatRows("onehot")
+        self._assert_call_time(lambda: list(enc.filter(rows)), .05, print_time, number=1000)
 
     def _assert_call_time(self, timeable: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
         if print_time: print()

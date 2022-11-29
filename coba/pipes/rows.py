@@ -210,28 +210,35 @@ class EncodeSparse(Sparse):
 
 class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]]]):
 
-    def __init__(self, encoders: Union[Sequence,Mapping]) -> None:
+    def __init__(self, encoders: Union[Callable,Sequence,Mapping]) -> None:
         self._encoders = encoders
 
-    def filter(self, rows: Iterable[Union[Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
-        encs = self._encoders
+    def filter(self, rows: Iterable[Union[Any,Dense,Sparse]]) -> Iterable[Union[Dense,Sparse]]:
+        enc = self._encoders
         first, rows = peek_first(rows)
 
         if first is None:
             return rows
 
         if isinstance(first,Dense):
-            if isinstance(encs,abc.Mapping):
+            if isinstance(enc,abc.Mapping):
                 if hasattr(first, 'headers'):
-                    encs = [ encs.get(h, encs.get(i, lambda x:x)) for i,h in enumerate(first.headers) ]
+                    enc = [ enc.get(h, enc.get(i, lambda x:x)) for i,h in enumerate(first.headers) ]
                 else:
-                    encs = [ encs.get(i, lambda x:x)              for i   in range(len(first))        ]
-            return ( EncodeDense(row, encs) for row in rows )
+                    enc = [ enc.get(i, lambda x:x)             for i   in range(len(first))        ]
+            return ( EncodeDense(row, enc) for row in rows )
 
-        if isinstance(first,Sparse):
-            if isinstance(encs, abc.Sequence): encs = dict(enumerate(encs))
-            not_sparse_encoding = set(k for k,v in encs.items() if v('0')!=0)
-            return ( EncodeSparse(row, encs, not_sparse_encoding) for row in rows )
+        elif isinstance(first,Sparse):
+            if isinstance(enc, abc.Sequence): enc = dict(enumerate(enc))
+            nsp = set()
+            for k,v in enc.items():
+                try:
+                    if v('0')!=0: nsp.add(k)
+                except: pass
+            return ( EncodeSparse(row, enc, nsp) for row in rows )
+
+        else:
+            return map(enc,rows)
 
 class DropOne(Dense):
     __slots__=('_row','_ind')
@@ -453,21 +460,20 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
     def filter(self, rows: Iterable[Union[Any,Dense,Sparse]]) -> Iterable[Union[Any,Dense,Sparse]]:
 
         first, rows = peek_first(rows)
-        
+
         if self._tipe is None:
-            make_encoder = lambda levels: (lambda c: c)
+            encoder = lambda c: c
         elif self._tipe == 'string':
-            make_encoder = lambda levels: str
+            encoder = str
         else:
-            make_encoder = lambda levels: OneHotEncoder(levels).encode
+            encoder = lambda c: c.onehot
 
         if isinstance(first,Categorical):
-            rows = ([r] for r in rows)
-            enc = { 0: make_encoder(first.levels) }
+            enc = encoder
         elif isinstance(first,Dense):
-            enc = { i: make_encoder(v.levels) for i,v in enumerate(first) if isinstance(v,Categorical) }
+            enc = { i: encoder for i,v in enumerate(first) if isinstance(v,Categorical) }
         elif isinstance(first,Sparse):
-            enc = { k: make_encoder(v.levels) for k,v in first.items() if isinstance(v,Categorical) }
+            enc = { k: encoder for k,v in first.items() if isinstance(v,Categorical) }
         else:
             return rows
 
