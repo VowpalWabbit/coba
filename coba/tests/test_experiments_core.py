@@ -3,12 +3,13 @@ import unittest
 from pathlib import Path
 from typing import cast
 
-from coba.environments import Environment, LambdaSimulation
+from coba.environments import Environment, LambdaSimulation, MulticlassReward, SimulatedInteraction
 from coba.pipes import Source, ListSink
-from coba.learners import Learner
+from coba.learners import Learner, Probs
 from coba.contexts import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment, SimpleEvaluation
 from coba.exceptions import CobaException
+from coba.utilities import Categorical
 
 class NoParamsLearner:
     def predict(self, context, actions):
@@ -30,7 +31,7 @@ class ModuloLearner(Learner):
         return {"family": "Modulo", "p":self._param}
 
     def predict(self, context, actions):
-        return [ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ]
+        return Probs([ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ])
 
     def learn(self, context, actions, action, reward, probability):
         self._learn_calls += 1
@@ -127,6 +128,13 @@ class ExceptionEnvironment(Environment):
     def read(self):
         raise self._exc
 
+class TestEnv:
+    def read(self):
+        actions = [Categorical("a",["a","b"]),Categorical("b",["a","b"])]
+        yield SimulatedInteraction(1, actions, MulticlassReward(actions,actions[0]))
+        yield SimulatedInteraction(2, actions, MulticlassReward(actions,actions[0]))
+
+
 class Experiment_Single_Tests(unittest.TestCase):
 
     @classmethod
@@ -163,7 +171,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
-        
+
         if CobaContext.experiment.processes == 1:
             self.assertEqual(2, learner._learn_calls)
         else:
@@ -197,7 +205,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
-        
+
         if CobaContext.experiment.processes == 1:
             self.assertEqual(2, learner._learn_calls)
         else:
@@ -230,6 +238,35 @@ class Experiment_Single_Tests(unittest.TestCase):
         ]
 
         self.assertDictEqual({"description":"abc", "n_learners":1, "n_environments":2}, result.experiment)
+        self.assertCountEqual(actual_learners, expected_learners)
+        self.assertCountEqual(actual_environments, expected_environments)
+        self.assertCountEqual(actual_interactions, expected_interactions)
+
+    def test_categorical_actions(self):
+
+        CobaContext.logger = IndentLogger(ListSink())
+
+        sim1       = TestEnv()
+        learner    = ModuloLearner()
+        experiment = Experiment(sim1, learner)
+
+        result              = experiment.evaluate()
+        actual_learners     = result.learners.to_dicts()
+        actual_environments = result.environments.to_dicts()
+        actual_interactions = result.interactions.to_dicts()
+
+        expected_learners     = [
+            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+        ]
+        expected_environments = [
+            {"environment_id":0, "type":'TestEnv'},
+        ]
+        expected_interactions = [
+            {"environment_id":0, "learner_id":0, "index":1, "reward":0},
+            {"environment_id":0, "learner_id":0, "index":2, "reward":1},
+        ]
+
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -296,7 +333,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         experiment = Experiment([sim],[learner1],evaluation_task=SimpleEvaluation(time_metrics=False))
 
         actual_result       = experiment.evaluate()
-        
+
         actual_learners     = actual_result._learners.to_dicts()
         actual_environments = actual_result._environments.to_dicts()
         actual_interactions = actual_result.interactions.to_dicts()
@@ -475,11 +512,10 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertEqual("A Learner was given whose value was None, which can't be processed.", str(raised.exception))
 
     def test_quiet(self):
-        
+
         sim      = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1 = PredictInfoLearner("0") #type: ignore
         logger   = BasicLogger(ListSink())
-
 
         CobaContext.logger = logger
         Experiment(sim,learner1).run(quiet=True)

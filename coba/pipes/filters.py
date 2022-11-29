@@ -121,7 +121,7 @@ class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
         except StopIteration:
             pass
 
-        return Take(self._count).filter(reservoir)
+        return reservoir
 
 class JsonEncode(Filter[Any, str]):
     """A filter which turn a Python object into JSON strings."""
@@ -202,7 +202,7 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
         else:
             first_type = None
 
-        is_flattable = lambda v: isinstance(v,Dense) or (isinstance(v,abc.Iterable) and not isinstance(v,str))
+        is_flattable = lambda v: isinstance(v,Dense) or not isinstance(v,str) and (isinstance(v,abc.Iterable))
 
         flattable = []
         if first_type in ["list","tuple"]:
@@ -378,9 +378,6 @@ class Cache(Filter[Iterable[Any], Iterable[Any]]):
         self._cache = []
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        if self._cache: 
-            yield from self._cache
-        else:
-            for item in items:
-                self._cache.append(item)
-                yield item
+        if not self._cache: 
+            self._cache = list(items)
+        return self._cache

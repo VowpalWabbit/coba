@@ -16,9 +16,7 @@ class SerializedSimulation_Tests(unittest.TestCase):
         self.assertEqual(expected_env.params, actual_env.params)
         self.assertEqual(len(list(expected_env.read())), len(list(actual_env.read())))
         for e_interaction, a_interaction in zip(expected_env.read(), actual_env.read()):
-            self.assertEqual(e_interaction.context, a_interaction.context)
-            self.assertEqual(e_interaction.actions, a_interaction.actions)
-            self.assertEqual(e_interaction.kwargs , a_interaction.kwargs )
+            self.assertEqual(e_interaction, a_interaction)
 
     def test_http_url(self):
         env = SerializedSimulation("https://github.com")
@@ -41,9 +39,7 @@ class SerializedSimulation_Tests(unittest.TestCase):
         self.assertEqual(expected_env.params, actual_env.params)
         self.assertEqual(len(list(expected_env.read())), len(list(actual_env.read())))
         for e_interaction, a_interaction in zip(expected_env.read(), actual_env.read()):
-            self.assertEqual(e_interaction.context, a_interaction.context)
-            self.assertEqual(e_interaction.actions, a_interaction.actions)
-            self.assertEqual(e_interaction.kwargs , a_interaction.kwargs )
+            self.assertEqual(e_interaction, a_interaction)
 
     def test_sim_write_read_with_params_and_none_context(self):
         sink = ListSink()
@@ -55,9 +51,7 @@ class SerializedSimulation_Tests(unittest.TestCase):
         self.assertEqual(expected_env.params, actual_env.params)
         self.assertEqual(len(list(expected_env.read())), len(list(actual_env.read())))
         for e_interaction, a_interaction in zip(expected_env.read(), actual_env.read()):
-            self.assertEqual(e_interaction.context, a_interaction.context)
-            self.assertEqual(e_interaction.actions, a_interaction.actions)
-            self.assertEqual(e_interaction.kwargs , a_interaction.kwargs )
+            self.assertEqual(e_interaction, a_interaction)
 
     def test_sim_write_read_with_params_and_action_tuple(self):
         sink = ListSink()
@@ -70,9 +64,7 @@ class SerializedSimulation_Tests(unittest.TestCase):
         self.assertEqual(len(list(expected_env.read())), len(list(actual_env.read())))
         
         for e_interaction, a_interaction in zip(expected_env.read(), actual_env.read()):
-            self.assertEqual(e_interaction.context, a_interaction.context)
-            self.assertEqual(e_interaction.actions, a_interaction.actions)
-            self.assertEqual(e_interaction.kwargs , a_interaction.kwargs )
+            self.assertEqual(e_interaction, a_interaction)
 
     def test_bad_source(self):
         expected_env = IdentitySource([None])

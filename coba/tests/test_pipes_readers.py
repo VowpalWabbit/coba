@@ -111,7 +111,7 @@ class ArffReader_Tests(unittest.TestCase):
         
         self.assertEqual("Two columns in the ARFF file had identical header values.", str(e.exception))
 
-    def test_dense_with_missing_value(self):
+    def test_dense_with_missing_value1(self):
         lines = [
             "@relation test",
             "@attribute a numeric",
@@ -119,12 +119,30 @@ class ArffReader_Tests(unittest.TestCase):
             "@attribute c {B, C, D}",
             "@data",
             "1,2,B",
-            "2,3,?",
+            "4,3,?",
         ]
 
         expected = [
             [1,2,Categorical("B", ["B","C","D"])],
-            [2,3,None]
+            [4,3,None]
+        ]
+
+        self.assertEqual(expected, list(map(list,ArffReader(missing_value=None).filter(lines))))
+
+    def test_dense_with_missing_value2(self):
+        lines = [
+            "@relation test",
+            "@attribute a numeric",
+            "@attribute B numeric",
+            "@attribute c {B, C, D}",
+            "@data",
+            "1,2,B",
+            "?,3,?",
+        ]
+
+        expected = [
+            [1,2,Categorical("B", ["B","C","D"])],
+            [None,3,None]
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader(missing_value=None).filter(lines))))
@@ -338,7 +356,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             list(list(ArffReader().filter(lines))[0])
 
-        self.assertIn("We were unable to find one of the categorical values in the arff data.", str(e.exception))
+        self.assertIn("We were unable to find A in ['B', 'C', 'D'].", str(e.exception))
 
     def test_percent_in_attribute_name(self):
         lines = [

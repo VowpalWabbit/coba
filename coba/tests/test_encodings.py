@@ -2,11 +2,12 @@ import unittest
 import math
 
 from coba.pipes.rows import LazyDense, LazySparse
+from coba.utilities import Categorical
 
 from coba.encodings import(
     IdentityEncoder, StringEncoder, NumericEncoder,
     OneHotEncoder, FactorEncoder, InteractionsEncoder,
-    MissingEncoder
+    MissingEncoder, CategoricalEncoder
 )
 
 from coba.exceptions import CobaException
@@ -121,6 +122,50 @@ class OneHotEncoder_Tests(unittest.TestCase):
 
     def test_fit_encode(self):
         self.assertEqual([(1,0,0),(0,1,0),(0,0,1),(0,1,0)], OneHotEncoder().fit_encodes(["0","1","2","1"]))
+
+class CategoricalEncoder_Tests(unittest.TestCase):
+
+    def test_encode_err(self):
+        with self.assertRaises(CobaException):
+            CategoricalEncoder().fit(["1","1","1","0","0"]).encode("2")
+
+    def test_encodes_err(self):
+        with self.assertRaises(CobaException):
+            CategoricalEncoder().fit(["1","1","1","0","0"]).encodes(["2"])
+
+    def test_fit(self):
+        encoder = CategoricalEncoder()
+        fit_encoder = encoder.fit(["0","1"])
+
+        cat0 = Categorical("0",["0","1"])
+        cat1 = Categorical("1",["0","1"])
+
+        self.assertEqual(False, encoder.is_fit)
+        self.assertEqual(True, fit_encoder.is_fit)
+        self.assertEqual([cat0,cat1], fit_encoder.encodes(["0","1"]))
+
+    def test_encode_sans_fit_exception(self):
+        with self.assertRaises(CobaException):
+            CategoricalEncoder().encode("0")
+
+    def test_encodes_sans_fit_exception(self):
+        with self.assertRaises(CobaException):
+            CategoricalEncoder().encodes(["0","1","2"])
+
+    def test_init_values(self):
+        encoder = CategoricalEncoder(values=["0","1"])
+
+        cat0 = Categorical("0",["0","1"])
+        cat1 = Categorical("1",["0","1"])
+
+        self.assertEqual(True, encoder.is_fit)
+        self.assertEqual([cat0,cat1], encoder.encodes(["0","1"]))
+
+    def test_fit_encode(self):
+        cat0 = Categorical("0",["0","1"])
+        cat1 = Categorical("1",["0","1"])
+
+        self.assertEqual([cat0,cat1,cat0,cat1], CategoricalEncoder().fit_encodes(["0","1","0","1"]))
 
 class FactorEncoder_Tests(unittest.TestCase):
     def test_encode_err_if_unkonwn_true(self):

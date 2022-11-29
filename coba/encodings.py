@@ -9,6 +9,7 @@ from collections import Counter, OrderedDict, defaultdict
 from itertools import count, accumulate, chain
 from typing import Iterator, Sequence, Generic, TypeVar, Any, Tuple, Union, Dict
 
+from coba.utilities import Categorical
 from coba.exceptions import CobaException
 from coba.pipes.primitives import Sparse, Dense
 
@@ -218,6 +219,42 @@ class OneHotEncoder(Encoder[Tuple[int,...]]):
             return list(map(self._onehots.__getitem__,values))
         except KeyError as e:
             raise CobaException(f"We were unable to find {e} in {list(self._onehots.keys())}")
+
+class CategoricalEncoder(Encoder[Categorical]):
+    """An Encoder implementation that turns incoming values into a one hot representation."""
+
+    def __init__(self, values: Sequence[str] = []) -> None:
+        """Instantiate a OneHotEncoder.
+
+        Args:
+            values: Provide the universe of values for encoding and set `is_fit==True`.
+        """
+
+        self._categoricals = {v: Categorical(v,values) for v in sorted(set(values)) } if values else None
+
+    @property
+    def is_fit(self) -> bool:
+        return self._categoricals is not None
+
+    def fit(self, values: Sequence[str]) -> 'CategoricalEncoder':
+        return CategoricalEncoder(values = values)
+
+    def encode(self, value: Any) -> Categorical:
+        try:
+            return self._categoricals[value]
+        except KeyError as e:
+            raise CobaException(f"We were unable to find {e} in the categorical values of {list(self._categoricals.keys())}.")
+        except TypeError:
+            raise CobaException("This encoder must be fit before it can be used.")
+
+    def encodes(self, values: Sequence[Any]) -> Sequence[Tuple[int,...]]:
+
+        try:
+            return list(map(self._categoricals.__getitem__,values))
+        except KeyError as e:
+            raise CobaException(f"We were unable to find {e} in the categorical values of {list(self._categoricals.keys())}.")
+        except (TypeError, AttributeError):
+            raise CobaException("This encoder must be fit before it can be used.")
 
 class FactorEncoder(Encoder[int]):
     """An Encoder implementation that turns incoming values into factor representation."""

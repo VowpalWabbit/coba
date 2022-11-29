@@ -35,6 +35,7 @@ class MockResponse:
         pass
 
 class Environments_Tests(unittest.TestCase):
+    
     def test_cache(self):
         env = Environments.cache('abc').from_linear_synthetic(100)[0]
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
@@ -120,9 +121,9 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(1     , len(envs))
         self.assertEqual(100   , len(interactions))
-        self.assertEqual(2     , len(interactions[0].actions))
-        self.assertEqual(3     , len(interactions[0].context))
-        self.assertEqual(4     , len(interactions[0].actions[0]))
+        self.assertEqual(2     , len(interactions[0]['actions']))
+        self.assertEqual(3     , len(interactions[0]['context']))
+        self.assertEqual(4     , len(interactions[0]['actions'][0]))
         self.assertEqual(['xa'], env.params['reward_features'])
         self.assertEqual(5     , env.params['seed'])
 
@@ -135,9 +136,9 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(1  , len(envs))
         self.assertEqual(100, len(interactions))
-        self.assertEqual(2  , len(interactions[0].actions))
-        self.assertEqual(3  , len(interactions[0].context))
-        self.assertEqual(4  , len(interactions[0].actions[0]))
+        self.assertEqual(2  , len(interactions[0]['actions']))
+        self.assertEqual(3  , len(interactions[0]['context']))
+        self.assertEqual(4  , len(interactions[0]['actions'][0]))
         self.assertEqual(10 , env.params['n_neighborhoods'])
         self.assertEqual(5  , env.params['seed'])
 
@@ -150,9 +151,9 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(1           , len(envs))
         self.assertEqual(100         , len(interactions))
-        self.assertEqual(2           , len(interactions[0].actions))
-        self.assertEqual(3           , len(interactions[0].context))
-        self.assertEqual(4           , len(interactions[0].actions[0]))
+        self.assertEqual(2           , len(interactions[0]['actions']))
+        self.assertEqual(3           , len(interactions[0]['context']))
+        self.assertEqual(4           , len(interactions[0]['actions'][0]))
         self.assertEqual(5           , env.params['n_exemplars'])
         self.assertEqual('polynomial', env.params['kernel'])
         self.assertEqual(3           , env.params['degree'])
@@ -167,9 +168,9 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(1           , len(envs))
         self.assertEqual(100         , len(interactions))
-        self.assertEqual(2           , len(interactions[0].actions))
-        self.assertEqual(3           , len(interactions[0].context))
-        self.assertEqual(4           , len(interactions[0].actions[0]))
+        self.assertEqual(2           , len(interactions[0]['actions']))
+        self.assertEqual(3           , len(interactions[0]['context']))
+        self.assertEqual(4           , len(interactions[0]['actions'][0]))
         self.assertEqual(5           , env.params['seed'])
 
     def test_from_supervised(self):
@@ -223,8 +224,8 @@ class Environments_Tests(unittest.TestCase):
         env = Environments.from_lambda(1, context, actions, rewards, 1)[0]
 
         self.assertEqual(1, len(list(env.read())))
-        self.assertEqual([0.11, 0.8, 0.44, 0.17, 0.42], list(env.read())[0].context)
-        self.assertEqual(3, len(list(env.read())[0].actions))
+        self.assertEqual([0.11, 0.8, 0.44, 0.17, 0.42], list(env.read())[0]['context'])
+        self.assertEqual(3, len(list(env.read())[0]['actions']))
 
     def test_init_args(self):
         env = Environments(TestEnvironment('A'), TestEnvironment('B'))
@@ -461,10 +462,18 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual('*', envs[0].params['sort'])
 
+    def test_repr(self):
+        envs = Environments(TestEnvironment('A')).repr()
+
+        self.assertEqual(1, len(envs))
+        self.assertEqual('onehot' , envs[0].params['cat_actions'])
+        self.assertEqual('onehot', envs[0].params['cat_context'])
+
+
     def test_materialize(self):
         envs  = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
         envs += Environments.from_linear_synthetic(10 ,2,3,4,["xa"],6)
-        
+
         envs = envs.materialize()
 
         self.assertEqual(100,len(envs[0][-1]._cache))
@@ -474,9 +483,9 @@ class Environments_Tests(unittest.TestCase):
 
         self.assertEqual(2     , len(envs))
         self.assertEqual(100   , len(interactions))
-        self.assertEqual(2     , len(interactions[0].actions))
-        self.assertEqual(3     , len(interactions[0].context))
-        self.assertEqual(4     , len(interactions[0].actions[0]))
+        self.assertEqual(2     , len(interactions[0]['actions']))
+        self.assertEqual(3     , len(interactions[0]['context']))
+        self.assertEqual(4     , len(interactions[0]['actions'][0]))
         self.assertEqual(['xa'], envs[0].params['reward_features'])
         
         self.assertEqual(5     , envs[0].params['seed'])

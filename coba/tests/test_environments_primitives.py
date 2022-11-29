@@ -3,7 +3,7 @@ import unittest
 from coba.environments import SafeEnvironment, HashableMap, HashableSeq
 from coba.environments import SimulatedInteraction, LoggedInteraction
 from coba.environments import L1Reward, HammingReward, ScaleReward, BinaryReward, SequenceReward
-from coba.environments import SequenceFeedback, MulticlassReward
+from coba.environments import SequenceFeedback, MulticlassReward, MappedReward
 from coba.exceptions import CobaException
 from coba.pipes import Pipes, Shuffle
 
@@ -102,53 +102,53 @@ class SafeEnvironment_Tests(unittest.TestCase):
 
 class LoggedInteraction_Tests(unittest.TestCase):
     def test_IPS_sequence(self):
-        interaction = LoggedInteraction(1,2,3,1/2,[1,2,3])
-        self.assertEqual([0,6,0], interaction.rewards)
+        interaction = LoggedInteraction(1,2,3,probability=1/2,actions=[1,2,3])
+        self.assertEqual([0,6,0], interaction['rewards'])
 
     def test_simple_with_actions(self):
-        interaction = LoggedInteraction(1, 2, 3, .2, [1,2,3])
+        interaction = LoggedInteraction(1, 2, 3, probability=.2,actions=[1,2,3])
 
-        self.assertEqual(1, interaction.context)
-        self.assertEqual(2, interaction.action)
-        self.assertEqual(3, interaction.reward)
-        self.assertEqual(.2, interaction.probability)
-        self.assertEqual([1,2,3], interaction.actions)
+        self.assertEqual(1, interaction['context'])
+        self.assertEqual(2, interaction['action'])
+        self.assertEqual(3, interaction['reward'])
+        self.assertEqual(.2, interaction['probability'])
+        self.assertEqual([1,2,3], interaction['actions'])
 
     def test_simple_sans_actions(self):
-        interaction = LoggedInteraction(1, 2, 3, .2)
+        interaction = LoggedInteraction(1, 2, 3, probability=.2)
 
-        self.assertEqual(1, interaction.context)
-        self.assertEqual(2, interaction.action)
-        self.assertEqual(3, interaction.reward)
-        self.assertEqual(.2, interaction.probability)
+        self.assertEqual(1, interaction['context'])
+        self.assertEqual(2, interaction['action'])
+        self.assertEqual(3, interaction['reward'])
+        self.assertEqual(.2, interaction['probability'])
 
 class SimulatedInteraction_Tests(unittest.TestCase):
     def test_context_none(self):
-        self.assertEqual(None, SimulatedInteraction(None, (1,2,3), (4,5,6)).context)
+        self.assertEqual(None, SimulatedInteraction(None, (1,2,3), (4,5,6))['context'])
 
     def test_context_str(self):
-        self.assertEqual("A", SimulatedInteraction("A", (1,2,3), (4,5,6)).context)
+        self.assertEqual("A", SimulatedInteraction("A", (1,2,3), (4,5,6))['context'])
 
     def test_context_dense(self):
-        self.assertEqual((1,2,3), SimulatedInteraction((1,2,3), (1,2,3), (4,5,6)).context)
+        self.assertEqual((1,2,3), SimulatedInteraction((1,2,3), (1,2,3), (4,5,6))['context'])
 
     def test_context_dense_2(self):
-        self.assertEqual((1,2,3,(0,0,1)), SimulatedInteraction((1,2,3,(0,0,1)), (1,2,3), (4,5,6)).context)
+        self.assertEqual((1,2,3,(0,0,1)), SimulatedInteraction((1,2,3,(0,0,1)), (1,2,3), (4,5,6))['context'])
 
     def test_context_sparse_dict(self):
-        self.assertEqual({1:0}, SimulatedInteraction({1:0}, (1,2,3), (4,5,6)).context)
+        self.assertEqual({1:0}, SimulatedInteraction({1:0}, (1,2,3), (4,5,6))['context'])
 
     def test_actions_correct_1(self) -> None:
-        self.assertSequenceEqual([1,2], SimulatedInteraction(None, [1,2], [1,2]).actions)
+        self.assertSequenceEqual([1,2], SimulatedInteraction(None, [1,2], [1,2])['actions'])
 
     def test_actions_correct_2(self) -> None:
-        self.assertSequenceEqual(["A","B"], SimulatedInteraction(None, ["A","B"], [1,2]).actions)
+        self.assertSequenceEqual(["A","B"], SimulatedInteraction(None, ["A","B"], [1,2])['actions'])
 
     def test_actions_correct_3(self) -> None:
-        self.assertSequenceEqual([(1,2), (3,4)], SimulatedInteraction(None, [(1,2), (3,4)], [1,2]).actions)
+        self.assertSequenceEqual([(1,2), (3,4)], SimulatedInteraction(None, [(1,2), (3,4)], [1,2])['actions'])
 
     def test_rewards_correct(self):
-        self.assertEqual([4,5,6], SimulatedInteraction((1,2), (1,2,3), [4,5,6]).rewards)
+        self.assertEqual([4,5,6], SimulatedInteraction((1,2), (1,2,3), [4,5,6])['rewards'])
 
     def test_rewards_actions_mismatch(self):
         with self.assertRaises(CobaException):
@@ -252,6 +252,10 @@ class SequenceReward_Tests(unittest.TestCase):
         self.assertEqual(6,rwd.eval(3))
         self.assertEqual(rwd,rwd)
 
+    def test_bad_eq(self):
+        rwd = SequenceReward([1,2,3],[4,5,6])
+        self.assertNotEqual(1,rwd)
+
 class MulticlassReward_Tests(unittest.TestCase):
     def test_simple(self):
         rwd = MulticlassReward([1,2,3],2)
@@ -263,6 +267,18 @@ class MulticlassReward_Tests(unittest.TestCase):
         self.assertEqual(0,rwd.eval(1))
         self.assertEqual(1,rwd.eval(2))
         self.assertEqual(0,rwd.eval(3))
+
+class MappedReward_Tests(unittest.TestCase):
+    def test_simple(self):
+        fwd = dict(zip(['a','b','c'],[1,2,3]))
+        inv = dict(zip([1,2,3],['a','b','c']))
+        rwd = MappedReward(MulticlassReward([1,2,3],2),fwd,inv)
+
+        self.assertEqual(1,rwd.max())
+        self.assertEqual('b',rwd.argmax())
+        self.assertEqual(0,rwd.eval('a'))
+        self.assertEqual(1,rwd.eval('b'))
+        self.assertEqual(0,rwd.eval('c'))
 
 class SequenceFeedback_Tests(unittest.TestCase):
     def test_sequence(self):

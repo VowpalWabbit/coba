@@ -6,6 +6,8 @@ from coba.backports import Literal
 from coba.pipes import Pipes, Source, IterableSource, LabelRows, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 
+from coba.utilities import peek_first, Categorical
+
 from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
 from coba.environments.primitives import L1Reward, MulticlassReward, HammingReward
 
@@ -132,7 +134,7 @@ class SupervisedSimulation(SimulatedEnvironment):
     def __init__(self,
         source: Source = None,
         label_col: Union[int,str] = None,
-        label_type: Literal["C","R","M"] = None,
+        label_type: Literal["c","r","m"] = None,
         take: int = None) -> None:
         """Instantiate a SupervisedSimulation.
 
@@ -151,7 +153,7 @@ class SupervisedSimulation(SimulatedEnvironment):
     def __init__(self,
         X: Sequence[Any],
         Y: Sequence[Any],
-        label_type: Literal["C","R","M"] = None) -> None:
+        label_type: Literal["c","r","m"]) -> None:
         """Instantiate a SupervisedSimulation.
 
         Args:
@@ -177,8 +179,8 @@ class SupervisedSimulation(SimulatedEnvironment):
             X          = args[0]
             Y          = args[1]
             label_type = args[2] if len(args) > 2 else kwargs.get("label_type", None)
-            source     = IterableSource(list(zip(X,Y)))
             params     = {"source": "[X,Y]"}
+            source     = IterableSource(zip(X,Y))
 
         self._label_type = label_type
         self._source     = source
@@ -190,23 +192,27 @@ class SupervisedSimulation(SimulatedEnvironment):
 
     def read(self) -> Iterable[SimulatedInteraction]:
 
-        items = list(self._source.read())
-        tipes = None
+        first, rows = peek_first(self._source.read())
+        first_row_type = 0 if hasattr(first,'label') else 1
 
-        if not items: return []
+        if not first: return []
 
-        try:
-            features,labels,tipes = zip(*[i.labeled for i in items])
-        except:
-            features,labels = zip(*items)
+        first_label      = first.label if first_row_type == 0 else first[1]
+        first_label_type = first.tipe if first_row_type == 0 else None
 
-        if not tipes or tipes[0] is None:
-            label_type = self._label_type or ("R" if isinstance(labels[0], (int,float)) else "C")
+        if first_label_type is None:
+            label_type = self._label_type or ("r" if isinstance(first_label, (int,float)) else "c")
         else:
-            label_type = self._label_type or tipes[0]
+            label_type = self._label_type or first_label_type
 
         label_type = label_type.lower()
         self._params['label_type'] = label_type.upper()
+
+        #these are the cases where we need to know all labels in the dataset to determine actions
+        if label_type == "m" or (label_type == "c" and not isinstance(first_label, Categorical)):
+            rows = list(rows)
+            if first_row_type == 0: labels = [r.label for r in rows]
+            if first_row_type == 1: labels = [r[1]    for r in rows]
 
         if label_type == "r":
             actions = []
@@ -215,10 +221,15 @@ class SupervisedSimulation(SimulatedEnvironment):
             actions = sorted(set(list(chain(*labels))))
             reward  = HammingReward
         else:
-            actions = sorted(set(labels))
-            reward  = partial(MulticlassReward,actions)
+            if isinstance(first_label,Categorical):
+                actions = [ Categorical(l,first_label.levels) for l in  sorted(first_label.levels) ]
+            else:
+                actions = sorted(set(labels))
+            reward = partial(MulticlassReward,actions)
 
-        contexts = features
-        rewards  = map(reward,labels)
-
-        yield from map(SimulatedInteraction, contexts, repeat(actions), rewards)
+        if first_row_type == 0:
+            for row in rows:
+                yield {'type':'simulated','context':row.feats,'actions':actions,'rewards':reward(row.label)}
+        else:
+            for row in rows:
+                yield {'type':'simulated','context':row[0]   ,'actions':actions,'rewards':reward(row[1])}

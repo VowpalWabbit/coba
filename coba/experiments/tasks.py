@@ -98,7 +98,7 @@ class SimpleEvaluation(EvaluationTask):
         predict  = learner.predict
         learn    = learner.learn
 
-        discrete = (first and first.is_discrete)
+        discrete = first and len(first.get('actions',[])) > 0
 
         learning_info = CobaContext.learning_info
 
@@ -113,12 +113,14 @@ class SimpleEvaluation(EvaluationTask):
             
             learning_info.clear()
             out = {}
+            interaction_type = interaction['type']
 
-            if isinstance(interaction, SimulatedInteraction):
+            if interaction_type == 'simulated':
 
-                context = interaction.context
-                actions = interaction.actions
-                rewards = interaction.rewards
+                context = interaction['context']
+                actions = interaction['actions']
+                rewards = interaction['rewards']
+                extra   = {k:interaction[k] for k in interaction.keys()-SimulatedInteraction.keywords } 
 
                 start_time       = time.time()
                 action,prob,info = predict(context, actions)
@@ -130,10 +132,12 @@ class SimpleEvaluation(EvaluationTask):
                 learn(context, actions, action, reward, prob, **info)
                 learn_time = time.time() - start_time
 
-            elif isinstance(interaction, LoggedInteraction):
-                context = interaction.context
-                actions = interaction.actions
-                rewards = interaction.rewards
+            elif interaction_type == 'logged':
+
+                context = interaction['context']
+                actions = interaction.get('actions')
+                rewards = interaction.get('rewards')
+                extra   = {k:interaction[k] for k in interaction.keys()-LoggedInteraction.keywords } 
 
                 if not actions or not rewards:
                     predict_time = None
@@ -147,14 +151,16 @@ class SimpleEvaluation(EvaluationTask):
                     predict_time = time.time()-start_time
 
                 start_time = time.time()
-                learn(context, actions, interaction.action, interaction.reward, interaction.probability,info={})
+                learn(context, actions, interaction['action'], interaction['reward'], interaction.get('probability'),info={})
                 learn_time = time.time()-start_time
 
-            elif isinstance(interaction, GroundedInteraction):
-                context   = interaction.context
-                actions   = interaction.actions
-                rewards   = interaction.rewards
-                feedbacks = interaction.feedbacks
+            elif interaction_type == 'grounded':
+
+                context   = interaction['context']
+                actions   = interaction['actions']
+                rewards   = interaction['rewards']
+                feedbacks = interaction['feedbacks']
+                extra     = { k:interaction[k] for k in interaction.keys()-GroundedInteraction.keywords } 
 
                 start_time       = time.time()
                 action,prob,info = predict(context, actions)
@@ -178,7 +184,7 @@ class SimpleEvaluation(EvaluationTask):
             if self._time: out.update(predict_time=predict_time, learn_time=learn_time)
             if self._prob and prob is not None: out.update(probability=prob)
 
-            out.update(interaction.kwargs)
+            out.update(extra)
             out.update(learning_info)
 
             yield out
@@ -216,7 +222,7 @@ class ClassEnvironmentInfo(EnvironmentTask):
 
         #[3] found that information theoretic measures and landmarking measures are most important
 
-        contexts,actions,rewards = zip(*[ (i.context, i.actions, i.rewards) for i in interactions ])
+        contexts,actions,rewards = zip(*[ (i['context'], i['actions'], i['rewards']) for i in interactions ])
         env_stats = {}
 
         X = [ InteractionsEncoder('x').encode(x=c) for c in contexts ]

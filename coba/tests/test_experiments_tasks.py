@@ -534,9 +534,9 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         task    = SimpleEvaluation(time_metrics=False)
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
-            LoggedInteraction(1, 2, 3, .2, [2,5,8]),
-            LoggedInteraction(2, 3, 4, .3, [3,6,9]),
-            LoggedInteraction(3, 4, 5, .4, [4,7,0])
+            LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
+            LoggedInteraction(2, 3, 4, probability=.3, actions=[3,6,9]),
+            LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0])
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -555,9 +555,9 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         task    = SimpleEvaluation(time_metrics=False)
         learner = RecordingLearner(with_info=True,with_log=True)
         interactions = [
-            LoggedInteraction(1, 2, 3, .2, [2,5,8], L='a'),
-            LoggedInteraction(2, 3, 4, .3, [3,6,9], L='b'),
-            LoggedInteraction(3, 4, 5, .4, [4,7,0], L='c')
+            LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8], L='a'),
+            LoggedInteraction(2, 3, 4, probability=.3, actions=[3,6,9], L='b'),
+            LoggedInteraction(3, 4, 5, probability=.4, actions=[4,7,0], L='c')
         ]
 
         task_results = list(task.process(learner, interactions))
@@ -659,7 +659,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             pass
 
         with self.assertRaises(CobaException) as e:
-            list(SimpleEvaluation().process(None, [DummyInteraction('dummy',1,[1,2],[3,4])]))
+            list(SimpleEvaluation().process(None, [DummyInteraction(type='Dummy')]))
 
         self.assertEqual("An unknown interaction type was received.", str(e.exception))
 

@@ -16,10 +16,10 @@ class SerializedSimulation(SimulatedEnvironment):
             yield json_encoder.filter(sim.params)
 
             for interaction in sim.read():
-                context = json_encoder.filter(interaction.context)
-                actions = json_encoder.filter(interaction.actions)
-                rewards = json_encoder.filter(list(interaction.rewards))
-                kwargs  = json_encoder.filter(interaction.kwargs)
+                context = json_encoder.filter(interaction['context'])
+                actions = json_encoder.filter(interaction['actions'])
+                rewards = json_encoder.filter(list(interaction['rewards']))
+                kwargs  = json_encoder.filter(interaction.extra)
                 yield f"[{context},{actions},{rewards},{kwargs}]"
 
         return LambdaSource(serialized_generator)

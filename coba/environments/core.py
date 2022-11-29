@@ -10,8 +10,8 @@ from coba.random     import CobaRandom
 from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode
 from coba.exceptions import CobaException
 
-from coba.environments.filters   import EnvironmentFilter
-from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
+from coba.environments.filters   import EnvironmentFilter, Repr
+from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Finalize
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 
@@ -329,13 +329,19 @@ class Environments (collections.abc.Sequence):
 
     def materialize(self) -> 'Environments':
         """Convert from generated environments to materialized environments."""
-        environments = Environments([Pipes.join(e,Cache()) for e in self._environments])
+        environments = Environments([Pipes.join(env, Finalize(), Cache()) for env in self._environments])
         for env in environments: list(env.read()) #force read to pre-load cache
         return environments
 
     def grounded(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int=1) -> 'Environments':
         """Convert from simulated environments to interaction grounded environments."""
         return self.filter(Grounded(n_users, n_normal, n_words, n_good, seed))
+
+    def repr(self, 
+        cat_context:Literal["onehot","onehot_tuple","string"] = "onehot",
+        cat_actions:Literal["onehot","onehot_tuple","string"] = "onehot") -> 'Environments':
+        """Determine how certain types of data is represented."""
+        return self.filter(Repr(cat_context,cat_actions))
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""

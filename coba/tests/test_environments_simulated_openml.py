@@ -1095,14 +1095,14 @@ class OpenmlSimulation_Tests(unittest.TestCase):
 
         for rnd in interactions:
 
-            hash(rnd.context)    #make sure these are hashable
-            hash(rnd.actions[0]) #make sure these are hashable
-            hash(rnd.actions[1]) #make sure these are hashable
+            hash(rnd['context'])    #make sure these are hashable
+            hash(rnd['actions'][0]) #make sure these are hashable
+            hash(rnd['actions'][1]) #make sure these are hashable
 
-            self.assertEqual(len(cast(Tuple,rnd.context)), 167)
-            self.assertIn((0,1), rnd.actions)
-            self.assertIn((1,0), rnd.actions)
-            self.assertEqual(len(rnd.actions),2)
+            self.assertEqual(len(cast(Tuple,rnd['context'])), 167)
+            self.assertIn((0,1), rnd['actions'])
+            self.assertIn((1,0), rnd['actions'])
+            self.assertEqual(len(rnd['actions']),2)
             self.assertIn(1, rnd.kwargs["rewards"])
             self.assertIn(0, rnd.kwargs["rewards"])
 
@@ -1161,17 +1161,17 @@ class OpenmlSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(len(interactions), 3)
 
-        self.assertEqual([8.1,27,1410,Categorical('n',["n","y"])], interactions[0].context)
-        self.assertEqual([8.2,29,1180,Categorical('n',["n","y"])], interactions[1].context)
-        self.assertEqual([8.3,27,1020,Categorical('y',["n","y"])], interactions[2].context)
+        self.assertEqual([8.1,27,1410,Categorical('n',["n","y"])], interactions[0]['context'])
+        self.assertEqual([8.2,29,1180,Categorical('n',["n","y"])], interactions[1]['context'])
+        self.assertEqual([8.3,27,1020,Categorical('y',["n","y"])], interactions[2]['context'])
 
-        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[0].actions)
-        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[1].actions)
-        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[2].actions)
+        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[0]['actions'])
+        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[1]['actions'])
+        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[2]['actions'])
 
-        self.assertEqual([0,1], list(map(interactions[0].rewards.eval,interactions[0].actions)))
-        self.assertEqual([0,1], list(map(interactions[1].rewards.eval,interactions[1].actions)))
-        self.assertEqual([1,0], list(map(interactions[2].rewards.eval,interactions[2].actions)))
+        self.assertEqual([0,1], list(map(interactions[0]['rewards'].eval,interactions[0]['actions'])))
+        self.assertEqual([0,1], list(map(interactions[1]['rewards'].eval,interactions[1]['actions'])))
+        self.assertEqual([1,0], list(map(interactions[2]['rewards'].eval,interactions[2]['actions'])))
 
     def test_simple_openml_source_regression_offline(self) -> None:
 
@@ -1228,17 +1228,17 @@ class OpenmlSimulation_Tests(unittest.TestCase):
 
         self.assertEqual(len(interactions), 3)
 
-        self.assertEqual([27,1410,Categorical('2',["2","1"]),Categorical('n',["n","y"])], interactions[0].context)
-        self.assertEqual([29,1180,Categorical('2',["2","1"]),Categorical('n',["n","y"])], interactions[1].context)
-        self.assertEqual([27,1020,Categorical('1',["2","1"]),Categorical('y',["n","y"])], interactions[2].context)
+        self.assertEqual([27,1410,Categorical('2',["2","1"]),Categorical('n',["n","y"])], interactions[0]['context'])
+        self.assertEqual([29,1180,Categorical('2',["2","1"]),Categorical('n',["n","y"])], interactions[1]['context'])
+        self.assertEqual([27,1020,Categorical('1',["2","1"]),Categorical('y',["n","y"])], interactions[2]['context'])
 
-        self.assertEqual([], interactions[0].actions)
-        self.assertEqual([], interactions[1].actions)
-        self.assertEqual([], interactions[2].actions)
+        self.assertEqual([], interactions[0]['actions'])
+        self.assertEqual([], interactions[1]['actions'])
+        self.assertEqual([], interactions[2]['actions'])
 
-        self.assertEqual(8.1,interactions[0].rewards.argmax())
-        self.assertEqual(8.2,interactions[1].rewards.argmax())
-        self.assertEqual(8.3,interactions[2].rewards.argmax())
+        self.assertEqual(8.1,interactions[0]['rewards'].argmax())
+        self.assertEqual(8.2,interactions[1]['rewards'].argmax())
+        self.assertEqual(8.3,interactions[2]['rewards'].argmax())
 
     def test_str(self):
         self.assertEqual('Openml(data=150)', str(OpenmlSimulation(150)))

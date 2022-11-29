@@ -1,8 +1,9 @@
+
 from operator import eq
 from collections import abc
 from numbers import Number
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, TypeVar, Iterator
+from typing import Any, Union, Iterable, Sequence, Mapping, TypeVar, Iterator, overload
 from coba.backports import Literal
 
 from coba.pipes import Source, SourceFilters, Filter
@@ -60,7 +61,10 @@ class HashableSeq(Sequence):
             return False
     
     def _get_hash(self):
-        _hash = hash(tuple(self._item))
+        try:
+            _hash = hash(self._item)
+        except:
+            _hash = hash(tuple(self._item))
         self._hash = _hash
         self._get_hash = lambda:_hash
         return _hash
@@ -204,16 +208,17 @@ class SequenceReward(Reward):
     def __len__(self) -> int:
         return len(self._actions)
 
-    def __iter__(self) -> Iterator[float]:
-        return iter(map(self.__getitem__,range(len(self._values))))
+    def __iter__(self) -> Iterator[T]:
+        return iter(self._values)
 
     def __eq__(self, o: object) -> bool:
         try:
             return list(o) == list(self)
-        except:#pragma: no cover
+        except:
             return False
 
 class MulticlassReward(Reward):
+    __slots__=('_actions','_label')
     def __init__(self, actions: Sequence[Action], label: Action) -> None:
         self._actions = actions
         self._label   = label
@@ -226,7 +231,7 @@ class MulticlassReward(Reward):
 
     def __getitem__(self, index: int) -> T:
         return self._actions[index] == self._label
-    
+
     def __len__(self) -> int:
         return len(self._actions)
 
@@ -236,90 +241,66 @@ class MulticlassReward(Reward):
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(o) == list(self)
 
+class MappedReward(Reward):
+    __slots__=('_rwd','_fwd','_inv')
+
+    def __init__(self, rwd: Reward, fwd: Mapping[Action,Action], inv: Mapping[Action,Action]) -> None:
+        self._rwd = rwd
+        self._fwd = fwd
+        self._inv = inv
+
+    def eval(self, action: Any) -> T:
+        return self._rwd.eval(self._fwd[action])
+
+    def argmax(self) -> Action:
+        return self._inv[self._rwd.argmax()]
+
 class Interaction(dict):
     """An individual interaction that occurs in an Environment."""
+    __slots__=()
+    keywords = {}
+
+    @property
+    def extra(self) -> Mapping[str,Any]:
+        return { k:self[k] for k in self.keys()-self.keywords}
+
+class SimulatedInteraction(Interaction):
+    """Simulated data that provides labels for every possible action."""
+    __slots__=()
+    keywords = {'type', 'context', 'actions', 'rewards'}
+    
     def __init__(self,
-        type    : str,
         context : Context,
         actions : Actions,
         rewards : Union[Reward, Sequence[float]],
         **kwargs) -> None:
-        ...
         """Instantiate SimulatedInteraction.
 
         Args
             context : Features describing the interaction's context.
             actions : Features describing available actions during the interaction.
             rewards : The reward for each action in the interaction.
-            **kwargs: Any additional information.
+            kwargs : Any additional information.
         """
 
-        self['type']    = type
+        self['type'] = 'simulated'
         self['context'] = context
         self['actions'] = actions
-
-        if isinstance(rewards,(list,tuple)):
-            self['rewards'] = SequenceReward(actions,rewards)
-            self['is_discrete'] = True
-        else:
-            self['rewards'] = rewards
-            self['is_discrete'] = actions and len(actions)>0
+        self['rewards'] = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
 
         if kwargs: self.update(kwargs)
 
-    @property
-    def context(self):
-        return self['context']
-
-    @property
-    def actions(self):
-        return self['actions']
-
-    @property
-    def rewards(self):
-        return self['rewards']
-
-    @property
-    def is_discrete(self):
-        return self['is_discrete']
-
-    @property
-    def kwargs(self):
-        return {k:self[k] for k in self.keys()-{'context','actions','rewards','is_discrete','type'} }
-
-    def copy(self): # don't delegate w/ super - dict.copy() -> dict :(
-        return type(self)(**self)
-
-class SimulatedInteraction(Interaction):
-    """Simulated data that describes an interaction where the choice is up to you."""
-
-    def __init__(self,
-        context : Context,
-        actions : Actions,
-        rewards : Union[Reward, Sequence[float]],
-        **kwargs) -> None:
-
-        """Instantiate SimulatedInteraction.
-
-        Args
-            context : Features describing the interaction's context.
-            actions : Features describing available actions during the interaction.
-            rewards : The reward for each action in the interaction.
-            **kwargs: Any additional information.
-        """
-        kwargs.pop('type',None)
-        super().__init__('simulated',context,actions,rewards,**kwargs)
-        if actions is None: kwargs.pop('actions')
-
 class GroundedInteraction(Interaction):
-    """Logged data that describes an interaction where the choice was already made."""
+    """Logged data providing a label for one action."""
+    __slots__=()
+    keywords = {'type', 'context', 'actions', 'rewards', 'feedbacks'}
+
     def __init__(self,
         context: Context,
         actions: Actions,
         rewards: Union[Reward, Sequence[float]],
         feedbacks: Union[Feedback, Sequence[Any]],
         **kwargs) -> None:
-        ...
         """Instantiate GroundedInteraction.
 
         Args
@@ -329,31 +310,36 @@ class GroundedInteraction(Interaction):
             feedbacks: The feedback for each action in the interaction.
             **kwargs: Additional information that should be recorded in the interactions table of an experiment result.
         """
-        kwargs.pop('type',None)
-        if isinstance(feedbacks,(list,tuple)):
-            self['feedbacks'] = SequenceFeedback(actions,feedbacks)
-        else:
-            self['feedbacks'] = feedbacks
-        super().__init__('grounded',context, actions, rewards, **kwargs)
 
-    @property
-    def feedbacks(self):
-        return self['feedbacks']
+        self['type'] = 'grounded'
+        self['context'] = context
+        self['actions'] = actions
+        self['rewards'] = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
+        self['feedbacks'] = SequenceFeedback(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
 
-    @property
-    def kwargs(self):
-        return {k:self[k] for k in super().kwargs.keys()-{'feedbacks'} }
+        if kwargs: self.update(kwargs)
 
 class LoggedInteraction(Interaction):
     """Logged data that describes an interaction where the choice was already made."""
+    __slots__ = ()
+    keywords = {'type', 'context', 'action', 'reward', 'probability', 'actions', 'rewards'}
+
+    @overload
+    def __init__(self,
+        context: Context,
+        action: Action,
+        reward: float,
+        *,
+        probability: float=None,
+        actions: Actions=None,
+        rewards: Union[Reward, Sequence[float]] = None,
+        **kwargs) -> None:
+        ...
 
     def __init__(self,
         context: Context,
         action: Action,
         reward: float,
-        probability: float = None,
-        actions: Actions = None,
-        rewards: Union[Reward, Sequence[float]] = None,
         **kwargs) -> None:
         """Instantiate LoggedInteraction.
 
@@ -368,33 +354,21 @@ class LoggedInteraction(Interaction):
                 rewards will be initialized using the IPS estimator.
             **kwargs : Any additional information.
         """
-        kwargs.pop('type',None)
-        if probability and actions and rewards is None:
-            rewards = [ int(a==action)*reward/probability for a in actions ]
 
-        self['action']      = action
-        self['probability'] = probability
-        self['reward']      = reward
+        if 'actions' in kwargs and 'probability' in kwargs and 'rewards' not in kwargs:
+            probability       = kwargs['probability']
+            actions           = kwargs['actions']
+            kwargs['rewards'] = [int(a==action)*reward/probability for a in actions]
 
-        super().__init__('logged',context, actions, rewards,**kwargs)
-        #if actions is None: self.pop('actions')
+        self['type'] = 'logged'
+        self['context'] = context
+        self['action']  = action
+        self['reward']  = reward
 
-    @property
-    def action(self):
-        return self['action']
+        if 'rewards' in kwargs and isinstance(kwargs['rewards'],(list,tuple)):
+            kwargs['rewards'] = SequenceReward(kwargs['actions'],kwargs['rewards'])
 
-    @property
-    def probability(self):
-        return self['probability']
-
-    @property
-    def reward(self):
-        return self['reward']
-
-    @property
-    def kwargs(self):
-        return {k:self[k] for k in super().kwargs.keys()-{'action','probability','reward'} }
-
+        if kwargs: self.update(kwargs)
 
 class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
     """A filter that can be applied to an Environment."""

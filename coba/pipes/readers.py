@@ -2,15 +2,14 @@ import re
 import csv
 
 from collections import deque
-from itertools import islice, chain
+from itertools import islice, chain, count
 from typing import Iterable, Sequence, List, Union, Any, Pattern, Tuple, Mapping
 from typing import MutableSequence, MutableMapping
 
 from coba.exceptions import CobaException
-from coba.encodings import Encoder
+from coba.encodings import Encoder, CategoricalEncoder
 
-from coba.pipes.core import Pipes
-from coba.pipes.rows import Dense, Sparse, LazyDense, LazySparse, EncodeRows, HeadRows, Categorical
+from coba.pipes.rows import Dense, Sparse, HeadRows, LazyDense, LazySparse
 from coba.pipes.primitives import Filter
 
 class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
@@ -80,6 +79,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
             self._base_dialect = dict(skipinitialspace=True,escapechar="\\",doublequote=False)
 
         def parse(self, i:int, line:str) -> List[str]:
+            
             if not self._use_advanced:
                 for quote in self._quotechars-{self._quotechar}:
                     if quote in line:
@@ -116,7 +116,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
                             item += "," + d_line.popleft()
                         item = item.strip()[1:-1]
 
-                    final.append(item.replace('\\',''))
+                    final.append(item.replace('\\','').strip())
 
             if len(final) != self._column_count:
                 raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
@@ -144,37 +144,33 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
             line = line.strip()
             if not line or line[0] == "%": continue
             if line[0:10].lower() == "@attribute":
-                header, encoding = tuple(self._pattern_split(line[11:], r_space, n=2))
+                header, encoding = tuple(self._split(line[11:], r_space, n=2))
                 headers.append(header)
                 encodings.append(encoding)
             elif line[0:5].lower() == "@data":
                 break
 
-        first_data_line = None
+        first = None
         for line in lines:
             line = line.strip()
-            if not line or line[0] == "%": continue
-            first_data_line = line
-            break
-        if first_data_line is None: return []
+            if line and line[0] != "%":
+                first = line
+                break
 
-        is_dense = not (first_data_line.startswith('{') and first_data_line.endswith('}'))
-        encoders = list(self._encoders(encodings,is_dense))
+        if first is None: return []
+
+        dense = not (first.startswith('{') and first.endswith('}'))
+        encoders = list(self._encoders(encodings,dense))
 
         if len(headers) != len(set(headers)):
             raise CobaException("Two columns in the ARFF file had identical header values.")
 
-        row_encoder = EncodeRows(encoders)
-        row_header = HeadRows(headers)
+        return (self._dense if dense else self._sparse)(chain([first],lines),headers,encoders)
 
-        data = chain([first_data_line], lines)
-        rows = self._dense_rows(data, encoders) if is_dense else self._sparse_rows(data, encoders)
+    def _dense(self, lines: Iterable[str], headers: Sequence, encoders: Sequence) -> Iterable[Dense]:
 
-        return Pipes.join(row_encoder, row_header).filter(rows)
-
-    def _dense_rows(self, lines: Iterable[str], encoders: Sequence[Encoder]) -> Iterable[Dense]:
-
-        parser = ArffReader.DenseRowParser(len(encoders))
+        parser  = ArffReader.DenseRowParser(len(headers))
+        hdr_map = dict(zip(headers, count()))
 
         for i,line in enumerate(lines):
 
@@ -184,18 +180,23 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
             if "?" not in line:
                 missing = False
             elif line[0:2] == "?,":
-                missing = True 
+                missing = True
             elif line[-2:] == ",?":
                 missing = True
             else:
                 compact = line.translate(str.maketrans('','', ' \t\n\r\v\f'))
                 missing = compact[0] in '?,' or compact.find(',?,') != -1 or compact.find(',,') != -1 or compact[-1] in '?,'
 
-            yield LazyDense(lambda line=line,i=i:parser.parse(i,line), missing)
+            yield LazyDense(lambda line=line,i=i:parser.parse(i,line), encoders, hdr_map, missing)
+            #yield LazyArffDense(parser, line, encoders, hdr_seq, hdr_map, missing)
 
-    def _sparse_rows(self, lines: Iterable[str], encoders: Sequence[Encoder]) -> Iterable[Sparse]:
+    def _sparse(self, lines: Iterable[str], headers: Sequence, encoders: Sequence) -> Iterable[Sparse]:
 
-        parser  = ArffReader.SparseRowParser(len(encoders))
+        parser = ArffReader.SparseRowParser(len(headers))
+        encs   = dict(enumerate(encoders))
+        nsp    = set(k for k,v in encs.items() if v('0')!=0)
+        fwd    = dict(zip(headers,count()))
+        inv    = {v:k for k,v in fwd.items()}
 
         for i,line in enumerate(lines):
 
@@ -203,9 +204,9 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
             if not line or line[0] == "%": continue
 
             missing = " ?," in line or line[-2:] == " ?"
-            yield LazySparse(lambda line=line,i=i:parser.parse(i,line),missing)
+            yield LazySparse(lambda line=line,i=i:parser.parse(i,line), encs, nsp, fwd, inv, missing)
 
-    def _pattern_split(self, line: str, pattern: Pattern[str], n=None):
+    def _split(self, line: str, pattern: Pattern[str], n=None):
 
         items  = iter(pattern.split(line))
         count  = 0
@@ -242,15 +243,27 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
         string_types  = ("string", "date", "relational")
         r_comma       = None
 
+        missing_val = self._missing_value
+
         for encoding in encodings:
 
             if encoding.lower() in numeric_types:
-                yield lambda x: self._missing_value if x=="?" or x=="" else float(x)
+
+                def numeric_encoder(x):
+                    try:
+                        return float(x)
+                    except:
+                        if x not in ['?','']: raise
+                        return missing_val
+
+                yield numeric_encoder
+
             elif encoding.lower().startswith(string_types):
-                yield lambda x: self._missing_value if x=="?" else x.strip()
+                yield lambda x: x if x!="?" else missing_val
+
             elif encoding.startswith('{'):
                 r_comma = r_comma or re.compile("(,)")
-                categories = list(self._pattern_split(encoding[1:-1], r_comma))
+                categories = list(self._split(encoding[1:-1], r_comma))
 
                 if not is_dense:
                     #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the
@@ -258,17 +271,15 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
                     #to all sparse categorical one-hot encoders to protect against this.
                     categories = ["0"] + categories
 
-                def encoder(x:str,cats=categories,cats_set=set(categories)):
+                cats = CategoricalEncoder(categories)._categoricals
+                def cat_encoder(x,cats=cats):
+                    try:
+                        return cats[x]
+                    except:
+                        if x != "?": raise CobaException(f"We were unable to find {x} in {sorted(cats.keys())}.")
+                        return missing_val
 
-                    if x =="?":
-                        return self._missing_value
-
-                    if x not in cats_set:
-                        raise CobaException("We were unable to find one of the categorical values in the arff data.")
-
-                    return Categorical(x, cats)
-
-                yield encoder
+                yield cat_encoder
             else:
                 raise CobaException(f"An unrecognized encoding was found in the arff attributes: {encoding}.")
 

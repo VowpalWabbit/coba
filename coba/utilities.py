@@ -3,7 +3,7 @@ import importlib
 
 from itertools import chain
 from collections import defaultdict
-from typing import TypeVar, Iterable, Tuple
+from typing import TypeVar, Iterable, Tuple, Sequence
 
 from coba.exceptions import CobaExit
 
@@ -121,3 +121,15 @@ def peek_first(items: Iterable[_T]) -> Tuple[_T, Iterable[_T]]:
         return first, chain([first],items)
     except StopIteration:
         return None, []
+
+class Categorical(str):
+    __slots__ = ('levels',)
+    
+    def __new__(cls, value:str, levels: Sequence[str]) -> str:
+        return str.__new__(Categorical,value)
+    
+    def __init__(self, value:str, levels: Sequence[str]) -> None:
+        self.levels = levels
+    
+    def __repr__(self) -> str:
+        return f"Categorical('{self}',{self.levels})"

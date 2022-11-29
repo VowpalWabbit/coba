@@ -42,6 +42,7 @@ class Sink(ABC, Pipe, Generic[_T_in]):
 
 class Dense(ABC):
     __slots__ = ()
+    
     @abstractmethod
     def __getitem__(self, key) -> Any:
         ...

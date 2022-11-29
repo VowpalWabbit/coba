@@ -8,11 +8,13 @@ from typing import Callable, Any
 import coba.pipes
 import coba.random
 
+#from coba.environments.primitives import SimulatedInteraction2, SimulatedInteraction3
+
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, ScaleReward, L1Reward
 from coba.environments import Scale, Flatten, Grounded, HashableMap
-from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
-from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
+from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder, CategoricalEncoder
+from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, EncodeRows
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense
 from coba.experiments.results import Result, moving_average
 from coba.experiments import SimpleEvaluation
@@ -80,11 +82,6 @@ class Performance_Tests(unittest.TestCase):
         b       = [1,2]
         c       = [2,3]
         self._assert_scale_time(c, lambda x: encoder.encode(a=a,b=b,c=x), .075, print_time, number=1000)
-
-    def test_interaction_performance1(self):
-        i = SimulatedInteraction(1, [1,2], 3)
-        self._assert_call_time(lambda: SimulatedInteraction(1,[1,2],[0,1]), .013, print_time, number=10000)
-        self._assert_call_time(lambda: SimulatedInteraction(i.context,i.actions,i.rewards), .009, print_time, number=10000)
 
     def test_hashable_dict_performance(self):
         items = list(enumerate(range(100)))
@@ -176,7 +173,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_structure_performance(self):
         structure = Structure([None,2])        
-        self._assert_call_time(lambda: list(structure.filter([[0,0,0] for _ in range(50)])), .05, print_time, number=1000)
+        self._assert_call_time(lambda: list(structure.filter([[0,0,0] for _ in range(50)])), .07, print_time, number=1000)
 
     def test_linear_synthetic(self):
         self._assert_call_time(lambda:list(LinearSyntheticSimulation(10).read()), .075, print_time, number=1)
@@ -199,12 +196,12 @@ class Performance_Tests(unittest.TestCase):
     def test_pipes_flat_tuple(self):
         items = [tuple([1,2,3]+[(0,1)]*5)]*10
         flat  = coba.pipes.Flatten()
-        self._assert_scale_time(items, lambda x:list(flat.filter(x)), .02, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(flat.filter(x)), .03, print_time, number=1000)
 
     def test_pipes_flat_dict(self):
         items = [dict(enumerate([1,2,3]+[(0,1)]*5))]*10
         flat  = coba.pipes.Flatten()
-        self._assert_scale_time(items, lambda x:list(flat.filter(x)), .038, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(flat.filter(x)), .04, print_time, number=1000)
 
     def test_result_filter_env(self):
         envs = { k:{'mod': k%100} for k in range(5) }
@@ -223,7 +220,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_lazy_dense_init_get(self):
         I = ['1']*100
-        self._assert_call_time(lambda:LazyDense(lambda:I)[2], .095, print_time, number=100000)
+        self._assert_call_time(lambda:LazyDense(lambda:I)[2], .12, print_time, number=100000)
 
     def test_encode_dense_init_get(self):
         I = ['1']*100
@@ -231,14 +228,14 @@ class Performance_Tests(unittest.TestCase):
         self._assert_call_time(lambda:EncodeDense(I,E)[1], .092, print_time, number=100000)
 
     def test_encode_dense_init_iter(self):
-        I = ['1']*100
-        E = [int]*100
-        self._assert_call_time(lambda:tuple(EncodeDense(I,E)), .017, print_time, number=1000)
+        I = ['1']*1
+        E = [int]*1
+        enc = EncodeDense(I,E)
+        self._assert_call_time(lambda:[next(iter(enc)) for _ in range(500000)], .017, print_time, number=1)
 
     def test_label_dense_init_labeled(self):
         vals  = ['1']*50
-        feats = vals[:-1]
-        self._assert_call_time(lambda:LabelDense(vals, 49, 'c', feats).labeled, .075, print_time, number=100000)
+        self._assert_call_time(lambda:LabelDense(vals, 49, 'c').labeled, .13, print_time, number=100000)
 
     def test_dense_row_headers(self):
         headers = list(map(str,range(100)))
@@ -269,7 +266,7 @@ class Performance_Tests(unittest.TestCase):
         items    = [SimulatedInteraction(1, [1,2,3,4], [0,0,0,1])]*10
         grounded = Grounded(10,5,10,5,1)
 
-        self._assert_scale_time(items,lambda x:list(grounded.filter(x)), .11, print_time, number=1000)
+        self._assert_scale_time(items,lambda x:list(grounded.filter(x)), .04, print_time, number=1000)
 
     def test_simple_evaluation(self):
 
@@ -300,11 +297,45 @@ class Performance_Tests(unittest.TestCase):
             def learn(*args): pass
 
         learn = SafeLearner(DummyLearner())        
-        self._assert_call_time(lambda:learn.learn(1,[1,2,3], [1], 1, .5, {}), .0006, print_time, number=1000)        
+        self._assert_call_time(lambda:learn.learn(1,[1,2,3], [1], 1, .5, {}), .0008, print_time, number=1000)        
 
     def test_scale_reward(self):
         reward = ScaleReward(L1Reward(1), 1, 2, "argmax")
         self._assert_call_time(lambda: reward.eval(4), .04, print_time, number=100000)
+
+    def test_simulated_interaction_init(self):
+        self._assert_call_time(lambda: SimulatedInteraction(1,[1,2],[0,1]), .012, print_time, number=10000)
+        #self._assert_call_time(lambda: Interaction2(1,[1,2],[0,1],d), .011, print_time, number=1000000)
+
+    def test_simulated_interaction_copy(self):
+        si1 = SimulatedInteraction(1,[1,2],[3,4])
+        self._assert_call_time(lambda: si1.copy(), .003, print_time, number=10000)
+        #si2 = Interaction2(1,[1,2],[3,4],{})
+        #self._assert_call_time(lambda: si2.copy(), .004, print_time, number=1000000)
+
+    def test_simulated_interaction_get_context(self):
+        si1 = SimulatedInteraction(1,[1,2],[3,4])
+        self._assert_call_time(lambda: si1['actions'], .0022, print_time, number=10000)
+        #si2 = Interaction2(1,[1,2],[3,4])
+        #self._assert_call_time(lambda: si2.actions, .0022, print_time, number=1000000)
+
+    @unittest.skip("An interesting and revealing test but not good to run regularly")
+    def test_integration_performance(self):
+        import coba as cb
+
+        #here we create an IGL problem from the covertype dataset one time. 
+        #It takes about 1 minute to load due to the number of features and examples.
+        covertype_id = 150
+        ndata        = 500_000
+        n_users      = 100
+        n_words      = 100
+
+        environment = cb.Environments.cache('./.coba_cache')                               #(1) set a cache directory
+        environment = environment.from_openml(data_id=covertype_id, take=ndata)            #(2) begin with covertype
+        environment = environment.scale(shift='min',scale='minmax')                        #(3) scale features to [0,1]
+        environment = environment.grounded(n_users, n_users/2, n_words, n_words/2, seed=1) #(4) turn into an igl problem
+
+        self._assert_call_time(lambda: environment.materialize(), 48, print_time, number=1)
 
     def _assert_call_time(self, timeable: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
         if print_time: print()

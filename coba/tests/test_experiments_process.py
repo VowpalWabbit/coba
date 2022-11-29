@@ -71,7 +71,7 @@ class CountFilter:
 
     def filter(self, interactions: Iterable[SimulatedInteraction]) -> Iterable[SimulatedInteraction]:
         for interaction in interactions:
-            yield SimulatedInteraction((interaction.context, self.n_filter), interaction.actions, interaction.rewards, **interaction.kwargs)
+            yield SimulatedInteraction((interaction['context'], self.n_filter), interaction['actions'], interaction['rewards'], **interaction.extra)
         self.n_filter += 1
 #for testing purposes
 
@@ -270,8 +270,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task2.observed[1]), 1)
         self.assertEqual(len(task3.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0].context, 0)
-        self.assertEqual(task2.observed[1][0].context, 0)
+        self.assertEqual(task1.observed[1][0]['context'], 0)
+        self.assertEqual(task2.observed[1][0]['context'], 0)
 
         self.assertEqual(['T2',    0 , {}], transactions[0])
         self.assertEqual(['T3', (0,0), []], transactions[1])
@@ -307,8 +307,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task2.observed[1]), 1)
         self.assertEqual(len(task3.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0].context, (0,0) )
-        self.assertEqual(task2.observed[1][0].context, (0,0) )
+        self.assertEqual(task1.observed[1][0]['context'], (0,0) )
+        self.assertEqual(task2.observed[1][0]['context'], (0,0) )
 
         self.assertEqual(['T2',    0 , {}], transactions[0])
         self.assertEqual(['T3', (0,0), []], transactions[1])
@@ -339,8 +339,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0].context, 0)
-        self.assertEqual(task2.observed[1][0].context, 0)
+        self.assertEqual(task1.observed[1][0]['context'], 0)
+        self.assertEqual(task2.observed[1][0]['context'], 0)
 
         self.assertIn(['T3', (0,1), []], transactions)
         self.assertIn(['T3', (1,1), []], transactions)
@@ -367,8 +367,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0].context, 0)
-        self.assertEqual(task2.observed[1][0].context, 0)
+        self.assertEqual(task1.observed[1][0]['context'], 0)
+        self.assertEqual(task2.observed[1][0]['context'], 0)
 
         self.assertEqual(['T3', (0,0), []], transactions[0])
         self.assertEqual(['T3', (0,1), []], transactions[1])
@@ -398,8 +398,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0].context, 0)
-        self.assertEqual(task2.observed[1][0].context, 0)
+        self.assertEqual(task1.observed[1][0]['context'], 0)
+        self.assertEqual(task2.observed[1][0]['context'], 0)
 
         self.assertIn(['T3', (0,0), []], transactions)
         self.assertIn(['T3', (1,1), []], transactions)
@@ -436,8 +436,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0].context, (0,0))
-        self.assertEqual(task2.observed[1][0].context, (0,0))
+        self.assertEqual(task1.observed[1][0]['context'], (0,0))
+        self.assertEqual(task2.observed[1][0]['context'], (0,0))
 
         self.assertEqual(['T3', (0,0), []], transactions[0])
         self.assertEqual(['T3', (1,1), []], transactions[1])
@@ -471,8 +471,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0].context, (0,0))
-        self.assertEqual(task2.observed[1][0].context, (1,0)) #note that we load the source twice
+        self.assertEqual(task1.observed[1][0]['context'], (0,0))
+        self.assertEqual(task2.observed[1][0]['context'], (1,0)) #note that we load the source twice
 
         self.assertEqual(['T3', (0,0), []], transactions[0])
         self.assertEqual(['T3', (1,1), []], transactions[1])
@@ -518,8 +518,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0].context, (0,0))
-        self.assertEqual(task2.observed[1][0].context, (0,1))
+        self.assertEqual(task1.observed[1][0]['context'], (0,0))
+        self.assertEqual(task2.observed[1][0]['context'], (0,1))
 
         self.assertEqual(['T2', 0, {}], transactions[0])
         self.assertEqual(['T2', 1, {}], transactions[1])
@@ -576,7 +576,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         self.assertEqual(len(task2.observed[1]), 1)
 
-        self.assertEqual(task2.observed[1][0].context, 0)
+        self.assertEqual(task2.observed[1][0]['context'], 0)
 
         self.assertEqual(['T2', 1, {}], transactions[0])
 
