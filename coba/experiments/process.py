@@ -8,7 +8,7 @@ from typing import Iterable, Sequence, Any, Optional, Tuple, Union
 from coba.pipes import Source, Filter, SourceFilters
 from coba.learners import Learner
 from coba.contexts import CobaContext
-from coba.environments import Environment, Cache, EnvironmentFilter, Finalize
+from coba.environments import Environment, Cache, EnvironmentFilter, Finalize, BatchSafe
 
 from coba.experiments.tasks import LearnerTask, EnvironmentTask, EvaluationTask
 from coba.experiments.results import Result
@@ -170,7 +170,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                             with CobaContext.logger.time(f"Creating Environment {env_id} from Loaded Source..."):
                                 interactions = list(env_filter.filter(loaded_source)) if env_filter else loaded_source
 
-                            interactions = list(Finalize().filter(interactions))
+                            interactions = list(BatchSafe(Finalize()).filter(interactions))
 
                             if len(filter_groups) == 1:
                                 #this will hopefully help with memory...

@@ -9,9 +9,9 @@ from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments import L1Reward, MappedReward
-from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params
+from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
-from coba.environments import Finalize, HashableMap, Repr
+from coba.environments import Finalize, HashableMap, Repr, BatchSafe
 
 class TestEnvironment:
 
@@ -1561,6 +1561,65 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
+
+class Batch_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        batch = Batch(3)
+        self.assertEqual({'batched':3}, batch.params)
+        batches = list(batch.filter([{'a':1,'b':2}]*4))
+
+        self.assertEqual({'batched':True,'a':[1,1,1],'b':[2,2,2]},batches[0])
+        self.assertEqual({'batched':True, 'a':[1]    ,'b':[2]},batches[1])
+
+    def test_empty(self):
+        self.assertEqual([],list(Batch(3).filter([])))
+
+class BatchSafe_Tests(unittest.TestCase):
+
+    def test_simple_batched(self):
+
+        initial_rows = [{'a':1,'b':2}]*4
+        expected_rows = initial_rows
+
+        class TestFilter:
+            def filter(self, actual_rows):
+                assert expected_rows == list(actual_rows)
+                return actual_rows
+
+        in_batches  = Batch(3).filter(initial_rows)
+        out_batches = BatchSafe(TestFilter()).filter(in_batches)
+
+        self.assertEqual(list(in_batches),list(out_batches))
+
+    def test_not_batched(self):
+
+        initial_rows = [{'a':1,'b':2}]*4
+        expected_rows = initial_rows
+
+        class TestFilter:
+            def filter(self, actual_rows):
+                actual_rows = list(actual_rows)
+                assert expected_rows == actual_rows
+                return actual_rows
+
+        final_rows = BatchSafe(TestFilter()).filter(initial_rows)
+
+        self.assertEqual(list(initial_rows),list(final_rows))
+
+    def test_empty(self):
+        initial_rows = []
+        expected_rows = initial_rows
+
+        class TestFilter:
+            def filter(self, actual_rows):
+                assert expected_rows == list(actual_rows)
+                return actual_rows
+
+        in_batches  = Batch(3).filter(initial_rows)
+        out_batches = BatchSafe(TestFilter()).filter(in_batches)
+
+        self.assertEqual(list(in_batches),list(out_batches))
 
 if __name__ == '__main__':
     unittest.main()

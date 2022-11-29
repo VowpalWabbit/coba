@@ -811,7 +811,7 @@ class Repr(EnvironmentFilter):
                 fwd = dict(zip(new,old))
                 inv = dict(zip(old,new))
                 reward_transformer = lambda rwd: MappedReward(rwd,fwd,inv)
-        except:
+        except: #pragma: no cover
             pass
 
         I1,I2,I3 = tee(interactions,3)
@@ -821,12 +821,64 @@ class Repr(EnvironmentFilter):
         cat_actions_iter = pipes.EncodeCatRows(self._cat_actions).filter( a            for i in I3 for a in i['actions'] )
 
         for interaction in interactions:
-            
-            cat_context = next(cat_context_iter)
-            cat_actions = list(islice(cat_actions_iter,len(interaction['actions'])))
-            rewards     = reward_transformer(interaction['rewards'])
-            
-            yield _copy_interaction(interaction,context=cat_context,actions=cat_actions,rewards=rewards)
+            new = interaction.copy()
+
+            new['context'] = next(cat_context_iter)
+            new['actions'] = list(islice(cat_actions_iter,len(interaction['actions'])))
+            new['rewards'] = reward_transformer(interaction['rewards'])
+
+            yield new
+
+class Batch(EnvironmentFilter):
+
+    def __init__(self, batch_size: int) -> None:
+        self._batch_size = batch_size
+
+    @property
+    def params(self) -> Mapping[str,Any]:
+        return {'batched': self._batch_size}
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        for batch in self._batched(interactions, self._batch_size):
+            new = { k: [i[k] for i in batch] for k in batch[0] }
+            new['batched'] = True
+            yield new
+
+    def _batched(self, iterable, n):
+        "Batch data into lists of length n. The last batch may be shorter."
+        #taken from python itertools recipes
+        it = iter(iterable)
+        batch = list(islice(it, n))
+        while (batch):
+            yield batch
+            batch = list(islice(it, n))
+
+class BatchSafe(EnvironmentFilter):
+
+    def __init__(self, filter: EnvironmentFilter) -> None:
+        self._filter = filter
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        first, interactions = peek_first(interactions)
+        
+        if first is None: return []
+        
+        is_batched = first.get('batched',False)
+
+        if not is_batched:
+            return self._filter.filter(interactions)
+        else:
+            batch_size = len(first[list(first.keys()-{'batched'})[0]])
+            debatched  = self._debatch(interactions)
+            filtered   = self._filter.filter(debatched)
+            rebatched  = Batch(batch_size).filter(filtered)
+            return rebatched
+
+    def _debatch(self, interactions: Iterable[Interaction]):
+        for interaction in interactions:
+            batch_size = len(interaction[list(interaction.keys()-{'batched'})[0]])
+            for i in range(batch_size):
+                yield { k: interaction[k][i] for k in interaction if k != 'batched' }
 
 class Finalize(EnvironmentFilter):
 

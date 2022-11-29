@@ -10,7 +10,7 @@ from coba.random     import CobaRandom
 from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode
 from coba.exceptions import CobaException
 
-from coba.environments.filters   import EnvironmentFilter, Repr
+from coba.environments.filters   import EnvironmentFilter, Repr, Batch
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Finalize
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
@@ -342,6 +342,10 @@ class Environments (collections.abc.Sequence):
         cat_actions:Literal["onehot","onehot_tuple","string"] = "onehot") -> 'Environments':
         """Determine how certain types of data is represented."""
         return self.filter(Repr(cat_context,cat_actions))
+
+    def batch(self, batch_size:int) -> 'Environments':
+        """Batch interactions for learning and evaluation."""
+        return self.filter(Batch(batch_size))
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""

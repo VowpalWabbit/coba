@@ -544,6 +544,16 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B', envs[1].params['id'])
         self.assertEqual(123, envs[1].params['a'])
 
+    def test_batch(self):
+        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).batch(3)
+
+        self.assertEqual(2  , len(envs))
+        self.assertEqual('A', envs[0].params['id'])
+        self.assertEqual(3  , envs[0].params['batched'])
+        self.assertEqual('B', envs[1].params['id'])
+        self.assertEqual(3  , envs[1].params['batched'])
+
+
     def test_filter_new(self):
         envs1 = Environments(TestEnvironment('A'))
         envs2 = envs1.params({'a':123})

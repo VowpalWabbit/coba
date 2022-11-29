@@ -15,7 +15,7 @@ from coba.environments.primitives import Feedback, SequenceFeedback, Environment
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
 from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
 from coba.environments.filters    import Binary, Warm, Sparse, Where, Noise, Grounded
-from coba.environments.filters    import Repr, Finalize
+from coba.environments.filters    import Repr, Finalize, Batch, BatchSafe
 
 from coba.environments.simulated.synthetics import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
@@ -80,5 +80,7 @@ __all__ = [
     'MulticlassReward',
     'HashableSeq',
     'HashableMap',
-    'MappedReward'
+    'MappedReward',
+    'Batch',
+    'BatchSafe'
 ]
