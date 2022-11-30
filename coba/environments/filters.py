@@ -81,7 +81,7 @@ class Scale(EnvironmentFilter):
 
         first, interactions = peek_first(interactions)
 
-        if not first: return []
+        if not interactions: return []
 
         remaining_interactions = iter(interactions)
         fitting_interactions   = [ i.copy() for i in islice(remaining_interactions,self._using) ]
@@ -424,7 +424,7 @@ class Cycle(EnvironmentFilter):
 
         first, with_cycle_interactions = peek_first(with_cycle_interactions)
 
-        if first:
+        if with_cycle_interactions:
             action_set          = set(first['actions'])
             n_actions           = len(action_set)
             featureless_actions = [tuple([0]*n+[1]+[0]*(n_actions-n-1)) for n in range(n_actions)]
@@ -788,7 +788,7 @@ class Grounded(EnvironmentFilter):
 
         first,interactions = peek_first(interactions)
 
-        if not first: return []
+        if not interactions: return []
 
         is_binary_rwd = {0,1} == set(first['rewards'])
         first_context = first['context']
@@ -850,6 +850,8 @@ class Repr(EnvironmentFilter):
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         first, interactions = peek_first(interactions)
+
+        if not interactions: return []
 
         first_has_actions = 'actions' in first
 
@@ -919,7 +921,7 @@ class BatchSafe(EnvironmentFilter):
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         first, interactions = peek_first(interactions)
         
-        if first is None: return []
+        if not interactions: return []
         
         is_batched = first.get('batched',False)
 
@@ -944,7 +946,7 @@ class Finalize(EnvironmentFilter):
 
         first, interactions = peek_first(interactions)
 
-        if not first: return []
+        if not interactions: return []
 
         first_has_context = 'context' in first
         first_has_actions = 'actions' in first and first['actions']

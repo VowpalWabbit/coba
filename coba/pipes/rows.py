@@ -217,8 +217,7 @@ class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Spars
         enc = self._encoders
         first, rows = peek_first(rows)
 
-        if first is None:
-            return rows
+        if not rows: return []
 
         if isinstance(first,Dense):
             if isinstance(enc,abc.Mapping):
@@ -458,7 +457,7 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
 
         if self._tipe is None: return rows
         first, rows = peek_first(rows)
-        if first is None: return []
+        if not rows: return []
     
         if isinstance(first,Categorical):
             rows = self._encode_value_generator(rows)
