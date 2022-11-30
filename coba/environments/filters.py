@@ -692,7 +692,7 @@ class Noise(EnvironmentFilter):
 
         for interaction in interactions:
             new = interaction.copy()
-            
+
             noisy_context = self._noises(interaction['context'], rng, self._context_noise)
             noisy_actions = [self._noises(a, rng, self._action_noise) for a in interaction['actions'] ]
             noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in interaction['rewards'] ]
@@ -851,30 +851,39 @@ class Repr(EnvironmentFilter):
 
         first, interactions = peek_first(interactions)
 
-        reward_transformer = lambda rwd: rwd
-        try:
-            action = first['actions'][0]
-            if isinstance(action, Categorical):
-                old = [ Categorical(l,action.levels) for l in action.levels ]
-                new = list(pipes.EncodeCatRows(self._cat_actions).filter(old))
-                fwd = dict(zip(new,old))
-                inv = dict(zip(old,new))
-                reward_transformer = lambda rwd: MappedReward(rwd,fwd,inv)
-        except: #pragma: no cover
-            pass
+        first_has_actions = 'actions' in first
 
-        I1,I2,I3 = tee(interactions,3)
+        reward_transformer = None
+        if first_has_actions:
+            try:
+                action = first['actions'][0]
+                if isinstance(action, Categorical):
+                    old = [ Categorical(l,action.levels) for l in action.levels ]
+                    new = list(pipes.EncodeCatRows(self._cat_actions).filter(old))
+                    fwd = dict(zip(new,old))
+                    inv = dict(zip(old,new))
+                    reward_transformer = lambda rwd: MappedReward(rwd,fwd,inv)
+            except: #pragma: no cover
+                pass
 
-        interactions      = I1
-        cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter( i['context'] for i in I2                       )
-        cat_actions_iter = pipes.EncodeCatRows(self._cat_actions).filter( a            for i in I3 for a in i['actions'] )
+        I = tee(interactions, 3 if first_has_actions else 2)
+
+        interactions      = I[0]
+        cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter( i['context'] for i in I[1]                       )
+
+        if first_has_actions:
+            cat_actions_iter = pipes.EncodeCatRows(self._cat_actions).filter( a        for i in I[2] for a in i['actions'] )
 
         for interaction in interactions:
             new = interaction.copy()
 
             new['context'] = next(cat_context_iter)
-            new['actions'] = list(islice(cat_actions_iter,len(interaction['actions'])))
-            new['rewards'] = reward_transformer(interaction['rewards'])
+            
+            if first_has_actions:
+                new['actions'] = list(islice(cat_actions_iter,len(interaction['actions'])))
+                
+            if reward_transformer:
+                new['rewards'] = reward_transformer(interaction['rewards'])
 
             yield new
 
@@ -933,19 +942,45 @@ class Finalize(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
+        first, interactions = peek_first(interactions)
+
+        if not first: return []
+
+        first_has_context = 'context' in first
+        first_has_actions = 'actions' in first and first['actions']
+        first_has_action  = 'action'  in first
+
+        if first_has_context:
+            is_dense_context  = isinstance(first['context'],pipes.Dense)
+            is_sparse_context = isinstance(first['context'],pipes.Sparse)
+
+        if first_has_actions:
+            is_dense_action  = isinstance(first['actions'][0],pipes.Dense)
+            is_sparse_action = isinstance(first['actions'][0],pipes.Sparse)
+        elif first_has_action:
+            is_dense_action  = isinstance(first['action'],pipes.Dense)
+            is_sparse_action = isinstance(first['action'],pipes.Sparse)
+
         for interaction in Repr("onehot","onehot").filter(interactions):
 
             new = interaction.copy()
 
-            if 'context' in new: new['context'] = self._make_hashable(new['context'])
-            if 'actions' in new: new['actions'] = [self._make_hashable(a) for a in new['actions']]
-            if 'action'  in new: new['action' ] = self._make_hashable(new['action'])
+            if first_has_context:
+                if is_dense_context:
+                    new['context'] = HashableSeq(new['context'])
+                elif is_sparse_context:
+                    new['context'] = HashableMap(new['context'])
+
+            if first_has_actions:
+                if is_dense_action:
+                    new['actions'] = list(map(HashableSeq,new['actions']))
+                elif is_sparse_action:
+                    new['actions'] = list(map(HashableMap,new['actions']))
+
+            if first_has_action:
+                if is_dense_action:
+                    new['action'] = HashableSeq(new['action'])
+                elif is_sparse_action:
+                    new['action'] = HashableMap(new['action'])
 
             yield new
-
-    def _make_hashable(self, feats):
-        if isinstance(feats, pipes.Dense):
-            return HashableSeq(feats)
-        if isinstance(feats, pipes.Sparse):
-            return HashableMap(feats)
-        return feats

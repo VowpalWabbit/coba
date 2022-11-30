@@ -146,7 +146,6 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
         self.assertEqual(actual,expected)
 
-
 class EncodeRows_Tests(unittest.TestCase):
 
     def test_encode_dense_index_map(self):
