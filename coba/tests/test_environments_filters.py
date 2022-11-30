@@ -345,7 +345,7 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual({'a':1,'b':3}, scl_interactions[2]['context'])
 
 
-    def test_scale_0_and_2(self):
+    def test_scale_0_and_2_tuples(self):
 
         interactions = [
             SimulatedInteraction((8,2), [1], [1]),
@@ -359,6 +359,27 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual((8,2), mem_interactions[0]['context'])
         self.assertEqual((4,4), mem_interactions[1]['context'])
         self.assertEqual((2,6), mem_interactions[2]['context'])
+
+        self.assertEqual(3, len(scl_interactions))
+
+        self.assertEqual([4,1], scl_interactions[0]['context'])
+        self.assertEqual([2,2], scl_interactions[1]['context'])
+        self.assertEqual([1,3], scl_interactions[2]['context'])
+
+    def test_scale_0_and_2_lists(self):
+
+        interactions = [
+            SimulatedInteraction([8,2], [1], [1]),
+            SimulatedInteraction([4,4], [1], [1]),
+            SimulatedInteraction([2,6], [1], [1])
+        ]
+
+        mem_interactions = interactions
+        scl_interactions = list(Scale(shift=0,scale=1/2,using=2).filter(interactions))
+
+        self.assertEqual([8,2], mem_interactions[0]['context'])
+        self.assertEqual([4,4], mem_interactions[1]['context'])
+        self.assertEqual([2,6], mem_interactions[2]['context'])
 
         self.assertEqual(3, len(scl_interactions))
 
