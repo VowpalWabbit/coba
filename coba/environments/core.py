@@ -300,7 +300,7 @@ class Environments (collections.abc.Sequence):
     def scale(self,
         shift: Union[float,Literal["min","mean","med"]] = "min",
         scale: Union[float,Literal["minmax","std","iqr","maxabs"]] = "minmax",
-        target: Literal["features","rewards"] = "features",
+        target: Literal["context","rewards","argmax"] = "context",
         using: Optional[int] = None) -> 'Environments':
         """Apply an affine shift and scaling factor to precondition environments."""
         return self.filter(Scale(shift, scale, target, using))

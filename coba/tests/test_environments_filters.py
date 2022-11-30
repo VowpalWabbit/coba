@@ -503,8 +503,9 @@ class Scale_Tests(unittest.TestCase):
 
         mem_interactions = interactions
     
-        with self.assertWarns(Warning):
-            scl_interactions = list(Scale("min","minmax").filter(interactions))
+        #with self.assertWarns(Warning):
+        #This warning was removed because it was an expensive check.
+        scl_interactions = list(Scale("min","minmax").filter(interactions))
 
         self.assertEqual((7,2,'A'), mem_interactions[0]['context'])
         self.assertEqual((1,9,'B'), mem_interactions[1]['context'])
@@ -532,14 +533,34 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction((8  , "B"), [1], [1])
         ]
 
-        with self.assertWarns(Warning):
-            scl_interactions = list(Scale("min","minmax").filter(interactions))
+        #with self.assertWarns(Warning):
+        #This warning was removed because it was an expensive check.
+        scl_interactions = list(Scale("min","minmax").filter(interactions))
 
         self.assertEqual(3, len(scl_interactions))
 
-        self.assertEqual(("A", 2  ), scl_interactions[0]['context'])
-        self.assertEqual((1  , 9  ), scl_interactions[1]['context'])
-        self.assertEqual((8  , "B"), scl_interactions[2]['context'])
+        self.assertEqual(["A", 2  ], scl_interactions[0]['context'])
+        self.assertEqual([1  , 9  ], scl_interactions[1]['context'])
+        self.assertEqual([8  , "B"], scl_interactions[2]['context'])
+
+    def test_scale_min_and_minmax_with_none_possible(self):
+
+        interactions = [
+            SimulatedInteraction(("A", "B"), [1], [1]),
+            SimulatedInteraction((1  , 2  ), [1], [1]),
+            SimulatedInteraction((8  , 9  ), [1], [1])
+        ]
+
+        #with self.assertWarns(Warning):
+        #This warning was removed because it was an expensive check.
+        scl_interactions = list(Scale("min","minmax").filter(interactions))
+
+        self.assertEqual(3, len(scl_interactions))
+
+        self.assertEqual(["A", "B"], scl_interactions[0]['context'])
+        self.assertEqual([1  , 2  ], scl_interactions[1]['context'])
+        self.assertEqual([8  , 9  ], scl_interactions[2]['context'])
+
 
     def test_scale_0_and_minmax_with_mixed_dict(self):
 
@@ -550,8 +571,9 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction({0:8  , 1:"B", 2:1, 3:"C"}, [1], [1])
         ]
 
-        with self.assertWarns(Warning):
-            scl_interactions = list(Scale(0,"minmax").filter(interactions))
+        #with self.assertWarns(Warning):
+        #This warning was removed because it was an expensive check.
+        scl_interactions = list(Scale(0,"minmax").filter(interactions))
 
         self.assertEqual(4, len(scl_interactions))
 
@@ -618,7 +640,7 @@ class Scale_Tests(unittest.TestCase):
             SimulatedInteraction(None, [1,3], [1,3])
         ]
 
-        scl_interactions = list(Scale(3,"maxabs", target="rewards").filter(interactions))
+        scl_interactions = list(Scale(-3,"maxabs", target="rewards").filter(interactions))
 
         self.assertEqual(3, len(scl_interactions))
 
@@ -651,9 +673,9 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(.5, scl_interactions[2]['rewards'].argmax())
 
     def test_params(self):
-        self.assertEqual({"scale_shift":"mean","scale_scale":"std","scale_using":None,"scale_target":"features"}, Scale(shift="mean",scale="std").params)
-        self.assertEqual({"scale_shift":2     ,"scale_scale":1/2  ,"scale_using":None,"scale_target":"features"}, Scale(shift=2,scale=1/2).params)
-        self.assertEqual({"scale_shift":2     ,"scale_scale":1/2  ,"scale_using":10  ,"scale_target":"features"}, Scale(shift=2,scale=1/2,using=10).params)
+        self.assertEqual({"scale_shift":"mean","scale_scale":"std","scale_using":None,"scale_target":"context"}, Scale(shift="mean",scale="std").params)
+        self.assertEqual({"scale_shift":2     ,"scale_scale":1/2  ,"scale_using":None,"scale_target":"context"}, Scale(shift=2,scale=1/2).params)
+        self.assertEqual({"scale_shift":2     ,"scale_scale":1/2  ,"scale_using":10  ,"scale_target":"context"}, Scale(shift=2,scale=1/2,using=10).params)
 
     def test_iter(self):
 

@@ -5,9 +5,10 @@ import warnings
 from math import isnan
 from statistics import mean, median, stdev, mode
 from numbers import Number
+from operator import eq, itemgetter, getitem
 from collections import defaultdict, deque
 from functools import lru_cache
-from itertools import islice, chain, tee
+from itertools import islice, chain, tee, compress, repeat
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
 from coba.backports import Literal
 
@@ -19,11 +20,6 @@ from coba.utilities  import peek_first, Categorical
 
 from coba.environments.primitives import EnvironmentFilter, Interaction, HashableMap, HashableSeq
 from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, SequenceReward, MappedReward
-
-def _copy_interaction(interaction: dict, **kwargs):
-    new = interaction.copy()
-    new.update(**kwargs)
-    return new
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""
@@ -51,7 +47,7 @@ class Scale(EnvironmentFilter):
     def __init__(self,
         shift: Union[Number,Literal["min","mean","med"]] = 0,
         scale: Union[Number,Literal["minmax","std","iqr","maxabs"]] = "minmax",
-        target: Literal["features","rewards","argmax"] = "features",
+        target: Literal["context","rewards","argmax"] = "context",
         using: Optional[int] = None):
         """Instantiate a Scale filter.
 
@@ -87,153 +83,201 @@ class Scale(EnvironmentFilter):
 
         if not first: return []
 
-        iter_interactions    = iter(interactions)
-        fitting_interactions = list(islice(iter_interactions,self._using))
-
-        shifts  : Dict[Hashable,float]     = defaultdict(lambda:0)
-        scales  : Dict[Hashable,float]     = defaultdict(lambda:1)
-        unscaled: Dict[Hashable,List[Any]] = defaultdict(list)
+        remaining_interactions = iter(interactions)
+        fitting_interactions   = [ i.copy() for i in islice(remaining_interactions,self._using) ]
 
         first_context = first['context']
         first_actions = first.get('actions')
 
-        if isinstance(first_context, pipes.Dense):
-            context_type = 0
-            is_materialized = isinstance(first_context,(list,tuple))
-        elif isinstance(first_context, pipes.Sparse):
-            context_type = 1
-            is_materialized = isinstance(first_context,dict)
-        else:
-            context_type = 2
-            is_materialized = True
-
-        if context_type == 1 and self._shift != 0:
+        if isinstance(first_context, pipes.Sparse) and self._shift != 0:
             raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
 
-        is_discrete = first_actions and len(first_actions) > 0
+        is_discrete       = first_actions and len(first_actions) > 0
+        is_dense_context  = isinstance(first_context, pipes.Dense)
+        is_sparse_context = isinstance(first_context, pipes.Sparse)
+        is_value_context  = not (is_dense_context or is_sparse_context)
+        is_mutable        = isinstance(first['context'],(list,dict))
 
-        not_numeric = set()
-        mixed_types = set()
+        if self._target == "context" and is_dense_context:
+            possible_cols = [i for i,v in enumerate(first['context']) if isinstance(v,(int,float))]
+        elif self._target == "context" and is_sparse_context:
+            not_possible_cols = set([k for k,v in first['context'].items() if not isinstance(v,(int,float))])
 
         start = time.time()
-        for interaction in fitting_interactions:
-            if self._target == "features":
-                if context_type == 0 and not is_materialized:
-                    interaction['context'] = tuple(interaction['context'])
-                if context_type == 1 and not is_materialized:
-                    interaction['context'] = dict(interaction['context'].items())
-
-                for key,value in self._kv_pairs(context_type,interaction['context']):
-                    numeric = isinstance(value,(float,int))
-
-                    if key in unscaled:
-                        if numeric and not isnan(value):
-                            unscaled[key].append(value)
-                        elif not numeric:
-                            del unscaled[key]
-                            mixed_types.add(key)
-                            not_numeric.add(key)
-                    else:
-                        if numeric:
-                            if key in not_numeric:
-                                mixed_types.add(key)
-                            elif isnan(value):
-                                unscaled[key] = []
-                            else:
-                                unscaled[key].append(value)
-                        else:
-                            not_numeric.add(key)
-
-            elif self._target == "rewards" and is_discrete:
-                unscaled["rewards"].extend(map(interaction['rewards'].eval,interaction['actions']))
-
-            elif self._target == "argmax":
-                unscaled["argmax"].append(interaction['rewards'].argmax())
+        #we have to do this eventually, no reason to not do it upfront
+        if self._target == "context" and is_dense_context and not is_mutable:
+            for interaction in fitting_interactions:
+                interaction['context'] = list(interaction['context'])
+        elif self._target == "context" and is_sparse_context and not is_mutable:
+            for interaction in fitting_interactions:
+                #we are assuming that interaction['context'] is a LazySparse
+                #there's not really any other KV store that is not mutable
+                interaction['context'] = dict(interaction['context'].items())
         self._times[0] += time.time()-start
 
-        if mixed_types: 
-            warnings.warn(f"Some features were not scaled due to having mixed types: {mixed_types}. ")
-
+        #get the values we wish to scale
         start = time.time()
-        if context_type == 1:
-            has_sparse_zero = set()
+        if self._target == "context" and is_dense_context:
+            if len(possible_cols) == 0:
+                unscaled = []
+            elif len(possible_cols) == 1:
+                unscaled = [list(map(itemgetter(*possible_cols),map(getitem,fitting_interactions,repeat("context"))))]
+            else:
+                unscaled = list(zip(*map(itemgetter(*possible_cols),map(getitem,fitting_interactions,repeat("context")))))
 
+        elif self._target == "context" and is_sparse_context:
+            unscaled = defaultdict(list)
             for interaction in fitting_interactions:
-                has_sparse_zero |= unscaled.keys() - interaction['context'].keys() - {"rewards"}
+                context = interaction['context']
+                for k in context.keys()-not_possible_cols:
+                    unscaled[k].append(context[k])
 
-            for key in has_sparse_zero:
-                unscaled[key].append(0)
+        elif self._target == "context" and is_value_context:
+            unscaled = [interaction['context'] for interaction in fitting_interactions]
+
+        elif self._target == "rewards" and is_discrete:
+            rwd_vals = lambda i: list(map(i['rewards'].eval,i['actions']))
+            unscaled = sum(list(map(rwd_vals,fitting_interactions)),[])
+
+        elif self._target == "argmax":
+            unscaled = [interaction['rewards'].argmax() for interaction in fitting_interactions]
         self._times[1] += time.time()-start
 
         start = time.time()
-        for key,values in unscaled.items():
-            if isinstance(self._shift, (int,float)):
-                shift = self._shift
-            elif self._shift == "min":
-                shift = min(values)
-            elif self._shift == "mean":
-                shift = mean(values)
-            elif self._shift == "med":
-                shift = median(values)
+        #determine the scale and shift values
+        if self._target == "context" and is_dense_context:
+            shifts_scales = {}
+            for i,col in zip(possible_cols,unscaled):
+                shift_scale = self._get_shift_and_scale(col)
+                if shift_scale is not None:
+                    shifts_scales[i] = shift_scale
 
-            if isinstance(self._scale, (int,float)):
-                scale_num = self._scale
-                scale_den = 1
-            elif self._scale == "minmax":
-                scale_num = 1
-                scale_den = max(values)-min(values)
-            elif self._scale == "std":
-                scale_num = 1
-                scale_den = stdev(values)
-            elif self._scale == "iqr":
-                scale_num = 1
-                scale_den = iqr(values)
-            elif self._scale == "maxabs":
-                scale_num = 1
-                scale_den = max([abs(v-shift) for v in values])
+        elif self._target == "context" and is_sparse_context:
+            shifts_scales = {}
+            for k,col in unscaled.items():
+                vals = col + [0]*(len(fitting_interactions)-len(col))
+                shift_scale = self._get_shift_and_scale(vals)
+                if shift_scale is not None:
+                    shifts_scales[k] = shift_scale
 
-            shifts[key] = shift
-            scales[key] = scale_num/(round(scale_den,8) or 1)
+        elif self._target in ['context','rewards','argmax']:
+            shifts_scales = self._get_shift_and_scale(unscaled)
         self._times[2] += time.time()-start
 
         start = time.time()
-        for interaction in chain(fitting_interactions, iter_interactions):
+        if not shifts_scales:
+            yield from chain(fitting_interactions, remaining_interactions)
 
-            new = interaction.copy()
+        #now scale return
+        elif self._target == "context" and is_dense_context:
+            for interaction in fitting_interactions:
+                new = interaction
+                if is_mutable:
+                    context = new['context'].copy()
+                    new['context'] = context
+                else:
+                    context = new['context']
+                for i, (shift,scale) in shifts_scales.items():
+                    context[i] = (context[i]+shift)*scale
+                yield new
 
-            if self._target == "features" and shifts:
+            for interaction in remaining_interactions:
+                new = interaction.copy()
+                if is_mutable:
+                    context = new['context'].copy()
+                    new['context'] = context
+                else: 
+                    context = list(new['context'])
+                    new['context'] = context
+                for i, (shift,scale) in shifts_scales.items():
+                    context[i] = (context[i]+shift)*scale
+                yield new
 
-                if context_type == 0:
-                    new_context = list(interaction['context'])
-                    for key in shifts:
-                        new_context[key] = (new_context[key]-shifts[key])*scales[key]
-                    new['context'] = new_context
+        elif self._target == "context" and is_sparse_context:
+            for interaction in fitting_interactions:
+                new = interaction
+                if is_mutable: new['context'] = new['context'].copy()
+                for k in shifts_scales.keys() & new['context'].keys():
+                    (shift,scale) = shifts_scales[k]
+                    new['context'][k] = (new['context'][k]+shift)*scale
+                yield new
 
-                elif context_type == 1:
-                    new_context = dict(interaction['context'])
-                    for key in (new_context.keys() & shifts.keys()):
-                        new_context[key] = (new_context[key]-shifts[key])*scales[key]
-                    new['context'] = new_context
+            for interaction in remaining_interactions:
+                new = interaction.copy()
+                new['context'] = new['context'].copy() if is_mutable else dict(new['context'])
+                for k in shifts_scales.keys() & new['context'].keys():
+                    (shift,scale) = shifts_scales[k]
+                    new['context'][k] = (new['context'][k]+shift)*scale
+                yield new
 
-                elif 0 in shifts:
-                    new['context'] = (interaction['context']-shifts[0])*scales[0]
+        elif self._target == "context" and is_value_context:
+            (shift,scale) = shifts_scales
+            for interaction in chain(fitting_interactions, remaining_interactions):
+                new = interaction.copy()
+                new['context'] = (new['context']+shift)*scale
+                yield new
 
-            elif self._target == "rewards":
-                new['rewards'] = ScaleReward(interaction['rewards'], -shifts['rewards'], scales['rewards'], 'value')
+        elif self._target == "rewards":
+            (shift,scale) = shifts_scales
+            for interaction in chain(fitting_interactions, remaining_interactions):
+                new = interaction.copy()
+                new['rewards'] = ScaleReward(new['rewards'], shift, scale, 'value')
+                yield new
 
-            elif self._target == "argmax":
-                new['rewards'] = ScaleReward(interaction['rewards'], -shifts["argmax"], scales["argmax"], "argmax")
-
-            yield new
+        elif self._target == "argmax":
+            (shift,scale) = shifts_scales
+            for interaction in chain(fitting_interactions, remaining_interactions):
+                new = interaction.copy()
+                new['rewards'] = ScaleReward(new['rewards'], shift, scale, 'argmax')
+                yield new
         self._times[3] += time.time()-start
 
-        #print(self._times)
+    def _get_shift_and_scale(self,values) -> Tuple[float,float]:
+        try:
+            shift = self._shift_value(values)
+            scale = self._scale_value(values,shift)
 
-    def _kv_pairs(self, context_type, context) -> Sequence[Tuple[Hashable,Any]]:
-        if context_type == 0  : return enumerate(context)
-        if context_type == 1  : return context.items()
-        if context is not None: return [(0,context)]
-        return []
+            if isnan(shift):
+                #this is a trick, nan != nan so equality will tell
+                #if a value is not equal with itself then it is nan.
+                #Using this trick is about 2x faster than using isnan.
+                not_nan_vals = list(compress(values,map(eq,values,values)))
+                shift = self._shift_value(not_nan_vals)
+                scale = self._scale_value(not_nan_vals,shift)
+
+            return shift,scale
+        except TypeError:
+            return None
+
+    def _shift_value(self, values) -> float:
+        shift = self._shift
+        if shift == "min":
+            return -min(values)
+        elif shift == "mean":
+            return -mean(values)
+        elif shift == "med":
+            return -median(values)
+        return shift
+
+    def _scale_value(self, values, shift) -> float:
+        scale     = self._scale
+        scale_num = scale
+        scale_den = 1
+
+        if scale == "minmax":
+            scale_num = 1
+            scale_den = max(values)-min(values)
+        elif scale == "std":
+            scale_num = 1
+            scale_den = stdev(values)
+        elif scale == "iqr":
+            scale_num = 1
+            scale_den = iqr(values)
+        elif scale == "maxabs":
+            scale_num = 1
+            scale_den = max([abs(v+shift) for v in values])
+
+        return scale_num if scale_den < .000001 else scale_num/scale_den
 
 class Impute(EnvironmentFilter):
     """Impute missing values (nan) in Interaction contexts."""
@@ -647,13 +691,18 @@ class Noise(EnvironmentFilter):
         rng = CobaRandom(self._seed)
 
         for interaction in interactions:
-
+            new = interaction.copy()
+            
             noisy_context = self._noises(interaction['context'], rng, self._context_noise)
             noisy_actions = [self._noises(a, rng, self._action_noise) for a in interaction['actions'] ]
             noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in interaction['rewards'] ]
             noisy_rewards = SequenceReward(noisy_actions,noisy_rewards)
 
-            yield _copy_interaction(interaction, context=noisy_context, actions=noisy_actions, rewards=noisy_rewards)
+            new['context'] = noisy_context
+            new['actions'] = noisy_actions
+            new['rewards'] = noisy_rewards
+
+            yield new
 
     def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
 
