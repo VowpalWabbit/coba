@@ -234,11 +234,8 @@ class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Spars
             for k,v in enc.items():
                 try:
                     if v('0')!=0: nsp.add(k)
-                except: pass
+                except: pass #pragma: no cover
             return ( EncodeSparse(row, enc, nsp) for row in rows )
-
-        else:
-            return map(enc,rows)
 
 class DropOne(Dense):
     __slots__=('_row','_ind')
@@ -459,27 +456,56 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
 
     def filter(self, rows: Iterable[Union[Any,Dense,Sparse]]) -> Iterable[Union[Any,Dense,Sparse]]:
 
+        if self._tipe is None: return rows
         first, rows = peek_first(rows)
-
-        if self._tipe is None:
-            encoder = lambda c: c
-        elif self._tipe == 'string':
-            encoder = str
-        else:
-            encoder = lambda c: c.onehot
-
+        if first is None: return []
+    
         if isinstance(first,Categorical):
-            enc = encoder
+            rows = self._encode_value_generator(rows)
         elif isinstance(first,Dense):
-            enc = { i: encoder for i,v in enumerate(first) if isinstance(v,Categorical) }
+            rows = self._encode_dense_generator(rows, first)
         elif isinstance(first,Sparse):
-            enc = { k: encoder for k,v in first.items() if isinstance(v,Categorical) }
+            rows = self._encode_sparse_generator(rows, first)
         else:
-            return rows
+            rows = rows
 
-        if enc:
-            rows = EncodeRows(enc).filter(rows)
-            if self._tipe =='onehot':
-                rows = Flatten().filter(rows)
+        if self._tipe =='onehot':
+            rows = Flatten().filter(rows)
 
         return rows
+
+    def _encode_value_generator(self, rows):
+        if self._tipe == "string":
+            yield from map(str,rows)
+        elif "onehot" in self._tipe:
+            for row in rows: yield row.onehot
+
+    def _encode_dense_generator(self, rows, first):
+        is_mutable = isinstance(first, list)
+        cat_cols =  [i for i,v in enumerate(first) if isinstance(v,Categorical) ]
+       
+        if self._tipe == "string":
+            for row in rows:
+                row = row.copy() if is_mutable else list(row)
+                for i in cat_cols: row[i] = str(row[i])
+                yield row
+        elif "onehot" in self._tipe:
+            for row in rows:
+                row = row.copy() if is_mutable else list(row)
+                for i in cat_cols: row[i] = row[i].onehot
+                yield row
+
+    def _encode_sparse_generator(self, rows, first):
+        is_mutable = isinstance(first, dict)
+        cat_cols = [k for k,v in first.items() if isinstance(v,Categorical) ]
+        
+        if self._tipe == "string":
+            for row in rows:
+                row = row.copy() if is_mutable else dict(row)
+                for k in cat_cols: row[k] = str(row[k])
+                yield row
+        elif "onehot" in self._tipe:
+            for row in rows:
+                row = row.copy() if is_mutable else dict(row)
+                for k in cat_cols: row[k] = row[k].onehot
+                yield row

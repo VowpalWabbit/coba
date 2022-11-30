@@ -36,8 +36,8 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
     def test_onehot_dense_with_categorical(self):
 
-        given = [[1,2,Categorical('1',['1','2'])], [4,5,Categorical('2',['1','2'])]]
-        expected = [(1,2,1,0),(4,5,0,1)]
+        given = [(1,2,Categorical('1',['1','2'])), [4,5,Categorical('2',['1','2'])]]
+        expected = [[1,2,1,0],[4,5,0,1]]
         actual = list(EncodeCatRows("onehot").filter(given))
 
         self.assertEqual(actual,expected)
@@ -45,7 +45,7 @@ class EncodeCatRows_Tests(unittest.TestCase):
     def test_string_dense_with_categorical(self):
 
         given = [[1,2,Categorical('1',['1','2'])], [4,5,Categorical('2',['1','2'])]]
-        expected = [(1,2,"1"),(4,5,"2")]
+        expected = [[1,2,"1"],[4,5,"2"]]
         actual = list(EncodeCatRows("string").filter(given))
 
         self.assertEqual(actual,expected)
@@ -122,13 +122,30 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
         self.assertEqual(actual,expected)
 
-    def test_value(self):
+    def test_value_not_categorical(self):
 
         given = [1,2,3]
         expected = [1,2,3]
-        actual = list(EncodeCatRows(False).filter(given))
+        actual = list(EncodeCatRows().filter(given))
 
         self.assertEqual(actual,expected)
+
+    def test_value_categorical_to_onehot(self):
+
+        given = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
+        expected = [(1,0),(0,1)]
+        actual = list(EncodeCatRows("onehot").filter(given))
+
+        self.assertEqual(actual,expected)
+
+    def test_value_categorical_to_str(self):
+
+        given = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
+        expected = ['1','2']
+        actual = list(EncodeCatRows("string").filter(given))
+
+        self.assertEqual(actual,expected)
+
 
 class EncodeRows_Tests(unittest.TestCase):
 

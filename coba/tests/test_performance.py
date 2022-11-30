@@ -347,7 +347,7 @@ class Performance_Tests(unittest.TestCase):
     def test_encode_cat_rows(self):
         rows = [[Categorical('1',list(map(str,range(20))))]*5]*5
         enc  = EncodeCatRows("onehot")
-        self._assert_call_time(lambda: list(enc.filter(rows)), .05, print_time, number=1000)
+        self._assert_call_time(lambda: list(enc.filter(rows)), .04, print_time, number=1000)
 
     def _assert_call_time(self, timeable: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
         if print_time: print()

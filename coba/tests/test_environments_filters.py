@@ -1555,7 +1555,7 @@ class Repr_Tests(unittest.TestCase):
     def test_context_categorical(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,Categorical('1',['1','2'])],[1,2],[1,2])]))
 
-        self.assertEqual((1,2,1,0),out['context'])
+        self.assertEqual([1,2,1,0],out['context'])
         self.assertEqual([1,2]    ,out['actions'])
         self.assertEqual([1,2]    ,out['rewards'])
 
