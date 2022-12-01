@@ -178,7 +178,7 @@ class SimpleEvaluation(EvaluationTask):
                 raise CobaException("An unknown interaction type was received.")
 
             if calc_reward and reward is not None: out['reward'] = reward
-            if calc_rank  : out['rank'  ] = sorted(map(rewards.eval,actions)).index(reward)/(len(actions)-1)
+            if calc_rank  : out['rank'  ] = sorted(map(rewards.eval,range(len(actions)))).index(reward)/(len(actions)-1)
             if calc_regret: out['regret'] = rewards.max()-reward
 
             if self._time: out.update(predict_time=predict_time, learn_time=learn_time)

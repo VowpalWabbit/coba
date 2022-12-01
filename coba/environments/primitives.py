@@ -2,8 +2,9 @@
 from operator import eq
 from collections import abc
 from numbers import Number
+from itertools import repeat
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, TypeVar, Iterator, overload, Callable
+from typing import Any, Union, Iterable, Sequence, Mapping, TypeVar, Iterator, overload
 from coba.backports import Literal
 
 from coba.pipes import Source, SourceFilters, Filter, Dense, Sparse
@@ -11,6 +12,7 @@ from coba.exceptions import CobaException
 
 Context   = Union[None, str, Number, 'HashableSeq', 'HashableMap']
 Action    = Union[str, Number, 'HashableSeq', 'HashableMap']
+Index     = int
 Actions   = Sequence[Action]
 
 T = TypeVar('T')
@@ -42,9 +44,6 @@ class HashableMap(Mapping):
 
     def __str__(self) -> str:
         return str(self._item)
-
-#necessary for InteractionEncoder
-Sparse.register(HashableMap)
 
 class HashableSeq(Sequence):
 
@@ -83,19 +82,19 @@ class HashableSeq(Sequence):
 
 #necessary for InteractionEncoder
 Dense.register(HashableSeq)
+Sparse.register(HashableMap)
 
 class Feedback(ABC):
     @abstractmethod
-    def eval(self, arg: Action) -> Any:
+    def eval(self, arg: Union[Action,Index]) -> Any:
         ...
 
 class SequenceFeedback(Feedback):
-    def __init__(self, actions: Sequence[Action], values: Sequence[Any]) -> None:
-        self._actions = actions
-        self._values  = list(values)
+    def __init__(self, values: Sequence[Any]) -> None:
+        self._values = values
 
-    def eval(self, arg: Any) -> Any:
-        return self._values[self._actions.index(arg)]
+    def eval(self, arg: Index) -> Any:
+        return self._values[arg]
 
     def __getitem__(self, index: int) -> Any:
         return self._values[index]
@@ -106,24 +105,14 @@ class SequenceFeedback(Feedback):
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(o) == list(self._values)
 
-class FeedbackAdapter(Feedback):
-    __slots__=('_fdb','_fwd')
-
-    def __init__(self, fdb: Feedback, fwd: Callable[[Action],Action]) -> None:
-        self._fdb = fdb
-        self._fwd = fwd
-
-    def eval(self, action: Any) -> T:
-        return self._fdb.eval(self._fwd(action))
-
 class Reward(ABC):
     
     @abstractmethod
-    def eval(self, arg: Action) -> float:
+    def eval(self, arg: Union[Action,Index]) -> float:
         ...
 
     @abstractmethod
-    def argmax(self) -> Action:
+    def argmax(self) -> Union[Action,Index]:
         ...
     
     def max(self) -> float:
@@ -138,33 +127,28 @@ class L1Reward(Reward):
     def argmax(self) -> float:
         return self._label
 
-    def eval(self, arg: Any) -> float:#pragma: no cover
+    def eval(self, arg: float) -> float: #pragma: no cover
         #defined in __init__ for performance
         raise NotImplementedError("This should have been defined in __init__.")
 
 class HammingReward(Reward):
-    def __init__(self, label: Sequence[Any]) -> None:
-        self._is_seq = isinstance(label,abc.Sequence) and not isinstance(label,(str,tuple))
-        self._label  = set(label) if self._is_seq else label
+    def __init__(self, labels: Sequence[Index]) -> None:
+        self._label  = set(labels)
 
-    def argmax(self) -> Union[Any,Sequence[Any]]:
+    def argmax(self) -> Sequence[Index]:
         return self._label
 
-    def eval(self, arg: Union[Any, Sequence[Any]]) -> float:
-        if self._is_seq:
-            return len(self._label.intersection(arg))/len(self._label)
-        else:
-            return int(self._label==arg)
+    def eval(self, arg: Sequence[Any]) -> float:
+        return len(self._label.intersection(arg))/len(self._label)
 
 class BinaryReward(Reward):
-
-    def __init__(self, value: Action):
+    def __init__(self, value: Union[Action,Index]):
         self._argmax = value
 
-    def argmax(self) -> Action:
+    def argmax(self) -> Union[Action,Index]:
         return self._argmax
 
-    def eval(self, arg: Action) -> float:
+    def eval(self, arg: Union[Action,Index]) -> float:
         return float(self._argmax==arg)
 
 class ScaleReward(Reward):
@@ -200,31 +184,28 @@ class ScaleReward(Reward):
         raise NotImplementedError("This should have been defined in __init__.")
 
 class SequenceReward(Reward):
-    def __init__(self, actions: Sequence[Action], values: Sequence[T]) -> None:
-        if len(actions) != len(values):
-            raise CobaException("Interaction reward counts must equal action counts.")
-        self._actions = actions
-        self._values  = values
+    def __init__(self, values: Sequence[float]) -> None:
+        self._values = values
 
-    def eval(self, arg: Any) -> T:
-        return self._values[self._actions.index(arg)]
+    def eval(self, arg: Index) -> T:
+        return self._values[arg]
 
     def argmax(self) -> Action:
         max_r = self._values[0]
-        max_a = self._actions[0]
-        for a,r in zip(self._actions,self._values):
-            if r > max_r: 
+        max_a = 0
+        for a,r in enumerate(self._values):
+            if r > max_r:
                 max_a = a
                 max_r = r
         return max_a
 
     def __getitem__(self, index: int) -> T:
         return self._values[index]
-    
-    def __len__(self) -> int:
-        return len(self._actions)
 
-    def __iter__(self) -> Iterator[T]:
+    def __len__(self) -> int:
+        return len(self._values)
+
+    def __iter__(self) -> Iterator[float]:
         return iter(self._values)
 
     def __eq__(self, o: object) -> bool:
@@ -235,41 +216,29 @@ class SequenceReward(Reward):
 
 class MulticlassReward(Reward):
     __slots__=('_actions','_label')
-    def __init__(self, actions: Sequence[Action], label: Action) -> None:
-        self._actions = actions
+    def __init__(self, actions: Sequence[Action], label: Index) -> None:
+        self._indexes = list(range(len(actions)))
         self._label   = label
 
-    def eval(self, action: Any) -> T:
+    def eval(self, action: Index) -> T:
         return int(self._label == action)
 
     def argmax(self) -> Action:
         return self._label
 
     def __getitem__(self, index: int) -> T:
-        return self._actions[index] == self._label
+        #we do this strange index lookup to let
+        #the _indexes list handle a bad index value
+        return self._indexes[index] == self._label
 
     def __len__(self) -> int:
-        return len(self._actions)
+        return len(self._indexes)
 
     def __iter__(self) -> Iterator[float]:
-        return iter(map(self.__getitem__,range(len(self._actions))))
+        return iter(map(int,map(eq, range(len(self._indexes)), repeat(self._label))))
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(o) == list(self)
-
-class RewardAdapter(Reward):
-    __slots__=('_rwd','_fwd','_inv')
-
-    def __init__(self, rwd: Reward, fwd: Callable[[Action],Action], inv: Callable[[Action],Action]) -> None:
-        self._rwd = rwd
-        self._fwd = fwd
-        self._inv = inv
-
-    def eval(self, action: Any) -> T:
-        return self._rwd.eval(self._fwd(action))
-
-    def argmax(self) -> Action:
-        return self._inv(self._rwd.argmax())
 
 class Interaction(dict):
     """An individual interaction that occurs in an Environment."""
@@ -302,7 +271,12 @@ class SimulatedInteraction(Interaction):
         self['type'] = 'simulated'
         self['context'] = context
         self['actions'] = actions
-        self['rewards'] = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
+        if isinstance(rewards,(list,tuple)):
+            if len(rewards) != len(actions): 
+                raise CobaException("The given actions and rewards did not line up.")
+            self['rewards'] = SequenceReward(rewards)
+        else:
+            self['rewards'] = rewards
 
         if kwargs: self.update(kwargs)
 
@@ -330,8 +304,8 @@ class GroundedInteraction(Interaction):
         self['type'] = 'grounded'
         self['context'] = context
         self['actions'] = actions
-        self['rewards'] = SequenceReward(actions,rewards) if isinstance(rewards,(list,tuple)) else rewards
-        self['feedbacks'] = SequenceFeedback(actions,feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
+        self['rewards'] = SequenceReward(rewards) if isinstance(rewards,(list,tuple)) else rewards
+        self['feedbacks'] = SequenceFeedback(feedbacks) if isinstance(feedbacks,(list,tuple)) else feedbacks
 
         if kwargs: self.update(kwargs)
 
@@ -382,7 +356,7 @@ class LoggedInteraction(Interaction):
         self['reward']  = reward
 
         if 'rewards' in kwargs and isinstance(kwargs['rewards'],(list,tuple)):
-            kwargs['rewards'] = SequenceReward(kwargs['actions'],kwargs['rewards'])
+            kwargs['rewards'] = SequenceReward(kwargs['rewards'])
 
         if kwargs: self.update(kwargs)
 

@@ -3,7 +3,7 @@ import unittest
 from coba.environments import SafeEnvironment, HashableMap, HashableSeq
 from coba.environments import SimulatedInteraction, LoggedInteraction
 from coba.environments import L1Reward, HammingReward, ScaleReward, BinaryReward, SequenceReward
-from coba.environments import SequenceFeedback, MulticlassReward, RewardAdapter, FeedbackAdapter
+from coba.environments import SequenceFeedback, MulticlassReward
 from coba.exceptions import CobaException
 from coba.pipes import Pipes, Shuffle
 
@@ -176,13 +176,6 @@ class BinaryReward_Tests(unittest.TestCase):
 
 class HammingReward_Tests(unittest.TestCase):
 
-    def test_not_sequence(self):
-        rwd = HammingReward(1)
-        self.assertEqual(1 , rwd.argmax())
-        self.assertEqual(0, rwd.eval(2))
-        self.assertEqual(1, rwd.eval(1))
-        self.assertEqual(0, rwd.eval(0))
-
     def test_sequence(self):
         rwd = HammingReward([1,2,3,4])
         self.assertEqual({1,2,3,4}, rwd.argmax())
@@ -192,17 +185,10 @@ class HammingReward_Tests(unittest.TestCase):
 
     def test_tuple(self):
         rwd = HammingReward((1,2,3,4))
-        self.assertEqual((1,2,3,4), rwd.argmax())
-        self.assertEqual(0, rwd.eval([1,3]))
-        self.assertEqual(0, rwd.eval([4]))
+        self.assertEqual({1,2,3,4}, rwd.argmax())
+        self.assertEqual(.5, rwd.eval([1,3]))
+        self.assertEqual(.25, rwd.eval([4]))
         self.assertEqual(1, rwd.eval((1,2,3,4)))
-
-    def test_string(self):
-        rwd = HammingReward("abc")
-        self.assertEqual("abc", rwd.argmax())
-        self.assertEqual(0, rwd.eval('a'))
-        self.assertEqual(0, rwd.eval('ab'))
-        self.assertEqual(1, rwd.eval('abc'))
 
 class ScaleReward_Tests(unittest.TestCase):
 
@@ -240,65 +226,48 @@ class ScaleReward_Tests(unittest.TestCase):
 
 class SequenceReward_Tests(unittest.TestCase):
     def test_sequence(self):
-        rwd = SequenceReward([1,2,3],[4,5,6])
+        rwd = SequenceReward([4,5,6])
 
         self.assertEqual(3,len(rwd))
         self.assertEqual([4,5,6],rwd)
         self.assertEqual(4,rwd[0])
         self.assertEqual(6,rwd.max())
-        self.assertEqual(3,rwd.argmax())
-        self.assertEqual(4,rwd.eval(1))
-        self.assertEqual(5,rwd.eval(2))
-        self.assertEqual(6,rwd.eval(3))
+        self.assertEqual(2,rwd.argmax())
+        self.assertEqual(4,rwd.eval(0))
+        self.assertEqual(5,rwd.eval(1))
+        self.assertEqual(6,rwd.eval(2))
         self.assertEqual(rwd,rwd)
 
     def test_bad_eq(self):
-        rwd = SequenceReward([1,2,3],[4,5,6])
+        rwd = SequenceReward([4,5,6])
         self.assertNotEqual(1,rwd)
 
 class MulticlassReward_Tests(unittest.TestCase):
     def test_simple(self):
-        rwd = MulticlassReward([1,2,3],2)
+        rwd = MulticlassReward([1,2,3],1)
 
         self.assertEqual(3,len(rwd))
         self.assertEqual([0,1,0],rwd)
         self.assertEqual(1,rwd.max())
-        self.assertEqual(2,rwd.argmax())
-        self.assertEqual(0,rwd.eval(1))
-        self.assertEqual(1,rwd.eval(2))
-        self.assertEqual(0,rwd.eval(3))
+        self.assertEqual(1,rwd.argmax())
+        self.assertEqual(0,rwd.eval(0))
+        self.assertEqual(1,rwd.eval(1))
+        self.assertEqual(0,rwd.eval(2))
+        self.assertEqual(0,rwd[0])
+        self.assertEqual(1,rwd[1])
+        self.assertEqual(0,rwd[2])
 
-class RewardAdapter_Tests(unittest.TestCase):
-    def test_simple(self):
-        fwd = dict(zip(['a','b','c'],[1,2,3])).__getitem__
-        inv = dict(zip([1,2,3],['a','b','c'])).__getitem__
-        rwd = RewardAdapter(MulticlassReward([1,2,3],2),fwd,inv)
-
-        self.assertEqual(1,rwd.max())
-        self.assertEqual('b',rwd.argmax())
-        self.assertEqual(0,rwd.eval('a'))
-        self.assertEqual(1,rwd.eval('b'))
-        self.assertEqual(0,rwd.eval('c'))
 
 class SequenceFeedback_Tests(unittest.TestCase):
     def test_sequence(self):
-        fb = SequenceFeedback([1,2,3],[4,5,6])
+        fb = SequenceFeedback([4,5,6])
 
         self.assertEqual(3,len(fb))
         self.assertEqual([4,5,6],fb)
         self.assertEqual(4,fb[0])
-        self.assertEqual(4,fb.eval(1))
-        self.assertEqual(5,fb.eval(2))
-        self.assertEqual(6,fb.eval(3))
-
-class FeedbackAdapter_Tests(unittest.TestCase):
-    def test_simple(self):
-        fwd = dict(zip(['a','b','c'],[1,2,3])).__getitem__
-        fdb = FeedbackAdapter(SequenceFeedback([1,2,3],[4,5,6]),fwd)
-
-        self.assertEqual(4,fdb.eval('a'))
-        self.assertEqual(5,fdb.eval('b'))
-        self.assertEqual(6,fdb.eval('c'))
+        self.assertEqual(4,fb.eval(0))
+        self.assertEqual(5,fb.eval(1))
+        self.assertEqual(6,fb.eval(2))
 
 if __name__ == '__main__':
     unittest.main()

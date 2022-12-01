@@ -291,13 +291,13 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner("--cb_explore_adf",vw)
 
         learner.predict(None, ['yes','no'])
-        learner.learn(None, ['yes','no'], 'yes', 1, 0.2)
+        learner.learn(None, ['yes','no'], 0, 1, 0.2)
 
         self.assertEqual(2, len(vw._learn_calls[0]))
 
         self.assertEqual({'x':None }, vw._learn_calls[0][0].ns[0])
         self.assertEqual({'a':'yes'}, vw._learn_calls[0][0].ns[1])
-        self.assertEqual("1:-1:0.2"  , vw._learn_calls[0][0].label)
+        self.assertEqual("1:-1:0.2" , vw._learn_calls[0][0].label)
 
         self.assertEqual({'x':None }, vw._learn_calls[0][1].ns[0])
         self.assertEqual({'a':'no'} , vw._learn_calls[0][1].ns[1])
@@ -309,7 +309,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner("--cb_explore", vw)
 
         learner.predict(None, ['yes','no'])
-        learner.learn(None, ['yes','no'], 'no', .5, 0.2)
+        learner.learn(None, ['yes','no'], 1, .5, 0.2)
 
         self.assertIsInstance(vw._learn_calls[0], VowpalEaxmpleMock)
 
@@ -322,7 +322,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner("--cb_explore", vw)
 
         learner.predict([(0,0,1)], ['yes','no'])
-        learner.learn({'l':(0,0,1), 'j':1 }, ['yes','no'], 'no', .5, 0.2)
+        learner.learn({'l':(0,0,1), 'j':1 }, ['yes','no'], 1, .5, 0.2)
 
         self.assertIsInstance(vw._learn_calls[0], VowpalEaxmpleMock)
 
@@ -391,7 +391,7 @@ class VowpalLearner_Tests(unittest.TestCase):
             probs  = learner.predict(context, actions)
             choice = rng.choice(list(range(3)), probs)
 
-            learner.learn(context, actions, actions[choice], rewards[choice], probs[choice])
+            learner.learn(context, actions, choice, rewards[choice], probs[choice])
 
         post_learn_rewards = []
 

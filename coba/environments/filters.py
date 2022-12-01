@@ -6,7 +6,7 @@ from math import isnan
 from statistics import mean, median, stdev, mode
 from numbers import Number
 from operator import eq, itemgetter, getitem
-from collections import defaultdict, deque, abc
+from collections import defaultdict, deque
 from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
@@ -16,10 +16,10 @@ from coba            import pipes
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
-from coba.utilities  import peek_first, Categorical
+from coba.utilities  import peek_first
 
 from coba.environments.primitives import EnvironmentFilter, Interaction, HashableMap, HashableSeq
-from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, SequenceReward, RewardAdapter, FeedbackAdapter
+from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, SequenceReward
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""
@@ -136,7 +136,7 @@ class Scale(EnvironmentFilter):
             unscaled = [interaction['context'] for interaction in fitting_interactions]
 
         elif self._target == "rewards" and is_discrete:
-            rwd_vals = lambda i: list(map(i['rewards'].eval,i['actions']))
+            rwd_vals = lambda i: list(map(i['rewards'].eval,range(len(i['actions']))))
             unscaled = sum(list(map(rwd_vals,fitting_interactions)),[])
 
         elif self._target == "argmax":
@@ -440,7 +440,7 @@ class Cycle(EnvironmentFilter):
                     rewards.rotate(1)
                     
                     new = interaction.copy()
-                    new['rewards'] = SequenceReward(interaction['actions'],list(rewards))
+                    new['rewards'] = SequenceReward(list(rewards))
                     
                     yield new
 
@@ -696,7 +696,7 @@ class Noise(EnvironmentFilter):
             noisy_context = self._noises(interaction['context'], rng, self._context_noise)
             noisy_actions = [self._noises(a, rng, self._action_noise) for a in interaction['actions'] ]
             noisy_rewards = [ self._noises(r, rng, self._reward_noise) for r in interaction['rewards'] ]
-            noisy_rewards = SequenceReward(noisy_actions,noisy_rewards)
+            noisy_rewards = SequenceReward(noisy_rewards)
 
             new['context'] = noisy_context
             new['actions'] = noisy_actions
@@ -853,36 +853,22 @@ class Repr(EnvironmentFilter):
 
         if not interactions: return []
 
-        has_actions   = 'actions'   in first
-        has_rewards   = 'rewards'   in first
-        has_feedbacks = 'feedbacks' in first
+        has_actions = 'actions' in first
 
         I = tee(interactions, 3 if has_actions else 2)
 
-        interactions      = I[0]
+        interactions     = I[0]
         cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter(i['context'] for i in I[1])
 
         if has_actions:
-            cat_actions_iter = pipes.EncodeCatRows(self._cat_actions, True).filter(action for i in I[2] for action in i['actions'] )
-            old_actions = first['actions']
-            new_actions = list(pipes.EncodeCatRows(self._cat_actions, True).filter(old_actions))
-            if old_actions != new_actions:
-                action_fwd = dict(zip(new_actions,old_actions)).__getitem__
-                action_inv = dict(zip(old_actions,new_actions)).__getitem__
+            cat_actions_iter = pipes.EncodeCatRows(self._cat_actions, True).filter(action for i in I[2] for action in i['actions'])
 
         for interaction in interactions:
             new = interaction.copy()
-
             new['context'] = next(cat_context_iter)
 
             if has_actions:
                 new['actions'] = list(islice(cat_actions_iter,len(interaction['actions'])))
-                
-            if has_rewards and old_actions != new_actions:
-                new['rewards'] = RewardAdapter(interaction['rewards'], action_fwd, action_inv)
-
-            if has_feedbacks and old_actions != new_actions:
-                new['feedbacks'] = FeedbackAdapter(interaction['feedbacks'], action_fwd)
 
             yield new
 

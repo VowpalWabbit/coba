@@ -72,7 +72,7 @@ class CorralLearner(Learner):
         base_predicts = [ base_algorithm.predict(context, actions) for base_algorithm in self._base_learners ]
         base_actions, base_probs, base_infos = zip(*base_predicts)
 
-        predict = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in actions ]
+        predict = [ sum([p_b*int(a==b_a) for p_b,b_a in zip(self._p_bars, base_actions)]) for a in range(len(actions)) ]
         info    = (base_actions, base_probs, base_infos)
 
         return (predict, {'info':info})

@@ -9,14 +9,15 @@ from coba.environments import Context, Action, Actions
 
 kwargs = Mapping[str,Any]
 Score  = float
+Index  = int
 PMF    = Sequence[float]
-PDF    = Callable[[Action],float]
+PDF    = Callable[[Union[Action,Index]],float]
 
 class Probs(list):
     pass
 
 class ActionScore(tuple):
-    def __new__(self, action: Action, score: Score):
+    def __new__(self, action: Union[Action,Index], score: Score):
         return tuple.__new__(ActionScore, (action, score))
 
 Prediction = Union[
@@ -60,19 +61,19 @@ class Learner(ABC):
         ...
 
     @abstractmethod
-    def learn(self, 
-        context: Context, 
-        actions: Actions, 
-        action: Action, 
-        feedback: Union[float,Any], 
-        score: float, 
+    def learn(self,
+        context: Context,
+        actions: Actions,
+        action: Union[Action,Index],
+        feedback: Union[float,Any],
+        score: float,
         **kwargs) -> None:
         """Learn about the action taken in the context.
 
         Args:
             context: The context in which the action was taken.
             actions: The set of actions chosen from.
-            action: The action that was chosen.
+            action: The action that was chosen or the index of the action that was chosen.
             feedback: This will be reward for contextual bandit problems and feedback for IGL problems.
             score: This will be the probability for the action taken if a PMF/PDF is returned by predict.
                  It will be the score if an action-score pair is returned by predict. And it will be the
@@ -127,7 +128,8 @@ class SafeLearner(Learner):
         pred = self._learner.predict(context, actions)
 
         if self._pred_type is None: # first call
-            pred_type = self.get_definite_type(pred) or self.get_inferred_type(pred,actions)
+            is_discrete = 0 < len(actions) and len(actions) < float('inf')
+            pred_type = self.get_type(pred, is_discrete) or self.get_inferred_type(pred, actions)
             pred_info = self.get_info(pred,pred_type)
             self._pred_type = pred_type
             self._with_info = bool(pred_info)
@@ -139,9 +141,9 @@ class SafeLearner(Learner):
             pmf_or_pdf = pred[0] if pred_info else pred
             pmf        = list(map(pred,actions)) if pred_type == 1 else pmf_or_pdf
             assert len(pmf) == len(actions), "The learner returned an invalid number of probabilities for the actions"
-            assert isclose(sum(pmf), 1, abs_tol=.001), "The learner returned a pmf which didn't sum to one."
-            
-            action,score = self._rng.choice(list(zip(actions,pmf)), pmf)
+            assert isclose(sum(pmf), 1, abs_tol=.001), "The learner returned a pmf which does not sum to one."
+
+            action,score = self._rng.choice(list(enumerate(pmf)), pmf)
         else:
             action,score = pred[:2]
 
@@ -169,28 +171,14 @@ class SafeLearner(Learner):
                         self._learn_type = 1
                     except:
                         all_failed = True
-                
+
                 if all_failed: raise
 
-    def get_definite_type(self,pred) -> Optional[int]:
+    def get_type(self,pred,is_discrete) -> Optional[int]:
         if self._is_type_1(pred): return 1
-        if self._is_type_2(pred): return 2
-        if self._is_type_3(pred): return 3
+        if self._is_type_2(pred,is_discrete): return 2
+        if self._is_type_3(pred,is_discrete): return 3
         return None
-
-    def get_inferred_type(self,pred,actions) -> int:
-        possible_types = []
-
-        if self._possible_type_2(pred,actions): possible_types.append(2)
-        if self._possible_type_3(pred,actions): possible_types.append(3)
-
-        if len(possible_types) == 1:
-            return possible_types[0]
-        else:
-            raise CobaException("We were unable to parse the given prediction format." 
-                " If prediction format returned by your learner is definitely correct"
-                " then we suggest using coba.learners.Probs or coba.learners.ActionScore"
-                " to provide explicit type information.")
 
     def get_info(self,pred,pred_type) -> Mapping[Any,Any]:
         if pred_type == 1:
@@ -204,26 +192,46 @@ class SafeLearner(Learner):
         #PDF
         return callable(pred) or callable(pred[0])
 
-    def _is_type_2(self, pred):
+    def _is_type_2(self, pred, is_discrete:bool):
         #PMF
-        explicit = isinstance(pred,Probs) or isinstance(pred[0],Probs)
-        too_long_for_anything_else = len(pred) > 3
-        return explicit or too_long_for_anything_else
 
-    def _is_type_3(self, pred):
+        explicit = isinstance(pred,Probs) or isinstance(pred[0],Probs)
+        pmf_sans_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) > 3 or len(pred) == 3 and not isinstance(pred[2],dict)
+        pmf_with_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) == 2 and isinstance(pred[0],abc.Sequence)
+        
+        return explicit or pmf_sans_info or pmf_with_info
+
+    def _is_type_3(self, pred, is_discrete:bool):
         #Action Score
         explicit = isinstance(pred,ActionScore) or isinstance(pred[0],ActionScore)
-        return explicit
+        with_info = is_discrete and len(pred) == 3 and not isinstance(pred[2],(float,int))
+        return explicit or with_info or not is_discrete
+
+    def get_inferred_type(self,pred,actions) -> int:
+        possible_types = []
+
+        if self._possible_type_2(pred,actions): possible_types.append(2)
+        if self._possible_type_3(pred,actions): possible_types.append(3)
+
+        if len(possible_types) == 1:
+            return possible_types[0]
+        else:
+            raise CobaException("We were unable to parse the given prediction format." 
+                " This is likely because action features were returned for a discrete"
+                " problem. When the action space is discrete, and you wish to directly"
+                " return the selected action rather than a PMF, please provide the"
+                " action index (i.e., actions.index(action)). Alternatively, this can"
+                " also happen for two action problems. In this case we suggest using"
+                " coba.learners.Probs or coba.learners.ActionScore to provide explicit"
+                " type information (e.g., return coba.learners.Probs([1,0])).")
 
     def _pred_0_possible_pmf(self,pred,actions):
-        try:
-            possible_pmf = pred[0] if isinstance(pred[0],abc.Sequence) else pred
-            return isclose(sum(possible_pmf), 1, abs_tol=.001) and len(possible_pmf) == len(actions)
-        except:
-            return False
+        possible_pmf = pred[0] if isinstance(pred[0],abc.Sequence) else pred
+        return isclose(sum(possible_pmf), 1, abs_tol=.001) and len(possible_pmf) == len(actions)
 
     def _pred_0_possible_action(self,pred,actions):
-        return not actions or pred in actions or pred[0] in actions
+        is_discrete = 0 < len(actions) and len(actions) < float('inf')
+        return not is_discrete or pred[0] in list(range(len(actions)))
 
     def _possible_type_2(self,pred,actions):
         #PMF
@@ -231,7 +239,7 @@ class SafeLearner(Learner):
 
     def _possible_type_3(self,pred,actions):
         #action,score
-        correct_shape = len(pred)==2 or (len(pred)==3 and isinstance(pred[-1],dict))
+        correct_shape = len(pred) in [2,3]        
         return self._pred_0_possible_action(pred,actions) and correct_shape
 
     def __str__(self) -> str:

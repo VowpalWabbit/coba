@@ -142,7 +142,7 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
         given = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
         expected = ['1','2']
-        actual = list(EncodeCatRows("string").filter(given))
+        actual = list(EncodeCatRows("string", value_rows=True).filter(given))
 
         self.assertEqual(actual,expected)
 

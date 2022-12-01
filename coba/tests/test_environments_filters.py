@@ -8,7 +8,7 @@ from coba.pipes        import Categorical, LazyDense, LazySparse
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedInteraction
-from coba.environments import L1Reward, RewardAdapter
+from coba.environments import L1Reward
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
 from coba.environments import Finalize, HashableMap, Repr, BatchSafe
@@ -344,7 +344,6 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual({'a':2,'b':2}, scl_interactions[1]['context'])
         self.assertEqual({'a':1,'b':3}, scl_interactions[2]['context'])
 
-
     def test_scale_0_and_2_tuples(self):
 
         interactions = [
@@ -523,7 +522,7 @@ class Scale_Tests(unittest.TestCase):
         ]
 
         mem_interactions = interactions
-    
+
         #with self.assertWarns(Warning):
         #This warning was removed because it was an expensive check.
         scl_interactions = list(Scale("min","minmax").filter(interactions))
@@ -649,9 +648,9 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(None, scl_interactions[1]['context'])
         self.assertEqual(None, scl_interactions[2]['context'])
 
-        self.assertEqual([-1/2,1/2], [scl_interactions[0]['rewards'].eval(a) for a in [1,2]])
-        self.assertEqual([-1/2,1/2], [scl_interactions[1]['rewards'].eval(a) for a in [1,2]])
-        self.assertEqual([-1/2,1/2], [scl_interactions[2]['rewards'].eval(a) for a in [1,2]])
+        self.assertEqual([-1/2,1/2], [scl_interactions[0]['rewards'].eval(a) for a in [0,1]])
+        self.assertEqual([-1/2,1/2], [scl_interactions[1]['rewards'].eval(a) for a in [0,1]])
+        self.assertEqual([-1/2,1/2], [scl_interactions[2]['rewards'].eval(a) for a in [0,1]])
 
     def test_scale_number_and_absmax_target_discrete_rewards(self):
 
@@ -669,9 +668,9 @@ class Scale_Tests(unittest.TestCase):
         self.assertEqual(None, scl_interactions[1]['context'])
         self.assertEqual(None, scl_interactions[2]['context'])
 
-        self.assertEqual([-1,0], [scl_interactions[0]['rewards'].eval(a) for a in [1,3]])
-        self.assertEqual([0,-1], [scl_interactions[1]['rewards'].eval(a) for a in [1,3]])
-        self.assertEqual([-1,0], [scl_interactions[2]['rewards'].eval(a) for a in [1,3]])
+        self.assertEqual([-1,0], [scl_interactions[0]['rewards'].eval(a) for a in [0,1]])
+        self.assertEqual([0,-1], [scl_interactions[1]['rewards'].eval(a) for a in [0,1]])
+        self.assertEqual([-1,0], [scl_interactions[2]['rewards'].eval(a) for a in [0,1]])
 
     def test_scale_min_and_minmax_target_argmax(self):
 
@@ -1005,9 +1004,9 @@ class Binary_Tests(unittest.TestCase):
 
         binary_interactions = list(Binary().filter(interactions))
 
-        self.assertEqual([0,1], [binary_interactions[0]['rewards'].eval(a) for a in [1,2]])
-        self.assertEqual([0,1], [binary_interactions[1]['rewards'].eval(a) for a in [1,2]])
-        self.assertEqual([1,0], [binary_interactions[2]['rewards'].eval(a) for a in [1,2]])
+        self.assertEqual([0,1], [binary_interactions[0]['rewards'].eval(a) for a in [0,1]])
+        self.assertEqual([0,1], [binary_interactions[1]['rewards'].eval(a) for a in [0,1]])
+        self.assertEqual([1,0], [binary_interactions[2]['rewards'].eval(a) for a in [0,1]])
 
     def test_params(self):
         self.assertEqual({'binary':True}, Binary().params)
@@ -1450,13 +1449,13 @@ class Grounded_Tests(unittest.TestCase):
         to_igl_filter    = Grounded(10,5,4,2,4)
         igl_interactions = list(to_igl_filter.filter(interactions))
 
-        feedbacks_0 = [igl_interactions[0]['feedbacks'].eval(a) for a in igl_interactions[0]['actions'] ]
+        feedbacks_0 = [igl_interactions[0]['feedbacks'].eval(a) for a in [0,1,2] ]
 
         self.assertEqual(True,igl_interactions[0]['isnormal'])
         self.assertEqual(4, igl_interactions[0]['userid'])
         self.assertEqual([(0,), (2,), (3,)], feedbacks_0)
 
-        feedbacks_1 = [igl_interactions[1]['feedbacks'].eval(a) for a in igl_interactions[1]['actions'] ]
+        feedbacks_1 = [igl_interactions[1]['feedbacks'].eval(a) for a in [0,1,2] ]
 
         self.assertEqual(True,igl_interactions[1]['isnormal'])
         self.assertEqual(2, igl_interactions[1]['userid'])
@@ -1485,9 +1484,9 @@ class Grounded_Tests(unittest.TestCase):
     def test_not_01_reward(self):
         sim_interactions = [ SimulatedInteraction(0,[1,2,3],[0,.2,.5]) ]
         igl_interactions = list(Grounded(10,5,4,2,1).filter(sim_interactions))
+        self.assertEqual(igl_interactions[0]['rewards'].eval(0), 0)
         self.assertEqual(igl_interactions[0]['rewards'].eval(1), 0)
-        self.assertEqual(igl_interactions[0]['rewards'].eval(2), 0)
-        self.assertEqual(igl_interactions[0]['rewards'].eval(3), 1)
+        self.assertEqual(igl_interactions[0]['rewards'].eval(2), 1)
 
     def test_normal_bizzaro_users(self):
         to_igl           = Grounded(10,5,4,2,1)
@@ -1564,20 +1563,20 @@ class Repr_Tests(unittest.TestCase):
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertEqual(out['rewards'].argmax(), (0,1))
-        self.assertEqual(out['rewards'].eval((1,0)), 1)
-        self.assertEqual(out['rewards'].eval((0,1)), 2)
+        self.assertEqual(out['rewards'].argmax(), 1)
+        self.assertEqual(out['rewards'].eval(0), 1)
+        self.assertEqual(out['rewards'].eval(1), 2)
 
     def test_actions_categorical_with_feedbacks(self):
         out = next(Repr('onehot','onehot').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertEqual(out['rewards'].argmax(), (0,1))
-        self.assertEqual(out['rewards'].eval((1,0)), 1)
-        self.assertEqual(out['rewards'].eval((0,1)), 2)
-        self.assertEqual(out['feedbacks'].eval((1,0)), 3)
-        self.assertEqual(out['feedbacks'].eval((0,1)), 4)
+        self.assertEqual(out['rewards'].argmax(), 1)
+        self.assertEqual(out['rewards'].eval(0), 1)
+        self.assertEqual(out['rewards'].eval(1), 2)
+        self.assertEqual(out['feedbacks'].eval(0), 3)
+        self.assertEqual(out['feedbacks'].eval(1), 4)
 
 class Finalize_Tests(unittest.TestCase):
 

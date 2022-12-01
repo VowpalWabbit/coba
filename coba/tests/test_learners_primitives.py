@@ -126,7 +126,7 @@ class SafeLearner_Tests(unittest.TestCase):
     def test_no_sum_one_info_action_match_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/3,1/2], 1))
 
-        with self.assertRaises(CobaException):
+        with self.assertRaises(AssertionError):
             learner.predict(None, [1,2])
 
     def test_sum_one_no_info_action_mismatch_predict(self):
@@ -138,14 +138,14 @@ class SafeLearner_Tests(unittest.TestCase):
     def test_sum_one_info_action_mismatch_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/2,1/2], 1))
 
-        with self.assertRaises(CobaException):
+        with self.assertRaises(AssertionError):
             learner.predict(None, [1,2,3])
 
     def test_sum_one_no_info_action_match_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/2,1/2], None))
         predict = learner.predict(None, [1,2])
 
-        self.assertEqual(1  , predict[0])
+        self.assertEqual(0  , predict[0])
         self.assertEqual(1/2, predict[1])
         self.assertEqual({} , predict[2]['info'])
 
@@ -154,7 +154,7 @@ class SafeLearner_Tests(unittest.TestCase):
 
         predict = learner.predict(None, [1,2])
 
-        self.assertEqual(1         , predict[0])
+        self.assertEqual(0         , predict[0])
         self.assertEqual(1/2       , predict[1])
         self.assertEqual({'info':1}, predict[2]['info'])
 
@@ -188,40 +188,30 @@ class SafeLearner_Tests(unittest.TestCase):
     def test_infer_types(self):
         learner = SafeLearner(None)
 
-        #can't be action/score because 0 is not in actions
-        self.assertEqual(learner.get_inferred_type((0,1),[1,2]),2)
-
         with self.assertRaises(CobaException):
-            #can be either 2 or 3 because 0 is in actions and (0,1) is a valid PMF
-            learner.get_inferred_type((0,1),[0,2])
+            #can be either 2 or 3 because (0,1) is either a valid PMF or an action index of 0 with score of 1
+            self.assertEqual(learner.get_inferred_type((0,1),[1,2]),2)
 
         #can't be a pmf because pred_0 does not add to 1
-        self.assertEqual(learner.get_inferred_type(((0,1,3),1),[]),3)
-
-        #can't be a pmf because pred_0 does not add to 1
-        self.assertEqual(learner.get_inferred_type(((0,1,3),1),[]),3)
-
-        with self.assertRaises(CobaException):
-            #This is either a pmf with info or and action/score without any info
-            learner.get_inferred_type(((0,1,0),1),[(1,0,0),(0,1,0),(0,0,1)])
+        self.assertEqual(learner.get_inferred_type((5,1),[]),3)
 
     def test_definite_types(self):
         learner = SafeLearner(None)
 
         #this is definitely a pdf because it is callable
-        self.assertEqual(learner.get_definite_type(lambda a: 1),1)
+        self.assertEqual(learner.get_type(lambda a: 1, True),1)
 
         #this is definitely a pmf because of how long it is
-        self.assertEqual(learner.get_definite_type((0,1,0,0,0,0)),2)
+        self.assertEqual(learner.get_type((0,1,0,0,0,0), True),2)
 
         #this is definitely a pmf because it is explicitly typed
-        self.assertEqual(learner.get_definite_type(Probs([0,1])),2)
+        self.assertEqual(learner.get_type(Probs([0,1]), True),2)
 
         #this is definitely an action-score pair because it is explicitly typed
-        self.assertEqual(learner.get_definite_type(ActionScore(0,1)),3)
+        self.assertEqual(learner.get_type(ActionScore(0,1), False),3)
 
         #this can't be determined
-        self.assertEqual(learner.get_definite_type((0,1)),None)
+        self.assertEqual(learner.get_type((0,1), True),None)
 
 class ActionScore_Tests(unittest.TestCase):
 

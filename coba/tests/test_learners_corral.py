@@ -46,10 +46,10 @@ class CorralLearner_Tests(unittest.TestCase):
         probability = predict[0]
         reward      = 1/2
 
-        learner.learn(None, actions, action, reward, probability, **info)
+        learner.learn(None, actions, 0, reward, probability, **info)
 
-        self.assertEqual((None, actions, 1, 1, 1), base1.received_learn)
-        self.assertEqual((None, actions, 2, 0, 1), base2.received_learn)
+        self.assertEqual((None, actions, 0, 1, 1), base1.received_learn)
+        self.assertEqual((None, actions, 1, 0, 1), base2.received_learn)
 
     def test_off_policy_predict(self):
 

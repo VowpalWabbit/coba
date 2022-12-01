@@ -3,7 +3,6 @@ from itertools import count, compress, chain, filterfalse, islice
 from typing import Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple
 from coba.backports import Literal
 
-from coba.encodings import OneHotEncoder
 from coba.utilities import peek_first
 from coba.pipes.primitives import Filter, Sparse, Dense
 from coba.pipes.filters import Flatten

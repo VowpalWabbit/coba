@@ -1,5 +1,4 @@
-from functools import partial
-from itertools import chain, repeat
+from itertools import chain, count
 from typing import Any, Iterable, Union, Sequence, overload, Dict, MutableSequence, MutableMapping
 from coba.backports import Literal
 
@@ -219,13 +218,17 @@ class SupervisedSimulation(SimulatedEnvironment):
             reward  = L1Reward
         elif label_type == "m":
             actions = sorted(set(list(chain(*labels))))
-            reward  = HammingReward
+            action_indexes = dict(zip(actions,count()))
+            reward = lambda label: HammingReward(list(map(action_indexes.__getitem__,label)))
         else:
             if isinstance(first_label,Categorical):
-                actions = [ Categorical(l,first_label.levels) for l in  sorted(first_label.levels) ]
+                actions = [ Categorical(l,first_label.levels) for l in sorted(first_label.levels) ]
             else:
                 actions = sorted(set(labels))
-            reward = partial(MulticlassReward,actions)
+            
+            action_indexes = dict(zip(actions,count()))
+            indexes = list(range(len(actions)))
+            reward = lambda label: MulticlassReward(indexes, action_indexes[label])
 
         if first_row_type == 0:
             for row in rows:

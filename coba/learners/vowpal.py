@@ -321,7 +321,7 @@ class VowpalLearner(Learner):
             raise CobaException("When using `cb` without `adf` predict must be called before learn to initialize the vw learner")
 
         labels  = self._labels(actions, action, reward, probability)
-        label   = labels[actions.index(action)]
+        label   = labels[action]
 
         context = {'x':self._flat(context)}
         adfs    = None if not self._adf else [{'a':self._flat(action)} for action in actions]
@@ -332,7 +332,7 @@ class VowpalLearner(Learner):
             self._vw.learn(self._vw.make_example(context, label))
 
     def _labels(self,actions,action,reward:float,prob:float) -> Sequence[Optional[str]]:
-        return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if a == action else None for i,a in enumerate(actions)]
+        return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if i == action else None for i in range(len(actions))]
 
     def _flat(self,features:Any) -> Any:
         return list(Flatten().filter([features]))[0]

@@ -31,7 +31,7 @@ class ModuloLearner(Learner):
         return {"family": "Modulo", "p":self._param}
 
     def predict(self, context, actions):
-        return Probs([ int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions)) ])
+        return Probs([int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions))])
 
     def learn(self, context, actions, action, reward, probability):
         self._learn_calls += 1
@@ -128,12 +128,11 @@ class ExceptionEnvironment(Environment):
     def read(self):
         raise self._exc
 
-class TestEnv:
+class CategoricalActionEnv:
     def read(self):
         actions = [Categorical("a",["a","b"]),Categorical("b",["a","b"])]
-        yield SimulatedInteraction(1, actions, MulticlassReward(actions,actions[0]))
-        yield SimulatedInteraction(2, actions, MulticlassReward(actions,actions[0]))
-
+        yield SimulatedInteraction(1, actions, MulticlassReward(actions,0))
+        yield SimulatedInteraction(2, actions, MulticlassReward(actions,0))
 
 class Experiment_Single_Tests(unittest.TestCase):
 
@@ -246,7 +245,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         CobaContext.logger = IndentLogger(ListSink())
 
-        sim1       = TestEnv()
+        sim1       = CategoricalActionEnv()
         learner    = ModuloLearner()
         experiment = Experiment(sim1, learner)
 
@@ -259,7 +258,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
         ]
         expected_environments = [
-            {"environment_id":0, "type":'TestEnv'},
+            {"environment_id":0, "type":'CategoricalActionEnv'},
         ]
         expected_interactions = [
             {"environment_id":0, "learner_id":0, "index":1, "reward":0},
