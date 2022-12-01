@@ -124,9 +124,9 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
     def test_value_not_categorical(self):
 
-        given = [1,2,3]
-        expected = [1,2,3]
-        actual = list(EncodeCatRows().filter(given))
+        given = [(1,0),2,3]
+        expected = [(1,0),2,3]
+        actual = list(EncodeCatRows(value_rows=True).filter(given))
 
         self.assertEqual(actual,expected)
 
@@ -134,7 +134,7 @@ class EncodeCatRows_Tests(unittest.TestCase):
 
         given = [Categorical('1',['1','2']),Categorical('2',['1','2'])]
         expected = [(1,0),(0,1)]
-        actual = list(EncodeCatRows("onehot").filter(given))
+        actual = list(EncodeCatRows("onehot", value_rows=True).filter(given))
 
         self.assertEqual(actual,expected)
 

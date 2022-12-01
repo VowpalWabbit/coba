@@ -6,7 +6,7 @@ from math import isnan
 from statistics import mean, median, stdev, mode
 from numbers import Number
 from operator import eq, itemgetter, getitem
-from collections import defaultdict, deque
+from collections import defaultdict, deque, abc
 from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
@@ -19,7 +19,7 @@ from coba.statistics import iqr
 from coba.utilities  import peek_first, Categorical
 
 from coba.environments.primitives import EnvironmentFilter, Interaction, HashableMap, HashableSeq
-from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, SequenceReward, MappedReward
+from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, SequenceReward, RewardAdapter, FeedbackAdapter
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""
@@ -853,39 +853,36 @@ class Repr(EnvironmentFilter):
 
         if not interactions: return []
 
-        first_has_actions = 'actions' in first
+        has_actions   = 'actions'   in first
+        has_rewards   = 'rewards'   in first
+        has_feedbacks = 'feedbacks' in first
 
-        reward_transformer = None
-        if first_has_actions:
-            try:
-                action = first['actions'][0]
-                if isinstance(action, Categorical):
-                    old = [ Categorical(l,action.levels) for l in action.levels ]
-                    new = list(pipes.EncodeCatRows(self._cat_actions).filter(old))
-                    fwd = dict(zip(new,old))
-                    inv = dict(zip(old,new))
-                    reward_transformer = lambda rwd: MappedReward(rwd,fwd,inv)
-            except: #pragma: no cover
-                pass
-
-        I = tee(interactions, 3 if first_has_actions else 2)
+        I = tee(interactions, 3 if has_actions else 2)
 
         interactions      = I[0]
-        cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter( i['context'] for i in I[1]                       )
+        cat_context_iter = pipes.EncodeCatRows(self._cat_context).filter(i['context'] for i in I[1])
 
-        if first_has_actions:
-            cat_actions_iter = pipes.EncodeCatRows(self._cat_actions).filter( a        for i in I[2] for a in i['actions'] )
+        if has_actions:
+            cat_actions_iter = pipes.EncodeCatRows(self._cat_actions, True).filter(action for i in I[2] for action in i['actions'] )
+            old_actions = first['actions']
+            new_actions = list(pipes.EncodeCatRows(self._cat_actions, True).filter(old_actions))
+            if old_actions != new_actions:
+                action_fwd = dict(zip(new_actions,old_actions)).__getitem__
+                action_inv = dict(zip(old_actions,new_actions)).__getitem__
 
         for interaction in interactions:
             new = interaction.copy()
 
             new['context'] = next(cat_context_iter)
-            
-            if first_has_actions:
+
+            if has_actions:
                 new['actions'] = list(islice(cat_actions_iter,len(interaction['actions'])))
                 
-            if reward_transformer:
-                new['rewards'] = reward_transformer(interaction['rewards'])
+            if has_rewards and old_actions != new_actions:
+                new['rewards'] = RewardAdapter(interaction['rewards'], action_fwd, action_inv)
+
+            if has_feedbacks and old_actions != new_actions:
+                new['feedbacks'] = FeedbackAdapter(interaction['feedbacks'], action_fwd)
 
             yield new
 

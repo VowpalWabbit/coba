@@ -2,7 +2,7 @@
 from coba.registry     import CobaRegistry
 from coba.pipes        import NullSink, ConsoleSink, DiskSink, HttpSource
 from coba.environments import OpenmlSimulation, SerializedSimulation, SupervisedSimulation
-from coba.environments import Sort, Scale, Cycle, Shuffle, Take, Identity, Where
+from coba.environments import Sort, Scale, Cycle, Shuffle, Take, Identity, Where, Repr
 from coba.contexts     import DiskCacher, NullCacher, IndentLogger, NullLogger, BasicLogger
 
 CobaRegistry.register("range" , range)
@@ -31,3 +31,5 @@ CobaRegistry.register("Sort"    , Sort    )
 CobaRegistry.register("Scale"   , Scale   )
 CobaRegistry.register("Cycle"   , Cycle   )
 CobaRegistry.register("Where"   , Where   )
+CobaRegistry.register("Repr"    , Repr   )
+

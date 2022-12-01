@@ -3,7 +3,7 @@ import unittest
 from coba.environments import SafeEnvironment, HashableMap, HashableSeq
 from coba.environments import SimulatedInteraction, LoggedInteraction
 from coba.environments import L1Reward, HammingReward, ScaleReward, BinaryReward, SequenceReward
-from coba.environments import SequenceFeedback, MulticlassReward, MappedReward
+from coba.environments import SequenceFeedback, MulticlassReward, RewardAdapter, FeedbackAdapter
 from coba.exceptions import CobaException
 from coba.pipes import Pipes, Shuffle
 
@@ -268,11 +268,11 @@ class MulticlassReward_Tests(unittest.TestCase):
         self.assertEqual(1,rwd.eval(2))
         self.assertEqual(0,rwd.eval(3))
 
-class MappedReward_Tests(unittest.TestCase):
+class RewardAdapter_Tests(unittest.TestCase):
     def test_simple(self):
-        fwd = dict(zip(['a','b','c'],[1,2,3]))
-        inv = dict(zip([1,2,3],['a','b','c']))
-        rwd = MappedReward(MulticlassReward([1,2,3],2),fwd,inv)
+        fwd = dict(zip(['a','b','c'],[1,2,3])).__getitem__
+        inv = dict(zip([1,2,3],['a','b','c'])).__getitem__
+        rwd = RewardAdapter(MulticlassReward([1,2,3],2),fwd,inv)
 
         self.assertEqual(1,rwd.max())
         self.assertEqual('b',rwd.argmax())
@@ -290,6 +290,15 @@ class SequenceFeedback_Tests(unittest.TestCase):
         self.assertEqual(4,fb.eval(1))
         self.assertEqual(5,fb.eval(2))
         self.assertEqual(6,fb.eval(3))
+
+class FeedbackAdapter_Tests(unittest.TestCase):
+    def test_simple(self):
+        fwd = dict(zip(['a','b','c'],[1,2,3])).__getitem__
+        fdb = FeedbackAdapter(SequenceFeedback([1,2,3],[4,5,6]),fwd)
+
+        self.assertEqual(4,fdb.eval('a'))
+        self.assertEqual(5,fdb.eval('b'))
+        self.assertEqual(6,fdb.eval('c'))
 
 if __name__ == '__main__':
     unittest.main()

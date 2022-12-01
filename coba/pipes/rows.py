@@ -450,8 +450,9 @@ class LabelRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse
             return (LabelSparse(row, label, tipe) for row in rows)
 
 class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any,Dense,Sparse]]]):
-    def __init__(self, tipe=Literal["onehot","onehot_tuple","string"]) -> None:
+    def __init__(self, tipe=Literal["onehot","onehot_tuple","string"], value_rows:bool = False) -> None:
         self._tipe = tipe
+        self._value_rows = value_rows
 
     def filter(self, rows: Iterable[Union[Any,Dense,Sparse]]) -> Iterable[Union[Any,Dense,Sparse]]:
 
@@ -459,7 +460,7 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
         first, rows = peek_first(rows)
         if not rows: return []
     
-        if isinstance(first,Categorical):
+        if self._value_rows:
             rows = self._encode_value_generator(rows)
         elif isinstance(first,Dense):
             rows = self._encode_dense_generator(rows, first)
@@ -474,7 +475,10 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
         return rows
 
     def _encode_value_generator(self, rows):
-        if self._tipe == "string":
+        first,rows = peek_first(rows)
+        if not isinstance(first,Categorical):
+            yield from rows
+        elif self._tipe == "string":
             yield from map(str,rows)
         elif "onehot" in self._tipe:
             for row in rows: yield row.onehot

@@ -8,7 +8,7 @@ from coba.pipes        import Categorical, LazyDense, LazySparse
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedInteraction
-from coba.environments import L1Reward, MappedReward
+from coba.environments import L1Reward, RewardAdapter
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
 from coba.environments import Finalize, HashableMap, Repr, BatchSafe
@@ -1559,12 +1559,25 @@ class Repr_Tests(unittest.TestCase):
         self.assertEqual([1,2]    ,out['actions'])
         self.assertEqual([1,2]    ,out['rewards'])
 
-    def test_actions_categorical(self):
+    def test_actions_categorical_with_rewards(self):
         out = next(Repr('onehot','onehot').filter([SimulatedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2])]))
 
         self.assertEqual([1,2,3]      , out['context'])
         self.assertEqual([(1,0),(0,1)], out['actions'])
-        self.assertIsInstance(out['rewards'], MappedReward)
+        self.assertEqual(out['rewards'].argmax(), (0,1))
+        self.assertEqual(out['rewards'].eval((1,0)), 1)
+        self.assertEqual(out['rewards'].eval((0,1)), 2)
+
+    def test_actions_categorical_with_feedbacks(self):
+        out = next(Repr('onehot','onehot').filter([GroundedInteraction([1,2,3],[Categorical('1',['1','2']),Categorical('2',['1','2'])],[1,2],[3,4])]))
+
+        self.assertEqual([1,2,3]      , out['context'])
+        self.assertEqual([(1,0),(0,1)], out['actions'])
+        self.assertEqual(out['rewards'].argmax(), (0,1))
+        self.assertEqual(out['rewards'].eval((1,0)), 1)
+        self.assertEqual(out['rewards'].eval((0,1)), 2)
+        self.assertEqual(out['feedbacks'].eval((1,0)), 3)
+        self.assertEqual(out['feedbacks'].eval((0,1)), 4)
 
 class Finalize_Tests(unittest.TestCase):
 

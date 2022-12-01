@@ -3,10 +3,10 @@ from operator import eq
 from collections import abc
 from numbers import Number
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, TypeVar, Iterator, overload
+from typing import Any, Union, Iterable, Sequence, Mapping, TypeVar, Iterator, overload, Callable
 from coba.backports import Literal
 
-from coba.pipes import Source, SourceFilters, Filter
+from coba.pipes import Source, SourceFilters, Filter, Dense, Sparse
 from coba.exceptions import CobaException
 
 Context   = Union[None, str, Number, 'HashableSeq', 'HashableMap']
@@ -43,6 +43,9 @@ class HashableMap(Mapping):
     def __str__(self) -> str:
         return str(self._item)
 
+#necessary for InteractionEncoder
+Sparse.register(HashableMap)
+
 class HashableSeq(Sequence):
 
     def __init__(self, item: Mapping) -> None:
@@ -78,6 +81,9 @@ class HashableSeq(Sequence):
     def __str__(self) -> str:
         return str(self._item)
 
+#necessary for InteractionEncoder
+Dense.register(HashableSeq)
+
 class Feedback(ABC):
     @abstractmethod
     def eval(self, arg: Action) -> Any:
@@ -99,6 +105,16 @@ class SequenceFeedback(Feedback):
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(o) == list(self._values)
+
+class FeedbackAdapter(Feedback):
+    __slots__=('_fdb','_fwd')
+
+    def __init__(self, fdb: Feedback, fwd: Callable[[Action],Action]) -> None:
+        self._fdb = fdb
+        self._fwd = fwd
+
+    def eval(self, action: Any) -> T:
+        return self._fdb.eval(self._fwd(action))
 
 class Reward(ABC):
     
@@ -241,19 +257,19 @@ class MulticlassReward(Reward):
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(o) == list(self)
 
-class MappedReward(Reward):
+class RewardAdapter(Reward):
     __slots__=('_rwd','_fwd','_inv')
 
-    def __init__(self, rwd: Reward, fwd: Mapping[Action,Action], inv: Mapping[Action,Action]) -> None:
+    def __init__(self, rwd: Reward, fwd: Callable[[Action],Action], inv: Callable[[Action],Action]) -> None:
         self._rwd = rwd
         self._fwd = fwd
         self._inv = inv
 
     def eval(self, action: Any) -> T:
-        return self._rwd.eval(self._fwd[action])
+        return self._rwd.eval(self._fwd(action))
 
     def argmax(self) -> Action:
-        return self._inv[self._rwd.argmax()]
+        return self._inv(self._rwd.argmax())
 
 class Interaction(dict):
     """An individual interaction that occurs in an Environment."""
