@@ -10,8 +10,8 @@ from coba.random     import CobaRandom
 from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode
 from coba.exceptions import CobaException
 
-from coba.environments.filters   import EnvironmentFilter, Repr, Batch
-from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Finalize
+from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk
+from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 
@@ -26,7 +26,7 @@ class Environments (collections.abc.Sequence):
     """A friendly wrapper around commonly used environment functionality."""
 
     @staticmethod
-    def cache(path:Union[str,Path]) -> Type['Environments']:
+    def cache_dir(path:Union[str,Path]) -> Type['Environments']:
         CobaContext.cacher = DiskCacher(path)
         return Environments
 
@@ -328,10 +328,10 @@ class Environments (collections.abc.Sequence):
         return self.filter(Flatten())
 
     def materialize(self) -> 'Environments':
-        """Convert from generated environments to materialized environments."""
-        environments = Environments([Pipes.join(env, Finalize(), Cache()) for env in self._environments])
-        for env in environments: list(env.read()) #force read to pre-load cache
-        return environments
+        """Materialize the environments in memory. Ideal for stateful environments such as Jupyter Notebook."""
+        envs = self.cache()
+        for env in envs: list(env.read()) #force read to pre-load cache
+        return envs
 
     def grounded(self, n_users: int, n_normal:int, n_words:int, n_good:int, seed:int=1) -> 'Environments':
         """Convert from simulated environments to interaction grounded environments."""
@@ -347,6 +347,15 @@ class Environments (collections.abc.Sequence):
         """Batch interactions for learning and evaluation."""
         return self.filter(Batch(batch_size))
 
+    def chunk(self, cache:bool = True) -> 'Environments':
+        """Create a chunk point in the environments pipeline to compose how multiprocess is conducted."""
+        envs = Environments([Pipes.join(env, Chunk()) for env in self])
+        return envs.cache() if cache else envs
+
+    def cache(self) -> 'Environments':
+        """Create a cache point in the environments so that earlier steps in the pipeline can be re-used in several pipes."""
+        return Environments([Pipes.join(env, Cache(2)) for env in self])
+
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""
         filters = filter if isinstance(filter, collections.abc.Sequence) else [filter]
@@ -356,7 +365,7 @@ class Environments (collections.abc.Sequence):
         return self._environments[index]
 
     def __iter__(self) -> Iterator[Environment]:
-        return self._environments.__iter__()
+        return iter(self._environments)
 
     def __len__(self) -> int:
         return len(self._environments)

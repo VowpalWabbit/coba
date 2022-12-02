@@ -145,7 +145,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_sim(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))
         learner    = ModuloLearner()
-        experiment = Experiment(sim1, [learner], evaluation_task=SimpleEvaluation(time_metrics=False))
+        experiment = Experiment(sim1, [learner])
 
         CobaContext.logger = IndentLogger(ListSink())
 
@@ -179,7 +179,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_learner(self):
         sim1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: float(a))
         learner    = ModuloLearner()
-        experiment = Experiment([sim1], learner, evaluation_task=SimpleEvaluation(time_metrics=False))
+        experiment = Experiment([sim1], learner)
 
         CobaContext.logger = IndentLogger(ListSink())
 
@@ -274,7 +274,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = ModuloLearner("0") #type: ignore
         learner2   = ModuloLearner("1") #type: ignore
-        experiment = Experiment([sim], [learner1, learner2], evaluation_task=SimpleEvaluation(time_metrics=False))
+        experiment = Experiment([sim], [learner1, learner2])
 
         expected_learners     = [
             {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'},
@@ -303,7 +303,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_learner_info(self):
         sim        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = LearnInfoLearner("0") #type: ignore
-        experiment = Experiment([sim],[learner1], evaluation_task=SimpleEvaluation(time_metrics=False))
+        experiment = Experiment([sim],[learner1])
 
         actual_result       = experiment.evaluate()
         actual_learners     = actual_result._learners.to_dicts()
@@ -469,14 +469,10 @@ class Experiment_Single_Tests(unittest.TestCase):
         CobaContext.experiment.maxtasksperchunk = 2
         self.assertEqual(2,exp.maxtasksperchunk)
 
-        CobaContext.experiment.chunk_by = 'source'
-        self.assertEqual('source',exp.chunk_by)
-
-        exp.config(processes=2, maxchunksperchild=5, maxtasksperchunk=3, chunk_by='task')
+        exp.config(processes=2, maxchunksperchild=5, maxtasksperchunk=3)
         self.assertEqual(2,exp.processes)
         self.assertEqual(5,exp.maxchunksperchild)
         self.assertEqual(3,exp.maxtasksperchunk)
-        self.assertEqual('task',exp.chunk_by)
 
     def test_restore_not_matched_environments(self):
 

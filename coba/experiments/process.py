@@ -1,14 +1,13 @@
-import gc
-
 from copy import deepcopy
-from itertools import groupby, islice
-from collections import defaultdict
-from typing import Iterable, Sequence, Any, Optional, Tuple, Union
+from itertools import islice
+from collections import defaultdict, Counter
+from typing import Iterable, Sequence, Any, Optional, Union, Tuple
 
-from coba.pipes import Source, Filter, SourceFilters
+from coba.pipes import Source, Filter, SourceFilters, Pipes
 from coba.learners import Learner
 from coba.contexts import CobaContext
-from coba.environments import Environment, Cache, EnvironmentFilter, Finalize, BatchSafe
+from coba.environments import Environment, Finalize, BatchSafe, Cache, Chunk
+from coba.utilities import peek_first
 
 from coba.experiments.tasks import LearnerTask, EnvironmentTask, EvaluationTask
 from coba.experiments.results import Result
@@ -82,40 +81,34 @@ class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
             elif is_eval_task and (task.env_id, task.lrn_id) not in self._restored._interactions:
                 yield task
 
-class ChunkBySource(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
+class ChunkByChunk(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
 
     def filter(self, items: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
 
         items  = list(items)
         chunks = defaultdict(list)
 
-        sans_source_items = [t for t in items if t.env_id is None]
-        with_source_items = [t for t in items if t.env_id is not None]
+        workitems_sans_env = [t for t in items if t.env_id is None    ]
+        workitems_with_env = [t for t in items if t.env_id is not None]
 
-        for env_item in with_source_items:
-            chunks[self._get_source(env_item.env)].append(env_item)
+        for env_item in workitems_with_env:
+            chunks[self._get_last_chunk(env_item.env)].append(env_item)
 
-        for lrn_item in sans_source_items:
+        for lrn_item in workitems_sans_env:
             yield [lrn_item]
+
+        for workitem in chunks.pop(None,[]):
+            yield [workitem]
 
         for chunk in sorted(chunks.values(), key=lambda chunk: min([c.env_id for c in chunk])):
             yield list(sorted(chunk, key=lambda c: (c.env_id, -1 if c.lrn_id is None else c.lrn_id)))
 
-    def _get_source(self, env):
-        return env._source if isinstance(env, SourceFilters) else env
-
-class ChunkByTask(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
-
-    def filter(self, workitems: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
-
-        #We used to sort by source before performing this action
-        #This was nice because it meant a single openml data set
-        #Could be loaded and then a bunch of tasks would be able
-        #to use the cached version of it. Just leaving this note
-        #here for now in case I want to change back in the future.
-
-        for workitem in workitems:
-            yield [workitem]
+    def _get_last_chunk(self, env):
+        if isinstance(env, SourceFilters):
+            for pipe in reversed(list(env)):
+                if isinstance(pipe, Chunk):
+                    return pipe
+        return None
 
 class MaxChunkSize(Filter[Iterable[Sequence[WorkItem]], Iterable[Sequence[WorkItem]]]):
     def __init__(self, max_tasks) -> None:
@@ -135,100 +128,64 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
     def filter(self, chunk: Iterable[WorkItem]) -> Iterable[Any]:
 
         chunk = list(chunk)
-
-        self._source_id = {}
-
-        for item in chunk:
-            if item.env_id is not None:
-                source = id(self._get_source(item))
-                self._source_id[source] = min(self._source_id.get(source,item.env_id), item.env_id)
+        empty_envs = set()
 
         if not chunk: return
 
+        if len(chunk) > 1:
+            #We sort in case there are multiple chunks in the pipe. Sorting means we can free chunks from memory as we go.
+            chunk = sorted(chunk, key=lambda item: self._env_ids(item)+self._lrn_ids(item))
+            chunk = list(reversed(chunk))
+
+        learner_eval_counts = Counter([item.lrn_id for item in chunk if item.lrn and item.env])
+        
         with CobaContext.logger.log(f"Processing chunk..."):
 
-            for env_source, work_for_env_source in groupby(sorted(chunk, key=self._get_source_sort), key=self._get_source):
-
+            while chunk:
                 try:
-                    if env_source is None:
-                        loaded_source = None
-                    else:
-                        with CobaContext.logger.time(f"Loading {env_source._source if isinstance(env_source,SourceFilters) else env_source}..."):
-                            #This is not ideal. I'm not sure how it should be improved so it is being left for now.
-                            #Maybe add a flag to the Experiment to say whether the source should be stashed in mem?
-                            loaded_source = list(env_source.read())
+                    item = chunk.pop()
 
-                    #if a learner only has one eval 
+                    if item.env is None:
+                        with CobaContext.logger.time(f"Recording Learner {item.lrn_id} parameters..."):
+                            row = item.task.process(item.lrn)
+                            yield ["T1", item.lrn_id, row]
 
-                    filter_groups = [ (k,list(g)) for k,g in groupby(sorted(work_for_env_source, key=self._get_id_filter_sort), key=self._get_id_filter) ]
+                    if item.lrn is None:
+                        with CobaContext.logger.time(f"Recording Environment {item.env_id} statistics..."):
+                            row = item.task.process(item.env,item.env.read())
+                            yield ["T2", item.env_id, row]
 
-                    for (env_id, env_filter), work_for_env_filter in filter_groups:
+                    if item.env and item.lrn and item.env_id not in empty_envs:
 
-                        if loaded_source is None:
-                            interactions = []
-                        else:
-                            with CobaContext.logger.time(f"Creating Environment {env_id} from Loaded Source..."):
-                                interactions = list(env_filter.filter(loaded_source)) if env_filter else loaded_source
+                        interactions = Pipes.join(item.env,BatchSafe(Finalize())).read()
+                        interactions = peek_first(interactions)[1]
 
-                            interactions = list(BatchSafe(Finalize()).filter(interactions))
+                        if not interactions: 
+                            CobaContext.logger.log(f"Environment {item.env_id} has nothing to evaluate (this is likely due to having too few interactions).")
+                            empty_envs.add(item.env_id)
+                            continue
 
-                            if len(filter_groups) == 1:
-                                #this will hopefully help with memory...
-                                loaded_source = None
-                                gc.collect()
+                        with CobaContext.logger.time(f"Evaluating Learner {item.lrn_id} on Environment {item.env_id}..."):
 
-                            if not interactions:
-                                CobaContext.logger.log(f"Environment {env_id} has nothing to evaluate (this is likely due to having too few interactions).")
-                                break
+                            if learner_eval_counts[item.lrn_id] > 1:
+                                learner = deepcopy(item.lrn)
+                            else:
+                                learner = item.lrn
 
-                        for workitem in work_for_env_filter:
-                            try:
-
-                                if workitem.env is None:
-                                    with CobaContext.logger.time(f"Recording Learner {workitem.lrn_id} parameters..."):
-                                        row = workitem.task.process(workitem.lrn)
-                                        yield ["T1", workitem.lrn_id, row]
-
-                                if workitem.lrn is None:
-                                    with CobaContext.logger.time(f"Recording Environment {workitem.env_id} statistics..."):
-                                        row = workitem.task.process(workitem.env,interactions)
-                                        yield ["T2", workitem.env_id, row]
-
-                                if workitem.env and workitem.lrn:
-                                    with CobaContext.logger.time(f"Evaluating Learner {workitem.lrn_id} on Environment {workitem.env_id}..."):
- 
-                                        if len([i for i in chunk if i.env and i.lrn and i.lrn_id == workitem.lrn_id]) > 1:
-                                            learner = deepcopy(workitem.lrn)
-                                        else:
-                                            learner = workitem.lrn
-
-                                        row = list(workitem.task.process(learner, interactions))
-                                        yield ["T3", (workitem.env_id, workitem.lrn_id), row]
-
-                            except Exception as e:
-                                CobaContext.logger.log(e)
+                            row = list(item.task.process(learner, interactions))
+                            yield ["T3", (item.env_id, item.lrn_id), row]
 
                 except Exception as e:
                     CobaContext.logger.log(e)
 
-    def _get_source(self, task:WorkItem) -> Environment:
-        if task.env is None:
-            return None
-        elif isinstance(task.env, SourceFilters) and not isinstance(task.env[-1], Cache):
-            return task.env._source
-        else:
-            return task.env
+    # def _cache_ids(self, item: WorkItem) -> Tuple[int,...]:
+        #I'm not sure this is necessary and it makes sorting by env-ids difficult which 
+        #isn't necessary but is nice to have when you're running experiments on a single 
+        #process. Therefore, we're not going to use this code for now.
+    #   return tuple(id(pipe) for pipe in reversed(list(item.env)) if isinstance(pipe,Cache) ) if isinstance(item.env, SourceFilters) else ()
 
-    def _get_source_sort(self, task:WorkItem) -> int:
-        return self._source_id.get(id(self._get_source(task)),-1)
-
-    def _get_id_filter(self, task:WorkItem) -> Tuple[int, EnvironmentFilter]:
-        if task.env is None:
-            return (-1,None)
-        elif isinstance(task.env, SourceFilters):
-            return (task.env_id, task.env._filter)
-        else:
-            return (task.env_id, None)
-
-    def _get_id_filter_sort(self, task:WorkItem) -> int:
-        return self._get_id_filter(task)[0]
+    def _env_ids(self, item: WorkItem):
+        return (-1,) if item.env_id is None else (item.env_id,)
+    
+    def _lrn_ids(self, item: WorkItem):
+        return (-1,) if item.lrn_id is None else (item.lrn_id,)

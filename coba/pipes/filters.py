@@ -4,7 +4,7 @@ import copy
 
 from collections import defaultdict, abc
 from itertools import islice, chain
-from typing import Iterable, Any, Sequence, Mapping, Optional, Union
+from typing import Iterable, Any, Sequence, Mapping, Optional, Union, List
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
@@ -366,10 +366,22 @@ class Default(Filter[Iterable[Union[Sequence,Mapping]], Iterable[Union[Sequence,
 
 class Cache(Filter[Iterable[Any], Iterable[Any]]):
 
-    def __init__(self) -> None:
-        self._cache = []
+    def __init__(self,n_slice:int=25) -> None:
+        self._cache = None
+        self._n_slice = n_slice
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        if not self._cache: 
-            self._cache = list(items)
-        return self._cache
+        n_slice = self._n_slice
+
+        if self._cache:
+            yield from self._cache
+
+        else:
+            temp_cache = []
+            items = iter(items)
+            current = list(islice(items,n_slice))
+            while current:
+                temp_cache.extend(current)
+                yield from current
+                current = list(islice(items,n_slice))
+            self._cache = temp_cache

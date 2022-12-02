@@ -40,6 +40,10 @@ class SourceFilters(Source):
         else:
             return self._filter[index-1]
 
+    def __iter__(self) -> Iterable[Union[Source,Filter]]:
+        yield self._source
+        yield from self._filter
+
     def __len__(self) -> int:
         return len(self._filter)+1
 
@@ -62,6 +66,9 @@ class FiltersFilter(Filter):
 
     def __getitem__(self, index: int) -> Filter:
         return self._filters[index]
+
+    def __iter__(self) -> Iterable[Filter]:
+        return iter(self._filters)
     
     def __len__(self) -> int:
         return len(self._filters)
@@ -104,6 +111,10 @@ class FiltersSink(Sink):
         else:
             return self._filter[index]
     
+    def __iter__(self) -> Iterable[Filter]:
+        yield from self._filter
+        yield self._sink
+
     def __len__(self) -> int:
         return len(self._filter)+1
 

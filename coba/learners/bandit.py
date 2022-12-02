@@ -36,8 +36,9 @@ class EpsilonBanditLearner(Learner):
 
         return Probs([p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)])
 
-    def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
+    def learn(self, context: Context, actions: Actions, index: int, reward: float, prob: float) -> None:
 
+        action = actions[index]
         alpha = 1/(self._N[action]+1)
 
         old_Q = cast(float, 0 if self._Q[action] is None else self._Q[action])
@@ -83,10 +84,12 @@ class UcbBanditLearner(Learner):
 
         return Probs([int(action in max_actions)/len(max_actions) for action in actions])
 
-    def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
+    def learn(self, context: Context, actions: Actions, index: int, reward: float, prob: float) -> None:
 
         assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
-
+        
+        action = actions[index]
+        
         if action not in self._m:
             self._m[action] = reward
             self._s[action] = 1

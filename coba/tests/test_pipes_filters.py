@@ -5,6 +5,7 @@ from coba.pipes import Flatten, Encode, JsonEncode, Structure, LazyDense, LazySp
 from coba.pipes import Take, Identity, Shuffle, Default, Reservoir, Cache
 from coba.encodings import NumericEncoder, OneHotEncoder, StringEncoder
 from coba.contexts import NullLogger, CobaContext
+from coba.utilities import peek_first
 
 CobaContext.logger = NullLogger()
 
@@ -423,10 +424,20 @@ class Cache_Tests(unittest.TestCase):
 
     def test_cache(self):
         cache = Cache()
-        self.assertEqual([], cache._cache)
+        self.assertEqual(None, cache._cache)
         self.assertEqual([1,2,3],list(cache.filter([1,2,3])))
         self.assertEqual([1,2,3],cache._cache)
         self.assertEqual([1,2,3],list(cache.filter([4,5,6])))
+
+    def test_cache_with_peek_first(self):
+        cache = Cache(2)
+
+        iterable = iter(cache.filter([1,2,3,4]))
+        iterable = peek_first(iterable)[1]
+
+        self.assertEqual([1,2,3,4],list(cache.filter([1,2,3,4])))
+        self.assertEqual([1,2,3,4],cache._cache)
+        self.assertEqual([1,2,3,4],list(cache.filter([4,5,6])))
 
 if __name__ == '__main__':
     unittest.main()

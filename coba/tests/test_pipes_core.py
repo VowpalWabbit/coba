@@ -148,6 +148,13 @@ class SourceFilters_Tests(unittest.TestCase):
         self.assertIs(pipe[-2],filter1)
         self.assertIs(pipe[-3],source)
 
+    def test_iter(self):
+        source  = ReprSource([1,2])
+        filter1 = Foreach(ReprSink())
+        filter2 = Foreach(ReprSink())
+        pipes = list(SourceFilters(source, filter1, filter2))
+        self.assertEqual(pipes, [source,filter1,filter2])
+
 class FiltersFilter_Tests(unittest.TestCase):
 
     def test_init_filters(self):
@@ -201,6 +208,14 @@ class FiltersFilter_Tests(unittest.TestCase):
         
         self.assertIs(pipe[-1],filter2)
         self.assertIs(pipe[-2],filter1)
+
+    def test_iter(self):
+        filter1 = ReprFilter("1")
+        filter2 = ReprFilter("2")
+
+        pipes = list(FiltersFilter(filter1, filter2))
+        self.assertEqual(pipes, [filter1,filter2])
+
 
 class FiltersSink_Tests(unittest.TestCase):
 
@@ -271,6 +286,14 @@ class FiltersSink_Tests(unittest.TestCase):
         self.assertIs(sink   ,pipe[-1])
         self.assertIs(filter2,pipe[-2])
         self.assertIs(filter1,pipe[-3])
+
+    def test_iter(self):
+        filter1 = ReprFilter()
+        filter2 = ReprFilter()
+        sink    = ReprSink()
+
+        pipes = list(FiltersSink(filter1, filter2, sink))
+        self.assertEqual(pipes, [filter1,filter2,sink])
 
 class PipesLine_Tests(unittest.TestCase):
 

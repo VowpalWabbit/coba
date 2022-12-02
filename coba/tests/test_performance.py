@@ -12,7 +12,7 @@ import coba.random
 
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, ScaleReward, L1Reward
-from coba.environments import Scale, Flatten, Grounded, HashableMap
+from coba.environments import Scale, Flatten, Grounded, HashableMap, Chunk
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
@@ -337,7 +337,7 @@ class Performance_Tests(unittest.TestCase):
         n_users      = 100
         n_words      = 100
 
-        environment = cb.Environments.cache('./.coba_cache')                               #(1) set a cache directory
+        environment = cb.Environments.cache_dir('./.coba_cache')                               #(1) set a cache directory
         environment = environment.from_openml(data_id=covertype_id, take=ndata)            #(2) begin with covertype
         environment = environment.scale(shift='min',scale='minmax')                        #(3) scale features to [0,1]
         environment = environment.grounded(n_users, n_users/2, n_words, n_words/2, seed=1) #(4) turn into an igl problem
@@ -348,6 +348,9 @@ class Performance_Tests(unittest.TestCase):
         rows = [[Categorical('1',list(map(str,range(20))))]*5]*5
         enc  = EncodeCatRows("onehot")
         self._assert_call_time(lambda: list(enc.filter(rows)), .04, print_time, number=1000)
+
+    def test_chunk(self):
+        self._assert_call_time(lambda: list(Chunk().filter(range(100))), .01, print_time, number=1000)
 
     def _assert_call_time(self, timeable: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
         if print_time: print()

@@ -4,13 +4,13 @@ from typing import cast, Iterable
 
 from coba.contexts     import CobaContext, BasicLogger
 from coba.environments import LambdaSimulation, SimulatedInteraction, Environments, LinearSyntheticSimulation
-from coba.pipes        import Pipes, ListSink
+from coba.pipes        import Pipes, ListSink, Cache
 from coba.learners     import Learner
 
 from coba.experiments.results import Result
 from coba.experiments.process import (
     WorkItem, CreateWorkItems, RemoveFinished,
-    ChunkByTask, ChunkBySource, ProcessWorkItems,
+    ChunkByChunk, ProcessWorkItems,
     MaxChunkSize
 )
 
@@ -35,7 +35,9 @@ class ObserveTask:
         self.observed = []
 
     def process(self, *items):
-        self.observed = items
+        if len(items)==2: 
+            items = (items[0], list(items[1]))
+        self.observed = list(items)
 
         if len(items) == 2 and isinstance(items[0], Learner): #eval task
             items[0].learn(None, None, None, None, None)
@@ -131,86 +133,85 @@ class RemoveFinished_Tests(unittest.TestCase):
 
         self.assertEqual(8, len(unfinished_tasks))
 
-class ChunkBySource_Tests(unittest.TestCase):
+class ChunkByChunk_Tests(unittest.TestCase):
 
-    def test_four_groups(self):
-        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+    def test_no_chunks(self):
+        src1 = Environments.from_linear_synthetic(10)
+        src2 = Environments.from_linear_synthetic(10)
+
+        envs = (src1+src2)
 
         tasks = [
             WorkItem(None, 0, None, None, None),
             WorkItem(None, 1, None, None, None),
-            WorkItem(1, None, sim2, None, None),
-            WorkItem(0, None, sim1, None, None),
-            WorkItem(0, 0, sim1, None, None),
-            WorkItem(2, 0, sim1, None, None),
-            WorkItem(0, 1, sim1, None, None),
-            WorkItem(1, 1, sim2, None, None)
+            WorkItem(1, None, envs[0], None, None),
+            WorkItem(0, None, envs[1], None, None),
+            WorkItem(1, 1, envs[0], None, None),
+            WorkItem(0, 0, envs[1], None, None),
+            WorkItem(2, 0, envs[1], None, None),
+            WorkItem(0, 1, envs[1], None, None),
         ]
 
-        groups = list(ChunkBySource().filter(tasks))
+        groups = list(ChunkByChunk().filter(tasks))
+
+        self.assertEqual(len(groups), 8)
+        self.assertEqual(groups[0], tasks[0:1])
+        self.assertEqual(groups[1], tasks[1:2])
+        self.assertEqual(groups[2], tasks[2:3])
+        self.assertEqual(groups[3], tasks[3:4])
+        self.assertEqual(groups[4], tasks[4:5])
+        self.assertEqual(groups[5], tasks[5:6])
+        self.assertEqual(groups[6], tasks[6:7])
+        self.assertEqual(groups[7], tasks[7:8])
+
+    def test_two_chunks(self):
+        src1 = Environments.from_linear_synthetic(10)
+        src2 = Environments.from_linear_synthetic(10)
+
+        envs = (src1+src2).chunk()
+
+        tasks = [
+            WorkItem(None, 0, None, None, None),
+            WorkItem(None, 1, None, None, None),
+            WorkItem(1, None, envs[0], None, None),
+            WorkItem(0, None, envs[1], None, None),
+            WorkItem(1, 1, envs[0], None, None),
+            WorkItem(0, 0, envs[1], None, None),
+            WorkItem(2, 0, envs[1], None, None),
+            WorkItem(0, 1, envs[1], None, None),
+        ]
+
+        groups = list(ChunkByChunk().filter(tasks))
 
         self.assertEqual(len(groups), 4)
         self.assertEqual(groups[0], tasks[0:1])
         self.assertEqual(groups[1], tasks[1:2])
-        self.assertEqual(groups[2], [tasks[3],tasks[4],tasks[6],tasks[5]])
-        self.assertEqual(groups[3], [tasks[2],tasks[7]])
+        self.assertEqual(groups[2], [tasks[3],tasks[5],tasks[7],tasks[6]])
+        self.assertCountEqual(groups[3], [tasks[2],tasks[4]])
 
-    def test_pipe_four_groups(self):
-        sim1 = Environments(LinearSyntheticSimulation(500)).shuffle([1,2])._environments
-        sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+    def test_two_chunks_two_shuffles(self):
+        src1 = Environments.from_linear_synthetic(10)
+        src2 = Environments.from_linear_synthetic(10)
+        envs = (src1+src2).chunk().shuffle(n=2)
 
         tasks = [
             WorkItem(None, 0, None, None, None),
             WorkItem(None, 1, None, None, None),
-            WorkItem(1, None, sim2, None, None),
-            WorkItem(0, None, sim1[0], None, None),
-            WorkItem(0, 0, sim1[0], None, None),
-            WorkItem(2, 0, sim1[1], None, None),
-            WorkItem(0, 1, sim1[0], None, None),
-            WorkItem(1, 1, sim2, None, None)
+            WorkItem(1, None, envs[0], None, None),
+            WorkItem(0, None, envs[2], None, None),
+            WorkItem(1, 1, envs[1], None, None),
+            WorkItem(0, 0, envs[2], None, None),
+            WorkItem(2, 0, envs[3], None, None),
+            WorkItem(0, 1, envs[3], None, None),
         ]
 
-        groups = list(ChunkBySource().filter(tasks))
+        groups = list(ChunkByChunk().filter(tasks))
 
         self.assertEqual(len(groups), 4)
         self.assertEqual(groups[0], tasks[0:1])
         self.assertEqual(groups[1], tasks[1:2])
-        self.assertEqual(groups[2], [tasks[3],tasks[4],tasks[6],tasks[5]])
-        self.assertEqual(groups[3], [tasks[2],tasks[7]])
-
-class ChunkByTask_Tests(unittest.TestCase):
-
-    def test_eight_groups(self):
-        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-
-        tasks = [
-            WorkItem(None, 0, None, None, None),
-            WorkItem(None, 1, None, None, None),
-            WorkItem(0, None, sim1, None, None),
-            WorkItem(1, None, sim2, None, None),
-            WorkItem(2, None, sim1, None, None),
-            WorkItem(0, 0, sim1, None, None),
-            WorkItem(0, 1, sim1, None, None),
-            WorkItem(1, 0, sim2, None, None),
-            WorkItem(1, 1, sim2, None, None),
-            WorkItem(2, 0, sim1, None, None),
-        ]
-
-        groups = list(ChunkByTask().filter(tasks))
-
-        self.assertEqual(len(groups), 10)
-        self.assertEqual(groups[0], [tasks[0]])
-        self.assertEqual(groups[1], [tasks[1]])
-        self.assertEqual(groups[2], [tasks[2]])
-        self.assertEqual(groups[3], [tasks[3]])
-        self.assertEqual(groups[4], [tasks[4]])
-        self.assertEqual(groups[5], [tasks[5]])
-        self.assertEqual(groups[6], [tasks[6]])
-        self.assertEqual(groups[7], [tasks[7]])
-        self.assertEqual(groups[8], [tasks[8]])
-        self.assertEqual(groups[9], [tasks[9]])
+        self.assertEqual(groups[2], [tasks[3],tasks[5],tasks[7],tasks[6]])
+        self.assertCountEqual(groups[3], [tasks[2],tasks[4]])
 
 class MaxChunkSize_Tests(unittest.TestCase):
     
@@ -249,7 +250,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
     def test_one_source_environment_reused(self):
 
-        sim1 = CountReadSimulation()
+        sim1 = Pipes.join(CountReadSimulation(), Cache())
 
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
@@ -277,16 +278,16 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(['T3', (0,0), []], transactions[1])
         self.assertEqual(['T3', (0,1), []], transactions[2])
 
-        self.assertEqual(sim1.n_reads, 1)
+        self.assertEqual(sim1[0].n_reads, 1)
 
         self.assertGreater(lrn1.n_learns, 0)
         self.assertGreater(lrn2.n_learns, 0)
 
     def test_one_pipe_environment_reused(self):
 
-        sim1 = CountReadSimulation()
+        src1 = CountReadSimulation()
         flt1 = CountFilter()
-        env1 = Pipes.join(sim1, flt1)
+        env1 = Pipes.join(src1, flt1, Cache())
 
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
@@ -314,7 +315,7 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(['T3', (0,0), []], transactions[1])
         self.assertEqual(['T3', (0,1), []], transactions[2])
 
-        self.assertEqual(sim1.n_reads , 1)
+        self.assertEqual(src1.n_reads , 1)
         self.assertEqual(flt1.n_filter, 1)
 
         self.assertEqual(lrn1.n_learns, 1)
@@ -322,7 +323,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
     def test_one_learner_evaluated_twice_is_deep_copied(self):
 
-        #make sure both environments are read and learner is deepcopied
+        #make sure the learner is deepcopied
 
         sim1 = CountReadSimulation()
         sim2 = CountReadSimulation()
@@ -352,6 +353,8 @@ class ProcessTasks_Tests(unittest.TestCase):
 
     def test_two_learners_evaluated_once_are_not_deep_copied(self):
 
+        #make sure the environment is read twice and learners aren't deepcopied
+
         sim1 = CountReadSimulation()
 
         lrn1 = ModuloLearner("1")
@@ -368,19 +371,19 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task2.observed[1]), 1)
 
         self.assertEqual(task1.observed[1][0]['context'], 0)
-        self.assertEqual(task2.observed[1][0]['context'], 0)
+        self.assertEqual(task2.observed[1][0]['context'], 1)
 
         self.assertEqual(['T3', (0,0), []], transactions[0])
         self.assertEqual(['T3', (0,1), []], transactions[1])
 
-        self.assertEqual(sim1.n_reads, 1)
+        self.assertEqual(sim1.n_reads, 2)
 
         self.assertEqual(lrn1.n_learns, 1)
         self.assertEqual(lrn2.n_learns, 1)
 
     def test_two_eval_tasks_two_source_two_env(self):
 
-        #make both environments are read and learners aren't deepcopied
+        #make sure both environments are read and learners aren't deepcopied
 
         sim1 = CountReadSimulation()
         sim2 = CountReadSimulation()
@@ -416,8 +419,9 @@ class ProcessTasks_Tests(unittest.TestCase):
         filt2 = CountFilter()
 
         src1   = CountReadSimulation()
-        sim1   = Pipes.join(src1, filt1)
-        sim2   = Pipes.join(src1, filt2)
+        cache  = Cache()
+        sim1   = Pipes.join(src1, cache, filt1)
+        sim2   = Pipes.join(src1, cache, filt2)
 
         lrn1   = ModuloLearner("1")
         lrn2   = ModuloLearner("2")
@@ -462,8 +466,6 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         transactions = list(ProcessWorkItems().filter(items))
 
-        self.assertEqual(CobaContext.logger.sink.items[1], 'Loading CountRead...')
-
         self.assertEqual(src1.n_reads  , 2)
         self.assertEqual(filt1.n_filter, 1)
         self.assertEqual(filt2.n_filter, 1)
@@ -505,8 +507,9 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         filter = CountFilter()
         src1   = CountReadSimulation()
-        sim1   = Pipes.join(src1, filter)
-        sim2   = Pipes.join(src1, filter)
+        cache  = Cache()
+        sim1   = Pipes.join(src1, cache, filter)
+        sim2   = Pipes.join(src1, cache, filter)
 
         task1 = ObserveTask()
         task2 = ObserveTask()
@@ -514,6 +517,9 @@ class ProcessTasks_Tests(unittest.TestCase):
         items = [ WorkItem(0, None, sim1, None, task1), WorkItem(1, None, sim2, None, task2) ]
 
         transactions = list(ProcessWorkItems().filter(items))
+
+        self.assertEqual(src1.n_reads  , 1)
+        self.assertEqual(filter.n_filter,2)
 
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
@@ -526,25 +532,30 @@ class ProcessTasks_Tests(unittest.TestCase):
 
     def test_two_environment_tasks_first_environment_is_empty(self):
 
+        lrn1 = ModuloLearner("1")
         src1  = LinearSyntheticSimulation(n_interactions=0)
         src2  = LinearSyntheticSimulation(n_interactions=5)
 
         task1 = ObserveTask()
         task2 = ObserveTask()
+        task3 = ObserveTask()
 
-        items = [ WorkItem(0, None, src1, None, task1), WorkItem(1, None, src2, None, task2) ]
+
+        items = [ WorkItem(0, None, src1, None, task1), WorkItem(0, 0, src1, lrn1, task2), WorkItem(1, None, src2, None, task3) ]
 
         transactions = list(ProcessWorkItems().filter(items))
 
-        self.assertEqual(len(task1.observed), 0)
-        self.assertEqual(len(task2.observed[1]), 5)
+        self.assertEqual(len(task1.observed), 2)
+        self.assertEqual(len(task2.observed), 0)
+        self.assertEqual(len(task3.observed[1]), 5)
 
-    def test_empty_environment_tasks(self):
+    def test_empty_environment_eval_task(self):
 
+        lrn1 = ModuloLearner("1")
         src1  = LinearSyntheticSimulation(0)
         task1 = ObserveTask()
 
-        items = [ WorkItem(0, None, src1, None, task1) ]
+        items = [ WorkItem(0, 0, src1, lrn1, task1) ]
 
         transactions = list(ProcessWorkItems().filter(items))
 

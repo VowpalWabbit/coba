@@ -37,7 +37,7 @@ class MockResponse:
 class Environments_Tests(unittest.TestCase):
     
     def test_cache(self):
-        env = Environments.cache('abc').from_linear_synthetic(100)[0]
+        env = Environments.cache_dir('abc').from_linear_synthetic(100)[0]
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertEqual("abc", CobaContext.cacher.cache_directory)
         self.assertEqual(len(list(env.read())),100)

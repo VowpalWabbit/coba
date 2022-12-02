@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Sequence, Optional, Union
-from coba.backports import Literal
 
 from coba.pipes import Pipes, Foreach
 from coba.learners import Learner
@@ -9,7 +8,7 @@ from coba.multiprocessing import CobaMultiprocessor
 from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, NullLogger
 from coba.exceptions import CobaException
 
-from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByTask, ChunkBySource, ProcessWorkItems, MaxChunkSize
+from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByChunk, MaxChunkSize, ProcessWorkItems
 from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
 from coba.experiments.tasks   import SimpleLearnerInfo, SimpleEnvironmentInfo, SimpleEvaluation
 from coba.experiments.results import Result, TransactionIO
@@ -56,12 +55,10 @@ class Experiment:
 
         self._processes        : Optional[int] = None
         self._maxchunksperchild: Optional[int] = None
-        self._maxtasksperchunk : Optional[int] = None 
-        self._chunk_by         : Optional[str] = None
+        self._maxtasksperchunk : Optional[int] = None
 
     def config(self,
         processes: int = None,
-        chunk_by: Literal['source','task'] = None,
         maxchunksperchild: Optional[int] = None,
         maxtasksperchunk: Optional[int] = None) -> 'Experiment':
         """Configure how the experiment will be executed.
@@ -69,7 +66,6 @@ class Experiment:
         A value of `None` for any item means the CobaContext.experiment will be used.
 
         Args:
-            chunk_by: The method for chunking tasks before processing.
             processes: The number of processes to create for evaluating the experiment.
             maxchunksperchild: The number of chunks each process evaluate before being restarted. A 
                 value of 0 means that all processes will survive until the end of the experiment.
@@ -78,25 +74,15 @@ class Experiment:
                 broken down into smaller chunks.
         """
 
-        assert chunk_by is None or chunk_by in ['task', 'source'], "The given chunk_by value wasn't recognized. Allowed values are 'task', 'source' and 'none'"
         assert processes is None or processes > 0, "The given number of processes is invalid. Must be greater than 0."
         assert maxchunksperchild is None or maxchunksperchild >= 0, "The given number of chunks per child is invalid. Must be greater than or equal to 0 (0 for infinite)."
         assert maxtasksperchunk is None or maxtasksperchunk >= 0, "The given number of tasks per chunk is invalid. Must be greater than or equal to 0 (0 for infinite)."
 
-        self._chunk_by          = chunk_by
         self._processes         = processes
         self._maxchunksperchild = maxchunksperchild
         self._maxtasksperchunk  = maxtasksperchunk
 
         return self
-
-    @property
-    def chunk_by(self) -> str:
-        """The method for chunking tasks before sending them to processes for execution.
-
-        This option is only relevant if the experiment is being executed on multiple processes.
-        """
-        return self._chunk_by if self._chunk_by is not None else CobaContext.experiment.chunk_by
 
     @property
     def processes(self) -> int:
@@ -119,7 +105,7 @@ class Experiment:
         Args:
             result_file: The file for writing and restoring results .
         """
-        cb, mp, mc, mt = self.chunk_by, self.processes, self.maxchunksperchild, self.maxtasksperchunk
+        mp, mc, mt = self.processes, self.maxchunksperchild, self.maxtasksperchunk
 
         if quiet: 
             old_logger = CobaContext.logger
@@ -146,7 +132,7 @@ class Experiment:
 
         workitems  = CreateWorkItems(self._environments, self._learners, self._learner_task, self._environment_task, self._evaluation_task)
         unfinished = RemoveFinished(restored)
-        chunk      = ChunkByTask() if cb == 'task' else ChunkBySource()
+        chunk      = ChunkByChunk()
         max_chunk  = MaxChunkSize(mt)
         sink       = TransactionIO(result_file)
 

@@ -5,7 +5,7 @@ import warnings
 from math import isnan
 from statistics import mean, median, stdev, mode
 from numbers import Number
-from operator import eq, itemgetter, getitem
+from operator import eq, itemgetter, getitem, methodcaller
 from collections import defaultdict, deque
 from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
@@ -39,7 +39,9 @@ class Reservoir(pipes.Reservoir, EnvironmentFilter):
 
 class Cache(pipes.Cache, EnvironmentFilter):
     """Cache all interactions that come before this filter and use the cache in the future."""
-    pass
+
+    def filter(self, items: Iterable[Interaction]) -> Iterable[Interaction]:
+        yield from map(methodcaller('copy'), super().filter(items))
 
 class Scale(EnvironmentFilter):
     """Shift and scale features to precondition them before learning."""
@@ -969,3 +971,8 @@ class Finalize(EnvironmentFilter):
                     new['action'] = HashableMap(new['action'])
 
             yield new
+
+class Chunk(EnvironmentFilter):
+    """A placeholder filter that exists only to semantically indicate how an environment pipe should be chunked for processing."""
+    def filter(self, items: Iterable[Interaction]) -> Iterable[Interaction]:
+        return items
