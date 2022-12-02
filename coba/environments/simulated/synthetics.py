@@ -9,7 +9,7 @@ from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.encodings import InteractionsEncoder, OneHotEncoder
 
-from coba.environments.primitives import Context, Action, SimulatedEnvironment, SimulatedInteraction
+from coba.environments.primitives import Context, Action, SimulatedEnvironment, SimulatedInteraction, SequenceReward
 
 class LambdaSimulation(SimulatedEnvironment):
     """A simulation created from generative lambda functions."""
@@ -77,7 +77,7 @@ class LambdaSimulation(SimulatedEnvironment):
             actions  = _actions(i, context)
             rewards  = [ _reward(i, context, action) for action in actions]
 
-            yield SimulatedInteraction(context, actions, rewards)
+            yield {'type':'simulated','context':context,'actions':actions,'rewards': SequenceReward(rewards) }
 
     def __str__(self) -> str:
         return "LambdaSimulation"
@@ -166,7 +166,7 @@ class NeighborsSyntheticSimulation(LambdaSimulation):
         context_actions        = { c: actions_gen() for c in contexts }
         context_action_rewards = { (c,a):rng.random() for c in contexts for a in context_actions[c] }
 
-        context_iter = iter(islice(cycle(contexts),n_interactions))
+        context_iter = iter(cycle(contexts))
 
         def context(index:int):
             return next(context_iter)
@@ -233,9 +233,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
 
         rng           = CobaRandom(seed)
         feats_encoder = InteractionsEncoder(reward_features)
-
-        feats_gen     = rng.randoms(None,-1.5,1.5)
-        one_hot_acts = OneHotEncoder().fit_encodes(range(n_actions))
+        one_hot_acts  = OneHotEncoder().fit_encodes(range(n_actions))
 
         feature_count = len(feats_encoder.encode(x=[1]*n_context_features,a=[1]*n_action_features))
         weight_parts  = n_actions if n_context_features and not n_action_features else 1
@@ -244,13 +242,13 @@ class LinearSyntheticSimulation(LambdaSimulation):
         self._weights = [ rng.gausses(weight_count,0,1) for _ in range(weight_parts) ]
         self._biases  = [ 0 ] * weight_parts
 
-        def context(index:int) -> Context:
-            return list(islice(feats_gen,n_context_features)) or None
+        def context(index:int, rng: CobaRandom) -> Context:
+            return rng.randoms(n_context_features,-1.5,1.5) or None
 
-        def actions(index:int,context: Context) -> Sequence[Action]:
-            return [ list(islice(feats_gen,n_action_features)) for _ in range(n_actions) ] if n_action_features else one_hot_acts
+        def actions(index:int,context: Context, rng: CobaRandom) -> Sequence[Action]:
+            return [ rng.randoms(n_action_features,-1.5,1.5) for _ in range(n_actions) ] if n_action_features else one_hot_acts
 
-        def reward(index:int,context:Context, action:Action) -> float:
+        def reward(index:int,context:Context, action:Action, rng: CobaRandom) -> float:
 
             F = feats_encoder.encode(x=context,a=action) if feature_count else action
             W = self._weights[0 if weight_parts==1 else action.index(1)]
@@ -258,7 +256,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
 
             return b+sum([w*f for w,f in zip(W,F)])
 
-        interaction_rewards = [ [reward(i,c,a) for a in actions(i,c)] for i in range(100) for c in [ context(i)] ]
+        interaction_rewards = [ [reward(i,c,a,None) for a in actions(i,c,rng)] for i in range(100) for c in [ context(i,rng)] ]
 
         parts_rewards  = [sum(interaction_rewards,[])] if weight_parts == 1 else list(zip(*interaction_rewards))
         global_rewards = sum(interaction_rewards,[])
@@ -271,7 +269,7 @@ class LinearSyntheticSimulation(LambdaSimulation):
             self._weights[i] = [w/scale for w in self._weights[i]]
             self._biases[i]  = 0.5-mean(part_rewards)/scale
 
-        super().__init__(n_interactions, context, actions, reward)
+        super().__init__(n_interactions, context, actions, reward, seed=self._seed)
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -337,20 +335,19 @@ class KernelSyntheticSimulation(LambdaSimulation):
         exemplar_feats = (n_action_features+n_context_features) or n_actions
 
         one_hot_acts = OneHotEncoder().fit_encodes(range(n_actions))
-        feature_gen  = lambda n: tuple(rng.randoms(n,-1.5,1.5))
-        exemplar_gen = lambda n: [ feature_gen(exemplar_feats) for _ in range(n)]
+        exemplar_gen = lambda n: [  tuple(rng.randoms(exemplar_feats,-1.5,1.5)) for _ in range(n)]
 
         self._exemplars = [ exemplar_gen(exemplar_count) for _ in range(exemplar_parts) ]
         self._weights   = [ rng.gausses(exemplar_count, 0, 1) for _ in range(exemplar_parts) ]
         self._biases    = [ 0 ] * exemplar_parts
 
-        def context(index:int) -> Context:
-            return feature_gen(n_context_features) if n_context_features else None
+        def context(index:int, rng: CobaRandom) -> Context:
+            return tuple(rng.randoms(n_context_features,-1.5,1.5)) if n_context_features else None
 
-        def actions(index:int, context: Context) -> Sequence[Action]:
-            return [ feature_gen(n_action_features) for _ in range(n_actions) ] if n_action_features else one_hot_acts
+        def actions(index:int, context: Context, rng: CobaRandom) -> Sequence[Action]:
+            return [ tuple(rng.randoms(n_action_features,-1.5,1.5)) for _ in range(n_actions) ] if n_action_features else one_hot_acts
 
-        def reward(index:int, context:Context, action:Action) -> float:
+        def reward(index:int, context:Context, action:Action, rng: CobaRandom) -> float:
 
             part_index = action.index(1) if exemplar_parts > 1                           else 0
             context    = context         if n_context_features                           else []
@@ -372,7 +369,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
 
             return b + sum([w*K(e,f) for w,e in zip(W, E)])
 
-        interaction_rewards = [ [reward(i,c,a) for a in actions(i,c)] for i in range(200) for c in [ context(i)] ]
+        interaction_rewards = [ [reward(i,c,a,rng) for a in actions(i,c,rng)] for i in range(200) for c in [ context(i,rng)] ]
 
         parts_rewards  = [sum(interaction_rewards,[])] if exemplar_parts == 1 else list(zip(*interaction_rewards))
         global_rewards = sum(interaction_rewards,[])
@@ -385,7 +382,7 @@ class KernelSyntheticSimulation(LambdaSimulation):
             self._weights[i] = [w/scale for w in self._weights[i]]
             self._biases[i]  = 0.5-mean(part_rewards)/scale
 
-        super().__init__(n_interactions, context, actions, reward)
+        super().__init__(n_interactions, context, actions, reward, self._seed)
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -466,16 +463,16 @@ class MLPSyntheticSimulation(LambdaSimulation):
         else:
             self._output_weights = rng.gausses(n_actions)
 
-        def context(index:int) -> Context:
+        def context(index:int, rng:CobaRandom) -> Context:
             return tuple(rng.gausses(n_context_features)) if n_context_features else None
 
-        def actions(index:int, context: Context) -> Sequence[Action]:
+        def actions(index:int, context: Context, rng:CobaRandom) -> Sequence[Action]:
             if n_action_features:
                 return [ (rng.gausses(n_action_features)) for _ in range(n_actions)]
             else:
                 return OneHotEncoder().fit_encodes(range(n_actions))
 
-        def reward(index:int, context:Context, action:Action) -> float:
+        def reward(index:int, context:Context, action:Action, rng:CobaRandom) -> float:
 
             #handles None context
             context = context or []
@@ -496,7 +493,7 @@ class MLPSyntheticSimulation(LambdaSimulation):
 
             return self._bias + sum([w*hout for w,hout in zip(W, hidden_outputs) ])
 
-        rewards = [ reward(i,c,a) for i in range(100) for c in [ context(i)] for a in actions(i,c) ]
+        rewards = [ reward(i,c,a,rng) for i in range(100) for c in [ context(i,rng)] for a in actions(i,c,rng) ]
 
         m = mean(rewards)
         s = (max(rewards)-min(rewards)) or 1
@@ -504,7 +501,7 @@ class MLPSyntheticSimulation(LambdaSimulation):
         self._bias = 0.5-m/s
         self._output_weights = [ w/s for w in self._output_weights ]
 
-        super().__init__(n_interactions, context, actions, reward)
+        super().__init__(n_interactions, context, actions, reward, self._seed)
 
     @property
     def params(self) -> Dict[str, Any]:
