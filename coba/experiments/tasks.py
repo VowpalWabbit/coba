@@ -67,13 +67,13 @@ class EvaluationTask(ABC):
 
 class SimpleEvaluation(EvaluationTask):
 
-    def __init__(self, 
-        reward_metrics: Union[str,Sequence[str]] = "reward", 
+    def __init__(self,
+        reward_metrics: Union[str,Sequence[str]] = "reward",
         time_metrics: bool = False,
         probability: bool = False) -> None:
         """
         Args:
-            reward_metrics: The reward metrics to that should be recorded for each example. 
+            reward_metrics: The reward metrics to that should be recorded for each example.
                 The metric options include: reward, rank, regret.
             time_metrics: Indicates whether time metrics should be recorded.
             probability: Indicates whether the action's probability should be recorded.
@@ -105,39 +105,45 @@ class SimpleEvaluation(EvaluationTask):
         if 'rank' in self._metrics and not discrete:
             warnings.warn(f"The rank metric can only be calculated for discrete environments")
 
-        calc_rank = 'rank' in self._metrics and discrete
+        calc_rank   = 'rank'   in self._metrics and discrete
         calc_reward = 'reward' in self._metrics
         calc_regret = 'regret' in self._metrics
 
-        for interaction in interactions:
-            
-            learning_info.clear()
-            out = {}
-            interaction_type = interaction['type']
+        get_reward = lambda reward                    : reward
+        get_regret = lambda reward, rewards           : rewards.max()-reward
+        get_rank   = lambda reward, rewards, n_actions: sorted(map(rewards.eval,range(n_actions))).index(reward)/(n_actions-1)
 
-            if interaction_type == 'simulated':
+        for interaction in interactions:
+
+            learning_info.clear()
+
+            out     = {}
+            batched = 'batched' in interaction
+            tipe    = interaction['type'][0] if batched  else interaction['type']
+
+            if tipe == 'simulated':
 
                 context = interaction['context']
                 actions = interaction['actions']
                 rewards = interaction['rewards']
-                extra   = {k:interaction[k] for k in interaction.keys()-SimulatedInteraction.keywords } 
+                extra   = {k:interaction[k] for k in interaction.keys()-SimulatedInteraction.keywords }
 
                 start_time       = time.time()
-                action,prob,info = predict(context, actions)
+                action,prob,info = predict(context, actions, batched)
                 predict_time     = time.time()-start_time
 
-                reward = rewards.eval(action)
+                reward = list(map(lambda r,a: r.eval(a),rewards,action)) if batched else rewards.eval(action)
 
                 start_time = time.time()
                 learn(context, actions, action, reward, prob, **info)
                 learn_time = time.time() - start_time
 
-            elif interaction_type == 'logged':
+            elif tipe == 'logged':
 
                 context = interaction['context']
                 actions = interaction.get('actions')
                 rewards = interaction.get('rewards')
-                extra   = {k:interaction[k] for k in interaction.keys()-LoggedInteraction.keywords } 
+                extra   = {k:interaction[k] for k in interaction.keys()-LoggedInteraction.keywords }
 
                 if not actions or not rewards:
                     predict_time = None
@@ -146,26 +152,26 @@ class SimpleEvaluation(EvaluationTask):
                     info         = None
                 else:
                     start_time   = time.time()
-                    action,prob  = predict(context, actions)[:2]
-                    reward       = rewards.eval(action)
+                    action,prob  = predict(context, actions, batched)[:2]
+                    reward       = list(map(rewards.eval,action)) if batched else rewards.eval(action)
                     predict_time = time.time()-start_time
 
                 start_time = time.time()
-                learn(context, actions, interaction['action'], interaction['reward'], interaction.get('probability'),info={})
+                learn(context, actions, interaction['action'], interaction['reward'], interaction.get('probability'))
                 learn_time = time.time()-start_time
 
-            elif interaction_type == 'grounded':
+            elif tipe == 'grounded':
 
                 context   = interaction['context']
                 actions   = interaction['actions']
                 rewards   = interaction['rewards']
                 feedbacks = interaction['feedbacks']
-                extra     = { k:interaction[k] for k in interaction.keys()-GroundedInteraction.keywords } 
+                extra     = { k:interaction[k] for k in interaction.keys()-GroundedInteraction.keywords }
 
                 start_time       = time.time()
-                action,prob,info = predict(context, actions)
-                reward           = rewards.eval(action)
-                feedback         = feedbacks.eval(action)
+                action,prob,info = predict(context, actions, batched)
+                reward           = list(map(rewards.eval,action)) if batched else rewards.eval(action)
+                feedback         = list(map(feedbacks.eval,action)) if batched else feedbacks.eval(action)
                 predict_time     = time.time()-start_time
 
                 start_time = time.time()
@@ -177,9 +183,15 @@ class SimpleEvaluation(EvaluationTask):
             else:
                 raise CobaException("An unknown interaction type was received.")
 
-            if calc_reward and reward is not None: out['reward'] = reward
-            if calc_rank  : out['rank'  ] = sorted(map(rewards.eval,range(len(actions)))).index(reward)/(len(actions)-1)
-            if calc_regret: out['regret'] = rewards.max()-reward
+            if reward is not None:
+                if not batched:
+                    if calc_reward : out['reward'] = get_reward(reward)
+                    if calc_regret : out['regret'] = get_regret(reward, rewards)
+                    if calc_rank   : out['rank'  ] = get_rank  (reward, rewards, len(actions))
+                else:
+                    if calc_reward : out['reward'] = mean(map(get_reward,reward))
+                    if calc_regret : out['regret'] = mean(map(get_regret,reward,rewards))
+                    if calc_rank   : out['rank'  ] = mean(map(get_rank  ,reward,rewards,len(actions)))
 
             if self._time: out.update(predict_time=predict_time, learn_time=learn_time)
             if self._prob and prob is not None: out.update(probability=prob)

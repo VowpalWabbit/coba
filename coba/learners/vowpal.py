@@ -5,10 +5,11 @@ from itertools import repeat, compress
 from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple
 from coba.backports import Literal
 
-from coba.pipes import Flatten, Sparse, Dense
+from coba.pipes import Flatten
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
+from coba.primitives import Sparse, Dense
 
 from coba.learners.primitives import Learner, Probs, Actions
 

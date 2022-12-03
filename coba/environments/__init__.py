@@ -10,7 +10,7 @@ from coba.environments.primitives import Context, Action, Actions, Reward, Feedb
 from coba.environments.primitives import Interaction, Environment, SafeEnvironment
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.environments.primitives import Reward, L1Reward, HammingReward, ScaleReward, BinaryReward
-from coba.environments.primitives import SequenceReward, MulticlassReward, HashableMap, HashableSeq
+from coba.environments.primitives import SequenceReward, MulticlassReward
 from coba.environments.primitives import Feedback, SequenceFeedback, EnvironmentFilter
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
 from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
@@ -78,8 +78,6 @@ __all__ = [
     'Finalize',
     'Repr',
     'MulticlassReward',
-    'HashableSeq',
-    'HashableMap',
     'Batch',
     'BatchSafe',
     'Chunk'

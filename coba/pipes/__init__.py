@@ -13,8 +13,8 @@ from coba.pipes.filters import Take, Shuffle, Structure, Identity, Flatten, Defa
 from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache
 
 from coba.pipes.rows    import LabelRows, EncodeRows, HeadRows, DropRows, EncodeCatRows, Categorical
-from coba.pipes.rows    import Dense, LazyDense, EncodeDense, LabelDense, KeepDense, HeadDense
-from coba.pipes.rows    import Sparse, LazySparse, EncodeSparse, LabelSparse, DropSparse
+from coba.pipes.rows    import LazyDense, EncodeDense, LabelDense, KeepDense, HeadDense
+from coba.pipes.rows    import LazySparse, EncodeSparse, LabelSparse, DropSparse
 from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
 from coba.pipes.sources import NullSource, IdentitySource, DiskSource, IterableSource
 from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource
@@ -60,8 +60,6 @@ __all__ = [
     "QueueIO",
     "SourceFilters",
     "Cache",
-    "Dense",
-    "Sparse",
     "LazyDense",
     "LazySparse",
     "EncodeDense",
@@ -76,5 +74,5 @@ __all__ = [
     "HeadRows",
     "DropRows",
     "EncodeCatRows",
-    "Categorical"
+    "Categorical",
 ]

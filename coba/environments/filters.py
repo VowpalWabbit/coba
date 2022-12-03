@@ -12,13 +12,14 @@ from itertools import islice, chain, tee, compress, repeat
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
 from coba.backports import Literal
 
-from coba            import pipes
+from coba            import pipes, primitives
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first
+from coba.primitives import HashableMap, HashableSeq
 
-from coba.environments.primitives import EnvironmentFilter, Interaction, HashableMap, HashableSeq
+from coba.environments.primitives import EnvironmentFilter, Interaction
 from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, SequenceReward
 
 class Identity(pipes.Identity, EnvironmentFilter):
@@ -91,12 +92,12 @@ class Scale(EnvironmentFilter):
         first_context = first['context']
         first_actions = first.get('actions')
 
-        if isinstance(first_context, pipes.Sparse) and self._shift != 0:
+        if isinstance(first_context, primitives.Sparse) and self._shift != 0:
             raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
 
         is_discrete       = first_actions and len(first_actions) > 0
-        is_dense_context  = isinstance(first_context, pipes.Dense)
-        is_sparse_context = isinstance(first_context, pipes.Sparse)
+        is_dense_context  = isinstance(first_context, primitives.Dense)
+        is_sparse_context = isinstance(first_context, primitives.Sparse)
         is_value_context  = not (is_dense_context or is_sparse_context)
         is_mutable        = isinstance(first['context'],(list,dict))
 
@@ -334,9 +335,9 @@ class Impute(EnvironmentFilter):
             context = interaction['context']
             imputed = {k: stats[k] if isinstance(v,float) and isnan(v) else v for k,v in self._context_as_name_values(context)}
 
-            if isinstance(context, pipes.Sparse):
+            if isinstance(context, primitives.Sparse):
                 new['context'] = imputed
-            elif isinstance(context, pipes.Dense):
+            elif isinstance(context, primitives.Dense):
                 new['context'] = tuple(imputed[k] for k,_ in self._context_as_name_values(context))
             elif imputed:
                 new['context'] = imputed[0]
@@ -392,9 +393,9 @@ class Sparse(EnvironmentFilter):
     def _make_sparse(self, value) -> Optional[dict]:
         if value is None:
             return value
-        if isinstance(value,pipes.Dense):
+        if isinstance(value,primitives.Dense):
             return dict(enumerate(value))
-        if isinstance(value,pipes.Sparse):
+        if isinstance(value,primitives.Sparse):
             return value
         return {0:value}
 
@@ -506,7 +507,7 @@ class Sort(EnvironmentFilter):
         dict_sorter = lambda interaction: tuple(interaction['context'].get(key,0) for key in self._keys)
 
         first, interactions = peek_first(interactions)
-        is_sparse           = isinstance(first['context'],pipes.Sparse)
+        is_sparse           = isinstance(first['context'],primitives.Sparse)
 
         sorter = full_sorter if not self._keys else dict_sorter if is_sparse else list_sorter
 
@@ -708,11 +709,11 @@ class Noise(EnvironmentFilter):
 
     def _noises(self, value:Union[None,float,str,Mapping,Sequence], rng: CobaRandom, noiser: Callable[[float,CobaRandom], float]):
 
-        if isinstance(value, pipes.Sparse):
+        if isinstance(value, primitives.Sparse):
             #we sort so that noise generation is deterministic with respect to seed
             return { k:self._noise(v, rng, noiser) for k,v in sorted(value.items()) }
 
-        if isinstance(value, pipes.Dense):
+        if isinstance(value, primitives.Dense):
             return [ self._noise(v, rng, noiser) for v in value ]
 
         return self._noise(value, rng, noiser)
@@ -795,9 +796,9 @@ class Grounded(EnvironmentFilter):
         is_binary_rwd = {0,1} == set(first['rewards'])
         first_context = first['context']
 
-        if isinstance(first_context,pipes.Sparse):
+        if isinstance(first_context,primitives.Sparse):
             context_type = 0
-        elif isinstance(first_context,pipes.Dense):
+        elif isinstance(first_context,primitives.Dense):
             context_type = 1
         else:
             context_type = 2
@@ -885,7 +886,7 @@ class Batch(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         for batch in self._batched(interactions, self._batch_size):
-            new = { k: [i[k] for i in batch] for k in batch[0] }
+            new = { k: primitives.Batch(i[k] for i in batch) for k in batch[0] }
             new['batched'] = True
             yield new
 
@@ -938,15 +939,15 @@ class Finalize(EnvironmentFilter):
         first_has_action  = 'action'  in first
 
         if first_has_context:
-            is_dense_context  = isinstance(first['context'],pipes.Dense)
-            is_sparse_context = isinstance(first['context'],pipes.Sparse)
+            is_dense_context  = isinstance(first['context'],primitives.Dense)
+            is_sparse_context = isinstance(first['context'],primitives.Sparse)
 
         if first_has_actions:
-            is_dense_action  = isinstance(first['actions'][0],pipes.Dense)
-            is_sparse_action = isinstance(first['actions'][0],pipes.Sparse)
+            is_dense_action  = isinstance(first['actions'][0],primitives.Dense)
+            is_sparse_action = isinstance(first['actions'][0],primitives.Sparse)
         elif first_has_action:
-            is_dense_action  = isinstance(first['action'],pipes.Dense)
-            is_sparse_action = isinstance(first['action'],pipes.Sparse)
+            is_dense_action  = isinstance(first['action'],primitives.Dense)
+            is_sparse_action = isinstance(first['action'],primitives.Sparse)
 
         for interaction in Repr("onehot","onehot").filter(interactions):
 

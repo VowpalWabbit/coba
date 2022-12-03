@@ -1,6 +1,7 @@
 from collections import abc
 from math import isclose
 from abc import ABC, abstractmethod
+from itertools import repeat
 from typing import Any, Sequence, Union, Tuple, Callable, Mapping, Optional
 
 from coba.exceptions import CobaException
@@ -21,11 +22,9 @@ class ActionScore(tuple):
         return tuple.__new__(ActionScore, (action, score))
 
 Prediction = Union[
-    PMF,
     PDF,
     Probs,
     ActionScore,
-    Tuple[PMF         , kwargs],
     Tuple[PDF         , kwargs],
     Tuple[Action,Score, kwargs],
     Tuple[ActionScore , kwargs],
@@ -85,7 +84,7 @@ class Learner(ABC):
 class SafeLearner(Learner):
     """A wrapper for learner-likes that guarantees interface consistency."""
 
-    def __init__(self, learner: Learner) -> None:
+    def __init__(self, learner: Learner, seed:int=1) -> None:
         """Instantiate a SafeLearner.
 
         Args:
@@ -93,7 +92,7 @@ class SafeLearner(Learner):
         """
 
         self._learner    = learner if not isinstance(learner, SafeLearner) else learner._learner
-        self._rng        = CobaRandom(1)
+        self._rng        = CobaRandom(seed)
         self._pred_type  = None #1==PDF,2==PMF,3==Action/Score
         self._with_info  = None
         self._learn_type = None #3==current,2==old with info,1==old without info
@@ -123,47 +122,59 @@ class SafeLearner(Learner):
 
         return params
 
-    def predict(self, context: Context, actions: Actions) -> Tuple[Action,Score,kwargs]:
+    def predict(self, context: Context, actions: Actions, batched:bool=False) -> Tuple[Action,Score,kwargs]:
 
         pred = self._learner.predict(context, actions)
+        pred_type = self._pred_type
 
-        if self._pred_type is None: # first call
+        if pred_type is None: # this happens on the first call
+            if batched: old_pred,pred = pred,pred[0]
             is_discrete = 0 < len(actions) and len(actions) < float('inf')
             pred_type = self.get_type(pred, is_discrete) or self.get_inferred_type(pred, actions)
-            pred_info = self.get_info(pred,pred_type)
+            with_info = self.has_info(pred,pred_type)
             self._pred_type = pred_type
-            self._with_info = bool(pred_info)
+            self._with_info = with_info
+            self._info_dict = with_info and isinstance(pred[-1],dict) 
+            if batched: pred = old_pred
+
+        if not self._with_info:
+            pred_info = {}
         else:
-            pred_type = self._pred_type
-            pred_info = pred[-1] if self._with_info else {}
+            if not batched:
+                pred_info = pred[-1] if self._info_dict else {'_':pred[-1]}
+            if batched:
+                pred_info = [p[-1] if self._info_dict else {'_':p[-1]} for p in pred]
+                pred_info = {k:[ i[k] for i in pred_info] for k in pred_info[0]}
 
-        if self._pred_type == 1 or self._pred_type == 2:
-            pmf_or_pdf = pred[0] if pred_info else pred
-            pmf        = list(map(pred,actions)) if pred_type == 1 else pmf_or_pdf
-            assert len(pmf) == len(actions), "The learner returned an invalid number of probabilities for the actions"
-            assert isclose(sum(pmf), 1, abs_tol=.001), "The learner returned a pmf which does not sum to one."
-
-            action,score = self._rng.choice(list(enumerate(pmf)), pmf)
+        if self._pred_type == 2:
+            pmf = pred[0] if pred_info else pred
+            if not batched:
+                action,score = self._get_pmf_action_score(self._rng,pmf,actions)
+            else:
+                action,score = list(zip(*map(self._get_pmf_action_score, repeat(self._rng), pmf, actions)))
         else:
-            action,score = pred[:2]
+            if not batched:
+                action,score = pred[:2]
+            else:
+                action,score = zip(*[p[:2] for p in pred])
 
-        return action, score, {'info':pred_info}
+        return action, score, pred_info
 
-    def learn(self, context, actions, action, reward, probability, info) -> None:
+    def learn(self, context, actions, action, reward, probability, **kwargs) -> None:
         if self._learn_type==3:
-            self._learner.learn(context, actions, action, reward, probability, **(info or {}))
+            self._learner.learn(context, actions, action, reward, probability, **kwargs)
         elif self._learn_type==2:
-            self._learner.learn(context, action, reward, probability, info)
+            self._learner.learn(context, action, reward, probability, kwargs.get('_',kwargs))
         elif self._learn_type==1:
             self._learner.learn(context, action, reward, probability)
         else:
             all_failed = False
             try:
-                self._learner.learn(context, actions, action, reward, probability, **info)
+                self._learner.learn(context, actions, action, reward, probability, **kwargs)
                 self._learn_type = 3
             except:
                 try:
-                    self._learner.learn(context, action, reward, probability, info)
+                    self._learner.learn(context, action, reward, probability, kwargs.get('_',kwargs))
                     self._learn_type = 2
                 except:
                     try:
@@ -175,18 +186,16 @@ class SafeLearner(Learner):
                 if all_failed: raise
 
     def get_type(self,pred,is_discrete) -> Optional[int]:
-        if self._is_type_1(pred): return 1
+        if self._is_type_1(pred): raise CobaException("PDF predictions are currently not supported.")
         if self._is_type_2(pred,is_discrete): return 2
         if self._is_type_3(pred,is_discrete): return 3
         return None
 
-    def get_info(self,pred,pred_type) -> Mapping[Any,Any]:
-        if pred_type == 1:
-            return pred[1] if isinstance(pred,abc.Sequence) and len(pred) == 2 else {}        
-        elif pred_type == 2:
-            return pred[1] if not isinstance(pred[0],(int,float)) else {}
+    def has_info(self,pred,pred_type) -> Mapping[Any,Any]:
+        if pred_type == 2:
+            return not isinstance(pred[0],(int,float))
         else: #pred_type==3
-            return pred[2] if len(pred) == 3 else {}
+            return len(pred) == 3
 
     def _is_type_1(self, pred):
         #PDF
@@ -241,6 +250,11 @@ class SafeLearner(Learner):
         #action,score
         correct_shape = len(pred) in [2,3]        
         return self._pred_0_possible_action(pred,actions) and correct_shape
+
+    def _get_pmf_action_score(self,rng,pmf,actions):
+        assert len(pmf) == len(actions), "The learner returned an invalid number of probabilities for the actions"
+        assert isclose(sum(pmf), 1, abs_tol=.001), "The learner returned a pmf which does not sum to one."
+        return rng.choice(list(enumerate(pmf)), pmf)
 
     def __str__(self) -> str:
         return self.full_name

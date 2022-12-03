@@ -4,13 +4,14 @@ import copy
 
 from collections import defaultdict, abc
 from itertools import islice, chain
-from typing import Iterable, Any, Sequence, Mapping, Optional, Union, List
+from typing import Iterable, Any, Sequence, Mapping, Optional, Union
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
 from coba.utilities import peek_first
+from coba.primitives import Sparse,Dense
 
-from coba.pipes.primitives import Filter, Dense, Sparse
+from coba.pipes.primitives import Filter
 
 class Identity(Filter[Any, Any]):
     """A filter which returns what is given."""

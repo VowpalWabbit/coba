@@ -9,7 +9,7 @@ from coba.learners import Learner, Probs
 from coba.contexts import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment, SimpleEvaluation
 from coba.exceptions import CobaException
-from coba.utilities import Categorical
+from coba.primitives import Categorical
 
 class NoParamsLearner:
     def predict(self, context, actions):

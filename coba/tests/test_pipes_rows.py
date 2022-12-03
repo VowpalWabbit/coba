@@ -5,25 +5,6 @@ from coba.pipes.rows import EncodeRows, HeadRows, LabelRows, DropRows, EncodeCat
 from coba.pipes.rows import LazyDense, EncodeDense, HeadDense, LabelDense, KeepDense
 from coba.pipes.rows import LazySparse, EncodeSparse, HeadSparse, LabelSparse, DropSparse, DropOne
 
-class Categorical_Tests(unittest.TestCase):
-    def test_value(self):
-        self.assertEqual("A", Categorical("A",["A","B"]))
-    
-    def test_levels(self):
-        self.assertEqual(["A","B"], Categorical("A",["A","B"]).levels)
-
-    def test_eq(self):
-        self.assertEqual(Categorical("A",["A","B"]), Categorical("A",["A","B"]))
-
-    def test_ne(self):
-        self.assertNotEqual(1, Categorical("A",["A","B"]))
-
-    def test_str(self):
-        self.assertEqual("A", str(Categorical("A",["A","B"])))
-
-    def test_repr(self):
-        self.assertEqual("Categorical('A',['A', 'B'])", repr(Categorical("A",["A","B"])))
-
 class EncodeCatRows_Tests(unittest.TestCase):
 
     def test_none_dense_with_categorical(self):
@@ -541,11 +522,6 @@ class LazySparse_Tests(unittest.TestCase):
         l = LazySparse(lambda:{'a':1,'b':2})
         self.assertNotEqual({'b':2},l)
         self.assertNotEqual(1,l)
-
-class Sparse_Tests(unittest.TestCase):
-
-    def test_simple(self):
-        self.assertEqual(True, LazySparse(LazySparse({'a':1,'b':2}, missing=True)).missing)
 
 class HeadSparse_Tests(unittest.TestCase):
 

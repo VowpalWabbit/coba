@@ -8,7 +8,7 @@ import warnings
 from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
-from coba.environments import Shuffle, Noise, SequenceReward
+from coba.environments import Shuffle, Noise, SequenceReward, Batch
 from coba.learners     import Learner
 from coba.pipes        import Pipes
 
@@ -662,6 +662,33 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             list(SimpleEvaluation().process(None, [DummyInteraction(type='Dummy')]))
 
         self.assertEqual("An unknown interaction type was received.", str(e.exception))
+
+    def test_batched_simulated_interaction(self):
+
+        class SimpleLearner:
+            def predict(self,*args):
+                self.predict_call=args
+                return [[1,0,0],[0,1,0],[0,0,1]]
+            def learn(self,*args):
+                self.learn_call = args
+
+        task         = SimpleEvaluation()
+        learner      = SimpleLearner()
+        interactions = [
+            SimulatedInteraction(1,[1,2,3],[7,8,9]),
+            SimulatedInteraction(2,[4,5,6],[4,5,6]),
+            SimulatedInteraction(3,[7,8,9],[1,2,3]),
+        ]
+
+        task_results = list(task.process(learner, Batch(3).filter(interactions)))
+
+        expected_predict_call = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]])
+        expected_learn_call   = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]],(0,1,2),[7,5,3],(1,1,1))
+        expected_task_results  = [ {"reward":5, "batched":True} ]
+
+        self.assertEqual(expected_predict_call, learner.predict_call)
+        self.assertEqual(expected_learn_call, learner.learn_call)
+        self.assertEqual(expected_task_results, task_results)
 
 if __name__ == '__main__':
     unittest.main()

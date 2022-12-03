@@ -216,7 +216,6 @@ class FiltersFilter_Tests(unittest.TestCase):
         pipes = list(FiltersFilter(filter1, filter2))
         self.assertEqual(pipes, [filter1,filter2])
 
-
 class FiltersSink_Tests(unittest.TestCase):
 
     def test_init_filters_sink(self):

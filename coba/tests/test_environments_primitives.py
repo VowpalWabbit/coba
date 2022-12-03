@@ -1,11 +1,12 @@
 import unittest
 
-from coba.environments import SafeEnvironment, HashableMap, HashableSeq
+from coba.environments import SafeEnvironment
 from coba.environments import SimulatedInteraction, LoggedInteraction
 from coba.environments import L1Reward, HammingReward, ScaleReward, BinaryReward, SequenceReward
 from coba.environments import SequenceFeedback, MulticlassReward
 from coba.exceptions import CobaException
 from coba.pipes import Pipes, Shuffle
+from coba.primitives import HashableMap, HashableSeq
 
 class DummyEnvironment:
 

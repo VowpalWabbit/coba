@@ -142,6 +142,13 @@ class FixedLearner_Tests(unittest.TestCase):
         learner = FixedLearner([1/3,1/3,1/3])
         self.assertEqual([1/3,1/3,1/3], learner.predict(None, [1,2,3]))
 
+    def test_pdf(self):
+        learner = FixedLearner(lambda a: 1 if a==0 else 0)
+        pdf = learner.predict(None, [1,2,3])
+        self.assertEqual(1,pdf(0))
+        self.assertEqual(0,pdf(1))
+
+
     def test_learn(self):
         FixedLearner([1/3,1/3,1/3]).learn(None, 1, 1, .5, None)
 

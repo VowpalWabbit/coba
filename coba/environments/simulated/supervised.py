@@ -5,7 +5,8 @@ from coba.backports import Literal
 from coba.pipes import Pipes, Source, IterableSource, LabelRows, Reservoir, UrlSource, CsvReader
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 
-from coba.utilities import peek_first, Categorical
+from coba.utilities import peek_first
+from coba.primitives import Categorical
 
 from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
 from coba.environments.primitives import L1Reward, MulticlassReward, HammingReward

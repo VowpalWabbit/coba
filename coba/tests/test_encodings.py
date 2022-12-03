@@ -2,7 +2,7 @@ import unittest
 import math
 
 from coba.pipes.rows import LazyDense, LazySparse
-from coba.utilities import Categorical
+from coba.primitives import Categorical
 
 from coba.encodings import(
     IdentityEncoder, StringEncoder, NumericEncoder,

@@ -3,10 +3,10 @@ from itertools import count, compress, chain, filterfalse, islice
 from typing import Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple
 from coba.backports import Literal
 
+from coba.primitives import Sparse, Dense, Categorical
 from coba.utilities import peek_first
-from coba.pipes.primitives import Filter, Sparse, Dense
+from coba.pipes.primitives import Filter
 from coba.pipes.filters import Flatten
-from coba.utilities import Categorical
 
 class LazyDense(Dense):
     __slots__ = ('_row','_enc','headers','missing')

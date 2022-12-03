@@ -74,7 +74,7 @@ class UnsafeFixedLearner:
         if self._info is None:
             return self._pmf
         else:
-            return self._pmf, {'info':self._info}
+            return self._pmf, self._info
 
 class AmbiguousPredictionLearner:
 
@@ -147,27 +147,27 @@ class SafeLearner_Tests(unittest.TestCase):
 
         self.assertEqual(0  , predict[0])
         self.assertEqual(1/2, predict[1])
-        self.assertEqual({} , predict[2]['info'])
+        self.assertEqual({} , predict[2])
 
     def test_sum_one_info_action_match_predict(self):
         learner = SafeLearner(UnsafeFixedLearner([1/2,1/2], 1))
 
         predict = learner.predict(None, [1,2])
 
-        self.assertEqual(0         , predict[0])
-        self.assertEqual(1/2       , predict[1])
-        self.assertEqual({'info':1}, predict[2]['info'])
+        self.assertEqual(0      , predict[0])
+        self.assertEqual(1/2    , predict[1])
+        self.assertEqual({'_':1}, predict[2])
 
     def test_no_exception_with_learner_type1(self):
         learner = SafeLearner(LearnerType1())
         learner.learn(1,[1,2],2,3,4,info={})
         learner.learn(1,[1,2],2,3,4,info={})
-    
+
     def test_no_exception_with_learner_type2(self):
         learner = SafeLearner(LearnerType2())
         learner.learn(1,[1,2],2,3,4,info=1)
         learner.learn(1,[1,2],2,3,4,info=1)
-    
+
     def test_no_exception_with_learner_type3(self):
         learner = SafeLearner(LearnerType3())
         learner.learn(1,[1,2],2,3,4,info={})
@@ -176,14 +176,51 @@ class SafeLearner_Tests(unittest.TestCase):
     def test_exception_with_broken_learn_signature(self):
         learner = SafeLearner(BrokenLearnSignature())
         with self.assertRaises(Exception) as e:
-            learner.learn(1,[1,2],2,3,4,info={})
+            learner.learn(1,[1,2],2,3,4,**{})
 
         self.assertIn("takes 2 positional arguments but 6 were given", str(e.exception))
 
+    def test_type2_prediction_sans_info(self):
+        class MyLearner:
+            def predict(self,context,actions):
+                return [0,0,1]
+
+        self.assertEqual(SafeLearner(MyLearner()).predict(None,[1,2,3]), (2,1,{}))
+
+    def test_batched_type2_prediction_sans_info(self):
+        class MyLearner:
+            def predict(self,context,actions):
+                return [[0,0,1],[0,1,0],[1,0,0]]
+
+        self.assertEqual(SafeLearner(MyLearner()).predict(None,[[1,2,3]]*3,batched=True), ((2,1,0),(1,1,1),{}))
+
+    def test_type3_prediction_sans_info(self):
+        class MyLearner:
+            def predict(self,context,actions):
+                return 0,.5
+
+        self.assertEqual(SafeLearner(MyLearner()).predict(None,[1,2,3]), (0,.5,{}))
+
+    def test_batched_type3_prediction_sans_info(self):
+        class MyLearner:
+            def predict(self,context,actions):
+                return [(0,1),(1,.5),(2,1)]
+
+        self.assertEqual(SafeLearner(MyLearner()).predict([None]*3, [[1,2,3]]*3,batched=True), ((0,1,2),(1,.5,1),{}))
+
+    def test_batched_type3_prediction_with_info(self):
+        class MyLearner:
+            def predict(self,context,actions):
+                return [(0,1,{'a':1}),(1,.5,{'a':2}),(2,1,{'a':3})]
+
+        self.assertEqual(SafeLearner(MyLearner()).predict([None]*3, [[1,2,3]]*3,batched=True), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+
+    @unittest.skip("Skipped because it is a rare use case and we don't want to support it for now. Can be added later.")
     def test_pdf_prediction(self):
-        action,score,kwargs = SafeLearner(FixedLearner(lambda a: 1 if a == 0 else 0)).predict(None,[0,1])
-        self.assertEqual(0, action)
-        self.assertEqual(1, score)
+        with self.assertRaises(CobaException) as e:
+            action,score,kwargs = SafeLearner(FixedLearner(lambda a: 1 if a == 0 else 0)).predict(None,[0,1])
+        
+        self.assertEqual(str(e.exception), "PDFs predictions are currently not supported.")
 
     def test_infer_types(self):
         learner = SafeLearner(None)
@@ -199,7 +236,7 @@ class SafeLearner_Tests(unittest.TestCase):
         learner = SafeLearner(None)
 
         #this is definitely a pdf because it is callable
-        self.assertEqual(learner.get_type(lambda a: 1, True),1)
+        #self.assertEqual(learner.get_type(lambda a: 1, True),1)
 
         #this is definitely a pmf because of how long it is
         self.assertEqual(learner.get_type((0,1,0,0,0,0), True),2)

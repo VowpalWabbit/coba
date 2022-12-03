@@ -12,13 +12,13 @@ import coba.random
 
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, ScaleReward, L1Reward
-from coba.environments import Scale, Flatten, Grounded, HashableMap, Chunk
+from coba.environments import Scale, Flatten, Grounded, Chunk
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.experiments.results import Result, moving_average
 from coba.experiments import SimpleEvaluation
-from coba.utilities import Categorical
+from coba.primitives import Categorical, HashableMap
 
 Timeable = Callable[[],Any]
 Scalable = Callable[[int],Timeable]
@@ -298,7 +298,7 @@ class Performance_Tests(unittest.TestCase):
             def learn(*args): pass
 
         learn = SafeLearner(DummyLearner())        
-        self._assert_call_time(lambda:learn.learn(1,[1,2,3], [1], 1, .5, {}), .0008, print_time, number=1000)        
+        self._assert_call_time(lambda:learn.learn(1,[1,2,3], [1], 1, .5), .0008, print_time, number=1000)        
 
     def test_scale_reward(self):
         reward = ScaleReward(L1Reward(1), 1, 2, "argmax")
