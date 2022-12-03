@@ -329,7 +329,9 @@ class Environments (collections.abc.Sequence):
 
     def materialize(self) -> 'Environments':
         """Materialize the environments in memory. Ideal for stateful environments such as Jupyter Notebook."""
-        envs = self.cache()
+        #we use pies.cache directly because the environment cache will copy 
+        #which we don't need when we materialize an environment in memory
+        envs = Environments([Pipes.join(env, pipes.Cache(25)) for env in self])
         for env in envs: list(env.read()) #force read to pre-load cache
         return envs
 
@@ -354,7 +356,7 @@ class Environments (collections.abc.Sequence):
 
     def cache(self) -> 'Environments':
         """Create a cache point in the environments so that earlier steps in the pipeline can be re-used in several pipes."""
-        return Environments([Pipes.join(env, Cache(2)) for env in self])
+        return Environments([Pipes.join(env, Cache(25)) for env in self])
 
     def filter(self, filter: Union[EnvironmentFilter,Sequence[EnvironmentFilter]]) -> 'Environments':
         """Apply filters to each environment currently in Environments."""
