@@ -1,8 +1,8 @@
 # type: ignore
 import setuptools
 
-MAJOR               = 5
-MINOR               = 1
+MAJOR               = 6
+MINOR               = 0
 MICRO               = 0
 VERSION             = f"{MAJOR}.{MINOR}.{MICRO}"
 
