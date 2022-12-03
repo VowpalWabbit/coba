@@ -684,7 +684,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_call = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]])
         expected_learn_call   = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]],(0,1,2),[7,5,3],(1,1,1))
-        expected_task_results  = [ {"reward":5, "batched":True} ]
+        expected_task_results  = [ {"reward":5 } ]
 
         self.assertEqual(expected_predict_call, learner.predict_call)
         self.assertEqual(expected_learn_call, learner.learn_call)

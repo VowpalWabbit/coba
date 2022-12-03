@@ -1,6 +1,7 @@
 import unittest
 
 from coba.exceptions import CobaException
+from coba.primitives import Batch
 from coba.learners import SafeLearner, FixedLearner, ActionScore, Probs
 
 class ParamsLearner:
@@ -192,7 +193,7 @@ class SafeLearner_Tests(unittest.TestCase):
             def predict(self,context,actions):
                 return [[0,0,1],[0,1,0],[1,0,0]]
 
-        self.assertEqual(SafeLearner(MyLearner()).predict(None,[[1,2,3]]*3,batched=True), ((2,1,0),(1,1,1),{}))
+        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ((2,1,0),(1,1,1),{}))
 
     def test_type3_prediction_sans_info(self):
         class MyLearner:
@@ -206,14 +207,73 @@ class SafeLearner_Tests(unittest.TestCase):
             def predict(self,context,actions):
                 return [(0,1),(1,.5),(2,1)]
 
-        self.assertEqual(SafeLearner(MyLearner()).predict([None]*3, [[1,2,3]]*3,batched=True), ((0,1,2),(1,.5,1),{}))
+        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{}))
 
     def test_batched_type3_prediction_with_info(self):
         class MyLearner:
             def predict(self,context,actions):
                 return [(0,1,{'a':1}),(1,.5,{'a':2}),(2,1,{'a':3})]
 
-        self.assertEqual(SafeLearner(MyLearner()).predict([None]*3, [[1,2,3]]*3,batched=True), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+        safe_learner = SafeLearner(MyLearner())
+
+        #test initial call
+        self.assertEqual(safe_learner.predict(Batch([None]*3), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+        #test shortcut logic after initial
+        self.assertEqual(safe_learner.predict(Batch([None]*3), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+
+    def test_type3_not_batched_prediction_exception_with_info(self):
+
+        class MyLearner:
+            def predict(self,context,actions):
+                if isinstance(context,Batch): raise Exception()
+                preds = [(0,1,{'a':1}),(1,.5,{'a':2}),(2,1,{'a':3})]
+                return preds[context]
+
+        safe_learner = SafeLearner(MyLearner())
+
+        #test initial call
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+        #test shortcut logic after initial
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+
+    def test_type3_not_batched_prediction_with_info(self):
+
+        class MyLearner:
+            def predict(self,context,actions):
+                preds = [(0,1,{'a':1}),(1,.5,{'a':2}),(2,1,{'a':3})]
+                return preds[0] if isinstance(context,Batch) else preds[context]
+
+        safe_learner = SafeLearner(MyLearner())
+
+        #test initial call
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+        #test shortcut logic after initial
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+
+    def test_type3_not_batched_learn_exception_with_info(self):
+
+        class MyLearner:
+            calls = []
+            def learn(self,*args,**kwargs):
+                if isinstance(args[0],Batch): raise Exception()
+                self.calls.append((args,kwargs))
+
+        learner = MyLearner()
+        safe_learner = SafeLearner(learner)
+
+        learn_args   = (Batch([0,1]), Batch([[1,2]]*2), [0,1], [1,2], [1,1])
+        learn_kwargs = {'a':[1,2]}
+
+        excpected_calls = [ ((0, [1,2], 0, 1, 1),{'a':1}), ((1, [1,2], 1, 2, 1),{'a':2}) ]
+
+        #test initial call        
+        safe_learner.learn(*learn_args, **learn_kwargs)
+        self.assertEqual(learner.calls, excpected_calls)
+        learner.calls.clear()
+        
+        #test shortcut logic after initial
+        safe_learner.learn(*learn_args, **learn_kwargs)
+        self.assertEqual(learner.calls, excpected_calls)
 
     @unittest.skip("Skipped because it is a rare use case and we don't want to support it for now. Can be added later.")
     def test_pdf_prediction(self):

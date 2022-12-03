@@ -888,7 +888,6 @@ class Batch(EnvironmentFilter):
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         for batch in self._batched(interactions, self._batch_size):
             new = { k: primitives.Batch(i[k] for i in batch) for k in batch[0] }
-            new['batched'] = True
             yield new
 
     def _batched(self, iterable, n):
@@ -910,12 +909,12 @@ class BatchSafe(EnvironmentFilter):
         
         if not interactions: return []
         
-        is_batched = first.get('batched',False)
+        is_batched = isinstance(first[list(first.keys())[0]], primitives.Batch)
 
         if not is_batched:
             return self._filter.filter(interactions)
         else:
-            batch_size = len(first[list(first.keys()-{'batched'})[0]])
+            batch_size = len(first[list(first.keys())[0]])
             debatched  = self._debatch(interactions)
             filtered   = self._filter.filter(debatched)
             rebatched  = Batch(batch_size).filter(filtered)
@@ -923,9 +922,9 @@ class BatchSafe(EnvironmentFilter):
 
     def _debatch(self, interactions: Iterable[Interaction]):
         for interaction in interactions:
-            batch_size = len(interaction[list(interaction.keys()-{'batched'})[0]])
+            batch_size = len(interaction[list(interaction.keys())[0]])
             for i in range(batch_size):
-                yield { k: interaction[k][i] for k in interaction if k != 'batched' }
+                yield { k: interaction[k][i] for k in interaction }
 
 class Finalize(EnvironmentFilter):
 

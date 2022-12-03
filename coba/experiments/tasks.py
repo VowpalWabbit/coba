@@ -15,6 +15,7 @@ from coba.learners import Learner, SafeLearner
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker, peek_first
 from coba.contexts import CobaContext
+from coba.primitives import Batch
 from coba.environments import Environment, SafeEnvironment
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction
 
@@ -99,6 +100,7 @@ class SimpleEvaluation(EvaluationTask):
         learn    = learner.learn
 
         discrete = first and len(first.get('actions',[])) > 0
+        batched  = isinstance(first['type'],Batch)
 
         learning_info = CobaContext.learning_info
 
@@ -118,7 +120,7 @@ class SimpleEvaluation(EvaluationTask):
             learning_info.clear()
 
             out     = {}
-            batched = 'batched' in interaction
+            
             tipe    = interaction['type'][0] if batched  else interaction['type']
 
             if tipe == 'simulated':
@@ -129,7 +131,7 @@ class SimpleEvaluation(EvaluationTask):
                 extra   = {k:interaction[k] for k in interaction.keys()-SimulatedInteraction.keywords }
 
                 start_time       = time.time()
-                action,prob,info = predict(context, actions, batched)
+                action,prob,info = predict(context, actions)
                 predict_time     = time.time()-start_time
 
                 reward = list(map(lambda r,a: r.eval(a),rewards,action)) if batched else rewards.eval(action)
@@ -152,7 +154,7 @@ class SimpleEvaluation(EvaluationTask):
                     info         = None
                 else:
                     start_time   = time.time()
-                    action,prob  = predict(context, actions, batched)[:2]
+                    action,prob  = predict(context, actions)[:2]
                     reward       = list(map(rewards.eval,action)) if batched else rewards.eval(action)
                     predict_time = time.time()-start_time
 
@@ -169,7 +171,7 @@ class SimpleEvaluation(EvaluationTask):
                 extra     = { k:interaction[k] for k in interaction.keys()-GroundedInteraction.keywords }
 
                 start_time       = time.time()
-                action,prob,info = predict(context, actions, batched)
+                action,prob,info = predict(context, actions)
                 reward           = list(map(rewards.eval,action)) if batched else rewards.eval(action)
                 feedback         = list(map(feedbacks.eval,action)) if batched else feedbacks.eval(action)
                 predict_time     = time.time()-start_time

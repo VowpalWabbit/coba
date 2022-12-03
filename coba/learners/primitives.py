@@ -7,6 +7,7 @@ from typing import Any, Sequence, Union, Tuple, Callable, Mapping, Optional
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
 from coba.environments import Context, Action, Actions
+from coba.primitives import Batch
 
 kwargs = Mapping[str,Any]
 Score  = float
@@ -91,11 +92,13 @@ class SafeLearner(Learner):
             learner: The learner we wish to make sure has the expected interface
         """
 
-        self._learner    = learner if not isinstance(learner, SafeLearner) else learner._learner
-        self._rng        = CobaRandom(seed)
-        self._pred_type  = None #1==PDF,2==PMF,3==Action/Score
-        self._with_info  = None
-        self._learn_type = None #3==current,2==old with info,1==old without info
+        self._learner     = learner if not isinstance(learner, SafeLearner) else learner._learner
+        self._rng         = CobaRandom(seed)
+        self._batched     = None
+        self._batched_lrn = None
+        self._pred_type   = None #1==PDF,2==PMF,3==Action/Score
+        self._with_info   = None
+        self._learn_type  = None #3==current,2==old with info,1==old without info
 
     @property
     def full_name(self) -> str:
@@ -122,11 +125,12 @@ class SafeLearner(Learner):
 
         return params
 
-    def predict(self, context: Context, actions: Actions, batched:bool=False) -> Tuple[Action,Score,kwargs]:
+    def predict(self, context: Context, actions: Actions) -> Tuple[Action,Score,kwargs]:
 
-        pred = self._learner.predict(context, actions)
+        pred      = self._safe_predict(context,actions)
         pred_type = self._pred_type
-
+        batched   = self._batched
+        
         if pred_type is None: # this happens on the first call
             if batched: old_pred,pred = pred,pred[0]
             is_discrete = 0 < len(actions) and len(actions) < float('inf')
@@ -139,6 +143,7 @@ class SafeLearner(Learner):
 
         if not self._with_info:
             pred_info = {}
+
         else:
             if not batched:
                 pred_info = pred[-1] if self._info_dict else {'_':pred[-1]}
@@ -161,6 +166,70 @@ class SafeLearner(Learner):
         return action, score, pred_info
 
     def learn(self, context, actions, action, reward, probability, **kwargs) -> None:
+
+        if self._batched is None:
+            self._batched = isinstance(context,Batch)
+
+        if self._batched and self._batched_lrn == False:
+            for i in range(len(context)):
+                self._safe_learn(context[i],actions[i],action[i],reward[i],probability[i], {k:v[i] for k,v in kwargs.items()})
+        else:
+            try:
+                self._safe_learn(context,actions,action,reward,probability,kwargs)
+            except:
+                all_failed = False
+                try:
+                    for i in range(len(context)):
+                        self._safe_learn(context[i],actions[i],action[i],reward[i],probability[i], {k:v[i] for k,v in kwargs.items()})
+                    self._batched_lrn = False
+                except:
+                    all_failed = True
+                if all_failed: raise
+
+    def get_type(self,pred,is_discrete) -> Optional[int]:
+        if self._is_type_1(pred): raise CobaException("PDF predictions are currently not supported.")
+        if self._is_type_2(pred,is_discrete): return 2
+        if self._is_type_3(pred,is_discrete): return 3
+        return None
+
+    def has_info(self,pred,pred_type) -> Mapping[Any,Any]:
+        if pred_type == 2:
+            return not isinstance(pred[0],(int,float))
+        else: #pred_type==3
+            return len(pred) == 3
+
+    def _safe_predict(self, context, actions):
+
+        batched = self._batched
+        batched_lrn = self._batched_lrn
+
+        if batched is None: 
+            batched = isinstance(context,Batch)
+            self._batched = batched
+
+        if not batched:
+            return self._learner.predict(context,actions)
+        if batched:
+            if batched_lrn == True:
+                return self._learner.predict(context,actions)
+            elif batched_lrn == False:
+                return [self._learner.predict(c, a) for c,a in zip(context,actions)]
+            else:
+                try:
+                    pred = self._learner.predict(context,actions)
+                    #I'm not sure if this is air tight but I think it is?
+                    pred_is_appropriately_batched = len(context) == len(pred) and not isinstance(pred[0],(int,float))
+                    if pred_is_appropriately_batched:
+                        self._batched_lrn = True
+                        return pred
+                    else:
+                        self._batched_lrn = False
+                        return [self._learner.predict(c, a) for c,a in zip(context,actions)]
+                except:
+                    self._batched_lrn = False
+                    return [self._learner.predict(c, a) for c,a in zip(context,actions)]
+
+    def _safe_learn(self,context,actions,action,reward,probability,kwargs):
         if self._learn_type==3:
             self._learner.learn(context, actions, action, reward, probability, **kwargs)
         elif self._learn_type==2:
@@ -184,18 +253,6 @@ class SafeLearner(Learner):
                         all_failed = True
 
                 if all_failed: raise
-
-    def get_type(self,pred,is_discrete) -> Optional[int]:
-        if self._is_type_1(pred): raise CobaException("PDF predictions are currently not supported.")
-        if self._is_type_2(pred,is_discrete): return 2
-        if self._is_type_3(pred,is_discrete): return 3
-        return None
-
-    def has_info(self,pred,pred_type) -> Mapping[Any,Any]:
-        if pred_type == 2:
-            return not isinstance(pred[0],(int,float))
-        else: #pred_type==3
-            return len(pred) == 3
 
     def _is_type_1(self, pred):
         #PDF

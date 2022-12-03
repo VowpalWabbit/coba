@@ -4,6 +4,7 @@ import unittest
 from collections import Counter
 from math import isnan
 
+from coba              import primitives
 from coba.pipes        import Categorical, LazyDense, LazySparse
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
@@ -12,7 +13,8 @@ from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedI
 from coba.environments import L1Reward
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
-from coba.environments import Finalize, Repr, BatchSafe
+from coba.environments import Finalize, Repr, BatchSafe, Cache
+from coba.utilities    import peek_first
 
 class TestEnvironment:
 
@@ -1670,17 +1672,27 @@ class Batch_Tests(unittest.TestCase):
         self.assertEqual({'batched':3}, batch.params)
         batches = list(batch.filter([{'a':1,'b':2}]*4))
 
-        self.assertEqual({'batched':True,'a':[1,1,1],'b':[2,2,2]},batches[0])
-        self.assertEqual({'batched':True, 'a':[1]    ,'b':[2]},batches[1])
+        self.assertEqual(batches[0], {'a':[1,1,1],'b':[2,2,2]})
+        self.assertEqual(batches[1], {'a':[1]    ,'b':[2]})
+
+        self.assertIsInstance(batches[0]['a'], primitives.Batch)
+        self.assertIsInstance(batches[0]['b'], primitives.Batch)
+        self.assertIsInstance(batches[1]['a'], primitives.Batch)
+        self.assertIsInstance(batches[1]['b'], primitives.Batch)
 
     def test_batch1(self):
         batch = Batch(1)
-        
+
         self.assertEqual({'batched':1}, batch.params)
         batches = list(batch.filter([{'a':1,'b':2}]*2))
 
-        self.assertEqual({'batched':True,'a':[1],'b':[2]},batches[0])
-        self.assertEqual({'batched':True,'a':[1],'b':[2]},batches[1])
+        self.assertEqual(batches[0], {'a':[1],'b':[2]})
+        self.assertEqual(batches[1], {'a':[1],'b':[2]})
+
+        self.assertIsInstance(batches[0]['a'], primitives.Batch)
+        self.assertIsInstance(batches[0]['b'], primitives.Batch)
+        self.assertIsInstance(batches[1]['a'], primitives.Batch)
+        self.assertIsInstance(batches[1]['b'], primitives.Batch)
 
     def test_empty(self):
         self.assertEqual([],list(Batch(3).filter([])))
@@ -1730,6 +1742,37 @@ class BatchSafe_Tests(unittest.TestCase):
         out_batches = BatchSafe(TestFilter()).filter(in_batches)
 
         self.assertEqual(list(in_batches),list(out_batches))
+
+class Cache_Tests(unittest.TestCase):
+
+    def test_simple_cached(self):
+
+        initial_rows  = [{'a':1,'b':2}]*4
+        cacher        = Cache(3)
+        filtered_rows = list(cacher.filter(initial_rows))
+
+        self.assertEqual(filtered_rows, initial_rows)
+        self.assertIsNot(initial_rows[0],filtered_rows[0])
+        self.assertIsNot(filtered_rows[0],list(cacher.filter(initial_rows))[0])
+
+    def test_cache_peek_then_read(self):
+
+        initial_rows  = [{'a':1,'b':2}]*4
+        cacher        = Cache(3)
+        first,rows    = peek_first(iter(cacher.filter(initial_rows)))
+
+        self.assertEqual(list(rows), initial_rows)
+
+    def test_cache_peek_then_reread(self):
+
+        initial_rows  = [{'a':1,'b':2}]*4
+        cacher        = Cache(3)
+        first,rows    = peek_first(iter(cacher.filter(initial_rows)))
+
+        self.assertEqual(list(cacher.filter(initial_rows)), initial_rows)
+
+    def test_empty(self):
+        self.assertEqual(list(Cache(3).filter([])), [])
 
 if __name__ == '__main__':
     unittest.main()
