@@ -7,7 +7,7 @@ from math import isnan
 from coba.pipes        import Categorical, LazyDense, LazySparse
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.primitives   import HashableMap
+from coba.primitives   import HashableSparse
 from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments import L1Reward
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
@@ -1598,7 +1598,7 @@ class Finalize_Tests(unittest.TestCase):
         hash(actual[0]['context'])
 
         self.assertEqual(len(actual),1)
-        self.assertIsInstance(actual[0]['context'], HashableMap)
+        self.assertIsInstance(actual[0]['context'], HashableSparse)
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
 
     def test_sparse_actions(self):
@@ -1609,7 +1609,7 @@ class Finalize_Tests(unittest.TestCase):
         hash(actual[0]['actions'][0])
 
         self.assertEqual(len(actual),1)
-        self.assertIsInstance(actual[0]['context'], HashableMap)
+        self.assertIsInstance(actual[0]['context'], HashableSparse)
         self.assertEqual(actual[0]['actions'], [{1:2},{2:3}])
 
     def test_logged_with_actions(self):

@@ -18,7 +18,7 @@ from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.experiments.results import Result, moving_average
 from coba.experiments import SimpleEvaluation
-from coba.primitives import Categorical, HashableMap
+from coba.primitives import Categorical, HashableSparse
 
 Timeable = Callable[[],Any]
 Scalable = Callable[[int],Timeable]
@@ -86,7 +86,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_hashable_dict_performance(self):
         items = list(enumerate(range(100)))
-        self._assert_scale_time(items, HashableMap, .0025, print_time, number=1000)
+        self._assert_scale_time(items, HashableSparse, .0025, print_time, number=1000)
 
     def test_shuffle_performance(self):
         items = list(range(50))

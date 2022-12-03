@@ -17,7 +17,7 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first
-from coba.primitives import HashableMap, HashableSeq
+from coba.primitives import HashableSparse, HashableDense
 
 from coba.environments.primitives import EnvironmentFilter, Interaction
 from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, SequenceReward
@@ -306,6 +306,11 @@ class Impute(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
+        first, interactions = peek_first(interactions)
+
+        is_dense  = isinstance(first['context'], primitives.Dense)
+        is_sparse = isinstance(first['context'], primitives.Sparse)
+
         iter_interactions  = iter(interactions)
         train_interactions = list(islice(iter_interactions,self._using))
         test_interactions  = chain.from_iterable([train_interactions, iter_interactions])
@@ -335,9 +340,9 @@ class Impute(EnvironmentFilter):
             context = interaction['context']
             imputed = {k: stats[k] if isinstance(v,float) and isnan(v) else v for k,v in self._context_as_name_values(context)}
 
-            if isinstance(context, primitives.Sparse):
+            if is_sparse:
                 new['context'] = imputed
-            elif isinstance(context, primitives.Dense):
+            elif is_dense:
                 new['context'] = tuple(imputed[k] for k,_ in self._context_as_name_values(context))
             elif imputed:
                 new['context'] = imputed[0]
@@ -796,12 +801,8 @@ class Grounded(EnvironmentFilter):
         is_binary_rwd = {0,1} == set(first['rewards'])
         first_context = first['context']
 
-        if isinstance(first_context,primitives.Sparse):
-            context_type = 0
-        elif isinstance(first_context,primitives.Dense):
-            context_type = 1
-        else:
-            context_type = 2
+        is_sparse = isinstance(first_context,primitives.Sparse)
+        is_dense  = isinstance(first_context,primitives.Dense)
 
         goods = [(g,) for g in self.goodwords]
         bads  = [(b,) for b in self.badwords ]
@@ -822,9 +823,9 @@ class Grounded(EnvironmentFilter):
             else:
                 new['feedbacks'] = Grounded.GroundedFeedback(bads,goods,argmax,seed)
 
-            if context_type == 0:
+            if is_sparse:
                 new['context'] = dict(userid=userid,**new['context'])
-            elif context_type == 1:
+            elif is_dense:
                 new['context'] = (userid,)+tuple(new['context'])
             else:
                 new['context'] = (userid, new['context'])
@@ -955,21 +956,21 @@ class Finalize(EnvironmentFilter):
 
             if first_has_context:
                 if is_dense_context:
-                    new['context'] = HashableSeq(new['context'])
+                    new['context'] = HashableDense(new['context'])
                 elif is_sparse_context:
-                    new['context'] = HashableMap(new['context'])
+                    new['context'] = HashableSparse(new['context'])
 
             if first_has_actions:
                 if is_dense_action:
-                    new['actions'] = list(map(HashableSeq,new['actions']))
+                    new['actions'] = list(map(HashableDense,new['actions']))
                 elif is_sparse_action:
-                    new['actions'] = list(map(HashableMap,new['actions']))
+                    new['actions'] = list(map(HashableSparse,new['actions']))
 
             if first_has_action:
                 if is_dense_action:
-                    new['action'] = HashableSeq(new['action'])
+                    new['action'] = HashableDense(new['action'])
                 elif is_sparse_action:
-                    new['action'] = HashableMap(new['action'])
+                    new['action'] = HashableSparse(new['action'])
 
             yield new
 

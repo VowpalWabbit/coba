@@ -3,7 +3,6 @@ from collections import abc
 from operator import eq
 from typing import Sequence, Any, Iterator, Iterable, Mapping
 
-
 class Categorical(str):
     __slots__ = ('levels','onehot')
     
@@ -77,12 +76,41 @@ class Sparse(ABC):
         except:
             return False
 
-class HashableMap(abc.Mapping):
-    def __init__(self, item: Mapping) -> None:
+class HashableSparse(abc.Mapping):
+    __slots__=('_item','_hash')
+    def __init__(self,item:Mapping):
+        self._item = item
+        
+    def __getitem__(self,key):
+        return self._item[key]
+    
+    def __iter__(self):
+        return iter(self._item)
+    
+    def __len__(self):
+        return len(self._item)
+
+    def __hash__(self) -> int:
+        try:
+            return self._hash
+        except:
+            self._hash = hash(tuple(self._item.items()))
+            return self._hash
+    
+    def __repr__(self) -> str:
+        return repr(self._item)
+
+    def __str__(self) -> str:
+        return str(self._item)
+
+class HashableDense(abc.Sequence):
+    __slots__=('_item','_hash')
+
+    def __init__(self, item: Sequence) -> None:
         self._item = item
 
-    def __getitem__(self, key):
-        return self._item[key]
+    def __getitem__(self,index):
+        return self._item[index]
 
     def __iter__(self):
         return iter(self._item)
@@ -90,49 +118,18 @@ class HashableMap(abc.Mapping):
     def __len__(self):
         return len(self._item)
 
-    def _get_hash(self):
-        _hash = hash(tuple(self._item.items()))
-        self._hash = _hash
-        self._get_hash = lambda: _hash
-        return _hash
-
-    def __hash__(self) -> int:
-        return self._get_hash()
-
-    def __repr__(self) -> str:
-        return repr(self._item)
-
-    def __str__(self) -> str:
-        return str(self._item)
-
-class HashableSeq(abc.Sequence):
-
-    def __init__(self, item: Mapping) -> None:
-        self._item = item
-
-    def __getitem__(self, index):
-        return self._item[index]
-
-    def __len__(self) -> int:
-        return len(self._item)
-
     def __eq__(self, o: object) -> bool:
         try:
             return len(self._item) == len(o) and all(map(eq, self._item, o))
         except:
             return False
-    
-    def _get_hash(self):
-        try:
-            _hash = hash(self._item)
-        except:
-            _hash = hash(tuple(self._item))
-        self._hash = _hash
-        self._get_hash = lambda:_hash
-        return _hash
 
     def __hash__(self) -> int:
-        return self._get_hash()
+        try:
+            return self._hash
+        except:
+            self._hash = hash(tuple(self._item))
+            return self._hash
 
     def __repr__(self) -> str:
         return repr(self._item)
@@ -140,9 +137,9 @@ class HashableSeq(abc.Sequence):
     def __str__(self) -> str:
         return str(self._item)
 
-Sparse.register(HashableMap)
+Sparse.register(HashableSparse)
 Sparse.register(abc.Mapping)
 
-Dense.register(HashableSeq)
+Dense.register(HashableDense)
 Dense.register(list)
 Dense.register(tuple)
