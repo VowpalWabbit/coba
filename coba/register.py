@@ -1,4 +1,3 @@
-
 from coba.registry     import CobaRegistry
 from coba.pipes        import NullSink, ConsoleSink, DiskSink, HttpSource
 from coba.environments import OpenmlSimulation, SerializedSimulation, SupervisedSimulation
@@ -31,5 +30,4 @@ CobaRegistry.register("Sort"    , Sort    )
 CobaRegistry.register("Scale"   , Scale   )
 CobaRegistry.register("Cycle"   , Cycle   )
 CobaRegistry.register("Where"   , Where   )
-CobaRegistry.register("Repr"    , Repr   )
-
+CobaRegistry.register("Repr"    , Repr    )

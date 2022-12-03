@@ -1,12 +1,12 @@
 from copy import deepcopy
 from itertools import islice
 from collections import defaultdict, Counter
-from typing import Iterable, Sequence, Any, Optional, Union, Tuple
+from typing import Iterable, Sequence, Any, Optional, Union
 
 from coba.pipes import Source, Filter, SourceFilters, Pipes
 from coba.learners import Learner
 from coba.contexts import CobaContext
-from coba.environments import Environment, Finalize, BatchSafe, Cache, Chunk
+from coba.environments import Environment, Finalize, BatchSafe, Chunk
 from coba.utilities import peek_first
 
 from coba.experiments.tasks import LearnerTask, EnvironmentTask, EvaluationTask
@@ -189,3 +189,4 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
     
     def _lrn_ids(self, item: WorkItem):
         return (-1,) if item.lrn_id is None else (item.lrn_id,)
+ 

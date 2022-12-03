@@ -1,4 +1,3 @@
-
 from operator import eq
 from collections import abc
 from numbers import Number
