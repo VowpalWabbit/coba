@@ -254,8 +254,8 @@ class Performance_Tests(unittest.TestCase):
         self._assert_call_time(lambda:r4.headers, .0014, print_time, number=1000)
 
     def test_dense_row_drop(self):
-        r1 = KeepDense(['1']*100,dict(enumerate(range(99))), [True]*99+[False], 99)
-        self._assert_call_time(lambda:r1[3], .0008, print_time, number=1000)
+        r1 = KeepDense(['1']*100,dict(enumerate(range(99))), [True]*99+[False], 99, None)
+        self._assert_call_time(lambda:r1[3], .0008, False, number=1000)
 
     def test_dense_row_to_builtin(self):
         r = LazyDense(['1']*100)

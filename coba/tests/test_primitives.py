@@ -57,9 +57,15 @@ class Dense_Tests(unittest.TestCase):
 
         self.assertNotEqual(DummyDense([1,2,3]),1)
 
+    def test_copy(self):
+        dense = DummyDense((1,2,3))
+        dense_copy = dense.copy()
+        self.assertEqual(dense,dense_copy)
+        self.assertIsNot(dense,dense_copy)
+
 class Sparse_Tests(unittest.TestCase):
 
-    def test_simple(self):
+    def test_getattr(self):
 
         class DummyClass:
             def __init__(self) -> None:
@@ -77,6 +83,12 @@ class Sparse_Tests(unittest.TestCase):
     def test_bad_eq(self):
 
         self.assertNotEqual(DummySparse({'a':1}),1)
+
+    def test_copy(self):
+        sparse = DummySparse({'a':1})
+        sparse_copy = sparse.copy()
+        self.assertEqual(sparse,sparse_copy)
+        self.assertIsNot(sparse,sparse_copy)
 
 class Categorical_Tests(unittest.TestCase):
     def test_value(self):
@@ -103,10 +115,6 @@ class HashableSparse_Tests(unittest.TestCase):
         hash_dict = HashableSparse({'a':1,'b':2})
         self.assertEqual(1,hash_dict['a'])
 
-    def test_len(self):
-        hash_dict = HashableSparse({'a':1,'b':2})
-        self.assertEqual(2,len(hash_dict))
-
     def test_iter(self):
         hash_dict = HashableSparse({'a':1,'b':2})
         self.assertEqual(['a','b'],list(hash_dict))
@@ -132,6 +140,12 @@ class HashableSparse_Tests(unittest.TestCase):
         hash_dict = HashableSparse({'a':1,'b':2})
         self.assertEqual("{'a': 1, 'b': 2}",str(hash_dict))
 
+    def test_copy(self):
+        hash_dict = HashableSparse({'a':1,'b':2})
+        hash_dict_copy = hash_dict.copy()
+        self.assertEqual(hash_dict,hash_dict_copy)
+        self.assertIsNot(hash_dict,hash_dict_copy)
+
 class HashableDense_Tests(unittest.TestCase):
 
     def test_get(self):
@@ -152,7 +166,7 @@ class HashableDense_Tests(unittest.TestCase):
         self.assertEqual([1,2,3],hash_seq)
         self.assertEqual((1,2,3),hash_seq)
 
-    def test_neq(self):
+    def test_ne(self):
         hash_seq = HashableDense([1,2,3])
         self.assertNotEqual([1,2,4],hash_seq)
         self.assertNotEqual([1,2,3,4],hash_seq)

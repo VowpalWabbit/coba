@@ -255,12 +255,13 @@ class DropOne(Dense):
         return len(self._row)-1
 
 class KeepDense(Dense):
-    __slots__=('_row', '_map', '_sel', '_len')
-    def __init__(self, row: Dense, mapping: Mapping[Union[str,int],int], selects: Sequence, len: int) -> None:
+    __slots__=('_row', '_map', '_sel', '_len','headers')
+    def __init__(self, row: Dense, mapping: Mapping[Union[str,int],int], selects: Sequence, len: int, headers: Mapping,) -> None:
         self._row = row
         self._map = mapping
         self._sel = selects
         self._len = len
+        if headers: self.headers = headers
 
     def __getitem__(self, key: Union[int,str]):
         return self._row[self._map.get(key,10000000)]
@@ -329,7 +330,14 @@ class DropRows(Filter[Iterable[Union[Dense,Sparse]], Iterable[Union[Dense,Sparse
 
             mapping = {k:v for k,v in chain(enumerate(indexes),headers)}
             length  = len(indexes)
-            return mapping, selects, length
+
+            if headers: 
+                external_indexes = dict(zip(indexes,count()))
+                external_headers = { h: external_indexes[i] for h,i in headers if i in external_indexes }
+            else:
+                external_headers = None
+
+            return mapping, selects, length, external_headers
         else:
             return set(drop_cols)
 
@@ -343,8 +351,8 @@ class DropRows(Filter[Iterable[Union[Dense,Sparse]], Iterable[Union[Dense,Sparse
         if not drop_cols:
             yield from rows
         elif isinstance(first,Dense):
-            mapping, selects, length = DropRows.make_drop_row_args(first, drop_cols)
-            yield from (KeepDense(row, mapping, selects, length) for row in rows)
+            mapping, selects, length, headers = DropRows.make_drop_row_args(first, drop_cols)
+            yield from (KeepDense(row, mapping, selects, length, headers) for row in rows)
         else:
             drop_set = DropRows.make_drop_row_args(first, drop_cols)
             yield from (DropSparse(row, drop_set) for row in rows)
@@ -503,11 +511,11 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
         
         if self._tipe == "string":
             for row in rows:
-                row = row.copy() if is_mutable else dict(row)
+                row = row.copy()
                 for k in cat_cols: row[k] = str(row[k])
                 yield row
         elif "onehot" in self._tipe:
             for row in rows:
-                row = row.copy() if is_mutable else dict(row)
+                row = row.copy()
                 for k in cat_cols: row[k] = row[k].onehot
                 yield row

@@ -7,6 +7,7 @@ from typing import Sequence, cast
 
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
+from coba.primitives import HashableSparse
 from coba.learners import VowpalMediator
 from coba.learners import (
     VowpalLearner, VowpalEpsilonLearner, VowpalSoftmaxLearner,
@@ -316,6 +317,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual({'x':None}, vw._learn_calls[0].ns)
         self.assertEqual("2:-0.5:0.2", vw._learn_calls[0].label)
 
+    @unittest.skip("This text is no longer relevant now that tuples can be flattened during environment creation.")
     def test_flatten_tuples(self):
 
         vw = VowpalMediatorMocked()
@@ -444,6 +446,14 @@ class VowpalMediator_Tests(unittest.TestCase):
         vw = VowpalMediator()
         vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
         ex = vw.make_example({'x':{'a':5}}, None)
+
+        self.assertEqual([(ex.get_feature_id("x","a"),5)],list(ex.iter_features()))
+
+    def test_make_example_hashable_sparse_numeric_value(self):
+
+        vw = VowpalMediator()
+        vw.init_learner("--cb_explore_adf --noconstant --quiet",4)
+        ex = vw.make_example({'x':HashableSparse({'a':5})}, None)
 
         self.assertEqual([(ex.get_feature_id("x","a"),5)],list(ex.iter_features()))
 

@@ -26,9 +26,9 @@ Prediction = Union[
     PDF,
     Probs,
     ActionScore,
-    Tuple[PDF         , kwargs],
-    Tuple[Action,Score, kwargs],
-    Tuple[ActionScore , kwargs],
+    Tuple[PDF                       , kwargs],
+    Tuple[Union[Action,Index],Score , kwargs],
+    Tuple[ActionScore               , kwargs],
 ]
 
 class Learner(ABC):
@@ -73,7 +73,7 @@ class Learner(ABC):
         Args:
             context: The context in which the action was taken.
             actions: The set of actions chosen from.
-            action: The action that was chosen or the index of the action that was chosen.
+            action: Either the action that was chosen or the index of the action that was chosen.
             feedback: This will be reward for contextual bandit problems and feedback for IGL problems.
             score: This will be the probability for the action taken if a PMF/PDF is returned by predict.
                  It will be the score if an action-score pair is returned by predict. And it will be the
@@ -125,12 +125,12 @@ class SafeLearner(Learner):
 
         return params
 
-    def predict(self, context: Context, actions: Actions) -> Tuple[Action,Score,kwargs]:
+    def predict(self, context: Context, actions: Actions) -> Tuple[Union[Index,Action],Score,kwargs]:
 
         pred      = self._safe_predict(context,actions)
         pred_type = self._pred_type
         batched   = self._batched
-        
+
         if pred_type is None: # this happens on the first call
             if batched: old_pred,pred = pred,pred[0]
             is_discrete = 0 < len(actions) and len(actions) < float('inf')

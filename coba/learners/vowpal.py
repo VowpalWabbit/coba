@@ -5,7 +5,6 @@ from itertools import repeat, compress
 from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple
 from coba.backports import Literal
 
-from coba.pipes import Flatten
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
 from coba.environments import Context, Action
@@ -144,7 +143,7 @@ class VowpalMediator:
                 elif feats.__class__ is int or feats.__class__ is float:
                     yield (ns, [(self._get_namespace_keys(ns,1)[0], feats)])
                 elif isinstance(feats,Sparse):
-                    yield (ns, feats)
+                    yield (ns, feats.copy())
                 else:
                     d={}
 
@@ -286,8 +285,8 @@ class VowpalLearner(Learner):
         if not self._adf and len(actions) != self._n_actions:
             raise CobaException("The number of actions doesn't match the `--cb` action count given in args.")
 
-        context = {'x':self._flat(context)}
-        adfs    = None if not self._adf else [{'a':self._flat(action)} for action in actions]
+        context = {'x':context}
+        adfs    = None if not self._adf else [{'a':action} for action in actions]
 
         if self._adf and self._explore:
             probs = self._vw.predict(self._vw.make_examples(context, adfs, None))
@@ -324,8 +323,8 @@ class VowpalLearner(Learner):
         labels  = self._labels(actions, index, reward, probability)
         label   = labels[index]
 
-        context = {'x':self._flat(context)}
-        adfs    = None if not self._adf else [{'a':self._flat(action)} for action in actions]
+        context = {'x':context}
+        adfs    = None if not self._adf else [{'a':action} for action in actions]
 
         if self._adf:
             self._vw.learn(self._vw.make_examples(context, adfs, labels))
@@ -334,9 +333,6 @@ class VowpalLearner(Learner):
 
     def _labels(self,actions,index,reward:float,prob:float) -> Sequence[Optional[str]]:
         return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if i == index else None for i in range(len(actions))]
-
-    def _flat(self,features:Any) -> Any:
-        return list(Flatten().filter([features]))[0]
 
 class VowpalEpsilonLearner(VowpalLearner):
     """A wrapper around VowpalLearner that provides more documentation. For more

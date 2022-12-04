@@ -232,6 +232,7 @@ class DropRows_Tests(unittest.TestCase):
         drop_rows = list(DropRows(drop_cols=[1]).filter(given))
 
         self.assertEqual(expected, drop_rows)
+        self.assertEqual({'a':0,'c':1}, drop_rows[0].headers)
         self.assertEqual(4, drop_rows[0]['a'])
         self.assertEqual(6, drop_rows[0]['c'])
         self.assertEqual(4, drop_rows[0][0])
@@ -399,7 +400,7 @@ class EncodeDense_Tests(unittest.TestCase):
 class KeepDense_Tests(unittest.TestCase):
 
     def test_get_by_index(self):
-        r = KeepDense([1,2,3], {0:0,1:2}, [True,False,True], 2)
+        r = KeepDense([1,2,3], {0:0,1:2}, [True,False,True], 2, None)
         self.assertEqual(1,r[0])
         self.assertEqual(3,r[1])
 
@@ -407,7 +408,7 @@ class KeepDense_Tests(unittest.TestCase):
             r[2]
 
     def test_get_by_header(self):
-        r = KeepDense(HeadDense([1,2],{'a':0, 'b':1}), {'b':1, 0:1}, [False, True], 1)
+        r = KeepDense(HeadDense([1,2],{'a':0, 'b':1}), {'b':1, 0:1}, [False, True], 1, None)
         self.assertEqual(2,r[0])
         self.assertEqual(2,r['b'])
 
@@ -417,15 +418,15 @@ class KeepDense_Tests(unittest.TestCase):
             r['a']
 
     def test_len(self):
-        r = KeepDense([1,2,3], [0,2], [True,False,True], 2)
+        r = KeepDense([1,2,3], [0,2], [True,False,True], 2, None)
         self.assertEqual(2,len(r))
 
     def test_iter(self):
-        r = KeepDense([1,2,3], [0,2], [True,False,True], 2)
+        r = KeepDense([1,2,3], [0,2], [True,False,True], 2, None)
         self.assertEqual([1,3],list(r))
 
     def test_eq(self):
-        r = KeepDense([1,2,3], [0,2], [True,False,True], 2)
+        r = KeepDense([1,2,3], [0,2], [True,False,True], 2, None)
         self.assertEqual([1,3],r)
 
 class LabelDense_Tests(unittest.TestCase):

@@ -1,7 +1,7 @@
 from abc import abstractmethod, ABC
 from collections import abc
 from operator import eq
-from typing import Sequence, Any, Iterator, Iterable, Mapping
+from typing import Sequence, Any, Iterator, Iterable
 
 class Categorical(str):
     __slots__ = ('levels','onehot')
@@ -45,6 +45,9 @@ class Dense(ABC):
         except:
             return False
 
+    def copy(self) -> list:
+        return list(iter(self))
+
 class Sparse(ABC):
 
     @abstractmethod
@@ -76,9 +79,12 @@ class Sparse(ABC):
         except:
             return False
 
+    def copy(self) -> dict:
+        return dict(self.items())
+
 class HashableSparse(abc.Mapping):
     __slots__=('_item','_hash')
-    def __init__(self,item:Mapping):
+    def __init__(self,item:Sparse):
         self._item = item
         
     def __getitem__(self,key):
@@ -102,6 +108,9 @@ class HashableSparse(abc.Mapping):
 
     def __str__(self) -> str:
         return str(self._item)
+
+    def copy(self):
+        return self._item.copy()
 
 class HashableDense(abc.Sequence):
     __slots__=('_item','_hash')
@@ -139,7 +148,6 @@ class HashableDense(abc.Sequence):
 
 Sparse.register(HashableSparse)
 Sparse.register(abc.Mapping)
-
 Dense.register(HashableDense)
 Dense.register(list)
 Dense.register(tuple)
