@@ -121,7 +121,7 @@ class SimpleEvaluation(EvaluationTask):
 
             out     = {}
             
-            tipe    = interaction['type'][0] if batched  else interaction['type']
+            tipe    = interaction['type'][0] if batched else interaction['type']
 
             if tipe == 'simulated':
 

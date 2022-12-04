@@ -12,9 +12,10 @@ Remarks:
 """
 
 import math
-import itertools
 import time
 
+from itertools import compress, accumulate, repeat, islice
+from operator import le
 from typing import Optional, Iterable, Sequence, Any
 
 class CobaRandom:
@@ -61,12 +62,12 @@ class CobaRandom:
             raise ValueError("n must be an integer greater than or equal to 0")
 
         if min == 0 and max == 1:
-            iterable = itertools.islice(self._randu,n)
+            iterable = islice(self._randu,n)
         elif min == 0:
-            iterable = ( max*r for r in itertools.islice(self._randu,n) )
+            iterable = ( max*r for r in islice(self._randu,n) )
         else:
             r_range = max-min
-            iterable = (min+r_range*r for r in itertools.islice(self._randu,n))
+            iterable = (min+r_range*r for r in islice(self._randu,n))
         
         return list(iterable) if n is not None else iterable
 
@@ -102,7 +103,7 @@ class CobaRandom:
 
         #i goes from 0 to n-2
         #j is always i <= j < n
-        for i,r in itertools.islice(enumerate(self._randu),n-1):
+        for i,r in islice(enumerate(self._randu),n-1):
             j = i+int(r*(n-i)) 
             l[i], l[j] = l[j], l[i]
         return l
@@ -127,10 +128,10 @@ class CobaRandom:
         """
         b=b+1
         if a == 0:
-            return [int(b*r) for r in itertools.islice(self._randu,n)]
+            return [int(b*r) for r in islice(self._randu,n)]
         else:
             r_range = b-a
-            return [int(r_range*r) + a for r in itertools.islice(self._randu,n)]
+            return [int(r_range*r) + a for r in islice(self._randu,n)]
 
     def choice(self, seq: Sequence[Any], weights:Sequence[float] = None) -> Any:
         """Choose a random item from the given sequence.
@@ -142,14 +143,14 @@ class CobaRandom:
 
         if weights is None:
             return seq[int(len(seq)*next(self._randu))]
+
         else:
+            tot = sum(weights)
+            if tot == 0: raise ValueError("The sum of weights cannot be zero.")
+            cdf = accumulate(weights)
+            rng = next(self._randu) * tot
 
-            cdf = list(itertools.accumulate(weights))
-            if cdf[-1] == 0: raise ValueError("The sum of weights cannot be zero.")
-            rng = next(self._randu) * cdf[-1]
-
-            for s,c in zip(seq,cdf):
-                if rng <= c: return s
+            return next(compress(seq, map(le, repeat(rng), cdf)))
 
     def gauss(self, mu:float=0, sigma:float=1) -> float:
         """Generate a random number from N(mu,sigma).
@@ -174,7 +175,7 @@ class CobaRandom:
         Returns:
             The `n` random numbers drawn from N(mu,sigma).
         """
-        return [mu+sigma*g for g in itertools.islice(self._randg,n) ]
+        return [mu+sigma*g for g in islice(self._randg,n) ]
 
     def _next_uniform(self, a, s, c, m) -> Iterable[float]:
         """Generate uniform random numbers in [0,1).

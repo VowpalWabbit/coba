@@ -95,8 +95,13 @@ class Performance_Tests(unittest.TestCase):
     def test_randoms_performance(self):
         self._assert_scale_time(50, coba.random.randoms, .008, print_time, number=1000)
 
-    def test_choice_performance(self):
-        self._assert_scale_time([1]*50, coba.random.choice, .0015, print_time, number=1000)
+    def test_choice_performance_uniform(self):
+        self._assert_scale_time([1]*50, coba.random.choice, .009, print_time, number=1000)
+
+    def test_choice_performance_not_uniform(self):
+        A = [1]*50
+        B = [1/50]*50
+        self._assert_call_time(lambda:coba.random.choice(A,B), .0029, print_time, number=1000)
 
     def test_choice_performance_weights(self):
         items = [1]+[0]*49
@@ -280,7 +285,7 @@ class Performance_Tests(unittest.TestCase):
         items = [SimulatedInteraction(1,[1,2,3],[1,2,3])]*100
         eval  = SimpleEvaluation()
         learn = DummyLearner()
-        self._assert_scale_time(items,lambda x:list(eval.process(learn, x)), .06, print_time, number=100)
+        self._assert_scale_time(items,lambda x:list(eval.process(learn, x)), .05, print_time, number=100)
 
     def test_safe_learner_predict(self):
         
@@ -298,7 +303,7 @@ class Performance_Tests(unittest.TestCase):
             def learn(*args): pass
 
         learn = SafeLearner(DummyLearner())        
-        self._assert_call_time(lambda:learn.learn(1,[1,2,3], [1], 1, .5), .0008, print_time, number=1000)        
+        self._assert_call_time(lambda:learn.learn(1,[1,2,3], [1], 1, .5), .0008, print_time, number=1000)
 
     def test_scale_reward(self):
         reward = ScaleReward(L1Reward(1), 1, 2, "argmax")
