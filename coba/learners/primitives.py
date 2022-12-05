@@ -132,7 +132,7 @@ class SafeLearner(Learner):
         batched   = self._batched
 
         if pred_type is None: # this happens on the first call
-            if batched: old_pred,pred = pred,pred[0]
+            if batched: old_pred,pred = pred,[p[0] if not isinstance(p,dict) else {k:v[0] for k,v in p.items()} for p in pred]
             is_discrete = 0 < len(actions) and len(actions) < float('inf')
             pred_type = self.get_type(pred, is_discrete) or self.get_inferred_type(pred, actions)
             with_info = self.has_info(pred,pred_type)
@@ -145,11 +145,7 @@ class SafeLearner(Learner):
             pred_info = {}
 
         else:
-            if not batched:
-                pred_info = pred[-1] if self._info_dict else {'_':pred[-1]}
-            if batched:
-                pred_info = [p[-1] if self._info_dict else {'_':p[-1]} for p in pred]
-                pred_info = {k:[ i[k] for i in pred_info] for k in pred_info[0]}
+            pred_info = pred[-1] if self._info_dict else {'_':pred[-1]}
 
         if self._pred_type == 2:
             pmf = pred[0] if pred_info else pred
@@ -158,10 +154,7 @@ class SafeLearner(Learner):
             else:
                 action,score = list(zip(*map(self._get_pmf_action_score, repeat(self._rng), pmf, actions)))
         else:
-            if not batched:
-                action,score = pred[:2]
-            else:
-                action,score = zip(*[p[:2] for p in pred])
+            action,score = pred[:2]
 
         return action, score, pred_info
 
@@ -213,21 +206,23 @@ class SafeLearner(Learner):
             if batched_lrn == True:
                 return self._learner.predict(context,actions)
             elif batched_lrn == False:
-                return [self._learner.predict(c, a) for c,a in zip(context,actions)]
+                preds = [self._learner.predict(c, a) for c,a in zip(context,actions)]
             else:
                 try:
                     pred = self._learner.predict(context,actions)
                     #I'm not sure if this is air tight but I think it is?
-                    pred_is_appropriately_batched = len(context) == len(pred) and not isinstance(pred[0],(int,float))
+                    pred_is_appropriately_batched = (len(context) == len(pred) and not isinstance(pred[0],(int,float))) or (len(context) == len(pred[0]))
                     if pred_is_appropriately_batched:
                         self._batched_lrn = True
                         return pred
                     else:
                         self._batched_lrn = False
-                        return [self._learner.predict(c, a) for c,a in zip(context,actions)]
+                        preds = [self._learner.predict(c, a) for c,a in zip(context,actions)]
                 except:
                     self._batched_lrn = False
-                    return [self._learner.predict(c, a) for c,a in zip(context,actions)]
+                    preds = [self._learner.predict(c, a) for c,a in zip(context,actions)]
+            return [ [ p[i] for p in preds ] if not isinstance(preds[0][i],dict) else { k:[p[i][k] for p in preds] for k in preds[0][i] } for i in range(len(preds[0])) ]
+
 
     def _safe_learn(self,context,actions,action,reward,probability,kwargs):
         if self._learn_type==3:

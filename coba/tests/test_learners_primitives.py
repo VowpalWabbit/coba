@@ -205,14 +205,14 @@ class SafeLearner_Tests(unittest.TestCase):
     def test_batched_type3_prediction_sans_info(self):
         class MyLearner:
             def predict(self,context,actions):
-                return [(0,1),(1,.5),(2,1)]
+                return [(0,1,2),(1,.5,1)]
 
         self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{}))
 
     def test_batched_type3_prediction_with_info(self):
         class MyLearner:
             def predict(self,context,actions):
-                return [(0,1,{'a':1}),(1,.5,{'a':2}),(2,1,{'a':3})]
+                return [(0,1,2),(1,.5,1),{'a':[1,2,3]}]
 
         safe_learner = SafeLearner(MyLearner())
 
@@ -232,23 +232,23 @@ class SafeLearner_Tests(unittest.TestCase):
         safe_learner = SafeLearner(MyLearner())
 
         #test initial call
-        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ([0,1,2],[1,.5,1],{'a':[1,2,3]}))
         #test shortcut logic after initial
-        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ([0,1,2],[1,.5,1],{'a':[1,2,3]}))
 
     def test_type3_not_batched_prediction_with_info(self):
 
         class MyLearner:
             def predict(self,context,actions):
                 preds = [(0,1,{'a':1}),(1,.5,{'a':2}),(2,1,{'a':3})]
-                return preds[0] if isinstance(context,Batch) else preds[context]
+                return [[0]] if isinstance(context,Batch) else preds[context]
 
         safe_learner = SafeLearner(MyLearner())
 
         #test initial call
-        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ([0,1,2],[1,.5,1],{'a':[1,2,3]}))
         #test shortcut logic after initial
-        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ((0,1,2),(1,.5,1),{'a':[1,2,3]}))
+        self.assertEqual(safe_learner.predict(Batch([0,1,2]), Batch([[1,2,3]]*3)), ([0,1,2],[1,.5,1],{'a':[1,2,3]}))
 
     def test_type3_not_batched_learn_exception_with_info(self):
 

@@ -38,7 +38,7 @@ class Shuffle(Filter[Iterable[Any], Sequence[Any]]):
         self._seed = seed
 
     def filter(self, items: Iterable[Any]) -> Sequence[Any]:
-        return CobaRandom(self._seed).shuffle(list(items))
+        yield from CobaRandom(self._seed).shuffle(list(items))
 
     @property
     def params(self) -> Mapping[str, Any]:
