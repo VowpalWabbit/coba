@@ -1,4 +1,5 @@
 from pathlib import Path
+from itertools import product
 from typing import Sequence, Optional, Union
 
 from coba.pipes import Pipes, Foreach
@@ -19,7 +20,7 @@ class Experiment:
     def __init__(self,
         environments    : Union[Environment, Sequence[Environment]],
         learners        : Union[Learner,Sequence[Learner]],
-        description     : str = None,
+        description     : str             = None,
         learner_task    : LearnerTask     = SimpleLearnerInfo(),
         environment_task: EnvironmentTask = SimpleEnvironmentInfo(),
         evaluation_task : EvaluationTask  = SimpleEvaluation()) -> None:
@@ -34,24 +35,20 @@ class Experiment:
             evaluation_task: A task which evaluates a learner on an environment.
         """
 
-        if (not isinstance(environments, (Environments, list, tuple))):
-            environments = [environments]
+        if hasattr(environments,'read'): environments = [environments]
+        if hasattr(learners,'predict'): learners = [learners]
 
-        if (not isinstance(learners, (list, tuple))):
-            learners = [learners]
-
-        self._environments     = environments
-        self._learners         = learners
+        self._pairs            = list(product(learners, environments))
         self._description      = description
         self._learner_task     = learner_task
         self._environment_task = environment_task
         self._evaluation_task  = evaluation_task
 
-        if any([env is None for env in environments]):
-            raise CobaException("An Environment was given whose value was None, which can't be processed.")
-
-        if any([lrn is None for lrn in learners]):
+        if any([lrn is None for lrn,_ in self._pairs]):
             raise CobaException("A Learner was given whose value was None, which can't be processed.")
+
+        if any([env is None for _,env in self._pairs]):
+            raise CobaException("An Environment was given whose value was None, which can't be processed.")
 
         self._processes        : Optional[int] = None
         self._maxchunksperchild: Optional[int] = None
@@ -120,17 +117,17 @@ class Experiment:
         if result_file and Path(result_file).exists():
             CobaContext.logger.log("Restoring existing experiment logs...")
             restored = Result.from_file(result_file)
-        else: 
+        else:
             restored = None
 
-        n_given_learners     = len(self._learners)
-        n_given_environments = len(self._environments)
+        n_given_learners     = len(set([l for l,_ in self._pairs]))
+        n_given_environments = len(set([e for _,e in self._pairs]))
 
         if restored:
             assert n_given_learners     == restored.experiment.get('n_learners',n_given_learners)        , "The current experiment doesn't match the given transaction log."
             assert n_given_environments == restored.experiment.get('n_environments',n_given_environments), "The current experiment doesn't match the given transaction log."
 
-        workitems  = CreateWorkItems(self._environments, self._learners, self._learner_task, self._environment_task, self._evaluation_task)
+        workitems  = CreateWorkItems(self._pairs, self._learner_task, self._environment_task, self._evaluation_task)
         unfinished = RemoveFinished(restored)
         chunk      = ChunkByChunk()
         max_chunk  = MaxChunkSize(mt)

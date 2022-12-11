@@ -1,7 +1,7 @@
 from copy import deepcopy
 from itertools import islice
 from collections import defaultdict, Counter
-from typing import Iterable, Sequence, Any, Optional, Union
+from typing import Iterable, Sequence, Any, Optional, Union, Tuple
 
 from coba.pipes import Source, Filter, SourceFilters, Pipes
 from coba.learners import Learner
@@ -21,44 +21,45 @@ class WorkItem:
         lrn   : Optional[Learner],
         task  : Union[LearnerTask, EnvironmentTask, EvaluationTask]) -> None:
 
-        self.lrn_id = lrn_id
         self.env_id = env_id
-        self.lrn    = lrn
+        self.lrn_id = lrn_id
         self.env    = env
+        self.lrn    = lrn
         self.task   = task
 
 class CreateWorkItems(Source[Iterable[WorkItem]]):
 
     def __init__(self,
-        environs        : Sequence[Environment],
-        learners        : Sequence[Learner],
+        evaluation_pairs: Sequence[Tuple[Learner,Environment]],
         learner_task    : LearnerTask,
         environment_task: EnvironmentTask,
         evaluation_task : EvaluationTask) -> None:
 
-        self._environs = environs
-        self._learners = learners
-
-        self._learner_task     = learner_task
+        self._evaluation_pairs = evaluation_pairs
         self._environment_task = environment_task
+        self._learner_task     = learner_task
         self._evaluation_task  = evaluation_task
 
     def read(self) -> Iterable[WorkItem]:
 
-        #we rely on sim_id to make sure we don't do duplicate work. So long as self._environs
+        #we rely on ids to make sure we don't do duplicate work. So long as self.evaluation_pairs
         #is always in the exact same order we should be fine. In the future we may want to consider.
         #adding a better check for environments other than assigning an index based on their order.
 
-        keyed_learners = dict(enumerate(self._learners))
-        keyed_environs = dict(enumerate(self._environs))
+        lrns = dict()
+        envs = dict()
 
-        for lrn_id,lrn in keyed_learners.items():
-            yield WorkItem(None, lrn_id, None, lrn, self._learner_task)
+        for lrn,env in self._evaluation_pairs:
 
-        for env_id,env in keyed_environs.items():
-            yield WorkItem(env_id, None, env, None, self._environment_task)
-            for lrn_id,lrn in keyed_learners.items():
-                yield WorkItem(env_id, lrn_id, env, lrn, self._evaluation_task)
+            if lrn not in lrns:
+                lrns[lrn] = len(lrns)
+                yield WorkItem(None, lrns[lrn], None, lrn, self._learner_task)
+
+            if env not in envs:
+                envs[env] = len(envs)
+                yield WorkItem(envs[env], None, env, None, self._environment_task)
+
+            yield WorkItem(envs[env], lrns[lrn], env, lrn, self._evaluation_task) 
 
 class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
     def __init__(self, restored: Optional[Result]) -> None:
@@ -138,7 +139,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
             chunk = list(reversed(chunk))
 
         learner_eval_counts = Counter([item.lrn_id for item in chunk if item.lrn and item.env])
-        
+
         with CobaContext.logger.log(f"Processing chunk..."):
 
             while chunk:
@@ -186,7 +187,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
     def _env_ids(self, item: WorkItem):
         return (-1,) if item.env_id is None else (item.env_id,)
-    
+
     def _lrn_ids(self, item: WorkItem):
         return (-1,) if item.lrn_id is None else (item.lrn_id,)
  

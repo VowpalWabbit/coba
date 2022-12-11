@@ -1,5 +1,6 @@
 import unittest
 
+from itertools import product
 from typing import cast, Iterable
 
 from coba.contexts     import CobaContext, BasicLogger
@@ -79,19 +80,57 @@ class CountFilter:
 
 class CreateWorkItems_Tests(unittest.TestCase):
 
-    def test_two_sim_two_learns(self):
-        sim1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        sim2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+    def test_two_env_two_lrn(self):
+        env1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        env2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         lrn1 = ModuloLearner("1")
         lrn2 = ModuloLearner("2")
 
-        tasks = list(CreateWorkItems([sim1,sim2], [lrn1,lrn2], None, None, None).read())
+        pairs = list(product([lrn1,lrn2],[env1,env2]))
 
-        self.assertEqual(8, len(tasks))
+        works = list(CreateWorkItems(pairs, None, None, None).read())
 
-        self.assertEqual(2, len([t for t in tasks if not t.env and t.lrn]) )
-        self.assertEqual(2, len([t for t in tasks if t.env and not t.lrn]) )
-        self.assertEqual(4, len([t for t in tasks if t.env and t.lrn]) )
+        self.assertEqual(8, len(works))
+
+        self.assertTrue(all([w.lrn_id == 0 for w in works if w.lrn is lrn1]))
+        self.assertTrue(all([w.lrn_id == 1 for w in works if w.lrn is lrn2]))
+        self.assertTrue(all([w.env_id == 0 for w in works if w.env is env1]))
+        self.assertTrue(all([w.env_id == 1 for w in works if w.env is env2]))
+
+        self.assertEqual(1, len([t for t in works if not t.env and t.lrn is lrn1]))
+        self.assertEqual(1, len([t for t in works if not t.env and t.lrn is lrn2]))
+
+        self.assertEqual(1, len([t for t in works if t.env is env1 and not t.lrn]))
+        self.assertEqual(1, len([t for t in works if t.env is env2 and not t.lrn]))
+
+        for l,e in pairs:
+            self.assertEqual(1, len([t for t in works if t.env is e and t.lrn is l]))
+
+    def test_uneven_pairs(self):
+        env1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        env2 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
+
+        pairs = list(product([lrn1,lrn2],[env1,env2]))[0:3]
+
+        works = list(CreateWorkItems(pairs, None, None, None).read())
+
+        self.assertEqual(7, len(works))
+
+        self.assertTrue(all([w.lrn_id == 0 for w in works if w.lrn is lrn1]))
+        self.assertTrue(all([w.lrn_id == 1 for w in works if w.lrn is lrn2]))
+        self.assertTrue(all([w.env_id == 0 for w in works if w.env is env1]))
+        self.assertTrue(all([w.env_id == 1 for w in works if w.env is env2]))
+
+        self.assertEqual(1, len([t for t in works if not t.env and t.lrn is lrn1]))
+        self.assertEqual(1, len([t for t in works if not t.env and t.lrn is lrn2]))
+
+        self.assertEqual(1, len([t for t in works if t.env is env1 and not t.lrn]))
+        self.assertEqual(1, len([t for t in works if t.env is env2 and not t.lrn]))
+
+        for l,e in pairs:
+            self.assertEqual(1, len([t for t in works if t.env is e and t.lrn is l]))
 
 class RemoveFinished_Tests(unittest.TestCase):
 

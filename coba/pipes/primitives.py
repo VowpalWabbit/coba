@@ -1,7 +1,5 @@
-from operator import eq
 from abc import ABC, abstractmethod
-from collections import abc
-from typing import Any, TypeVar, Generic, Mapping, Iterable, Iterator
+from typing import Any, TypeVar, Generic, Mapping
 
 _T_out = TypeVar("_T_out", bound=Any, covariant    =True)
 _T_in  = TypeVar("_T_in" , bound=Any, contravariant=True)
