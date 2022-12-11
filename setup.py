@@ -24,7 +24,7 @@ setuptools.setup(
     classifiers=[
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: BSD License",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering"
     ],
@@ -33,5 +33,5 @@ setuptools.setup(
         'importlib-metadata>=1.0;python_version<"3.8"',
         'typing-extensions>=4.1,<4.2;python_version<"3.8"'
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.7",
 )
