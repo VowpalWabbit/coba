@@ -1,10 +1,10 @@
 from pathlib import Path
 from itertools import product
-from typing import Sequence, Optional, Union
+from typing import Sequence, Optional, Union, overload, Tuple
 
 from coba.pipes import Pipes, Foreach
 from coba.learners import Learner
-from coba.environments import Environment, Environments
+from coba.environments import Environment
 from coba.multiprocessing import CobaMultiprocessor
 from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, NullLogger
 from coba.exceptions import CobaException
@@ -17,9 +17,11 @@ from coba.experiments.results import Result, TransactionIO
 class Experiment:
     """An Experiment using a collection of environments and learners."""
 
+    @overload
     def __init__(self,
         environments    : Union[Environment, Sequence[Environment]],
         learners        : Union[Learner,Sequence[Learner]],
+        *,
         description     : str             = None,
         learner_task    : LearnerTask     = SimpleLearnerInfo(),
         environment_task: EnvironmentTask = SimpleEnvironmentInfo(),
@@ -35,14 +37,38 @@ class Experiment:
             evaluation_task: A task which evaluates a learner on an environment.
         """
 
-        if hasattr(environments,'read'): environments = [environments]
-        if hasattr(learners,'predict'): learners = [learners]
 
-        self._pairs            = list(product(learners, environments))
-        self._description      = description
-        self._learner_task     = learner_task
-        self._environment_task = environment_task
-        self._evaluation_task  = evaluation_task
+    @overload
+    def __init__(self,
+        eval_pairs      : Sequence[Tuple[Learner,Environment]],
+        *,
+        description     : str             = None,
+        learner_task    : LearnerTask     = SimpleLearnerInfo(),
+        environment_task: EnvironmentTask = SimpleEnvironmentInfo(),
+        evaluation_task : EvaluationTask  = SimpleEvaluation()) -> None:
+        ...
+        """Instantiate an Experiment.
+
+        Args:
+            eval_pairs: The collection of learners with their evaluation environments.
+            learner_task: A task which describes a learner.
+            environment_task: A task which describes an environment.
+            evaluation_task: A task which evaluates a learner on an environment.
+        """
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Instantiate an Experiment."""
+
+        if len(args) == 2:
+            envs = [args[0]] if hasattr(args[0],'read') else args[0]
+            lrns = [args[1]] if hasattr(args[1],'predict') else args[1]
+            args = [list(product(lrns, envs))]
+
+        self._pairs            = args[0]
+        self._description      = kwargs.get('description',None)
+        self._learner_task     = kwargs.get('learner_task', SimpleLearnerInfo())
+        self._environment_task = kwargs.get('environment_task', SimpleEnvironmentInfo())
+        self._evaluation_task  = kwargs.get('evaluation_task', SimpleEvaluation())
 
         if any([lrn is None for lrn,_ in self._pairs]):
             raise CobaException("A Learner was given whose value was None, which can't be processed.")

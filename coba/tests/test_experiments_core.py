@@ -214,7 +214,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         env2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
         learner    = ModuloLearner()
-        experiment = Experiment([env1,env2], [learner], "abc")
+        experiment = Experiment([env1,env2], [learner], description="abc")
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_dicts()

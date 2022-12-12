@@ -142,6 +142,9 @@ class Scale(EnvironmentFilter):
             rwd_vals = lambda i: list(map(i['rewards'].eval,range(len(i['actions']))))
             unscaled = sum(list(map(rwd_vals,fitting_interactions)),[])
 
+        elif self._target == "rewards" and not is_discrete:
+            unscaled = []
+
         elif self._target == "argmax":
             unscaled = [interaction['rewards'].argmax() for interaction in fitting_interactions]
         self._times[1] += time.time()-start
