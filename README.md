@@ -29,7 +29,7 @@
  * ... *light-weight* (there are minimal project dependencies to get started)
  * ... *verbose* (sophisticated logging is built-in for meaningful, readable feedback on log running jobs)
  * ... *robust* (results are frequently saved to disk so that no work is lost if research is interrupted for any reason)
- * ... *lazy* (resources are loaded just as their needed and then released quickly to keep resources requirements small)
+ * ... *lazy* (resources are loaded just-in-time and then released quickly to minimize resource requirements)
  * ... *a duck?* (all code uses duck-typing so that inheritance is a non-issue when extending built-in functionality)
 
  But don't take our word for it. We encourage you to look at the code yourself or read more below.
