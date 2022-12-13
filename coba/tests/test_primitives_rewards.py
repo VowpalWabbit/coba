@@ -1,6 +1,6 @@
 import unittest
 
-from coba.primitives import L1Reward, HammingReward, ScaleReward, BinaryReward, SequenceReward, MulticlassReward
+from coba.primitives import L1Reward, HammingReward, ScaleReward, BinaryReward, SequenceReward, MulticlassReward, BatchReward
 from coba.exceptions import CobaException
 
 class L1Reward_Tests(unittest.TestCase):
@@ -105,6 +105,19 @@ class MulticlassReward_Tests(unittest.TestCase):
         self.assertEqual(0,rwd[0])
         self.assertEqual(1,rwd[1])
         self.assertEqual(0,rwd[2])
+
+class BatchReward_Tests(unittest.TestCase):
+    def test_eval(self):
+        rwd = BatchReward([SequenceReward([4,5,6]),SequenceReward([7,8,9])])
+        self.assertEqual(rwd.eval([1,2]), [5,9])
+
+    def test_argmax(self):
+        rwd = BatchReward([SequenceReward([4,5,6]),SequenceReward([7,8,9])])
+        self.assertEqual(rwd.argmax(), [2,2])
+
+    def test_max(self):
+        rwd = BatchReward([SequenceReward([4,5,6]),SequenceReward([7,8,9])])
+        self.assertEqual(rwd.max(), [6,9])
 
 if __name__ == '__main__':
     unittest.main()

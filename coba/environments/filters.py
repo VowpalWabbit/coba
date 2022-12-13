@@ -1,6 +1,7 @@
 import time
 import pickle
 import warnings
+import copy
 
 from math import isnan
 from statistics import mean, median, stdev, mode
@@ -17,7 +18,10 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first
-from coba.primitives import HashableSparse, HashableDense, ScaleReward, BinaryReward, Feedback, SequenceReward
+from coba.primitives import HashableSparse, HashableDense
+from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward
+from coba.primitives import Feedback, BatchFeedback
+from coba.learners   import Learner, SafeLearner
 
 from coba.environments.primitives import EnvironmentFilter, Interaction
 
@@ -888,8 +892,11 @@ class Batch(EnvironmentFilter):
         return {'batched': self._batch_size}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
         for batch in self._batched(interactions, self._batch_size):
             new = { k: primitives.Batch(i[k] for i in batch) for k in batch[0] }
+            if 'rewards' in new: new['rewards'] = BatchReward(new['rewards'])
+            if 'feedbacks' in new: new['feedbacks'] = BatchFeedback(new['feedbacks'])
             yield new
 
     def _batched(self, iterable, n):
@@ -901,6 +908,25 @@ class Batch(EnvironmentFilter):
             yield batch
             batch = list(islice(it, n))
 
+class Unbatch(EnvironmentFilter):
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        first, interactions = peek_first(interactions)
+        if not interactions: return []
+        is_batched = isinstance(first[list(first.keys())[0]], primitives.Batch)
+
+        if not is_batched:
+            yield from interactions
+        else:
+            yield from self._unbatch(interactions)
+
+    def _unbatch(self, interactions: Iterable[Interaction]):
+        for interaction in interactions:
+            batch_size = len(interaction[list(interaction.keys())[0]])
+            for i in range(batch_size):
+                yield { k: interaction[k][i] for k in interaction }
+
 class BatchSafe(EnvironmentFilter):
 
     def __init__(self, filter: EnvironmentFilter) -> None:
@@ -908,25 +934,19 @@ class BatchSafe(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
         first, interactions = peek_first(interactions)
-        
+
         if not interactions: return []
-        
+
         is_batched = isinstance(first[list(first.keys())[0]], primitives.Batch)
 
         if not is_batched:
             return self._filter.filter(interactions)
         else:
             batch_size = len(first[list(first.keys())[0]])
-            debatched  = self._debatch(interactions)
-            filtered   = self._filter.filter(debatched)
-            rebatched  = Batch(batch_size).filter(filtered)
+            unbatched = Unbatch().filter(interactions)
+            filtered  = self._filter.filter(unbatched)
+            rebatched = Batch(batch_size).filter(filtered)
             return rebatched
-
-    def _debatch(self, interactions: Iterable[Interaction]):
-        for interaction in interactions:
-            batch_size = len(interaction[list(interaction.keys())[0]])
-            for i in range(batch_size):
-                yield { k: interaction[k][i] for k in interaction }
 
 class Finalize(EnvironmentFilter):
 
@@ -979,3 +999,35 @@ class Chunk(EnvironmentFilter):
     """A placeholder filter that exists only to semantically indicate how an environment pipe should be chunked for processing."""
     def filter(self, items: Iterable[Interaction]) -> Iterable[Interaction]:
         return items
+
+class Logged(EnvironmentFilter):
+
+    def __init__(self, learner: Learner) -> None:
+        self._learner = learner
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+
+        learner = SafeLearner(copy.deepcopy(self._learner))
+
+        interactions = Unbatch().filter(interactions)
+        first, interactions = peek_first(interactions)
+
+        predict = learner.predict
+        learn   = learner.learn
+
+        if first['type'] != 'simulated':
+            raise CobaException("Currently only simulated interactions can be converted to logged interactions.")
+
+        for interaction in Unbatch().filter(interactions):
+
+            context = interaction['context']
+            actions = interaction['actions']
+            rewards = interaction['rewards']
+
+            action,prob,info = predict(context, actions)
+
+            reward = rewards.eval(action)
+
+            learn(context, actions, action, reward, prob, **info)
+
+            yield {'type':'logged', 'context':context, 'action':action, 'reward':reward, 'probability':prob}

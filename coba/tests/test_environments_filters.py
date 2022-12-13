@@ -8,12 +8,14 @@ from coba              import primitives
 from coba.pipes        import Categorical, LazyDense, LazySparse
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.primitives   import HashableSparse, L1Reward
-from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedInteraction
-from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
-from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
-from coba.environments import Finalize, Repr, BatchSafe, Cache
+from coba.primitives   import HashableSparse, L1Reward, SequenceFeedback
+from coba.learners     import FixedLearner
 from coba.utilities    import peek_first
+
+from coba.environments.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
+from coba.environments.filters    import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
+from coba.environments.filters    import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
+from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch
 
 class TestEnvironment:
 
@@ -1695,7 +1697,7 @@ class Batch_Tests(unittest.TestCase):
         self.assertIsInstance(batches[1]['a'], primitives.Batch)
         self.assertIsInstance(batches[1]['b'], primitives.Batch)
 
-    def test_batch1(self):
+    def test_batch(self):
         batch = Batch(1)
 
         self.assertEqual({'batched':1}, batch.params)
@@ -1709,8 +1711,37 @@ class Batch_Tests(unittest.TestCase):
         self.assertIsInstance(batches[1]['a'], primitives.Batch)
         self.assertIsInstance(batches[1]['b'], primitives.Batch)
 
+    def test_batch_rewards(self):
+        batch = list(Batch(2).filter([{'rewards':L1Reward(2),'b':2}]*2))[0]
+
+        self.assertEqual(batch['rewards'].eval([1,2]), [-1,0])
+
+    def test_batch_feedbacks(self):
+        batch = list(Batch(2).filter([{'feedbacks':SequenceFeedback([1,2,3]),'b':2}]*2))[0]
+
+        self.assertEqual(batch['feedbacks'].eval([1,2]), [2,3])
+
     def test_empty(self):
         self.assertEqual([],list(Batch(3).filter([])))
+
+class UnBatch_Tests(unittest.TestCase):
+
+    def test_not_batched(self):        
+        interaction = {'a':1,'b':2}
+
+        unbatched = list(Unbatch().filter([interaction]*3))
+        self.assertEqual(unbatched, [interaction]*3)
+
+
+    def test_batched(self):        
+        interaction = {'a':1,'b':2}
+
+        batched   = Batch(3).filter([interaction]*3)
+        unbatched = list(Unbatch().filter(batched))
+        self.assertEqual(unbatched, [interaction]*3)
+
+    def test_empty(self):
+        self.assertEqual(list(Unbatch().filter([])),[])
 
 class BatchSafe_Tests(unittest.TestCase):
 
@@ -1788,6 +1819,32 @@ class Cache_Tests(unittest.TestCase):
 
     def test_empty(self):
         self.assertEqual(list(Cache(3).filter([])), [])
+
+class Logged_Tests(unittest.TestCase):
+    def test_not_batched(self):
+        initial_input = {'type':'simulated', 'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        expected_output = {'type':'logged', 'context':None, 'action':0, "reward":-1, 'probability':1 }
+
+        output = list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))
+
+        self.assertEqual(output, [expected_output]*2)
+
+    def test_batched(self):
+        initial_input = {'type':'simulated', 'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        expected_output = {'type':'logged', 'context':None, 'action':0, "reward":-1, 'probability':1 }
+
+        output = list(Logged(FixedLearner([1,0,0])).filter(Batch(2).filter([initial_input]*2)))
+
+        self.assertEqual(output, [expected_output]*2)
+
+
+    def test_bad_type(self):
+        initial_input = {'type':'grounded', 'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+
+        with self.assertRaises(CobaException):
+            list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))
+
+
 
 if __name__ == '__main__':
     unittest.main()

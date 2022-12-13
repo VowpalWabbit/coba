@@ -6,7 +6,7 @@ from typing import Union, Sequence, Iterator, Any
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
-from coba.primitives.semantic import Action, AIndex
+from coba.primitives.semantic import Action, AIndex, Batch
 
 class Reward(ABC):
     
@@ -143,3 +143,14 @@ class MulticlassReward(Reward):
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(o) == list(self)
+
+class BatchReward(Batch):
+    
+    def eval(self, actions: Sequence[Action]) -> Sequence[float]:
+        return list(map(lambda r,a: r.eval(a), self, actions))
+
+    def argmax(self) -> Sequence[Action]:
+        return [r.argmax() for r in self]
+
+    def max(self) -> float:
+        return [r.max() for r in self]

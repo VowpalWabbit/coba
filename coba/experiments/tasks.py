@@ -91,7 +91,6 @@ class SimpleEvaluation(EvaluationTask):
             record: The datapoints to record for each interaction.
         """
 
-
     def __init__(self, *args, **kwargs) -> None:
 
         is_old_interface = (len(args) > 1 and isinstance(args[1],bool)) or (len(kwargs) > 0 and 'record' not in kwargs)
@@ -102,7 +101,7 @@ class SimpleEvaluation(EvaluationTask):
             if isinstance(record,str): record = [record]
         else:
             record = []
-            
+
             if 'reward_metrics' in kwargs:
                 args = [kwargs['reward_metrics']]
             if 'time_metrics' in kwargs:
@@ -165,7 +164,7 @@ class SimpleEvaluation(EvaluationTask):
                 action,prob,info = predict(context, actions)
                 predict_time     = time.time()-start_time
 
-                reward = list(map(lambda r,a: r.eval(a),rewards,action)) if batched else rewards.eval(action)
+                reward = rewards.eval(action)
 
                 start_time = time.time()
                 learn(context, actions, action, reward, prob, **info)
@@ -187,7 +186,7 @@ class SimpleEvaluation(EvaluationTask):
                 else:
                     start_time   = time.time()
                     action,prob  = predict(context, actions)[:2]
-                    reward       = list(map(rewards.eval,action)) if batched else rewards.eval(action)
+                    reward       = rewards.eval(action)
                     predict_time = time.time()-start_time
 
                 start_time = time.time()
@@ -205,8 +204,8 @@ class SimpleEvaluation(EvaluationTask):
 
                 start_time       = time.time()
                 action,prob,info = predict(context, actions)
-                reward           = list(map(rewards.eval,action)) if batched else rewards.eval(action)
-                feedback         = list(map(feedbacks.eval,action)) if batched else feedbacks.eval(action)
+                reward           = rewards.eval(action)
+                feedback         = feedbacks.eval(action)
                 predict_time     = time.time()-start_time
 
                 start_time = time.time()
