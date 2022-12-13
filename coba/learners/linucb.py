@@ -2,7 +2,7 @@ from typing import Any, Dict, Sequence
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.environments import Context, Action
+from coba.primitives import Context, Action
 from coba.pipes import Flatten
 from coba.encodings import InteractionsEncoder
 

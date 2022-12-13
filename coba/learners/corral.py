@@ -5,7 +5,7 @@ from coba.backports import Literal
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
-from coba.environments import Context, Action
+from coba.primitives import Context, Action
 
 from coba.learners.primitives import Learner, SafeLearner, PMF, kwargs, Actions
 

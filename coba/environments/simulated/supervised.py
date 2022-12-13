@@ -6,10 +6,9 @@ from coba.pipes import Pipes, Source, IterableSource, LabelRows, Reservoir, UrlS
 from coba.pipes import CsvReader, ArffReader, LibsvmReader, ManikReader
 
 from coba.utilities import peek_first
-from coba.primitives import Categorical
+from coba.primitives import Categorical, L1Reward, MulticlassReward, HammingReward
 
 from coba.environments.primitives import SimulatedEnvironment, SimulatedInteraction
-from coba.environments.primitives import L1Reward, MulticlassReward, HammingReward
 
 class CsvSource(Source[Iterable[MutableSequence]]):
     """Load a source (either local or remote) in CSV format.

@@ -1,9 +1,9 @@
 import math
 
-from collections import defaultdict, abc
+from collections import defaultdict
 from typing import Any, Dict, Optional, cast, Hashable, Union
 
-from coba.environments import Context, Action, Actions
+from coba.primitives import Context, Action, Actions
 from coba.statistics import OnlineVariance
 from coba.learners.primitives import Learner, Probs, PMF, PDF
 
@@ -87,9 +87,9 @@ class UcbBanditLearner(Learner):
     def learn(self, context: Context, actions: Actions, index: int, reward: float, prob: float) -> None:
 
         assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
-        
+
         action = actions[index]
-        
+
         if action not in self._m:
             self._m[action] = reward
             self._s[action] = 1

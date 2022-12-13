@@ -1,25 +1,7 @@
-from abc import abstractmethod, ABC
-from collections import abc
 from operator import eq
-from typing import Sequence, Any, Iterator, Iterable
-
-class Categorical(str):
-    __slots__ = ('levels','onehot')
-    
-    def __new__(cls, value:str, levels: Sequence[str]) -> str:
-        return str.__new__(Categorical,value)
-    
-    def __init__(self, value:str, levels: Sequence[str]) -> None:
-        self.levels = levels
-        self.onehot = [0]*len(levels)
-        self.onehot[levels.index(value)] = 1
-        self.onehot = tuple(self.onehot)
-
-    def __repr__(self) -> str:
-        return f"Categorical('{self}',{self.levels})"
-
-class Batch(list):
-    pass
+from collections import abc
+from abc import ABC, abstractmethod
+from typing import Sequence, Iterator, Iterable, Any
 
 class Dense(ABC):
     __slots__ = ()

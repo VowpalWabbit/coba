@@ -7,10 +7,9 @@ from coba.backports import Literal
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.environments import Context, Action
-from coba.primitives import Sparse, Dense
+from coba.primitives import Sparse, Context, Action, Actions
 
-from coba.learners.primitives import Learner, Probs, Actions
+from coba.learners.primitives import Learner, Probs
 
 Feature       = Union[str,int,float]
 Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]

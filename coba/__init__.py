@@ -1,6 +1,6 @@
 from coba.contexts     import CobaContext, NullLogger
 from coba.environments import Environments, ArffSource, CsvSource, LibSvmSource, ManikSource
-from coba.environments import Context, Action, SimulatedInteraction, LoggedInteraction, GroundedInteraction
+from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.experiments  import Experiment, Result
 
 from coba.random import CobaRandom
@@ -49,6 +49,4 @@ __all__ = [
     'SimulatedInteraction', 
     'LoggedInteraction', 
     'GroundedInteraction',
-    'Context',
-    'Action'
 ]

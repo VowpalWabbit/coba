@@ -3,13 +3,13 @@ import unittest
 from pathlib import Path
 from typing import cast
 
-from coba.environments import Environment, LambdaSimulation, MulticlassReward, SimulatedInteraction
+from coba.environments import Environment, LambdaSimulation, SimulatedInteraction
 from coba.pipes import Source, ListSink
 from coba.learners import Learner, Probs
 from coba.contexts import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment, SimpleEvaluation
 from coba.exceptions import CobaException
-from coba.primitives import Categorical
+from coba.primitives import Categorical, MulticlassReward
 
 class NoParamsLearner:
     def predict(self, context, actions):

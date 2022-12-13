@@ -17,10 +17,9 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first
-from coba.primitives import HashableSparse, HashableDense
+from coba.primitives import HashableSparse, HashableDense, ScaleReward, BinaryReward, Feedback, SequenceReward
 
 from coba.environments.primitives import EnvironmentFilter, Interaction
-from coba.environments.primitives import ScaleReward, BinaryReward, Feedback, SequenceReward
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""

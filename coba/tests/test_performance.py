@@ -11,14 +11,14 @@ import coba.random
 #from coba.environments.primitives import SimulatedInteraction2, SimulatedInteraction3
 
 from coba.learners import VowpalMediator, SafeLearner
-from coba.environments import SimulatedInteraction, LinearSyntheticSimulation, ScaleReward, L1Reward
+from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.experiments.results import Result, moving_average
 from coba.experiments import SimpleEvaluation
-from coba.primitives import Categorical, HashableSparse
+from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
 
 Timeable = Callable[[],Any]
 Scalable = Callable[[int],Timeable]

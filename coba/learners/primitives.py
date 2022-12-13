@@ -6,20 +6,18 @@ from typing import Any, Sequence, Union, Tuple, Callable, Mapping, Optional
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
-from coba.environments import Context, Action, Actions
-from coba.primitives import Batch
+from coba.primitives import Batch, Context, Action, Actions, AIndex
 
 kwargs = Mapping[str,Any]
 Score  = float
-Index  = int
 PMF    = Sequence[float]
-PDF    = Callable[[Union[Action,Index]],float]
+PDF    = Callable[[Union[Action,AIndex]],float]
 
 class Probs(list):
     pass
 
 class ActionScore(tuple):
-    def __new__(self, action: Union[Action,Index], score: Score):
+    def __new__(self, action: Union[Action,AIndex], score: Score):
         return tuple.__new__(ActionScore, (action, score))
 
 Prediction = Union[
@@ -27,7 +25,7 @@ Prediction = Union[
     Probs,
     ActionScore,
     Tuple[PDF                       , kwargs],
-    Tuple[Union[Action,Index],Score , kwargs],
+    Tuple[Union[Action,AIndex],Score , kwargs],
     Tuple[ActionScore               , kwargs],
 ]
 
@@ -64,7 +62,7 @@ class Learner(ABC):
     def learn(self,
         context: Context,
         actions: Actions,
-        action: Union[Action,Index],
+        action: Union[Action,AIndex],
         feedback: Union[float,Any],
         score: float,
         **kwargs) -> None:
@@ -125,7 +123,7 @@ class SafeLearner(Learner):
 
         return params
 
-    def predict(self, context: Context, actions: Actions) -> Tuple[Union[Index,Action],Score,kwargs]:
+    def predict(self, context: Context, actions: Actions) -> Tuple[Union[AIndex,Action],Score,kwargs]:
 
         pred      = self._safe_predict(context,actions)
         pred_type = self._pred_type

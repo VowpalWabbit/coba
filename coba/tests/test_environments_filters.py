@@ -8,9 +8,8 @@ from coba              import primitives
 from coba.pipes        import Categorical, LazyDense, LazySparse
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.primitives   import HashableSparse
+from coba.primitives   import HashableSparse, L1Reward
 from coba.environments import LoggedInteraction, SimulatedInteraction, GroundedInteraction
-from coba.environments import L1Reward
 from coba.environments import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
 from coba.environments import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
 from coba.environments import Finalize, Repr, BatchSafe, Cache

@@ -1,6 +1,6 @@
 import unittest
 
-from coba.primitives import Categorical, Sparse, Dense, HashableSparse, HashableDense
+from coba.primitives import Sparse, Dense, HashableSparse, HashableDense
 
 class DummySparse(Sparse):
 
@@ -89,25 +89,6 @@ class Sparse_Tests(unittest.TestCase):
         sparse_copy = sparse.copy()
         self.assertEqual(sparse,sparse_copy)
         self.assertIsNot(sparse,sparse_copy)
-
-class Categorical_Tests(unittest.TestCase):
-    def test_value(self):
-        self.assertEqual("A", Categorical("A",["A","B"]))
-    
-    def test_levels(self):
-        self.assertEqual(["A","B"], Categorical("A",["A","B"]).levels)
-
-    def test_eq(self):
-        self.assertEqual(Categorical("A",["A","B"]), Categorical("A",["A","B"]))
-
-    def test_ne(self):
-        self.assertNotEqual(1, Categorical("A",["A","B"]))
-
-    def test_str(self):
-        self.assertEqual("A", str(Categorical("A",["A","B"])))
-
-    def test_repr(self):
-        self.assertEqual("Categorical('A',['A', 'B'])", repr(Categorical("A",["A","B"])))
 
 class HashableSparse_Tests(unittest.TestCase):
 

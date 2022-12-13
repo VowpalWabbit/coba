@@ -6,12 +6,8 @@ can be applied to environments to modify them in useful ways (e.g., shuffling, s
 """
 
 from coba.environments.core       import Environments
-from coba.environments.primitives import Context, Action, Actions, Reward, Feedback
-from coba.environments.primitives import Interaction, Environment, SafeEnvironment
+from coba.environments.primitives import Interaction, Environment, SafeEnvironment, EnvironmentFilter
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, GroundedInteraction
-from coba.environments.primitives import Reward, L1Reward, HammingReward, ScaleReward, BinaryReward
-from coba.environments.primitives import SequenceReward, MulticlassReward
-from coba.environments.primitives import Feedback, SequenceFeedback, EnvironmentFilter
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
 from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
 from coba.environments.filters    import Binary, Warm, Sparse, Where, Noise, Grounded
@@ -24,11 +20,6 @@ from coba.environments.simulated.supervised import SupervisedSimulation, CsvSour
 from coba.environments.simulated.serialized import SerializedSimulation
 
 __all__ = [
-    'Context',
-    'Action',
-    'Actions',
-    'Reward',
-    'Feedback',
     'Interaction',
     'SimulatedInteraction',
     'LoggedInteraction',
@@ -68,16 +59,8 @@ __all__ = [
     'Params',
     'Cache',
     'Grounded',
-    'L1Reward', 
-    'HammingReward', 
-    'ScaleReward',
-    'BinaryReward',
-    'SequenceReward',
-    'Feedback',
-    'SequenceFeedback',
     'Finalize',
     'Repr',
-    'MulticlassReward',
     'Batch',
     'BatchSafe',
     'Chunk'

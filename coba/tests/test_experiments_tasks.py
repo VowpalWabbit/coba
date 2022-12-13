@@ -8,7 +8,8 @@ import warnings
 from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
-from coba.environments import Shuffle, Noise, SequenceReward, Batch
+from coba.environments import Shuffle, Noise, Batch
+from coba.primitives   import SequenceReward
 from coba.learners     import Learner
 from coba.pipes        import Pipes
 
