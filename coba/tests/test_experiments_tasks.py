@@ -288,10 +288,6 @@ class ClassEnvironmentInfo_Tests(unittest.TestCase):
 
 class SimpleEvaluation_Tests(unittest.TestCase):
 
-    def test_no_metrics(self):
-        with self.assertRaises(CobaException):
-            SimpleEvaluation(None)
-
     def test_simulated_interaction_one_metric(self):
         task         = SimpleEvaluation("reward",time_metrics=False)
         learner      = RecordingLearner(with_info=False, with_log=False)
