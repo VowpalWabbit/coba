@@ -1830,10 +1830,17 @@ class Logged_Tests(unittest.TestCase):
         self.assertEqual(output, [expected_output]*2)
 
     def test_batched(self):
+    
+        class TestLearner:
+            def predict(self,*args):
+                return [[1,0,0],[1,0,0]]
+            def learn(self,*args):
+                pass
+
         initial_input = {'type':'simulated', 'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
         expected_output = {'type':'logged', 'context':None, 'action':0, "reward":-1, 'probability':1 }
 
-        output = list(Logged(FixedLearner([1,0,0])).filter(Batch(2).filter([initial_input]*2)))
+        output = list(Logged(TestLearner()).filter(Batch(2).filter([initial_input]*2)))
 
         self.assertEqual(output, [expected_output]*2)
 

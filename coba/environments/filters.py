@@ -1009,16 +1009,19 @@ class Logged(EnvironmentFilter):
 
         learner = SafeLearner(copy.deepcopy(self._learner))
 
-        interactions = Unbatch().filter(interactions)
         first, interactions = peek_first(interactions)
 
         predict = learner.predict
         learn   = learner.learn
 
-        if first['type'] != 'simulated':
+        batched    = isinstance(first['type'],primitives.Batch)
+        batch_size = 0 if not batched else len(first['type']) 
+        first_type = first['type'][0] if batched else first['type']
+
+        if first_type != 'simulated':
             raise CobaException("Currently only simulated interactions can be converted to logged interactions.")
 
-        for interaction in Unbatch().filter(interactions):
+        for interaction in interactions:
 
             context = interaction['context']
             actions = interaction['actions']
@@ -1030,4 +1033,9 @@ class Logged(EnvironmentFilter):
 
             learn(context, actions, action, reward, prob, **info)
 
-            yield {'type':'logged', 'context':context, 'action':action, 'reward':reward, 'probability':prob}
+            if not batched:
+                yield {'type':'logged', 'context':context, 'action':action, 'reward':reward, 'probability':prob}
+
+            elif batched:
+                for i in range(batch_size):
+                    yield {'type':'logged', 'context':context[i], 'action':action[i], 'reward':reward[i], 'probability':prob[i]}

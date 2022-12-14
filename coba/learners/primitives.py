@@ -25,7 +25,7 @@ Prediction = Union[
     Probs,
     ActionScore,
     Tuple[PDF                       , kwargs],
-    Tuple[Union[Action,AIndex],Score , kwargs],
+    Tuple[Union[Action,AIndex],Score, kwargs],
     Tuple[ActionScore               , kwargs],
 ]
 
@@ -94,6 +94,7 @@ class SafeLearner(Learner):
         self._rng         = CobaRandom(seed)
         self._batched     = None
         self._batched_lrn = None
+        self._batched_mjr = None
         self._pred_type   = None #1==PDF,2==PMF,3==Action/Score
         self._with_info   = None
         self._learn_type  = None #3==current,2==old with info,1==old without info
@@ -129,30 +130,42 @@ class SafeLearner(Learner):
         pred_type = self._pred_type
         batched   = self._batched
 
-        if pred_type is None: # this happens on the first call
-            if batched: old_pred,pred = pred,[p[0] if not isinstance(p,dict) else {k:v[0] for k,v in p.items()} for p in pred]
-            is_discrete = 0 < len(actions) and len(actions) < float('inf')
-            pred_type = self.get_type(pred, is_discrete) or self.get_inferred_type(pred, actions)
-            with_info = self.has_info(pred,pred_type)
-            self._pred_type = pred_type
-            self._with_info = with_info
-            self._info_dict = with_info and isinstance(pred[-1],dict) 
-            if batched: pred = old_pred
+        #if not batched everything just works
+
+        #if batched and what we are given are pmfs
+            #we need the prediction orderd by batch first
+
+        #if batched and what we are given are actions cores
+            #we need the prediction ordered by batch second
+
+        if pred_type is None and not batched: # first call only
+            self._determine_pred_format(pred,actions)
+            pred_type = self._pred_type
+
+        elif pred_type is None and batched:
+            if self._batched_mjr:
+                test_pred = pred[0] 
+            else:
+                test_pred = [p[0] if not isinstance(p,dict) else {k:v[0] for k,v in p.items()} for p in pred]
+            self._determine_pred_format(test_pred,actions[0])
+            pred_type = self._pred_type
 
         if not self._with_info:
             pred_info = {}
-
+        elif self._info_dict:
+            pred_info = {k:[p[-1][k] for p in pred] for k in pred[0][-1]} if self._batched_mjr else pred[-1]
         else:
-            pred_info = pred[-1] if self._info_dict else {'_':pred[-1]}
+            pred_info = {'_': [p[-1] for p in pred]} if batched else {'_': pred[-1]}
 
         if self._pred_type == 2:
-            pmf = pred[0] if pred_info else pred
             if not batched:
+                pmf = pred[0] if pred_info else pred
                 action,score = self._get_pmf_action_score(self._rng,pmf,actions)
             else:
+                pmf = [p[0] if pred_info else p for p in pred] if self._batched_mjr else pred[0]
                 action,score = list(zip(*map(self._get_pmf_action_score, repeat(self._rng), pmf, actions)))
         else:
-            action,score = pred[:2]
+            action,score = list(zip(*[p[:2] for p in pred])) if self._batched_mjr else pred[:2]
 
         return action, score, pred_info
 
@@ -177,22 +190,31 @@ class SafeLearner(Learner):
                     all_failed = True
                 if all_failed: raise
 
-    def get_type(self,pred,is_discrete) -> Optional[int]:
+    def _determine_pred_type(self,pred,is_discrete) -> Optional[int]:
         if self._is_type_1(pred): raise CobaException("PDF predictions are currently not supported.")
         if self._is_type_2(pred,is_discrete): return 2
         if self._is_type_3(pred,is_discrete): return 3
         return None
 
-    def has_info(self,pred,pred_type) -> Mapping[Any,Any]:
+    def _determine_has_info(self,pred,pred_type) -> Mapping[Any,Any]:
         if pred_type == 2:
             return not isinstance(pred[0],(int,float))
         else: #pred_type==3
             return len(pred) == 3
 
+    def _determine_pred_format(self, pred, actions):
+
+        is_discrete = 0 < len(actions) and len(actions) < float('inf')
+        pred_type = self._determine_pred_type(pred, is_discrete) or self.get_inferred_type(pred, actions)
+        with_info = self._determine_has_info(pred,pred_type)
+
+        self._pred_type = pred_type
+        self._with_info = with_info
+        self._info_dict = with_info and isinstance(pred[-1],dict) 
+
     def _safe_predict(self, context, actions):
 
         batched = self._batched
-        batched_lrn = self._batched_lrn
 
         if batched is None: 
             batched = isinstance(context,Batch)
@@ -200,27 +222,35 @@ class SafeLearner(Learner):
 
         if not batched:
             return self._learner.predict(context,actions)
+
         if batched:
+            batched_lrn = self._batched_lrn
             if batched_lrn == True:
                 return self._learner.predict(context,actions)
             elif batched_lrn == False:
-                preds = [self._learner.predict(c, a) for c,a in zip(context,actions)]
-            else:
+                return list(map(self._learner.predict,context,actions))
+            elif batched_lrn is None:
                 try:
+                    batch_size = len(context)
                     pred = self._learner.predict(context,actions)
-                    #I'm not sure if this is air tight but I think it is?
-                    pred_is_appropriately_batched = (len(context) == len(pred) and not isinstance(pred[0],(int,float))) or (len(context) == len(pred[0]))
-                    if pred_is_appropriately_batched:
-                        self._batched_lrn = True
-                        return pred
-                    else:
-                        self._batched_lrn = False
-                        preds = [self._learner.predict(c, a) for c,a in zip(context,actions)]
-                except:
-                    self._batched_lrn = False
-                    preds = [self._learner.predict(c, a) for c,a in zip(context,actions)]
-            return [ [ p[i] for p in preds ] if not isinstance(preds[0][i],dict) else { k:[p[i][k] for p in preds] for k in preds[0][i] } for i in range(len(preds[0])) ]
+                    n_rows = len(pred)
+                    n_cols = len(pred[0])
 
+                    self._batched_lrn = True
+
+                    if n_rows != n_cols:
+                        self._batched_mjr = len(pred) == batch_size
+                    else:
+                        #The major order of pred is not determinable. So we
+                        #now do a small "test" to determine the major order.
+                        test_pred = self._learner.predict(Batch([context[0]]),Batch([actions[0]]))
+                        self._batched_mjr = len(test_pred) == 1
+                    return pred
+
+                except Exception as e:
+                    self._batched_lrn = False
+                    self._batched_mjr = True
+                    return list(map(self._learner.predict,context,actions))
 
     def _safe_learn(self,context,actions,action,reward,probability,kwargs):
         if self._learn_type==3:
