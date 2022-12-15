@@ -62,7 +62,7 @@ class Experiment:
         if len(args) == 2:
             envs = [args[0]] if hasattr(args[0],'read') else args[0]
             lrns = [args[1]] if hasattr(args[1],'predict') else args[1]
-            args = [list(product(lrns, envs))]
+            args = [list(zip(*reversed(list(zip(*product(envs,lrns))))))]
 
         self._pairs            = args[0]
         self._description      = kwargs.get('description',None)

@@ -205,6 +205,24 @@ class ArffReader_Tests(unittest.TestCase):
 
         self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
+    def test_dense_categorical_with_spaces(self):
+        lines = [
+            "@relation test",
+            "@attribute a string",
+            "@attribute b string",
+            "@attribute c {0, B, C, D }",
+            "@data",
+            "1,2,B",
+            "2,3,D"
+        ]
+
+        expected = [
+            ['1','2',Categorical("B", ["0","B","C","D"])],
+            ['2','3',Categorical("D", ["0","B","C","D"])]
+        ]
+
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
+
     def test_sparse(self):
         lines = [
             "@relation test",
@@ -356,7 +374,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             list(list(ArffReader().filter(lines))[0])
 
-        self.assertIn("We were unable to find A in ['B', 'C', 'D'].", str(e.exception))
+        self.assertIn("We were unable to find 'A' in ['B', 'C', 'D'].", str(e.exception))
 
     def test_percent_in_attribute_name(self):
         lines = [

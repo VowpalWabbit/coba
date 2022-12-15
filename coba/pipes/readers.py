@@ -188,7 +188,6 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
                 missing = compact[0] in '?,' or compact.find(',?,') != -1 or compact.find(',,') != -1 or compact[-1] in '?,'
 
             yield LazyDense(lambda line=line,i=i:parser.parse(i,line), encoders, hdr_map, missing)
-            #yield LazyArffDense(parser, line, encoders, hdr_seq, hdr_map, missing)
 
     def _sparse(self, lines: Iterable[str], headers: Sequence, encoders: Sequence) -> Iterable[Sparse]:
 
@@ -235,7 +234,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
 
                     item = item.strip().rstrip()[1:-1].replace("\\",'')
                 else:
-                    item.strip()
+                    item = item.strip()
 
                 yield item
 
@@ -281,7 +280,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
                     try:
                         return cats[x]
                     except:
-                        if x != "?": raise CobaException(f"We were unable to find {x} in {sorted(cats.keys())}.")
+                        if x != "?": raise CobaException(f"We were unable to find '{x}' in {sorted(cats.keys())}.")
                         return missing_val
 
                 yield cat_encoder
