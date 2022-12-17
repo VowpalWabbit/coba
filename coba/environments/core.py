@@ -270,7 +270,15 @@ class Environments (collections.abc.Sequence):
             seeds = flat(args) or [1]
                 
         if isinstance(seeds,int): seeds = [seeds]
-        return self.filter([Shuffle(seed) for seed in seeds])
+
+        shuffled = self.filter([Shuffle(seed) for seed in seeds])
+
+        #Experience has shown that most of the time we want to sort.
+        #This doesn't change the experiment results. It simply makes it
+        #easier monitor an experiment while it runs in the background.
+        ordered  = sorted(shuffled, key=lambda env: env.params['shuffle'])
+
+        return Environments(ordered)
 
     def sort(self, *keys: Union[str,int,Sequence[Union[str,int]]]) -> 'Environments':
         """Sort Environment interactions according to the context values indicated by keys."""
