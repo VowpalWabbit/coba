@@ -34,6 +34,9 @@ class L1Reward(Reward):
         #defined in __init__ for performance
         raise NotImplementedError("This should have been defined in __init__.")
 
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o,L1Reward) and o._label == self._label
+
 class HammingReward(Reward):
     def __init__(self, labels: Sequence[AIndex]) -> None:
         self._label  = set(labels)

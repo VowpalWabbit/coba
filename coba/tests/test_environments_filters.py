@@ -1724,14 +1724,13 @@ class Batch_Tests(unittest.TestCase):
     def test_empty(self):
         self.assertEqual([],list(Batch(3).filter([])))
 
-class UnBatch_Tests(unittest.TestCase):
+class Unbatch_Tests(unittest.TestCase):
 
     def test_not_batched(self):        
         interaction = {'a':1,'b':2}
 
         unbatched = list(Unbatch().filter([interaction]*3))
         self.assertEqual(unbatched, [interaction]*3)
-
 
     def test_batched(self):        
         interaction = {'a':1,'b':2}
@@ -1823,7 +1822,7 @@ class Cache_Tests(unittest.TestCase):
 class Logged_Tests(unittest.TestCase):
     def test_not_batched(self):
         initial_input = {'type':'simulated', 'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
-        expected_output = {'type':'logged', 'context':None, 'action':0, "reward":-1, 'probability':1 }
+        expected_output = {'type':'logged', 'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
 
         output = list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))
 
@@ -1838,11 +1837,12 @@ class Logged_Tests(unittest.TestCase):
                 pass
 
         initial_input = {'type':'simulated', 'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
-        expected_output = {'type':'logged', 'context':None, 'action':0, "reward":-1, 'probability':1 }
+        expected_output = {'type':'logged', 'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        expected_output = list(Batch(2).filter([expected_output]*2))
 
         output = list(Logged(TestLearner()).filter(Batch(2).filter([initial_input]*2)))
 
-        self.assertEqual(output, [expected_output]*2)
+        self.assertEqual(output, expected_output)
 
 
     def test_bad_type(self):
@@ -1850,8 +1850,6 @@ class Logged_Tests(unittest.TestCase):
 
         with self.assertRaises(CobaException):
             list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))
-
-
 
 if __name__ == '__main__':
     unittest.main()

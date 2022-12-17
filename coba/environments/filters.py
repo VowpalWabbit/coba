@@ -1021,6 +1021,9 @@ class Logged(EnvironmentFilter):
         if first_type != 'simulated':
             raise CobaException("Currently only simulated interactions can be converted to logged interactions.")
 
+
+        tipe = 'logged' if not batched else primitives.Batch(['logged']*batch_size)
+
         for interaction in interactions:
 
             context = interaction['context']
@@ -1033,9 +1036,11 @@ class Logged(EnvironmentFilter):
 
             learn(context, actions, action, reward, prob, **info)
 
-            if not batched:
-                yield {'type':'logged', 'context':context, 'action':action, 'reward':reward, 'probability':prob}
+            new = interaction.copy()
 
-            elif batched:
-                for i in range(batch_size):
-                    yield {'type':'logged', 'context':context[i], 'action':action[i], 'reward':reward[i], 'probability':prob[i]}
+            new['type']        = tipe
+            new['action']      = action
+            new['probability'] = prob
+            new['reward']      = reward
+
+            yield new

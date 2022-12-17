@@ -167,7 +167,10 @@ class SafeLearner(Learner):
         else:
             action,score = list(zip(*[p[:2] for p in pred])) if self._batched_mjr else pred[:2]
 
-        return action, score, pred_info
+        if batched:
+            return Batch(action), Batch(score), pred_info
+        else:
+            return action, score, pred_info
 
     def learn(self, context, actions, action, reward, probability, **kwargs) -> None:
 
