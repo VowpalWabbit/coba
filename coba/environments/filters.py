@@ -23,7 +23,7 @@ from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchRewa
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
 
-from coba.environments.primitives import EnvironmentFilter, Interaction, Environment
+from coba.environments.primitives import EnvironmentFilter, Interaction
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""

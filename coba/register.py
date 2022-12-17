@@ -1,6 +1,6 @@
 from coba.registry     import CobaRegistry
 from coba.pipes        import NullSink, ConsoleSink, DiskSink, HttpSource
-from coba.environments import OpenmlSimulation, SerializedSimulation, SupervisedSimulation
+from coba.environments import OpenmlSimulation, SupervisedSimulation
 from coba.environments import Sort, Scale, Cycle, Shuffle, Take, Identity, Where, Repr
 from coba.contexts     import DiskCacher, NullCacher, IndentLogger, NullLogger, BasicLogger
 
@@ -20,7 +20,6 @@ CobaRegistry.register("DiskCacher", DiskCacher)
 CobaRegistry.register("NullCacher", NullCacher)
 
 CobaRegistry.register("OpenmlSimulation"    , OpenmlSimulation    )
-CobaRegistry.register("SerializedSimulation", SerializedSimulation)
 CobaRegistry.register("SupervisedSimulation", SupervisedSimulation)
 
 CobaRegistry.register("Identity", Identity)

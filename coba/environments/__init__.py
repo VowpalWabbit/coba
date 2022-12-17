@@ -17,7 +17,6 @@ from coba.environments.simulated.synthetics import LambdaSimulation, LinearSynth
 from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
 from coba.environments.simulated.openml     import OpenmlSimulation, OpenmlSource
 from coba.environments.simulated.supervised import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
-from coba.environments.simulated.serialized import SerializedSimulation
 
 __all__ = [
     'Interaction',
@@ -39,7 +38,6 @@ __all__ = [
     'NeighborsSyntheticSimulation',
     'KernelSyntheticSimulation',
     'MLPSyntheticSimulation',
-    'SerializedSimulation',
     'EnvironmentFilter',
     'Sort',
     'Scale',

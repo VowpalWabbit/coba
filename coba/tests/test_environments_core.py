@@ -8,7 +8,7 @@ from coba.contexts import CobaContext, DiskCacher
 from coba.pipes import DiskSource, UrlSource
 from coba.exceptions import CobaException
 from coba.environments import Environments, Environment, Shuffle, Take
-from coba.environments import SerializedSimulation, LinearSyntheticSimulation
+from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
 
 class TestEnvironment(Environment):
@@ -82,7 +82,7 @@ class Environments_Tests(unittest.TestCase):
         def mocked_requests_get(*args, **kwargs):
 
             if args[0] == index_url:
-                return MockResponse(200, b'{ "environments": { "SerializedSimulation": "./test.json" } }')
+                return MockResponse(200, b'{ "environments": { "OpenmlSimulation": 10 } }')
 
             return MockResponse(None, 404, [])
 
@@ -90,9 +90,7 @@ class Environments_Tests(unittest.TestCase):
             envs = Environments.from_prebuilt("test")
 
         self.assertEqual(1, len(envs))
-        self.assertIsInstance(envs[0], SerializedSimulation)
-        self.assertIsInstance(envs[0]._source, UrlSource)
-        self.assertEqual(simulation_url, envs[0]._source._url)
+        self.assertEqual(envs[0].params['openml_data'],10)
 
     def test_from_prebuilt_unrecognized_name(self):
 
