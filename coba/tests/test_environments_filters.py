@@ -14,7 +14,7 @@ from coba.utilities    import peek_first
 
 from coba.environments.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments.filters    import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
-from coba.environments.filters    import Warm, Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
+from coba.environments.filters    import Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
 from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch
 
 class TestEnvironment:
@@ -1089,36 +1089,6 @@ class Sparse_Tests(unittest.TestCase):
 
     def test_params(self):
         self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparse().params)
-
-class Warm_Tests(unittest.TestCase):
-
-    def test_to_warmstart(self):
-        interactions = [
-            SimulatedInteraction((7,2), [1,2], [.2,.3]),
-            SimulatedInteraction((1,9), [1,2], [.1,.5]),
-            SimulatedInteraction((8,3), [1,2], [.5,.2])
-        ]
-
-        warmstart_interactions = list(Warm(2).filter(interactions))
-
-        self.assertEqual((7,2), warmstart_interactions[0]['context'])
-        self.assertEqual([1,2], warmstart_interactions[0]['actions'])
-        self.assertEqual(1, warmstart_interactions[0]['action'])
-        self.assertEqual(1/2, warmstart_interactions[0]['probability'])
-        self.assertEqual(.2, warmstart_interactions[0]['reward'])
-
-        self.assertEqual((1,9), warmstart_interactions[1]['context'])
-        self.assertEqual([1,2], warmstart_interactions[1]['actions'])
-        self.assertEqual(2, warmstart_interactions[1]['action'])
-        self.assertEqual(1/2, warmstart_interactions[1]['probability'])
-        self.assertEqual(.5, warmstart_interactions[1]['reward'])
-
-        self.assertEqual((8,3), warmstart_interactions[2]['context'])
-        self.assertEqual([1,2], warmstart_interactions[2]['actions'])
-        self.assertEqual([.5,.2], warmstart_interactions[2]['rewards'])
-
-    def test_params(self):
-        self.assertEqual({"n_warm": 10}, Warm(10).params)
 
 class Noise_Tests(unittest.TestCase):
 

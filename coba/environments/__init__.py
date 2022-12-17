@@ -10,7 +10,7 @@ from coba.environments.primitives import Interaction, Environment, SafeEnvironme
 from coba.environments.primitives import SimulatedInteraction, LoggedInteraction, GroundedInteraction
 from coba.environments.filters    import Shuffle, Take, Identity, Reservoir, Riffle, Cache
 from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Params
-from coba.environments.filters    import Binary, Warm, Sparse, Where, Noise, Grounded
+from coba.environments.filters    import Binary, Sparse, Where, Noise, Grounded
 from coba.environments.filters    import Repr, Finalize, Batch, BatchSafe, Chunk, Logged
 
 from coba.environments.simulated.synthetics import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
@@ -47,7 +47,6 @@ __all__ = [
     'Impute',
     'Binary',
     'Where',
-    'Warm',
     'Shuffle',
     'Take',
     'Reservoir',

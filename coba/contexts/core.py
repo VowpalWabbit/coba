@@ -11,7 +11,7 @@ from coba.exceptions import CobaException
 from coba.registry import JsonMakerV1, CobaRegistry
 from coba.utilities import coba_exit
 
-from coba.contexts.cachers import Cacher, DiskCacher
+from coba.contexts.cachers import Cacher
 from coba.contexts.loggers import Logger
 
 # To support class properties before python 3.9 we must implement our properties directly

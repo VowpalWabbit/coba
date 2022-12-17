@@ -268,7 +268,7 @@ class Environments (collections.abc.Sequence):
             seeds = range(kwargs['n'])
         else:
             seeds = flat(args) or [1]
-                
+
         if isinstance(seeds,int): seeds = [seeds]
 
         shuffled = self.filter([Shuffle(seed) for seed in seeds])

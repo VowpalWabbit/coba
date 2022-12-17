@@ -23,7 +23,7 @@ from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchRewa
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
 
-from coba.environments.primitives import EnvironmentFilter, Interaction
+from coba.environments.primitives import EnvironmentFilter, Interaction, Environment
 
 class Identity(pipes.Identity, EnvironmentFilter):
     """Return whatever interactions are given to the filter."""
@@ -571,52 +571,6 @@ class Where(EnvironmentFilter):
             return []
 
         return chain(taken_interactions, interactions)
-
-class Warm(EnvironmentFilter):
-    """Turn a SimulatedEnvironment into a WarmStartEnvironment."""
-
-    def __init__(self, n_warm:int, seed:int = 1):
-        """Instantiate a Warm filter.
-
-        Args:
-            n_warm: The number of interactions that should be turned into LoggedInteractions.
-            seed: The random number seed that determines the random logging policy for LoggedInteractions.
-        """
-        self._n_warm = n_warm
-        self._seed = seed
-
-    @property
-    def params(self) -> Mapping[str, Any]:
-        return { "n_warm": self._n_warm }
-
-    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-
-        self._rng = CobaRandom(self._seed)
-
-        underlying_iterable    = iter(interactions)
-        logged_interactions    = map(self._to_logged_interaction, islice(underlying_iterable, self._n_warm))
-        simulated_interactions = underlying_iterable
-
-        return chain(logged_interactions, simulated_interactions)
-
-    def _to_logged_interaction(self, interaction: Interaction) -> Interaction:
-        new = interaction.copy()
-
-        actions       = interaction['actions']
-        rewards       = interaction['rewards']
-        num_actions   = len(actions)
-        probabilities = [1/num_actions] * num_actions
-
-        idx    = self._rng.choice(list(range(num_actions)), probabilities)
-        action = actions[idx]
-        prob   = probabilities[idx]
-        reward = rewards[idx]
-
-        new['action'] = action
-        new['probability'] = prob
-        new['reward'] = reward
-
-        return new
 
 class Riffle(EnvironmentFilter):
     """Riffle shuffle Interactions by taking actions from the end and evenly distributing into the beginning."""

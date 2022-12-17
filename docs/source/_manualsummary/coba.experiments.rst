@@ -40,4 +40,3 @@ Tasks
       SimpleEnvironmentTask
       OnlineOnPolicyEvalTask
       OnlineOffPolicyEvalTask
-      OnlineWarmStartEvalTask

@@ -24,7 +24,6 @@ Interfaces
       Environment
       SimulatedEnvironment
       LoggedEnvironment
-      WarmStartEnvironment
 
 Interaction Types
 ~~~~~~~~~~~~~~~~~
@@ -76,7 +75,6 @@ Environment Filters
       Cycle
       Impute
       Binary
-      WarmStart
       Shuffle
       Take
       Reservoir
