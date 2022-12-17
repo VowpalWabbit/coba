@@ -10,7 +10,7 @@ from coba.contexts import CobaContext
 from coba.primitives import Sparse, Dense
 from coba.exceptions import CobaException
 
-from coba.environments.simulated.supervised import SupervisedSimulation
+from coba.environments.supervised import SupervisedSimulation
 
 class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],Any]]]):
     """Load a source from openml.org (or from disk if previously cached).

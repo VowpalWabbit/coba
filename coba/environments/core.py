@@ -17,10 +17,10 @@ from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemp
 
 from coba.environments.primitives import Environment, Context, Action
 
-from coba.environments.simulated.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
-from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
-from coba.environments.simulated.openml     import OpenmlSimulation
-from coba.environments.simulated.supervised import SupervisedSimulation
+from coba.environments.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
+from coba.environments.openml     import OpenmlSimulation
+from coba.environments.supervised import SupervisedSimulation
 
 class Environments (collections.abc.Sequence):
     """A friendly wrapper around commonly used environment functionality."""

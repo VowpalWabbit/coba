@@ -11,7 +11,7 @@ from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext, CobaContext, NullLogger, MemoryCacher, NullCacher
 from coba.environments import OpenmlSimulation
 
-from coba.environments.simulated.openml import OpenmlSource
+from coba.environments.openml import OpenmlSource
 
 CobaContext.logger = NullLogger()
 

@@ -13,10 +13,10 @@ from coba.environments.filters    import Sort, Scale, Cycle, Impute, Flatten, Pa
 from coba.environments.filters    import Binary, Sparse, Where, Noise, Grounded
 from coba.environments.filters    import Repr, Finalize, Batch, BatchSafe, Chunk, Logged
 
-from coba.environments.simulated.synthetics import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
-from coba.environments.simulated.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
-from coba.environments.simulated.openml     import OpenmlSimulation, OpenmlSource
-from coba.environments.simulated.supervised import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
+from coba.environments.synthetics import LambdaSimulation, LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation
+from coba.environments.openml     import OpenmlSimulation, OpenmlSource
+from coba.environments.supervised import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
 
 __all__ = [
     'Interaction',
