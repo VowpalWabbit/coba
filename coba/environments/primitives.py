@@ -34,7 +34,6 @@ class SimulatedInteraction(Interaction):
             kwargs : Any additional information.
         """
 
-        self['type'] = 'simulated'
         self['context'] = context
         self['actions'] = actions
         if isinstance(rewards,(list,tuple)):
@@ -67,7 +66,6 @@ class GroundedInteraction(Interaction):
             **kwargs: Additional information that should be recorded in the interactions table of an experiment result.
         """
 
-        self['type'] = 'grounded'
         self['context'] = context
         self['actions'] = actions
         self['rewards'] = SequenceReward(rewards) if isinstance(rewards,(list,tuple)) else rewards
@@ -116,7 +114,6 @@ class LoggedInteraction(Interaction):
             actions           = kwargs['actions']
             kwargs['rewards'] = [int(a==action)*reward/probability for a in actions]
 
-        self['type'] = 'logged'
         self['context'] = context
         self['action']  = action
         self['reward']  = reward

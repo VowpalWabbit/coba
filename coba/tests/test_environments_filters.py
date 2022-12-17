@@ -254,10 +254,6 @@ class Scale_Tests(unittest.TestCase):
 
         self.assertEqual(3, len(scl_interactions))
 
-        self.assertEqual(scl_interactions[0]['type'], 'logged')
-        self.assertEqual(scl_interactions[1]['type'], 'logged')
-        self.assertEqual(scl_interactions[2]['type'], 'logged')
-
         self.assertEqual([6/7,0  ], scl_interactions[0]['context'])
         self.assertEqual([0  ,1  ], scl_interactions[1]['context'])
         self.assertEqual([1  ,1/7], scl_interactions[2]['context'])
@@ -538,10 +534,6 @@ class Scale_Tests(unittest.TestCase):
         self.assertTrue(isnan(mem_interactions[2]['context'][2]))
 
         self.assertEqual(3, len(scl_interactions))
-
-        self.assertEqual(scl_interactions[0]['type'], 'logged')
-        self.assertEqual(scl_interactions[1]['type'], 'logged')
-        self.assertEqual(scl_interactions[2]['type'], 'logged')
 
         self.assertEqual([6/7,0,'A'], scl_interactions[0]['context'])
         self.assertEqual([0  ,1,'B'], scl_interactions[1]['context'])
@@ -1108,10 +1100,6 @@ class Warm_Tests(unittest.TestCase):
         ]
 
         warmstart_interactions = list(Warm(2).filter(interactions))
-
-        self.assertEqual(warmstart_interactions[0]['type'], 'logged')
-        self.assertEqual(warmstart_interactions[1]['type'], 'logged')
-        self.assertEqual(warmstart_interactions[2]['type'], 'simulated')
 
         self.assertEqual((7,2), warmstart_interactions[0]['context'])
         self.assertEqual([1,2], warmstart_interactions[0]['actions'])
@@ -1821,8 +1809,8 @@ class Cache_Tests(unittest.TestCase):
 
 class Logged_Tests(unittest.TestCase):
     def test_not_batched(self):
-        initial_input = {'type':'simulated', 'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
-        expected_output = {'type':'logged', 'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        initial_input = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
 
         output = list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))
 
@@ -1836,8 +1824,8 @@ class Logged_Tests(unittest.TestCase):
             def learn(self,*args):
                 pass
 
-        initial_input = {'type':'simulated', 'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
-        expected_output = {'type':'logged', 'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        initial_input = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
         expected_output = list(Batch(2).filter([expected_output]*2))
 
         output = list(Logged(TestLearner()).filter(Batch(2).filter([initial_input]*2)))
@@ -1846,7 +1834,7 @@ class Logged_Tests(unittest.TestCase):
 
 
     def test_bad_type(self):
-        initial_input = {'type':'grounded', 'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        initial_input = {'context':None, "rewards":L1Reward(1)}
 
         with self.assertRaises(CobaException):
             list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))

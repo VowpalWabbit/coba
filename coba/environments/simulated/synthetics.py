@@ -77,7 +77,7 @@ class LambdaSimulation(SimulatedEnvironment):
             actions  = _actions(i, context)
             rewards  = [ _reward(i, context, action) for action in actions]
 
-            yield {'type':'simulated','context':context,'actions':actions,'rewards': SequenceReward(rewards) }
+            yield {'context':context,'actions':actions,'rewards': SequenceReward(rewards) }
 
     def __str__(self) -> str:
         return "LambdaSimulation"

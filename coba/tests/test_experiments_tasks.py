@@ -650,16 +650,6 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
         self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
 
-    def test_bad_interaction(self):
-        
-        class DummyInteraction(Interaction):
-            pass
-
-        with self.assertRaises(CobaException) as e:
-            list(SimpleEvaluation().process(None, [DummyInteraction(type='Dummy')]))
-
-        self.assertEqual("An unknown interaction type was received.", str(e.exception))
-
     def test_batched_simulated_interaction(self):
 
         class SimpleLearner:

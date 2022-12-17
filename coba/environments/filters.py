@@ -612,7 +612,6 @@ class Warm(EnvironmentFilter):
         prob   = probabilities[idx]
         reward = rewards[idx]
 
-        new['type'] = 'logged'
         new['action'] = action
         new['probability'] = prob
         new['reward'] = reward
@@ -819,7 +818,6 @@ class Grounded(EnvironmentFilter):
             argmax        = interaction['rewards'].argmax()
 
             new = interaction.copy()
-            new['type'] = 'grounded'
 
             if not is_binary_rwd:
                 new['rewards'] = BinaryReward(argmax)
@@ -1014,15 +1012,8 @@ class Logged(EnvironmentFilter):
         predict = learner.predict
         learn   = learner.learn
 
-        batched    = isinstance(first['type'],primitives.Batch)
-        batch_size = 0 if not batched else len(first['type']) 
-        first_type = first['type'][0] if batched else first['type']
-
-        if first_type != 'simulated':
-            raise CobaException("Currently only simulated interactions can be converted to logged interactions.")
-
-
-        tipe = 'logged' if not batched else primitives.Batch(['logged']*batch_size)
+        if 'context' not in first or 'actions' not in first or 'rewards' not in first:
+            raise CobaException("We were unable to create a logged representation of the interaction.")
 
         for interaction in interactions:
 
@@ -1038,7 +1029,6 @@ class Logged(EnvironmentFilter):
 
             new = interaction.copy()
 
-            new['type']        = tipe
             new['action']      = action
             new['probability'] = prob
             new['reward']      = reward

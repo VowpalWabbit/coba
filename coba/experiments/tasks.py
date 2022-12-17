@@ -11,14 +11,13 @@ from typing import Iterable, Any, Sequence, Mapping, Hashable, Union, overload
 from coba.backports import Literal
 
 from coba.statistics import percentile
-from coba.exceptions import CobaExit, CobaException
+from coba.exceptions import CobaExit
 from coba.learners import Learner, SafeLearner
 from coba.encodings import InteractionsEncoder
 from coba.utilities import PackageChecker, peek_first
 from coba.contexts import CobaContext
 from coba.primitives import Batch
-from coba.environments import Environment, SafeEnvironment
-from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction
+from coba.environments import Environment, SafeEnvironment, Interaction
 
 class LearnerTask(ABC):
     """A task which describes a Learner."""
@@ -131,8 +130,7 @@ class SimpleEvaluation(EvaluationTask):
         predict  = learner.predict
         learn    = learner.learn
 
-        discrete   = first and len(first.get('actions',[])) > 0
-        batched    = isinstance(first['type'],Batch)
+        discrete = first and len(first.get('actions',[])) > 0
 
         learning_info = CobaContext.learning_info
 
@@ -147,18 +145,26 @@ class SimpleEvaluation(EvaluationTask):
         get_regret = lambda reward, rewards           : rewards.max()-reward
         get_rank   = lambda reward, rewards, n_actions: sorted(map(rewards.eval,range(n_actions))).index(reward)/(n_actions-1)
 
+        learning_info.clear()
+
         for interaction in interactions:
 
-            learning_info.clear()
+            interaction = interaction.copy()
 
-            out  = {}
-            tipe = interaction['type'][0] if batched else interaction['type']
+            out     = {}
+            context = interaction.pop('context')
+            batched = isinstance(context, Batch)
 
-            if tipe == 'simulated':
+            is_on_policy_eval   = 'actions' in interaction and 'rewards' in interaction
+            is_off_policy_learn = 'action' in interaction and 'reward' in interaction
+            is_on_policy_learn  = is_on_policy_eval and not is_off_policy_learn
 
-                context = interaction['context']
-                actions = interaction['actions']
-                rewards = interaction['rewards']
+            is_predict = is_on_policy_eval
+            is_learn   = is_off_policy_learn or is_on_policy_learn
+
+            if is_predict:
+                actions = interaction.pop('actions')
+                rewards = interaction.pop('rewards')
 
                 start_time       = time.time()
                 action,prob,info = predict(context, actions)
@@ -166,76 +172,45 @@ class SimpleEvaluation(EvaluationTask):
 
                 reward = rewards.eval(action)
 
+                if record_time: out['predict_time'] = predict_time
+                if record_prob: out['probability']  = prob
+
+                if not batched:
+                    if calc_reward : out['reward'] = get_reward(reward)
+                    if calc_regret : out['regret'] = get_regret(reward, rewards)
+                    if calc_rank   : out['rank'  ] = get_rank  (reward, rewards, len(actions))
+                elif batched:
+                    if calc_reward : out['reward'] = mean(map(get_reward,reward))
+                    if calc_regret : out['regret'] = mean(map(get_regret,reward,rewards))
+                    if calc_rank   : out['rank'  ] = mean(map(get_rank  ,reward,rewards,len(actions)))
+
+                if 'feedbacks' in interaction:
+                    reward = interaction.pop('feedbacks').eval(action)
+                    out['feedback'] = reward
+
+            if is_learn:
+
+                if is_off_policy_learn:
+                    actions = interaction.pop('actions',actions if is_predict else None)
+                    action  = interaction.pop('action')
+                    reward  = interaction.pop('reward')
+                    prob    = interaction.pop('probability',None)
+                    info    = {}
+
                 start_time = time.time()
                 learn(context, actions, action, reward, prob, **info)
                 learn_time = time.time() - start_time
 
-                out.update((k,interaction[k]) for k in interaction.keys()-SimulatedInteraction.keywords)
+                if record_time: out['learn_time'] = learn_time
 
-            elif tipe == 'logged':
+            if interaction:
+                out.update(interaction)
 
-                context = interaction['context']
-                actions = interaction.get('actions')
-                rewards = interaction.get('rewards')
+            if learning_info:
+                out.update(learning_info)
+                learning_info.clear()
 
-                if not actions or not rewards:
-                    predict_time = None
-                    reward       = None
-                    prob         = None
-                    info         = None
-                else:
-                    start_time   = time.time()
-                    action,prob  = predict(context, actions)[:2]
-                    reward       = rewards.eval(action)
-                    predict_time = time.time()-start_time
-
-                start_time = time.time()
-                learn(context, actions, interaction['action'], interaction['reward'], interaction.get('probability'))
-                learn_time = time.time()-start_time
-
-                out.update((k,interaction[k]) for k in interaction.keys()-LoggedInteraction.keywords)
-
-            elif tipe == 'grounded':
-
-                context   = interaction['context']
-                actions   = interaction['actions']
-                rewards   = interaction['rewards']
-                feedbacks = interaction['feedbacks']
-
-                start_time       = time.time()
-                action,prob,info = predict(context, actions)
-                reward           = rewards.eval(action)
-                feedback         = feedbacks.eval(action)
-                predict_time     = time.time()-start_time
-
-                start_time = time.time()
-                learn(context, actions, action, feedback, prob, **info)
-                learn_time = time.time()-start_time
-
-                out.update((k,interaction[k]) for k in interaction.keys()-GroundedInteraction.keywords)
-                out['feedback'] = feedback
-
-            else:
-                raise CobaException("An unknown interaction type was received.")
-
-            if not batched:
-                if calc_reward and reward is not None: out['reward']       = get_reward(reward)
-                if calc_regret                       : out['regret']       = get_regret(reward, rewards)
-                if calc_rank                         : out['rank'  ]       = get_rank  (reward, rewards, len(actions))
-                if record_time                       : out['predict_time'] = predict_time
-                if record_time                       : out['learn_time']   = learn_time
-                if record_prob and prob is not None  : out['probability']  = prob
-
-            elif batched:
-                if calc_reward : out['reward']       = mean(map(get_reward,reward))
-                if calc_regret : out['regret']       = mean(map(get_regret,reward,rewards))
-                if calc_rank   : out['rank'  ]       = mean(map(get_rank  ,reward,rewards,len(actions)))
-                if record_time : out['predict_time'] = predict_time
-                if record_time : out['learn_time']   = learn_time
-
-            out.update(learning_info)
             yield out
-            learning_info.clear()
 
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""
@@ -259,7 +234,7 @@ class ClassEnvironmentInfo(EnvironmentTask):
     finished. To make the most of this Task sklearn should be installed.
     """
 
-    def process(self, environment: Environment, interactions: Iterable[SimulatedInteraction]) -> Mapping[Any,Any]:
+    def process(self, environment: Environment, interactions: Iterable[Interaction]) -> Mapping[Any,Any]:
 
         #sources:
         #[1]: https://arxiv.org/pdf/1808.03591.pdf (lorena2019complex)

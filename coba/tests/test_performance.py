@@ -8,8 +8,6 @@ from typing import Callable, Any
 import coba.pipes
 import coba.random
 
-#from coba.environments.primitives import SimulatedInteraction2, SimulatedInteraction3
-
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk
@@ -86,7 +84,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_hashable_dict_performance(self):
         items = list(enumerate(range(100)))
-        self._assert_scale_time(items, HashableSparse, .0025, print_time, number=1000)
+        self._assert_scale_time(items, HashableSparse, .0004, print_time, number=1000)
 
     def test_shuffle_performance(self):
         items = list(range(50))
@@ -96,7 +94,7 @@ class Performance_Tests(unittest.TestCase):
         self._assert_scale_time(50, coba.random.randoms, .008, print_time, number=1000)
 
     def test_choice_performance_uniform(self):
-        self._assert_scale_time([1]*50, coba.random.choice, .009, print_time, number=1000)
+        self._assert_scale_time([1]*50, coba.random.choice, .0009, print_time, number=1000)
 
     def test_choice_performance_not_uniform(self):
         A = [1]*50
@@ -106,10 +104,10 @@ class Performance_Tests(unittest.TestCase):
     def test_choice_performance_weights(self):
         items = [1]+[0]*49
         weights = [1]+[0]*49
-        self._assert_call_time(lambda: coba.random.choice(items,weights), .004, print_time, number=1000)
+        self._assert_call_time(lambda: coba.random.choice(items,weights), .002, print_time, number=1000)
 
     def test_gausses_performance(self):
-        self._assert_scale_time(50, coba.random.gausses, .04, print_time, number=1000)
+        self._assert_scale_time(50, coba.random.gausses, .03, print_time, number=1000)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_example_sequence_str_performance(self):
@@ -155,7 +153,7 @@ class Performance_Tests(unittest.TestCase):
 
         shared   = { 'a': list(range(100))}
         separate = [{ 'x': list(range(25)) }, { 'x': list(range(25)) }]
-        self._assert_call_time(lambda:vw.make_examples(shared, separate, None), .1, print_time, number=1000)
+        self._assert_call_time(lambda:vw.make_examples(shared, separate, None), .06, print_time, number=1000)
 
     def test_reservoir_performance(self):
         res = Reservoir(2,seed=1)
@@ -166,7 +164,7 @@ class Performance_Tests(unittest.TestCase):
     def test_jsonencode_performance(self):
         enc = JsonEncode()
         x = [[1.2,1.2],[1.2,1.2],{'a':1.,'b':1.}]*5
-        self._assert_scale_time(x, enc.filter, .06, print_time, number=1000)
+        self._assert_scale_time(x, enc.filter, .045, print_time, number=1000)
 
     def test_arffreader_performance(self):
 
@@ -175,14 +173,14 @@ class Performance_Tests(unittest.TestCase):
         arff       = attributes+["@data"]
 
         reader = ArffReader()
-        self._assert_scale_time(data_lines, lambda x:list(reader.filter(arff+x)), .023, print_time, number=100)
+        self._assert_scale_time(data_lines, lambda x:list(reader.filter(arff+x)), .01, print_time, number=100)
 
     def test_structure_performance(self):
-        structure = Structure([None,2])        
+        structure = Structure([None,2])
         self._assert_call_time(lambda: list(structure.filter([[0,0,0] for _ in range(50)])), .07, print_time, number=1000)
 
     def test_linear_synthetic(self):
-        self._assert_call_time(lambda:list(LinearSyntheticSimulation(10).read()), .075, print_time, number=1)
+        self._assert_call_time(lambda:list(LinearSyntheticSimulation(10).read()), .07, print_time, number=1)
 
     def test_scale_target_features(self):
         items = [SimulatedInteraction((3193.0, 151.0, '0', '0', '0'),[1,2,3],[4,5,6])]*10
@@ -192,7 +190,7 @@ class Performance_Tests(unittest.TestCase):
     def test_scale_target_rewards(self):
         items = [SimulatedInteraction((3193.0, 151.0),[1,2,3],[4,5,6])]*10
         scale = Scale("min","minmax",target="rewards")
-        self._assert_scale_time(items, lambda x:list(scale.filter(x)), .07, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(scale.filter(x)), .04, print_time, number=1000)
 
     def test_environments_flat_tuple(self):
         items = [SimulatedInteraction([1,2,3,4]+[(0,1)]*3,[1,2,3],[4,5,6])]*10
@@ -255,7 +253,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_dense_row_drop(self):
         r1 = KeepDense(['1']*100,dict(enumerate(range(99))), [True]*99+[False], 99, None)
-        self._assert_call_time(lambda:r1[3], .0008, False, number=1000)
+        self._assert_call_time(lambda:r1[3], .0006, print_time, number=1000)
 
     def test_dense_row_to_builtin(self):
         r = LazyDense(['1']*100)
@@ -272,7 +270,7 @@ class Performance_Tests(unittest.TestCase):
         items    = [SimulatedInteraction(1, [1,2,3,4], [0,0,0,1])]*10
         grounded = Grounded(10,5,10,5,1)
 
-        self._assert_scale_time(items,lambda x:list(grounded.filter(x)), .04, print_time, number=1000)
+        self._assert_scale_time(items,lambda x:list(grounded.filter(x)), .03, print_time, number=1000)
 
     def test_simple_evaluation(self):
 
@@ -288,21 +286,21 @@ class Performance_Tests(unittest.TestCase):
         self._assert_scale_time(items,lambda x:list(eval.process(learn, x)), .05, print_time, number=100)
 
     def test_safe_learner_predict(self):
-        
+
         class DummyLearner:
             def predict(*args):return [1,0,0]
             def learn(*args): pass
 
-        learn = SafeLearner(DummyLearner())        
-        self._assert_call_time(lambda:learn.predict(1,[1,2,3]), .0035, print_time, number=1000)        
+        learn = SafeLearner(DummyLearner())
+        self._assert_call_time(lambda:learn.predict(1,[1,2,3]), .0035, print_time, number=1000)
 
     def test_safe_learner_learn(self):
-        
+
         class DummyLearner:
             def predict(*args):return [1,0,0]
             def learn(*args): pass
 
-        learn = SafeLearner(DummyLearner())        
+        learn = SafeLearner(DummyLearner())
         self._assert_call_time(lambda:learn.learn(1,[1,2,3], [1], 1, .5), .0008, print_time, number=1000)
 
     def test_scale_reward(self):
@@ -383,7 +381,7 @@ class Performance_Tests(unittest.TestCase):
             stderr = 1
 
         actual = round(sum(samples),5)
-        zscore = round((actual-expected)/stderr,5)    
+        zscore = round((actual-expected)/stderr,5)
         if print_it:
             print(f"{actual:5.5f}     {expected:5.5f}     {zscore:5.5f}")
         else: 
