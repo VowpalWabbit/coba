@@ -1,28 +1,33 @@
 import collections.abc
 
+from collections import Counter
+from zipfile import ZipFile
 from pathlib import Path
 from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type
 from coba.backports import Literal
 
 from coba            import pipes
 from coba.contexts   import CobaContext, DiskCacher
+from coba.primitives import Context, Action, HashableSparse
 from coba.random     import CobaRandom
-from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode
+from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode, ZipMemberSource
 from coba.exceptions import CobaException
+
+from coba.environments.primitives import Environment
+
+from coba.environments.templates  import EnvironmentsTemplateV1, EnvironmentsTemplateV2
+from coba.environments.openml     import OpenmlSimulation
+from coba.environments.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
+from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
+from coba.environments.supervised import SupervisedSimulation
 
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
-from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 
-from coba.environments.primitives import Environment, Context, Action
+from coba.environments.serialized import EnvironmentFromBytes, EnvironmentToBytes
 
-from coba.environments.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
-from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
-from coba.environments.openml     import OpenmlSimulation
-from coba.environments.supervised import SupervisedSimulation
-
-class Environments (collections.abc.Sequence):
+class Environments(collections.abc.Sequence, Sequence[Environment]):
     """A friendly wrapper around commonly used environment functionality."""
 
     @staticmethod
@@ -203,6 +208,11 @@ class Environments (collections.abc.Sequence):
         """Create a SimulatedEnvironment from a supervised dataset"""
         return Environments(SupervisedSimulation(*args, **kwargs))
 
+    @staticmethod
+    def from_save(path:str) -> 'Environments':
+        make = lambda m: EnvironmentFromBytes(ZipMemberSource(path,m))
+        return Environments(list(map(make,ZipFile(path).namelist())))
+
     @overload
     def from_lambda(self,
         n_interactions: Optional[int],
@@ -361,6 +371,31 @@ class Environments (collections.abc.Sequence):
         """Create a chunk point in the environments pipeline to compose how multiprocess is conducted."""
         envs = Environments([Pipes.join(env, Chunk()) for env in self])
         return envs.cache() if cache else envs
+
+    def save(self, path: str, overwrite:bool=False) -> 'Environments':
+
+        if Path(path).exists():
+            path_envs = Environments.from_save(path)
+            self_envs = self
+            path_params = [HashableSparse(e.params) for e in path_envs]
+            self_params = [HashableSparse(e.params) for e in self_envs]
+
+            if Counter(path_params) == Counter(self_params):
+                return path_envs
+            elif overwrite:
+                Path(path).unlink()
+            else:
+                raise CobaException("The Environments save file does not match the actual Environments and overwite is false.")
+
+        with ZipFile(path,mode='x') as zip:
+            for i,env in enumerate(self):
+                with zip.open(str(i),mode='w') as f:
+                    lines = iter(EnvironmentToBytes(env).read())
+                    f.write(next(lines))
+                    for line in lines:
+                        f.write(b'\n'+line)
+
+        return Environments.from_save(path)
 
     def cache(self) -> 'Environments':
         """Create a cache point in the environments so that earlier steps in the pipeline can be re-used in several pipes."""

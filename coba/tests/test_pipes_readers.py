@@ -2,8 +2,9 @@ import unittest
 
 from coba.exceptions import CobaException
 
-from coba.pipes import LibsvmReader, ArffReader, CsvReader, ManikReader, Categorical
+from coba.pipes import LibsvmReader, ArffReader, CsvReader, ManikReader
 from coba.contexts import NullLogger, CobaContext
+from coba.primitives import Categorical
 
 CobaContext.logger = NullLogger()
 

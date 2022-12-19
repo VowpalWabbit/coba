@@ -8,8 +8,6 @@ from coba.contexts import CobaContext, IndentLogger
 from coba.environments.templates import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 from coba.environments import OpenmlSimulation, Take
 
-SimulatedEnvironment = OpenmlSimulation
-
 class EnvironmentsTemplateV1_Tests(unittest.TestCase):
 
     def setUp(self) -> None:

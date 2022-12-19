@@ -5,10 +5,10 @@ from collections import Counter
 from math import isnan
 
 from coba              import primitives
-from coba.pipes        import Categorical, LazyDense, LazySparse
+from coba.pipes        import LazyDense, LazySparse
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.primitives   import HashableSparse, L1Reward, SequenceFeedback
+from coba.primitives   import HashableSparse, L1Reward, SequenceFeedback, Categorical
 from coba.learners     import FixedLearner
 from coba.utilities    import peek_first
 

@@ -82,8 +82,14 @@ class HashableSparse(abc.Mapping):
         try:
             return self._hash
         except:
-            self._hash = hash(tuple(self._item.items()))
+            self._hash = hash(frozenset(self._item.items()))
             return self._hash
+
+    def __eq__(self, o: object) -> bool:
+        try:
+            return frozenset(o.items()) == frozenset(self._item.items())
+        except:
+            return False
     
     def __repr__(self) -> str:
         return repr(self._item)

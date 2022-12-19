@@ -6,7 +6,7 @@ import json
 from threading import Semaphore, Event, Thread
 from typing import cast, Tuple
 
-from coba.pipes        import Categorical
+from coba.primitives   import Categorical
 from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext, CobaContext, NullLogger, MemoryCacher, NullCacher
 from coba.environments import OpenmlSimulation

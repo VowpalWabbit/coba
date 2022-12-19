@@ -5,23 +5,28 @@ import requests
 from pathlib import Path
 
 from coba.contexts import CobaContext, DiskCacher
-from coba.pipes import DiskSource, UrlSource
+from coba.pipes import DiskSource
 from coba.exceptions import CobaException
-from coba.environments import Environments, Environment, Shuffle, Take
+from coba.environments import Environments, Shuffle, Take
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
 
-class TestEnvironment(Environment):
-
+class TestEnvironment1:
     def __init__(self, id) -> None:
         self._id = id
-
     @property
     def params(self):
         return {'id':self._id}
-
     def read(self):
         return []
+
+class TestEnvironment2:
+    @property
+    def params(self):
+        return {'a':1}
+    def read(self):
+        yield {'b':1}
+        yield {'b':2}
 
 class MockResponse:
     def __init__(self, status_code, content):
@@ -35,7 +40,59 @@ class MockResponse:
         pass
 
 class Environments_Tests(unittest.TestCase):
-    
+
+    def setUp(self) -> None:
+        if Path("coba/tests/.temp/test.zip").exists(): Path("coba/tests/.temp/test.zip").unlink()
+
+    def tearDown(self) -> None:
+        if Path("coba/tests/.temp/test.zip").exists(): Path("coba/tests/.temp/test.zip").unlink()
+
+    def test_save_load(self):
+
+        input_environments = [TestEnvironment2(), TestEnvironment2()]
+        Environments(input_environments).save("coba/tests/.temp/test.zip")
+        output_environments = Environments.from_save("coba/tests/.temp/test.zip")
+
+        for env_in,env_out in zip(input_environments, output_environments):
+            self.assertEqual(env_in.params,env_out.params)
+            self.assertEqual(list(env_in.read()), list(env_out.read()))
+
+    def test_save_save_no_change(self):
+
+        input_environments = [TestEnvironment2(), TestEnvironment2()]
+
+        Environments(input_environments).save("coba/tests/.temp/test.zip")
+        Environments(input_environments).save("coba/tests/.temp/test.zip")
+
+        output_environments = Environments.from_save("coba/tests/.temp/test.zip")
+
+        for env_in,env_out in zip(input_environments, output_environments):
+            self.assertEqual(env_in.params,env_out.params)
+            self.assertEqual(list(env_in.read()), list(env_out.read()))
+
+    def test_save_save_change_no_overwrite(self):
+
+        input_environments_1 = [TestEnvironment2(), TestEnvironment2()]
+        input_environments_2 = [TestEnvironment1(3), TestEnvironment1(2)]
+
+        with self.assertRaises(CobaException):
+            Environments(input_environments_1).save("coba/tests/.temp/test.zip")
+            Environments(input_environments_2).save("coba/tests/.temp/test.zip")
+
+    def test_save_save_change_overwrite(self):
+
+        input_environments_1 = [TestEnvironment2(), TestEnvironment2()]
+        input_environments_2 = [TestEnvironment1(3), TestEnvironment1(2)]
+
+        Environments(input_environments_1).save("coba/tests/.temp/test.zip")
+        Environments(input_environments_2).save("coba/tests/.temp/test.zip",overwrite=True)
+
+        output_environments = Environments.from_save("coba/tests/.temp/test.zip")
+
+        for env_in,env_out in zip(input_environments_2, output_environments):
+            self.assertEqual(env_in.params,env_out.params)
+            self.assertEqual(list(env_in.read()), list(env_out.read()))
+
     def test_cache(self):
         env = Environments.cache_dir('abc').from_linear_synthetic(100)[0]
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
@@ -226,14 +283,14 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(3, len(list(env.read())[0]['actions']))
 
     def test_init_args(self):
-        env = Environments(TestEnvironment('A'), TestEnvironment('B'))
+        env = Environments(TestEnvironment1('A'), TestEnvironment1('B'))
 
         self.assertEqual(2  , len(env))
         self.assertEqual('A', env[0].params['id'])
         self.assertEqual('B', env[1].params['id'])
 
     def test_init_sequence_args(self):
-        env = Environments([TestEnvironment('A'), TestEnvironment('B')])
+        env = Environments([TestEnvironment1('A'), TestEnvironment1('B')])
 
         self.assertEqual(2  , len(env))
         self.assertEqual('A', env[0].params['id'])
@@ -244,14 +301,14 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(0  , len(env))
 
     def test_iter(self):
-        envs = Environments([TestEnvironment('A'), TestEnvironment('B')])
+        envs = Environments([TestEnvironment1('A'), TestEnvironment1('B')])
 
         for env,id in zip(envs,['A','B']):
             self.assertEqual(id, env.params['id'])
 
     def test_add(self):
-        envs_1 = Environments(TestEnvironment('A'))
-        envs_2 = Environments(TestEnvironment('B'))
+        envs_1 = Environments(TestEnvironment1('A'))
+        envs_2 = Environments(TestEnvironment1('B'))
         envs_3 = envs_1+envs_2
 
         self.assertEqual(1  , len(envs_1))
@@ -265,11 +322,11 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B', envs_3[1].params['id'])
 
     def test_str(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B'))
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B'))
         self.assertEqual(str(envs), f'1. {envs[0]}\n2. {envs[1]}')
 
     def test_binary(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).binary()
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).binary()
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -278,7 +335,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(True, envs[1].params['binary'])
 
     def test_cycle(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).cycle(2)
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).cycle(2)
 
         self.assertEqual(2  , len(envs))
         self.assertEqual('A', envs[0].params['id'])
@@ -287,7 +344,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2  , envs[1].params['cycle_after'])
 
     def test_shuffle_default(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle()
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle()
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -296,7 +353,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[1].params['shuffle'])
 
     def test_shuffle_int(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle(1)
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(1)
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -305,7 +362,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[1].params['shuffle'])
 
     def test_shuffle_sequence(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle([1,2])
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle([1,2])
 
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -318,7 +375,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2   , envs[3].params['shuffle'])
 
     def test_shuffle_n(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle(n=2)
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(n=2)
 
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -331,7 +388,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[3].params['shuffle'])
 
     def test_shuffle_args(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle(0,1)
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(0,1)
 
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -344,7 +401,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[3].params['shuffle'])
 
     def test_shuffle_iterable(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).shuffle(range(2))
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).shuffle(range(2))
 
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -357,7 +414,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[3].params['shuffle'])
 
     def test_sparse(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).sparse(False,True)
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).sparse(False,True)
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
         self.assertEqual(False, envs[0].params['sparse_C'])
@@ -367,7 +424,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(True, envs[1].params['sparse_A'])
 
     def test_take(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).take(1)
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).take(1)
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -376,7 +433,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[1].params['take'])
 
     def test_reservoir_seed(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).reservoir(1,2)
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).reservoir(1,2)
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -387,7 +444,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2   , envs[1].params['reservoir_seed'])
 
     def test_reservoir_seeds(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).reservoir(1,[2])
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).reservoir(1,[2])
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -398,7 +455,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2   , envs[1].params['reservoir_seed'])
 
     def test_scale(self):
-        envs = Environments(TestEnvironment('A')).scale("med", "std", "features", 2)
+        envs = Environments(TestEnvironment1('A')).scale("med", "std", "features", 2)
 
         self.assertEqual(1  , len(envs))
         self.assertEqual('A'  , envs[0].params['id'])
@@ -407,7 +464,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2    , envs[0].params['scale_using'])
 
     def test_impute(self):
-        envs = Environments(TestEnvironment('A')).impute('median', 2)
+        envs = Environments(TestEnvironment1('A')).impute('median', 2)
 
         self.assertEqual(1       , len(envs))
         self.assertEqual('A'     , envs[0].params['id'])
@@ -415,7 +472,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2       , envs[0].params['impute_using'])
 
     def test_where(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).where(n_interactions = (1,2))
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).where(n_interactions = (1,2))
 
         self.assertEqual(2    , len(envs))
 
@@ -425,7 +482,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual((1,2), envs[1].params['where_n_interactions'])
 
     def test_flatten(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).flat()
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).flat()
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -434,7 +491,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(True, envs[1].params['flat'])
 
     def test_noise(self):
-        envs = Environments(TestEnvironment('A')).noise(lambda x,r: x+1, lambda x,r: x+2, lambda x,r: x+3, lambda x,r: x+4)
+        envs = Environments(TestEnvironment1('A')).noise(lambda x,r: x+1, lambda x,r: x+2, lambda x,r: x+3, lambda x,r: x+4)
 
         self.assertEqual(1, len(envs))
 
@@ -444,7 +501,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(True, envs[0].params['context_noise'])
 
     def test_riffle(self):
-        envs = Environments(TestEnvironment('A')).riffle(2,1)
+        envs = Environments(TestEnvironment1('A')).riffle(2,1)
 
         self.assertEqual(1, len(envs))
 
@@ -453,7 +510,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1, envs[0].params['riffle_seed'])
 
     def test_sort(self):
-        envs = Environments(TestEnvironment('A')).sort()
+        envs = Environments(TestEnvironment1('A')).sort()
 
         self.assertEqual(1, len(envs))
 
@@ -461,12 +518,11 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('*', envs[0].params['sort'])
 
     def test_repr(self):
-        envs = Environments(TestEnvironment('A')).repr()
+        envs = Environments(TestEnvironment1('A')).repr()
 
         self.assertEqual(1, len(envs))
         self.assertEqual('onehot' , envs[0].params['cat_actions'])
         self.assertEqual('onehot', envs[0].params['cat_context'])
-
 
     def test_materialize(self):
         envs  = Environments.from_linear_synthetic(100,2,3,4,["xa"],5)
@@ -485,7 +541,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(3     , len(interactions[0]['context']))
         self.assertEqual(4     , len(interactions[0]['actions'][0]))
         self.assertEqual(['xa'], envs[0].params['reward_features'])
-        
+
         self.assertEqual(5     , envs[0].params['seed'])
         self.assertEqual(6     , envs[1].params['seed'])
 
@@ -501,7 +557,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(3,env.params['igl_seed'])
 
     def test_singular_filter(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1))
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).filter(Shuffle(1))
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -510,7 +566,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[1].params['shuffle'])
 
     def test_sequence_filter(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter([Shuffle(1),Shuffle(2)])
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).filter([Shuffle(1),Shuffle(2)])
 
         self.assertEqual(4   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -523,7 +579,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2   , envs[3].params['shuffle'])
 
     def test_two_step_filter(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).filter(Shuffle(1)).filter(Take(1))
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).filter(Shuffle(1)).filter(Take(1))
 
         self.assertEqual(2   , len(envs))
         self.assertEqual('A' , envs[0].params['id'])
@@ -534,7 +590,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1   , envs[1].params['take'])
 
     def test_params(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).params({'a':123})
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).params({'a':123})
 
         self.assertEqual(2  , len(envs))
         self.assertEqual('A', envs[0].params['id'])
@@ -543,7 +599,7 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(123, envs[1].params['a'])
 
     def test_batch(self):
-        envs = Environments(TestEnvironment('A'),TestEnvironment('B')).batch(3)
+        envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).batch(3)
 
         self.assertEqual(2  , len(envs))
         self.assertEqual('A', envs[0].params['id'])
@@ -551,9 +607,8 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B', envs[1].params['id'])
         self.assertEqual(3  , envs[1].params['batched'])
 
-
     def test_filter_new(self):
-        envs1 = Environments(TestEnvironment('A'))
+        envs1 = Environments(TestEnvironment1('A'))
         envs2 = envs1.params({'a':123})
 
         self.assertEqual(1  , len(envs1))
@@ -563,7 +618,7 @@ class Environments_Tests(unittest.TestCase):
 
     def test_ipython_display(self):
         with unittest.mock.patch("builtins.print") as mock:
-            envs = Environments(TestEnvironment('A'),TestEnvironment('B'))
+            envs = Environments(TestEnvironment1('A'),TestEnvironment1('B'))
             envs._ipython_display_()
             mock.assert_called_once_with(f'1. {envs[0]}\n2. {envs[1]}')
 

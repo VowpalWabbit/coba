@@ -1,6 +1,6 @@
 import unittest
 
-from coba.environments import SafeEnvironment
+from coba.environments import SafeEnvironment, Environment
 from coba.environments import SimulatedInteraction, LoggedInteraction
 from coba.exceptions import CobaException
 from coba.pipes import Pipes, Shuffle
@@ -9,6 +9,32 @@ class DummyEnvironment:
 
     def read(self):
         return []
+
+class Environment_Tests(unittest.TestCase):
+
+    def test_str_with_params(self):
+
+        class TestEnvironment(Environment):
+            def read(self):
+                return []
+            @property
+            def params(self):
+                return {'a':1}
+
+        self.assertEqual("{'a': 1}", str(TestEnvironment()))
+
+
+    def test_str_sans_params(self):
+
+        class TestEnvironment(Environment):
+            def read(self):
+                return []
+            @property
+            def params(self):
+                return {}
+
+        self.assertEqual("TestEnvironment", str(TestEnvironment()))
+
 
 class SafeEnvironment_Tests(unittest.TestCase):
 

@@ -1,7 +1,8 @@
 import unittest.mock
 import unittest
 
-from coba.pipes        import IterableSource, Categorical
+from coba.primitives   import Categorical
+from coba.pipes        import IterableSource
 from coba.contexts     import CobaContext, CobaContext, NullLogger
 from coba.environments import SupervisedSimulation, CsvSource, ArffSource, LibSvmSource, ManikSource
 

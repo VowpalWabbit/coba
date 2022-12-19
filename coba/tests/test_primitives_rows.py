@@ -1,5 +1,6 @@
 import unittest
 
+from collections import OrderedDict
 from coba.primitives import Sparse, Dense, HashableSparse, HashableDense
 
 class DummySparse(Sparse):
@@ -109,14 +110,25 @@ class HashableSparse_Tests(unittest.TestCase):
         self.assertEqual(hash(hash_dict), hash(hash_dict))
         self.assertEqual(hash_dict,hash_dict)
 
-    def test_eq(self):
+    def test_hash_is_order_agnostic(self):
+        hash_dict1 = HashableSparse(OrderedDict({'a':1,'b':2}))
+        hash_dict2 = HashableSparse(OrderedDict({'b':2,'a':1}))
+
+        self.assertEqual(hash(hash_dict1), hash(hash_dict2))
+        self.assertEqual(hash_dict1,hash_dict2)
+
+    def test_eq_good(self):
         hash_dict = HashableSparse({'a':1,'b':2})
         self.assertEqual({'a':1,'b':2},hash_dict)
+
+    def test_eq_bad(self):
+        hash_dict = HashableSparse({'a':1,'b':2})
+        self.assertNotEqual(1,hash_dict)
 
     def test_repr(self):
         hash_dict = HashableSparse({'a':1,'b':2})
         self.assertEqual("{'a': 1, 'b': 2}",repr(hash_dict))
-    
+
     def test_str(self):
         hash_dict = HashableSparse({'a':1,'b':2})
         self.assertEqual("{'a': 1, 'b': 2}",str(hash_dict))

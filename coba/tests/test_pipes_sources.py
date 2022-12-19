@@ -3,13 +3,16 @@ import unittest.mock
 import requests.exceptions
 import pickle
 import gzip
+import zipfile
 
 from queue import Queue
 from pathlib import Path
 
 from coba.exceptions import CobaException
-from coba.pipes import IdentitySource, DiskSource, QueueSource, NullSource, HttpSource, LambdaSource, IterableSource, UrlSource
 from coba.contexts import NullLogger, CobaContext
+
+from coba.pipes.sources import IdentitySource, DiskSource, QueueSource, NullSource, UrlSource
+from coba.pipes.sources import HttpSource, LambdaSource, IterableSource, ZipMemberSource
 
 CobaContext.logger = NullLogger()
 
@@ -142,6 +145,26 @@ class UrlSource_Tests(unittest.TestCase):
     def test_unknown_scheme(self):
         with self.assertRaises(CobaException):
             UrlSource("irc://fail")
+
+class ZipMember_Tests(unittest.TestCase):
+
+    def setUp(self) -> None:
+        if Path("coba/tests/.temp/test.zip").exists(): Path("coba/tests/.temp/test.zip").unlink()
+
+    def tearDown(self) -> None:
+        if Path("coba/tests/.temp/test.zip").exists(): Path("coba/tests/.temp/test.zip").unlink()
+
+    def test_simple(self):
+        with zipfile.ZipFile("coba/tests/.temp/test.zip", mode='x') as zip:
+            with zip.open("a.txt", mode='w') as f:
+                f.write(b"a\nb\nc")
+
+        source = ZipMemberSource("coba/tests/.temp/test.zip", "a.txt")
+        lines = list(source.read())
+
+        self.assertEqual(lines[0], b'a')
+        self.assertEqual(lines[1], b'b')
+        self.assertEqual(lines[2], b'c')
 
 if __name__ == '__main__':
     unittest.main()
