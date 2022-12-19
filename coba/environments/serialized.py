@@ -21,7 +21,9 @@ class EnvironmentFromBytes(Environment):
 
     @property
     def params(self) -> Mapping[str,Any]:
-        return pickle.loads(next(islice(self._bytes.read(),1,None)))
+        item = next(islice(self._bytes.read(),1,None))
+        print(item)
+        return pickle.loads(item)
 
     def read(self) -> Iterable[Interaction]:
         yield from map(pickle.loads,islice(self._bytes.read(),2,None))
