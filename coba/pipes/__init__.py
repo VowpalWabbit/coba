@@ -17,7 +17,7 @@ from coba.pipes.rows    import LazyDense, EncodeDense, LabelDense, KeepDense, He
 from coba.pipes.rows    import LazySparse, EncodeSparse, LabelSparse, DropSparse
 from coba.pipes.readers import ManikReader, LibsvmReader, CsvReader, ArffReader
 from coba.pipes.sources import NullSource, IdentitySource, DiskSource, IterableSource
-from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource, ZipMemberSource
+from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource
 from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink
 
 from coba.pipes.core import Pipes, Foreach, QueueIO, SourceFilters
@@ -73,6 +73,5 @@ __all__ = [
     "EncodeRows", 
     "HeadRows",
     "DropRows",
-    "EncodeCatRows",
-    "ZipMemberSource",
+    "EncodeCatRows"
 ]

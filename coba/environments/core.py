@@ -10,7 +10,7 @@ from coba            import pipes
 from coba.contexts   import CobaContext, DiskCacher
 from coba.primitives import Context, Action, HashableSparse
 from coba.random     import CobaRandom
-from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode, ZipMemberSource
+from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode
 from coba.exceptions import CobaException
 
 from coba.environments.primitives import Environment
@@ -25,7 +25,7 @@ from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 
-from coba.environments.serialized import EnvironmentFromBytes, EnvironmentToBytes
+from coba.environments.serialized import EnvironmentFromObjects, EnvironmentToObjects, ZipMemberToObjects, ObjectsToZipMember
 
 class Environments(collections.abc.Sequence, Sequence[Environment]):
     """A friendly wrapper around commonly used environment functionality."""
@@ -210,7 +210,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     @staticmethod
     def from_save(path:str) -> 'Environments':
-        make = lambda m: EnvironmentFromBytes(ZipMemberSource(path,m))
+        make = lambda m: EnvironmentFromObjects(ZipMemberToObjects(path,m))
         return Environments(list(map(make,ZipFile(path).namelist())))
 
     @overload
@@ -385,15 +385,9 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             elif overwrite:
                 Path(path).unlink()
             else:
-                raise CobaException("The Environments save file does not match the actual Environments and overwite is false.")
+                raise CobaException("The Environments save file does not match the actual Environments and overwite is False.")
 
-        with ZipFile(path,mode='x') as zip:
-            for i,env in enumerate(self):
-                with zip.open(str(i),mode='w') as f:
-                    lines = iter(EnvironmentToBytes(env).read())
-                    f.write(next(lines))
-                    for line in lines:
-                        f.write(b'\n'+line)
+        for i,env in enumerate(self): ObjectsToZipMember(path,str(i)).write(EnvironmentToObjects(env).read())
 
         return Environments.from_save(path)
 

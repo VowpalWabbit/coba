@@ -1,29 +1,53 @@
 import pickle
 
-from itertools import islice
+from zipfile import ZipFile
+from itertools import islice, repeat
 from typing import Mapping, Iterable, Any
 
 from coba.pipes import Source
 from coba.environments.primitives import Environment, Interaction
 
-class EnvironmentToBytes(Source[Iterable[bytes]]):
+class ObjectsToZipMember:
+
+    def __init__(self, zip:str, member:str):
+        self._zip    = zip
+        self._member = member
+
+    def write(self, objs: Iterable[object]) -> None:
+        with ZipFile(self._zip,mode='a') as zip:
+            with zip.open(self._member,mode='w') as f:
+                f.writelines(map(pickle.dumps,objs))
+
+class ZipMemberToObjects:
+
+    def __init__(self, zip:str, member:str):
+        self._zip    = zip
+        self._member = member
+
+    def read(self) -> Iterable[object]:
+        try:
+            with ZipFile(self._zip) as zip:
+                with zip.open(self._member) as f:
+                    yield from map(pickle.load, repeat(f))
+        except EOFError:
+            pass
+
+class EnvironmentToObjects(Source[Iterable[object]]):
     def __init__(self, environment: Environment) -> None:
         self._env = environment
 
-    def read(self) -> Iterable[bytes]:
-        yield pickle.dumps({"version":1})
-        yield pickle.dumps(self._env.params)
-        yield from map(pickle.dumps,self._env.read())
+    def read(self) -> Iterable[object]:
+        yield {"version":1}
+        yield self._env.params
+        yield from self._env.read()
 
-class EnvironmentFromBytes(Environment):
-    def __init__(self, source: Source[Iterable[bytes]]) -> None:
-        self._bytes = source
+class EnvironmentFromObjects(Environment):
+    def __init__(self, source: Source[Iterable[object]]) -> None:
+        self._source = source
 
     @property
     def params(self) -> Mapping[str,Any]:
-        item = next(islice(self._bytes.read(),1,None))
-        print(item)
-        return pickle.loads(item)
+        return next(islice(self._source.read(),1,None))
 
     def read(self) -> Iterable[Interaction]:
-        yield from map(pickle.loads,islice(self._bytes.read(),2,None))
+        yield from islice(self._source.read(),2,None)

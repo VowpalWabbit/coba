@@ -1,6 +1,5 @@
 import requests
 import gzip
-import zipfile
 
 from queue import Queue
 from typing import Callable, Iterable, Any, Union, Mapping
@@ -175,13 +174,3 @@ class UrlSource(Source[Iterable[str]]):
 
     def read(self) -> Iterable[str]:
         return self._source.read()
-
-class ZipMemberSource(Source[Iterable[bytes]]):
-    def __init__(self, path: str, member: str):
-        self._path = path
-        self._member = member
-
-    def read(self) -> Iterable[bytes]:
-        with zipfile.ZipFile(self._path) as zip:
-            with zip.open(self._member) as f:
-                yield from (l.rstrip(b"\r\n") for l in f.readlines())
