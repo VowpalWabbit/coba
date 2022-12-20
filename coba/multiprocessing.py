@@ -41,10 +41,11 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             except Exception as e:
                 CobaContext.logger.log(e)
 
-    def __init__(self, filter: Filter, processes=1, maxtasksperchild=0) -> None:
+    def __init__(self, filter: Filter, processes:int=1, maxtasksperchild:int=0, chunked:bool=True) -> None:
         self._filter           = filter
         self._processes        = processes
         self._maxtasksperchild = maxtasksperchild
+        self._chunked          = chunked
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 
@@ -64,7 +65,7 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
                 filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, stdlog)
 
-                for item in Multiprocessor(filter, self._processes, self._maxtasksperchild, stderr).filter(items):
+                for item in Multiprocessor(filter, self._processes, self._maxtasksperchild, stderr, self._chunked).filter(items):
                     yield item
 
                 stdlog.write(None) #attempt to shutdown the logging process gracefully by sending the poison pill

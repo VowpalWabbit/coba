@@ -47,10 +47,20 @@ class Environments_Tests(unittest.TestCase):
     def tearDown(self) -> None:
         if Path("coba/tests/.temp/test.zip").exists(): Path("coba/tests/.temp/test.zip").unlink()
 
-    def test_save_load(self):
+    def test_save_load_one_process(self):
 
         input_environments = [TestEnvironment2(), TestEnvironment2()]
         Environments(input_environments).save("coba/tests/.temp/test.zip")
+        output_environments = Environments.from_save("coba/tests/.temp/test.zip")
+
+        for env_in,env_out in zip(input_environments, output_environments):
+            self.assertEqual(env_in.params,env_out.params)
+            self.assertEqual(list(env_in.read()), list(env_out.read()))
+
+    def test_save_load_two_process(self):
+
+        input_environments = [TestEnvironment2(), TestEnvironment2()]
+        Environments(input_environments).save("coba/tests/.temp/test.zip",processes=2)
         output_environments = Environments.from_save("coba/tests/.temp/test.zip")
 
         for env_in,env_out in zip(input_environments, output_environments):

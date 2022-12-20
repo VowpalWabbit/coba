@@ -10,8 +10,9 @@ from coba            import pipes
 from coba.contexts   import CobaContext, DiskCacher
 from coba.primitives import Context, Action, HashableSparse
 from coba.random     import CobaRandom
-from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode
+from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode, Foreach
 from coba.exceptions import CobaException
+from coba.multiprocessing import CobaMultiprocessor
 
 from coba.environments.primitives import Environment
 
@@ -372,13 +373,12 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         envs = Environments([Pipes.join(env, Chunk()) for env in self])
         return envs.cache() if cache else envs
 
-    def save(self, path: str, overwrite:bool=False) -> 'Environments':
+    def save(self, path: str, processes:int=1, overwrite:bool=False) -> 'Environments':
 
         if Path(path).exists():
-            path_envs = Environments.from_save(path)
-            self_envs = self
+            path_envs   = Environments.from_save(path)
             path_params = [HashableSparse(e.params) for e in path_envs]
-            self_params = [HashableSparse(e.params) for e in self_envs]
+            self_params = [HashableSparse(e.params) for e in self     ]
 
             if Counter(path_params) == Counter(self_params):
                 return path_envs
@@ -387,7 +387,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
             else:
                 raise CobaException("The Environments save file does not match the actual Environments and overwite is False.")
 
-        for i,env in enumerate(self): ObjectsToZipMember(path,str(i)).write(EnvironmentToObjects(env).read())
+        if processes == 1:
+            Pipes.join(Foreach(EnvironmentToObjects()),ObjectsToZipMember(path)).write(self)
+        else:
+            Pipes.join(CobaMultiprocessor(EnvironmentToObjects(),processes,chunked=False),ObjectsToZipMember(path)).write(self)
 
         return Environments.from_save(path)
 
