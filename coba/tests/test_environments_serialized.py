@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 from coba.pipes import IterableSource
-from coba.environments.serialized import EnvironmentFromObjects, EnvironmentToObjects, ZipMemberToObjects, ObjectsToZipMember
+from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
 
 class EnvironmentToAndFromBytes_Tests(unittest.TestCase):
 
@@ -17,7 +17,7 @@ class EnvironmentToAndFromBytes_Tests(unittest.TestCase):
                 yield {'b':2}
 
         input_env  = SimpleEnvironment()
-        output_env = EnvironmentFromObjects(IterableSource(EnvironmentToObjects().filter(input_env)))
+        output_env = EnvironmentFromObjects(IterableSource(next(EnvironmentsToObjects().filter([input_env]))))
 
         self.assertEqual(input_env.params, output_env.params)
         self.assertEqual(list(input_env.read()), list(output_env.read()))

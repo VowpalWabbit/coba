@@ -7,9 +7,11 @@ from pathlib import Path
 from coba.contexts import CobaContext, DiskCacher
 from coba.pipes import DiskSource
 from coba.exceptions import CobaException
+from coba.primitives import L1Reward
 from coba.environments import Environments, Shuffle, Take
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
+from coba.learners     import FixedLearner
 
 class TestEnvironment1:
     def __init__(self, id) -> None:
@@ -49,9 +51,8 @@ class Environments_Tests(unittest.TestCase):
 
     def test_save_load_one_process(self):
 
-        input_environments = [TestEnvironment2(), TestEnvironment2()]
-        Environments(input_environments).save("coba/tests/.temp/test.zip")
-        output_environments = Environments.from_save("coba/tests/.temp/test.zip")
+        input_environments  = [TestEnvironment2(), TestEnvironment2()]
+        output_environments = Environments(input_environments).save("coba/tests/.temp/test.zip")
 
         for env_in,env_out in zip(input_environments, output_environments):
             self.assertEqual(env_in.params,env_out.params)
@@ -60,8 +61,7 @@ class Environments_Tests(unittest.TestCase):
     def test_save_load_two_process(self):
 
         input_environments = [TestEnvironment2(), TestEnvironment2()]
-        Environments(input_environments).save("coba/tests/.temp/test.zip",processes=2)
-        output_environments = Environments.from_save("coba/tests/.temp/test.zip")
+        output_environments = Environments(input_environments).save("coba/tests/.temp/test.zip",processes=2)
 
         for env_in,env_out in zip(input_environments, output_environments):
             self.assertEqual(env_in.params,env_out.params)
@@ -102,6 +102,22 @@ class Environments_Tests(unittest.TestCase):
         for env_in,env_out in zip(input_environments_2, output_environments):
             self.assertEqual(env_in.params,env_out.params)
             self.assertEqual(list(env_in.read()), list(env_out.read()))
+
+    def test_save_badzip_overwrite(self):
+
+        Path("coba/tests/.temp/test.zip").write_text("abc")
+        input_environments  = [TestEnvironment2(), TestEnvironment2()]
+        output_environments = Environments(input_environments).save("coba/tests/.temp/test.zip",overwrite=True)
+
+        for env_in,env_out in zip(input_environments, output_environments):
+            self.assertEqual(env_in.params,env_out.params)
+            self.assertEqual(list(env_in.read()), list(env_out.read()))
+
+    def test_save_badzip_no_overwrite(self):
+        Path("coba/tests/.temp/test.zip").write_text("abc")
+        with self.assertRaises(CobaException):
+            Environments([TestEnvironment2(), TestEnvironment2()]).save("coba/tests/.temp/test.zip")
+
 
     def test_cache(self):
         env = Environments.cache_dir('abc').from_linear_synthetic(100)[0]
@@ -616,6 +632,15 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(3  , envs[0].params['batched'])
         self.assertEqual('B', envs[1].params['id'])
         self.assertEqual(3  , envs[1].params['batched'])
+
+    def test_logged(self):
+
+        class TestEnvironment:
+            def read(self):
+                yield {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+
+        env = Environments(TestEnvironment()).logged(FixedLearner([1,0,0]))[0]
+        self.assertEqual(next(env.read()),{'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)})
 
     def test_filter_new(self):
         envs1 = Environments(TestEnvironment1('A'))

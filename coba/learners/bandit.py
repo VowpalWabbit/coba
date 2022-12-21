@@ -5,8 +5,9 @@ from typing import Any, Dict, Optional, cast, Hashable, Union
 
 from coba.primitives import Context, Action, Actions
 from coba.statistics import OnlineVariance
-from coba.learners.primitives import Learner, Probs, PMF, PDF
+from coba.learners.primitives import Learner, Probs, PMF, PDF, requires_hashables
 
+@requires_hashables
 class EpsilonBanditLearner(Learner):
     """A bandit learner using epsilon-greedy for exploration."""
 
@@ -46,6 +47,7 @@ class EpsilonBanditLearner(Learner):
         self._Q[action] = (1-alpha) * old_Q + alpha * reward
         self._N[action] = self._N[action] + 1
 
+@requires_hashables
 class UcbBanditLearner(Learner):
     """A bandit learner using upper confidence bound estimates for exploration.
 

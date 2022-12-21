@@ -1,4 +1,5 @@
 import unittest
+import pickle
 
 from collections import OrderedDict
 from coba.primitives import Sparse, Dense, HashableSparse, HashableDense
@@ -64,6 +65,15 @@ class Dense_Tests(unittest.TestCase):
         self.assertEqual(dense,dense_copy)
         self.assertIsNot(dense,dense_copy)
 
+    def test_isinstance(self):
+        self.assertTrue(isinstance([],Dense))
+        self.assertTrue(isinstance((),Dense))
+
+    def test_not_isinstance(self):
+        self.assertFalse(isinstance({},Dense))
+        self.assertFalse(isinstance("",Dense))
+        self.assertFalse(isinstance(1 ,Dense))
+
 class Sparse_Tests(unittest.TestCase):
 
     def test_getattr(self):
@@ -90,6 +100,14 @@ class Sparse_Tests(unittest.TestCase):
         sparse_copy = sparse.copy()
         self.assertEqual(sparse,sparse_copy)
         self.assertIsNot(sparse,sparse_copy)
+
+    def test_isinstance(self):
+        self.assertTrue(isinstance({},Sparse))
+
+    def test_not_isinstance(self):
+        self.assertFalse(isinstance([],Sparse))
+        self.assertFalse(isinstance("",Sparse))
+        self.assertFalse(isinstance(1 ,Sparse))
 
 class HashableSparse_Tests(unittest.TestCase):
 
@@ -139,6 +157,10 @@ class HashableSparse_Tests(unittest.TestCase):
         self.assertEqual(hash_dict,hash_dict_copy)
         self.assertIsNot(hash_dict,hash_dict_copy)
 
+    def test_pickle(self):
+        dump_dict = HashableSparse(OrderedDict({'a':1,'b':2}))
+        load_dict = pickle.loads(pickle.dumps(dump_dict))
+
 class HashableDense_Tests(unittest.TestCase):
 
     def test_get(self):
@@ -172,6 +194,10 @@ class HashableDense_Tests(unittest.TestCase):
     def test_str(self):
         hash_seq = HashableDense([1,2,3])
         self.assertEqual("[1, 2, 3]",str(hash_seq))
+
+    def test_pickle(self):
+        dump = HashableDense([1,2,3])
+        load = pickle.loads(pickle.dumps(dump))
 
 if __name__ == '__main__':
     unittest.main()

@@ -1558,6 +1558,58 @@ class Repr_Tests(unittest.TestCase):
 
 class Finalize_Tests(unittest.TestCase):
 
+    def test_dense_encodes(self):
+
+        context = [Categorical('a',['a','b']),5]
+        actions = [3,4]
+
+        interactions = [SimulatedInteraction(context, actions,[1,2])]
+
+        actual = list(Finalize().filter(interactions))
+
+        self.assertEqual(len(actual),1)
+
+        self.assertEqual(actual[0]['context'], [1,0,5])
+        self.assertEqual(actual[0]['actions'], [3,4])
+
+    def test_dense_materializes(self):
+
+        context = LazyDense([1])
+        actions = [LazyDense([2]),LazyDense([3])]
+
+        interactions = [SimulatedInteraction(context, actions,[1,2], action=actions[0])]
+
+        actual = list(Finalize().filter(interactions))
+
+        self.assertEqual(len(actual),1)
+        
+        self.assertIsInstance(actual[0]['context']   , list)
+        self.assertIsInstance(actual[0]['actions'][0], list)
+        self.assertIsInstance(actual[0]['action' ]   , list)
+        
+        self.assertEqual(actual[0]['context'], [1])
+        self.assertEqual(actual[0]['actions'], [[2],[3]])
+        self.assertEqual(actual[0]['action' ], [2])
+
+    def test_sparse_materializes(self):
+
+        context = LazySparse({1:1})
+        actions = [LazySparse({1:2}),LazySparse({1:3})]
+
+        interactions = [SimulatedInteraction(context, actions,[1,2],action=actions[0])]
+
+        actual = list(Finalize().filter(interactions))
+
+        self.assertEqual(len(actual),1)
+        
+        self.assertIsInstance(actual[0]['context']   , dict)
+        self.assertIsInstance(actual[0]['actions'][0], dict)
+        self.assertIsInstance(actual[0]['action' ]   , dict)
+        
+        self.assertEqual(actual[0]['context'], {1:1})
+        self.assertEqual(actual[0]['actions'], [{1:2},{1:3}])
+        self.assertEqual(actual[0]['action' ], {1:2})
+
     def test_dense_simulated(self):
         interactions = [SimulatedInteraction([1,2,3],[[1,2],[3,4]], [1,2])]
 
@@ -1572,10 +1624,8 @@ class Finalize_Tests(unittest.TestCase):
 
         actual = list(Finalize().filter(interactions))
 
-        hash(actual[0]['context'])
-
         self.assertEqual(len(actual),1)
-        self.assertIsInstance(actual[0]['context'], HashableSparse)
+        self.assertIsInstance(actual[0]['context'], dict)
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
 
     def test_sparse_actions(self):
@@ -1583,10 +1633,7 @@ class Finalize_Tests(unittest.TestCase):
 
         actual = list(Finalize().filter(interactions))
 
-        hash(actual[0]['actions'][0])
-
         self.assertEqual(len(actual),1)
-        self.assertIsInstance(actual[0]['context'], HashableSparse)
         self.assertEqual(actual[0]['actions'], [{1:2},{2:3}])
 
     def test_logged_with_actions(self):
@@ -1594,13 +1641,9 @@ class Finalize_Tests(unittest.TestCase):
 
         actual = list(Finalize().filter(interactions))
 
-        hash(actual[0]['context'])
-        hash(actual[0]['action'])
-        hash(actual[0]['actions'][0])
-
         self.assertEqual(len(actual),1)
-        self.assertEqual(actual[0]['context'], (1,2,3))
-        self.assertEqual(actual[0]['action'], (1,2))
+        self.assertEqual(actual[0]['context'], [1,2,3])
+        self.assertEqual(actual[0]['action'], [1,2])
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
 
     def test_logged_sparse_actions(self):
@@ -1608,28 +1651,19 @@ class Finalize_Tests(unittest.TestCase):
 
         actual = list(Finalize().filter(interactions))
 
-        hash(actual[0]['context'])
-        hash(actual[0]['action'])
-        hash(actual[0]['actions'][0])
-
         self.assertEqual(len(actual),1)
-        self.assertEqual(actual[0]['context'], (1,2,3))
+        self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['action'], {1:2})
         self.assertEqual(actual[0]['actions'], [{1:2},{3:4}])
-
 
     def test_logged_with_action_only(self):
         interactions = [LoggedInteraction([1,2,3], [1,2], 1, probability=1)]
 
         actual = list(Finalize().filter(interactions))
 
-        hash(actual[0]['context'])
-        hash(actual[0]['action'])
-
-
         self.assertEqual(len(actual),1)
-        self.assertEqual(actual[0]['context'], (1,2,3))
-        self.assertEqual(actual[0]['action'], (1,2))
+        self.assertEqual(actual[0]['context'], [1,2,3])
+        self.assertEqual(actual[0]['action'], [1,2])
 
     def test_grounded(self):
         interactions = [GroundedInteraction([1,2,3],[[1,2],[3,4]], [1,2], [3,4])]

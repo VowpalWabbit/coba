@@ -347,8 +347,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task2.observed[1]), 1)
         self.assertEqual(len(task3.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0]['context'], (0,0) )
-        self.assertEqual(task2.observed[1][0]['context'], (0,0) )
+        self.assertEqual(task1.observed[1][0]['context'], [0,0] )
+        self.assertEqual(task2.observed[1][0]['context'], [0,0] )
 
         self.assertEqual(['T2',    0 , {}], transactions[0])
         self.assertEqual(['T3', (0,0), []], transactions[1])
@@ -479,8 +479,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0]['context'], (0,0))
-        self.assertEqual(task2.observed[1][0]['context'], (0,0))
+        self.assertEqual(task1.observed[1][0]['context'], [0,0])
+        self.assertEqual(task2.observed[1][0]['context'], [0,0])
 
         self.assertEqual(['T3', (0,0), []], transactions[0])
         self.assertEqual(['T3', (1,1), []], transactions[1])
@@ -512,8 +512,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0]['context'], (0,0))
-        self.assertEqual(task2.observed[1][0]['context'], (1,0)) #note that we load the source twice
+        self.assertEqual(task1.observed[1][0]['context'], [0,0])
+        self.assertEqual(task2.observed[1][0]['context'], [1,0]) #note that we load the source twice
 
         self.assertEqual(['T3', (0,0), []], transactions[0])
         self.assertEqual(['T3', (1,1), []], transactions[1])
@@ -563,8 +563,8 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
 
-        self.assertEqual(task1.observed[1][0]['context'], (0,0))
-        self.assertEqual(task2.observed[1][0]['context'], (0,1))
+        self.assertEqual(task1.observed[1][0]['context'], [0,0])
+        self.assertEqual(task2.observed[1][0]['context'], [0,1])
 
         self.assertEqual(['T2', 0, {}], transactions[0])
         self.assertEqual(['T2', 1, {}], transactions[1])

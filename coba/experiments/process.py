@@ -131,6 +131,8 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
         chunk = list(chunk)
         empty_envs = set()
 
+        finalizer = BatchSafe(Finalize())
+
         if not chunk: return
 
         if len(chunk) > 1:
@@ -153,13 +155,12 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
                     if item.lrn is None:
                         with CobaContext.logger.time(f"Recording Environment {item.env_id} statistics..."):
-                            row = item.task.process(item.env,item.env.read())
+                            row = item.task.process(item.env,finalizer.filter(item.env.read()))
                             yield ["T2", item.env_id, row]
 
                     if item.env and item.lrn and item.env_id not in empty_envs:
 
-                        interactions = Pipes.join(item.env,BatchSafe(Finalize())).read()
-                        interactions = peek_first(interactions)[1]
+                        interactions = peek_first(item.env.read())[1]
 
                         if not interactions: 
                             CobaContext.logger.log(f"Environment {item.env_id} has nothing to evaluate (this is likely due to having too few interactions).")
@@ -167,13 +168,8 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                             continue
 
                         with CobaContext.logger.time(f"Evaluating Learner {item.lrn_id} on Environment {item.env_id}..."):
-
-                            if learner_eval_counts[item.lrn_id] > 1:
-                                learner = deepcopy(item.lrn)
-                            else:
-                                learner = item.lrn
-
-                            row = list(item.task.process(learner, interactions))
+                            lrn = item.lrn if learner_eval_counts[item.lrn_id] == 1 else deepcopy(item.lrn)
+                            row = list(item.task.process(lrn, finalizer.filter(interactions)))
                             yield ["T3", (item.env_id, item.lrn_id), row]
 
                 except Exception as e:

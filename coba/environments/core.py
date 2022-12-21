@@ -1,18 +1,19 @@
 import collections.abc
 
 from collections import Counter
-from zipfile import ZipFile
+from zipfile import ZipFile, BadZipFile
 from pathlib import Path
 from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type
 from coba.backports import Literal
 
-from coba            import pipes
-from coba.contexts   import CobaContext, DiskCacher
-from coba.primitives import Context, Action, HashableSparse
-from coba.random     import CobaRandom
-from coba.pipes      import Pipes, Source, HttpSource, IterableSource, JsonDecode, Foreach
-from coba.exceptions import CobaException
+from coba                 import pipes
+from coba.contexts        import CobaContext, DiskCacher
+from coba.primitives      import Context, Action, HashableSparse
+from coba.random          import CobaRandom
+from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode
+from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
+from coba.learners        import Learner
 
 from coba.environments.primitives import Environment
 
@@ -22,11 +23,11 @@ from coba.environments.synthetics import LinearSyntheticSimulation, NeighborsSyn
 from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
 from coba.environments.supervised import SupervisedSimulation
 
-from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk
+from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 
-from coba.environments.serialized import EnvironmentFromObjects, EnvironmentToObjects, ZipMemberToObjects, ObjectsToZipMember
+from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
 
 class Environments(collections.abc.Sequence, Sequence[Environment]):
     """A friendly wrapper around commonly used environment functionality."""
@@ -348,7 +349,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     def materialize(self) -> 'Environments':
         """Materialize the environments in memory. Ideal for stateful environments such as Jupyter Notebook."""
-        #we use pies.cache directly because the environment cache will copy 
+        #we use pipes.cache directly because the environment cache will copy 
         #which we don't need when we materialize an environment in memory
         envs = Environments([Pipes.join(env, pipes.Cache(25)) for env in self])
         for env in envs: list(env.read()) #force read to pre-load cache
@@ -373,24 +374,33 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         envs = Environments([Pipes.join(env, Chunk()) for env in self])
         return envs.cache() if cache else envs
 
+    def logged(self, learner: Learner) -> 'Environments':
+        return self.filter(BatchSafe(Finalize())).filter(Logged(learner))
+
     def save(self, path: str, processes:int=1, overwrite:bool=False) -> 'Environments':
 
         if Path(path).exists():
-            path_envs   = Environments.from_save(path)
-            path_params = [HashableSparse(e.params) for e in path_envs]
-            self_params = [HashableSparse(e.params) for e in self     ]
+            try:
+                path_envs   = Environments.from_save(path)
+                path_params = [HashableSparse(e.params) for e in path_envs]
+                self_params = [HashableSparse(e.params) for e in self     ]
 
-            if Counter(path_params) == Counter(self_params):
-                return path_envs
-            elif overwrite:
-                Path(path).unlink()
-            else:
-                raise CobaException("The Environments save file does not match the actual Environments and overwite is False.")
+                if Counter(path_params) == Counter(self_params):
+                    return path_envs
+                elif overwrite:
+                    Path(path).unlink()
+                else:
+                    raise CobaException("The Environments save file does not match the actual Environments and overwite is False.")
+            except BadZipFile:
+                if overwrite:
+                    Path(path).unlink()
+                else:
+                    raise CobaException("The given save file appears to be corruptted. Please check it and delete if it is unusable.")
 
         if processes == 1:
-            Pipes.join(Foreach(EnvironmentToObjects()),ObjectsToZipMember(path)).write(self)
+            Pipes.join(EnvironmentsToObjects(),ObjectsToZipMember(path)).write(self)
         else:
-            Pipes.join(CobaMultiprocessor(EnvironmentToObjects(),processes,chunked=False),ObjectsToZipMember(path)).write(self)
+            Pipes.join(CobaMultiprocessor(EnvironmentsToObjects(),processes),ObjectsToZipMember(path)).write(self)
 
         return Environments.from_save(path)
 

@@ -232,7 +232,7 @@ class SupervisedSimulation(SimulatedEnvironment):
 
         if first_row_type == 0:
             for row in rows:
-                yield {'type':'simulated','context':row.feats,'actions':actions,'rewards':reward(row.label)}
+                yield {'context':row.feats,'actions':actions,'rewards':reward(row.label)}
         else:
             for row in rows:
-                yield {'type':'simulated','context':row[0]   ,'actions':actions,'rewards':reward(row[1])}
+                yield {'context':row[0]   ,'actions':actions,'rewards':reward(row[1])}

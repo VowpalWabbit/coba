@@ -25,14 +25,12 @@ class L1Reward(Reward):
 
     def __init__(self, label: float) -> None:
         self._label = label
-        self.eval = lambda arg: arg-label if label > arg else label-arg 
 
     def argmax(self) -> float:
         return self._label
 
     def eval(self, arg: float) -> float: #pragma: no cover
-        #defined in __init__ for performance
-        raise NotImplementedError("This should have been defined in __init__.")
+        return arg-self._label if self._label > arg else self._label-arg 
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o,L1Reward) and o._label == self._label
@@ -75,19 +73,16 @@ class ScaleReward(Reward):
         self._old_argmax = old_argmax
         self._new_argmax = new_argmax
 
-        old_eval = reward.eval
-
-        if self._target == "argmax":
-            self.eval = lambda arg: old_eval(old_argmax + (arg-new_argmax))
-        if self._target == "value":
-            self.eval = lambda arg: (old_eval(arg)+shift)*scale
+        self._old_eval = reward.eval
 
     def argmax(self) -> float:
         return self._new_argmax
 
     def eval(self, arg: Any) -> float: #pragma: no cover
-        #defined in __init__ for performance
-        raise NotImplementedError("This should have been defined in __init__.")
+        if self._target == "argmax":
+            return self._old_eval(self._old_argmax + (arg-self._new_argmax))
+        if self._target == "value":
+            return (self._old_eval(arg)+self._shift)*self._scale
 
 class SequenceReward(Reward):
     def __init__(self, values: Sequence[float]) -> None:

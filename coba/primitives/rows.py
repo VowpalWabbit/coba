@@ -68,13 +68,13 @@ class HashableSparse(abc.Mapping):
     __slots__=('_item','_hash')
     def __init__(self,item:Sparse):
         self._item = item
-        
+
     def __getitem__(self,key):
         return self._item[key]
-    
+
     def __iter__(self):
         return iter(self._item)
-    
+
     def __len__(self):
         return len(self._item)
 
@@ -90,7 +90,7 @@ class HashableSparse(abc.Mapping):
             return frozenset(o.items()) == frozenset(self._item.items())
         except:
             return False
-    
+
     def __repr__(self) -> str:
         return repr(self._item)
 

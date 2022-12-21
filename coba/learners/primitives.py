@@ -2,11 +2,12 @@ from collections import abc
 from math import isclose
 from abc import ABC, abstractmethod
 from itertools import repeat
-from typing import Any, Sequence, Union, Tuple, Callable, Mapping, Optional
+from typing import Any, Sequence, Union, Tuple, Callable, Mapping, Optional, Type
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
-from coba.primitives import Batch, Context, Action, Actions, AIndex
+from coba.primitives import Context, Action, Actions, AIndex
+from coba.primitives import Batch, Dense, Sparse, HashableDense, HashableSparse
 
 kwargs = Mapping[str,Any]
 Score  = float
@@ -341,3 +342,24 @@ class SafeLearner(Learner):
 
     def __str__(self) -> str:
         return self.full_name
+
+def requires_hashables(cls:Type[Learner]):
+
+    def make_hashable(item):
+        if isinstance(item,Dense): return HashableDense(item)
+        if isinstance(item,Sparse): return HashableSparse(item)
+        return item
+
+    old_predict = cls.predict
+    old_learn   = cls.learn
+
+    def new_predict(self,c,A):
+        return old_predict(self,make_hashable(c),list(map(make_hashable,A)))
+
+    def new_learn(self,c,A,a,r,p,**kwargs):
+        old_learn(self,make_hashable(c),list(map(make_hashable,A)), make_hashable(a),r,p,**kwargs)
+
+    cls.predict = new_predict
+    cls.learn   = new_learn
+
+    return cls

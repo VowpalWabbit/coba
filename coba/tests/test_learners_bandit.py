@@ -36,10 +36,22 @@ class EpsilonBanditLearner_Tests(unittest.TestCase):
         learner.learn(None, [1,2,3], 0, 2, None)
         learner.learn(None, [1,2,3], 1, 1, None)
 
-        pred1,pred2 = tuple(learner.predict(None, [1,2]))
+        preds = learner.predict(None, [1,2])
 
-        self.assertAlmostEqual(.95,pred1)
-        self.assertAlmostEqual(.05,pred2)
+        self.assertAlmostEqual(.95,preds[0])
+        self.assertAlmostEqual(.05,preds[1])
+
+    def test_predict_learn_epsilon_unhashables(self):
+        learner = EpsilonBanditLearner(epsilon=0.1)
+
+        learner.learn(None, [[1],[2],[3]], 1, 1, None)
+        learner.learn(None, [[1],[2],[3]], 0, 2, None)
+        learner.learn(None, [[1],[2],[3]], 1, 1, None)
+
+        preds = learner.predict(None, [[1],[2]])
+
+        self.assertAlmostEqual(.95,preds[0])
+        self.assertAlmostEqual(.05,preds[1])
 
     def test_predict_learn_epsilon_all_equal(self):
         learner = EpsilonBanditLearner(epsilon=0.1)

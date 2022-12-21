@@ -1,26 +1,25 @@
 import pickle
 
-from zipfile import ZipFile
+from collections import abc
+from zipfile import ZipFile, ZIP_DEFLATED
 from itertools import islice, repeat
-from typing import Sequence, Mapping, Iterable, Any
+from typing import Union, Sequence, Mapping, Iterable, Any
 
 from coba.backports import version
 from coba.pipes import Source, Sink, Filter
 from coba.environments.primitives import Environment, Interaction
 
 class ObjectsToZipMember(Sink[Iterable[Sequence[object]]]):
-
     def __init__(self, zip:str):
-        self._zip    = zip
+        self._zip = zip
 
     def write(self, envs: Iterable[Sequence[object]]) -> None:
-        with ZipFile(self._zip,mode='a') as zip:
+        with ZipFile(self._zip,mode='a',compression=ZIP_DEFLATED) as zip:
             for i,env in enumerate(envs):
                 with zip.open(str(i),mode='w') as f:
                    f.writelines(map(pickle.dumps,env))
 
 class ZipMemberToObjects(Source[Iterable[object]]):
-
     def __init__(self, zip:str, member:str):
         self._zip    = zip
         self._member = member
@@ -33,9 +32,11 @@ class ZipMemberToObjects(Source[Iterable[object]]):
         except EOFError:
             pass
 
-class EnvironmentToObjects(Filter[Environment, Iterable]):
-    def filter(self, env: Environment) -> Sequence[object]:
-        return [{"version":1,"coba_version":version("coba")},env.params] + list(env.read())
+class EnvironmentsToObjects(Filter[Environment, Iterable]):
+    def filter(self, envs: Union[Environment,Sequence[Environment]]) -> Iterable[Sequence[object]]:
+        if not isinstance(envs,(abc.Sequence)): envs = [envs]
+        for env in envs:
+            yield [{"version":1,"coba_version":version("coba")},env.params] + list(env.read())
 
 class EnvironmentFromObjects(Environment):
     def __init__(self, source: Source[Iterable[object]]) -> None:
