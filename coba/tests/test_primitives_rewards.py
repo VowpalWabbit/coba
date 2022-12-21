@@ -22,7 +22,7 @@ class L1Reward_Tests(unittest.TestCase):
         self.assertEqual(loaded._label,1)
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(L1Reward(1))), 55)
+        self.assertLess(len(pickle.dumps(L1Reward(1))), 70)
 
 class BinaryReward_Tests(unittest.TestCase):
 
@@ -42,7 +42,7 @@ class BinaryReward_Tests(unittest.TestCase):
         self.assertEqual(loaded._argmax,1)
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(BinaryReward(1))), 55)
+        self.assertLess(len(pickle.dumps(BinaryReward(1))), 70)
 
 class HammingReward_Tests(unittest.TestCase):
 
@@ -68,7 +68,7 @@ class HammingReward_Tests(unittest.TestCase):
         self.assertEqual(loaded._labels,{1,2,3})
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(HammingReward([1,2]))), 60)
+        self.assertLess(len(pickle.dumps(HammingReward([1,2]))), 75)
 
 class ScaleReward_Tests(unittest.TestCase):
 
@@ -146,7 +146,7 @@ class SequenceReward_Tests(unittest.TestCase):
         self.assertSequenceEqual(loaded._values,[1,2,3])
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(SequenceReward([1,2]))), 60)
+        self.assertLess(len(pickle.dumps(SequenceReward([1,2]))), 74)
 
 class MulticlassReward_Tests(unittest.TestCase):
     def test_simple(self):
@@ -172,7 +172,7 @@ class MulticlassReward_Tests(unittest.TestCase):
         self.assertEqual(loaded._label,1)
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(MulticlassReward([1,2,3],1))), 60)
+        self.assertLess(len(pickle.dumps(MulticlassReward([1,2,3],1))), 75)
 
 class BatchReward_Tests(unittest.TestCase):
     def test_eval(self):
