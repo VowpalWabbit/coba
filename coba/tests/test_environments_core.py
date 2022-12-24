@@ -118,12 +118,10 @@ class Environments_Tests(unittest.TestCase):
         with self.assertRaises(CobaException):
             Environments([TestEnvironment2(), TestEnvironment2()]).save("coba/tests/.temp/test.zip")
 
-
     def test_cache(self):
-        env = Environments.cache_dir('abc').from_linear_synthetic(100)[0]
+        Environments.cache_dir('abc')
         self.assertIsInstance(CobaContext.cacher, DiskCacher)
         self.assertEqual("abc", CobaContext.cacher.cache_directory)
-        self.assertEqual(len(list(env.read())),100)
 
     def test_from_definition_path(self):
         if Path("coba/tests/.temp/from_file.env").exists():

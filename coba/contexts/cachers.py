@@ -153,7 +153,6 @@ class DiskCacher(Cacher[str, Iterable[str]]):
     @cache_directory.setter
     def cache_directory(self,value:Union[Path,str,None]) -> None:
         self._cache_dir = value if isinstance(value, Path) else Path(value).expanduser() if value else None
-        if self._cache_dir is not None: self._cache_dir.mkdir(parents=True, exist_ok=True)
 
     def __contains__(self, key: str) -> bool:
         return self._cache_dir is not None and self._cache_path(key).exists()
@@ -174,8 +173,9 @@ class DiskCacher(Cacher[str, Iterable[str]]):
             return f.readlines()
 
     def put(self, key: str, lines: Iterable[str]):
-
+        
         if self._cache_dir is None: return
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
 
         try:
             if key in self: return
