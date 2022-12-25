@@ -37,7 +37,6 @@ class Experiment:
             evaluation_task: A task which evaluates a learner on an environment.
         """
 
-
     @overload
     def __init__(self,
         eval_pairs      : Sequence[Tuple[Learner,Environment]],
@@ -167,7 +166,7 @@ class Experiment:
             if not restored: sink.write([["T0", {'n_learners':n_given_learners, 'n_environments':n_given_environments, 'description':self._description }]])
             Pipes.join(workitems, unfinished, process, sink).run()
 
-        except KeyboardInterrupt as e: # pragma: no cover
+        except KeyboardInterrupt: # pragma: no cover
             CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")
 
         except Exception as ex: # pragma: no cover

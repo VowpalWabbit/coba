@@ -18,10 +18,10 @@ from coba.experiments.results import moving_average, exponential_moving_average
 from coba.experiments.results import FilterPlottingData, SmoothPlottingData, ContrastPlottingData, TransformToXYE
 
 class TestPlotter:
-    
+
     def __init__(self):
         self.plot_calls = []
-    
+
     def plot(self, *args) -> None:
         self.plot_calls.append(args)
 
