@@ -1,8 +1,9 @@
 import re
 import csv
 
+from operator import methodcaller
 from collections import deque
-from itertools import islice, chain, count
+from itertools import islice, chain, count, filterfalse
 from typing import Iterable, Sequence, List, Union, Any, Pattern, Tuple, Mapping
 from typing import MutableSequence, MutableMapping
 
@@ -67,44 +68,51 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
             return { **dict(zip(keys,vals)) }
 
     class DenseRowParser:
-        def __init__(self, column_count:int) -> None:
-            self._column_count = column_count
-            self._fallback_delimieter = None
+        def __init__(self, n_columns:int) -> None:
+            self._n_columns = n_columns
+            self._fallback_delimiter = None
 
-            self._quotechars   = {'"',"'"}
             self._quotes       = '"'+"'"
-            self._quotechar    = None
-            self._delimiter    = None
+            self._dialect      = dict(skipinitialspace=True,escapechar="\\",doublequote=False)
             self._use_advanced = False
-            self._base_dialect = dict(skipinitialspace=True,escapechar="\\",doublequote=False)
 
         def parse(self, i:int, line:str) -> List[str]:
-            
             if not self._use_advanced:
-                for quote in self._quotechars-{self._quotechar}:
-                    if quote in line:
-                        self._quotechar = self._quotechar or quote
-                        self._use_advanced = self._quotechar != quote
 
-            if not self._use_advanced and not self._delimiter:
-                if len(next(csv.reader([line], ))) == self._column_count:
-                    self._delimiter = ','
-                elif len(next(csv.reader([line], quotechar=(self._quotechar or '"'), delimiter='\t', **self._base_dialect))) == self._column_count:
-                    self._delimiter = '\t'
-                else:
-                    self._use_advanced = True
+                dialect = self._dialect
+
+                if '"' in line:
+                    if 'quotechar' not in dialect:
+                        dialect['quotechar'] = '"'
+                    elif dialect['quotechar'] != '"':
+                        self._use_advanced = True
+
+                if "'" in line:
+                    if 'quotechar' not in dialect:
+                        dialect['quotechar'] = "'"
+                    elif dialect['quotechar'] != "'":
+                        self._use_advanced = True
+
+                if 'delimiter' not in self._dialect:
+                    if len(next(csv.reader([line], **dialect, delimiter=","))) == self._n_columns:
+                        dialect['delimiter'] = ','
+                    elif len(next(csv.reader([line], **dialect, delimiter='\t'))) == self._n_columns:
+                        dialect['delimiter'] = '\t'
+                    else:
+                        self._use_advanced = True
 
             if not self._use_advanced:
-                final = next(csv.reader([line], quotechar=(self._quotechar or '"'), delimiter=self._delimiter, **self._base_dialect))
+                final = next(csv.reader([line], **dialect))
 
             else:
                 #the file does not appear to follow a readable csv.reader dialect
                 #we fall back now to a slightly slower, but more flexible, parser
-                if self._fallback_delimieter is None:
+                
+                if self._fallback_delimiter is None:
                     #this isn't airtight but we can only infer so much.
-                    self._fallback_delimieter = ',' if len(line.split(',')) > len(line.split('\t')) else "\t"
+                    self._fallback_delimiter = ',' if len(line.split(',')) > len(line.split('\t')) else "\t"
 
-                d_line = deque(line.split(self._fallback_delimieter))
+                d_line = deque(line.split(self._fallback_delimiter))
                 final = []
 
                 while d_line:
@@ -118,7 +126,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
 
                     final.append(item.replace('\\','').strip())
 
-            if len(final) != self._column_count:
+            if len(final) != self._n_columns:
                 raise CobaException(f"We were unable to parse line {i} in a way that matched the expected attributes.")
 
             return final

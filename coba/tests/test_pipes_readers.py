@@ -582,7 +582,7 @@ class ArffReader_Tests(unittest.TestCase):
         self.assertEqual(1                               , items[0]['A'])
         self.assertEqual(Categorical("'B'",["'A'","'B'"]), items[0]['B'])
 
-    def test_quotes_from_hell_dense_good_categories(self):
+    def test_quotes_from_hell_dense_good_categories1(self):
         lines = [
             "@relation test",
             "@attribute 'A  a' numeric",
@@ -606,6 +606,34 @@ class ArffReader_Tests(unittest.TestCase):
         self.assertEqual(Categorical(cats[1],cats), items[0]['"'])
         self.assertEqual(Categorical(cats[2],cats), items[0]["'"])
         self.assertEqual(Categorical(cats[3],cats), items[0][","])
+
+    def test_quotes_from_hell_dense_good_categories2(self):
+        lines = [
+            "@relation test",
+            "@attribute 'A  a' numeric",
+            "@attribute '\"' {0, \"class B\", 'C', 'class D'}",
+            "@attribute '\'' {0, \"class B\", 'C', 'class D'}",
+            "@attribute ','  {0, \"class B\", 'C', 'class D'}",
+            "@data",
+            "1,    'class B', 'C', 'class D'",
+            '1,    "class B", "C", "class D"',
+        ]
+
+        cats = ['0', "class B",'C','class D']
+
+        expected = [
+            [1, Categorical(cats[1],cats), Categorical(cats[2],cats), Categorical(cats[3],cats)],
+            [1, Categorical(cats[1],cats), Categorical(cats[2],cats), Categorical(cats[3],cats)]
+        ]
+
+        items = list(ArffReader().filter(lines))
+
+        self.assertEqual(expected, items)
+        self.assertEqual(1                        , items[0]['A  a'])
+        self.assertEqual(Categorical(cats[1],cats), items[0]['"'])
+        self.assertEqual(Categorical(cats[2],cats), items[0]["'"])
+        self.assertEqual(Categorical(cats[3],cats), items[0][","])
+
 
     def test_quotes_from_hell_dense(self):
         lines = [
