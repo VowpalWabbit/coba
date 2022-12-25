@@ -427,8 +427,9 @@ class TransactionIO(Source['Result'], Sink[Any]):
         else:
             raise CobaException("We were unable to determine the appropriate Transaction reader for the file.")
 
-    def write(self, transaction: Any) -> None:
-        self._transactionIO.write(transaction)
+    def write(self, transactions: Iterable[Any]) -> None:
+        for transaction in transactions:
+            self._transactionIO.write(transaction)
 
     def read(self) -> 'Result':
         return self._transactionIO.read()

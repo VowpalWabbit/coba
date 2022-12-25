@@ -164,8 +164,9 @@ class Experiment:
         process        = multi_process if mp > 1 or mc != 0 else single_process
 
         try:
-            if not restored: sink.write(["T0", {'n_learners':n_given_learners, 'n_environments':n_given_environments, 'description':self._description }])
-            Pipes.join(workitems, unfinished, process, Foreach(sink)).run()
+            if not restored: sink.write([["T0", {'n_learners':n_given_learners, 'n_environments':n_given_environments, 'description':self._description }]])
+            Pipes.join(workitems, unfinished, process, sink).run()
+
         except KeyboardInterrupt as e: # pragma: no cover
             CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")
 

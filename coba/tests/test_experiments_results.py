@@ -853,10 +853,14 @@ class TransactionIO_Tests(unittest.TestCase):
     def test_simple_to_and_from_memory(self):
         io = TransactionIO()
 
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
+        transactions = [
+            ["T0",1,2],
+            ["T1",0,{"name":"lrn1"}],
+            ["T2",1,{"source":"test"}],
+            ["T3",[1,0], [{"reward":3},{"reward":4}]]
+        ]
+
+        io.write(transactions)
 
         result = io.read()
 
@@ -868,10 +872,14 @@ class TransactionIO_Tests(unittest.TestCase):
     def test_simple_resume(self):
         io = TransactionIO("coba/tests/.temp/transaction.log")
 
-        io.write(["T0",1,2])
-        io.write(["T1",0,{"name":"lrn1"}])
-        io.write(["T2",1,{"source":"test"}])
-        io.write(["T3",[1,0], [{"reward":3},{"reward":4}]])
+        transactions = [
+            ["T0",1,2],
+            ["T1",0,{"name":"lrn1"}],
+            ["T2",1,{"source":"test"}],
+            ["T3",[1,0], [{"reward":3},{"reward":4}]]
+        ]
+
+        io.write(transactions)
 
         result = TransactionIO("coba/tests/.temp/transaction.log").read()
 
