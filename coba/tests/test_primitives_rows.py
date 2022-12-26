@@ -2,7 +2,7 @@ import unittest
 import pickle
 
 from collections import OrderedDict
-from coba.primitives import Sparse, Dense, HashableSparse, HashableDense
+from coba.primitives.rows import Sparse, Dense, HashableSparse, HashableDense, Sparse_, Dense_
 
 class DummySparse(Sparse):
 
@@ -25,6 +25,40 @@ class DummySparse(Sparse):
         return self._row.items()
 
 class DummyDense(Dense):
+
+    def __init__(self, row) -> None:
+        self._row = row
+
+    def __getitem__(self, key):
+        ...
+
+    def __len__(self) -> int:
+        return len(self._row)
+
+    def __iter__(self):
+        return iter(self._row)
+
+class DummySparse_(Sparse_):
+
+    def __init__(self, row) -> None:
+        self._row = row
+
+    def __getitem__(self, key):
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def __iter__(self):
+        ...
+
+    def keys(self):
+        ...
+
+    def items(self):
+        return self._row.items()
+
+class DummyDense_(Dense_):
 
     def __init__(self, row) -> None:
         self._row = row
@@ -108,6 +142,66 @@ class Sparse_Tests(unittest.TestCase):
         self.assertFalse(isinstance([],Sparse))
         self.assertFalse(isinstance("",Sparse))
         self.assertFalse(isinstance(1 ,Sparse))
+
+class Dense__Tests(unittest.TestCase):
+
+    def test_getattr(self):
+
+        class DummyClass:
+            def __init__(self) -> None:
+                self.missing = True
+
+        self.assertEqual(True, DummyDense_(DummyClass()).missing)
+
+        with self.assertRaises(AttributeError):
+            self.assertEqual(True, DummyDense_({'a':1}).missing)
+
+    def test_eq(self):
+
+        self.assertEqual(DummyDense_([1,2,3]),[1,2,3])
+
+    def test_bad_eq(self):
+
+        self.assertNotEqual(DummyDense_([1,2,3]),1)
+
+    def test_copy(self):
+        dense = DummyDense_((1,2,3))
+        dense_copy = dense.copy()
+        self.assertEqual(dense,dense_copy)
+        self.assertIsNot(dense,dense_copy)
+
+    def test_isinstance(self):
+        self.assertIsInstance(DummyDense_((1,2,3)),Dense)
+
+class Sparse__Tests(unittest.TestCase):
+
+    def test_getattr(self):
+
+        class DummyClass:
+            def __init__(self) -> None:
+                self.missing = True
+
+        self.assertEqual(True, DummySparse_(DummyClass()).missing)
+
+        with self.assertRaises(AttributeError):
+            self.assertEqual(True, DummySparse_({'a':1}).missing)
+
+    def test_eq(self):
+
+        self.assertEqual(DummySparse_({'a':1}),{'a':1})
+
+    def test_bad_eq(self):
+
+        self.assertNotEqual(DummySparse_({'a':1}),1)
+
+    def test_copy(self):
+        sparse = DummySparse_({'a':1})
+        sparse_copy = sparse.copy()
+        self.assertEqual(sparse,sparse_copy)
+        self.assertIsNot(sparse,sparse_copy)
+
+    def test_isinstance(self):
+        self.assertIsInstance(DummySparse_({'a':1}),Sparse)
 
 class HashableSparse_Tests(unittest.TestCase):
 

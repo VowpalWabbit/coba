@@ -180,6 +180,8 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
         parser  = ArffReader.DenseRowParser(len(headers))
         hdr_map = dict(zip(headers, count()))
 
+        trans = str.maketrans('','',' \t\n\r\v\f')
+
         for i,line in enumerate(lines):
 
             line = line.strip()
@@ -187,13 +189,13 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
 
             if "?" not in line:
                 missing = False
-            elif line[0:2] == "?,":
+            elif line[:2] == "?,":
                 missing = True
             elif line[-2:] == ",?":
                 missing = True
             else:
-                compact = line.translate(str.maketrans('','', ' \t\n\r\v\f'))
-                missing = compact[0] in '?,' or compact.find(',?,') != -1 or compact.find(',,') != -1 or compact[-1] in '?,'
+                compact = line.translate(trans)
+                missing = compact[:2] == '?,' or ',?,' in compact or compact[-2:] == ',?'
 
             yield LazyDense(lambda line=line,i=i:parser.parse(i,line), encoders, hdr_map, missing)
 

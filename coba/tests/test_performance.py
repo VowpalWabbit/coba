@@ -175,6 +175,13 @@ class Performance_Tests(unittest.TestCase):
         reader = ArffReader()
         self._assert_scale_time(data_lines, lambda x:list(reader.filter(arff+x)), .01, print_time, number=100)
 
+    def test_arffreader_dense_performance(self):
+
+        data_lines = [",".join(["1"]*3)]*50
+
+        reader = ArffReader()
+        self._assert_scale_time(data_lines, lambda x:list(reader._dense(x,[],[])), .0034, print_time, number=100)
+
     def test_arffreader_parse_performance(self):
 
         attributes = [f"@attribute {i} {{1,2}}" for i in range(3)]
@@ -183,7 +190,6 @@ class Performance_Tests(unittest.TestCase):
 
         reader = ArffReader()
         self._assert_scale_time(data_lines, lambda x: [list(l) for l in reader.filter(arff+x)], .034, print_time, number=100)
-
 
     def test_structure_performance(self):
         structure = Structure([None,2])

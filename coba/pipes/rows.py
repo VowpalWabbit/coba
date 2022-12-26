@@ -4,18 +4,19 @@ from typing import Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, 
 from coba.backports import Literal
 
 from coba.primitives import Sparse, Dense, Categorical
+from coba.primitives.rows import Dense_, Sparse_
 from coba.utilities import peek_first
 from coba.pipes.primitives import Filter
 from coba.pipes.filters import Flatten
 
-class LazyDense(Dense):
+class LazyDense(Dense_):
     __slots__ = ('_row','_enc','headers','missing')
 
-    def __init__(self, row: Union[Callable[[],Sequence],Sequence], enc:Sequence = None, hdr:Mapping = None, missing: bool = None) -> None:
+    def __init__(self, row: Union[Callable[[],Sequence],Sequence], enc: Sequence = None, headers: Mapping = None, missing: bool = None) -> None:
         self._row = row
         self._enc = enc
 
-        if hdr is not None: self.headers = hdr
+        if headers is not None: self.headers = headers
         if missing is not None: self.missing = missing
 
     def _load_or_get(self) -> Sequence:
@@ -42,7 +43,7 @@ class LazyDense(Dense):
     def __len__(self) -> int:
         return len(self._load_or_get())
 
-class LazySparse(Sparse):
+class LazySparse(Sparse_):
     __slots__=('_row','_enc','_nsp','_fwd','_inv','missing')
 
     def __init__(self, row: Union[Callable[[],Mapping],Mapping], enc: Mapping = {}, nsp: set = set(), fwd: Mapping = {}, inv: Mapping = {}, missing:bool = None) -> None:
@@ -55,10 +56,9 @@ class LazySparse(Sparse):
 
     def _load_or_get(self) -> Mapping:
         row = self._row
-        if callable(row):
-            row = self._row()
-            self._row = row
-        self._load_or_get = lambda : row
+        if not callable(row): return row
+        row = row()
+        self._row = row
         return row
 
     def __getitem__(self, key: str):
@@ -102,7 +102,7 @@ class LazySparse(Sparse):
         else:
             return tuple(row.items())   
 
-class HeadDense(Dense):
+class HeadDense(Dense_):
     __slots__=('_row','headers')
 
     def __init__(self, row: Dense, headers: Mapping[str,int] = None) -> None:
@@ -118,7 +118,7 @@ class HeadDense(Dense):
     def __len__(self) -> int:
         return len(self._row)
 
-class HeadSparse(Sparse):
+class HeadSparse(Sparse_):
 
     __slots__=('_row', '_fwd', '_inv')
 
@@ -163,7 +163,7 @@ class HeadRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse]
             mapping_inv = {v:k for k,v in self._mapping.items()}
             yield from (HeadSparse(row, mapping, mapping_inv) for row in rows)
 
-class EncodeDense(Dense):
+class EncodeDense(Dense_):
     __slots__=('_row','_encoders')
 
     def __init__(self, row: Dense, encoders: Sequence) -> None:
@@ -179,7 +179,7 @@ class EncodeDense(Dense):
     def __len__(self) -> int:
         return len(self._encoders)
 
-class EncodeSparse(Sparse):
+class EncodeSparse(Sparse_):
     __slots__=('_row','_enc','_nsp')
 
     def __init__(self, row: Sparse, encoders: Mapping, not_sparse: set) -> None:
@@ -235,7 +235,7 @@ class EncodeRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Spars
                 except: pass #pragma: no cover
             return ( EncodeSparse(row, enc, nsp) for row in rows )
 
-class DropOne(Dense):
+class DropOne(Dense_):
     __slots__=('_row','_ind')
 
     def __init__(self, row: Dense, ind: int) -> None:
@@ -254,7 +254,7 @@ class DropOne(Dense):
     def __len__(self) -> int:
         return len(self._row)-1
 
-class KeepDense(Dense):
+class KeepDense(Dense_):
     __slots__=('_row', '_map', '_sel', '_len','headers')
     def __init__(self, row: Dense, mapping: Mapping[Union[str,int],int], selects: Sequence, len: int, headers: Mapping,) -> None:
         self._row = row
@@ -272,7 +272,7 @@ class KeepDense(Dense):
     def __len__(self) -> int:
         return self._len
 
-class DropSparse(Sparse):
+class DropSparse(Sparse_):
     __slots__=('_row','_drop_set')
     
     def __init__(self, row: Sparse, drop_set: set = None) -> None:
@@ -357,7 +357,7 @@ class DropRows(Filter[Iterable[Union[Dense,Sparse]], Iterable[Union[Dense,Sparse
             drop_set = DropRows.make_drop_row_args(first, drop_cols)
             yield from (DropSparse(row, drop_set) for row in rows)
 
-class LabelDense(Dense):
+class LabelDense(Dense_):
     __slots__=('_row','_ind','_tipe')
 
     def __init__(self, row: Dense, ind: int, tipe: Literal['c','r','m']) -> None:
@@ -390,7 +390,7 @@ class LabelDense(Dense):
     def labeled(self)-> Tuple[Dense,Any,Literal['c','r','m']]:
         return (DropOne(self._row, self._ind), self._row[self._ind], self._tipe)
 
-class LabelSparse(Sparse):
+class LabelSparse(Sparse_):
     __slots__=('_row', '_tipe', '_key')
 
     def __init__(self, row: Sparse, key: str, tipe: Literal['c','r','m']) -> None:

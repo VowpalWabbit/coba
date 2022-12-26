@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Sequence, Iterator, Iterable, Any
 
 class Dense(ABC):
-    __slots__ = ()
+    __slots__=()
     
     @abstractmethod
     def __getitem__(self, key) -> Any:
@@ -17,6 +17,23 @@ class Dense(ABC):
     @abstractmethod
     def __iter__(self) -> Iterator:
         ...
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._row, attr)
+
+    def __eq__(self, o) -> bool:
+        try:
+            return len(self) == len(o) and all(map(eq, self, o))
+        except:
+            return False
+
+    def copy(self) -> list:
+        return list(iter(self))
+
+class Dense_:
+    ##Instantiating classes which inherit from Dense is moderately expensive due to the ABC checks.
+    ##Therefore we keep Dense around for public API checks but internally we use Dense_ for inheritance.
+    __slots__=('_row')
 
     def __getattr__(self, attr: str) -> Any:
         return getattr(self._row, attr)
@@ -51,6 +68,23 @@ class Sparse(ABC):
     @abstractmethod
     def items(self) -> Iterable:
         ...
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._row, attr)
+
+    def __eq__(self, o: object) -> bool:
+        try:
+            return dict(self.items()) == dict(o.items())
+        except:
+            return False
+
+    def copy(self) -> dict:
+        return dict(self.items())
+
+class Sparse_:
+    __slots__=()
+    ##Instantiating classes which inherit from Sparse is moderately expensive due to the ABC checks.
+    ##Therefore we keep Dense around for public API checks but internally we use Sparse_ for inheritance.
 
     def __getattr__(self, attr: str) -> Any:
         return getattr(self._row, attr)
@@ -136,6 +170,8 @@ class HashableDense(abc.Sequence):
 
 Sparse.register(HashableSparse)
 Sparse.register(abc.Mapping)
+Sparse.register(Sparse_)
 Dense.register(HashableDense)
 Dense.register(list)
 Dense.register(tuple)
+Dense.register(Dense_)
