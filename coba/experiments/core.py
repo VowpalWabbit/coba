@@ -2,7 +2,7 @@ from pathlib import Path
 from itertools import product
 from typing import Sequence, Optional, Union, overload, Tuple
 
-from coba.pipes import Pipes, Foreach
+from coba.pipes import Pipes
 from coba.learners import Learner
 from coba.environments import Environment
 from coba.multiprocessing import CobaMultiprocessor

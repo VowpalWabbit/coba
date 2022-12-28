@@ -12,8 +12,12 @@ from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
+
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
+
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
+from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
+
 from coba.experiments.results import Result, moving_average
 from coba.experiments import SimpleEvaluation
 from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
@@ -167,29 +171,32 @@ class Performance_Tests(unittest.TestCase):
         self._assert_scale_time(x, enc.filter, .045, print_time, number=1000)
 
     def test_arffreader_performance(self):
-
-        attributes = [f"@attribute {i} {{1,2}}" for i in range(3)]
-        data_lines = [",".join(["1"]*3)]*50
-        arff       = attributes+["@data"]
-
+        attrs = [f"@attribute {i} {{1,2}}" for i in range(3)]
+        data  = ["@data"]
+        lines = [",".join(["1"]*3)]*50
         reader = ArffReader()
-        self._assert_scale_time(data_lines, lambda x:list(reader.filter(arff+x)), .01, print_time, number=100)
+        self._assert_scale_time(lines, lambda x:list(reader.filter(attrs+data+x)), .0095, print_time, number=100)
 
-    def test_arffreader_dense_performance(self):
+    def test_arffattrreader_dense_performance(self):
+
+        reader = ArffAttrReader(True)
+        attrs = [f"@attribute {i} {{1,2}}" for i in range(3)]
+
+        self._assert_call_time(lambda:list(reader.filter(attrs)), .004, print_time, number=100)
+
+    def test_arffdatareader_dense_performance(self):
 
         data_lines = [",".join(["1"]*3)]*50
+        reader = ArffDataReader(True)
 
-        reader = ArffReader()
-        self._assert_scale_time(data_lines, lambda x:list(reader._dense(x,[],[])), .0034, print_time, number=100)
+        self._assert_scale_time(data_lines, lambda x:list(reader.filter(x)), .0007, print_time, number=100)
 
-    def test_arffreader_parse_performance(self):
+    def test_arfflinereader_dense_performance(self):
 
-        attributes = [f"@attribute {i} {{1,2}}" for i in range(3)]
-        data_lines = [",".join(["1"]*3)]*50
-        arff       = attributes+["@data"]
+        reader = ArffLineReader(True,3)
+        line = ",".join(['1']*3)
 
-        reader = ArffReader()
-        self._assert_scale_time(data_lines, lambda x: [list(l) for l in reader.filter(arff+x)], .034, print_time, number=100)
+        self._assert_call_time(lambda:reader.filter(line), .0019, print_time, number=1000)
 
     def test_structure_performance(self):
         structure = Structure([None,2])

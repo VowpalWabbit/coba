@@ -15,7 +15,7 @@ from coba.pipes.core       import Pipes, Foreach, QueueIO
 from coba.pipes.primitives import Filter, Source
 from coba.pipes.sinks      import Sink, ConsoleSink
 
-# handle not picklable (this is handled by explicitly pickling)    (TESTED)
+# handle not picklable (this is handled by explicitly pickling) (TESTED)
 # handle empty list (this is done by PipesPool naturally) (TESTED)
 # handle exceptions in process (wrap worker executing code in an exception handler) (TESTED)
 # handle ctrl-c without hanging
@@ -33,7 +33,7 @@ class PipesPool:
     # meant to be used by a general audience who will likely have errors that need
     # to be debugged as they learn how to use coba this was unacepptable. Therefore,
     # after countless attempts to make multiprocessing.Pool work the decision was made
-    # to write our own so we could add our own helpful error messages.
+    # to write our own so we could add helpful error messages and avoid irrecoverable states.
 
     def __enter__(self) -> 'PipesPool':
         return self

@@ -3,6 +3,7 @@ import unittest
 from coba.exceptions import CobaException
 
 from coba.pipes import LibsvmReader, ArffReader, CsvReader, ManikReader
+from coba.pipes.readers import ArffAttrReader, ArffDataReader, ArffLineReader
 from coba.contexts import NullLogger, CobaContext
 from coba.primitives import Categorical
 
@@ -28,7 +29,6 @@ class CsvReader_Tests(unittest.TestCase):
         self.assertEqual([['a','b','c'],['1','2','3']], list(CsvReader().filter(['a,b,c', '', '1,2,3', ''])))
 
 class ArffReader_Tests(unittest.TestCase):
-
     def test_sans_data(self):
         lines = [
             "@relation test",
@@ -41,6 +41,92 @@ class ArffReader_Tests(unittest.TestCase):
         expected = []
 
         self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_dense_data(self):
+        lines = [
+            "@relation test",
+            "@attribute A numeric",
+            "@attribute B numeric",
+            "@attribute C {0, B, C, D}",
+            "@data",
+            "1,2,B",
+            "2,3,0",
+        ]
+
+        expected = [
+            [1,2,Categorical("B", ["0","B","C","D"])],
+            [2,3,Categorical("0", ["0","B","C","D"])]
+        ]
+
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_sparse_data(self):
+        lines = [
+            "@relation test",
+            "@attribute A numeric",
+            "@attribute B numeric",
+            "@attribute C {B, C, D}",
+            "@data",
+            "{0 1,1 2,2 B}",
+            "{ }",
+        ]
+
+        expected = [
+            {"A":1,"B":2,"C":Categorical("B", ["0","B","C","D"])},
+            {            "C":Categorical("0", ["0","B","C","D"])}
+        ]
+
+        self.assertEqual(expected, list(ArffReader().filter(lines)))
+
+    def test_empty_lines(self):
+        lines = [
+            "@relation test",
+            "",
+            "@attribute A numeric",
+            "",
+            "@attribute B numeric",
+            "@attribute C {0, B, C, D}",
+            "@data",
+            "",
+            "",
+            "1,2,B",
+            "2,3,0",
+            ""
+        ]
+
+        expected = [
+            [1,2,Categorical("B", ["0","B","C","D"])],
+            [2,3,Categorical("0", ["0","B","C","D"])]
+        ]
+
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
+
+    def test_comment_lines(self):
+        lines = [
+            "%",
+            "@relation test",
+            "@attribute a numeric",
+            "%",
+            "@attribute b numeric",
+            "@attribute c {0, B, C, D}",
+            "@data",
+            "%",
+            "1,2,B",
+            "%",
+            "2,3,0",
+            "%"
+        ]
+
+        expected = [
+            [1,2,Categorical("B", ["0","B","C","D"])],
+            [2,3,Categorical("0", ["0","B","C","D"])]
+        ]
+
+        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
+
+    #In practice many of these tests are now redundant thanks to splitting the 
+    #reader into the three smaller readers (AttrReader,DataReader,and LineReader).
+    #I believe the remaining tests in this class could be removed without compromising safety.
 
     def test_dense_with_spaces_after_commas(self):
         lines = [
@@ -109,7 +195,7 @@ class ArffReader_Tests(unittest.TestCase):
 
         with self.assertRaises(CobaException) as e:
             list(ArffReader().filter(lines))
-        
+
         self.assertEqual("Two columns in the ARFF file had identical header values.", str(e.exception))
 
     def test_dense_with_missing_value1(self):
@@ -147,46 +233,6 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         self.assertEqual(expected, list(map(list,ArffReader(missing_value=None).filter(lines))))
-
-    def test_dense_with_empty_lines(self):
-        lines = [
-            "@relation test",
-            "@attribute A numeric",
-            "@attribute B numeric",
-            "@attribute C {0, B, C, D}",
-            "@data",
-            "",
-            "",
-            "1,2,B",
-            "2,3,0",
-            ""
-        ]
-
-        expected = [
-            [1,2,Categorical("B", ["0","B","C","D"])],
-            [2,3,Categorical("0", ["0","B","C","D"])]
-        ]
-
-        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
-
-    def test_dense_with_comments(self):
-        lines = [
-            "%This is a comment",
-            "@relation test",
-            "@attribute a numeric",
-            "@attribute b numeric",
-            "@attribute c {0, B, C, D}",
-            "@data",
-            "1,2,B",
-            "2,3,0"
-        ]
-
-        expected = [
-            [1,2,Categorical("B", ["0","B","C","D"])],
-            [2,3,Categorical("0", ["0","B","C","D"])]
-        ]
-
-        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_dense_with_strings(self):
         lines = [
@@ -340,27 +386,6 @@ class ArffReader_Tests(unittest.TestCase):
         ]
 
         self.assertEqual(expected, list(map(dict,ArffReader().filter(lines))))
-
-    def test_leading_and_trailing_comments(self):
-        lines = [
-            "%",
-            "%",
-            "@relation test",
-            "@attribute a string",
-            "@attribute b string",
-            "@attribute c {0, B, C, D}",
-            "@data",
-            "1,2,B",
-            "2,3,0",
-            "%"
-        ]
-
-        expected = [
-            ['1','2',Categorical("B", ["0","B","C","D"])],
-            ['2','3',Categorical("0", ["0","B","C","D"])]
-        ]
-
-        self.assertEqual(expected, list(map(list,ArffReader().filter(lines))))
 
     def test_bad_labels_throws_exception(self):
         lines = [
@@ -519,7 +544,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             [ list(l) for l in ArffReader().filter(lines) ]
 
-        self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
+        self.assertEqual(str(e.exception), "We were unable to parse a line in a way that matched the expected attributes.")
 
     def test_too_few_dense_elements(self):
         lines = [
@@ -533,7 +558,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             [ list(l) for l in ArffReader().filter(lines) ]
 
-        self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
+        self.assertEqual(str(e.exception), "We were unable to parse a line in a way that matched the expected attributes.")
 
     def test_too_min_sparse_element(self):
         lines = [
@@ -547,7 +572,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             [ dict(l) for l in ArffReader().filter(lines) ]
 
-        self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
+        self.assertEqual(str(e.exception), "We were unable to parse a line in a way that matched the expected attributes.")
 
     def test_too_max_sparse_element(self):
         lines = [
@@ -561,7 +586,7 @@ class ArffReader_Tests(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             [ dict(l) for l in ArffReader().filter(lines) ]
 
-        self.assertEqual(str(e.exception), "We were unable to parse line 0 in a way that matched the expected attributes.")
+        self.assertEqual(str(e.exception), "We were unable to parse a line in a way that matched the expected attributes.")
 
     def test_escaped_quotes_in_categorical_values(self):
         lines = [
@@ -633,7 +658,6 @@ class ArffReader_Tests(unittest.TestCase):
         self.assertEqual(Categorical(cats[1],cats), items[0]['"'])
         self.assertEqual(Categorical(cats[2],cats), items[0]["'"])
         self.assertEqual(Categorical(cats[3],cats), items[0][","])
-
 
     def test_quotes_from_hell_dense(self):
         lines = [
@@ -782,6 +806,462 @@ class ManikReader_Tests(unittest.TestCase):
         ]
 
         self.assertEqual(expected, list(ManikReader().filter(lines)))
+
+class ArffAttrReader_Tests(unittest.TestCase):
+
+    def test_numeric_attribute(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute a numeric"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a'   )
+        self.assertEqual(items[0][1]("1"), 1)
+        self.assertEqual(items[0][1]("?"), None)
+
+    def test_integer_attribute(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute a integer"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a'   )
+        self.assertEqual(items[0][1]("1"), 1)
+        self.assertEqual(items[0][1]("?"), None)
+
+    def test_real_attribute(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute a real"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a'   )
+        self.assertEqual(items[0][1]("1"), 1)
+        self.assertEqual(items[0][1]("?"), None)
+
+    def test_string_attribute(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute a string"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a'   )
+        self.assertEqual(items[0][1]('1'), '1')
+        self.assertEqual(items[0][1]("?"), None)
+
+    def test_date_attribute(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute a date"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a'   )
+        self.assertEqual(items[0][1]('1'), '1')
+        self.assertEqual(items[0][1]("?"), None)
+
+    def test_relational_attribute(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute a relational"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a'      )
+        self.assertEqual(items[0][1]('1'), '1' )
+        self.assertEqual(items[0][1]("?"), None)
+
+    def test_dense_categorical_attribute(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute a {A, B}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a'      )
+        self.assertEqual(items[0][1]('A'), Categorical("A",['A','B']))
+        self.assertEqual(items[0][1]("?"), None)
+
+        with self.assertRaises(CobaException) as e:
+            items[0][1]('C')
+
+        self.assertIn("We were unable to find 'C' in ['A', 'B'].", str(e.exception))
+
+    def test_sparse_categorical_attribute(self):
+        items = list(ArffAttrReader(False,None).filter(["@attribute a {A, B}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a'      )
+        self.assertEqual(items[0][1]('A'), Categorical("A",['0','A','B']))
+        self.assertEqual(items[0][1]("?"), None)
+
+        with self.assertRaises(CobaException) as e:
+            items[0][1]('C')
+
+        self.assertIn("We were unable to find 'C' in ['0', 'A', 'B'].", str(e.exception))
+
+    def test_capitalized_attributes(self):
+        items = list(ArffAttrReader(True,None).filter([
+            "@ATTRIBUTE a NUMERIC",
+            "@ATTRIBUTE A STRING",
+        ]))
+
+        self.assertEqual(len(items),2)
+
+        self.assertEqual(items[0][0],'a')
+        self.assertEqual(items[0][1]("1"), 1)
+        self.assertEqual(items[0][1]("?"), None)
+
+        self.assertEqual(items[1][0],'A')
+        self.assertEqual(items[1][1]("1"), '1')
+        self.assertEqual(items[1][1]("?"), None)
+
+    def test_spaced_attribute(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute  a  {  A,  B }"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a'      )
+        self.assertEqual(items[0][1]('A'), Categorical("A",['A','B']))
+        self.assertEqual(items[0][1]("?"), None)
+
+    def test_tabbed_attribute(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute\ta\t{A,\tB}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a'      )
+        self.assertEqual(items[0][1]('A'), Categorical("A",['A','B']))
+        self.assertEqual(items[0][1]("?"), None)
+
+    def test_quoted_attribute_names(self):
+        items = list(ArffAttrReader(True,None).filter([
+            "@attribute 'A a' {A, B}",
+            "@attribute '\"' {A, B}",
+            "@attribute '\'' {A, B}",
+            "@attribute ','  {A, B}",
+
+        ]))
+
+        self.assertEqual(len(items),4)
+
+        self.assertEqual(items[0][0], 'A a'                          )
+        self.assertEqual(items[0][1]('A'), Categorical("A",['A','B']))
+        self.assertEqual(items[0][1]("?"), None                      )
+
+        self.assertEqual(items[1][0], '"'                            )
+        self.assertEqual(items[1][1]('A'), Categorical("A",['A','B']))
+        self.assertEqual(items[1][1]("?"), None                      )
+
+        self.assertEqual(items[2][0], "'"                            )
+        self.assertEqual(items[2][1]('A'), Categorical("A",['A','B']))
+        self.assertEqual(items[2][1]("?"), None                      )
+
+        self.assertEqual(items[3][0], ","                            )
+        self.assertEqual(items[3][1]('A'), Categorical("A",['A','B']))
+        self.assertEqual(items[3][1]("?"), None                      )
+
+    def test_percent_in_attribute_name(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute 'a%3' {A,B}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0], 'a%3'      )
+        self.assertEqual(items[0][1]('A'), Categorical("A",['A','B']))
+        self.assertEqual(items[0][1]("?"), None)
+
+    def test_escaped_single_quote_in_attribute_name(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute 'a\\'a' {A,B}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]     , "a'a"                     )
+        self.assertEqual(items[0][1]('A'), Categorical("A",['A','B']))
+        self.assertEqual(items[0][1]("?"), None                      )
+
+    def test_escaped_double_quote_in_attribute_name(self):
+        items = list(ArffAttrReader(True,None).filter(['@attribute "a\\"a" {A,B}']))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]     , 'a"a'                     )
+        self.assertEqual(items[0][1]('A'), Categorical("A",['A','B']))
+        self.assertEqual(items[0][1]("?"), None                      )
+
+    def test_single_quoted_categories_with_spaces(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute 'a' { ' A  ', 'B ' }"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]        , 'a'                              )
+        self.assertEqual(items[0][1](' A  '), Categorical(" A  ",[' A  ','B ']))
+        self.assertEqual(items[0][1]("?"  ) , None                             )
+
+    def test_single_quoted_categories_with_comma(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute 'a' {'A,a','B'}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]       , 'a'                            )
+        self.assertEqual(items[0][1]('A,a'), Categorical("A,a",['A,a','B']))
+        self.assertEqual(items[0][1]("?"  ), None                           )
+
+    def test_single_quoted_categories_with_comma(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute 'a' {'A\ta','B'}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]       , 'a'                              )
+        self.assertEqual(items[0][1]('A\ta'), Categorical("A\ta",['A\ta','B']))
+        self.assertEqual(items[0][1]("?"  ), None                             )
+
+    def test_single_quoted_category_with_double_quote(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute 'a' {\"A's\",B}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]       , 'a'                               )
+        self.assertEqual(items[0][1]("A's"), Categorical("A's",['A\'s','B']))
+        self.assertEqual(items[0][1]("?"  ), None                              )
+
+    def test_single_quoted_category_with_escaped_single_quote(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute 'a' {'A\\'s',B}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]       , 'a'                           )
+        self.assertEqual(items[0][1]("A's"), Categorical("A's",["A's",'B']))
+        self.assertEqual(items[0][1]("?"  ), None                          )
+
+    def test_double_quoted_categories_with_spaces(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute a { \" A  \", \"B \" }"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]        , 'a'                              )
+        self.assertEqual(items[0][1](' A  '), Categorical(" A  ",[' A  ','B ']))
+        self.assertEqual(items[0][1]("?"  ) , None                             )
+
+    def test_double_quoted_categories_with_comma(self):
+        items = list(ArffAttrReader(True,None).filter(['@attribute a {"A,a", B}']))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]       , 'a'                            )
+        self.assertEqual(items[0][1]('A,a'), Categorical("A,a",['A,a','B']))
+        self.assertEqual(items[0][1]("?"  ), None                           )
+
+    def test_double_quoted_category_with_single_quote(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute a {\"A's\",B}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]       , 'a'                            )
+        self.assertEqual(items[0][1]("A's"), Categorical("A's",['A\'s','B']))
+        self.assertEqual(items[0][1]("?"  ), None                           )
+
+    def test_double_quoted_category_with_escaped_double_quote(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute 'a' {\"A\\\"s\",'B'}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]       , 'a'                            )
+        self.assertEqual(items[0][1]('A"s'), Categorical('A"s',['A"s','B']))
+        self.assertEqual(items[0][1]("?"  ), None                           )
+
+    def test_single_and_double_quoted_category_with_escaped_quotes(self):
+        items = list(ArffAttrReader(True,None).filter(["@attribute 'a' {\"A\\\"s\",'B\\'s'}"]))
+
+        self.assertEqual(len(items),1)
+
+        self.assertEqual(items[0][0]       , 'a'                            )
+        self.assertEqual(items[0][1]('A"s'), Categorical('A"s',['A"s',"B's"]))
+        self.assertEqual(items[0][1]("?"  ), None                           )
+
+    def test_dense_duplicate_headers(self):
+        with self.assertRaises(CobaException) as e:
+            list(ArffAttrReader(True,None).filter([
+                "@attribute 'a' string",
+                "@attribute 'a' string",
+            ]))
+        
+        self.assertEqual("Two columns in the ARFF file had identical header values.", str(e.exception))
+
+    def test_bad_attribute_type_raises_exception(self):
+        with self.assertRaises(CobaException) as ex:
+            list(ArffAttrReader(True,None).filter(["@attribute 'a' abcd"]))
+
+        self.assertEqual('An unrecognized encoding was found in the arff attributes: abcd.', str(ex.exception))
+
+    def test_good_attribute_types_do_not_raise_exception(self):
+        list(ArffReader().filter([
+            "@attribute a numeric",
+            "@attribute b integer",
+            "@attribute c real",
+            "@attribute d date",
+            "@attribute e string",
+            "@attribute f {B, C, D}",
+            "@attribute g relational",
+        ]))
+
+class ArffDataReader_Tests(unittest.TestCase):
+    def test_one_dense_line_no_missing_no_comments(self):
+        out = list(ArffDataReader(True).filter(['1,2,3']))
+        self.assertEqual(out, [('1,2,3',False)])
+
+    def test_one_dense_line_missing_tight_start(self):
+        out = list(ArffDataReader(True).filter(['?,2,3']))
+        self.assertEqual(out, [('?,2,3',True)])
+
+    def test_one_dense_line_missing_tight_middle(self):
+        out = list(ArffDataReader(True).filter(['1,?,3']))
+        self.assertEqual(out, [('1,?,3',True)])
+
+    def test_one_dense_line_missing_tight_end(self):
+        out = list(ArffDataReader(True).filter(['1,2,?']))
+        self.assertEqual(out, [('1,2,?',True)])
+
+    def test_one_dense_line_missing_middle_loose(self):
+        out = list(ArffDataReader(True).filter(['1,  ?  ,3']))
+        self.assertEqual(out, [('1,  ?  ,3',True)])
+
+    def test_two_dense_line_no_missing_no_comments(self):
+        out = list(ArffDataReader(True).filter(['1','2']))
+        self.assertEqual(out, [('1',False),('2',False)])
+
+    def test_two_dense_line_no_missing_yes_comments(self):
+        out = list(ArffDataReader(True).filter(['1','%','2']))
+        self.assertEqual(out, [('1',False),('2',False)])
+
+    def test_one_sparse_line_no_missing_no_comments(self):
+        out = list(ArffDataReader(True).filter(['{1 2,3 4}']))
+        self.assertEqual(out, [('{1 2,3 4}',False)])
+
+    def test_one_sparse_line_missing_tight_start(self):
+        out = list(ArffDataReader(False).filter(['{1 ?}']))
+        self.assertEqual(out, [('{1 ?}',True)])
+
+    def test_one_sparse_line_missing_tight_middle(self):
+        out = list(ArffDataReader(False).filter(['{1 ?,3 4}']))
+        self.assertEqual(out, [('{1 ?,3 4}',True)])
+
+    def test_one_sparse_line_missing_tight_end(self):
+        out = list(ArffDataReader(False).filter(['{1 2,3 ?}']))
+        self.assertEqual(out, [('{1 2,3 ?}',True)])
+
+    def test_two_sparse_line_no_missing_no_comment(self):
+        out = list(ArffDataReader(False).filter(['{1 2}','{3 4}']))
+        self.assertEqual(out, [('{1 2}',False),('{3 4}', False)])
+
+    def test_two_sparse_line_no_missing_yes_comments(self):
+        out = list(ArffDataReader(False).filter(['{1 2}','%','{3 4}']))
+        self.assertEqual(out, [('{1 2}',False),('{3 4}', False)])
+
+class ArffLineReader_Tests(unittest.TestCase):
+    def test_dense_1_comma_no_quotes_tight(self):
+        self.assertEqual(ArffLineReader(True,1).filter('1'), ['1'])
+
+    def test_dense_2_comma_no_quotes_tight(self):
+        self.assertEqual(ArffLineReader(True,2).filter('1,2'), ['1','2'])
+
+    def test_dense_2_tab_no_quotes_tight(self):
+        self.assertEqual(ArffLineReader(True,2).filter('1\t2'), ['1','2'])
+
+    def test_dense_2_comma_no_quotes_initialspaces(self):
+        self.assertEqual(ArffLineReader(True,2).filter('1, 2'), ['1','2'])
+
+    def test_dense_2_tab_no_quotes_initialspaces(self):
+        self.assertEqual(ArffLineReader(True,2).filter('1\t 2'), ['1','2'])
+
+    @unittest.skip("Known shortcoming of csv.reader ")
+    def test_dense_2_comma_no_quotes_precedingspaces(self):
+        self.assertEqual(ArffLineReader(True,2).filter('1 ,2'), ['1','2'])
+
+    def test_dense_2_comma_double_quotes_with_space(self):
+        self.assertEqual(ArffLineReader(True,2).filter('"1  a", " 2 b "'), ['1  a',' 2 b '])
+
+    def test_dense_2_comma_double_quotes_with_comma(self):
+        self.assertEqual(ArffLineReader(True,2).filter('"1,a","2,b"'), ['1,a','2,b'])
+
+    def test_dense_2_comma_double_quotes_with_single_quote(self):
+        self.assertEqual(ArffLineReader(True,2).filter('"1\'a",2'), ['1\'a','2'])
+
+    def test_dense_2_comma_double_quotes_with_escaped_double_quotes(self):
+        self.assertEqual(ArffLineReader(True,2).filter('"1\\"a",2'), ['1"a','2'])
+
+    def test_dense_2_comma_double_quotes_initialspaces(self):
+        self.assertEqual(ArffLineReader(True,2).filter('1,  "2\'a"'), ['1','2\'a'])
+
+    def test_dense_2_comma_single_quotes_with_space(self):
+        self.assertEqual(ArffLineReader(True,2).filter("'1  a', ' 2 b '"), ["1  a"," 2 b "])
+
+    def test_dense_2_comma_single_quotes_with_comma(self):
+        self.assertEqual(ArffLineReader(True,2).filter("'1,a','2,b'"), ["1,a","2,b"])
+
+    def test_dense_2_comma_single_quotes_with_double_quote(self):
+        self.assertEqual(ArffLineReader(True,2).filter("'1\"a',2"), ["1\"a","2"])
+
+    def test_dense_2_comma_single_quotes_with_escaped_single_quotes(self):
+        self.assertEqual(ArffLineReader(True,2).filter("'1\\'a',2"), ["1'a","2"])
+
+    def test_dense_2_comma_single_quotes_initialspaces(self):
+        self.assertEqual(ArffLineReader(True,2).filter("1,  '2\"a'"), ["1","2\"a"])
+
+    def test_dense_2_comma_double_and_single_quotes_tight(self):
+        self.assertEqual(ArffLineReader(True,2).filter("'1\"s',\"2's\""), ['1"s',"2's"])
+
+    def test_dense_2_quote_from_hell(self):
+        self.assertEqual(ArffLineReader(True,2).filter("'1\" , \\'s',\"2's\""), ['1" , \'s',"2's"])
+
+    def test_sparse_2_no_quotes_tight(self):
+        self.assertEqual(ArffLineReader(False,2).filter("{0 2,1 4}"),{0:'2',1:'4'})
+
+    def test_sparse_2_no_quotes_initialspaces(self):
+        self.assertEqual(ArffLineReader(False,2).filter("{0 2,  1 4}"),{0:'2',1:'4'})
+
+    def test_sparse_2_no_quotes_empty(self):
+        self.assertEqual(ArffLineReader(False,2).filter("{}"),{})
+
+    def test_sparse_2_no_quotes_empty_spaces(self):
+        self.assertEqual(ArffLineReader(False,2).filter("{    }"),{})
+
+    def test_good_row_then_too_many_dense_elements(self):
+        reader = ArffLineReader(True,2)
+        with self.assertRaises(CobaException) as e:
+            reader.filter('1,2')
+            reader.filter('1,2,3')
+        self.assertEqual(str(e.exception), "We were unable to parse a line in a way that matched the expected attributes.")
+
+    def test_too_many_dense_elements(self):
+        with self.assertRaises(CobaException) as e:
+            ArffLineReader(True,2).filter('1,2,3')
+        self.assertEqual(str(e.exception), "We were unable to parse a line in a way that matched the expected attributes.")
+
+    def test_too_few_dense_elements(self):
+        with self.assertRaises(CobaException) as e:
+            ArffLineReader(True,2).filter('1')
+        self.assertEqual(str(e.exception), "We were unable to parse a line in a way that matched the expected attributes.")
+
+    def test_too_min_sparse_element(self):
+        with self.assertRaises(CobaException) as e:
+            ArffLineReader(False,2).filter("{-1 2,0 2,1 3}")
+        self.assertEqual(str(e.exception), "We were unable to parse a line in a way that matched the expected attributes.")
+
+    def test_too_max_sparse_element(self):
+        with self.assertRaises(CobaException) as e:
+            ArffLineReader(False,2).filter("{0 2,2 3}")
+        self.assertEqual(str(e.exception), "We were unable to parse a line in a way that matched the expected attributes.")
+
+    def test_no_quote_then_single_quote(self):
+        reader = ArffLineReader(True,2)
+        self.assertEqual(reader.filter('1,2'), ['1','2'])
+        self.assertEqual(reader.filter("1,'b '"), ['1','b '])
+
+    def test_no_quote_then_double_quote(self):
+        reader = ArffLineReader(True,2)
+        self.assertEqual(reader.filter('1,2'), ['1','2'])
+        self.assertEqual(reader.filter('1,"b "'), ['1','b '])
+
+    def test_single_quote_then_double_quote(self):
+        reader = ArffLineReader(True,2)
+        self.assertEqual(reader.filter("1,'b '"), ['1','b '])
+        self.assertEqual(reader.filter('1,"c "'), ['1','c '])
+
+    def test_double_quote_then_single_quote(self):
+        reader = ArffLineReader(True,2)
+        self.assertEqual(reader.filter('1,"b "'), ['1','b '])
+        self.assertEqual(reader.filter("1,'c '"), ['1','c '])
 
 if __name__ == '__main__':
     unittest.main()
