@@ -2,7 +2,6 @@ import re
 import csv
 import time
 
-from types import MethodType
 from operator import methodcaller
 from collections import deque
 from itertools import islice, chain, count, takewhile
@@ -130,8 +129,8 @@ class ArffAttrReader(Filter[Iterable[str], Iterable[Tuple[str,Callable]]]):
                 try:
                     return cats[x]
                 except:
-                    if x != "?": raise CobaException(f"We were unable to find '{x}' in {sorted(cats.keys())}.")
-                    return missing_val
+                    if x == "?": return missing_val
+                    raise CobaException(f"We were unable to find '{x}' in {sorted(cats.keys())}.")
 
             return cat_encoder
 
@@ -291,6 +290,9 @@ class ArffLineReader(Filter[str, Sequence[str]]):
         return parsed
 
 class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
+    
+    _strip = methodcaller("strip")
+
     def __init__(self, missing_value: Any = None):
         """Instantiate an ArffReader.
 
@@ -303,7 +305,7 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
     def filter(self, lines: Iterable[str]) -> Iterable[Union[Dense,Sparse]]:
 
         #start = time.time()
-        lines = iter(filter(None,map(methodcaller("strip"), lines)))
+        lines = iter(filter(None,map(self._strip, lines)))
         attrs = [ l for l in takewhile(lambda l: l!="@data", lines) if l[:5].lower() == "@attr" ]
         data  = lines
 
