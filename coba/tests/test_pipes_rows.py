@@ -38,7 +38,7 @@ class EncodeCatRows_Tests(unittest.TestCase):
         actual = list(EncodeCatRows("onehot").filter(given))
 
         self.assertEqual(actual,expected)
-    
+
     def test_onehot_tuple_dense_with_categorical(self):
 
         given = [[1,2,Categorical('1',['1','2'])], [4,5,Categorical('2',['1','2'])]]
@@ -334,13 +334,29 @@ class LazyDense_Tests(unittest.TestCase):
         l = LazyDense(lambda:[1,2,3])
         self.assertEqual(3,len(l))
 
+    def test_encodes(self):
+        l = LazyDense(lambda:['1','2'],[int,float])
+        self.assertEqual(2,len(l))
+        self.assertEqual(1, l[0])
+        self.assertEqual(2, l[1])
+        self.assertEqual(list(l), [1,2])
+
+    def test_bad_encodes(self):
+        l = LazyDense(lambda:['1','a'],[int,float])
+        self.assertEqual(2,len(l))
+        self.assertEqual(1, l[0])
+        with self.assertRaises(Exception):
+            l[1]
+        with self.assertRaises(Exception):
+            list(l)
+
     def test_iter(self):
         self.assertEqual([1,2,3],list(LazyDense(lambda:[1,2,3])))
 
     def test_eq(self):
         self.assertEqual([1,2,3],LazyDense(lambda:[1,2,3]))
         self.assertEqual((1,2,3),LazyDense(lambda:[1,2,3]))
-    
+
     def test_neq(self):
         self.assertNotEqual([1,2,3,4],LazyDense(lambda:[1,2,3]))
         self.assertNotEqual([1,2],LazyDense(lambda:[1,2,3]))
@@ -486,6 +502,22 @@ class LazySparse_Tests(unittest.TestCase):
     def test_loader_len(self):
         l = LazySparse(lambda:{'a':1,'b':2})
         self.assertEqual(2,len(l))
+
+    def test_encodes(self):
+        l = LazySparse(lambda:{'a':'1','b':'2'},{'a':int,'b':float})
+        self.assertEqual(2,len(l))
+        self.assertEqual(1, l['a'])
+        self.assertEqual(2, l['b'])
+        self.assertSetEqual(set(l.items()), set([('a',1),('b',2)]))
+
+    def test_bad_encodes(self):
+        l = LazySparse(lambda:{'a':'1','b':'a'},{'a':int,'b':float})
+        self.assertEqual(2,len(l))
+        self.assertEqual(1, l['a'])
+        with self.assertRaises(Exception):
+            l['b']
+        with self.assertRaises(Exception):
+            l.items()
 
     def test_iter(self):
         l = LazySparse(lambda:{'a':1,'b':2})

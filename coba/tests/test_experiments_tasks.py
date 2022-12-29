@@ -107,6 +107,11 @@ class SimpleEnvironmentInfo_Tests(unittest.TestCase):
 
 class ClassEnvironmentInfo_Tests(unittest.TestCase):
 
+    def test_classification_statistics_empty_interactions(self):        
+        simulation = SupervisedSimulation([],[])
+        row        = ClassEnvironmentInfo().process(simulation,simulation.read())
+        self.assertEqual(row, {})
+
     def test_classification_statistics_dense_sans_sklearn(self):
         with unittest.mock.patch('importlib.import_module', side_effect=ImportError()):
             simulation = SupervisedSimulation([[1,2],[3,4]]*10,["A","B"]*10)

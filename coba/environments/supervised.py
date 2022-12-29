@@ -45,17 +45,14 @@ class ArffSource(Source[Union[Iterable[MutableSequence], Iterable[MutableMapping
     This is primarily used by SupervisedSimulation to create Environments for Experiments.
     """
 
-    def __init__(self,
-        source: Union[str,Source[Iterable[str]]],
-        cat_as_str: bool = False) -> None:
+    def __init__(self,source: Union[str,Source[Iterable[str]]]) -> None:
         """Instantiate an ArffSource.
 
         Args:
             source: The data source. Accepts either a string representing the source location or another Source.
-            cat_as_str: Indicates that categorical features should be encoded as a string rather than one hot encoded.
         """
-        source = UrlSource(source) if isinstance(source,str) else source
-        reader = ArffReader(cat_as_str)
+        source       = UrlSource(source) if isinstance(source,str) else source
+        reader       = ArffReader()
         self._source = Pipes.join(source, reader)
 
     def read(self) -> Union[Iterable[MutableSequence], Iterable[MutableMapping]]:

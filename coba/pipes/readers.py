@@ -1,18 +1,18 @@
 import re
 import csv
-import time
 
 from operator import methodcaller
 from collections import deque
 from itertools import islice, chain, count, takewhile
 from typing import Iterable, Sequence, Union, Any, Pattern, Tuple, Mapping
-from typing import MutableSequence, MutableMapping, Callable
+from typing import MutableSequence, MutableMapping, Callable, Iterator
 
 from coba.exceptions import CobaException
 from coba.encodings import Encoder, CategoricalEncoder
 from coba.utilities import peek_first
+from coba.primitives.rows import Dense, Sparse
 
-from coba.pipes.rows import Dense, Sparse, HeadRows, LazyDense, LazySparse
+from coba.pipes.rows import HeadRows, LazyDense, LazySparse
 from coba.pipes.primitives import Filter
 
 class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
@@ -40,19 +40,22 @@ class CsvReader(Filter[Iterable[str], Iterable[MutableSequence]]):
 
 class ArffAttrReader(Filter[Iterable[str], Iterable[Tuple[str,Callable]]]):
 
-    def __init__(self, is_dense:bool, missing_value: Any = None) -> None:
+    class CategoricalDict(dict):
+        def __missing__(self, key):
+            raise CobaException(f"We were unable to find '{key}' in {sorted(self.keys())}.")
+
+    def __init__(self, is_dense:bool) -> None:
         self._is_dense = is_dense
-        self._missing_value = missing_value
+        self._r_space  = re.compile("(\s+)")
+        self._r_comma  = re.compile("(,)")
 
     def filter(self, lines: Iterable[str]) -> Iterable[Tuple[str,Callable]]:
-
-        r_space = re.compile("(\s+)")
 
         headers = set()
 
         for line in lines:
             if line[0:10].lower() == "@attribute":
-                header, encoding = tuple(self._split(line[11:], r_space, n=2))
+                header, encoding = tuple(self._split(line[11:], self._r_space, n=2))
 
                 if header in headers:
                     raise CobaException("Two columns in the ARFF file had identical header values.")
@@ -96,27 +99,15 @@ class ArffAttrReader(Filter[Iterable[str], Iterable[Tuple[str,Callable]]]):
     def _encoder(self, encoding: str) -> Encoder:
         numeric_types = ('numeric', 'integer', 'real')
         string_types  = ("string", "date", "relational")
-        r_comma       = None
-
-        missing_val = self._missing_value
 
         if encoding.lower() in numeric_types:
-
-            def numeric_encoder(x):
-                try:
-                    return float(x)
-                except:
-                    if x not in ['?','']: raise
-                    return missing_val
-
-            return numeric_encoder
+            return float
 
         elif encoding.lower().startswith(string_types):
-            return lambda x: x if x!="?" else missing_val
+            return lambda x: None if x == "?" else x
 
         elif encoding.startswith('{'):
-            r_comma = r_comma or re.compile("(,)")
-            categories = list(self._split(encoding[1:-1], r_comma))
+            categories = list(self._split(encoding[1:-1], self._r_comma))
 
             if not self._is_dense:
                 #there is a bug in ARFF where the first class value in an ARFF class can will dropped from the
@@ -124,15 +115,7 @@ class ArffAttrReader(Filter[Iterable[str], Iterable[Tuple[str,Callable]]]):
                 #to all sparse categorical one-hot encoders to protect against this.
                 categories = ["0"] + categories
 
-            cats = CategoricalEncoder(categories)._categoricals
-            def cat_encoder(x,cats=cats):
-                try:
-                    return cats[x]
-                except:
-                    if x == "?": return missing_val
-                    raise CobaException(f"We were unable to find '{x}' in {sorted(cats.keys())}.")
-
-            return cat_encoder
+            return ArffAttrReader.CategoricalDict(CategoricalEncoder(categories)._categoricals).__getitem__
 
         else:
             raise CobaException(f"An unrecognized encoding was found in the arff attributes: {encoding}.")
@@ -293,20 +276,13 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
     
     _strip = methodcaller("strip")
 
-    def __init__(self, missing_value: Any = None):
-        """Instantiate an ArffReader.
-
-        Args:
-            missing_value: The value to replace missing values with
-        """
-        self._missing_value = missing_value
-        self._time = [0,0,0,0,0]
+    def __init__(self):
+        """Instantiate an ArffReader."""
 
     def filter(self, lines: Iterable[str]) -> Iterable[Union[Dense,Sparse]]:
 
-        #start = time.time()
         lines = iter(filter(None,map(self._strip, lines)))
-        attrs = [ l for l in takewhile(lambda l: l!="@data", lines) if l[:5].lower() == "@attr" ]
+        attrs = [ l for l in takewhile(lambda l: l.lower()!="@data", lines) if l[:5].lower() == "@attr" ]
         data  = lines
 
         first_data,data = peek_first(data)
@@ -316,19 +292,13 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
         if not data: return []
 
         is_dense = not first_data.startswith("{") or not first_data.endswith("}")
-        #self._time[0] += time.time()-start
 
-        #start = time.time()
-        attr_reader = ArffAttrReader(is_dense, self._missing_value)
+        attr_reader = ArffAttrReader(is_dense)
         data_reader = ArffDataReader(is_dense)
         line_reader = ArffLineReader(is_dense,len(attrs))
-        #self._time[1] += time.time()-start
 
-        #start = time.time()
         headers,encoders = zip(*attr_reader.filter(attrs))
-        #self._time[2] += time.time()-start
 
-        #start = time.time()
         if is_dense:
             hdr_map = dict(zip(headers, count()))
             for line,missing in data_reader.filter(data):
@@ -346,7 +316,6 @@ class ArffReader(Filter[Iterable[str], Iterable[Union[Dense,Sparse]]]):
 
             for line,missing in data_reader.filter(data):
                 yield LazySparse(lambda line=line:line_reader.filter(line), encs, nsp, fwd, inv, missing)
-        #self._time[3] += time.time()-start
 
 class LibsvmReader(Filter[Iterable[str], Iterable[Tuple[MutableMapping,Any]]]):
     """A filter capable of parsing Libsvm formatted data.

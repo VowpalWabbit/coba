@@ -1,5 +1,5 @@
 from collections import abc
-from itertools import count, compress, chain, filterfalse, islice
+from itertools import count, compress, chain, filterfalse, islice, repeat
 from typing import Any, Union, Callable, Iterator, Sequence, Mapping, Iterable, Tuple
 from coba.backports import Literal
 
@@ -28,20 +28,39 @@ class LazyDense(Dense_):
 
     def __getitem__(self, key: int):
         key = key if key.__class__ is int else self.headers[key]
-        enc = self._enc
         val = self._load_or_get()[key]
 
-        return val if not enc else enc[key](val)
+        return val if not self._enc else self._enc_one(key,val)
 
     def __iter__(self) -> Iterator:
-        enc = self._enc
-        if enc:
-            return (e(v) for e,v in zip(enc, self._load_or_get()))
+        if self._enc:
+            return self._enc_all()
         else:
             return iter(self._load_or_get())
 
     def __len__(self) -> int:
         return len(self._load_or_get())
+
+    def _enc_one(self, key:int, val:Any)->Any:
+        try:
+            return self._enc[key](val)
+        except:
+            if val in ['?','']: return None
+            raise
+
+    def _enc_all(self)->Iterator:
+        #placing this here gives us a slight perf boost
+        #but is a bit of a conflation of functionality.
+        #In theory this error checking logic with None
+        #should be in an ARFF specific implementation.
+        for e,v in zip(self._enc, self._load_or_get()):
+            try:
+                yield e(v)
+            except:
+                if v in ['?','']: 
+                    yield None
+                else:
+                    raise
 
 class LazySparse(Sparse_):
     __slots__=('_row','_enc','_nsp','_fwd','_inv','missing')
@@ -63,13 +82,12 @@ class LazySparse(Sparse_):
 
     def __getitem__(self, key: str):
         key = self._fwd.get(key,key)
-        enc = self._enc.get(key,lambda x:x)
-
+        enc = self._enc_one
         try:
-            return enc(self._load_or_get()[key])
+            return enc(key, self._load_or_get()[key])
         except KeyError:
             if key in self._nsp:
-                return enc("0")
+                return enc(key, "0")
             raise
 
     def __iter__(self) -> Iterator:
@@ -87,20 +105,34 @@ class LazySparse(Sparse_):
         enc = self._enc
         row = self._load_or_get()
 
-        if enc and inv:
-            inv = lambda k: self._inv.get(k,k)
-            t1 = tuple((inv(k), v if k not in enc else enc[k](v)) for k,v in row.items())
-            t2 = tuple((inv(k), enc[k]("0")) for k in self._nsp-row.keys())
-            return t1+t2
-        elif enc and not inv:
-            t1 = tuple((k, v if k not in enc else enc[k](v)) for k,v in row.items())
-            t2 = tuple((k, enc[k]("0")) for k in self._nsp-row.keys())
-            return t1+t2
-        elif not enc and inv:
-            inv = lambda k: self._inv.get(k,k)
-            return tuple((inv(k), v) for k,v in row.items())
+        if enc:
+            return tuple(self._enc_items())
+        elif inv:
+            return tuple((inv.get(k,k), v) for k,v in row.items())
         else:
-            return tuple(row.items())   
+            return tuple(row.items())
+    
+    def _enc_one(self, key:int, val:Any)->Any:
+        try:
+            return self._enc.get(key,lambda x:x)(val)
+        except:
+            if val in ['?','']: return None
+            raise
+    
+    def _enc_items(self)->Iterator:
+        enc   = self._enc
+        inv   = self._inv
+        raw   = self._load_or_get()
+        items = chain(raw.items(), zip(self._nsp-raw.keys(), repeat("0")))
+
+        for k,v in items:
+            try:
+                v = enc.get(k,lambda x:x)(v)
+            except:
+                if v in ['?','']: v = None
+                else: raise
+
+            yield (inv.get(k,k) if inv else k,v)
 
 class HeadDense(Dense_):
     __slots__=('_row','headers')

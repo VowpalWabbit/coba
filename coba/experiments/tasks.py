@@ -244,7 +244,11 @@ class ClassEnvironmentInfo(EnvironmentTask):
 
         #[3] found that information theoretic measures and landmarking measures are most important
 
-        contexts,actions,rewards = zip(*[ (i['context'], i['actions'], i['rewards']) for i in interactions ])
+        interactions = peek_first(interactions)[1]
+        
+        if not interactions: return {}
+
+        contexts, _ ,rewards = zip(*[ (i['context'], i['actions'], i['rewards']) for i in interactions ])
         env_stats = {}
 
         X = [ InteractionsEncoder('x').encode(x=c) for c in contexts ]

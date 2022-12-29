@@ -170,12 +170,19 @@ class Performance_Tests(unittest.TestCase):
         x = [[1.2,1.2],[1.2,1.2],{'a':1.,'b':1.}]*5
         self._assert_scale_time(x, enc.filter, .045, print_time, number=1000)
 
-    def test_arffreader_performance(self):
+    def test_arffreader_lazy_performance(self):
         attrs = [f"@attribute {i} {{1,2}}" for i in range(3)]
         data  = ["@data"]
         lines = [",".join(["1"]*3)]*50
         reader = ArffReader()
         self._assert_scale_time(lines, lambda x:list(reader.filter(attrs+data+x)), .0095, print_time, number=100)
+
+    def test_arffreader_full_performance(self):
+        attrs = [f"@attribute {i} numeric" for i in range(3)]
+        data  = ["@data"]
+        lines = [",".join(["1"]*3)]*50
+        reader = ArffReader()
+        self._assert_scale_time(lines, lambda x:[list(l) for l in reader.filter(attrs+data+x)], .028, print_time, number=100)
 
     def test_arffattrreader_dense_performance(self):
 
@@ -286,8 +293,7 @@ class Performance_Tests(unittest.TestCase):
         d = dict(enumerate(['1']*100))
         r = LazySparse(d)
 
-        #self._assert_call_time(lambda:dict(d), .04, print_time, number=1000)
-        self._assert_call_time(lambda:dict(r.items()), .005, print_time, number=1000)
+        self._assert_call_time(lambda:dict(r.items()), .007, print_time, number=1000)
 
     def test_to_grounded_interaction(self):
         items    = [SimulatedInteraction(1, [1,2,3,4], [0,0,0,1])]*10
