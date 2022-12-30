@@ -142,13 +142,12 @@ class SequenceReward(Reward):
         #this makes the pickle smaller
         return SequenceReward, (tuple(self._values),)
 
-
 class MulticlassReward(Reward):
-    __slots__=('_indexes','_label')
+    __slots__=('_n_labels','_label')
     
-    def __init__(self, actions: Sequence[Action], label: AIndex) -> None:
-        self._indexes = list(range(len(actions)))
-        self._label   = label
+    def __init__(self, n_labels: int, label: AIndex) -> None:
+        self._n_labels = n_labels
+        self._label    = label
 
     def eval(self, action: AIndex) -> float:
         return int(self._label == action)
@@ -159,23 +158,24 @@ class MulticlassReward(Reward):
     def __getitem__(self, index: int) -> float:
         #we do this strange index lookup to let
         #the _indexes list handle a bad index value
-        return self._indexes[index] == self._label
+        if index < 0: index = self._n_labels+index
+
+        if index < 0 or self._n_labels <= index:
+            raise IndexError()
+
+        return index == self._label
 
     def __len__(self) -> int:
-        return len(self._indexes)
+        return self._n_labels
 
     def __iter__(self) -> Iterator[float]:
-        return iter(map(int,map(eq, range(len(self._indexes)), repeat(self._label))))
+        return iter(map(int,map(eq, range(self._n_labels), repeat(self._label))))
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o,abc.Sequence) and list(o) == list(self)
 
-    def __getstate__(self):
-        return len(self._indexes), self._label
-
-    def __setstate__(self,state):
-        self._indexes = list(range(state[0]))
-        self._label = state[1]
+    def __reduce__(self):
+        return MulticlassReward, (self._n_labels, self._label)
 
 class BatchReward(Batch):
     def eval(self, actions: Sequence[Action]) -> Sequence[float]:

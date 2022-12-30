@@ -29,8 +29,17 @@ class LazyDense(Dense_):
     def __getitem__(self, key: int):
         key = key if key.__class__ is int else self.headers[key]
         val = self._load_or_get()[key]
+        enc = self._enc
 
-        return val if not self._enc else self._enc_one(key,val)
+        if not enc:
+            return val
+
+        else:
+            try:
+                return enc[key](val)
+            except:
+                if val in ['?','']: return None
+                raise
 
     def __iter__(self) -> Iterator:
         if self._enc:
@@ -40,13 +49,6 @@ class LazyDense(Dense_):
 
     def __len__(self) -> int:
         return len(self._load_or_get())
-
-    def _enc_one(self, key:int, val:Any)->Any:
-        try:
-            return self._enc[key](val)
-        except:
-            if val in ['?','']: return None
-            raise
 
     def _enc_all(self)->Iterator:
         #placing this here gives us a slight perf boost
@@ -82,13 +84,22 @@ class LazySparse(Sparse_):
 
     def __getitem__(self, key: str):
         key = self._fwd.get(key,key)
-        enc = self._enc_one
+        enc = self._enc
+        
         try:
-            return enc(key, self._load_or_get()[key])
+            val = self._load_or_get()[key]
         except KeyError:
-            if key in self._nsp:
-                return enc(key, "0")
-            raise
+            if key not in self._nsp: raise
+            val = "0"
+
+        if not enc: 
+            return val
+        else:
+            try:
+                return enc.get(key,lambda x:x)(val)
+            except:
+                if val in ['?','']: return None
+                raise
 
     def __iter__(self) -> Iterator:
         return iter(self.keys())
@@ -111,14 +122,7 @@ class LazySparse(Sparse_):
             return tuple((inv.get(k,k), v) for k,v in row.items())
         else:
             return tuple(row.items())
-    
-    def _enc_one(self, key:int, val:Any)->Any:
-        try:
-            return self._enc.get(key,lambda x:x)(val)
-        except:
-            if val in ['?','']: return None
-            raise
-    
+        
     def _enc_items(self)->Iterator:
         enc   = self._enc
         inv   = self._inv
@@ -381,13 +385,13 @@ class DropRows(Filter[Iterable[Union[Dense,Sparse]], Iterable[Union[Dense,Sparse
         rows = rows if not self._drop_row else filterfalse(self._drop_row, rows)
 
         if not drop_cols:
-            yield from rows
+            return rows
         elif isinstance(first,Dense):
             mapping, selects, length, headers = DropRows.make_drop_row_args(first, drop_cols)
-            yield from (KeepDense(row, mapping, selects, length, headers) for row in rows)
+            return (KeepDense(row, mapping, selects, length, headers) for row in rows)
         else:
             drop_set = DropRows.make_drop_row_args(first, drop_cols)
-            yield from (DropSparse(row, drop_set) for row in rows)
+            return (DropSparse(row, drop_set) for row in rows)
 
 class LabelDense(Dense_):
     __slots__=('_row','_ind','_tipe')
@@ -484,9 +488,9 @@ class LabelRows(Filter[Iterable[Union[Dense,Sparse]],Iterable[Union[Dense,Sparse
 
         if isinstance(first,Dense):
             ind = first.headers[label] if isinstance(label,str) else label
-            return (LabelDense(row, ind, tipe) for row in rows)
+            return map(LabelDense, rows, repeat(ind), repeat(tipe))
         else:
-            return (LabelSparse(row, label, tipe) for row in rows)
+            return map(LabelSparse, rows, repeat(label), repeat(tipe))
 
 class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any,Dense,Sparse]]]):
     def __init__(self, tipe=Literal["onehot","onehot_tuple","string"], value_rows:bool = False) -> None:
@@ -520,7 +524,7 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
         elif self._tipe == "string":
             yield from map(str,rows)
         elif "onehot" in self._tipe:
-            for row in rows: yield row.onehot
+            for row in rows: yield row.as_onehot
 
     def _encode_dense_generator(self, rows, first):
         is_mutable = isinstance(first, list)
@@ -534,11 +538,10 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
         elif "onehot" in self._tipe:
             for row in rows:
                 row = row.copy() if is_mutable else list(row)
-                for i in cat_cols: row[i] = row[i].onehot
+                for i in cat_cols: row[i] = row[i].as_onehot
                 yield row
 
     def _encode_sparse_generator(self, rows, first):
-        is_mutable = isinstance(first, dict)
         cat_cols = [k for k,v in first.items() if isinstance(v,Categorical) ]
         
         if self._tipe == "string":
@@ -549,5 +552,5 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
         elif "onehot" in self._tipe:
             for row in rows:
                 row = row.copy()
-                for k in cat_cols: row[k] = row[k].onehot
+                for k in cat_cols: row[k] = row[k].as_onehot
                 yield row

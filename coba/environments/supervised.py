@@ -219,13 +219,16 @@ class SupervisedSimulation(SimulatedEnvironment):
             reward = lambda label: HammingReward(list(map(action_indexes.__getitem__,label)))
         else:
             if isinstance(first_label,Categorical):
-                actions = [ Categorical(l,first_label.levels) for l in sorted(first_label.levels) ]
+                #Handling the categoricals separately allows for a performance optimization
+                #since we can use the Categorical's as_int property rather than action_indexes
+                actions   = [ Categorical(l,first_label.levels) for l in first_label.levels ]
+                n_actions = len(actions)
+                reward    = lambda label: MulticlassReward(n_actions, label.as_int)
             else:
-                actions = sorted(set(labels))
-            
-            action_indexes = dict(zip(actions,count()))
-            indexes = list(range(len(actions)))
-            reward = lambda label: MulticlassReward(indexes, action_indexes[label])
+                actions        = sorted(set(labels))
+                n_actions      = len(actions)
+                action_indexes = dict(zip(actions,count()))
+                reward         = lambda label: MulticlassReward(n_actions, action_indexes[label])
 
         if first_row_type == 0:
             for row in rows:

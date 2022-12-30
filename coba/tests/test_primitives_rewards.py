@@ -150,7 +150,7 @@ class SequenceReward_Tests(unittest.TestCase):
 
 class MulticlassReward_Tests(unittest.TestCase):
     def test_simple(self):
-        rwd = MulticlassReward([1,2,3],1)
+        rwd = MulticlassReward(3,1)
 
         self.assertEqual(3,len(rwd))
         self.assertEqual([0,1,0],rwd)
@@ -162,17 +162,29 @@ class MulticlassReward_Tests(unittest.TestCase):
         self.assertEqual(0,rwd[0])
         self.assertEqual(1,rwd[1])
         self.assertEqual(0,rwd[2])
+        self.assertEqual(0,rwd[-1])
+        self.assertEqual(1,rwd[-2])
+        self.assertEqual(0,rwd[-3])
+
+    def test_indexerror(self):
+        rwd = MulticlassReward(3,1)
+
+        with self.assertRaises(IndexError):
+            rwd[3]
+
+        with self.assertRaises(IndexError):
+            rwd[-4]
 
     def test_pickle(self):
-        dumped = pickle.dumps(MulticlassReward([1,2,3],1))
+        dumped = pickle.dumps(MulticlassReward(3,1))
         loaded = pickle.loads(dumped)
 
         self.assertIsInstance(loaded, MulticlassReward)
-        self.assertEqual(loaded._indexes,[0,1,2])
+        self.assertEqual(loaded._n_labels,3)
         self.assertEqual(loaded._label,1)
 
     def test_pickle_size(self):
-        self.assertLess(len(pickle.dumps(MulticlassReward([1,2,3],1))), 75)
+        self.assertLess(len(pickle.dumps(MulticlassReward(3,1))), 75)
 
 class BatchReward_Tests(unittest.TestCase):
     def test_eval(self):

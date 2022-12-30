@@ -1,6 +1,7 @@
 import time
 import json
 
+from operator import attrgetter
 from typing import Tuple, Sequence, Any, Iterable, Dict, MutableSequence, MutableMapping, Union, overload
 
 from coba.random import random
@@ -102,7 +103,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             label_type = 'c' if task_type==1 else 'r' if task_type==2 else None
 
-            drop_row  = (lambda r: r.missing) if self._drop_missing else None
+            drop_row  = attrgetter('missing') if self._drop_missing else None
             lines     = self._get_arff_lines(data_descr["file_id"], None)
             reader    = ArffReader()
             drop      = DropRows(drop_cols=ignore, drop_row=drop_row)

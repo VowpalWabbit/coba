@@ -39,13 +39,13 @@ class SupervisedSimulation_Tests(unittest.TestCase):
         self.assertEqual([8.2,29,1180,Categorical("n",["y","n"])], interactions[1]['context'])
         self.assertEqual([8.3,27,1020,Categorical("y",["y","n"])], interactions[2]['context'])
 
-        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[0]['actions'])
-        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[1]['actions'])
-        self.assertEqual([Categorical('1',["2","1"]),Categorical('2',["2","1"])], interactions[2]['actions'])
+        self.assertEqual([Categorical('2',["2","1"]),Categorical('1',["2","1"])], interactions[0]['actions'])
+        self.assertEqual([Categorical('2',["2","1"]),Categorical('1',["2","1"])], interactions[1]['actions'])
+        self.assertEqual([Categorical('2',["2","1"]),Categorical('1',["2","1"])], interactions[2]['actions'])
 
-        self.assertEqual([0,1], list(map(interactions[0]['rewards'].eval,[0,1])))
-        self.assertEqual([0,1], list(map(interactions[1]['rewards'].eval,[0,1])))
-        self.assertEqual([1,0], list(map(interactions[2]['rewards'].eval,[0,1])))
+        self.assertEqual([1,0], list(map(interactions[0]['rewards'].eval,[0,1])))
+        self.assertEqual([1,0], list(map(interactions[1]['rewards'].eval,[0,1])))
+        self.assertEqual([0,1], list(map(interactions[2]['rewards'].eval,[0,1])))
 
     def test_source_reader_regression_less_than_10(self):
 
