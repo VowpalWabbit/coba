@@ -8,7 +8,7 @@ from coba              import primitives
 from coba.pipes        import LazyDense, LazySparse
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.primitives   import HashableSparse, L1Reward, SequenceFeedback, Categorical
+from coba.primitives   import L1Reward, SequenceFeedback, Categorical
 from coba.learners     import FixedLearner
 from coba.utilities    import peek_first
 
@@ -1582,11 +1582,11 @@ class Finalize_Tests(unittest.TestCase):
         actual = list(Finalize().filter(interactions))
 
         self.assertEqual(len(actual),1)
-        
+
         self.assertIsInstance(actual[0]['context']   , list)
         self.assertIsInstance(actual[0]['actions'][0], list)
         self.assertIsInstance(actual[0]['action' ]   , list)
-        
+
         self.assertEqual(actual[0]['context'], [1])
         self.assertEqual(actual[0]['actions'], [[2],[3]])
         self.assertEqual(actual[0]['action' ], [2])
@@ -1601,11 +1601,11 @@ class Finalize_Tests(unittest.TestCase):
         actual = list(Finalize().filter(interactions))
 
         self.assertEqual(len(actual),1)
-        
+
         self.assertIsInstance(actual[0]['context']   , dict)
         self.assertIsInstance(actual[0]['actions'][0], dict)
         self.assertIsInstance(actual[0]['action' ]   , dict)
-        
+
         self.assertEqual(actual[0]['context'], {1:1})
         self.assertEqual(actual[0]['actions'], [{1:2},{1:3}])
         self.assertEqual(actual[0]['action' ], {1:2})
@@ -1743,13 +1743,26 @@ class BatchSafe_Tests(unittest.TestCase):
 
         class TestFilter:
             def filter(self, actual_rows):
-                assert expected_rows == list(actual_rows)
+                actual_rows = list(actual_rows)
+                assert expected_rows == actual_rows
                 return actual_rows
 
-        in_batches  = Batch(3).filter(initial_rows)
-        out_batches = BatchSafe(TestFilter()).filter(in_batches)
+        in_batches  = list(Batch(3).filter(initial_rows))
+        out_batches = list(BatchSafe(TestFilter()).filter(in_batches))
 
-        self.assertEqual(list(in_batches),list(out_batches))
+        self.assertEqual(in_batches,out_batches)
+
+    def test_is_fully_lazy(self):
+
+        def generator():
+            raise Exception()
+            yield None
+
+        class TestFilter:
+            def filter(self, actual_rows):
+                return actual_rows
+
+        BatchSafe(TestFilter()).filter(generator())
 
     def test_not_batched(self):
 
@@ -1821,7 +1834,7 @@ class Logged_Tests(unittest.TestCase):
         self.assertEqual(output, [expected_output]*2)
 
     def test_batched(self):
-    
+
         class TestLearner:
             def predict(self,*args):
                 return [[1,0,0],[1,0,0]]
@@ -1835,7 +1848,6 @@ class Logged_Tests(unittest.TestCase):
         output = list(Logged(TestLearner()).filter(Batch(2).filter([initial_input]*2)))
 
         self.assertEqual(output, expected_output)
-
 
     def test_bad_type(self):
         initial_input = {'context':None, "rewards":L1Reward(1)}

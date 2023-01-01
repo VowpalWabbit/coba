@@ -892,13 +892,13 @@ class BatchSafe(EnvironmentFilter):
         is_batched = isinstance(first[list(first.keys())[0]], primitives.Batch)
 
         if not is_batched:
-            return self._filter.filter(interactions)
+            yield from self._filter.filter(interactions)
         else:
             batch_size = len(first[list(first.keys())[0]])
             unbatched = Unbatch().filter(interactions)
             filtered  = self._filter.filter(unbatched)
             rebatched = Batch(batch_size).filter(filtered)
-            return rebatched
+            yield from rebatched
 
 class Finalize(EnvironmentFilter):
 
