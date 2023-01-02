@@ -278,6 +278,24 @@ class SafeLearner_Tests(unittest.TestCase):
         safe_learner.learn(*learn_args, **learn_kwargs)
         self.assertEqual(learner.calls, excpected_calls)
 
+    def test_type3_not_batched_prediction_exception_throws_first(self):
+
+        class MyLearner:
+            calls = []
+            def predict(self,*args,**kwargs):
+                if isinstance(args[0],Batch): 
+                    raise Exception("1")
+                else:
+                    raise Exception("2")
+
+        learner = MyLearner()
+        safe_learner = SafeLearner(learner)
+
+        with self.assertRaises(Exception) as e:
+            safe_learner.predict(Batch([1,2,3]), Batch([1,2,3]))
+
+        self.assertEqual(str(e.exception),"1")
+
     @unittest.skip("Skipped because it is a rare use case and we don't want to support it for now. Can be added later.")
     def test_pdf_prediction(self):
         with self.assertRaises(CobaException) as e:

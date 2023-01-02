@@ -254,7 +254,11 @@ class SafeLearner(Learner):
                 except Exception as e:
                     self._batched_lrn = False
                     self._batched_mjr = True
-                    return list(map(self._learner.predict,context,actions))
+                    try:
+                        return list(map(self._learner.predict,context,actions))
+                    except:
+                        pass
+                    raise
 
     def _safe_learn(self,context,actions,action,reward,probability,kwargs):
         if self._learn_type==3:
