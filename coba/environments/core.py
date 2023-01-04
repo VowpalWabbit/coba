@@ -375,8 +375,9 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         envs = Environments([Pipes.join(env, Chunk()) for env in self])
         return envs.cache() if cache else envs
 
-    def logged(self, learner: Learner) -> 'Environments':
-        return self.filter(BatchSafe(Finalize())).filter(Logged(learner))
+    def logged(self, learners: Union[Learner,Sequence[Learner]]) -> 'Environments':
+        if not isinstance(learners, collections.abc.Sequence): learners = [learners]
+        return self.filter(BatchSafe(Finalize())).filter(list(map(Logged,learners)))
 
     def save(self, path: str, processes:int=1, overwrite:bool=False) -> 'Environments':
 

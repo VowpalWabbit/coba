@@ -631,14 +631,26 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual('B', envs[1].params['id'])
         self.assertEqual(3  , envs[1].params['batched'])
 
-    def test_logged(self):
-
+    def test_logged_one(self):
         class TestEnvironment:
             def read(self):
                 yield {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
 
-        env = Environments(TestEnvironment()).logged(FixedLearner([1,0,0]))[0]
-        self.assertEqual(next(env.read()),{'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)})
+        envs = Environments(TestEnvironment()).logged(FixedLearner([1,0,0]))
+        
+        self.assertEqual(len(envs),1)
+        self.assertEqual(next(envs[0].read()),{'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)})
+    
+    def test_logged_two(self):
+        class TestEnvironment:
+            def read(self):
+                yield {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+
+        envs = Environments(TestEnvironment()).logged([FixedLearner([1,0,0]),FixedLearner([0,1,0])])
+
+        self.assertEqual(len(envs),2)
+        self.assertEqual(next(envs[0].read()),{'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)})
+        self.assertEqual(next(envs[1].read()),{'context':None, 'action':1, "reward": 0, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)})
 
     def test_filter_new(self):
         envs1 = Environments(TestEnvironment1('A'))

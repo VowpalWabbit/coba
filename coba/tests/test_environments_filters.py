@@ -1855,5 +1855,11 @@ class Logged_Tests(unittest.TestCase):
         with self.assertRaises(CobaException):
             list(Logged(FixedLearner([1,0,0])).filter([initial_input]*2))
 
+    def test_params(self):
+        learner = FixedLearner([1,0,0])
+        logged  = Logged(learner)
+        
+        self.assertEqual(logged.params,{"learner":learner.params})
+
 if __name__ == '__main__':
     unittest.main()

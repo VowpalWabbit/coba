@@ -957,6 +957,10 @@ class Logged(EnvironmentFilter):
     def __init__(self, learner: Learner) -> None:
         self._learner = learner
 
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return {"learner": self._learner.params}
+
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         learner = SafeLearner(copy.deepcopy(self._learner))
