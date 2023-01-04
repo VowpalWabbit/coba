@@ -15,7 +15,7 @@ from coba.utilities    import peek_first
 from coba.environments.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments.filters    import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
 from coba.environments.filters    import Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
-from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch
+from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch, Mutable
 
 class TestEnvironment:
 
@@ -1860,6 +1860,80 @@ class Logged_Tests(unittest.TestCase):
         logged  = Logged(learner)
         
         self.assertEqual(logged.params,{"learner":learner.params})
+
+class Mutable_Tests(unittest.TestCase):
+
+    def test_value_contexts(self):
+        input_interactions = [{'context':None}, {'context':1}]
+        output_interactions = list(Mutable().filter(input_interactions))
+
+        self.assertEqual(input_interactions, output_interactions)
+        self.assertIsNot(input_interactions[0], output_interactions[0])
+        self.assertIsNot(input_interactions[1], output_interactions[1])
+
+    def test_lazy_dense_contexts(self):
+        input_interactions = [{'context':LazyDense([1,2])}, {'context':LazyDense([3,4])}]
+        output_interactions = list(Mutable().filter(input_interactions))
+
+        self.assertEqual(input_interactions, output_interactions)
+        self.assertIsNot(input_interactions[0], output_interactions[0])
+        self.assertIsNot(input_interactions[1], output_interactions[1])
+        self.assertIsInstance(input_interactions[0]['context'], LazyDense)
+        self.assertIsInstance(input_interactions[1]['context'], LazyDense)
+        self.assertIsInstance(output_interactions[0]['context'], list)
+        self.assertIsInstance(output_interactions[1]['context'], list)
+
+    def test_lazy_sparse_contexts(self):
+        input_interactions = [{'context':LazySparse({1:2})}, {'context':LazySparse({3:4})}]
+        output_interactions = list(Mutable().filter(input_interactions))
+
+        self.assertEqual(input_interactions, output_interactions)
+        self.assertIsNot(input_interactions[0], output_interactions[0])
+        self.assertIsNot(input_interactions[1], output_interactions[1])
+        self.assertIsInstance(input_interactions[0]['context'], LazySparse)
+        self.assertIsInstance(input_interactions[1]['context'], LazySparse)
+        self.assertIsInstance(output_interactions[0]['context'], dict)
+        self.assertIsInstance(output_interactions[1]['context'], dict)
+
+    def test_tuple_contexts(self):
+        input_interactions = [{'context':(1,2)}, {'context':(3,4)}]
+        output_interactions = list(Mutable().filter(input_interactions))
+
+        self.assertSequenceEqual(output_interactions,[{'context':[1,2]}, {'context':[3,4]}])
+        self.assertIsNot(input_interactions[0], output_interactions[0])
+        self.assertIsNot(input_interactions[1], output_interactions[1])
+        self.assertIsInstance(input_interactions[0]['context'], tuple)
+        self.assertIsInstance(input_interactions[1]['context'], tuple)
+        self.assertIsInstance(output_interactions[0]['context'], list)
+        self.assertIsInstance(output_interactions[1]['context'], list)
+
+    def test_list_contexts(self):
+        input_interactions = [{'context':[1,2]}, {'context':[3,4]}]
+        output_interactions = list(Mutable().filter(input_interactions))
+
+        self.assertSequenceEqual(input_interactions, output_interactions)
+        self.assertIsNot(input_interactions[0], output_interactions[0])
+        self.assertIsNot(input_interactions[1], output_interactions[1])
+        self.assertIsNot(input_interactions[0]['context'], output_interactions[0]['context'])
+        self.assertIsNot(input_interactions[1]['context'], output_interactions[1]['context'])
+        self.assertIsInstance(input_interactions[0]['context'], list)
+        self.assertIsInstance(input_interactions[1]['context'], list)
+        self.assertIsInstance(output_interactions[0]['context'], list)
+        self.assertIsInstance(output_interactions[1]['context'], list)
+
+    def test_dict_contexts(self):
+        input_interactions = [{'context':{1:2}}, {'context':{3:4}}]
+        output_interactions = list(Mutable().filter(input_interactions))
+
+        self.assertSequenceEqual(input_interactions, output_interactions)
+        self.assertIsNot(input_interactions[0], output_interactions[0])
+        self.assertIsNot(input_interactions[1], output_interactions[1])
+        self.assertIsNot(input_interactions[0]['context'], output_interactions[0]['context'])
+        self.assertIsNot(input_interactions[1]['context'], output_interactions[1]['context'])
+        self.assertIsInstance(input_interactions[0]['context'], dict)
+        self.assertIsInstance(input_interactions[1]['context'], dict)
+        self.assertIsInstance(output_interactions[0]['context'], dict)
+        self.assertIsInstance(output_interactions[1]['context'], dict)
 
 if __name__ == '__main__':
     unittest.main()

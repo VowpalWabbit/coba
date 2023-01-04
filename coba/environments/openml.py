@@ -41,7 +41,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
         self._data_id        = kwargs.get('data_id',None)
         self._task_id        = kwargs.get('task_id',None)
-        self._target         = None
+        self._target         = kwargs.get("target", None)
         self._drop_missing   = kwargs.get('drop_missing',True)
 
     @property

@@ -523,7 +523,7 @@ class MatplotlibPlotter(Plotter):
                     XYE = [(x,y,e) for i,x,y,e in zip(count(),X,Y,YE) if in_lim(num_coalesce(x,i),xlim) and in_lim(num_coalesce(y,i),ylim)]
                     X,Y,YE = map(list,zip(*XYE)) if XYE else ([],[],[])
 
-                if isinstance(c,int): c = color_cycle[c]
+                if isinstance(c,int): c = color_cycle[c%len(color_cycle)]
 
                 not_err_bar = lambda E: not E or all([e is None for e in E])
 

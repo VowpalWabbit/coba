@@ -18,7 +18,6 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first
-from coba.primitives import HashableSparse, HashableDense
 from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
@@ -89,8 +88,10 @@ class Scale(EnvironmentFilter):
 
         if not interactions: return []
 
+        first, interactions = peek_first(Mutable().filter(interactions))
+
         remaining_interactions = iter(interactions)
-        fitting_interactions   = [ i.copy() for i in islice(remaining_interactions,self._using) ]
+        fitting_interactions   = list(islice(remaining_interactions,self._using))
 
         first_context = first['context']
         first_actions = first.get('actions')
@@ -102,40 +103,28 @@ class Scale(EnvironmentFilter):
         is_dense_context  = isinstance(first_context, primitives.Dense)
         is_sparse_context = isinstance(first_context, primitives.Sparse)
         is_value_context  = not (is_dense_context or is_sparse_context)
-        is_mutable        = isinstance(first['context'],(list,dict))
 
         if self._target == "context" and is_dense_context:
-            possible_cols = [i for i,v in enumerate(first['context']) if isinstance(v,(int,float))]
+            scalable_cols = [i for i,v in enumerate(first['context']) if isinstance(v,(int,float))]
+        
         elif self._target == "context" and is_sparse_context:
-            not_possible_cols = set([k for k,v in first['context'].items() if not isinstance(v,(int,float))])
-
-        start = time.time()
-        #we have to do this eventually, no reason to not do it upfront
-        if self._target == "context" and is_dense_context and not is_mutable:
-            for interaction in fitting_interactions:
-                interaction['context'] = list(interaction['context'])
-        elif self._target == "context" and is_sparse_context and not is_mutable:
-            for interaction in fitting_interactions:
-                #we are assuming that interaction['context'] is a LazySparse
-                #there's not really any other KV store that is not mutable
-                interaction['context'] = dict(interaction['context'].items())
-        self._times[0] += time.time()-start
+            unscalable_cols = set([k for k,v in first['context'].items() if not isinstance(v,(int,float))])
 
         #get the values we wish to scale
         start = time.time()
         if self._target == "context" and is_dense_context:
-            if len(possible_cols) == 0:
+            if len(scalable_cols) == 0:
                 unscaled = []
-            elif len(possible_cols) == 1:
-                unscaled = [list(map(itemgetter(*possible_cols),map(getitem,fitting_interactions,repeat("context"))))]
+            elif len(scalable_cols) == 1:
+                unscaled = [ tuple(map(itemgetter(*scalable_cols),map(getitem,fitting_interactions,repeat("context")))) ]
             else:
-                unscaled = list(zip(*map(itemgetter(*possible_cols),map(getitem,fitting_interactions,repeat("context")))))
+                unscaled = list(zip(*map(itemgetter(*scalable_cols),map(getitem,fitting_interactions,repeat("context")))))
 
         elif self._target == "context" and is_sparse_context:
             unscaled = defaultdict(list)
             for interaction in fitting_interactions:
                 context = interaction['context']
-                for k in context.keys()-not_possible_cols:
+                for k in context.keys()-unscalable_cols:
                     unscaled[k].append(context[k])
 
         elif self._target == "context" and is_value_context:
@@ -156,7 +145,7 @@ class Scale(EnvironmentFilter):
         #determine the scale and shift values
         if self._target == "context" and is_dense_context:
             shifts_scales = {}
-            for i,col in zip(possible_cols,unscaled):
+            for i,col in zip(scalable_cols,unscaled):
                 shift_scale = self._get_shift_and_scale(col)
                 if shift_scale is not None:
                     shifts_scales[i] = shift_scale
@@ -179,44 +168,19 @@ class Scale(EnvironmentFilter):
 
         #now scale return
         elif self._target == "context" and is_dense_context:
-            for interaction in fitting_interactions:
-                new = interaction
-                if is_mutable:
-                    context = new['context'].copy()
-                    new['context'] = context
-                else:
-                    context = new['context']
+            for interaction in chain(fitting_interactions, remaining_interactions):
+                context = interaction['context']
                 for i, (shift,scale) in shifts_scales.items():
-                    context[i] = (context[i]+shift)*scale
-                yield new
-
-            for interaction in remaining_interactions:
-                new = interaction.copy()
-                if is_mutable:
-                    context = new['context'].copy()
-                    new['context'] = context
-                else: 
-                    context = list(new['context'])
-                    new['context'] = context
-                for i, (shift,scale) in shifts_scales.items():
-                    context[i] = (context[i]+shift)*scale
-                yield new
+                    context[i] = (context[i]+shift)*scale                
+                yield interaction
 
         elif self._target == "context" and is_sparse_context:
-            for interaction in fitting_interactions:
-                new = interaction
-                if is_mutable: new['context'] = new['context'].copy()
-                for k in shifts_scales.keys() & new['context'].keys():
+            for interaction in chain(fitting_interactions, remaining_interactions):
+                new = interaction # Mutable copies
+                context = new['context']
+                for k in shifts_scales.keys() & context.keys():
                     (shift,scale) = shifts_scales[k]
-                    new['context'][k] = (new['context'][k]+shift)*scale
-                yield new
-
-            for interaction in remaining_interactions:
-                new = interaction.copy()
-                new['context'] = new['context'].copy() if is_mutable else dict(new['context'])
-                for k in shifts_scales.keys() & new['context'].keys():
-                    (shift,scale) = shifts_scales[k]
-                    new['context'][k] = (new['context'][k]+shift)*scale
+                    context[k] = (context[k]+shift)*scale
                 yield new
 
         elif self._target == "context" and is_value_context:
@@ -992,3 +956,36 @@ class Logged(EnvironmentFilter):
             new['reward']      = reward
 
             yield new
+
+class Mutable(EnvironmentFilter):
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        
+        first, interactions = peek_first(interactions)
+        
+        first_is_dense   = isinstance(first['context'], primitives.Dense)
+        first_is_sparse  = isinstance(first['context'], primitives.Sparse)
+        first_is_value   = not (first_is_dense or first_is_sparse)
+        first_is_mutable = isinstance(first['context'], (list,dict))
+
+        if first_is_mutable:
+            for interaction in interactions:
+                new = interaction.copy()
+                new['context'] = new['context'].copy()
+                yield new
+                            
+        elif first_is_dense:
+            for interaction in interactions:
+                new = interaction.copy()
+                new['context'] = list(new['context'])
+                yield new
+        
+        elif first_is_sparse:
+            for interaction in interactions:
+                new = interaction.copy()
+                new['context'] = dict(new['context'].items())
+                yield new
+
+        elif first_is_value:
+            for interaction in interactions:
+                yield interaction.copy()
