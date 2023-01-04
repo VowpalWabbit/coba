@@ -24,7 +24,7 @@ from coba.environments.synthetics import KernelSyntheticSimulation, MLPSynthetic
 from coba.environments.supervised import SupervisedSimulation
 
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
-from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale
+from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Unbatch
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
@@ -376,8 +376,13 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return envs.cache() if cache else envs
 
     def logged(self, learners: Union[Learner,Sequence[Learner]]) -> 'Environments':
+        """Create a logged environment using the given learner for the logging policy."""
         if not isinstance(learners, collections.abc.Sequence): learners = [learners]
         return self.filter(BatchSafe(Finalize())).filter(list(map(Logged,learners)))
+
+    def unbatch(self):
+        """Unbatch interactions in the environments."""
+        return self.filter(Unbatch())
 
     def save(self, path: str, processes:int=1, overwrite:bool=False) -> 'Environments':
 

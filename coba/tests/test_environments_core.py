@@ -7,7 +7,7 @@ from pathlib import Path
 from coba.contexts import CobaContext, DiskCacher
 from coba.pipes import DiskSource
 from coba.exceptions import CobaException
-from coba.primitives import L1Reward
+from coba.primitives import L1Reward, Batch
 from coba.environments import Environments, Shuffle, Take
 from coba.environments import LinearSyntheticSimulation
 from coba.environments import NeighborsSyntheticSimulation, KernelSyntheticSimulation, MLPSyntheticSimulation
@@ -651,6 +651,20 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(len(envs),2)
         self.assertEqual(next(envs[0].read()),{'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)})
         self.assertEqual(next(envs[1].read()),{'context':None, 'action':1, "reward": 0, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)})
+
+    def test_unbatch(self):
+
+        class TestEnvironment:
+            def read(self):
+                yield {'context':Batch([1,2]), 'actions':Batch([[1,2],[3,4]]), "rewards":Batch([L1Reward(1),L1Reward(2)]) }
+
+        actual = list(Environments(TestEnvironment()).unbatch()[0].read())
+        expected = [
+            {'context':1, 'actions':[1,2], "rewards":L1Reward(1) },
+            {'context':2, 'actions':[3,4], "rewards":L1Reward(2) }
+        ]
+
+        self.assertEqual(actual,expected)
 
     def test_filter_new(self):
         envs1 = Environments(TestEnvironment1('A'))
