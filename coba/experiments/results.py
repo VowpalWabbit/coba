@@ -452,8 +452,8 @@ class Plotter:
         title: str,
         xlabel: str,
         ylabel: str,
-        xlim: Optional[Tuple[Number,Number]],
-        ylim: Optional[Tuple[Number,Number]],
+        xlim: Tuple[Optional[Number],Optional[Number]],
+        ylim: Tuple[Optional[Number],Optional[Number]],
         xticks: bool,
         yticks: bool,
         out: Union[None,Literal['screen'],str]) -> None:
@@ -467,14 +467,17 @@ class MatplotlibPlotter(Plotter):
         title: str,
         xlabel: str,
         ylabel: str,
-        xlim: Optional[Tuple[Number,Number]],
-        ylim: Optional[Tuple[Number,Number]],
+        xlim: Tuple[Optional[Number],Optional[Number]],
+        ylim: Tuple[Optional[Number],Optional[Number]],
         xticks: bool,
         yticks: bool,
         xrotation: Optional[float],
         yrotation: Optional[float],
         out: Union[None,Literal['screen'],str]
     ) -> None:
+
+        xlim = xlim or [None,None]
+        ylim = ylim or [None,None]
 
         PackageChecker.matplotlib('Result.plot_learners')
         import matplotlib.pyplot as plt #type: ignore
@@ -539,18 +542,14 @@ class MatplotlibPlotter(Plotter):
             if yrotation is not None:
                 plt.yticks(rotation=yrotation)
 
-            padding = .05
-            ax.margins(0)
-            ax.set_xticks(ax.get_xticks() if not xlim else [min(ax.get_xlim()[1], max(ax.get_xlim()[0],x)) for x in ax.get_xticks()])
-            ax.margins(padding)
+            if xlim[0] is None or xlim[1] is None:
+                ax.autoscale(axis='x')
 
-            if xlim:
-                x_pad = padding*(xlim[1]-xlim[0])
-                ax.set_xlim(xlim[0]-x_pad, xlim[1]+x_pad)
+            if ylim[0] is None or ylim[1] is None:
+                ax.autoscale(axis='y')
 
-            if ylim:
-                y_pad = padding*(ylim[1]-ylim[0])
-                ax.set_ylim(ylim[0]-y_pad, ylim[1]+y_pad)
+            ax.set_xlim(*xlim)
+            ax.set_ylim(*ylim)
 
             ax.set_title(title, loc='left', pad=15)
             ax.set_ylabel(ylabel)
@@ -839,8 +838,8 @@ class Result:
         err        : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
         labels     : Sequence[str] = None,
         colors     : Sequence[str] = None,
-        xlim       : Tuple[Number,Number] = None,
-        ylim       : Tuple[Number,Number] = None,
+        xlim       : Tuple[Optional[Number],Optional[Number]] = None,
+        ylim       : Tuple[Optional[Number],Optional[Number]] = None,
         xticks     : bool = True,
         yticks     : bool = True,
         out        : Union[None,Literal['screen'],str] = 'screen',
@@ -868,6 +867,9 @@ class Result:
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
+
+        xlim = xlim or [None,None]
+        ylim = ylim or [None,None]
 
         x = [x] if isinstance(x,str) else list(x)
         self._validate_parameters(x)
@@ -933,8 +935,8 @@ class Result:
         err   : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
         labels: Sequence[str] = None,
         colors: Union[int,Sequence[Union[str,int]]] = None,
-        xlim  : Tuple[Number,Number] = None,
-        ylim  : Tuple[Number,Number] = None,
+        xlim  : Tuple[Optional[Number],Optional[Number]] = None,
+        ylim  : Tuple[Optional[Number],Optional[Number]] = None,
         xticks: bool = True,
         yticks: bool = True,
         out   : Union[None,Literal['screen'],str] = 'screen',
@@ -961,6 +963,9 @@ class Result:
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
+
+        xlim = xlim or [None,None]
+        ylim = ylim or [None,None]
 
         if isinstance(ids,int): ids = [ids]
         if isinstance(colors,int): colors = [colors]
