@@ -10,7 +10,7 @@ from operator import eq, getitem, methodcaller, itemgetter
 from collections import defaultdict, deque
 from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
-from typing import Hashable, Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping
+from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping
 from coba.backports import Literal
 
 from coba            import pipes, primitives
@@ -275,6 +275,8 @@ class Impute(EnvironmentFilter):
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
         first, interactions = peek_first(Mutable().filter(interactions))
+
+        if not interactions: return None
 
         is_dense  = isinstance(first['context'], primitives.Dense)
         is_sparse = isinstance(first['context'], primitives.Sparse)
@@ -1039,6 +1041,8 @@ class Mutable(EnvironmentFilter):
         
         first, interactions = peek_first(interactions)
         
+        if not interactions: return []
+
         first_is_dense   = isinstance(first['context'], primitives.Dense)
         first_is_sparse  = isinstance(first['context'], primitives.Sparse)
         first_is_value   = not (first_is_dense or first_is_sparse)

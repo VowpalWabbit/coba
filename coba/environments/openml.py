@@ -68,7 +68,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             if self._data_id:
                 data_descr   = self._get_data_descr(self._data_id)
-                self._target = self._clean_name(data_descr.get("default_target_attribute",None))
+                self._target = self._target or self._clean_name(data_descr.get("default_target_attribute",None))
                 task_type    = None
 
             if self._task_id:
@@ -103,11 +103,11 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
             label_type = 'c' if task_type==1 else 'r' if task_type==2 else None
 
-            drop_row  = attrgetter('missing') if self._drop_missing else None
-            lines     = self._get_arff_lines(data_descr["file_id"], None)
-            reader    = ArffReader()
-            drop      = DropRows(drop_cols=ignore, drop_row=drop_row)
-            label     = LabelRows(self._target, label_type)
+            drop_row = attrgetter('missing') if self._drop_missing else None
+            lines    = self._get_arff_lines(data_descr["file_id"], None)
+            reader   = ArffReader()
+            drop     = DropRows(drop_cols=ignore, drop_row=drop_row)
+            label    = LabelRows(self._target, label_type)
 
             return Pipes.join(reader, drop, label).filter(lines)
 
@@ -142,6 +142,7 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     def _http_request(self, url:str) -> Iterable[str]:
         api_key = CobaContext.api_keys['openml']
         semaphore = CobaContext.store.get("openml_semaphore")
+        is_bytes = None
 
         # An attempt to be considerate and stagger/limit our hits of their REST API.
         # Openml doesn't publish any rate-limiting guidelines so this is just a guess.
@@ -186,7 +187,11 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
             #     raise CobaException("Openml experienced an unexpected error. Please try requesting the data again.") from None
 
             for b in response.iter_lines(decode_unicode=True):
-                yield b
+                #some openml data-sets aren't marked as utf-8
+                #in this case the response won't properly decode
+                #so we need to check for this and handle it.
+                if is_bytes is None: is_bytes = isinstance(b,bytes)
+                yield b.decode('utf-8') if is_bytes else b
 
     def _get_data_descr(self, data_id:int) -> Dict[str,Any]:
 
