@@ -328,9 +328,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     def impute(self,
         stat : Literal["mean","median","mode"] = "mean",
+        indicator:bool = True,
         using: Optional[int] = None) -> 'Environments':
         """Impute missing values with a feature statistic using a given number of interactions."""
-        return self.filter(Impute(stat, using))
+        return self.filter(Impute(stat, indicator, using))
 
     def where(self,*,n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> 'Environments':
         """Only include environments which satisify the given requirements."""

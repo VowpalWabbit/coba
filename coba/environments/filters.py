@@ -4,13 +4,13 @@ import warnings
 import copy
 
 from math import isnan
-from statistics import mean, median, stdev, mode
+from statistics import median, stdev, mode
 from numbers import Number
 from operator import eq, getitem, methodcaller, itemgetter
 from collections import defaultdict, deque
-from functools import lru_cache, reduce
+from functools import lru_cache
 from itertools import islice, chain, tee, compress, repeat
-from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
+from typing import Hashable, Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping
 from coba.backports import Literal
 
 from coba            import pipes, primitives
@@ -221,7 +221,7 @@ class Scale(EnvironmentFilter):
         if shift == "min":
             return -min(values)
         elif shift == "mean":
-            return -mean(values)
+            return -sum(values)/len(values) #mean() is very slow due to calculations for precision
         elif shift == "med":
             return -median(values)
         return shift
@@ -251,75 +251,157 @@ class Impute(EnvironmentFilter):
 
     def __init__(self,
         stat : Literal["mean","median","mode"] = "mean",
+        indicator: bool = True,
         using: Optional[int] = None):
         """Instantiate an Impute filter.
 
         Args:
             stat: The statistic to use for impuatation.
+            indicator: Indicates whether a new binary feature should be added for missingness.
             using: The number of interactions to use to calculate the imputation statistics.
         """
 
         assert stat in ["mean","median","mode"]
 
         self._stat  = stat
+        self._miss  = indicator
         self._using = using
+        self._times = [0,0,0,0]
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return { "impute_stat": self._stat, "impute_using": self._using }
+        return { "impute_stat": self._stat, "impute_using": self._using, "impute_indicator":self._miss }
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        first, interactions = peek_first(interactions)
+        first, interactions = peek_first(Mutable().filter(interactions))
 
         is_dense  = isinstance(first['context'], primitives.Dense)
         is_sparse = isinstance(first['context'], primitives.Sparse)
+        is_value  = not is_dense and not is_sparse
 
-        iter_interactions  = iter(interactions)
-        train_interactions = list(islice(iter_interactions,self._using))
-        test_interactions  = chain.from_iterable([train_interactions, iter_interactions])
+        interactions       = iter(interactions)
+        using_interactions = list(islice(interactions,self._using))
+        other_interactions = interactions
 
-        stats   : Dict[Hashable,float]        = defaultdict(int)
-        features: Dict[Hashable,List[Number]] = defaultdict(list)
+        start = time.time()
+        if is_dense:
+            if self._stat in ["mean","median"]:
+                imputable_cols = [i for i,v in enumerate(first['context']) if isinstance(v,(int,float) or v is None)]
+            else:
+                imputable_cols = list(range(len(first['context'])))
 
-        for interaction in train_interactions:
-            for name,value in self._context_as_name_values(interaction['context']):
-                if isinstance(value,Number) and not isnan(value):
-                    features[name].append(value)
+        elif is_sparse:
+            if self._stat in ['mean','median']:
+                unimputable_cols = {k for k,v in first['context'].items() if not isinstance(v,(int,float) or v is None)}
+            else:
+                unimputable_cols = {}
 
-        for feat_name, feat_numeric_values in features.items():
+        elif is_value:
+            if self._stat in ["mean","median"]:
+                imputable_cols = isinstance(first['context'],(int,float)) or (first['context'] is None)
+            else:
+                imputable_cols = True
+        self._times[0] += time.time()-start
 
-            if self._stat == "mean":
-                stats[feat_name] = mean(feat_numeric_values)
+        start = time.time()
+        #get unimputed values
+        if is_dense:
+            if len(imputable_cols) == 0:
+                unimputed = []
+            elif len(imputable_cols) == 1:
+                unimputed = [ tuple(map(itemgetter(*imputable_cols),map(getitem,using_interactions,repeat("context")))) ]
+            else:
+                unimputed = list(zip(*map(itemgetter(*imputable_cols),map(getitem,using_interactions,repeat("context")))))
 
-            if self._stat == "median":
-                stats[feat_name] = median(feat_numeric_values)
+        elif is_sparse:
+            unimputed = defaultdict(list)
+            for interaction in using_interactions:
+                context = interaction['context']
+                for k in context.keys()-unimputable_cols:
+                    unimputed[k].append(context[k])
 
-            if self._stat == "mode":
-                stats[feat_name] = mode(feat_numeric_values)
+        elif is_value:
+            unimputed = [ interaction['context'] for interaction in using_interactions ]
+        self._times[1] += time.time()-start
 
-        for interaction in test_interactions:
+        start = time.time()
+        #calculate imputation statistics
+        if is_dense:
+            imputations = {}
+            impute_binary = {}
+            for i, col in zip(imputable_cols,unimputed):
+                imputation = self._get_imputation(col)
+                if imputation is not None:
+                    imputations[i] = imputation
+                    if self._miss and any([c is None for c in col]): 
+                        impute_binary[i] = len(impute_binary)
 
-            new     = interaction.copy()
+        elif is_sparse:
+            imputations = {}
+            impute_binary = {}
+            binary_template = {}
+            for k,col in unimputed.items():
+                imputation = self._get_imputation(col + [0]*(len(using_interactions)-len(col)))
+                if imputation is not None:
+                    imputations[k] = imputation
+                    if self._miss and any([c is None for c in col]):
+                        impute_binary[k] = f"{k}_is_missing"
+                        binary_template[f"{k}_is_missing"] = 0
+
+        elif is_value:
+            imputations = self._get_imputation(unimputed)
+            impute_binary = self._miss and any([c is None for c in unimputed])
+        self._times[2] += time.time()-start
+
+        start = time.time()
+        for interaction in chain(using_interactions,other_interactions):
+
             context = interaction['context']
-            imputed = {k: stats[k] if isinstance(v,float) and isnan(v) else v for k,v in self._context_as_name_values(context)}
 
-            if is_sparse:
-                new['context'] = imputed
-            elif is_dense:
-                new['context'] = tuple(imputed[k] for k,_ in self._context_as_name_values(context))
-            elif imputed:
-                new['context'] = imputed[0]
+            if is_dense:
+                is_missing = [0]*len(impute_binary)
+                for k,v in enumerate(context):
+                    if v is None and k in imputations: 
+                        context[k] = imputations[k]
+                        if k in impute_binary: 
+                            is_missing[impute_binary[k]] = 1
+                context += is_missing
 
-            yield new
+            elif is_sparse:
 
-    def _context_as_name_values(self,context) -> Sequence[Tuple[Hashable,Any]]:
+                is_missing = binary_template.copy()
+                for k,v in context.items():
+                    if v is None: 
+                        context[k] = imputations[k]
+                        if k in impute_binary:
+                            is_missing[impute_binary[k]] = 1
+                context.update(is_missing)
 
-        if isinstance(context,dict ): return context.items()
-        if isinstance(context,tuple): return enumerate(context)
-        if context is not None      : return [(0,context)]
+            elif is_value:
+                if impute_binary:
+                    if context is None: 
+                        interaction["context"] = [imputations,1]
+                    else:
+                        interaction["context"] = [context,0]
+                else:
+                    if context is None:
+                        interaction["context"] = imputations
 
-        return []
+            yield interaction
+        self._times[3] += time.time()-start
+
+    def _get_imputation(self,values):
+        try:
+            values = [v for v in values if v is not None]
+            if self._stat == "mean":
+                return sum(values)/len(values)
+            if self._stat == "median":
+                return median(values)
+            if self._stat == "mode":
+                return mode(values)
+        except:
+            return None
 
 class Sparse(EnvironmentFilter):
     """Sparsify an environment's feature representation.

@@ -10,7 +10,7 @@ import coba.random
 
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
-from coba.environments import Scale, Flatten, Grounded, Chunk
+from coba.environments import Scale, Flatten, Grounded, Chunk, Impute
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
@@ -388,6 +388,16 @@ class Performance_Tests(unittest.TestCase):
 
     def test_chunk(self):
         self._assert_call_time(lambda: list(Chunk().filter(range(100))), .01, print_time, number=1000)
+
+    def test_impute(self):
+        interactions = [
+            SimulatedInteraction((7   , 2   , "A" ), [1], [1]),
+            SimulatedInteraction((7   , 2   , "A" ), [1], [1]),
+            SimulatedInteraction((8   , 3   , "A" ), [1], [1])
+        ] * 10
+        impute = Impute("mode")
+        self._assert_scale_time(interactions, lambda x:list(impute.filter(x)), .06, print_time, number=1000)
+
 
     def _assert_call_time(self, timeable: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
         if print_time: print()

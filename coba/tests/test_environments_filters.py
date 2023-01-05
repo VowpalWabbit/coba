@@ -854,22 +854,86 @@ class Impute_Tests(unittest.TestCase):
     def test_impute_mean_logged(self):
 
         interactions = [
-            LoggedInteraction((7           , 2           ), 1, 1),
-            LoggedInteraction((float('nan'), float('nan')), 1, 1),
-            LoggedInteraction((8           , 3           ), 1, 1)
+            LoggedInteraction((7   , 2   ), 1, 1),
+            LoggedInteraction((None, None), 1, 1),
+            LoggedInteraction((8   , 3   ), 1, 1)
         ]
 
         mem_interactions = interactions
-        imp_interactions = list(Impute().filter(interactions))
+        imp_interactions = list(Impute("mean",False).filter(interactions))
 
-        self.assertEqual((7,2), mem_interactions[0]['context'])
-        self.assertEqual((8,3), mem_interactions[2]['context'])
+        self.assertSequenceEqual((7,2), mem_interactions[0]['context'])
+        self.assertSequenceEqual((8,3), mem_interactions[2]['context'])
 
         self.assertEqual(3, len(imp_interactions))
 
-        self.assertEqual((7  ,  2), imp_interactions[0]['context'])
-        self.assertEqual((7.5,2.5), imp_interactions[1]['context'])
-        self.assertEqual((8  ,3  ), imp_interactions[2]['context'])
+        self.assertSequenceEqual((7  ,  2), imp_interactions[0]['context'])
+        self.assertSequenceEqual((7.5,2.5), imp_interactions[1]['context'])
+        self.assertSequenceEqual((8  ,3  ), imp_interactions[2]['context'])
+
+    def test_impute_dense_indicator(self):
+
+        interactions = [
+            LoggedInteraction((7   , 2   ), 1, 1),
+            LoggedInteraction((8   , None), 1, 1),
+            LoggedInteraction((None, 3   ), 1, 1)
+        ]
+
+        mem_interactions = interactions
+        imp_interactions = list(Impute("mean",True).filter(interactions))
+
+        self.assertSequenceEqual((7   ,2   ), mem_interactions[0]['context'])
+        self.assertSequenceEqual((8   ,None), mem_interactions[1]['context'])
+        self.assertSequenceEqual((None,   3), mem_interactions[2]['context'])
+
+        self.assertEqual(3, len(imp_interactions))
+
+        self.assertSequenceEqual((7  ,  2, 0, 0), imp_interactions[0]['context'])
+        self.assertSequenceEqual((8  ,2.5, 0, 1), imp_interactions[1]['context'])
+        self.assertSequenceEqual((7.5,3  , 1, 0), imp_interactions[2]['context'])
+
+    def test_one_imputable(self):
+
+        interactions = [
+            SimulatedInteraction((1   ,'B'), [1], [1]),
+            SimulatedInteraction((None,'C'), [1], [1]),
+            SimulatedInteraction((1   ,'E'), [1], [1])
+        ]
+
+        mem_interactions = interactions
+        imp_interactions = list(Impute("mean",False).filter(interactions))
+
+        self.assertSequenceEqual((1   ,'B'), mem_interactions[0]['context'])
+        self.assertSequenceEqual((None,'C'), mem_interactions[1]['context'])
+        self.assertSequenceEqual((1   ,'E'), mem_interactions[2]['context'])
+
+        self.assertEqual(3, len(imp_interactions))
+
+        self.assertSequenceEqual((1,'B'), imp_interactions[0]['context'])
+        self.assertSequenceEqual((1,'C'), imp_interactions[1]['context'])
+        self.assertSequenceEqual((1,'E'), imp_interactions[2]['context'])
+
+
+    def test_none_imputable(self):
+
+        interactions = [
+            SimulatedInteraction(('A' ,'B'), [1], [1]),
+            SimulatedInteraction((None,'C'), [1], [1]),
+            SimulatedInteraction(('D' ,'E'), [1], [1])
+        ]
+
+        mem_interactions = interactions
+        imp_interactions = list(Impute("mean",False).filter(interactions))
+
+        self.assertSequenceEqual(('A' ,'B'), mem_interactions[0]['context'])
+        self.assertSequenceEqual((None,'C'), mem_interactions[1]['context'])
+        self.assertSequenceEqual(('D' ,'E'), mem_interactions[2]['context'])
+
+        self.assertEqual(3, len(imp_interactions))
+
+        self.assertSequenceEqual(('A' ,'B'), imp_interactions[0]['context'])
+        self.assertSequenceEqual((None,'C'), imp_interactions[1]['context'])
+        self.assertSequenceEqual(('D' ,'E'), imp_interactions[2]['context'])
 
     def test_impute_nothing(self):
 
@@ -880,56 +944,77 @@ class Impute_Tests(unittest.TestCase):
         ]
 
         mem_interactions = interactions
-        imp_interactions = list(Impute().filter(interactions))
+        imp_interactions = list(Impute("mean",False).filter(interactions))
 
-        self.assertEqual((7,2), mem_interactions[0]['context'])
-        self.assertEqual((1,9), mem_interactions[1]['context'])
-        self.assertEqual((8,3), mem_interactions[2]['context'])
+        self.assertSequenceEqual((7,2), mem_interactions[0]['context'])
+        self.assertSequenceEqual((1,9), mem_interactions[1]['context'])
+        self.assertSequenceEqual((8,3), mem_interactions[2]['context'])
 
         self.assertEqual(3, len(imp_interactions))
 
-        self.assertEqual((7,2), imp_interactions[0]['context'])
-        self.assertEqual((1,9), imp_interactions[1]['context'])
-        self.assertEqual((8,3), imp_interactions[2]['context'])
+        self.assertSequenceEqual((7,2), imp_interactions[0]['context'])
+        self.assertSequenceEqual((1,9), imp_interactions[1]['context'])
+        self.assertSequenceEqual((8,3), imp_interactions[2]['context'])
+
+    def test_impute_nothing_indicator(self):
+
+        interactions = [
+            SimulatedInteraction((7,2), [1], [1]),
+            SimulatedInteraction((1,9), [1], [1]),
+            SimulatedInteraction((8,3), [1], [1])
+        ]
+
+        mem_interactions = interactions
+        imp_interactions = list(Impute("mean",True).filter(interactions))
+
+        self.assertSequenceEqual((7,2), mem_interactions[0]['context'])
+        self.assertSequenceEqual((1,9), mem_interactions[1]['context'])
+        self.assertSequenceEqual((8,3), mem_interactions[2]['context'])
+
+        self.assertEqual(3, len(imp_interactions))
+
+        self.assertSequenceEqual((7,2), imp_interactions[0]['context'])
+        self.assertSequenceEqual((1,9), imp_interactions[1]['context'])
+        self.assertSequenceEqual((8,3), imp_interactions[2]['context'])
 
     def test_impute_mean(self):
 
         interactions = [
-            SimulatedInteraction((7           , 2           ), [1], [1]),
-            SimulatedInteraction((float('nan'), float('nan')), [1], [1]),
-            SimulatedInteraction((8           , 3           ), [1], [1])
+            SimulatedInteraction((7   , 2   ), [1], [1]),
+            SimulatedInteraction((None, None), [1], [1]),
+            SimulatedInteraction((8   , 3   ), [1], [1])
         ]
 
         mem_interactions = interactions
-        imp_interactions = list(Impute().filter(interactions))
+        imp_interactions = list(Impute("mean",False).filter(interactions))
 
-        self.assertEqual((7,2), mem_interactions[0]['context'])
-        #self.assertEqual((1,9), mem_interactions[1]['context'])
-        self.assertEqual((8,3), mem_interactions[2]['context'])
+        self.assertSequenceEqual((7,2), mem_interactions[0]['context'])
+        self.assertSequenceEqual((None,None), mem_interactions[1]['context'])
+        self.assertSequenceEqual((8,3), mem_interactions[2]['context'])
 
         self.assertEqual(3, len(imp_interactions))
 
-        self.assertEqual((7  ,  2), imp_interactions[0]['context'])
-        self.assertEqual((7.5,2.5), imp_interactions[1]['context'])
-        self.assertEqual((8  ,3  ), imp_interactions[2]['context'])
+        self.assertSequenceEqual((7  ,  2), imp_interactions[0]['context'])
+        self.assertSequenceEqual((7.5,2.5), imp_interactions[1]['context'])
+        self.assertSequenceEqual((8  ,3  ), imp_interactions[2]['context'])
 
     def test_impute_med(self):
 
         interactions = [
-            SimulatedInteraction((7           , 2           ), [1], [1]),
-            SimulatedInteraction((7           , 2           ), [1], [1]),
-            SimulatedInteraction((float('nan'), float('nan')), [1], [1]),
-            SimulatedInteraction((8           , 3           ), [1], [1])
+            SimulatedInteraction((7   , 2   ), [1], [1]),
+            SimulatedInteraction((7   , 2   ), [1], [1]),
+            SimulatedInteraction((None, None), [1], [1]),
+            SimulatedInteraction((8   , 3   ), [1], [1])
         ]
 
-        imp_interactions = list(Impute("median").filter(interactions))
+        imp_interactions = list(Impute("median",False).filter(interactions))
 
         self.assertEqual(4, len(imp_interactions))
 
-        self.assertEqual((7, 2), imp_interactions[0]['context'])
-        self.assertEqual((7, 2), imp_interactions[1]['context'])
-        self.assertEqual((7, 2), imp_interactions[2]['context'])
-        self.assertEqual((8, 3), imp_interactions[3]['context'])
+        self.assertSequenceEqual((7, 2), imp_interactions[0]['context'])
+        self.assertSequenceEqual((7, 2), imp_interactions[1]['context'])
+        self.assertSequenceEqual((7, 2), imp_interactions[2]['context'])
+        self.assertSequenceEqual((8, 3), imp_interactions[3]['context'])
 
     def test_impute_mode_None(self):
 
@@ -940,7 +1025,7 @@ class Impute_Tests(unittest.TestCase):
             SimulatedInteraction(None, [1], [1])
         ]
 
-        imp_interactions = list(Impute("mode").filter(interactions))
+        imp_interactions = list(Impute("mode",False).filter(interactions))
 
         self.assertEqual(4, len(imp_interactions))
 
@@ -949,16 +1034,34 @@ class Impute_Tests(unittest.TestCase):
         self.assertEqual(None, imp_interactions[2]['context'])
         self.assertEqual(None, imp_interactions[3]['context'])
 
-    def test_impute_mode_singular(self):
+    def test_impute_mode_None_indicator(self):
 
         interactions = [
-            SimulatedInteraction(1           , [1], [1]),
-            SimulatedInteraction(float('nan'), [1], [1]),
-            SimulatedInteraction(5           , [1], [1]),
-            SimulatedInteraction(5           , [1], [1])
+            SimulatedInteraction(None, [1], [1]),
+            SimulatedInteraction(None, [1], [1]),
+            SimulatedInteraction(None, [1], [1]),
+            SimulatedInteraction(None, [1], [1])
         ]
 
-        imp_interactions = list(Impute("mode").filter(interactions))
+        imp_interactions = list(Impute("mode",True).filter(interactions))
+
+        self.assertEqual(4, len(imp_interactions))
+
+        self.assertEqual([None,1], imp_interactions[0]['context'])
+        self.assertEqual([None,1], imp_interactions[1]['context'])
+        self.assertEqual([None,1], imp_interactions[2]['context'])
+        self.assertEqual([None,1], imp_interactions[3]['context'])
+
+    def test_impute_med_singular(self):
+
+        interactions = [
+            SimulatedInteraction(1   , [1], [1]),
+            SimulatedInteraction(None, [1], [1]),
+            SimulatedInteraction(5   , [1], [1]),
+            SimulatedInteraction(5   , [1], [1])
+        ]
+
+        imp_interactions = list(Impute("median",False).filter(interactions))
 
         self.assertEqual(4, len(imp_interactions))
 
@@ -967,16 +1070,52 @@ class Impute_Tests(unittest.TestCase):
         self.assertEqual(5, imp_interactions[2]['context'])
         self.assertEqual(5, imp_interactions[3]['context'])
 
+    def test_impute_mode_singular(self):
+
+        interactions = [
+            SimulatedInteraction(1   , [1], [1]),
+            SimulatedInteraction(None, [1], [1]),
+            SimulatedInteraction(5   , [1], [1]),
+            SimulatedInteraction(5   , [1], [1])
+        ]
+
+        imp_interactions = list(Impute("mode",False).filter(interactions))
+
+        self.assertEqual(4, len(imp_interactions))
+
+        self.assertEqual(1, imp_interactions[0]['context'])
+        self.assertEqual(5, imp_interactions[1]['context'])
+        self.assertEqual(5, imp_interactions[2]['context'])
+        self.assertEqual(5, imp_interactions[3]['context'])
+
+    def test_impute_med_singular_indicator(self):
+
+        interactions = [
+            SimulatedInteraction(1   , [1], [1]),
+            SimulatedInteraction(None, [1], [1]),
+            SimulatedInteraction(5   , [1], [1]),
+            SimulatedInteraction(5   , [1], [1])
+        ]
+
+        imp_interactions = list(Impute("median",True).filter(interactions))
+
+        self.assertEqual(4, len(imp_interactions))
+
+        self.assertEqual([1,0], imp_interactions[0]['context'])
+        self.assertEqual([5,1], imp_interactions[1]['context'])
+        self.assertEqual([5,0], imp_interactions[2]['context'])
+        self.assertEqual([5,0], imp_interactions[3]['context'])
+
     def test_impute_mode_dict(self):
 
         interactions = [
-            SimulatedInteraction({1:1           }, [1], [1]),
-            SimulatedInteraction({1:float('nan')}, [1], [1]),
-            SimulatedInteraction({1:5           }, [1], [1]),
-            SimulatedInteraction({1:5           }, [1], [1])
+            SimulatedInteraction({1:1   }, [1], [1]),
+            SimulatedInteraction({1:None}, [1], [1]),
+            SimulatedInteraction({1:5   }, [1], [1]),
+            SimulatedInteraction({1:5   }, [1], [1])
         ]
 
-        imp_interactions = list(Impute("mode").filter(interactions))
+        imp_interactions = list(Impute("mode",False).filter(interactions))
 
         self.assertEqual(4, len(imp_interactions))
 
@@ -985,26 +1124,80 @@ class Impute_Tests(unittest.TestCase):
         self.assertEqual({1:5}, imp_interactions[2]['context'])
         self.assertEqual({1:5}, imp_interactions[3]['context'])
 
-    def test_impute_med_with_str(self):
+    def test_impute_median_dict(self):
 
         interactions = [
-            SimulatedInteraction((7           , 2           , "A"), [1], [1]),
-            SimulatedInteraction((7           , 2           , "A"), [1], [1]),
-            SimulatedInteraction((float('nan'), float('nan'), "A"), [1], [1]),
-            SimulatedInteraction((8           , 3           , "A"), [1], [1])
+            SimulatedInteraction({1:1   }, [1], [1]),
+            SimulatedInteraction({1:None}, [1], [1]),
+            SimulatedInteraction({1:5   }, [1], [1]),
+            SimulatedInteraction({1:5   }, [1], [1])
         ]
 
-        imp_interactions = list(Impute("median").filter(interactions))
+        imp_interactions = list(Impute("median",False).filter(interactions))
 
         self.assertEqual(4, len(imp_interactions))
 
-        self.assertEqual((7, 2, "A"), imp_interactions[0]['context'])
-        self.assertEqual((7, 2, "A"), imp_interactions[1]['context'])
-        self.assertEqual((7, 2, "A"), imp_interactions[2]['context'])
-        self.assertEqual((8, 3, "A"), imp_interactions[3]['context'])
+        self.assertEqual({1:1}, imp_interactions[0]['context'])
+        self.assertEqual({1:5}, imp_interactions[1]['context'])
+        self.assertEqual({1:5}, imp_interactions[2]['context'])
+        self.assertEqual({1:5}, imp_interactions[3]['context'])
+
+    def test_impute_mode_dict_indicator(self):
+
+        interactions = [
+            SimulatedInteraction({1:1   }, [1], [1]),
+            SimulatedInteraction({1:None}, [1], [1]),
+            SimulatedInteraction({1:5   }, [1], [1]),
+            SimulatedInteraction({1:5   }, [1], [1])
+        ]
+
+        imp_interactions = list(Impute("mode",True).filter(interactions))
+
+        self.assertEqual(4, len(imp_interactions))
+
+        self.assertEqual({1:1,"1_is_missing":0}, imp_interactions[0]['context'])
+        self.assertEqual({1:5,"1_is_missing":1}, imp_interactions[1]['context'])
+        self.assertEqual({1:5,"1_is_missing":0}, imp_interactions[2]['context'])
+        self.assertEqual({1:5,"1_is_missing":0}, imp_interactions[3]['context'])
+
+    def test_impute_mode_with_str(self):
+
+        interactions = [
+            SimulatedInteraction((7   , 2   , "A" ), [1], [1]),
+            SimulatedInteraction((7   , 2   , "A" ), [1], [1]),
+            SimulatedInteraction((None, None, None), [1], [1]),
+            SimulatedInteraction((8   , 3   , "A" ), [1], [1])
+        ]
+
+        imp_interactions = list(Impute("mode",False).filter(interactions))
+
+        self.assertEqual(4, len(imp_interactions))
+
+        self.assertSequenceEqual((7, 2, "A"), imp_interactions[0]['context'])
+        self.assertSequenceEqual((7, 2, "A"), imp_interactions[1]['context'])
+        self.assertSequenceEqual((7, 2, "A"), imp_interactions[2]['context'])
+        self.assertSequenceEqual((8, 3, "A"), imp_interactions[3]['context'])
+
+    def test_impute_med_with_str(self):
+
+        interactions = [
+            SimulatedInteraction((7   , 2   , "A" ), [1], [1]),
+            SimulatedInteraction((7   , 2   , "A" ), [1], [1]),
+            SimulatedInteraction((None, None, None), [1], [1]),
+            SimulatedInteraction((8   , 3   , "A" ), [1], [1])
+        ]
+
+        imp_interactions = list(Impute("median",False).filter(interactions))
+
+        self.assertEqual(4, len(imp_interactions))
+
+        self.assertSequenceEqual((7, 2, "A"), imp_interactions[0]['context'])
+        self.assertSequenceEqual((7, 2, "A"), imp_interactions[1]['context'])
+        self.assertSequenceEqual((7, 2, None), imp_interactions[2]['context'])
+        self.assertSequenceEqual((8, 3, "A"), imp_interactions[3]['context'])
 
     def test_params(self):
-        self.assertEqual({ "impute_stat": "median", "impute_using": 2 }, Impute("median",2).params)
+        self.assertEqual({ "impute_stat": "median", "impute_using": 2, "impute_indicator":False }, Impute("median",False,2).params)
 
 class Binary_Tests(unittest.TestCase):
     def test_binary(self):

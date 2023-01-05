@@ -488,12 +488,13 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(2    , envs[0].params['scale_using'])
 
     def test_impute(self):
-        envs = Environments(TestEnvironment1('A')).impute('median', 2)
+        envs = Environments(TestEnvironment1('A')).impute('median', False, 2)
 
         self.assertEqual(1       , len(envs))
         self.assertEqual('A'     , envs[0].params['id'])
         self.assertEqual('median', envs[0].params['impute_stat'])
         self.assertEqual(2       , envs[0].params['impute_using'])
+        self.assertEqual(False   , envs[0].params['impute_indicator'])
 
     def test_where(self):
         envs = Environments(TestEnvironment1('A'),TestEnvironment1('B')).where(n_interactions = (1,2))
