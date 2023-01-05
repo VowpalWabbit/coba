@@ -19,20 +19,22 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
     """
 
     @overload
-    def __init__(self, *, data_id:int, drop_missing:bool=True):
+    def __init__(self, *, data_id:int, drop_missing:bool=True, target:str = None):
         """Instantiate an OpenmlSource.
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
             drop_missing: Drop data rows with missing values.
+            target: The column that should be marked as the prediction label in the source.
         """
         ...
 
     @overload
-    def __init__(self, *, task_id:int, drop_missing:bool=True):
+    def __init__(self, *, task_id:int, drop_missing:bool=True, target:str = None):
         """Instantiate an OpenmlSource.
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label
             drop_missing: Drop data rows with missing values.
+            target: The column that should be marked as the prediction label in the source
         """
         ...
 
@@ -263,22 +265,24 @@ class OpenmlSimulation(SupervisedSimulation):
     """
 
     @overload
-    def __init__(self, data_id: int, drop_missing: bool = True, take: int = None):
+    def __init__(self, data_id: int, drop_missing: bool = True, take: int = None, *, target:str = None):
         """Instantiate an OpenmlSimulation.
         Args:
             data_id: The data id uniquely identifying the dataset on openml (i.e., openml.org/d/{id})
             drop_missing: Drop data rows with missing values.
             take: The number of interactions we'd like the simulation to have (these will be selected at random).
+            target: The column that should be marked as the prediction label in the source.
         """
         ...
 
     @overload
-    def __init__(self, *, task_id: int, drop_missing: bool = True, take: int=None):
+    def __init__(self, *, task_id: int, drop_missing: bool = True, take: int=None, target:str = None):
         """Instantiate an OpenmlSimulation.
         Args:
             task_id: The openml task id which identifies the dataset to use from openml along with its label
             drop_missing: Drop data rows with missing values.
             take: The number of interactions we'd like the simulation to have (these will be selected at random).
+            target: The column that should be marked as the prediction label in the source.
         """
         ...
 

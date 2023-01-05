@@ -159,14 +159,17 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     @staticmethod
     def from_openml(data_id: Union[int,Sequence[int]],
         drop_missing: bool = True,
-        take: int = None) -> 'Environments':
+        take: int = None,
+        *,
+        target:str = None) -> 'Environments':
         ...
 
     @overload
     @staticmethod
     def from_openml(*,task_id: Union[int,Sequence[int]],
         drop_missing: bool = True,
-        take: int = None) -> 'Environments':
+        take: int = None,
+        target:str = None) -> 'Environments':
         ...
 
     @staticmethod
@@ -327,11 +330,15 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return self.filter(Pipes.join(*[Scale(shift, scale, t, using) for t in targets]))
 
     def impute(self,
-        stat : Literal["mean","median","mode"] = "mean",
+        stats: Union[Literal["mean","median","mode"],Sequence[Literal["mean","median","mode"]]] = "mean",
         indicator:bool = True,
         using: Optional[int] = None) -> 'Environments':
         """Impute missing values with a feature statistic using a given number of interactions."""
-        return self.filter(Impute(stat, indicator, using))
+        if isinstance(stats,str): stats = [stats]
+        envs = self
+        for stat in stats:
+            envs = self.filter(Impute(stat, indicator, using))
+        return envs
 
     def where(self,*,n_interactions: Union[int,Tuple[Optional[int],Optional[int]]] = None) -> 'Environments':
         """Only include environments which satisify the given requirements."""
