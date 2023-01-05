@@ -6,9 +6,9 @@ import copy
 from math import isnan
 from statistics import mean, median, stdev, mode
 from numbers import Number
-from operator import eq, itemgetter, getitem, methodcaller
+from operator import eq, getitem, methodcaller, itemgetter
 from collections import defaultdict, deque
-from functools import lru_cache
+from functools import lru_cache, reduce
 from itertools import islice, chain, tee, compress, repeat
 from typing import Hashable, Optional, Sequence, Union, Iterable, Dict, Any, List, Tuple, Callable, Mapping
 from coba.backports import Literal
@@ -84,11 +84,9 @@ class Scale(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        first, interactions = peek_first(interactions)
+        first, interactions = peek_first(Mutable().filter(interactions))
 
         if not interactions: return []
-
-        first, interactions = peek_first(Mutable().filter(interactions))
 
         remaining_interactions = iter(interactions)
         fitting_interactions   = list(islice(remaining_interactions,self._using))
@@ -104,23 +102,19 @@ class Scale(EnvironmentFilter):
         is_sparse_context = isinstance(first_context, primitives.Sparse)
         is_value_context  = not (is_dense_context or is_sparse_context)
 
-        if self._target == "context" and is_dense_context:
-            scalable_cols = [i for i,v in enumerate(first['context']) if isinstance(v,(int,float))]
-        
-        elif self._target == "context" and is_sparse_context:
-            unscalable_cols = set([k for k,v in first['context'].items() if not isinstance(v,(int,float))])
-
         #get the values we wish to scale
         start = time.time()
         if self._target == "context" and is_dense_context:
-            if len(scalable_cols) == 0:
+            potential_cols = [i for i,v in enumerate(first['context']) if isinstance(v,(int,float))]
+            if len(potential_cols) == 0:
                 unscaled = []
-            elif len(scalable_cols) == 1:
-                unscaled = [ tuple(map(itemgetter(*scalable_cols),map(getitem,fitting_interactions,repeat("context")))) ]
+            elif len(potential_cols) == 1:
+                unscaled = [ tuple(map(itemgetter(*potential_cols),map(getitem,fitting_interactions,repeat("context")))) ]
             else:
-                unscaled = list(zip(*map(itemgetter(*scalable_cols),map(getitem,fitting_interactions,repeat("context")))))
+                unscaled = list(zip(*map(itemgetter(*potential_cols),map(getitem,fitting_interactions,repeat("context")))))
 
         elif self._target == "context" and is_sparse_context:
+            unscalable_cols = {k for k,v in first['context'].items() if not isinstance(v,(int,float))}
             unscaled = defaultdict(list)
             for interaction in fitting_interactions:
                 context = interaction['context']
@@ -144,11 +138,11 @@ class Scale(EnvironmentFilter):
         start = time.time()
         #determine the scale and shift values
         if self._target == "context" and is_dense_context:
-            shifts_scales = {}
-            for i,col in zip(scalable_cols,unscaled):
+            shifts_scales = []
+            for i,col in zip(potential_cols,unscaled):
                 shift_scale = self._get_shift_and_scale(col)
                 if shift_scale is not None:
-                    shifts_scales[i] = shift_scale
+                    shifts_scales.append((i,)+shift_scale)
 
         elif self._target == "context" and is_sparse_context:
             shifts_scales = {}
@@ -170,8 +164,8 @@ class Scale(EnvironmentFilter):
         elif self._target == "context" and is_dense_context:
             for interaction in chain(fitting_interactions, remaining_interactions):
                 context = interaction['context']
-                for i, (shift,scale) in shifts_scales.items():
-                    context[i] = (context[i]+shift)*scale                
+                for i,shift,scale in shifts_scales:
+                     context[i] = (context[i]+shift)*scale
                 yield interaction
 
         elif self._target == "context" and is_sparse_context:
