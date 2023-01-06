@@ -94,7 +94,7 @@ class Scale(EnvironmentFilter):
         first_context = first['context']
         first_actions = first.get('actions')
 
-        if isinstance(first_context, primitives.Sparse) and self._shift != 0:
+        if isinstance(first_context, primitives.Sparse) and self._target=="context" and self._shift != 0:
             raise CobaException("Shift is required to be 0 for sparse environments. Otherwise the environment will become dense.")
 
         is_discrete       = first_actions and len(first_actions) > 0

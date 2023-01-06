@@ -2,7 +2,7 @@ import pickle
 
 from collections import abc
 from zipfile import ZipFile, ZIP_DEFLATED
-from itertools import islice, repeat
+from itertools import islice, repeat, chain
 from typing import Union, Sequence, Mapping, Iterable, Any
 
 from coba.backports import version
@@ -33,10 +33,10 @@ class ZipMemberToObjects(Source[Iterable[object]]):
             pass
 
 class EnvironmentsToObjects(Filter[Environment, Iterable]):
-    def filter(self, envs: Union[Environment,Sequence[Environment]]) -> Iterable[Sequence[object]]:
+    def filter(self, envs: Union[Environment,Sequence[Environment]]) -> Iterable[Iterable[object]]:
         if not isinstance(envs,(abc.Sequence)): envs = [envs]
         for env in envs:
-            yield [{"version":1,"coba_version":version("coba")},env.params] + list(env.read())
+            yield list(chain([{"version":1,"coba_version":version("coba")},env.params], env.read()))
 
 class EnvironmentFromObjects(Environment):
     def __init__(self, source: Source[Iterable[object]]) -> None:
