@@ -934,11 +934,12 @@ class Result:
         span  : int = None,
         err   : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
         labels: Sequence[str] = None,
-        colors: Union[int,Sequence[Union[str,int]]] = None,
+        colors: Sequence[Union[str,int]] = None,
         xlim  : Tuple[Optional[Number],Optional[Number]] = None,
         ylim  : Tuple[Optional[Number],Optional[Number]] = None,
         xticks: bool = True,
         yticks: bool = True,
+        top_n: int = None,
         out   : Union[None,Literal['screen'],str] = 'screen',
         ax = None) -> None:
         """Plot the performance of multiple learners on multiple environments. It gives a sense of the expected
@@ -960,6 +961,7 @@ class Result:
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             xticks: Whether the x-axis labels should be drawn.
             yticks: Whether the y-axis labels should be drawn.
+            top_n: Only plot the top_n learners. If `None` all learners will be plotted.
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
@@ -985,22 +987,25 @@ class Result:
 
         style = "-" if x == ['index'] else "."
 
+        def get_color(colors:Sequence[Union[str,int]], i:int):
+            return i if not colors else i+max(colors) if isinstance(colors[0],int) else colors[i] if i < len(colors) else i
+
         for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
             lrn_rows = list(lrn_rows)
             XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
-            color    = i if not colors else i+max(colors) if isinstance(colors[0],int) else colors[i] if i < len(colors) else i
-            label    = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']            
+            color    = get_color(colors,i)
+            label    = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
             lines.append(Points(*zip(*XYE), color, 1, label, style))
 
-        lines  = sorted(lines, key=lambda line: -line[1][-1])
+        lines  = sorted(lines, key=lambda line: line[1][-1], reverse=True)
         xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
         ylabel = y.capitalize().replace("_pct"," Percent")
 
         title = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel}"
         title = title + f" ({len(lrn_rows) if x==['index'] else len(XYE)} Environments)"
 
-        if x != ['index']:
-            title = "Final " + title
+        if x != ['index']: title = f"Final {title}"
+        if top_n         : lines = [l._replace(color=get_color(colors,i)) for i,l in enumerate(lines[:top_n]) ]
 
         self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, 0, 0, out)
 
