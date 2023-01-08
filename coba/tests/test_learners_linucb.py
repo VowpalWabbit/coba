@@ -7,6 +7,12 @@ from coba.learners import LinUCBLearner
 @unittest.skipUnless(importlib.util.find_spec("numpy"), "numpy is not installed so we must skip these tests")
 class LinUCBLearner_Tests(unittest.TestCase):
 
+    def test_action_array_no_exception(self):
+
+        learner = LinUCBLearner()
+        learner.predict([1,2,3], [[1,2,3,4],[5,6,7,8]])
+        learner.learn([1,2,3], [[1,2,3,4],[5,6,7,8]], 1, 1, 1)
+
     def test_matrix_vector_sizes(self):
 
         learner = LinUCBLearner()
@@ -53,7 +59,7 @@ class LinUCBLearner_Tests(unittest.TestCase):
             learner.learn({}, [1,1], 1, 1, 1/3)
 
         with self.assertRaises(CobaException):
-            learner.learn(None, [1,1], {}, 1, 1/3)
+            learner.learn(None, [{},{}], 0, 1, 1/3)
 
         with self.assertRaises(CobaException):
             learner.predict({}, [1,2,3])

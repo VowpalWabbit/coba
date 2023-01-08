@@ -397,10 +397,18 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         if Path(path).exists():
             try:
                 path_envs   = Environments.from_save(path)
-                path_params = [HashableSparse(e.params) for e in path_envs]
-                self_params = [HashableSparse(e.params) for e in self     ]
+                path_params = [e.params for e in path_envs]
+                self_params = [e.params for e in self     ]
+                
+                try:
+                    for param in path_params:
+                        self_params.pop(self_params.index(param))
+                except ValueError:
+                    is_equal = False
+                else:
+                    is_equal = True
 
-                if Counter(path_params) == Counter(self_params):
+                if is_equal:
                     return path_envs
                 elif overwrite:
                     Path(path).unlink()

@@ -61,7 +61,7 @@ class LinUCBLearner(Learner):
         import numpy as np #type: ignore
 
         if isinstance(actions[0], dict) or isinstance(context, dict):
-            raise CobaException("Sparse data cannot be handled by this algorithm.")
+            raise CobaException("Sparse data cannot be handled by this implementation at this time.")
 
         if not context:
             self._X_encoder = InteractionsEncoder(list(set(filter(None,[ f.replace('x','') if isinstance(f,str) else f for f in self._X ]))))
@@ -84,6 +84,8 @@ class LinUCBLearner(Learner):
     def learn(self, context: Context, actions: Actions, action: Action, reward: float, probability: float) -> None:
 
         import numpy as np
+
+        action = actions[0]
 
         if isinstance(action, dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this algorithm.")
