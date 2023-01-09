@@ -989,15 +989,19 @@ class Result:
 
         def get_color(colors:Sequence[Union[str,int]], i:int):
             return i if not colors else i+max(colors) if isinstance(colors[0],int) else colors[i] if i < len(colors) else i
+        
+        def get_label(labels:Sequence[str], i:int):
+            return labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
 
         for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
             lrn_rows = list(lrn_rows)
             XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
             color    = get_color(colors,i)
-            label    = labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
+            label    = get_label(labels,i)
             lines.append(Points(*zip(*XYE), color, 1, label, style))
 
         lines  = sorted(lines, key=lambda line: line[1][-1], reverse=True)
+        labels = [l.label for l in lines]
         xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
         ylabel = y.capitalize().replace("_pct"," Percent")
 
@@ -1005,7 +1009,7 @@ class Result:
         title = title + f" ({len(lrn_rows) if x==['index'] else len(XYE)} Environments)"
 
         if x != ['index']: title = f"Final {title}"
-        if top_n         : lines = [l._replace(color=get_color(colors,i)) for i,l in enumerate(lines[:top_n]) ]
+        if top_n         : lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[:top_n]) ]
 
         self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, 0, 0, out)
 

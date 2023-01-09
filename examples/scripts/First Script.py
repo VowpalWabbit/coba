@@ -15,4 +15,4 @@ environments = cb.Environments.from_linear_synthetic(1000, n_action_features=0).
 result = cb.Experiment(environments,learners).run()
 
 #After evaluating can create a quick summary plot to get a sense of how the learners performed
-result.plot_learners(y='reward',err='se',xlim=(10,1000))
+result.plot_learners(y='reward',err='se',xlim=(10,None))
