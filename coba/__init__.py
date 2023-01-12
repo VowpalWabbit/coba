@@ -11,6 +11,8 @@ from coba.learners.vowpal import VowpalLearner, VowpalEpsilonLearner, VowpalSoft
 from coba.learners.vowpal import VowpalCoverLearner, VowpalRegcbLearner, VowpalSquarecbLearner, VowpalOffPolicyLearner
 from coba.learners.linucb import LinUCBLearner
 
+from coba.exceptions import CobaException
+
 from coba.backports import version, PackageNotFoundError
 
 try:
@@ -20,6 +22,7 @@ except PackageNotFoundError: #pragma: no cover
     __version__ = "0.0.0"
 
 __all__ = [
+    "CobaException",
     "CobaContext",
     "Environments",
     "Experiment",

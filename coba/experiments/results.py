@@ -934,7 +934,7 @@ class Result:
         span  : int = None,
         err   : Union[Literal['se','sd','bs'], None, PointAndInterval] = None,
         labels: Sequence[str] = None,
-        colors: Sequence[Union[str,int]] = None,
+        colors: Union[int,Sequence[Union[str,int]]] = None,
         xlim  : Tuple[Optional[Number],Optional[Number]] = None,
         ylim  : Tuple[Optional[Number],Optional[Number]] = None,
         xticks: bool = True,
@@ -961,7 +961,7 @@ class Result:
             ylim: Define the y-axis limits to plot. If `None` the y-axis limits will be inferred.
             xticks: Whether the x-axis labels should be drawn.
             yticks: Whether the y-axis labels should be drawn.
-            top_n: Only plot the top_n learners. If `None` all learners will be plotted.
+            top_n: Only plot the top_n learners. If `None` all learners will be plotted. If negative the bottom will be plotted.
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
@@ -970,7 +970,6 @@ class Result:
         ylim = ylim or [None,None]
 
         if isinstance(ids,int): ids = [ids]
-        if isinstance(colors,int): colors = [colors]
         if isinstance(labels,str): labels = [labels]
         if isinstance(x,str): x = [x]
 
@@ -987,21 +986,30 @@ class Result:
 
         style = "-" if x == ['index'] else "."
 
-        def get_color(colors:Sequence[Union[str,int]], i:int):
-            return i if not colors else i+max(colors) if isinstance(colors[0],int) else colors[i] if i < len(colors) else i
-        
-        def get_label(labels:Sequence[str], i:int):
-            return labels[i] if labels and i < len(labels) else self.learners[lrn_id]['full_name']
+        def get_color(colors:Union[None,Sequence[Union[str,int]]], i:int):
+            try:
+                return colors[i] if colors else i
+            except IndexError:
+                return i+max(colors) if isinstance(colors[0],(int,float)) else i
+            except TypeError:
+                return i+colors
+
+        def get_label(labels:Sequence[str], i:int, lrn_id:int=None):
+            try:
+                return labels[i] if labels else self.learners[lrn_id]['full_name']
+            except:
+                return self.learners[lrn_id]['full_name']
 
         for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
             lrn_rows = list(lrn_rows)
             XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
             color    = get_color(colors,i)
-            label    = get_label(labels,i)
+            label    = get_label(labels,i,lrn_id)
             lines.append(Points(*zip(*XYE), color, 1, label, style))
 
         lines  = sorted(lines, key=lambda line: line[1][-1], reverse=True)
         labels = [l.label for l in lines]
+        colors = [l.color for l in lines]
         xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
         ylabel = y.capitalize().replace("_pct"," Percent")
 
@@ -1009,7 +1017,11 @@ class Result:
         title = title + f" ({len(lrn_rows) if x==['index'] else len(XYE)} Environments)"
 
         if x != ['index']: title = f"Final {title}"
-        if top_n         : lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[:top_n]) ]
+
+        if top_n:
+            if abs(top_n) > len(lines): top_n = len(lines)*abs(top_n)/top_n
+            if top_n > 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[:top_n],0    ) ]
+            if top_n < 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[top_n:],top_n) ]
 
         self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, 0, 0, out)
 

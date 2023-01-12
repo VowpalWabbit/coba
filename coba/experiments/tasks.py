@@ -83,7 +83,7 @@ class SimpleEvaluation(EvaluationTask):
         """
 
     @overload
-    def __init__(self, record: Sequence[Literal['reward','rank','regret','time','prob']] = ['reward']) -> None:
+    def __init__(self, record: Sequence[Literal['reward','rank','regret','time','prob']] = ['reward'], only:Literal['pred','learn']=None) -> None:
         ...
         """
         Args:
@@ -92,15 +92,16 @@ class SimpleEvaluation(EvaluationTask):
 
     def __init__(self, *args, **kwargs) -> None:
 
-        is_old_interface = (len(args) > 1 and isinstance(args[1],bool)) or (len(kwargs) > 0 and 'record' not in kwargs)
+        is_old_interface = (len(args) > 1 and isinstance(args[1],bool)) or (kwargs.keys() & {'reward_metrics','time_metrics','probability'})
 
         if not is_old_interface:
-            if not args and not kwargs: args = [['reward']]
+            if not args and 'record' not in kwargs: args = [['reward']]
             record = args[0] if args else kwargs['record']
             if isinstance(record,str): record = [record]
+            self._only = kwargs.get('only',None)
         else:
             record = []
-
+            self._only = None
             if 'reward_metrics' in kwargs:
                 args = [kwargs['reward_metrics']]
             if 'time_metrics' in kwargs:
@@ -147,6 +148,8 @@ class SimpleEvaluation(EvaluationTask):
 
         learning_info.clear()
 
+        only = self._only
+
         for interaction in interactions:
 
             interaction = interaction.copy()
@@ -159,8 +162,8 @@ class SimpleEvaluation(EvaluationTask):
             is_off_policy_learn = 'action' in interaction and 'reward' in interaction
             is_on_policy_learn  = is_on_policy_eval and not is_off_policy_learn
 
-            is_predict = is_on_policy_eval
-            is_learn   = is_off_policy_learn or is_on_policy_learn
+            is_predict = is_on_policy_eval and only != 'learn'
+            is_learn   = (is_off_policy_learn or is_on_policy_learn) and only != 'pred'
 
             if is_predict:
                 actions = interaction.pop('actions')
@@ -204,6 +207,11 @@ class SimpleEvaluation(EvaluationTask):
                 if record_time: out['learn_time'] = learn_time
 
             if interaction:
+                interaction.pop("actions",None)
+                interaction.pop("rewards",None)
+                interaction.pop("action",None)
+                interaction.pop("reward",None)
+                interaction.pop("probability",None)
                 out.update(interaction)
 
             if learning_info:

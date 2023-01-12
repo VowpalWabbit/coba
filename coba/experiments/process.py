@@ -3,7 +3,7 @@ from itertools import islice
 from collections import defaultdict, Counter
 from typing import Iterable, Sequence, Any, Optional, Union, Tuple
 
-from coba.pipes import Source, Filter, SourceFilters, Pipes
+from coba.pipes import Source, Filter, SourceFilters
 from coba.learners import Learner
 from coba.contexts import CobaContext
 from coba.environments import Environment, Finalize, BatchSafe, Chunk
@@ -160,7 +160,8 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
                     if item.env and item.lrn and item.env_id not in empty_envs:
 
-                        interactions = peek_first(item.env.read())[1]
+                        with CobaContext.logger.time(f"Peeking at Environment {item.env_id}..."):
+                            interactions = peek_first(item.env.read())[1]
 
                         if not interactions: 
                             CobaContext.logger.log(f"Environment {item.env_id} has nothing to evaluate (this is likely due to having too few interactions).")

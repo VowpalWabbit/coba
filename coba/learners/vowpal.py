@@ -349,7 +349,7 @@ class VowpalEpsilonLearner(VowpalLearner):
 
         Args:
             epsilon: The probability that we will explore instead of exploit.
-            features: A list of namespaces and interactions  to use when learning reward functions.
+            features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
@@ -379,7 +379,7 @@ class VowpalSoftmaxLearner(VowpalLearner):
         Args:
             softmax: An exploration parameter with 0 indicating predictions should be completely random
                 and infinity indicating that predictions should be greedy. For more information see `lambda`__.
-            features: A list of namespaces and interactions  to use when learning reward functions.
+            features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary randomness.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
@@ -410,7 +410,7 @@ class VowpalBagLearner(VowpalLearner):
             bag: This value determines the number of policies which will be learned and must be greater
                 than 0. Each policy is trained using bootstrap aggregation, making each policy unique. During
                 prediction a random policy will be selected according to a uniform distribution and followed.
-            features: A list of namespaces and interactions  to use when learning reward functions.
+            features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
@@ -444,7 +444,7 @@ class VowpalCoverLearner(VowpalLearner):
 
         Args:
             cover: The number of policies which will be learned (must be greater than 0).
-            features: A list of namespaces and interactions  to use when learning reward functions.
+            features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
@@ -479,7 +479,7 @@ class VowpalRegcbLearner(VowpalLearner):
             mode: Indicates whether exploration should only predict the optimal upper bound action or
                 should use an elimination technique to remove actions that no longer seem plausible
                 and pick randomly from the remaining actions.
-            features: A list of namespaces and interactions  to use when learning reward functions.
+            features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
@@ -551,7 +551,7 @@ class VowpalOffPolicyLearner(VowpalLearner):
         """Instantiate a VowpalOffPolicyLearner.
 
         Args:
-            features: A list of namespaces and interactions  to use when learning reward functions.
+            features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
         """
 
