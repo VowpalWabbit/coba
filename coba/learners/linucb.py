@@ -66,7 +66,7 @@ class LinUCBLearner(Learner):
         if not context:
             self._X_encoder = InteractionsEncoder(list(set(filter(None,[ f.replace('x','') if isinstance(f,str) else f for f in self._X ]))))
 
-        context = list(Flatten().filter([list(context)]))[0] if context else []
+        context = context or []
         features: np.ndarray = np.array([self._X_encoder.encode(x=context,a=action) for action in actions]).T
 
         if(self._A_inv is None):
@@ -85,7 +85,7 @@ class LinUCBLearner(Learner):
 
         import numpy as np
 
-        action = actions[0]
+        action = actions[action]
 
         if isinstance(action, dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this algorithm.")
@@ -93,7 +93,7 @@ class LinUCBLearner(Learner):
         if not context:
             self._X_encoder = InteractionsEncoder(list(set(filter(None,[ f.replace('x','') if isinstance(f,str) else f for f in self._X ]))))
 
-        context = list(Flatten().filter([list(context)]))[0] if context else []
+        context = context or []
         features: np.ndarray = np.array(self._X_encoder.encode(x=context,a=action)).T
 
         if(self._A_inv is None):

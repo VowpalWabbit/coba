@@ -44,13 +44,19 @@ class LinUCBLearner_Tests(unittest.TestCase):
 
     def test_learn_something(self):
 
-        learner = LinUCBLearner(alpha=0.2)
-        learner.learn([1,2,3], [1,1,1], 1, 1, 1/3)
+        learner = LinUCBLearner(alpha=0.2, features='a')
+        
+        for _ in range(30):
+            learner.learn([1,2,3], [(1,0,0),(0,1,0),(0,0,1)], 0, 1/4, 1/3)
+            learner.learn([1,2,3], [(1,0,0),(0,1,0),(0,0,1)], 1, 4/4, 1/3)
+            learner.learn([1,2,3], [(1,0,0),(0,1,0),(0,0,1)], 2, 3/4, 1/3)
 
-        self.assertEqual(learner._theta.shape, (5,))
-        self.assertEqual(learner._A_inv.shape, (5,5))
-        self.assertTrue(not (learner._theta == 0).any())
-        self.assertTrue(not (learner._A_inv == 0).any())
+        self.assertEqual(learner._theta.shape, (3,))
+        self.assertEqual(learner._A_inv.shape, (3,3))
+
+        self.assertAlmostEqual(learner._theta[0], 1/4, places=1)
+        self.assertAlmostEqual(learner._theta[1], 4/4, places=1)
+        self.assertAlmostEqual(learner._theta[2], 3/4, places=1)
 
     def test_sparse_exception(self):
         learner = LinUCBLearner(alpha=0.2)
