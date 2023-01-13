@@ -1,7 +1,11 @@
 from operator import eq
 from collections import abc
 from abc import ABC, abstractmethod
-from typing import Sequence, Iterator, Iterable, Any
+from typing import Sequence, Iterator, Iterable, Any, NamedTuple
+
+class NamedValue(NamedTuple):
+    name: str
+    value: Any
 
 class Dense(ABC):
     __slots__=()

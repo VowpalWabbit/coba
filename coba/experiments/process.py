@@ -131,6 +131,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
         chunk = list(chunk)
         empty_envs = set()
 
+        # this Finalize() triggers Repr() to run and remove the string names from the input
         finalizer = BatchSafe(Finalize())
 
         if not chunk: return

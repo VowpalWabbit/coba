@@ -9,7 +9,7 @@ from typing import Iterable, Any, Sequence, Mapping, Optional, Union
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
 from coba.utilities import peek_first
-from coba.primitives import Sparse,Dense
+from coba.primitives import Sparse,Dense,NamedValue
 
 from coba.pipes.primitives import Filter
 
@@ -186,7 +186,7 @@ class JsonDecode(Filter[str, Any]):
 class Flatten(Filter[Iterable[Any], Iterable[Any]]):
     """A filter which flattens rows in table shaped data."""
 
-    def filter(self, data: Iterable[Any]) -> Iterable[Any]:
+    def filter(self, data: Iterable[Any], names: Optional[Iterable[str]] = None) -> Iterable[Any]:
 
         first, data = peek_first(data)
 
@@ -213,9 +213,15 @@ class Flatten(Filter[Iterable[Any], Iterable[Any]]):
             any_flattable = False
 
         def flatter_list(row):
-            for f,r in zip(flattable,row):
-                if f: yield from r 
-                else: yield r
+            if names:
+                for f,r,name in zip(flattable,row,names):
+                    if f:
+                        yield from map(lambda x: NamedValue(f"{name}_{x[0]}",x[1]), enumerate(r))
+                    else: yield NamedValue(name, r)
+            else:
+                for f,r in zip(flattable,row):
+                    if f: yield from r
+                    else: yield r
 
         if not any_flattable or first_type is None:
             yield from data

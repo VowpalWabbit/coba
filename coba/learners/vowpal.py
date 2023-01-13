@@ -1,4 +1,5 @@
 import re
+import json
 
 from sys import platform
 from itertools import repeat, compress
@@ -7,7 +8,7 @@ from coba.backports import Literal
 
 from coba.exceptions import CobaException
 from coba.utilities import PackageChecker
-from coba.primitives import Sparse, Context, Action, Actions
+from coba.primitives import NamedValue, Sparse, Context, Action, Actions
 
 from coba.learners.primitives import Learner, Probs
 
@@ -322,9 +323,23 @@ class VowpalLearner(Learner):
         labels  = self._labels(actions, index, reward, probability)
         label   = labels[index]
 
+        if context:
+            is_named = type(context[0]) == NamedValue
+        else:
+            is_named = False
+
         context = {'x':context}
         adfs    = None if not self._adf else [{'a':action} for action in actions]
 
+        with open('online_input_log.json', 'a') as f:
+            row_json = json.dumps({'context':context, 'adfs':adfs, 'labels':labels, 'label':label})
+            print(row_json, file=f)
+
+        # remove names before learning - sign that this doesn't belong here
+        if is_named:
+            for ns, ns_context in context.items():
+                context[ns] = list(map(lambda x: x[1], ns_context))
+        
         if self._adf:
             self._vw.learn(self._vw.make_examples(context, adfs, labels))
         else:

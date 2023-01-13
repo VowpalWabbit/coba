@@ -230,6 +230,7 @@ class SupervisedSimulation(SimulatedEnvironment):
                 action_indexes = dict(zip(actions,count()))
                 reward         = lambda label: MulticlassReward(n_actions, action_indexes[label])
 
+        # need all this info for the log
         if first_row_type == 0:
             for row in rows:
                 yield {'context':row.feats,'actions':actions,'rewards':reward(row.label)}

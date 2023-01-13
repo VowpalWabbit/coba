@@ -513,7 +513,13 @@ class EncodeCatRows(Filter[Iterable[Union[Any,Dense,Sparse]], Iterable[Union[Any
             rows = rows
 
         if self._tipe =='onehot':
-            rows = Flatten().filter(rows)
+            if isinstance(first, Dense) and hasattr(first, "headers"): # do all dense rows have headers?
+                names_cols = [0] * len(first.headers)
+                for key, val in first.headers.items():
+                    names_cols[val] = key
+                rows = Flatten().filter(rows, names_cols[:-1])
+            else:
+                rows = Flatten().filter(rows)
 
         return rows
 
