@@ -822,6 +822,27 @@ class Cycle_Tests(unittest.TestCase):
         self.assertEqual([1,4], cyc_interactions[1]['rewards'])
         self.assertEqual([1,5], cyc_interactions[2]['rewards'])
 
+    def test_after_10_categoricals(self):
+
+        interactions = [
+            SimulatedInteraction((7,2), ['a','b'], [1,3]),
+            SimulatedInteraction((1,9), ['a','b'], [1,4]),
+            SimulatedInteraction((8,3), ['a','b'], [1,5])
+        ]
+
+        mem_interactions = interactions
+        cyc_interactions = list(Cycle(after=10).filter(mem_interactions))
+
+        self.assertEqual([1,3], mem_interactions[0]['rewards'])
+        self.assertEqual([1,4], mem_interactions[1]['rewards'])
+        self.assertEqual([1,5], mem_interactions[2]['rewards'])
+
+        self.assertEqual(3, len(cyc_interactions))
+
+        self.assertEqual([1,3], cyc_interactions[0]['rewards'])
+        self.assertEqual([1,4], cyc_interactions[1]['rewards'])
+        self.assertEqual([1,5], cyc_interactions[2]['rewards'])
+
     def test_with_action_features(self):
 
         interactions = [

@@ -221,7 +221,7 @@ class VowpalLearner(Learner):
         for k,v in kwargs.items():
             if v is not False:
                 k = ("-" if len(k)==1 else "--") + k
-                options.append(k if (v is None or v == True) else f"{k} {v}")
+                options.append(k if (v is None or v is True) else f"{k} {v}")
 
         return " ".join(options)
 

@@ -19,7 +19,7 @@ from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first
 from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward
-from coba.primitives import Feedback, BatchFeedback
+from coba.primitives import Feedback, BatchFeedback, Categorical
 from coba.learners   import Learner, SafeLearner
 
 from coba.environments.primitives import EnvironmentFilter, Interaction
@@ -481,23 +481,26 @@ class Cycle(EnvironmentFilter):
         first, with_cycle_interactions = peek_first(with_cycle_interactions)
 
         if with_cycle_interactions:
-            action_set          = set(first['actions'])
-            n_actions           = len(action_set)
-            featureless_actions = [tuple([0]*n+[1]+[0]*(n_actions-n-1)) for n in range(n_actions)]
 
-            is_discrete = first['actions'] and 0 < len(first['actions']) and len(first['actions']) < float('inf')
+            action_set = set(first['actions'])
+            n_actions  = len(action_set)
 
-            if not is_discrete or len(set(action_set) & set(featureless_actions)) != len(action_set):
+            onehot_actions  = {tuple([0]*n+[1]+[0]*(n_actions-n-1)) for n in range(n_actions)}
+            is_discrete     = 0 < n_actions and n_actions < float('inf')
+            is_onehots      = action_set == onehot_actions
+            is_categoricals = all([isinstance(a,str) for a in action_set])
+
+            if not is_discrete or (not is_onehots and not is_categoricals):
                 warnings.warn("Cycle only works for discrete environments without action features. It will be ignored in this case.")
                 yield from with_cycle_interactions
             else:
                 for interaction in with_cycle_interactions:
                     rewards = deque(interaction['rewards'])
                     rewards.rotate(1)
-                    
+
                     new = interaction.copy()
                     new['rewards'] = SequenceReward(list(rewards))
-                    
+
                     yield new
 
 class Flatten(EnvironmentFilter):

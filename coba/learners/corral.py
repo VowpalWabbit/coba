@@ -26,7 +26,7 @@ class CorralLearner(Learner):
         learners: Sequence[Learner],
         eta     : float = 0.075,
         T       : float = math.inf,
-        mode    : Literal["importance","rejection","off-policy"] ="importance",
+        mode    : Literal["importance","off-policy"] ="importance",
         seed    : int = 1) -> None:
         """Instantiate a CorralLearner.
 
