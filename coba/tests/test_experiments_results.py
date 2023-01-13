@@ -915,6 +915,52 @@ class Result_Tests(unittest.TestCase):
         with self.assertRaises(Exception):
             Result.from_file("abcd")
 
+    def test_from_logged_envs(self):
+        class Logged1:
+            @property
+            def params(self):
+                return {"learner":{"family":"lrn1", "a":1}, "source":1, "logged":True, "scale":True }
+            def read(self):
+                yield {"reward": 1}
+                yield {"reward": 2}
+
+        class Logged2:
+            @property
+            def params(self):
+                return {"learner":{"family":"lrn1", "a":1}, "source":2, "logged":True, "scale":True, "batched": 2}
+            def read(self):
+                yield {"reward": [1,5]}
+                yield {"reward": [2,6]}
+
+        class Logged3:
+            @property
+            def params(self):
+                return {"learner":{"family":"lrn2", "a":2}, "source":1, "logged":True, "scale":True}
+            def read(self):
+                yield {"reward": 5}
+                yield {"reward": 6}
+
+        expected_envs = [
+            {"environment_id":0, "source":1, "logged":True, "scale":True, "batched": None},
+            {"environment_id":1, "source":2, "logged":True, "scale":True, "batched": 2   },
+        ]
+
+        expected_lrns = [
+            {"learner_id":0, "family":"lrn1", "a":1},
+            {"learner_id":1, "family":"lrn2", "a":2},
+        ]
+
+        expected_ints = [
+            {'environment_id': 0, 'learner_id': 0, 'reward': [1,2] },
+            {'environment_id': 0, 'learner_id': 1, 'reward': [5,6] },
+            {'environment_id': 1, 'learner_id': 0, 'reward': [3,4] },
+        ]
+
+        res = Result.from_logged_envs([Logged1(),Logged2(),Logged3()])
+        self.assertCountEqual(res.environments.to_dicts(), expected_envs)
+        self.assertCountEqual(res.learners.to_dicts()    , expected_lrns)
+        self.assertCountEqual(res.interactions.to_dicts(), expected_ints)
+
     def test_filter_fin_sans_n_interactions(self):
         sims = {1:{}, 2:{}}
         lrns = {1:{}, 2:{}}
@@ -1111,7 +1157,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_one_environment_all_default(self):
 
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {(0,1): {"_packed":{"reward":[1,2]}},(0,2):{"_packed":{"reward":[1,2]}}}
 
         plotter = TestPlotter()
@@ -1131,9 +1177,31 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(1, len(plotter.plot_calls))
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
+    def test_plot_learners_one_environment_lrn_params(self):
+
+        lrns = {1:{'family':'learner_1','i':1,'j':2}, 2:{ 'family':'learner_2','t':2} }
+        ints = {(0,1): {"_packed":{"reward":[1,2]}},(0,2):{"_packed":{"reward":[1,2]}}}
+
+        plotter = TestPlotter()
+        result = Result({}, lrns, ints)
+
+        result.set_plotter(plotter)
+        result.plot_learners()
+
+        expected_lines = [
+            ((1,2),(1,1.5),(None,None),(None,None),0,1,'learner_1(i=1,j=2)','-'),
+            ((1,2),(1,1.5),(None,None),(None,None),1,1,'learner_2(t=2)','-')
+        ]
+
+        self.assertEqual("Progressive Reward (1 Environments)", plotter.plot_calls[0][2])
+        self.assertEqual("Interaction", plotter.plot_calls[0][3])
+
+        self.assertEqual(1, len(plotter.plot_calls))
+        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+
     def test_plot_learners_two_environments_all_default(self):
 
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1161,7 +1229,7 @@ class Result_Tests(unittest.TestCase):
     def test_plot_learners_one_environment_x_not_index(self):
 
         envs = {0:{}}
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {(0,1): {"_packed":{"reward":[1,2]}},(0,2):{"_packed":{"reward":[1,2]}}}
 
         plotter = TestPlotter()
@@ -1183,7 +1251,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_two_environments_err_sd(self):
 
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1210,7 +1278,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2,3]}},
             (1,1): {"_packed":{"reward":[2,3]}},
@@ -1238,7 +1306,7 @@ class Result_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2,3]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1264,7 +1332,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_filename(self):
 
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1283,7 +1351,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_ax(self):
 
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1302,7 +1370,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_learners_xlim_ylim(self):
 
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1321,7 +1389,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual((2,3), plotter.plot_calls[0][6])
 
     def test_plot_learners_labels_int_colors(self):
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1344,7 +1412,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_labels_no_colors(self):
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1367,7 +1435,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
     
     def test_plot_learners_labels_one_color(self):
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1390,7 +1458,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_bad_labels(self):
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1413,7 +1481,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_one_int_color(self):
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1436,7 +1504,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_one_list_color(self):
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1459,7 +1527,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_id(self):
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[1,2]}},
@@ -1481,7 +1549,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_top_n_positive(self):
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'}, 3:{ 'full_name':'learner_3'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'}, 3:{ 'family':'learner_3'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[3,4]}},
@@ -1506,7 +1574,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(expected_lines, plotter.plot_calls[0][1])
 
     def test_plot_learners_top_n_negative(self):
-        lrns = {1:{'full_name':'learner_1'}, 2:{ 'full_name':'learner_2'}, 3:{ 'full_name':'learner_3'} }
+        lrns = {1:{'family':'learner_1'}, 2:{ 'family':'learner_2'}, 3:{ 'family':'learner_3'} }
         ints = {
             (0,1): {"_packed":{"reward":[1,2]}},
             (0,2): {"_packed":{"reward":[3,4]}},
@@ -1549,7 +1617,7 @@ class Result_Tests(unittest.TestCase):
 
     def test_plot_contrast_one_environment_all_default(self):
 
-        lrns = {1:{'full_name':'learner_1'}, 2:{'full_name':'learner_2'} }
+        lrns = {1:{'family':'learner_1'}, 2:{'family':'learner_2'} }
         ints = {(0,1): {"_packed":{"reward":[0,3,9]}},(0,2):{"_packed":{"reward":[1,2,6]}}}
 
         plotter = TestPlotter()
@@ -1574,7 +1642,7 @@ class Result_Tests(unittest.TestCase):
     def test_plot_contrast_one_environment_env_not_index(self):
 
         envs = {0:{'a':1}, 1:{'a':2}, 2:{'a':3}}
-        lrns = {1:{'full_name':'learner_1'},2:{'full_name':'learner_2'}}
+        lrns = {1:{'family':'learner_1'},2:{'family':'learner_2'}}
         ints = {
             (0,1): {"_packed":{"reward":[0,3,12]}},
             (0,2): {"_packed":{"reward":[1,2,6 ]}},
@@ -1604,7 +1672,7 @@ class Result_Tests(unittest.TestCase):
     def test_plot_scat_contrast_one_environment_env_index(self):
 
         envs = {0:{'a':1}, 1:{'a':2}, 2:{'a':3}}
-        lrns = {1:{'full_name':'learner_1'},2:{'full_name':'learner_2'}}
+        lrns = {1:{'family':'learner_1'},2:{'family':'learner_2'}}
         ints = {
             (0,1): {"_packed":{"reward":[0,3,12]}},
             (0,2): {"_packed":{"reward":[1,2,6 ]}},

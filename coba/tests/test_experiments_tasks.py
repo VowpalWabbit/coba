@@ -85,7 +85,7 @@ class DummyIglLearner(Learner):
 
 class SimpleLearnerInfo_Tests(unittest.TestCase):
     def test_simple(self):
-        self.assertEqual({"full_name":"Recording", "family":"Recording"}, SimpleLearnerInfo().process(RecordingLearner()))
+        self.assertEqual({"family":"Recording"}, SimpleLearnerInfo().process(RecordingLearner()))
 
 class SimpleEnvironmentInfo_Tests(unittest.TestCase):
 

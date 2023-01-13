@@ -5,12 +5,13 @@ import collections.abc
 from copy import copy
 from pathlib import Path
 from numbers import Number
-from operator import truediv, sub, gt
+from operator import truediv, sub, gt, itemgetter
 from abc import abstractmethod
 from itertools import chain, repeat, accumulate, groupby, count
 from typing import Any, Dict, List, Set, Tuple, Optional, Sequence, Hashable, Iterable, Iterator, Union, Type, Callable, NamedTuple
 from coba.backports import Literal
 
+from coba.environments import Environment
 from coba.statistics import Mean, StandardDeviation, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval, PointAndInterval
 from coba.contexts import CobaContext
 from coba.exceptions import CobaException
@@ -698,6 +699,49 @@ class Result:
 
         return TransactionIO(filename).read()
 
+    @staticmethod
+    def from_logged_envs(environments: Sequence[Environment]):
+
+        environments = [e for e in environments if e.params.get('logged')]
+
+        envs_params = []
+        lrns_params = []
+
+        env_rows = {}
+        lrn_rows = {}
+        int_rows = {}
+
+        my_mean = lambda x: sum(x)/len(x)
+
+        for env in environments:
+            
+            is_batched = 'batched' in env.params
+            env_params  = dict(env.params)
+            lrn_params  = env_params.pop('learner')
+
+            try:
+                env_id = envs_params.index(env_params)
+            except:
+                env_id = len(envs_params)
+                envs_params.append(env_params)
+                env_rows[env_id] = env_params
+
+            try:
+                lrn_id = lrns_params.index(lrn_params)
+            except:
+                lrn_id = len(lrns_params)
+                lrns_params.append(lrn_params)
+                lrn_rows[lrn_id] = lrn_params
+
+            if is_batched:
+                results = {'reward': list(map(my_mean,map(itemgetter('reward'),env.read())))}
+            else:
+                results = {'reward': list(map(itemgetter('reward'),env.read())) }
+
+            int_rows[(env_id,lrn_id)]= results
+        
+        return Result(env_rows,lrn_rows,int_rows)
+        
     def __init__(self,
         env_rows: Dict[int           ,Dict[str,Any]] = {},
         lrn_rows: Dict[int           ,Dict[str,Any]] = {},
@@ -895,7 +939,7 @@ class Result:
                 (win if _x-xl>_y+yu else loss if _y-yl>_x+xu else tie).append((_x,_y,_xe,_ye))
 
         colors = (colors or []) + [0,1,2]
-        labels = (labels or []) + [self.learners[learner_id1]['full_name'], self.learners[learner_id2]['full_name']]
+        labels = (labels or []) + [self._full_name(learner_id1), self._full_name(learner_id2)]
 
         fmt = "-" if x == ['index'] else "."
 
@@ -996,9 +1040,9 @@ class Result:
 
         def get_label(labels:Sequence[str], i:int, lrn_id:int=None):
             try:
-                return labels[i] if labels else self.learners[lrn_id]['full_name']
+                return labels[i] if labels else self._full_name(lrn_id)
             except:
-                return self.learners[lrn_id]['full_name']
+                return self._full_name(lrn_id)
 
         for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
             lrn_rows = list(lrn_rows)
@@ -1024,6 +1068,15 @@ class Result:
             if top_n < 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[top_n:],top_n) ]
 
         self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, 0, 0, out)
+
+    def _full_name(self,lrn_id:int) -> str:
+        """A user-friendly name created from a learner's params for reporting purposes."""
+
+        values = self.learners[lrn_id]
+        family = values.get('family',values['learner_id'])
+        params = f"({','.join(f'{k}={v}' for k,v in values.items() if k not in ['family','learner_id'])})"
+
+        return family if params == '()' else family+params
 
     def __str__(self) -> str:
         return str({"Learners": len(self._learners), "Environments": len(self._environments), "Interactions": len(self._interactions) })

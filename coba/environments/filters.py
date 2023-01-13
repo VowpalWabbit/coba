@@ -1004,7 +1004,7 @@ class Logged(EnvironmentFilter):
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"learner": self._learner.params, "logged":True}
+        return {"learner": SafeLearner(self._learner).params, "logged":True}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 

@@ -224,8 +224,7 @@ class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""
 
     def process(self, item: Learner) -> Mapping[Any,Any]:
-        item = SafeLearner(item)
-        return {"full_name": item.full_name, **item.params}
+        return SafeLearner(item).params
 
 class SimpleEnvironmentInfo(EnvironmentTask):
     """Describe an Environment using its Environment and Filter parameters."""

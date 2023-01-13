@@ -155,7 +155,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_dicts()
 
         expected_learners     = [
-            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+            {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_environments = [
             {"environment_id":0, "type":'LambdaSimulation'}
@@ -189,7 +189,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_dicts()
 
         expected_learners     = [
-            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+            {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_environments = [
             {"environment_id":0, "type":'LambdaSimulation'}
@@ -222,7 +222,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_dicts()
 
         expected_learners     = [
-            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+            {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_environments = [
             {"environment_id":0, "type":'LambdaSimulation'},
@@ -255,7 +255,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_dicts()
 
         expected_learners     = [
-            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+            {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_environments = [
             {"environment_id":0, "type":'CategoricalActionEnv'},
@@ -277,8 +277,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         experiment = Experiment([env], [learner1, learner2])
 
         expected_learners     = [
-            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'},
-            {"learner_id":1, "family":"Modulo", "full_name":"Modulo(p=1)", "p":'1'}
+            {"learner_id":0, "family":"Modulo", "p":'0'},
+            {"learner_id":1, "family":"Modulo", "p":'1'}
         ]
         expected_environments = [
             {"environment_id":0, "type":'LambdaSimulation'},
@@ -311,7 +311,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_interactions = actual_result.interactions.to_dicts()
 
         expected_learners     = [
-            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+            {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_environments = [
             {"environment_id":0, "type":'LambdaSimulation'},
@@ -338,7 +338,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_interactions = actual_result.interactions.to_dicts()
 
         expected_learners     = [
-            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+            {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_environments = [
             {"environment_id":0, "type":'LambdaSimulation'},
@@ -375,7 +375,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_interactions = second_result.interactions.to_dicts()
 
         expected_learners     = [
-            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'}
+            {"learner_id":0, "family":"Modulo", "p":'0'}
         ]
         expected_environments = [
             {"environment_id":0, "type":'LambdaSimulation'},
@@ -404,7 +404,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_dicts()
 
         expected_learners     = [
-            {"learner_id":0, "family":"NoParamsLearner", "full_name":"NoParamsLearner" }
+            {"learner_id":0, "family":"NoParamsLearner"}
         ]
         expected_environments = [
             {"environment_id":0, "type":'NoParamsEnvironment'},
@@ -433,8 +433,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_dicts()
 
         expected_learners     = [
-            {"learner_id":0, "family":"Modulo", "full_name":"Modulo(p=0)", "p":'0'},
-            {"learner_id":1, "family":"Broken", "full_name":"Broken", "p":None    }
+            {"learner_id":0, "family":"Modulo", "p":'0'},
+            {"learner_id":1, "family":"Broken", "p":None    }
         ]
         expected_environments = [
             {"environment_id":0, "type":'LambdaSimulation'},
