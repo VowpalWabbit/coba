@@ -82,9 +82,9 @@ class Sparse(ABC):
         return dict(self.items())
 
 class Sparse_:
-    __slots__=()
+    __slots__=('_row')
     ##Instantiating classes which inherit from Sparse is moderately expensive due to the ABC checks.
-    ##Therefore we keep Dense around for public API checks but internally we use Sparse_ for inheritance.
+    ##Therefore we keep Sparse around for public API checks but internally we use Sparse_ for inheritance.
 
     def __getattr__(self, attr: str) -> Any:
         return getattr(self._row, attr)
