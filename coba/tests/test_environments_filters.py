@@ -2073,7 +2073,7 @@ class Logged_Tests(unittest.TestCase):
         learner = FixedLearner([1,0,0])
         logged  = Logged(learner)
         
-        self.assertEqual(logged.params,{"learner":learner.params})
+        self.assertEqual(logged.params,{"learner":learner.params,"logged":True})
 
 class Mutable_Tests(unittest.TestCase):
 

@@ -7,7 +7,7 @@ from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional,
 from coba.backports import Literal
 
 from coba                 import pipes
-from coba.contexts        import CobaContext, DiskCacher
+from coba.contexts        import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
 from coba.primitives      import Context, Action, HashableSparse
 from coba.random          import CobaRandom
 from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode
@@ -399,14 +399,14 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
                 path_envs   = Environments.from_save(path)
                 path_params = [e.params for e in path_envs]
                 self_params = [e.params for e in self     ]
-                
+
                 try:
-                    for param in path_params:
-                        self_params.pop(self_params.index(param))
+                    while path_params:
+                        self_params.pop(self_params.index(path_params.pop()))
                 except ValueError:
                     is_equal = False
                 else:
-                    is_equal = True
+                    is_equal = len(path_params) == len(self_params)
 
                 if is_equal:
                     return path_envs
@@ -421,9 +421,13 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
                     raise CobaException("The given save file appears to be corruptted. Please check it and delete if it is unusable.")
 
         if processes == 1:
+            CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()])
             Pipes.join(EnvironmentsToObjects(),ObjectsToZipMember(path)).write(self)
+            CobaContext.logger = CobaContext.logger.undecorate()
         else:
+            CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [NameLog(), StampLog()])
             Pipes.join(CobaMultiprocessor(EnvironmentsToObjects(),processes),ObjectsToZipMember(path)).write(self)
+            CobaContext.logger = CobaContext.logger.undecorate()
 
         return Environments.from_save(path)
 

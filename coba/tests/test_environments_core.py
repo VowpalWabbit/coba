@@ -4,7 +4,7 @@ import requests
 
 from pathlib import Path
 
-from coba.contexts import CobaContext, DiskCacher
+from coba.contexts import CobaContext, DiskCacher, NullLogger
 from coba.pipes import DiskSource
 from coba.exceptions import CobaException
 from coba.primitives import L1Reward, Batch
@@ -44,6 +44,7 @@ class MockResponse:
 class Environments_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
+        CobaContext.logger = NullLogger()
         if Path("coba/tests/.temp/test.zip").exists(): Path("coba/tests/.temp/test.zip").unlink()
 
     def tearDown(self) -> None:
@@ -89,7 +90,7 @@ class Environments_Tests(unittest.TestCase):
             Environments(input_environments_1).save("coba/tests/.temp/test.zip")
             Environments(input_environments_2).save("coba/tests/.temp/test.zip")
 
-    def test_save_save_change_overwrite(self):
+    def test_save_save_change_overwrite1(self):
 
         input_environments_1 = [TestEnvironment2(), TestEnvironment2()]
         input_environments_2 = [TestEnvironment1(3), TestEnvironment1(2)]
@@ -98,6 +99,24 @@ class Environments_Tests(unittest.TestCase):
         Environments(input_environments_2).save("coba/tests/.temp/test.zip",overwrite=True)
 
         output_environments = Environments.from_save("coba/tests/.temp/test.zip")
+
+        self.assertEqual(len(input_environments_2), len(output_environments))
+
+        for env_in,env_out in zip(input_environments_2, output_environments):
+            self.assertEqual(env_in.params,env_out.params)
+            self.assertEqual(list(env_in.read()), list(env_out.read()))
+
+    def test_save_save_change_overwrite2(self):
+
+        input_environments_1 = [TestEnvironment1(2)]
+        input_environments_2 = [TestEnvironment1(2), TestEnvironment2()]
+
+        Environments(input_environments_1).save("coba/tests/.temp/test.zip")
+        Environments(input_environments_2).save("coba/tests/.temp/test.zip",overwrite=True)
+
+        output_environments = Environments.from_save("coba/tests/.temp/test.zip")
+
+        self.assertEqual(len(input_environments_2), len(output_environments))
 
         for env_in,env_out in zip(input_environments_2, output_environments):
             self.assertEqual(env_in.params,env_out.params)
