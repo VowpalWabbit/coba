@@ -734,9 +734,9 @@ class Result:
                 lrn_rows[lrn_id] = lrn_params
 
             if is_batched:
-                results = {'reward': list(map(my_mean,map(itemgetter('reward'),env.read())))}
+                results = {'_packed':{'reward': list(map(my_mean,map(itemgetter('reward'),env.read())))}}
             else:
-                results = {'reward': list(map(itemgetter('reward'),env.read())) }
+                results = {'_packed':{'reward': list(map(itemgetter('reward'),env.read())) }}
 
             int_rows[(env_id,lrn_id)]= results
         

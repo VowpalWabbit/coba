@@ -951,9 +951,12 @@ class Result_Tests(unittest.TestCase):
         ]
 
         expected_ints = [
-            {'environment_id': 0, 'learner_id': 0, 'reward': [1,2] },
-            {'environment_id': 0, 'learner_id': 1, 'reward': [5,6] },
-            {'environment_id': 1, 'learner_id': 0, 'reward': [3,4] },
+            {'environment_id': 0, 'learner_id': 0, 'index':1, 'reward': 1 },
+            {'environment_id': 0, 'learner_id': 0, 'index':2, 'reward': 2 },
+            {'environment_id': 0, 'learner_id': 1, 'index':1, 'reward': 5 },
+            {'environment_id': 0, 'learner_id': 1, 'index':2, 'reward': 6 },
+            {'environment_id': 1, 'learner_id': 0, 'index':1, 'reward': 3 },
+            {'environment_id': 1, 'learner_id': 0, 'index':2, 'reward': 4 },
         ]
 
         res = Result.from_logged_envs([Logged1(),Logged2(),Logged3()])
