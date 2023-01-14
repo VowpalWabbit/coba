@@ -676,7 +676,7 @@ class TransformToXYE:
                 points = [YE(z1)+YE(z2) for _,z in zip(X,Z) for z1,z2 in [tuple(zip(*z))]]
         else:
             XZ = collections.defaultdict(list)
-            make_x = lambda env: env[x[0]] if len(x) == 1 else tuple(env[k] for k in x)
+            make_x = lambda env: env.get(x[0]) if len(x) == 1 else tuple(env.get(k) for k in x)
             for row,I in zip(rows,iters):
                 XZ[str(make_x(envs[row["environment_id"]]))].append(list(I)[-1])
 

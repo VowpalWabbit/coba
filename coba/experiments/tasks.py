@@ -83,48 +83,50 @@ class SimpleEvaluation(EvaluationTask):
         """
 
     @overload
-    def __init__(self, record: Sequence[Literal['reward','rank','regret','time','prob']] = ['reward'], only:Literal['pred','learn']=None) -> None:
+    def __init__(self, 
+        record: Sequence[Literal['reward','rank','regret','time','probability','action']] = ['reward'], 
+        learn: bool = True,
+        predict: bool = True) -> None:
         ...
         """
         Args:
             record: The datapoints to record for each interaction.
+            learn: Indicates if learning should occur during the evaluation process.
+            predict: Indicates if predictions should occur during the evaluation process.
         """
 
     def __init__(self, *args, **kwargs) -> None:
 
         is_old_interface = (len(args) > 1 and isinstance(args[1],bool)) or (kwargs.keys() & {'reward_metrics','time_metrics','probability'})
+        is_new_interface = not is_old_interface
 
-        if not is_old_interface:
-            if not args and 'record' not in kwargs: args = [['reward']]
-            record = args[0] if args else kwargs['record']
-            if isinstance(record,str): record = [record]
-            self._only = kwargs.get('only',None)
+        if is_new_interface:
+            self._record  = args[0] if args                 else kwargs.get('record' ,['reward'])
+            self._learn   = args[1] if args and len(args)>1 else kwargs.get('learn'  ,True)
+            self._predict = args[2] if args and len(args)>2 else kwargs.get('predict',True)
+
         else:
-            record = []
-            self._only = None
-            if 'reward_metrics' in kwargs:
-                args = [kwargs['reward_metrics']]
-            if 'time_metrics' in kwargs:
-                args = ["reward"] if not args else list(args)
-                args.append(kwargs['time_metrics'])
-            if 'probability' in kwargs:
-                if len(args) == 1: args = list(args) + [False]
-                if len(args) == 0: args = ["reward", False]
-                args.append(kwargs['probability']) 
+            self._learn   = True
+            self._predict = True
+            self._record  = []
 
-            if len(args) > 0 and     isinstance(args[0],str): record.append(args[0])
-            if len(args) > 0 and not isinstance(args[0],str): record.extend(args[0])
-            if len(args) > 1 and args[1]                    : record.append("time")
-            if len(args) > 2 and args[2]                    : record.append("prob")
+            reward_metrics = args[0] if args                 else kwargs.get('reward_metrics', ['reward'])
+            time_metrics   = args[1] if args and len(args)>1 else kwargs.get('time_metrics'  , False)
+            probability    = args[2] if args and len(args)>2 else kwargs.get('probability'   , False)
 
-        self._record = record
+            if isinstance(reward_metrics,str): reward_metrics = [reward_metrics]
+
+            if reward_metrics: self._record += reward_metrics
+            if time_metrics  : self._record += ['time']
+            if probability   : self._record += ['probability']
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
 
         learner = SafeLearner(learner)
 
-        record_prob = 'prob' in self._record
-        record_time = 'time' in self._record
+        record_prob   = 'probability' in self._record
+        record_time   = 'time'        in self._record
+        record_action = 'action'      in self._record
 
         first, interactions = peek_first(interactions)
 
@@ -148,35 +150,43 @@ class SimpleEvaluation(EvaluationTask):
 
         learning_info.clear()
 
-        only = self._only
+        should_pred  = self._predict
+        should_learn = self._learn
 
         for interaction in interactions:
 
             interaction = interaction.copy()
 
+            is_on_policy_eval   = 'actions' in interaction and 'rewards' in interaction
+            is_off_policy_learn = 'action'  in interaction and ('reward' in interaction or 'feedback' in interaction)
+            is_on_policy_learn  = is_on_policy_eval and not is_off_policy_learn
+
+            is_predict = should_pred and is_on_policy_eval
+            is_learn   = should_learn and (is_off_policy_learn or is_on_policy_learn)
+
+            
+
             out     = {}
             context = interaction.pop('context')
             batched = isinstance(context, Batch)
 
-            is_on_policy_eval   = 'actions' in interaction and 'rewards' in interaction
-            is_off_policy_learn = 'action' in interaction and 'reward' in interaction
-            is_on_policy_learn  = is_on_policy_eval and not is_off_policy_learn
-
-            is_predict = is_on_policy_eval and only != 'learn'
-            is_learn   = (is_off_policy_learn or is_on_policy_learn) and only != 'pred'
-
             if is_predict:
-                actions = interaction.pop('actions')
-                rewards = interaction.pop('rewards')
+
+                actions   = interaction.pop('actions')
+                rewards   = interaction.pop('rewards')
+                feedbacks = interaction.pop('feedbacks',None)
 
                 start_time       = time.time()
                 action,prob,info = predict(context, actions)
                 predict_time     = time.time()-start_time
 
-                reward = rewards.eval(action)
+                reward   = rewards.eval(action)
+                feedback = feedbacks.eval(action) if feedbacks else reward
 
-                if record_time: out['predict_time'] = predict_time
-                if record_prob: out['probability']  = prob
+                if record_time  : out['predict_time'] = predict_time
+                if record_prob  : out['probability']  = prob
+                if record_action: out['action']       = action
+                if feedbacks    : out['feedback']     = feedback
 
                 if not batched:
                     if calc_reward : out['reward'] = get_reward(reward)
@@ -187,21 +197,18 @@ class SimpleEvaluation(EvaluationTask):
                     if calc_regret : out['regret'] = mean(map(get_regret,reward,rewards))
                     if calc_rank   : out['rank'  ] = mean(map(get_rank  ,reward,rewards,len(actions)))
 
-                if 'feedbacks' in interaction:
-                    reward = interaction.pop('feedbacks').eval(action)
-                    out['feedback'] = reward
-
             if is_learn:
 
                 if is_off_policy_learn:
-                    actions = interaction.pop('actions',actions if is_predict else None)
-                    action  = interaction.pop('action')
-                    reward  = interaction.pop('reward')
-                    prob    = interaction.pop('probability',None)
-                    info    = {}
+                    actions  = interaction.pop('actions',actions if is_predict else None)
+                    action   = interaction.pop('action')
+                    reward   = interaction.pop('reward')
+                    feedback = reward if 'feedback' not in interaction else interaction.pop('feedback')
+                    prob     = interaction.pop('probability',None)
+                    info     = {}
 
                 start_time = time.time()
-                learn(context, actions, action, reward, prob, **info)
+                learn(context, actions, action, feedback, prob, **info)
                 learn_time = time.time() - start_time
 
                 if record_time: out['learn_time'] = learn_time

@@ -602,7 +602,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             (None,[4,5,6],1,5,1,{}),
             (None,[7,8,9],2,3,1,{})
         ]
-        expected_task_results    = [
+        expected_task_results = [
             {},
             {},
             {},
