@@ -94,6 +94,10 @@ class VowpalMediator:
 
         return ex
 
+    def finish(self):
+        if self.is_initialized:
+            self._vw.finish()
+
     def make_examples(self, shared: Namespaces, uniques: Sequence[Namespaces], labels:Optional[Sequence[str]]) -> Sequence[Any]:
         """Create a list of VW examples.
 
@@ -332,6 +336,26 @@ class VowpalLearner(Learner):
 
     def _labels(self,actions,index,reward:float,prob:float) -> Sequence[Optional[str]]:
         return [ f"{i+1}:{round(-reward,5)}:{round(prob,5)}" if i == index else None for i in range(len(actions))]
+
+    def _finish(self):
+        try:
+            self._vw.finish()
+        except AttributeError:
+            #we do these checks because when mocking up for unittests
+            #it is possible that _vw actually isn't ever initialized
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._finish()
+
+    def finish(self):
+        self._finish()
+
+    def __del__(self):
+        self._finish()
 
 class VowpalEpsilonLearner(VowpalLearner):
     """A wrapper around VowpalLearner that provides more documentation. For more

@@ -36,6 +36,7 @@ class VowpalMediatorMocked:
         self._make_example_calls  = []
         self._make_examples_calls = []
         self._predict_returns     = predict_returns
+        self._finish_calls        = 0
 
     @property
     def is_initialized(self):
@@ -58,6 +59,9 @@ class VowpalMediatorMocked:
     def make_examples(self, shared, distincts, labels):
         if labels is None: labels = [None]*len(distincts)
         return [ VowpalEaxmpleMock((shared,d),l) for d,l in zip(distincts,labels)]
+
+    def finish(self):
+        self._finish_calls+=1
 
 class VowpalEpsilonLearner_Tests(unittest.TestCase):
 
@@ -317,7 +321,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         self.assertEqual({'x':None}, vw._learn_calls[0].ns)
         self.assertEqual("2:-0.5:0.2", vw._learn_calls[0].label)
 
-    @unittest.skip("This text is no longer relevant now that tuples can be flattened during environment creation.")
+    @unittest.skip("This test is no longer relevant now that tuples can be flattened during environment creation.")
     def test_flatten_tuples(self):
 
         vw = VowpalMediatorMocked()
@@ -412,6 +416,33 @@ class VowpalLearner_Tests(unittest.TestCase):
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalLearner(vw=VowpalMediatorMocked()))), VowpalLearner)
+
+    def test_with(self) -> None:
+        vw = VowpalMediatorMocked()
+        with VowpalLearner(vw=vw) as v:
+            self.assertIsInstance(v, VowpalLearner)
+            self.assertEqual(vw._finish_calls,0)
+        self.assertEqual(vw._finish_calls,1)
+
+    def test_del(self) -> None:
+        vw = VowpalMediatorMocked()
+        zz = VowpalLearner(vw=vw)
+        self.assertEqual(vw._finish_calls,0)
+        del zz
+        self.assertEqual(vw._finish_calls,1)
+
+    def test_finish(self) -> None:
+        vw = VowpalMediatorMocked()
+        zz = VowpalLearner(vw=vw)
+        self.assertEqual(vw._finish_calls,0)
+        zz.finish()
+        self.assertEqual(vw._finish_calls,1)
+
+    def test_attribute_error_no_exception(self) -> None:
+        vw = VowpalMediatorMocked()
+        zz = VowpalLearner(vw=vw)
+        delattr(zz,'_vw')
+        zz.finish()
 
 @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
 class VowpalMediator_Tests(unittest.TestCase):
@@ -639,5 +670,13 @@ class VowpalMediator_Tests(unittest.TestCase):
         self.assertNotAlmostEqual(0,pre_learn_mse, places=2)
         self.assertAlmostEqual(0,post_learn_mse, places=2)
 
+    def test_finish_pre_init_no_exceptoin(self):
+        VowpalMediator().finish()
+
+    def test_finish_post_init(self):
+        vw = VowpalMediator().init_learner("--quiet", 1)
+        self.assertFalse(vw._vw.finished)
+        vw.finish()
+        self.assertTrue(vw._vw.finished)
 if __name__ == '__main__':
     unittest.main()
