@@ -457,6 +457,8 @@ class Plotter:
         ylim: Tuple[Optional[Number],Optional[Number]],
         xticks: bool,
         yticks: bool,
+        xrotation: Optional[float],
+        yrotation: Optional[float],
         out: Union[None,Literal['screen'],str]) -> None:
         pass
 
@@ -1062,12 +1064,15 @@ class Result:
 
         if x != ['index']: title = f"Final {title}"
 
+        xrotation = 90 if x != ['index'] and len(XYE)>5 else 0
+        yrotation = 0
+
         if top_n:
             if abs(top_n) > len(lines): top_n = len(lines)*abs(top_n)/top_n
             if top_n > 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[:top_n],0    ) ]
             if top_n < 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[top_n:],top_n) ]
 
-        self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, 0, 0, out)
+        self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
 
     def _full_name(self,lrn_id:int) -> str:
         """A user-friendly name created from a learner's params for reporting purposes."""
