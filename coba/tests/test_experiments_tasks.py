@@ -295,7 +295,7 @@ class ClassEnvironmentInfo_Tests(unittest.TestCase):
 class SimpleEvaluation_Tests(unittest.TestCase):
 
     def test_simulated_interaction_one_metric(self):
-        task         = SimpleEvaluation("reward",time_metrics=False)
+        task         = SimpleEvaluation("reward")
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             SimulatedInteraction(None,[1,2,3],[7,8,9]),
@@ -421,7 +421,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_continuous_simulated_interaction_no_info_no_logs_no_kwargs(self):
-        task         = SimpleEvaluation(reward_metrics=["reward","rank"])
+        task         = SimpleEvaluation(["reward","rank"])
         learner      = FixedActionScoreLearner([0,1,2])
         interactions = [
             SimulatedInteraction(1,[],SequenceReward([7,8,9])),
@@ -512,7 +512,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_logged_interaction_actions_no_probability_no_info_no_logs(self):
-        task    = SimpleEvaluation(time_metrics=False)
+        task    = SimpleEvaluation()
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3, actions=[2,5,8]),
@@ -533,7 +533,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_logged_interaction_actions_probability_no_info_no_logs(self):
-        task    = SimpleEvaluation(time_metrics=False)
+        task    = SimpleEvaluation()
         learner = RecordingLearner(with_info=False,with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8]),
@@ -554,7 +554,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_logged_interaction_actions_probability_info_logs_kwargs(self):
-        task    = SimpleEvaluation(time_metrics=False)
+        task    = SimpleEvaluation()
         learner = RecordingLearner(with_info=True,with_log=True)
         interactions = [
             LoggedInteraction(1, 2, 3, probability=.2, actions=[2,5,8], L='a'),
@@ -579,7 +579,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         self.assertEqual(expected_task_results, task_results)
 
     def test_logged_and_simulated_interactions(self):
-        task         = SimpleEvaluation(probability=True)
+        task         = SimpleEvaluation(['reward','probability'])
         learner      = RecordingLearner(with_info=False, with_log=False)
         interactions = [
             LoggedInteraction(1, 2, 3),
@@ -646,7 +646,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         self.assertEqual(expected_learn_calls, learner._learn_calls)
 
     def test_time(self):
-        task         = SimpleEvaluation(time_metrics=True)
+        task         = SimpleEvaluation(['time'])
         learner      = RecordingLearner()
         interactions = [LoggedInteraction(1, 2, 3, actions=[2,5,8], probability=.2)]
 

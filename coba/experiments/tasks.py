@@ -68,26 +68,10 @@ class EvaluationTask(ABC):
 
 class SimpleEvaluation(EvaluationTask):
 
-    @overload
-    def __init__(self,
-        reward_metrics: Union[str,Sequence[str]] = "reward",
-        time_metrics: bool = False,
-        probability: bool = False) -> None:
-        ...
-        """
-        Args:
-            reward_metrics: The reward metrics to that should be recorded for each example.
-                The metric options include: reward, rank, regret.
-            time_metrics: Indicates whether time metrics should be recorded.
-            probability: Indicates whether the action's probability should be recorded.
-        """
-
-    @overload
     def __init__(self, 
         record: Sequence[Literal['reward','rank','regret','time','probability','action']] = ['reward'], 
         learn: bool = True,
         predict: bool = True) -> None:
-        ...
         """
         Args:
             record: The datapoints to record for each interaction.
@@ -95,30 +79,9 @@ class SimpleEvaluation(EvaluationTask):
             predict: Indicates if predictions should occur during the evaluation process.
         """
 
-    def __init__(self, *args, **kwargs) -> None:
-
-        is_old_interface = (len(args) > 1 and isinstance(args[1],bool)) or (kwargs.keys() & {'reward_metrics','time_metrics','probability'})
-        is_new_interface = not is_old_interface
-
-        if is_new_interface:
-            self._record  = args[0] if args                 else kwargs.get('record' ,['reward'])
-            self._learn   = args[1] if args and len(args)>1 else kwargs.get('learn'  ,True)
-            self._predict = args[2] if args and len(args)>2 else kwargs.get('predict',True)
-
-        else:
-            self._learn   = True
-            self._predict = True
-            self._record  = []
-
-            reward_metrics = args[0] if args                 else kwargs.get('reward_metrics', ['reward'])
-            time_metrics   = args[1] if args and len(args)>1 else kwargs.get('time_metrics'  , False)
-            probability    = args[2] if args and len(args)>2 else kwargs.get('probability'   , False)
-
-            if isinstance(reward_metrics,str): reward_metrics = [reward_metrics]
-
-            if reward_metrics: self._record += reward_metrics
-            if time_metrics  : self._record += ['time']
-            if probability   : self._record += ['probability']
+        self._record  = [record] if isinstance(record,str) else record
+        self._learn   = learn
+        self._predict = predict
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
 

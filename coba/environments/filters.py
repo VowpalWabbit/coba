@@ -19,7 +19,7 @@ from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first
 from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward
-from coba.primitives import Feedback, BatchFeedback, Categorical
+from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
 
 from coba.environments.primitives import EnvironmentFilter, Interaction
@@ -1008,15 +1008,31 @@ class Logged(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
-        learner = SafeLearner(copy.deepcopy(self._learner))
-
         first, interactions = peek_first(interactions)
 
-        predict = learner.predict
-        learn   = learner.learn
+        if not interactions: return []
 
         if 'context' not in first or 'actions' not in first or 'rewards' not in first:
             raise CobaException("We were unable to create a logged representation of the interaction.")
+
+        learner = SafeLearner(copy.deepcopy(self._learner))
+
+        #In theory all of the code below could be replaced by:
+
+            # I1,I2 = tee(interactions,2)
+            # for interaction, log in zip(I1, SimpleEvaluation(record=['action','reward','probability']).filter(I2)):
+            #     out = interaction.copy()
+
+            #     out['action']      = log['action']
+            #     out['reward']      = log['reward']
+            #     out['probability'] = log['probability']
+
+            #     yield out
+
+        #The reason it hasn't is because referencing SimpleEvalution creates a recursive dependency 
+
+        predict = learner.predict
+        learn   = learner.learn
 
         for interaction in interactions:
 

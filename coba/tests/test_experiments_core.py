@@ -329,7 +329,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_predict_info(self):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         learner1   = PredictInfoLearner("0") #type: ignore
-        experiment = Experiment([env],[learner1],evaluation_task=SimpleEvaluation(time_metrics=False))
+        experiment = Experiment([env],[learner1],evaluation_task=SimpleEvaluation())
 
         actual_result       = experiment.evaluate()
 
@@ -363,8 +363,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         #the second Experiment shouldn't ever call broken_factory() because
         #we're resuming from the first experiment's transaction.log
         try:
-            first_result  = Experiment([env],[working_learner],evaluation_task=SimpleEvaluation(time_metrics=False)).run("coba/tests/.temp/transactions.log")
-            second_result = Experiment([env],[broken_learner ],evaluation_task=SimpleEvaluation(time_metrics=False)).run("coba/tests/.temp/transactions.log")
+            first_result  = Experiment([env],[working_learner],evaluation_task=SimpleEvaluation()).run("coba/tests/.temp/transactions.log")
+            second_result = Experiment([env],[broken_learner ],evaluation_task=SimpleEvaluation()).run("coba/tests/.temp/transactions.log")
         finally:
             if Path('coba/tests/.temp/transactions.log').exists(): Path('coba/tests/.temp/transactions.log').unlink()
 
@@ -396,7 +396,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_no_params(self):
         env1       = NoParamsEnvironment()
         learner    = NoParamsLearner()
-        experiment = Experiment([env1], [learner], evaluation_task=SimpleEvaluation(time_metrics=False))
+        experiment = Experiment([env1], [learner], evaluation_task=SimpleEvaluation())
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_dicts()
@@ -425,7 +425,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         env1       = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
         env2       = LambdaSimulation(3, lambda i: i, lambda i,c: [3,4,5], lambda i,c,a: cast(float,a))
-        experiment = Experiment([env1,env2], [ModuloLearner(), BrokenLearner()],evaluation_task=SimpleEvaluation(time_metrics=False))
+        experiment = Experiment([env1,env2], [ModuloLearner(), BrokenLearner()],evaluation_task=SimpleEvaluation())
 
         result              = experiment.evaluate()
         actual_learners     = result.learners.to_dicts()
