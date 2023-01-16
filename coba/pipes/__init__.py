@@ -10,7 +10,7 @@ from coba.pipes.primitives import Filter, Source, Sink
 from coba.pipes.multiprocessing import Multiprocessor
 
 from coba.pipes.filters import Take, Shuffle, Structure, Identity, Flatten, Default, Reservoir
-from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache
+from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache, Slice
 
 from coba.pipes.rows    import LabelRows, EncodeRows, HeadRows, DropRows, EncodeCatRows
 from coba.pipes.rows    import LazyDense, EncodeDense, LabelDense, KeepDense, HeadDense
@@ -49,6 +49,7 @@ __all__ = [
     "Structure",
     "Identity",
     "Take",
+    "Slice",
     "Reservoir",
     "Shuffle",
     "NullSink",

@@ -14,7 +14,7 @@ from coba.utilities    import peek_first
 
 from coba.environments.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments.filters    import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
-from coba.environments.filters    import Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded
+from coba.environments.filters    import Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded, Slice
 from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch, Mutable
 
 class TestEnvironment:
@@ -2148,6 +2148,52 @@ class Mutable_Tests(unittest.TestCase):
         self.assertIsInstance(input_interactions[1]['context'], dict)
         self.assertIsInstance(output_interactions[0]['context'], dict)
         self.assertIsInstance(output_interactions[1]['context'], dict)
+
+class Slice_Tests(unittest.TestCase):
+
+    def test_bad_count(self):
+        with self.assertRaises(ValueError):
+            Slice(-1,1)
+
+        with self.assertRaises(ValueError):
+            Slice(1,-1)
+
+    def test_take_slice_0_1(self):
+
+        items = [ 1,2,3 ]
+        slice_items = list(Slice(0,1).filter(items))
+
+        self.assertEqual([1    ], slice_items)
+        self.assertEqual([1,2,3], items     )
+
+    def test_take_slice_None_2(self):
+
+        items = [ 1,2,3 ]
+        slice_items = list(Slice(None,2).filter(items))
+
+        self.assertEqual([1,2  ], slice_items)
+        self.assertEqual([1,2,3], items     )
+
+    def test_take_slice_2_None(self):
+
+        items = [ 1,2,3 ]
+        slice_items = list(Slice(2,None).filter(items))
+
+        self.assertEqual([    3], slice_items)
+        self.assertEqual([1,2,3], items     )
+
+    def test_take_slice_None_None_2(self):
+
+        items = [ 1,2,3 ]
+        slice_items = list(Slice(None,None,2).filter(items))
+
+        self.assertEqual([1,  3], slice_items)
+        self.assertEqual([1,2,3], items     )
+
+    def test_params(self):
+        self.assertEqual(Slice(None,None).params, {"slice_start":None, "slice_stop":None})
+        self.assertEqual(Slice(1,2).params, {"slice_start":1, "slice_stop":2})
+        self.assertEqual(Slice(1,2,2).params, {"slice_start":1, "slice_stop":2, "slice_step":2})
 
 if __name__ == '__main__':
     unittest.main()

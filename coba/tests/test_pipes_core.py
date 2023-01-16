@@ -284,7 +284,6 @@ class FiltersSink_Tests(unittest.TestCase):
         source = FiltersSink(ParamsFilter(), ParamsFilter(), ParamsSink())
         self.assertEqual({'filter1':'ParamsFilter','filter2':'ParamsFilter','sink':'ParamsSink'}, source.params)
 
-
     def test_len(self):
         self.assertEqual(3,len(FiltersSink(ReprFilter(), ReprFilter(), ReprSink())))
 
@@ -371,7 +370,7 @@ class Pipeline_Tests(unittest.TestCase):
             holder.append(ex)
             event.set()
 
-        pipeline = Pipeline(ReprSource([1,2]), ExceptionFilter(), ReprSink())        
+        pipeline = Pipeline(ReprSource([1,2]), ExceptionFilter(), ReprSink())
         proc = pipeline.run_async(callback)
         proc.join()
         self.assertEqual(str(proc.exception),"Exception Filter")
@@ -440,7 +439,6 @@ class Pipeline_Tests(unittest.TestCase):
 
         line = Pipeline(ParamsSource(), ParamsFilter(), ParamsFilter(), ParamsSink())
         self.assertEqual({'source':'ParamsSource','sink':'ParamsSink','filter1':'ParamsFilter','filter2':'ParamsFilter'}, line.params)
-
 
     def test_len(self):
         self.assertEqual(2, len(Pipeline(ReprSource([1,2]), Foreach(ReprSink()))))

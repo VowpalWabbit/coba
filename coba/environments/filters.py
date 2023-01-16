@@ -32,6 +32,10 @@ class Take(pipes.Take, EnvironmentFilter):
     """Take a fixed number of interactions from an Environment."""
     pass
 
+class Slice(pipes.Slice, EnvironmentFilter):
+    """Take a slice of interactions from an Environment."""
+    pass
+
 class Shuffle(pipes.Shuffle, EnvironmentFilter):
     """Shuffle a sequence of Interactions in an Environment."""
     pass

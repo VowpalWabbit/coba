@@ -1,6 +1,5 @@
 import collections.abc
 
-from collections import Counter
 from zipfile import ZipFile, BadZipFile
 from pathlib import Path
 from typing import Sequence, overload, Union, Iterable, Iterator, Any, Optional, Tuple, Callable, Mapping, Type
@@ -8,7 +7,7 @@ from coba.backports import Literal
 
 from coba                 import pipes
 from coba.contexts        import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
-from coba.primitives      import Context, Action, HashableSparse
+from coba.primitives      import Context, Action
 from coba.random          import CobaRandom
 from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode
 from coba.exceptions      import CobaException
@@ -24,7 +23,7 @@ from coba.environments.synthetics import KernelSyntheticSimulation, MLPSynthetic
 from coba.environments.supervised import SupervisedSimulation
 
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
-from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Unbatch
+from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Unbatch, Slice
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
 
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
@@ -291,7 +290,7 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         #Experience has shown that most of the time we want to sort.
         #This doesn't change the experiment results. It simply makes it
         #easier monitor an experiment while it runs in the background.
-        ordered  = sorted(shuffled, key=lambda env: env.params['shuffle'])
+        ordered = sorted(shuffled, key=lambda env: env.params.get('shuffle',0))
 
         return Environments(ordered)
 
@@ -314,6 +313,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def take(self, n_interactions: int) -> 'Environments':
         """Take a fixed number of interactions from the Environments."""
         return self.filter(Take(n_interactions))
+    
+    def slice(self, start: Optional[int], stop: Optional[int]=None, step:int = 1) -> 'Environments':
+        """Take a slice of interactions from an Environment."""
+        return self.filter(Slice(start,stop,step))
 
     def reservoir(self, n_interactions: int, seeds: Union[int,Sequence[int]]) -> 'Environments':
         """Take a random fixed number of interactions from the Environments."""

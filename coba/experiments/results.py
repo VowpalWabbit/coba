@@ -969,7 +969,7 @@ class Result:
             xlabel = y
             ylabel = y
 
-        title  = f"{ylabel} ({len(rows) if x==['index'] else len(XYE)} Environments)"
+        title = f"{ylabel} ({len(rows) if x==['index'] else len(XYE)} Environments)"
 
         self._plotter.plot(ax, plots, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
 

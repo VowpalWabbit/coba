@@ -68,6 +68,37 @@ class Take(Filter[Iterable[Any], Sequence[Any]]):
     def params(self) -> Mapping[str, Any]:
         return { "take": self._count }
 
+class Slice(Filter[Iterable[Any], Sequence[Any]]):
+    """Take a slice of items from an iterable."""
+
+    def __init__(self, start:Optional[int], stop: Optional[int], step:int=1) -> None:
+        """Instantiate a Slice filter.
+
+        Args:
+            start: The index where the slice starts.
+            stop: The index where the slice stops.
+            step: The step size between each item in the slice.
+        """
+
+        is_valid_start = (start is None) or (isinstance(start,int) and start >= 0)
+        is_valid_stop  = (stop is None) or (isinstance(stop,int) and stop >= 0)
+
+        if not is_valid_start or not is_valid_stop:
+            raise ValueError(f"Invalid value for start or stop was given to Slice.")
+
+        self._start = start
+        self._stop = stop
+        self._step = step
+
+    def filter(self, items: Iterable[Any]) -> Iterable[Any]:
+        return islice(items, self._start, self._stop, self._step)
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        params = { "slice_start": self._start, "slice_stop": self._stop }
+        if self._step != 1: params['slice_step'] = self._step
+        return params
+
 class Reservoir(Filter[Iterable[Any], Sequence[Any]]):
     """Take a fixed number of random items from an iterable.
 
