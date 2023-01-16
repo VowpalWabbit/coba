@@ -6,14 +6,15 @@ import collections.abc
 
 from itertools       import islice
 from threading       import Thread
-from multiprocessing import current_process, Process, Queue
+from multiprocessing import current_process, Queue, Process
 from typing          import Iterable, Any, List, Optional, Dict
 
 from coba.exceptions import CobaException
 
+from coba.primitives       import SafeProcess
 from coba.pipes.core       import Pipes, Foreach, QueueIO
 from coba.pipes.primitives import Filter, Source
-from coba.pipes.sinks      import Sink, ConsoleSink
+from coba.pipes.sinks      import ConsoleSink, Sink
 
 # handle not picklable (this is handled by explicitly pickling) (TESTED)
 # handle empty list (this is done by PipesPool naturally) (TESTED)

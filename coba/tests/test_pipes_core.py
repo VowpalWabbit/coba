@@ -1,13 +1,16 @@
 
 import unittest
+import time
 
-from multiprocessing import current_process
+import multiprocessing as mp
+import threading as mt
+
 from typing import Iterable, Any
 
 from coba.exceptions import CobaException
-from coba.pipes import Filter, ListSink, IterableSource
+from coba.pipes import Filter, ListSink, IterableSource, QueueSink
 
-from coba.pipes.core import Pipes, Foreach, SourceFilters, FiltersFilter, FiltersSink
+from coba.pipes.core import Pipes, Foreach, SourceFilters, FiltersFilter, FiltersSink, Pipeline
 
 class SingleItemIdentity:
     def filter(self,item):
@@ -78,11 +81,15 @@ class NoParamsSink:
 class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         for _ in items:
-            yield current_process().name
+            yield mp.current_process().name
 
 class ExceptionFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         raise Exception("Exception Filter")
+
+class SleepFilter(Filter):
+    def filter(self, item):
+        time.sleep(1000)
 
 class SourceFilters_Tests(unittest.TestCase):
 
@@ -143,7 +150,7 @@ class SourceFilters_Tests(unittest.TestCase):
         self.assertIs(pipe[0],source)
         self.assertIs(pipe[1],filter1)
         self.assertIs(pipe[2],filter2)
-        
+
         self.assertIs(pipe[-1],filter2)
         self.assertIs(pipe[-2],filter1)
         self.assertIs(pipe[-3],source)
@@ -294,52 +301,138 @@ class FiltersSink_Tests(unittest.TestCase):
         pipes = list(FiltersSink(filter1, filter2, sink))
         self.assertEqual(pipes, [filter1,filter2,sink])
 
-class PipesLine_Tests(unittest.TestCase):
+class Pipeline_Tests(unittest.TestCase):
 
-    def test_init_source_sink(self):
+    def test_run_source_sink(self):
         source = ReprSource([1,2])
         sink   = ReprSink()
 
-        pipeline = Pipes.Line(source, Foreach(sink))
+        pipeline = Pipeline(source, Foreach(sink))
         pipeline.run()
 
         self.assertEqual([1,2], sink.items)
         self.assertEqual("ReprSource,ReprSink", str(pipeline))
         self.assertEqual({}, pipeline.params)
 
-    def test_init_source_filters_sink(self):
+    def test_run_source_filters_sink(self):
         source = ReprSource([1,2])
         sink   = ReprSink()
 
-        pipeline = Pipes.Line(source, ReprFilter(), ReprFilter(), Foreach(sink))
+        pipeline = Pipeline(source, ReprFilter(), ReprFilter(), Foreach(sink))
         pipeline.run()
 
         self.assertEqual([1,2], sink.items)
         self.assertEqual("ReprSource,ReprFilter,ReprFilter,ReprSink", str(pipeline))
         self.assertEqual({}, pipeline.params)
 
+    def test_run_async_process_no_callback(self):
+        queue    = mp.Queue()
+        pipeline = Pipeline(ReprSource([1,2]), QueueSink(queue,True))
+        pipeline.run_async().join()
+        self.assertEqual([1,2], [queue.get(False),queue.get(False)])
+
+    def test_run_async_process_with_callback(self):
+        queue  = mp.Queue()
+        event  = mt.Event() 
+        holder = []
+
+        def callback(ex,tb):
+            holder.append(ex)
+            queue.put(3)
+            event.set()
+
+        pipeline = Pipeline(ReprSource([1,2]), QueueSink(queue,True))
+        pipeline.run_async(callback=callback).join()
+
+        event.wait()
+        self.assertEqual([1,2,3], [queue.get(False),queue.get(False),queue.get(False)])
+        self.assertEqual(None, holder[0]) 
+
+    def test_run_async_process_with_exception(self):
+        pipeline = Pipeline(ReprSource([1,2]), ExceptionFilter(), ReprSink())
+        proc = pipeline.run_async()
+        proc.join()
+        self.assertEqual(str(proc.exception),"Exception Filter")
+
+    def test_run_async_process_with_exception_and_callback(self):
+        holder = []
+        event  = mt.Event()
+
+        def callback(ex,tb):
+            holder.append(ex)
+            event.set()
+
+        pipeline = Pipeline(ReprSource([1,2]), ExceptionFilter(), ReprSink())        
+        proc = pipeline.run_async(callback)
+        proc.join()
+        self.assertEqual(str(proc.exception),"Exception Filter")
+
+        event.wait()
+        self.assertEqual(str(holder[0]),"Exception Filter")
+
+    def test_run_async_thread_no_callback(self):
+        queue    = mp.Queue()
+        pipeline = Pipeline(ReprSource([1,2]), QueueSink(queue,True))
+        pipeline.run_async(mode="thread").join()
+        self.assertEqual([1,2], [queue.get(False),queue.get(False)])
+
+    def test_run_async_thread_with_callback(self):
+        queue  = mp.Queue()
+        holder = []
+
+        def callback(ex,tb):
+            holder.append(ex)
+            queue.put(3)
+
+        pipeline = Pipeline(ReprSource([1,2]), QueueSink(queue,True))
+        pipeline.run_async(callback=callback,mode="thread").join()
+        self.assertEqual([1,2,3], [queue.get(False),queue.get(False),queue.get(False)])
+        self.assertEqual(None, holder[0])
+
+    def test_run_async_thread_with_exception(self):
+        pipeline = Pipeline(ReprSource([1,2]), ExceptionFilter(), ReprSink())
+        thread = pipeline.run_async(mode="thread")
+        thread.join()
+        self.assertEqual(str(thread.exception),"Exception Filter")
+
+    def test_run_async_thread_with_exception_and_callback(self):
+        holder = []
+        def callback(ex,tb):
+            holder.append(ex)
+
+        pipeline = Pipeline(ReprSource([1,2]), ExceptionFilter(), ReprSink())
+        thread = pipeline.run_async(callback,mode="thread")
+        thread.join()
+
+        self.assertEqual(str(holder[0]),"Exception Filter")
+        self.assertEqual(str(thread.exception),"Exception Filter")
+
+    def test_bad_async_mode(self):
+        with self.assertRaises(CobaException):
+            Pipeline(ReprSource([1,2]), ReprSink()).run_async(None,mode="foobar")
+
     def test_params(self):
-        line = Pipes.join(NoParamsSource(), NoParamsFilter(), NoParamsSink())
+        line = Pipeline(NoParamsSource(), NoParamsFilter(), NoParamsSink())
         self.assertEqual({}, line.params)
 
-        line = Pipes.join(NoParamsSource(), ParamsFilter(), NoParamsSink())
+        line = Pipeline(NoParamsSource(), ParamsFilter(), NoParamsSink())
         self.assertEqual({'filter':'ParamsFilter'}, line.params)
 
-        line = Pipes.join(NoParamsSource(), NoParamsFilter(), ParamsFilter(), NoParamsSink())
+        line = Pipeline(NoParamsSource(), NoParamsFilter(), ParamsFilter(), NoParamsSink())
         self.assertEqual({'filter':'ParamsFilter'}, line.params)
 
-        line = Pipes.join(ParamsSource(), ParamsFilter(), ParamsSink())
+        line = Pipeline(ParamsSource(), ParamsFilter(), ParamsSink())
         self.assertEqual({'source':'ParamsSource','sink':'ParamsSink','filter':'ParamsFilter'}, line.params)
 
     def test_len(self):
-        self.assertEqual(2, len(Pipes.Line(ReprSource([1,2]), Foreach(ReprSink()))))
+        self.assertEqual(2, len(Pipeline(ReprSource([1,2]), Foreach(ReprSink()))))
 
     def test_getitem(self):
         source = ReprSource([1,2])
         sink   = Foreach(ReprSink())
 
-        self.assertIs(Pipes.Line(source, sink)[0],source)
-        self.assertIs(Pipes.Line(source, sink)[1],sink)
+        self.assertIs(Pipeline(source, sink)[0],source)
+        self.assertIs(Pipeline(source, sink)[1],sink)
 
 class Foreach_Tests(unittest.TestCase):
 
@@ -386,18 +479,14 @@ class Pipes_Tests(unittest.TestCase):
             Pipes.join(IterableSource(list(range(4))), ExceptionFilter(), ListSink()).run()
 
     def test_join_source_filters_sink_repr(self):
-
         source  = ReprSource()
         filters = [ReprFilter(), ReprFilter()]
         sink    = ReprSink()
-
         self.assertEqual("ReprSource,ReprFilter,ReprFilter,ReprSink", str(Pipes.join(source, *filters, sink)))
 
     def test_join_source_filters_repr(self):
-
         source  = ReprSource()
         filters = [ReprFilter(), ReprFilter()]
-
         self.assertEqual("ReprSource,ReprFilter,ReprFilter", str(Pipes.join(source, *filters)))
 
     def test_join_source_foreach_filter(self):
@@ -405,28 +494,22 @@ class Pipes_Tests(unittest.TestCase):
         self.assertIsInstance(filter, SourceFilters)
 
     def test_join_filters_sink_repr(self):
-
         filters = [ReprFilter(),ReprFilter()]
         sink    = ReprSink()
-
         self.assertEqual("ReprFilter,ReprFilter,ReprSink", str(Pipes.join(*filters, sink)))
 
     def test_join_filters_repr(self):
         self.assertEqual("ReprFilter,ReprFilter", str(Pipes.join(ReprFilter(), ReprFilter())))
 
     def test_join_source_sink_repr(self):
-
         source  = ReprSource()
         sink    = ReprSink()
-
         self.assertEqual("ReprSource,ReprSink", str(Pipes.join(source, sink)))
 
     def test_join_flattens_filters(self):
-
         filter1 = Pipes.join(ReprFilter())
         filter2 = Pipes.join(filter1, ReprFilter())
         filter3 = Pipes.join(filter2, filter2)
-
         self.assertEqual(4, len(filter3._filters))
 
     def test_bad_exception(self):

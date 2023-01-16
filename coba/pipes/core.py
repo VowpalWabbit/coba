@@ -1,7 +1,11 @@
-from queue import Queue
-from typing import Iterable, Any, Union, Dict
+import multiprocessing as mp
+import threading as mt
 
+from typing import Iterable, Any, Union, Dict, Callable, Optional, Mapping
+
+from coba.backports import Literal
 from coba.exceptions import CobaException
+from coba.primitives import SafeProcess, SafeThread
 
 from coba.pipes.sinks      import QueueSink
 from coba.pipes.sources    import QueueSource
@@ -118,42 +122,55 @@ class FiltersSink(Sink):
     def __len__(self) -> int:
         return len(self._filter)+1
 
+class Pipeline:
+    def __init__(self, *pipes: Union[Source,Filter,Sink]) -> None:
+        self.pipes = list(pipes)
+
+    def run(self) -> None:
+        """Run the pipeline."""
+
+        source  = self.pipes[0   ]
+        filters = self.pipes[1:-1]
+        sink    = self.pipes[-1  ]
+
+        item = source.read()
+
+        for filter in filters:
+            item = filter.filter(item)
+
+        sink.write(item)
+
+    def run_async(self, callback:Callable[[Optional[Exception]],None]=None, mode:Literal['process','thread']='process') -> Union[SafeThread,SafeProcess]:
+        """Run the pipeline asynchronously."""
+        mode = mode.lower()
+
+        if mode == "process":
+            worker = SafeProcess(target=self.run, daemon=True, callback=callback)
+        elif mode == "thread":
+            worker = SafeThread(target=self.run, callback=callback)
+        else:
+            raise CobaException(f"Unrecognized pipe async mode {mode}. Valid values are 'process' and 'thread'.")
+
+        worker.start()
+        return worker
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return { k:v for p in self.pipes if hasattr(p,'params') for k,v in p.params.items() }
+
+    def __str__(self) -> str:
+        return ",".join(filter(None,map(str,self.pipes)))
+
+    def __len__(self) -> int:
+        return len(self.pipes)
+
+    def __getitem__(self, index:int) -> Union[Source,Filter,Sink]:
+        return self.pipes[index]
+
 class Pipes:
-    """A helper class to compose sequences of pipes."""
-    class Line:
-
-        def __init__(self, *pipes: Union[Source,Filter,Sink]) -> None:
-            self.pipes = list(pipes)
-
-        def run(self) -> None:
-            """Run the pipeline."""
-
-            source  = self.pipes[0   ]
-            filters = self.pipes[1:-1]
-            sink    = self.pipes[-1  ]
-
-            item = source.read()
-
-            for filter in filters:
-                item = filter.filter(item)
-
-            sink.write(item)
-
-        @property
-        def params(self) -> Dict[str, Any]:
-            return { k:v for p in self.pipes if hasattr(p,'params') for k,v in p.params.items() }
-
-        def __str__(self) -> str:
-            return ",".join(filter(None,map(str,self.pipes)))
-
-        def __len__(self) -> int:
-            return len(self.pipes)
-        
-        def __getitem__(self, index:int) -> Union[Source,Filter,Sink]:
-            return self.pipes[index]
 
     @staticmethod
-    def join(*pipes: Union[Source, Filter, Sink]) -> Union[Source, Filter, Sink, Line]:
+    def join(*pipes: Union[Source, Filter, Sink]) -> Union[Source, Filter, Sink, Pipeline]:
         """Join a sequence of pipes into a single pipe.
 
         Args:
@@ -176,7 +193,7 @@ class Pipes:
         last  = pipes[-1] if not isinstance(pipes[-1], Foreach) else pipes[-1]._pipe
 
         if hasattr(first,'read') and hasattr(last,'write'):
-            return Pipes.Line(*pipes)
+            return Pipeline(*pipes)
 
         if hasattr(first,'read') and hasattr(last,'filter'):
             return SourceFilters(*pipes)
@@ -211,15 +228,15 @@ class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
             self._pipe.write(item)
 
     @property
-    def params(self) -> Dict[str,Any]:
+    def params(self) -> Mapping[str,Any]:
         return self._pipe.params
 
     def __str__(self):
         return str(self._pipe)
 
 class QueueIO(Source[Iterable[Any]], Sink[Any]):
-    def __init__(self, queue:Queue=None, block:bool=True, poison:Any=None) -> None:
-        self._queue  = queue or Queue()
+    def __init__(self, queue:mp.Queue, block:bool=True, poison:Any=None) -> None:
+        self._queue  = queue
         self._sink   = QueueSink(queue)
         self._source = QueueSource(queue, block, poison)
 

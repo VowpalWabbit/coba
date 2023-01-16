@@ -81,17 +81,20 @@ class ListSink(Sink[Any]):
 class QueueSink(Sink[Any]):
     """A sink which puts written items into a Queue."""
 
-    def __init__(self, queue:Queue=None) -> None:
+    def __init__(self, queue:Queue=None, foreach:bool=False) -> None:
         """Instantiate a QueueSink.
 
         Args:
             queue: The queue to put written items into.
+            foreach: Indicates whether to foreach over given items when writing.
         """
-        self._queue  = queue or Queue()
+        self._queue   = queue or Queue()
+        self._foreach = foreach
 
     def write(self, item: Any) -> None:
         try:
-            self._queue.put(item)
+            item = (item if self._foreach else [item])
+            for i in item: self._queue.put(i)
         except (EOFError,BrokenPipeError):
             pass
 
