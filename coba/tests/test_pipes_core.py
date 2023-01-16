@@ -371,22 +371,25 @@ class Pipeline_Tests(unittest.TestCase):
         self.assertEqual(str(holder[0]),"Exception Filter")
 
     def test_run_async_thread_no_callback(self):
-        queue    = mp.Queue()
-        pipeline = Pipeline(ReprSource([1,2]), QueueSink(queue,True))
-        pipeline.run_async(mode="thread").join()
-        self.assertEqual([1,2], [queue.get(False),queue.get(False)])
+        pipeline = Pipeline(ReprSource([1,2]), ListSink(foreach=True))
+
+        thread = pipeline.run_async(mode="thread")
+        thread.join()
+
+        if thread.exception:
+            print("A")
+            raise thread.exception
+
+        self.assertEqual([1,2], pipeline[-1].items)
 
     def test_run_async_thread_with_callback(self):
-        queue  = mp.Queue()
         holder = []
-
         def callback(ex,tb):
             holder.append(ex)
-            queue.put(3)
 
-        pipeline = Pipeline(ReprSource([1,2]), QueueSink(queue,True))
+        pipeline = Pipeline(ReprSource([1,2]), ListSink(foreach=True))
         pipeline.run_async(callback=callback,mode="thread").join()
-        self.assertEqual([1,2,3], [queue.get(False),queue.get(False),queue.get(False)])
+        self.assertEqual([1,2], pipeline[-1].items)
         self.assertEqual(None, holder[0])
 
     def test_run_async_thread_with_exception(self):
@@ -399,7 +402,6 @@ class Pipeline_Tests(unittest.TestCase):
         holder = []
         def callback(ex,tb):
             holder.append(ex)
-
         pipeline = Pipeline(ReprSource([1,2]), ExceptionFilter(), ReprSink())
         thread = pipeline.run_async(callback,mode="thread")
         thread.join()

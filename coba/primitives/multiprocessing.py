@@ -62,9 +62,9 @@ class SafeThread(Thread):
 
     def __init__(self, *args, **kwargs) -> None:
         self._callback = kwargs.pop("callback",None)
-        super().__init__(*args, **kwargs)
         self._exception = None
         self._traceback = None
+        super().__init__(*args, **kwargs)
 
     def run(self) -> None:
         try:

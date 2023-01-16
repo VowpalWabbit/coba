@@ -67,16 +67,19 @@ class DiskSink(Sink[str]):
 class ListSink(Sink[Any]):
     """A sink which appends written items to a list."""
 
-    def __init__(self, items: List[Any] = None) -> None:
+    def __init__(self, items: List[Any] = None, foreach: bool=False) -> None:
         """Instantiate a ListSink.
 
         Args:
             items: The list we wish to write to.
         """
         self.items = items if items is not None else []
+        self._foreach = foreach
 
     def write(self, item) -> None:
-        self.items.append(list(item) if isinstance(item, Iterator) else item)
+        item = (item if self._foreach else [item])
+        for i in item:
+            self.items.append(list(i) if isinstance(i, Iterator) else i)
 
 class QueueSink(Sink[Any]):
     """A sink which puts written items into a Queue."""
@@ -93,9 +96,12 @@ class QueueSink(Sink[Any]):
 
     def write(self, item: Any) -> None:
         try:
+            print("B")
             item = (item if self._foreach else [item])
             for i in item: self._queue.put(i)
+            print("D")
         except (EOFError,BrokenPipeError):
+            print("C")
             pass
 
 class LambdaSink(Sink[Any]):
