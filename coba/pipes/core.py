@@ -1,7 +1,6 @@
-import multiprocessing as mp
-import threading as mt
-
-from typing import Iterable, Any, Union, Dict, Callable, Optional, Mapping
+from queue import Queue
+from collections import Counter
+from typing import Iterable, Any, Union, Dict, Callable, Optional, Mapping, Sequence, Iterator
 
 from coba.backports import Literal
 from coba.exceptions import CobaException
@@ -9,7 +8,23 @@ from coba.primitives import SafeProcess, SafeThread
 
 from coba.pipes.sinks      import QueueSink
 from coba.pipes.sources    import QueueSource
-from coba.pipes.primitives import Filter, Source, Sink
+from coba.pipes.primitives import Pipe,Filter, Source, Sink
+
+def resolve_params(pipes:Sequence[Pipe]):
+    
+    params = [p.params for p in pipes if hasattr(p,'params')]
+    keys   = [ k for p in params for k in p.keys() ]
+    counts = Counter(keys)
+    index  = {}
+
+    def resolve_key_conflicts(key):
+        if counts[key] == 1:
+            return key
+        else:
+            index[key] = index.get(key,0)+1
+            return f"{key}{index[key]}"
+    
+    return { resolve_key_conflicts(k):v for p in params for k,v in p.items() }
 
 class SourceFilters(Source):
     def __init__(self, *pipes: Union[Source,Filter]) -> None:
@@ -22,13 +37,7 @@ class SourceFilters(Source):
 
     @property
     def params(self) -> Dict[str,Any]:
-
-        try:
-            source_params = self._source.params
-        except:
-            source_params = {}
-
-        return { **source_params, **self._filter.params }
+        return resolve_params(list(self))
 
     def read(self) -> Any:
         return self._filter.filter(self._source.read())
@@ -44,7 +53,7 @@ class SourceFilters(Source):
         else:
             return self._filter[index-1]
 
-    def __iter__(self) -> Iterable[Union[Source,Filter]]:
+    def __iter__(self) -> Iterator[Union[Source,Filter]]:
         yield self._source
         yield from self._filter
 
@@ -58,7 +67,7 @@ class FiltersFilter(Filter):
 
     @property
     def params(self) -> Dict[str,Any]:
-        return { k:v for f in self._filters if hasattr(f,'params') for k,v in f.params.items() }
+        return resolve_params(list(self))
 
     def filter(self, items: Any) -> Any:
         for filter in self._filters:
@@ -71,7 +80,7 @@ class FiltersFilter(Filter):
     def __getitem__(self, index: int) -> Filter:
         return self._filters[index]
 
-    def __iter__(self) -> Iterable[Filter]:
+    def __iter__(self) -> Iterator[Filter]:
         return iter(self._filters)
     
     def __len__(self) -> int:
@@ -93,13 +102,7 @@ class FiltersSink(Sink):
 
     @property
     def params(self) -> Dict[str,Any]:
-
-        try:
-            sink_params = self._sink.params
-        except:
-            sink_params = {}
-
-        return { **self._filter.params, **sink_params }
+        return resolve_params(list(self))
 
     def write(self, items: Iterable[Any]):
         self._sink.write(self._filter.filter(items))
@@ -114,8 +117,8 @@ class FiltersSink(Sink):
             return self._filter[index+1] 
         else:
             return self._filter[index]
-    
-    def __iter__(self) -> Iterable[Filter]:
+
+    def __iter__(self) -> Iterator[Filter]:
         yield from self._filter
         yield self._sink
 
@@ -124,14 +127,14 @@ class FiltersSink(Sink):
 
 class Pipeline:
     def __init__(self, *pipes: Union[Source,Filter,Sink]) -> None:
-        self.pipes = list(pipes)
-
+        self._pipes = list(pipes)
+    
     def run(self) -> None:
         """Run the pipeline."""
 
-        source  = self.pipes[0   ]
-        filters = self.pipes[1:-1]
-        sink    = self.pipes[-1  ]
+        source  = self._pipes[0   ]
+        filters = self._pipes[1:-1]
+        sink    = self._pipes[-1  ]
 
         item = source.read()
 
@@ -156,16 +159,19 @@ class Pipeline:
 
     @property
     def params(self) -> Dict[str, Any]:
-        return { k:v for p in self.pipes if hasattr(p,'params') for k,v in p.params.items() }
+        return resolve_params(list(self))
 
     def __str__(self) -> str:
-        return ",".join(filter(None,map(str,self.pipes)))
+        return ",".join(filter(None,map(str,self._pipes)))
 
     def __len__(self) -> int:
-        return len(self.pipes)
+        return len(self._pipes)
+
+    def __iter__(self) -> Iterator[Pipe]:
+        yield from self._pipes
 
     def __getitem__(self, index:int) -> Union[Source,Filter,Sink]:
-        return self.pipes[index]
+        return self._pipes[index]
 
 class Pipes:
 
@@ -235,7 +241,7 @@ class Foreach(Filter[Iterable[Any], Iterable[Any]], Sink[Iterable[Any]]):
         return str(self._pipe)
 
 class QueueIO(Source[Iterable[Any]], Sink[Any]):
-    def __init__(self, queue:mp.Queue, block:bool=True, poison:Any=None) -> None:
+    def __init__(self, queue:Queue, block:bool=True, poison:Any=None) -> None:
         self._queue  = queue
         self._sink   = QueueSink(queue)
         self._source = QueueSource(queue, block, poison)

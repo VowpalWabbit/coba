@@ -137,6 +137,9 @@ class SourceFilters_Tests(unittest.TestCase):
         source = SourceFilters(ParamsSource(), NoParamsFilter(), ParamsFilter())
         self.assertEqual({'source':'ParamsSource','filter':'ParamsFilter'}, source.params)
 
+        source = FiltersSink(ParamsSource(), ParamsFilter(), ParamsFilter())
+        self.assertEqual({'source':'ParamsSource','filter1':'ParamsFilter','filter2':'ParamsFilter'}, source.params)
+
     def test_len(self):
         self.assertEqual(3, len(SourceFilters(ReprSource([1,2]), ReprFilter(), ReprFilter())))
 
@@ -200,6 +203,9 @@ class FiltersFilter_Tests(unittest.TestCase):
 
         source = FiltersFilter(ParamsFilter(), NoParamsFilter())
         self.assertEqual({'filter':'ParamsFilter'}, source.params)
+
+        source = FiltersFilter(ParamsFilter(), ParamsFilter())
+        self.assertEqual({'filter1':'ParamsFilter','filter2':'ParamsFilter'}, source.params)
 
     def test_len(self):
         self.assertEqual(2,len(FiltersFilter(ReprFilter("1"), ReprFilter("2"))))
@@ -274,6 +280,10 @@ class FiltersSink_Tests(unittest.TestCase):
 
         sink = FiltersSink(NoParamsFilter(), ParamsFilter(), ParamsSink())
         self.assertEqual({'sink':'ParamsSink','filter':'ParamsFilter'}, sink.params)
+
+        source = FiltersSink(ParamsFilter(), ParamsFilter(), ParamsSink())
+        self.assertEqual({'filter1':'ParamsFilter','filter2':'ParamsFilter','sink':'ParamsSink'}, source.params)
+
 
     def test_len(self):
         self.assertEqual(3,len(FiltersSink(ReprFilter(), ReprFilter(), ReprSink())))
@@ -424,6 +434,13 @@ class Pipeline_Tests(unittest.TestCase):
 
         line = Pipeline(ParamsSource(), ParamsFilter(), ParamsSink())
         self.assertEqual({'source':'ParamsSource','sink':'ParamsSink','filter':'ParamsFilter'}, line.params)
+
+        line = Pipeline(ParamsSource(), ParamsFilter(), ParamsSink())
+        self.assertEqual({'source':'ParamsSource','sink':'ParamsSink','filter':'ParamsFilter'}, line.params)
+
+        line = Pipeline(ParamsSource(), ParamsFilter(), ParamsFilter(), ParamsSink())
+        self.assertEqual({'source':'ParamsSource','sink':'ParamsSink','filter1':'ParamsFilter','filter2':'ParamsFilter'}, line.params)
+
 
     def test_len(self):
         self.assertEqual(2, len(Pipeline(ReprSource([1,2]), Foreach(ReprSink()))))
