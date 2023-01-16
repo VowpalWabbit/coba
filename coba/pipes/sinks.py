@@ -99,7 +99,6 @@ class QueueSink(Sink[Any]):
             item = (item if self._foreach else [item])
             for i in item: self._queue.put(i)
         except (EOFError,BrokenPipeError):
-            print("C")
             pass
 
 class LambdaSink(Sink[Any]):

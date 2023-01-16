@@ -338,14 +338,13 @@ class Pipeline_Tests(unittest.TestCase):
 
         def callback(ex,tb):
             holder.append(ex)
-            queue.put(3)
             event.set()
 
         pipeline = Pipeline(ReprSource([1,2]), QueueSink(queue,True))
         pipeline.run_async(callback=callback).join()
 
         event.wait()
-        self.assertEqual([1,2,3], [queue.get(False),queue.get(False),queue.get(False)])
+        self.assertEqual([1,2], [queue.get(False),queue.get(False)])
         self.assertEqual(None, holder[0]) 
 
     def test_run_async_process_with_exception(self):
