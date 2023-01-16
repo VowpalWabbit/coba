@@ -96,10 +96,8 @@ class QueueSink(Sink[Any]):
 
     def write(self, item: Any) -> None:
         try:
-            print("B")
             item = (item if self._foreach else [item])
             for i in item: self._queue.put(i)
-            print("D")
         except (EOFError,BrokenPipeError):
             print("C")
             pass
