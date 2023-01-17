@@ -961,10 +961,6 @@ class Finalize(EnvironmentFilter):
         first_has_actions = 'actions' in first and first['actions']
         first_has_action  = 'action'  in first
 
-        context_materialized = not first_has_context or isinstance(first['context']   ,(list,tuple,dict))
-        actions_materialized = not first_has_actions or isinstance(first['actions'][0],(list,tuple,dict))
-        action_materialized  = not first_has_action  or isinstance(first['action' ]   ,(list,tuple,dict))
-
         if first_has_context:
             is_dense_context  = isinstance(first['context'],primitives.Dense)
             is_sparse_context = isinstance(first['context'],primitives.Sparse)
@@ -975,6 +971,10 @@ class Finalize(EnvironmentFilter):
             is_dense_action  = isinstance(first['action'],primitives.Dense)
             is_sparse_action = isinstance(first['action'],primitives.Sparse)
 
+        context_materialized = not first_has_context or (not is_dense_context and not is_sparse_context or isinstance(first['context']   ,(list,tuple,dict)))
+        actions_materialized = not first_has_actions or (not is_dense_action  and not is_sparse_action  or isinstance(first['actions'][0],(list,tuple,dict)))
+        action_materialized  = not first_has_action  or (not is_dense_action  and not is_sparse_action  or isinstance(first['action']    ,(list,tuple,dict)))
+
         for interaction in Repr("onehot","onehot").filter(interactions):
 
             new = interaction.copy()
@@ -982,7 +982,7 @@ class Finalize(EnvironmentFilter):
             if not context_materialized and is_dense_context:
                 new['context'] = list(new['context'])
             elif not context_materialized and is_sparse_context :
-                    new['context'] = new['context'].copy()
+                new['context'] = new['context'].copy()
 
             if not actions_materialized and is_dense_action:
                 new['actions'] = list(map(list,new['actions']))
@@ -990,8 +990,7 @@ class Finalize(EnvironmentFilter):
                 new['actions'] = list(map(methodcaller('copy'),new['actions']))
 
             if not action_materialized and is_dense_action:
-                if isinstance(new['action'], Iterable):
-                    new['action'] = list(new['action'])
+                new['action'] = list(new['action'])
             elif not action_materialized and is_sparse_action:
                 new['action'] = new['action'].copy()
 

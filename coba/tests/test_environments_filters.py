@@ -1824,6 +1824,16 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(actual[0]['actions'], [{1:2},{1:3}])
         self.assertEqual(actual[0]['action' ], {1:2})
 
+    def test_None_simulated(self):
+        interactions = [SimulatedInteraction(None,[[1,2],[3,4]], [1,2])]
+
+        actual = list(Finalize().filter(interactions))
+
+        self.assertEqual(len(actual),1)
+        self.assertEqual(actual[0]['context'], None)
+        self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
+
+
     def test_dense_simulated(self):
         interactions = [SimulatedInteraction([1,2,3],[[1,2],[3,4]], [1,2])]
 
@@ -1861,14 +1871,14 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
         
     def test_logged_with_action_int(self):
-        interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[[1,2],[3,4]], rewards=[1,2])]
+        interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[1,2,3], rewards=[1,2])]
 
         actual = list(Finalize().filter(interactions))
 
         self.assertEqual(len(actual),1)
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['action'], 1)
-        self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
+        self.assertEqual(actual[0]['actions'], [1,2,3])
 
     def test_logged_sparse_actions(self):
         interactions = [LoggedInteraction([1,2,3], {1:2}, 1, probability=1, actions=[{1:2},{3:4}], rewards=[1,2])]
