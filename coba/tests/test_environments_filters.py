@@ -1861,7 +1861,7 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(actual[0]['actions'], [[1,2],[3,4]])
         
     def test_logged_with_action_int(self):
-        interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[[1,2],[3,4]], rewards=[1,2], reward=0)]
+        interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[[1,2],[3,4]], rewards=[1,2])]
 
         actual = list(Finalize().filter(interactions))
 
