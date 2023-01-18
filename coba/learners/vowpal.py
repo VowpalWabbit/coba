@@ -97,6 +97,11 @@ class VowpalMediator:
     def finish(self):
         if self.is_initialized:
             self._vw.finish()
+    
+    # override to transform example before they get pushed down to VW
+    # i.e. change namespaces from the default 'x' in shared to any other namespace
+    def transform_example(self, vw_shared, vw_uniques, labels):
+        pass
 
     def make_examples(self, shared: Namespaces, uniques: Sequence[Namespaces], labels:Optional[Sequence[str]]) -> Sequence[Any]:
         """Create a list of VW examples.
@@ -110,6 +115,8 @@ class VowpalMediator:
         labels     = repeat(None) if labels is None else labels
         vw_shared  = dict(self._prep_namespaces(shared))
         vw_uniques = list(map(dict,map(self._prep_namespaces,uniques)))
+
+        self.transform_example(vw_shared, vw_uniques, labels)
 
         examples = []
         for vw_unique, label in zip(vw_uniques,labels):
