@@ -57,7 +57,7 @@ jobs:
           python -c "from coba.environments import Environments; Environments.from_template('./examples/templates/long_experiment.json')"
           python -c "from coba.environments import Environments; Environments.from_template('./examples/templates/short_experiment.json')"
           python "examples/scripts/First Script.py"
-          python "Custom NS with VW learner.py"
+          python "examples/scripts/Custom NS with VW learner.py"
           jupyter nbconvert --execute "examples/notebooks/First Experiment.ipynb" --inplace
           jupyter nbconvert --execute "examples/notebooks/Results.ipynb" --inplace
           jupyter nbconvert --execute "examples/notebooks/Experiments.ipynb" --inplace
