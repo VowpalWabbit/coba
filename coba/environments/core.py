@@ -397,39 +397,45 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
 
     def save(self, path: str, processes:int=1, overwrite:bool=False) -> 'Environments':
 
+        self_envs = list(self)
+
         if Path(path).exists():
             try:
                 path_envs   = Environments.from_save(path)
                 path_params = [e.params for e in path_envs]
-                self_params = [e.params for e in self     ]
+                self_params = [e.params for e in self_envs]
 
                 try:
                     while path_params:
-                        self_params.pop(self_params.index(path_params.pop()))
+                        param_index_in_self = self_params.index(path_params.pop())
+                        self_params.pop(param_index_in_self)
+                        self_envs.pop(param_index_in_self)
                 except ValueError:
+                    #there is a param in the file that isn't in self
                     is_equal = False
                 else:
-                    is_equal = len(path_params) == len(self_params)
+                    is_equal = True
 
-                if is_equal:
+                if is_equal and not self_envs:
                     return path_envs
-                elif overwrite:
+                if not is_equal and overwrite:
                     Path(path).unlink()
-                else:
+                if not is_equal and not overwrite:
                     raise CobaException("The Environments save file does not match the actual Environments and overwite is False.")
+            
             except BadZipFile:
                 if overwrite:
                     Path(path).unlink()
                 else:
-                    raise CobaException("The given save file appears to be corruptted. Please check it and delete if it is unusable.")
+                    raise CobaException("The given save file appears to be corrupted. Please check it and delete if it is unusable.")
 
         if processes == 1:
             CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()])
-            Pipes.join(EnvironmentsToObjects(),ObjectsToZipMember(path)).write(self)
+            Pipes.join(EnvironmentsToObjects(),ObjectsToZipMember(path)).write(self_envs)
             CobaContext.logger = CobaContext.logger.undecorate()
         else:
             CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [NameLog(), StampLog()])
-            Pipes.join(CobaMultiprocessor(EnvironmentsToObjects(),processes),ObjectsToZipMember(path)).write(self)
+            Pipes.join(CobaMultiprocessor(EnvironmentsToObjects(),processes),ObjectsToZipMember(path)).write(self_envs)
             CobaContext.logger = CobaContext.logger.undecorate()
 
         return Environments.from_save(path)

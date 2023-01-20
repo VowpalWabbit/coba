@@ -30,6 +30,18 @@ class TestEnvironment2:
         yield {'b':1}
         yield {'b':2}
 
+class TestEnvironment3:
+    def __init__(self):
+        self._reads = 0
+    @property
+    def params(self):
+        return {'a':2}
+    def read(self):
+        assert self._reads == 0
+        self._reads += 1
+        yield {'b':2}
+        yield {'b':3}
+
 class MockResponse:
     def __init__(self, status_code, content):
         self.status_code = status_code
@@ -121,6 +133,28 @@ class Environments_Tests(unittest.TestCase):
         for env_in,env_out in zip(input_environments_2, output_environments):
             self.assertEqual(env_in.params,env_out.params)
             self.assertEqual(list(env_in.read()), list(env_out.read()))
+
+    def test_save_continue(self):
+
+        input_environments_1 = Environments([TestEnvironment3()])
+
+        #confirming there is an error if we don't continue
+        with self.assertRaises(AssertionError):
+            input_environments_1.save("coba/tests/.temp/test.zip")
+            Path("coba/tests/.temp/test.zip").unlink()
+            input_environments_1.save("coba/tests/.temp/test.zip")
+
+        input_environments_1 = Environments([TestEnvironment3()])
+        input_environments_2 = Environments([TestEnvironment2()])
+
+        output_environments1 = input_environments_1.save("coba/tests/.temp/test.zip")
+        output_environments2 = (input_environments_1+input_environments_2).save("coba/tests/.temp/test.zip")
+
+        self.assertEqual(len(output_environments1),1)
+        self.assertEqual(len(output_environments2),2)
+
+        self.assertEqual(output_environments2[0].params, input_environments_1[0].params)
+        self.assertEqual(output_environments2[1].params, input_environments_2[0].params)
 
     def test_save_badzip_overwrite(self):
 
