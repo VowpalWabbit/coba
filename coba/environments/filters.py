@@ -13,7 +13,7 @@ from itertools import islice, chain, tee, compress, repeat
 from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping
 from coba.backports import Literal
 
-from coba            import pipes, primitives
+from coba            import pipes, primitives, CobaContext
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
@@ -926,7 +926,13 @@ class Unbatch(EnvironmentFilter):
         for interaction in interactions:
             batch_size = len(interaction[list(interaction.keys())[0]])
             for i in range(batch_size):
-                yield { k: interaction[k][i] for k in interaction }
+                new = {}
+                for k in interaction:
+                    try:
+                        new[k] = interaction[k][i]
+                    except:
+                        new[k] = interaction[k]
+                yield new
 
 class BatchSafe(EnvironmentFilter):
 
@@ -1038,6 +1044,8 @@ class Logged(EnvironmentFilter):
         predict = learner.predict
         learn   = learner.learn
 
+        learning_info = CobaContext.learning_info
+
         for interaction in interactions:
 
             context = interaction['context']
@@ -1055,6 +1063,10 @@ class Logged(EnvironmentFilter):
             new['action']      = action
             new['probability'] = prob
             new['reward']      = reward
+
+            if learning_info:
+                new.update(learning_info)
+                learning_info.clear()
 
             yield new
 
