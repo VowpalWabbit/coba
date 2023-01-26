@@ -434,6 +434,7 @@ class VowpalBagLearner(VowpalLearner):
         bag: int = 5,
         features: Sequence[str] = [1,'a','ax','axx'],
         seed: Optional[int] = 1,
+        epsilon: Optional[float] = None,
         **kwargs) -> None:
         """Instantiate a VowpalBagLearner.
 
@@ -446,6 +447,8 @@ class VowpalBagLearner(VowpalLearner):
         """
 
         options       = [ "--cb_explore_adf", f"--bag {bag}" ]
+        if epsilon:
+            options.append(f"--epsilon {epsilon}")
         noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
         ignore_linear = set(['x','a'])-set(features)
         interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]

@@ -90,6 +90,7 @@ class SimpleEvaluation(EvaluationTask):
         record_prob   = 'probability' in self._record
         record_time   = 'time'        in self._record
         record_action = 'action'      in self._record
+        record_context = 'context' in self._record
 
         first, interactions = peek_first(interactions)
 
@@ -150,6 +151,7 @@ class SimpleEvaluation(EvaluationTask):
                 if record_prob  : out['probability']  = prob
                 if record_action: out['action']       = action
                 if feedbacks    : out['feedback']     = feedback
+                if record_context: out['context']  = context
 
                 if not batched:
                     if calc_reward : out['reward'] = get_reward(reward)
@@ -188,6 +190,7 @@ class SimpleEvaluation(EvaluationTask):
                 out.update(learning_info)
                 learning_info.clear()
 
+            out['learner'] = learner
             yield out
 
 class SimpleLearnerInfo(LearnerTask):

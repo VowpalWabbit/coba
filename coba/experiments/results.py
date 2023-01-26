@@ -1,3 +1,4 @@
+import datetime
 import re
 import collections
 import collections.abc
@@ -9,6 +10,9 @@ from operator import truediv, sub, gt, itemgetter
 from abc import abstractmethod
 from itertools import chain, repeat, accumulate, groupby, count
 from typing import Any, Dict, List, Set, Tuple, Optional, Sequence, Hashable, Iterable, Iterator, Union, Type, Callable, NamedTuple
+
+from matplotlib import lines, pyplot as plt
+
 from coba.backports import Literal
 
 from coba.environments import Environment
@@ -1073,6 +1077,63 @@ class Result:
             if top_n < 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[top_n:],top_n) ]
 
         self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+
+    def plot_overview(self, title: Optional[str] = ""):
+        environment_count = len(self.environments.to_dicts())
+
+        df = self.interactions.to_pandas()
+        index = df[(df['environment_id'] == 0) & (df['learner_id'] == 0)]['index']
+
+        # reward
+        max_reward = float("-inf")
+        fig, axes = plt.subplots(3, environment_count, figsize=(6.4 * environment_count, 4.8 * 3))
+        fig.suptitle(title, fontsize=16)
+
+        axis = 0
+        for i_env, environment in enumerate(self.environments):
+            axes[axis][i_env].set_title(f'Reward')
+            for i, learner in enumerate(self.learners):
+                reward = df[(df['environment_id'] == i_env) & (df['learner_id'] == i)]['reward'].cumsum()
+                try:
+                    max_reward = max(max_reward, reward.iloc[-1])
+                except IndexError as e:
+                    max_reward = max(max_reward, 0)
+
+                axes[axis][i_env].plot(index,
+                                 reward,
+                                 label=learner["family"],
+                                 linestyle=list(lines.lineStyles.keys())[i%4])
+                axes[axis][i_env].legend()
+        for i_env, environment in enumerate(self.environments):
+            axes[axis][i_env].set_ylim([0, max_reward])
+
+        # probability
+        axis = 1
+        for i_env, environment in enumerate(self.environments):
+            axes[axis][i_env].set_title(f'Probability')
+            for i, learner in enumerate(self.learners):
+                probability = df[(df['environment_id'] == i_env) & (df['learner_id'] == i)]['probability']
+                axes[axis][i_env].plot(index,
+                                 probability,
+                                 label=learner["family"],
+                                 linestyle=list(lines.lineStyles.keys())[i%4])
+                axes[axis][i_env].legend()
+        for i_env, environment in enumerate(self.environments):
+            axes[axis][i_env].set_ylim([0, 1])
+
+        # action selection
+        axis = 2
+        for i_env, environment in enumerate(self.environments):
+            axes[axis][i_env].set_title(f'Action selection')
+            for i, learner in enumerate(self.learners):
+                # stack lines for better visibility
+                MARKER_OFFSET = 0.02 * i
+                axes[axis][i_env].plot(index, df[(df['environment_id'] == i_env) & (df['learner_id'] == i)]['action'] + MARKER_OFFSET,
+                                 label=learner["family"],
+                                 linestyle='',
+                                 marker=["x", "+", "2"][i%3])
+                axes[axis][i_env].legend()
+        plt.savefig(f'plots/plot_{title}_{datetime.datetime.now()}.png')
 
     def _full_name(self,lrn_id:int) -> str:
         """A user-friendly name created from a learner's params for reporting purposes."""
