@@ -915,16 +915,17 @@ class Unbatch(EnvironmentFilter):
 
         first, interactions = peek_first(interactions)
         if not interactions: return []
-        is_batched = isinstance(first[list(first.keys())[0]], primitives.Batch)
+        
+        batched_keys = [k for k,v in first.items() if isinstance(v,primitives.Batch) ]
 
-        if not is_batched:
+        if not batched_keys:
             yield from interactions
         else:
-            yield from self._unbatch(interactions)
+            yield from self._unbatch(interactions, batched_keys)
 
-    def _unbatch(self, interactions: Iterable[Interaction]):
+    def _unbatch(self, interactions: Iterable[Interaction], batched_keys:Sequence[str]):
         for interaction in interactions:
-            batch_size = len(interaction[list(interaction.keys())[0]])
+            batch_size = len(interaction[batched_keys[0]])
             for i in range(batch_size):
                 new = {}
                 for k in interaction:

@@ -41,43 +41,44 @@ def phi(x: float) -> float:
     'Cumulative distribution function for the standard normal distribution'
     return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
 
+def mean(sample: Sequence[float]) -> float:
+    #If precision is needed use a true statistics package  
+    return sum(sample)/len(sample)
+
+def var(sample: Sequence[float]) -> float:
+    #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
+    #directly calculating is much faster than the
+    #statistics module because `statistics` uses
+    #integer ratios to ensure precision. If precision
+    #is needed use the statistics module
+    n    = len(sample)
+    E_s  = sum(sample)/n
+    E_s2 = sum([s*s for s in sample])/n
+    var  = E_s2 - E_s*E_s
+
+    if n > 1: #Bessel's correction
+        var = var*n/(n-1) 
+
+    return var
+
+def stdev(sample: Sequence[float]) -> float:
+    return var(sample)**(1/2)
+
 class PointAndInterval(ABC):
 
     @abstractmethod
     def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
         ...
 
-class StandardDeviation:
-    
-    def calculate(self, sample: Sequence[float]) -> float:
-
-        #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
-        #directly calculating is much faster than the
-        #statistics module because `statistics` uses
-        #integer ratios to ensure precision. If precision
-        #is needed use the statistics module
-        n    = len(sample)
-        E_s  = sum(sample)/n
-        E_s2 = sum([s*s for s in sample])/n
-        var  = E_s2 - E_s*E_s
-    
-        if n > 1: #Bessel's correction
-            var  = var*n/(n-1) 
-
-        return var**(1/2)
-
-class Mean:
-    def calculate(self, sample: Sequence[float]) -> float:
-        #If precision is needed use a true statistics package  
-        return sum(sample)/len(sample)
-
 class StandardErrorOfMean(PointAndInterval):
 
+    def __init__(self, z_score:float=1.96) -> None:
+        self._z_score = z_score 
+
     def calculate(self, sample: Sequence[float]) -> Tuple[float, Tuple[float, float]]:
-        z_975 = 1.96 #z-score for .975 area to the left
-        mu    = sum(sample)/len(sample)
-        se    = StandardDeviation().calculate(sample)/(len(sample)**(.5))
-        return (mu, (z_975*se,z_975*se))
+        mu = mean(sample)
+        se = stdev(sample)/(len(sample)**(.5))
+        return (mu, (self._z_score*se,self._z_score*se))
 
 class BootstrapConfidenceInterval(PointAndInterval):
 
@@ -125,6 +126,7 @@ class BinomialConfidenceInterval(PointAndInterval):
             location = location_num/location_den
 
             return (p_hat, (p_hat-(location-interval), (location+interval)-p_hat))
+        
         else:
             PackageChecker.sklearn("BinomialConfidenceInterval")
             from scipy.stats import beta

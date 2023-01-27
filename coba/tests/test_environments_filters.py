@@ -1965,6 +1965,13 @@ class Unbatch_Tests(unittest.TestCase):
         unbatched = list(Unbatch().filter(batched))
         self.assertEqual(unbatched, [interaction]*3)
 
+    def test_mixed(self):        
+        interaction = {'b':2,'a':primitives.Batch([1,2])}
+
+        unbatched = list(Unbatch().filter([interaction]))
+        self.assertEqual(unbatched, [{'a':1,'b':2},{'a':2,'b':2}])
+
+
     def test_empty(self):
         self.assertEqual(list(Unbatch().filter([])),[])
 
@@ -2059,6 +2066,7 @@ class Cache_Tests(unittest.TestCase):
         self.assertEqual(list(Cache(3).filter([])), [])
 
 class Logged_Tests(unittest.TestCase):
+    
     def test_not_batched(self):
         initial_input = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
         expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
@@ -2082,6 +2090,24 @@ class Logged_Tests(unittest.TestCase):
         output = list(Logged(TestLearner()).filter(Batch(2).filter([initial_input]*2)))
 
         self.assertEqual(output, expected_output)
+
+    def test_learning_info(self):
+
+        class TestLearner:
+            def predict(self,*args):
+                CobaContext.learning_info['a'] = 1
+                return [1,0,0]
+            def learn(self,*args):
+                CobaContext.learning_info['b'] = 2
+                pass
+
+        initial_input   = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1), 'a':1, 'b':2}
+
+        output = list(Logged(TestLearner()).filter([initial_input]))
+
+        self.assertEqual(output, [expected_output])
+
 
     def test_bad_type(self):
         initial_input = {'context':None, "rewards":L1Reward(1)}

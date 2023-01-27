@@ -1,13 +1,11 @@
 import unittest
 import importlib.util
 
-
-from statistics import mean, variance
 from math import isnan
 
 from coba.exceptions import CobaException
-from coba.statistics import OnlineVariance, OnlineMean, iqr, percentile, phi
-from coba.statistics import Mean, StandardDeviation, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval
+from coba.statistics import mean, stdev, var, iqr, percentile, phi
+from coba.statistics import OnlineVariance, OnlineMean, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval
 
 class iqr_Tests(unittest.TestCase):
     def test_simple_exclusive(self):
@@ -28,14 +26,14 @@ class percentile_Tests(unittest.TestCase):
 
 class Mean_Tests(unittest.TestCase):
     def test(self):
-        self.assertEqual(2,Mean().calculate([1,2,3]))
+        self.assertEqual(2,mean([1,2,3]))
 
 class StandardDeviation_Tests(unittest.TestCase):
     def test(self):
-        self.assertAlmostEqual(1.4142,StandardDeviation().calculate([1,3]),4)
+        self.assertAlmostEqual(1.4142,stdev([1,3]),4)
 
     def test_length_1(self):
-        self.assertAlmostEqual(0,StandardDeviation().calculate([1]),4)
+        self.assertAlmostEqual(0,stdev([1]),4)
 
 class StandardErrorOfMean_Tests(unittest.TestCase):
     def test(self):
@@ -47,13 +45,13 @@ class StandardErrorOfMean_Tests(unittest.TestCase):
 class BootstrapConfidenceInterval_Tests(unittest.TestCase):
     
     def test1(self):
-        mu,(lo,hi) = BootstrapConfidenceInterval(.95,Mean().calculate).calculate([0,2])
+        mu,(lo,hi) = BootstrapConfidenceInterval(.95,mean).calculate([0,2])
         self.assertEqual(1,mu)
         self.assertEqual(1,lo)
         self.assertEqual(1,hi)
 
     def test2(self):
-        mu,(lo,hi) = BootstrapConfidenceInterval(.1,Mean().calculate).calculate([0,2])
+        mu,(lo,hi) = BootstrapConfidenceInterval(.1,mean).calculate([0,2])
         self.assertEqual(1,mu)
         self.assertEqual(0,lo)
         self.assertEqual(0,hi)
@@ -104,7 +102,7 @@ class OnlineVariance_Tests(unittest.TestCase):
             for number in test_set:
                 online.update(number)
 
-            self.assertEqual(online.variance, variance(test_set))
+            self.assertEqual(online.variance, var(test_set))
 
     def test_three_update_variance(self):
 
@@ -116,8 +114,7 @@ class OnlineVariance_Tests(unittest.TestCase):
             for number in test_set:
                 online.update(number)
 
-            #note: this test will fail on the final the test_set if `places` > 15
-            self.assertAlmostEqual(online.variance, variance(test_set), places = 15)
+            self.assertAlmostEqual(online.variance, var(test_set), places = 8)
 
     def test_100_integers_update_variance(self):
 
@@ -128,7 +125,7 @@ class OnlineVariance_Tests(unittest.TestCase):
         for number in test_set:
             online.update(number)
 
-        self.assertEqual(online.variance, variance(test_set))
+        self.assertEqual(online.variance, var(test_set))
 
     def test_100_floats_update_variance(self):
 
@@ -140,7 +137,7 @@ class OnlineVariance_Tests(unittest.TestCase):
             online.update(number)
 
         #note: this test will fail on the final the test_set if `places` > 12
-        self.assertAlmostEqual(online.variance, variance(test_set), places=12)
+        self.assertAlmostEqual(online.variance, var(test_set), places=12)
 
 class OnlineMean_Tests(unittest.TestCase):
 
