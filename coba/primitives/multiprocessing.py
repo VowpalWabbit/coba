@@ -1,16 +1,13 @@
-from multiprocessing import Process, Pipe, Lock
+from multiprocessing import Pipe, Lock, get_context
 from threading import Thread
 from traceback import format_exc
 from typing import Optional
 
-class SafeProcess(Process):
 
-    ### We create a lock so that we can safely receive any possible exceptions.
-    ### This could be a little heavy handed if many processes are being created.
-    ### One possible solution to this is to only provide exceptions in the callback.
-    ### This means we could *know* that the recv.recv() would only be called in our
-    ### thread and wouldn't need to create a lock. We could even avoid creating a
-    ### Pipe() all together in this case when a callback isn't provided.
+class SafeProcess(get_context("spawn").Process):
+
+    ### We create a lock so that we can safely receive any possible exceptions. Empirical
+    ### tests showed that creating a Pipe and Lock doesn't seem to slow us down too much.
 
     def __init__(self, *args, **kwargs):
 

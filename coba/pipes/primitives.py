@@ -37,3 +37,11 @@ class Sink(ABC, Pipe, Generic[_T_in]):
     def write(self, item: _T_in) -> None:
         """Write the item."""
         ...
+
+class Line(ABC, Pipe):
+    """A pipe that can be run."""
+
+    @abstractmethod
+    def run(self):
+        """Run the pipe."""
+        ...

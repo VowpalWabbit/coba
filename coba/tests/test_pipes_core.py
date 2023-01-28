@@ -374,7 +374,6 @@ class Pipeline_Tests(unittest.TestCase):
         proc = pipeline.run_async(callback)
         proc.join()
         self.assertEqual(str(proc.exception),"Exception Filter")
-
         event.wait()
         self.assertEqual(str(holder[0]),"Exception Filter")
 

@@ -14,6 +14,7 @@ from coba.environments import Scale, Flatten, Grounded, Chunk, Impute
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 
 from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
+from coba.pipes.core import Pipeline
 
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
@@ -398,6 +399,15 @@ class Performance_Tests(unittest.TestCase):
         impute = Impute("mode")
         self._assert_scale_time(interactions, lambda x:list(impute.filter(x)), .06, print_time, number=1000)
 
+    @unittest.skip("Just for testing. There's not much we can do to speed up process creation.")
+    def test_async_pipe(self):
+        pipeline = Pipeline(coba.pipes.IterableSource([1,2,3]), coba.pipes.Identity(), coba.pipes.ListSink())
+        
+        def run_async():
+            proc = pipeline.run_async(lambda ex,tb: None)
+            proc.join()
+
+        self._assert_call_time(run_async, .04, True, number=1)
 
     def _assert_call_time(self, timeable: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
         if print_time: print()
