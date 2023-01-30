@@ -1,10 +1,12 @@
-from threading import Thread
-from multiprocessing import Manager, Queue, Lock, Condition, Semaphore
+import threading as mt
+import multiprocessing as mp
 from typing import Iterable, Any, Dict
 
 from coba.utilities import coba_exit
 from coba.contexts  import CobaContext, ConcurrentCacher, Logger, Cacher
 from coba.pipes     import Pipes, Filter, Sink, Multiprocessor, Foreach, QueueSink, QueueSource, MultiException
+
+spawn_context = mp.get_context("spawn")
 
 class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
@@ -44,17 +46,17 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
         try:
 
-            with Manager() as manager:
-                stdlog     = Queue()
+            with spawn_context.Manager() as manager:
+                stdlog     = spawn_context.Queue()
                 get_stdlog = QueueSource(stdlog)
                 put_stdlog = QueueSink(stdlog)
 
-                log_thread = Thread(target=Pipes.join(get_stdlog,Foreach(CobaContext.logger.sink)).run, daemon=True)
+                log_thread = mt.Thread(target=Pipes.join(get_stdlog,Foreach(CobaContext.logger.sink)).run, daemon=True)
                 log_thread.start()
 
                 logger = CobaContext.logger
-                cacher = ConcurrentCacher(CobaContext.cacher, manager.dict(), Lock(), Condition())
-                store  = { "openml_semaphore": Semaphore(3) }
+                cacher = ConcurrentCacher(CobaContext.cacher, manager.dict(), spawn_context.Lock(), spawn_context.Condition())
+                store  = { "openml_semaphore": mp.Semaphore(3) }
 
                 filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, put_stdlog)
 

@@ -25,11 +25,13 @@ from coba.pipes.sinks import QueueSink
 #   > a class that is defined inside the __name__=='__main__' block is pickled
 # handle Experiment.evaluate not being called inside of __name__=='__main__' (this is handled by a big try/catch)
 
+spawn_context = mp.get_context("spawn")
+
 class MultiException(Exception):
     def __init__(self, exceptions: Sequence[Exception]):
         self.exceptions = exceptions
 
-class ProcessLine(mp.get_context("spawn").Process):
+class ProcessLine(spawn_context.Process):
 
     ### We create a lock so that we can safely receive any possible exceptions. Empirical
     ### tests showed that creating a Pipe and Lock doesn't seem to slow us down too much.
@@ -48,16 +50,16 @@ class ProcessLine(mp.get_context("spawn").Process):
         callback = self._callback
 
         self._callback         = None
-        self._recv, self._send = mp.Pipe(False)
-        self._lock             = mp.Lock()
+        self._recv, self._send = spawn_context.Pipe(False)
+        self._lock             = spawn_context.Lock()
 
         super().start()
 
         if callback:
-            def join_and_call():
+            def join_and_call(self=self):
                 self.join()
                 callback(self._line, self._exception,self._traceback, self._poisoned)
-            mt.Thread(target=join_and_call).start()
+            mt.Thread(target=join_and_call,daemon=True).start()
 
     def run(self):#pragma: no cover (coverage can't be tracked for code that runs on background prcesses)
         try:
@@ -227,8 +229,8 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             n_procs       = min(len(initial_items), self._n_processes)
             items         = chain(initial_items, items)
 
-            in_queue  = mp.Queue(maxsize=n_procs)
-            out_queue = mp.Queue()
+            in_queue  = spawn_context.Queue(maxsize=n_procs)
+            out_queue = spawn_context.Queue()
             in_put    = QueueSink(in_queue,foreach=True)
             in_get    = QueueSource(in_queue)
             out_put   = QueueSink(out_queue,foreach=True)

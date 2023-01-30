@@ -9,8 +9,9 @@ from typing import Iterable, Any
 from coba.exceptions import CobaException
 from coba.pipes import Filter, ListSink, Identity, QueueSink, IterableSource
 
-from coba.pipes.primitives import SourceSink
 from coba.pipes.multiprocessing import Multiprocessor, MultiException, AsyncableLine, Unchunker, Pickler, Unpickler
+
+spawn_context = mp.get_context("spawn")
 
 class NotPicklableFilter(Filter):
     def __init__(self):
@@ -31,25 +32,18 @@ class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         try:
             for item in items:
-                yield f"pid-{mp.current_process().pid}"
+                yield f"pid-{spawn_context.current_process().pid}"
         except Exception as e:
             raise
 
 class BarrierNameFilter(Filter):
     def __init__(self, n):
-        self._barrier = mp.Barrier(n)
+        self._barrier = spawn_context.Barrier(n)
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         for item in items:
             self._barrier.wait()
-            yield f"pid-{mp.current_process().pid}"
-
-class KillableFilter(Filter):
-    def __init__(self, kill_event: mp.Event) -> None:
-        self._kill_event = kill_event
-
-    def filter(self, item):
-        self._kill_event.wait()
+            yield f"pid-{spawn_context.current_process().pid}"
 
 class ExceptionFilter(Filter):
     def __init__(self, exc = Exception("Exception Filter")):
@@ -135,13 +129,13 @@ class Multiprocessor_Tests(unittest.TestCase):
 
 class AsyncableLine_Tests(unittest.TestCase):
     def test_run_async_process_no_callback(self):
-        queue    = mp.Queue()
+        queue    = spawn_context.Queue()
         pipeline = AsyncableLine(IterableSource([1,2]), QueueSink(queue,True))
         pipeline.run_async().join()
         self.assertEqual([1,2], [queue.get(False),queue.get(False)])
 
     def test_run_async_process_with_callback(self):
-        queue  = mp.Queue()
+        queue  = spawn_context.Queue()
         event  = mt.Event() 
         holder = []
 
