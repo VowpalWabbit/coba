@@ -6,8 +6,8 @@ functionality is not sufficient. That being said, a good understanding of the pa
 in coba.pipes can help one understand how to best take advantage what Coba has to offer.
 """
 
-from coba.pipes.primitives import Filter, Source, Sink
-from coba.pipes.multiprocessing import Multiprocessor
+from coba.pipes.primitives import Filter, Source, Sink, Foreach, SourceFilters, StopPipe
+from coba.pipes.multiprocessing import Multiprocessor, MultiException
 
 from coba.pipes.filters import Take, Shuffle, Structure, Identity, Flatten, Default, Reservoir
 from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache, Slice
@@ -20,7 +20,7 @@ from coba.pipes.sources import NullSource, IdentitySource, DiskSource, IterableS
 from coba.pipes.sources import QueueSource, HttpSource, LambdaSource, UrlSource
 from coba.pipes.sinks   import NullSink, ConsoleSink, DiskSink, ListSink, QueueSink, LambdaSink
 
-from coba.pipes.core import Pipes, Foreach, QueueIO, SourceFilters
+from coba.pipes.core import Pipes
 
 __all__ = [
     "Filter",
@@ -74,5 +74,7 @@ __all__ = [
     "EncodeRows", 
     "HeadRows",
     "DropRows",
-    "EncodeCatRows"
+    "EncodeCatRows",
+    "MultiException",
+    "StopPipe"
 ]

@@ -87,9 +87,10 @@ class QueueSource(Source[Iterable[Any]]):
             block: Indicates if the queue should block when it is empty.
             poison: The poison pill that indicates when to stop blocking (if blocking).
         """
-        self._queue  = queue or Queue()
-        self._poison = poison
-        self._block  = block
+        self._queue    = queue or Queue()
+        self._poison   = poison
+        self._block    = block
+        self._poisoned = False
 
     def read(self) -> Iterable[Any]:
         try:
@@ -97,6 +98,7 @@ class QueueSource(Source[Iterable[Any]]):
                 item = self._queue.get()
 
                 if self._block and item == self._poison:
+                    self._poisoned = True
                     break
 
                 yield item

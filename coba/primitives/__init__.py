@@ -3,7 +3,6 @@ from coba.primitives.types import Categorical
 from coba.primitives.rows import Dense, Sparse, HashableDense, HashableSparse
 from coba.primitives.feedbacks import Feedback, SequenceFeedback, BatchFeedback
 from coba.primitives.rewards import Reward, L1Reward, HammingReward, BinaryReward, ScaleReward, SequenceReward, MulticlassReward, BatchReward
-from coba.primitives.multiprocessing import SafeProcess, SafeThread
 
 __all__ = [
     'Reward',
@@ -27,6 +26,4 @@ __all__ = [
     'Batch',
     'BatchReward',
     'BatchFeedback',
-    'SafeProcess',
-    'SafeThread'
 ]

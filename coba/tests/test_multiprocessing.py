@@ -25,16 +25,19 @@ class SleepingFilter(Filter):
 
 class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        process_name = f"pid-{current_process().pid}"
-        CobaContext.logger.log(process_name)
-        yield process_name
+        for item in items:
+            process_name = f"pid-{current_process().pid}"
+            CobaContext.logger.log(process_name)
+            yield process_name
 
 class ExceptionFilter(Filter):
     def __init__(self, exc = Exception("Exception Filter")):
         self._exc = exc
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
-        raise self._exc
+        for item in items:
+            raise self._exc
+            yield None
 
 class CobaMultiprocessor_Tests(unittest.TestCase):
 
@@ -48,7 +51,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         CobaContext.logger = logger
         CobaContext.cacher = NullCacher()
 
-        items = list(CobaMultiprocessor(ProcessNameFilter(), 2, 1).filter(range(4)))
+        items = list(CobaMultiprocessor(ProcessNameFilter(), 2, 1, False).filter(range(4)))
 
         self.assertEqual(len(logger_sink.items), 4)
         self.assertCountEqual(items, [ l.split(' ')[ 3] for l in logger_sink.items ] )
@@ -58,7 +61,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
         CobaContext.cacher = NullCacher()
 
-        list(CobaMultiprocessor(ExceptionFilter(), 2, 1).filter(range(4)))
+        list(CobaMultiprocessor(ExceptionFilter(), 2, 1, False).filter(range(4)))
 
         self.assertEqual(4, len(CobaContext.logger.sink.items))
         self.assertIn("Exception Filter", CobaContext.logger.sink.items[0])
@@ -81,7 +84,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
 
     def test_not_picklable_logging(self):
         logger_sink = ListSink()
-        CobaContext.logger = BasicLogger(logger_sink)
+        CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(logger_sink),[])
         CobaContext.cacher = NullCacher()
 
         list(CobaMultiprocessor(ProcessNameFilter(), 2, 1).filter([lambda a:1]))
@@ -119,7 +122,7 @@ class CobaMultiprocessor_ProcessFilter_Tests(unittest.TestCase):
         self.assertIsInstance(CobaContext.cacher, NullCacher)
         self.assertIsNone(CobaContext.store)
 
-        filter.filter(1)
+        list(filter.filter([1]))
 
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertIsInstance(CobaContext.cacher, MemoryCacher)
@@ -135,7 +138,7 @@ class CobaMultiprocessor_ProcessFilter_Tests(unittest.TestCase):
 
         logger = DecoratedLogger([ExceptLog()], IndentLogger(), [])
 
-        CobaMultiprocessor.ProcessFilter(ExceptionFilter(),logger,None,None,log_sink).filter(1)
+        list(CobaMultiprocessor.ProcessFilter(ExceptionFilter(),logger,None,None,log_sink).filter([1]))
 
         self.assertIn('Exception Filter', log_sink.items[0])
 

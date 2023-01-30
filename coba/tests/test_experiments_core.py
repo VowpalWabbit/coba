@@ -216,7 +216,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         learner    = ModuloLearner()
         experiment = Experiment([env1,env2], [learner], description="abc")
 
-        result              = experiment.evaluate()
+        result              = experiment.run()
         actual_learners     = result.learners.to_dicts()
         actual_environments = result.environments.to_dicts()
         actual_interactions = result.interactions.to_dicts()

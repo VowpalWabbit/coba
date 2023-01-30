@@ -159,7 +159,7 @@ class Experiment:
         sink       = TransactionIO(result_file)
 
         single_process = ProcessWorkItems()
-        multi_process  = Pipes.join(chunk, max_chunk, CobaMultiprocessor(ProcessWorkItems(), mp, mc))
+        multi_process  = Pipes.join(chunk, max_chunk, CobaMultiprocessor(ProcessWorkItems(), mp, mc, True))
         process        = multi_process if mp > 1 or mc != 0 else single_process
 
         try:

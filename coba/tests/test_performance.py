@@ -13,8 +13,7 @@ from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk, Impute
 from coba.encodings import NumericEncoder, OneHotEncoder, InteractionsEncoder
 
-from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure
-from coba.pipes.core import Pipeline
+from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pipes
 
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
@@ -401,7 +400,7 @@ class Performance_Tests(unittest.TestCase):
 
     @unittest.skip("Just for testing. There's not much we can do to speed up process creation.")
     def test_async_pipe(self):
-        pipeline = Pipeline(coba.pipes.IterableSource([1,2,3]), coba.pipes.Identity(), coba.pipes.ListSink())
+        pipeline = Pipes.join(coba.pipes.IterableSource([1,2,3]), coba.pipes.Identity(), coba.pipes.ListSink())
         
         def run_async():
             proc = pipeline.run_async(lambda ex,tb: None)
