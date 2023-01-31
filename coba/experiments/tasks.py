@@ -147,10 +147,10 @@ class SimpleEvaluation(EvaluationTask):
                 reward   = rewards.eval(action)
                 feedback = feedbacks.eval(action) if feedbacks else reward
 
-                if record_time   : out['predict_time'] = predict_time
-                if record_prob   : out['probability']  = prob
-                if record_action : out['action']       = action
-                if feedbacks     : out['feedback']     = feedback
+                if record_time  : out['predict_time'] = predict_time
+                if record_prob  : out['probability']  = prob
+                if record_action: out['action']       = action
+                if feedbacks    : out['feedback']     = feedback
 
                 if not batched:
                     if calc_reward : out['reward'] = get_reward(reward)
