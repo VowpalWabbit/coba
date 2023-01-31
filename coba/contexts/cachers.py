@@ -1,14 +1,14 @@
-import inspect
 import gzip
+import time
 
-from collections import defaultdict
-from contextlib import contextmanager
-from threading import current_thread
-from abc import abstractmethod, ABC
-from collections.abc import Iterator
-from threading import Lock, Condition
+from hashlib import blake2b
+from threading import Lock, current_thread
 from pathlib import Path
-from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic, Tuple, Generator
+from contextlib import nullcontext, contextmanager
+from collections.abc import Iterator
+from collections import defaultdict
+from abc import abstractmethod, ABC
+from typing import Union, Dict, TypeVar, Iterable, Optional, Callable, Generic, Sequence, ContextManager
 
 from coba.exceptions import CobaException
 
@@ -24,27 +24,6 @@ class Cacher(Generic[_K, _V], ABC):
         ...
 
     @abstractmethod
-    def get(self, key: _K) -> _V:
-        """Get a key from the cache.
-
-        Args:
-            key: The key to retreive from the cache.
-        """
-        ...
-
-    @abstractmethod
-    def put(self, key: _K, value: _V) -> None:
-        """Put a key and its bytes into the cache.
-
-        In the case of a key collision nothing will be put.
-
-        Args:
-            key: The key to store in the cache.
-            value: The value that should be cached for the key.
-        """
-        ...
-
-    @abstractmethod
     def rmv(self, key: _K) -> None:
         """Remove a key from the cache.
 
@@ -54,7 +33,7 @@ class Cacher(Generic[_K, _V], ABC):
         ...
 
     @abstractmethod
-    def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
+    def get_set(self, key: _K, getter: Union[Callable[[], _V],_V]) -> ContextManager[_V]:
         """Get a key from the cache.
 
         If the key is not in the cache put it first using getter.
@@ -64,18 +43,6 @@ class Cacher(Generic[_K, _V], ABC):
             getter: A method for getting the value if necessary.
         """
         ...
-
-    @abstractmethod
-    def release(self, key: _K) -> None:
-        """Release any held resources for the key.
-
-        Args:
-            key: The key to release resources for.
-
-        Remarks:
-            This method has been added to the interface primarily to help with
-            unexpected DiskCacher failures while iterating over a get request.
-        """
 
 class NullCacher(Cacher[_K, _V]):
     """A cacher which does not cache any data."""
@@ -87,20 +54,11 @@ class NullCacher(Cacher[_K, _V]):
     def __contains__(self, key: _K) -> bool:
         return False
 
-    def get(self, key: _K) -> _V:
-        raise Exception("the key didn't exist in the cache")
-
-    def put(self, key: _K, value: _V) -> None:
-        pass
-
     def rmv(self, key: _K):
         pass
 
-    def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
-        return getter()
-
-    def release(self, key: _K) -> None:
-        pass
+    def get_set(self, key: _K, getter: Union[Callable[[], _V],_V]) -> ContextManager[_V]:
+        return nullcontext(getter())
 
 class MemoryCacher(Cacher[_K, _V]):
     """A cacher that caches in memory."""
@@ -112,23 +70,17 @@ class MemoryCacher(Cacher[_K, _V]):
     def __contains__(self, key: _K) -> bool:
         return key in self._cache
 
-    def get(self, key: _K) -> _V:
-        return self._cache[key]
-
-    def put(self, key: _K, value: _V) -> None:
-        self._cache[key] = list(value) if inspect.isgenerator(value) else value
-
     def rmv(self, key: _K) -> None:
         if key in self:
             del self._cache[key]
 
-    def get_put(self, key: _K, getter: Callable[[], _V]) -> _V:
+    def get_set(self, key: _K, getter: Union[Callable[[], _V],_V]) -> ContextManager[_V]:
         if key not in self:
-            self.put(key,getter())
-        return self.get(key)
-
-    def release(self, key: _K) -> None:
-        pass
+            value = getter() if callable(getter) else getter
+            value = list(value) if isinstance(value,Iterator) else value
+            self._cache[key] = value
+            return nullcontext(value)
+        return nullcontext(self._cache[key])
 
 class DiskCacher(Cacher[str, Iterable[str]]):
     """A cacher that writes to disk.
@@ -142,7 +94,6 @@ class DiskCacher(Cacher[str, Iterable[str]]):
         Args:
             cache_dir: The directory path where all given keys will be cached as files
         """
-        self._files: Dict[str,gzip.GzipFile] = {}
         self.cache_directory = cache_dir
 
     @property
@@ -157,238 +108,155 @@ class DiskCacher(Cacher[str, Iterable[str]]):
     def __contains__(self, key: str) -> bool:
         return self._cache_dir is not None and self._cache_path(key).exists()
 
-    @contextmanager
-    def _open(self, key, mode, encoding=None, compresslevel=9) -> Generator[gzip.GzipFile, None, None]:
-        try:
-            file = gzip.open(self._cache_path(key), mode, compresslevel, encoding)
-            self._files[key] = file
-            yield file
-        finally:
-            if key in self._files: self._files.pop(key).close()
-
-    def get(self, key: str) -> Iterable[str]:
-        if key not in self: return []
-
-        with self._open(key, 'rt', 'utf-8') as f:
-            return f.readlines()
-
-    def put(self, key: str, lines: Iterable[str]):
-        
-        if self._cache_dir is None: return
-        self._cache_dir.mkdir(parents=True, exist_ok=True)
-
-        try:
-            if key in self: return
-
-            if isinstance(lines,str): lines = [lines]
-
-            with self._open(key, 'wt+', "utf-8", compresslevel=6) as f:
-                for line in lines:
-                    f.write(line.rstrip('\r\n'))
-                    f.write('\n')
-        except:
-            if key in self: self.rmv(key)
-            raise
-
     def rmv(self, key: str) -> None:
         if self._cache_path(key).exists(): self._cache_path(key).unlink()
 
-    def get_put(self, key: str, getter: Callable[[], Iterable[str]]) -> Iterable[str]:
+    def get_set(self, key: str, getter: Union[Callable[[], Iterable[str]],Iterable[str]]) -> ContextManager[Iterable[str]]:
 
         if self._cache_dir is None:
-            return getter()
+            return nullcontext(getter())
 
         if key not in self:
-            self.put(key, getter())
+            try:
+                lines = getter() if callable(getter) else getter
+                if isinstance(lines,str): lines = [lines]
+                self._cache_dir.mkdir(parents=True, exist_ok=True)
 
-        return self.get(key)
+                with gzip.open(self._cache_path(key), "wt+", 6, "utf-8") as f:
+                    for line in lines:
+                        f.write(line.rstrip('\r\n'))
+                        f.write('\n')
+            except:
+                if key in self: 
+                    self.rmv(key)
+                raise
+        
+        return gzip.open(self._cache_path(key), 'rt', 'utf-8')
 
     def _cache_name(self, key: str) -> str:
         if not all(c.isalnum() or c in (' ','.','_') for c in key):
             raise CobaException(f"A key was given to DiskCacher which couldn't be made into a file, {key}")
-
         return f"{key}.gz"
-        #return f"{md5(key.encode('utf-8')).hexdigest()}.gz"
 
     def _cache_path(self, key: str) -> Path:
         return self._cache_dir/self._cache_name(key)
 
-    def release(self, key:str) -> None:
-        if key in self._files:
-            self._files.pop(key).close()
-
 class ConcurrentCacher(Cacher[_K, _V]):
     """A cacher that is multi-process safe."""
 
-    def __init__(self, cache:Cacher[_K, _V], dict:Dict[_K,int], lock: Lock, cond: Condition):
+    def __init__(self, cache:Cacher[_K, _V], list: Sequence = None, lock: Lock = None):
         """Instantiate a ConcurrentCacher.
 
         Args:
             cache: The base cacher that we wish to make multi-process safe.
-            dict: This must be a multiprocessing dict capable of communicating across processes.
-            lock: A lock that can be marshalled to other processes.
-            cond: A condition that can be marshaled to other processes.
         """
-        #With more thought the 3 concurrency objects could probably be reduced to just 1 or 2.
+        self._digest_size = 2
 
         self._cache = cache
-        self._lock  = lock
-        self._dict  = dict
-        self._cond  = cond
+        self._lock  = lock or Lock()
+        self._array = list or [0]*2**(8*self._digest_size)
+        
+        self._write_waits = 0 # for testing purposes only. won't be accurate in production.
+        self._read_waits  = 0 # for testing purposes only. won't be accurate in production.
 
-        #we localize these to thread-id to make conccurent cacher
-        #work the same whether multi-threading or multi-processing
-        self._read_locks : Dict[Tuple[int,_K],int] = defaultdict(int)
-        self._write_locks: Dict[Tuple[int,_K],int] = defaultdict(int)
+        self._locks = defaultdict(int)
 
-        self.read_waits  = 0
-        self.write_waits = 0
+        assert len(self._array) >= 2**(8*self._digest_size)
 
     def __contains__(self, key: _K) -> bool:
         return key in self._cache
 
-    def _acquired_read_lock(self, key: _K) -> bool:
-        with self._lock:
-            if key not in self._dict or self._dict[key]>=0:
-                self._dict[key] = self._dict.get(key,0)+1
-                return True
-            return False
-
-    def _acquire_read_lock(self, key: _K):
-
-        if self._has_write_lock(key):
-            raise CobaException("The concurrent cacher was asked to enter a race condition.")
-
-        self.read_waits += 1
-        while not self._acquired_read_lock(key):
-            with self._cond:
-                self._cond.wait(1)
-        self.read_waits -= 1
-        self._read_locks[(current_thread().ident,key)] += 1
-
-    def _release_read_lock(self, key: _K):
-        with self._lock:
-            self._dict[key] -= 1
-        with self._cond:
-            self._cond.notify_all()
-        self._read_locks[(current_thread().ident,key)] -= 1
-
-    def _has_read_lock(self, key) -> bool:
-        return self._read_locks[(current_thread().ident,key)] > 0
-
-    def _acquired_write_lock(self, key: _K) -> bool:
-        with self._lock:
-            if key not in self._dict or self._dict[key] == 0:
-                self._dict[key] = -1
-                return True
-            return False
-
-    def _acquire_write_lock(self, key: _K):
-
-        if self._has_read_lock(key) or self._has_write_lock(key):
-            raise CobaException("The concurrent cacher was asked to enter a race condition.")
-
-        self.write_waits += 1
-        while not self._acquired_write_lock(key):
-            with self._cond:
-                self._cond.wait(1)
-        self.write_waits -= 1
-        self._write_locks[(current_thread().ident,key)] += 1
-
-    def _switch_write_to_read_lock(self, key: _K):
-        with self._lock:
-            self._dict[key] = 1
-
-        self._read_locks[(current_thread().ident,key)] += 1
-        self._write_locks[(current_thread().ident,key)] -= 1
-
-    def _release_write_lock(self, key: _K):
-        with self._lock:
-            self._dict[key] = 0
-
-        with self._cond:
-            self._cond.notify_all()
-
-        self._write_locks[(current_thread().ident,key)] -= 1
-
-    def _has_write_lock(self, key) -> bool:
-        return self._write_locks[(current_thread().ident,key)] > 0
-
-    def _generator_release(self, value: _V, release: Callable[[],None]):
-        try:
-            for v in value:
-                yield v
-        finally:
-            release()
-
-    def get(self, key:_K) -> _V:
-
-        self._acquire_read_lock(key)
-        value = self._cache.get(key)
-
-        if inspect.isgenerator(value) or isinstance(value,Iterator):
-            return self._generator_release(value,lambda:self._release_read_lock(key))
-        else:
-            self._release_read_lock(key)
-            return value
-
-    def put(self, key: _K, value: _V):
-        self._acquire_write_lock(key)
-        try:
-            self._cache.put(key, value)
-        finally:
-            self._release_write_lock(key)
-
     def rmv(self, key: _K):
-        self._acquire_write_lock(key)
+        lock = None
         try:
-            self._cache.rmv(key)
-        finally:
-            self._release_write_lock(key)
-
-    def get_put(self, key: _K, getter: Callable[[],_V]):
-
-        ### I'm pretty sure there is still a potential race-condition here.
-        ### We need to get a read-lock probably before the first get check
-        ### Otherwise it is possible for an item to be removed from the cache
-        ### after the contains check and before the get. Given how I use
-        ### the cache currently though this is very unlikely to happen so
-        ### I'm not going to fix it at this time. In fact this risk is no
-        ### different from anywhere else that I check before getting. The
-        ### real solution would be to add a try_get method that gets if
-        ### it has it otherwise nothing.
-        try:
-            if key in self._cache:
-                return self.get(key)
-            else:
-
+            if key in self:
                 self._acquire_write_lock(key)
-
-                if key not in self:
-                    value = self._cache.get_put(key, getter)
-
-                    self._switch_write_to_read_lock(key)
-
-                    if inspect.isgenerator(value) or isinstance(value,Iterator):
-                        return self._generator_release(value, lambda:self._release_read_lock(key))
-                    else:
-                        self._release_read_lock(key)
-                        return value
-
-                self._switch_write_to_read_lock(key)
-                value = self.get(key)
-
-                self._release_read_lock(key)
-                return value
+                lock='write'
+                self._cache.rmv(key)
+                lock = None
+                self._release_write_lock(key)
         except:
-            self.release(key)
+            if lock == 'write': self._release_write_lock(key)
             raise
 
-    def release(self, key:_K) -> None:
-        self._cache.release(key)
+    def get_set(self, key: _K, getter: Union[Callable[[],_V],_V]) -> ContextManager[_V]:
 
-        while self._read_locks[(current_thread().ident,key)] > 0:
+        try:
+            self._acquire_read_lock(key)
+            if key in self._cache:
+                return self._release_read_on_exit(key,self._cache.get_set(key,None))
             self._release_read_lock(key)
 
-        while self._write_locks[(current_thread().ident,key)] > 0:
-            self._release_write_lock(key)
+            self._acquire_write_lock(key)
+            if key in self:#pragma: no cover; this is super hard to isolate so I'm just going to trust it...
+                self._switch_write_to_read_lock(key)
+                return self._release_read_on_exit(key,self._cache.get_set(key,None))
+            else:
+                item = self._cache.get_set(key, getter)
+                self._switch_write_to_read_lock(key)
+                return self._release_read_on_exit(key,item)
+        except Exception as e:
+            if self._has_read_lock(key): self._release_read_lock(key)
+            if self._has_write_lock(key): self._release_write_lock(key)
+            raise
+
+    @contextmanager
+    def _release_read_on_exit(self,key:str,item:ContextManager[_V]) -> _V:
+        try:
+            with item as out:
+                yield out
+        finally:
+            self._release_read_lock(key)
+
+    def _acquire_read_lock(self, key):
+        if self._has_write_lock(key):
+            raise CobaException("The concurrent cacher was asked to enter a race condition.")
+        
+        index = self._index(key)
+        self._read_waits += 1
+        while True:
+            with self._lock:
+                if self._array[index] >= 0:
+                    self._locks[(current_thread().ident,key)] += 1
+                    self._array[index] += 1
+                    self._read_waits -= 1
+                    break
+            time.sleep(1)
+    
+    def _release_read_lock(self, key):
+        index = self._index(key)
+        self._array[index] -= 1
+        self._locks[(current_thread().ident,key)] -= 1
+
+    def _acquire_write_lock(self, key) -> ContextManager:
+        if self._has_write_lock(key) or self._has_read_lock(key):
+            raise CobaException("The concurrent cacher was asked to enter a race condition.")
+        index = self._index(key)
+        self._write_waits += 1
+        while True:
+            with self._lock:
+                if self._array[index] == 0:
+                    self._locks[(current_thread().ident,key)] = -1
+                    self._array[index] = -1
+                    self._write_waits -= 1
+                    break
+            time.sleep(1)
+
+    def _release_write_lock(self, key):
+        index = self._index(key)
+        self._array[index] = 0
+        self._locks[(current_thread().ident,key)] = 0
+
+    def _switch_write_to_read_lock(self, key) -> None:
+        index = self._index(key)
+        assert self._array[index] == -1, "You don't have write permissions"
+        self._array[index] = 1
+
+    def _has_read_lock(self, key) -> bool:
+        return self._locks[(current_thread().ident,key)] > 0
+
+    def _has_write_lock(self, key) -> bool:
+        return self._locks[(current_thread().ident,key)] == -1
+
+    def _index(self, key) -> int:
+        return int.from_bytes(blake2b(str(key).encode('utf-8'),digest_size=self._digest_size).digest(),"big")

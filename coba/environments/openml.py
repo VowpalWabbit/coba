@@ -135,8 +135,8 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
     def _get_data(self, url:str, key:str, checksum:str=None) -> Iterable[str]:
         try:
-            for b in CobaContext.cacher.get_put(key, lambda: self._http_request(url)):
-                yield b
+            with CobaContext.cacher.get_set(key, lambda: self._http_request(url)) as out:
+                yield from out
         except Exception:
             self._clear_cache()
             raise
@@ -230,7 +230,6 @@ class OpenmlSource(Source[Iterable[Tuple[Union[MutableSequence, MutableMapping],
 
     def _clear_cache(self) -> None:
         for key in self._cache_keys.values():
-            CobaContext.cacher.release(key) #to make sure we don't get stuck in a race condition
             CobaContext.cacher.rmv(key)
 
     def _source_already_cached(self) -> bool:

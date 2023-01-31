@@ -4,12 +4,12 @@ import multiprocessing as mp
 
 from itertools import islice, chain
 from traceback import format_tb
-from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Iterator, Any
+from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Any
 from coba.backports import Literal
 
 from coba.utilities import peek_first
 from coba.exceptions import CobaException
-from coba.pipes.primitives import Source, Filter, Sink, Line, SourceSink, Pipe
+from coba.pipes.primitives import Filter, Line, SourceSink
 from coba.pipes.filters import Slice
 from coba.pipes.sources import IterableSource, QueueSource
 from coba.pipes.sinks import QueueSink

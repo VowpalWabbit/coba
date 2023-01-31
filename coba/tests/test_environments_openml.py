@@ -15,27 +15,32 @@ from coba.environments.openml import OpenmlSource
 
 CobaContext.logger = NullLogger()
 
-class PutOnceCacher(MemoryCacher):
-
-    def put(self, key, value) -> None:
-
-        if key in self: raise Exception("Writing data again without reason.")
-        return super().put(key, value)
+class GetOnceCacher(MemoryCacher):
+    def __init__(self) -> None:
+        self._get_counts = {}
+        super().__init__()
+    def get_set(self, key, value) -> None:    
+        if key not in self: 
+            self._get_counts[key] = self._get_counts.setdefault(key,0)+1
+        if self._get_counts[key] > 1:
+            raise Exception("Writing data again without reason.")
+        return super().get_set(key, value)
 
 class ExceptionCacher(MemoryCacher):
 
     def __init__(self, failure_key, failure_exception) -> None:
         self._failure_key = failure_key
         self._failure_exception = failure_exception
-
         super().__init__()
+        
+        super().get_set(failure_key,"")
 
-    def get(self, key):
+    def get_set(self, key, value):
 
         if key == self._failure_key:
             raise self._failure_exception
 
-        return super().get(key)
+        return super().get_set(key,value)
 
 class MockResponse:
     def __init__(self, status_code, text, iter_lines):
@@ -60,69 +65,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         CobaContext.logger   = NullLogger()
         CobaContext.store    = {}
 
-    def test_already_cached_values_are_not_cached_again(self):
-
-        CobaContext.cacher = PutOnceCacher()
-
-        data = {
-            "data_set_description":{
-                "id":"42693",
-                "file_id":"22044555",
-                "status":"active",
-                "default_target_attribute":"play"
-            }
-        }
-
-        feat = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        arff = """
-            @relation weather
-
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {n, y}
-
-            @data
-            8.1,27,1410,2,n
-            8.2,29,1180,2,n
-            8.2,28,1410,2,y
-            8.3,27,1020,1,y
-            7.6,23,4700,1,y
-        """
-
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
-
-        features,labels,_ = zip(*[r.labeled for r in OpenmlSource(data_id=42693).read()])
-
-        self.assertEqual(len(features), 5)
-        self.assertEqual(len(labels  ), 5)
-
-        self.assertEqual([8.1, 27, 1410, Categorical('2',['2','1'])], features[0])
-        self.assertEqual([8.2, 29, 1180, Categorical('2',['2','1'])], features[1])
-        self.assertEqual([8.2, 28, 1410, Categorical('2',['2','1'])], features[2])
-        self.assertEqual([8.3, 27, 1020, Categorical('1',['2','1'])], features[3])
-        self.assertEqual([7.6, 23, 4700, Categorical('1',['2','1'])], features[4])
-
-        self.assertEqual(Categorical('n',['n','y']), labels[0])
-        self.assertEqual(Categorical('n',['n','y']), labels[1])
-        self.assertEqual(Categorical('y',['n','y']), labels[2])
-        self.assertEqual(Categorical('y',['n','y']), labels[3])
-        self.assertEqual(Categorical('y',['n','y']), labels[4])
-
     def test_data_deactivated(self):
 
         data = {
@@ -135,7 +77,7 @@ class OpenmlSource_Tests(unittest.TestCase):
         }
 
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
 
         with self.assertRaises(CobaException) as e:
             feature_rows, label_col = OpenmlSource(data_id=42693).read()
@@ -182,9 +124,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             7.6,23,4700,1,y
         """
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_feat', json.dumps(feat).splitlines())
+        CobaContext.cacher.get_set('openml_042693_arff', arff.splitlines() )
 
         features,labels,_ = zip(*[r.labeled for r in OpenmlSource(data_id=42693).read()])
 
@@ -239,9 +181,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             7.6,23,4700,1,y
         """
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , arff.splitlines() )
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_feat', json.dumps(feat).splitlines())
+        CobaContext.cacher.get_set('openml_042693_arff' , arff.splitlines() )
 
         features,labels,_ = zip(*[ r.labeled for r in OpenmlSource(data_id=42693).read()])
 
@@ -300,9 +242,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             7.6,23,4700,1,y
         """
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff' , arff.splitlines() )
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_feat', json.dumps(feat).splitlines())
+        CobaContext.cacher.get_set('openml_042693_arff' , arff.splitlines() )
 
         features,labels,_ = zip(*[r.labeled for r in OpenmlSource(data_id=42693).read()])
 
@@ -331,7 +273,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
 
         with self.assertRaises(Exception) as e:
             feature_rows, label_col = OpenmlSource(data_id=42693).read()
@@ -378,9 +320,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             7.6,23,4700,1,y
         """
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_feat', json.dumps(feat).splitlines())
+        CobaContext.cacher.get_set('openml_042693_arff', arff.splitlines() )
 
         features,labels,_ = zip(*[ r.labeled for r in OpenmlSource(data_id=42693).read()])
 
@@ -450,9 +392,9 @@ class OpenmlSource_Tests(unittest.TestCase):
             {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
         """
 
-        CobaContext.cacher.put('openml_001594_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_001594_arff', arff.splitlines())
+        CobaContext.cacher.get_set('openml_001594_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_001594_feat', json.dumps(feat).splitlines())
+        CobaContext.cacher.get_set('openml_001594_arff', arff.splitlines())
 
         features,labels,_ = zip(*[ r.labeled for r in OpenmlSource(data_id=1594).read()])
 
@@ -528,10 +470,10 @@ class OpenmlSource_Tests(unittest.TestCase):
             {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
         """
 
-        CobaContext.cacher.put('openml_001111_task', json.dumps(task).splitlines())
-        CobaContext.cacher.put('openml_001594_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_001594_arff', arff.splitlines())
+        CobaContext.cacher.get_set('openml_001111_task', json.dumps(task).splitlines())
+        CobaContext.cacher.get_set('openml_001594_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_001594_feat', json.dumps(feat).splitlines())
+        CobaContext.cacher.get_set('openml_001594_arff', arff.splitlines())
 
         features,labels,_ = zip(*[ r.labeled for r in OpenmlSource(task_id=1111).read()])
 
@@ -605,10 +547,10 @@ class OpenmlSource_Tests(unittest.TestCase):
             {0 1,3 1,6 1,7 1,8 1,9 2,10 D}
         """
 
-        CobaContext.cacher.put('openml_001111_task', json.dumps(task).splitlines())
-        CobaContext.cacher.put('openml_001594_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_001594_arff', arff.splitlines())
+        CobaContext.cacher.get_set('openml_001111_task', json.dumps(task).splitlines())
+        CobaContext.cacher.get_set('openml_001594_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_001594_feat', json.dumps(feat).splitlines())
+        CobaContext.cacher.get_set('openml_001594_arff', arff.splitlines())
 
         with self.assertRaises(CobaException) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(task_id=1111).read()))
@@ -674,10 +616,10 @@ class OpenmlSource_Tests(unittest.TestCase):
             {0 1,3 1,6 1,7 1,8 1,9 2,10 3}
         """
 
-        CobaContext.cacher.put('openml_001111_task', json.dumps(task).splitlines())
-        CobaContext.cacher.put('openml_001594_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_001594_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_001594_arff', arff.splitlines())
+        CobaContext.cacher.get_set('openml_001111_task', json.dumps(task).splitlines())
+        CobaContext.cacher.get_set('openml_001594_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_001594_feat', json.dumps(feat).splitlines())
+        CobaContext.cacher.get_set('openml_001594_arff', arff.splitlines())
         
         features,labels,tipes = zip(*[ r.labeled for r in OpenmlSource(task_id=1111).read()])
 
@@ -704,7 +646,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             }
         }
 
-        CobaContext.cacher.put('openml_001111_task', json.dumps(task_description).splitlines())
+        CobaContext.cacher.get_set('openml_001111_task', json.dumps(task_description).splitlines())
 
         with self.assertRaises(CobaException):
             list(OpenmlSource(task_id=1111).read())
@@ -739,9 +681,8 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         CobaContext.cacher = ExceptionCacher('openml_042693_arff', Exception())
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff', b"" )
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_feat', json.dumps(feat).splitlines())
 
         with self.assertRaises(Exception) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
@@ -797,9 +738,8 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         CobaContext.cacher = ExceptionCacher('openml_042693_arff', KeyboardInterrupt())
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff', data_set.splitlines() )
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_feat', json.dumps(feat).splitlines())
 
         with self.assertRaises(KeyboardInterrupt) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
@@ -855,9 +795,8 @@ class OpenmlSource_Tests(unittest.TestCase):
 
         CobaContext.cacher = ExceptionCacher('openml_042693_arff', CobaException())
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_feat', json.dumps(feat).splitlines())
 
         with self.assertRaises(Exception) as e:
             feature_rows, label_col = list(zip(*OpenmlSource(data_id=42693).read()))
@@ -865,85 +804,6 @@ class OpenmlSource_Tests(unittest.TestCase):
         self.assertNotIn('openml_042693_data', CobaContext.cacher)
         self.assertNotIn('openml_042693_feat', CobaContext.cacher)
         self.assertNotIn('openml_042693_arff', CobaContext.cacher)
-
-    def test_read_twice_http_request_put_once_cache_once(self):
-
-        data = {
-            "data_set_description":{
-                "id":"42693",
-                "name":"testdata",
-                "version":"2",
-                "format":"ARFF",
-                "licence":"CC0",
-                "file_id":"22044555",
-                "visibility":"public",
-                "status":"active",
-                "default_target_attribute":"play"
-            }
-        }
-
-        feat = {
-            "data_features":{
-                "feature":[
-                    {"index":"0","name":"pH"          ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"1","name":"temperature" ,"data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"2","name":"conductivity","data_type":"numeric","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"3","name":"coli"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"},
-                    {"index":"4","name":"play"        ,"data_type":"nominal","is_ignore":"false","is_row_identifier":"false"}
-                ]
-            }
-        }
-
-        arff = """
-            @relation weather
-
-            @attribute pH real
-            @attribute temperature real
-            @attribute conductivity real
-            @attribute coli {2, 1}
-            @attribute play {n, y}
-
-            @data
-            8.1,27,1410,2,n
-            8.2,29,1180,2,n
-            8.2,28,1410,2,y
-            8.3,27,1020,1,y
-            7.6,23,4700,1,y
-        """
-
-        request_dict = {
-            'https://openml.org/api/v1/json/data/42693'         : MockResponse(200, "", json.dumps(data).splitlines()),
-            'https://openml.org/api/v1/json/data/features/42693': MockResponse(200, "", json.dumps(feat).splitlines()),
-            'https://openml.org/data/v1/download/22044555'      : MockResponse(200, "", arff.splitlines()),
-        }
-
-        def mocked_requests_get(*args, **kwargs):
-            return request_dict.pop(args[0])
-
-        CobaContext.cacher = PutOnceCacher()
-
-        with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
-            for _ in range(2):
-                features,labels,_ = zip(*[r.labeled for r in OpenmlSource(data_id=42693).read()])
-
-                self.assertEqual(len(features), 5)
-                self.assertEqual(len(labels  ), 5)
-
-                self.assertEqual([8.1, 27, 1410, Categorical('2',["2","1"])], features[0])
-                self.assertEqual([8.2, 29, 1180, Categorical('2',["2","1"])], features[1])
-                self.assertEqual([8.2, 28, 1410, Categorical('2',["2","1"])], features[2])
-                self.assertEqual([8.3, 27, 1020, Categorical('1',["2","1"])], features[3])
-                self.assertEqual([7.6, 23, 4700, Categorical('1',["2","1"])], features[4])
-
-                self.assertEqual(Categorical('n',["n","y"]), labels[0])
-                self.assertEqual(Categorical('n',["n","y"]), labels[1])
-                self.assertEqual(Categorical('y',["n","y"]), labels[2])
-                self.assertEqual(Categorical('y',["n","y"]), labels[3])
-                self.assertEqual(Categorical('y',["n","y"]), labels[4])
-
-                self.assertIn('openml_042693_data', CobaContext.cacher)
-                self.assertIn('openml_042693_feat', CobaContext.cacher)
-                self.assertIn('openml_042693_arff', CobaContext.cacher)
 
     def test_semaphore_locked_and_released(self):
 
@@ -1016,7 +876,7 @@ class OpenmlSource_Tests(unittest.TestCase):
             return request_dict.pop(args[0])
 
         CobaContext.store['openml_semaphore'] = semaphore
-        CobaContext.cacher = PutOnceCacher()
+        CobaContext.cacher = GetOnceCacher()
 
         with unittest.mock.patch.object(requests, 'get', side_effect=mocked_requests_get):
             def thread_1():
@@ -1153,9 +1013,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             8.3,27,1020,1,y
         """
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_feat', json.dumps(feat).splitlines())
+        CobaContext.cacher.get_set('openml_042693_arff', arff.splitlines() )
 
         interactions = list(OpenmlSimulation(data_id=42693).read())
 
@@ -1220,9 +1080,9 @@ class OpenmlSimulation_Tests(unittest.TestCase):
             8.3,27,1020,1,y
         """
 
-        CobaContext.cacher.put('openml_042693_data', json.dumps(data).splitlines())
-        CobaContext.cacher.put('openml_042693_feat', json.dumps(feat).splitlines())
-        CobaContext.cacher.put('openml_042693_arff', arff.splitlines() )
+        CobaContext.cacher.get_set('openml_042693_data', json.dumps(data).splitlines())
+        CobaContext.cacher.get_set('openml_042693_feat', json.dumps(feat).splitlines())
+        CobaContext.cacher.get_set('openml_042693_arff', arff.splitlines() )
 
         interactions = list(OpenmlSimulation(data_id=42693).read())
 

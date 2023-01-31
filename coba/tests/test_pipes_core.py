@@ -11,10 +11,6 @@ from coba.pipes import Filter, ListSink, IterableSource, Foreach, SourceFilters
 
 from coba.pipes.core import Pipes
 
-class SingleItemIdentity:
-    def filter(self,item):
-        return item
-
 class ReprSink(ListSink):
     def __init__(self, params={}) -> None:
         self._params = params
@@ -41,42 +37,6 @@ class ReprFilter(Filter):
     def filter(self, item: Any) -> Any:
         return item
 
-class ParamsSource:
-    @property
-    def params(self):
-        return {'source':"ParamsSource"}
-
-    def read(self):
-        return 1
-
-class NoParamsSource:
-    def read(self):
-        return 1
-
-class ParamsFilter:
-    @property
-    def params(self):
-        return {'filter':"ParamsFilter"}
-
-    def filter(self,item):
-        return item
-
-class NoParamsFilter:
-    def filter(self,item):
-        return item
-
-class ParamsSink:
-    @property
-    def params(self):
-        return {'sink':"ParamsSink"}
-
-    def write(self, item):
-        pass
-
-class NoParamsSink:
-    def write(self, item):
-        pass
-
 class ProcessNameFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         for _ in items:
@@ -85,10 +45,6 @@ class ProcessNameFilter(Filter):
 class ExceptionFilter(Filter):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
         raise Exception("Exception Filter")
-
-class SleepFilter(Filter):
-    def filter(self, item):
-        time.sleep(1000)
 
 class Pipes_Tests(unittest.TestCase):
 

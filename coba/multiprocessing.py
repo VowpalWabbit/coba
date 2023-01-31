@@ -1,5 +1,6 @@
 import threading as mt
 import multiprocessing as mp
+from ctypes import c_short
 from typing import Iterable, Any, Dict
 
 from coba.utilities import coba_exit
@@ -22,7 +23,7 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
         def filter(self, item: Any) -> Any:
 
-            #placing this here means this is set inside the process
+            #this is set inside the process
             CobaContext.logger = self._logger
             CobaContext.cacher = self._cacher
             CobaContext.store  = self._store
@@ -46,29 +47,28 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
         try:
 
-            with spawn_context.Manager() as manager:
-                stdlog     = spawn_context.Queue()
-                get_stdlog = QueueSource(stdlog)
-                put_stdlog = QueueSink(stdlog)
+            stdlog     = spawn_context.Queue()
+            get_stdlog = QueueSource(stdlog)
+            put_stdlog = QueueSink(stdlog)
 
-                log_thread = mt.Thread(target=Pipes.join(get_stdlog,Foreach(CobaContext.logger.sink)).run, daemon=True)
-                log_thread.start()
+            log_thread = mt.Thread(target=Pipes.join(get_stdlog,Foreach(CobaContext.logger.sink)).run, daemon=True)
+            log_thread.start()
 
-                logger = CobaContext.logger
-                cacher = ConcurrentCacher(CobaContext.cacher, manager.dict(), spawn_context.Lock(), spawn_context.Condition())
-                store  = { "openml_semaphore": mp.Semaphore(3) }
+            logger = CobaContext.logger
+            cacher = ConcurrentCacher(CobaContext.cacher,mp.RawArray(c_short,[0]*2**16),mp.Lock())
+            store  = { "openml_semaphore": mp.Semaphore(3) }
 
-                filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, put_stdlog)
+            filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, put_stdlog)
 
-                try:
-                    for item in Multiprocessor(filter, self._processes, self._maxtasksperchild, self._chunked).filter(items):
-                        yield item
-                except MultiException as e: #pragma: no cover
-                    for e in e.exceptions: CobaContext.logger.log(e)
-                except Exception as e:
-                    CobaContext.logger.log(e)
+            try:
+                for item in Multiprocessor(filter, self._processes, self._maxtasksperchild, self._chunked).filter(items):
+                    yield item
+            except MultiException as e: #pragma: no cover
+                for e in e.exceptions: CobaContext.logger.log(e)
+            except Exception as e:
+                CobaContext.logger.log(e)
 
-                put_stdlog.write(None) #attempt to shutdown the logging process gracefully by sending the poison pill
+            put_stdlog.write(None) #attempt to shutdown the logging process gracefully by sending the poison pill
 
         except RuntimeError as e: #pragma: no cover
             #This happens when importing main causes this code to run again
