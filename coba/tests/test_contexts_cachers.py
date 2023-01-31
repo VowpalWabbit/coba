@@ -609,7 +609,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             curr_cacher.rmv(1)
 
-        self.assertEqual("The concurrent cacher was asked to enter a race condition.", str(e.exception))
+        self.assertEqual("The concurrent cacher was asked to enter an unrecoverable state.", str(e.exception))
 
     def test_put_during_get_set_same_process_causes_exception(self):
 

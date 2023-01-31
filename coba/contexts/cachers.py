@@ -149,6 +149,8 @@ class ConcurrentCacher(Cacher[_K, _V]):
 
         Args:
             cache: The base cacher that we wish to make multi-process safe.
+            list: A shared memory object which allows us to track read and write locks
+            lock: The memory synchronization object to be used to ensure read/write safety
         """
         self._digest_size = 2
 
@@ -159,7 +161,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
         self._write_waits = 0 # for testing purposes only. won't be accurate in production.
         self._read_waits  = 0 # for testing purposes only. won't be accurate in production.
 
-        self._locks = defaultdict(int)
+        self._locks = defaultdict(int) # for safety to make sure our current process/thread isn't waiting on itself
 
         assert len(self._array) >= 2**(8*self._digest_size)
 
@@ -210,7 +212,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
 
     def _acquire_read_lock(self, key):
         if self._has_write_lock(key):
-            raise CobaException("The concurrent cacher was asked to enter a race condition.")
+            raise CobaException("The concurrent cacher was asked to enter an unrecoverable state.")
         
         index = self._index(key)
         self._read_waits += 1
@@ -230,7 +232,7 @@ class ConcurrentCacher(Cacher[_K, _V]):
 
     def _acquire_write_lock(self, key) -> ContextManager:
         if self._has_write_lock(key) or self._has_read_lock(key):
-            raise CobaException("The concurrent cacher was asked to enter a race condition.")
+            raise CobaException("The concurrent cacher was asked to enter an unrecoverable state.")
         index = self._index(key)
         self._write_waits += 1
         while True:
