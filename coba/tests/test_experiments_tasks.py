@@ -656,9 +656,10 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
 
     def test_context_logging(self):
-        task         = SimpleEvaluation(['reward','probability', 'context'])
-        learner      = RecordingLearner()
-        interactions = [
+        task                 = SimpleEvaluation(['reward','probability', 'context'])
+        task_without_context = SimpleEvaluation(['reward','probability'])
+        learner              = RecordingLearner()
+        interactions         = [
             LoggedInteraction(1, 0, 0),
             LoggedInteraction(2, 0, 0),
             LoggedInteraction(3, 0, 0),
@@ -669,7 +670,11 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             SimulatedInteraction(None,[4,5,6],[4,5,6]),
             SimulatedInteraction(None,[7,8,9],[1,2,3]),
         ]
+        # without recording context
+        task_results = list(task_without_context.process(learner, interactions))
+        self.assertNotIn('context', task_results[0])
 
+        # recording context
         task_results = list(task.process(learner, interactions))
         result_contexts = [result['context'] for result in task_results]
         self.assertListEqual(result_contexts, [1, 2, 3, 4, 5, 6, None, None, None])
