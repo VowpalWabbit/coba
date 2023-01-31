@@ -655,6 +655,25 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         self.assertAlmostEqual(0, task_results[0]["predict_time"], places=1)
         self.assertAlmostEqual(0, task_results[0]["learn_time"]  , places=1)
 
+    def test_context_logging(self):
+        task         = SimpleEvaluation(['reward','probability', 'context'])
+        learner      = RecordingLearner()
+        interactions = [
+            LoggedInteraction(1, 0, 0),
+            LoggedInteraction(2, 0, 0),
+            LoggedInteraction(3, 0, 0),
+            LoggedInteraction(4, 0, 0, actions=[2, 5, 8], probability=.2),
+            LoggedInteraction(5, 0, 0, actions=[2, 5, 8], probability=.2),
+            LoggedInteraction(6, 0, 0, actions=[2, 5, 8], probability=.2),
+            SimulatedInteraction(None,[1,2,3],[7,8,9]),
+            SimulatedInteraction(None,[4,5,6],[4,5,6]),
+            SimulatedInteraction(None,[7,8,9],[1,2,3]),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+        result_contexts = [result['context'] for result in task_results]
+        self.assertListEqual(result_contexts, [1, 2, 3, 4, 5, 6, None, None, None])
+
     def test_batched_simulated_interaction(self):
 
         class SimpleLearner:
