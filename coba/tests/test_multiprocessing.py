@@ -8,7 +8,7 @@ from coba.contexts        import CobaContext, NullLogger
 from coba.contexts        import NullCacher, MemoryCacher
 from coba.contexts        import IndentLogger, BasicLogger, ExceptLog, StampLog, NameLog, DecoratedLogger
 from coba.pipes           import Filter, ListSink, Identity
-from coba.multiprocessing import CobaMultiprocessor
+from coba.multiprocessing import CobaMultiprocessor, MultiException
 
 class NotPicklableFilter(Filter):
     def __init__(self):
@@ -61,13 +61,12 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
         CobaContext.cacher = NullCacher()
 
-        list(CobaMultiprocessor(ExceptionFilter(), 2, 1, False).filter(range(4)))
+        with self.assertRaises(MultiException) as e:
+            list(CobaMultiprocessor(ExceptionFilter(), 2, 1, False).filter(range(4)))
 
-        self.assertEqual(4, len(CobaContext.logger.sink.items))
-        self.assertIn("Exception Filter", CobaContext.logger.sink.items[0])
-        self.assertIn("Exception Filter", CobaContext.logger.sink.items[1])
-        self.assertIn("Exception Filter", CobaContext.logger.sink.items[2])
-        self.assertIn("Exception Filter", CobaContext.logger.sink.items[3])
+        self.assertEqual(2, len(e.exception.exceptions))
+        self.assertIn("Exception Filter", str(e.exception.exceptions[0]))
+        self.assertIn("Exception Filter", str(e.exception.exceptions[0]))
 
     def test_read_exception_logging(self):
         CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
@@ -77,10 +76,10 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
             yield [1]
             raise Exception("Generator Exception")
 
-        list(CobaMultiprocessor(Identity(), 2, 1).filter(broken_generator()))
+        with self.assertRaises(Exception) as e:
+            list(CobaMultiprocessor(Identity(), 2, 1).filter(broken_generator()))
 
-        self.assertEqual(1, len(CobaContext.logger.sink.items))
-        self.assertIn("Generator Exception", CobaContext.logger.sink.items[0])
+        self.assertIn("Generator Exception", str(e.exception))
 
     def test_not_picklable_logging(self):
         logger_sink = ListSink()
@@ -91,6 +90,21 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(logger_sink.items))
         self.assertIn("pickle", logger_sink.items[0])
+
+    def test_class_definitions_not_found(self):
+        #this makes Test picklable but not loadable by the process
+        global Test
+        class Test:
+            pass
+
+        logger_sink = ListSink()
+        CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(logger_sink),[])
+        CobaContext.cacher = NullCacher()
+
+        list(CobaMultiprocessor(ProcessNameFilter(), 2, 1).filter([Test()]*2))
+
+        self.assertEqual(2, len(logger_sink.items))
+        self.assertIn("unable to find", logger_sink.items[0])
 
     def test_double_call(self):
 
@@ -138,9 +152,10 @@ class CobaMultiprocessor_ProcessFilter_Tests(unittest.TestCase):
 
         logger = DecoratedLogger([ExceptLog()], IndentLogger(), [])
 
-        list(CobaMultiprocessor.ProcessFilter(ExceptionFilter(),logger,None,None,log_sink).filter([1]))
+        with self.assertRaises(Exception) as e:
+            list(CobaMultiprocessor.ProcessFilter(ExceptionFilter(),logger,None,None,log_sink).filter([1]))
 
-        self.assertIn('Exception Filter', log_sink.items[0])
+        self.assertIn('Exception Filter', str(e.exception))
 
 if __name__ == '__main__':
     unittest.main()

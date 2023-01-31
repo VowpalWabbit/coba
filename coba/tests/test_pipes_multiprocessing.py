@@ -234,7 +234,7 @@ class Pickler_Tests(unittest.TestCase):
 
     def test_simple(self):
         self.assertEqual(list(Pickler().filter([1,2])), [pickle.dumps(1),pickle.dumps(2)])
-        
+
 class Unpickler_Tests(unittest.TestCase):
 
     def test_simple(self):

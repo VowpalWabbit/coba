@@ -267,8 +267,7 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             load_thread.start()
             for p in filt_procs: p.start()
 
-            for item in out_get.read():
-                yield item
+            yield from out_get.read()
 
             in_queue.close()
             out_queue.close()

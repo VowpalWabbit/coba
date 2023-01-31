@@ -129,15 +129,14 @@ class Experiment:
         """
         mp, mc, mt = self.processes, self.maxchunksperchild, self.maxtasksperchunk
 
+        is_multiproc = mp > 1 or mc != 0
+
         if quiet: 
             old_logger = CobaContext.logger
             CobaContext.logger = NullLogger()
 
-        if mp > 1 or mc != 0:
-            #Add name so that we know which process-id the logs came from in addition to the time of the log
-            CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [NameLog(), StampLog()])
-        else:
-            CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()])
+        #Add name so that we know which process-id the logs came from in addition to the time of the log
+        CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()] if is_multiproc else [NameLog(), StampLog()])
 
         if result_file and Path(result_file).exists():
             CobaContext.logger.log("Restoring existing experiment logs...")
@@ -157,14 +156,11 @@ class Experiment:
         chunk      = ChunkByChunk()
         max_chunk  = MaxChunkSize(mt)
         sink       = TransactionIO(result_file)
-
-        single_process = ProcessWorkItems()
-        multi_process  = Pipes.join(chunk, max_chunk, CobaMultiprocessor(ProcessWorkItems(), mp, mc, True))
-        process        = multi_process if mp > 1 or mc != 0 else single_process
+        process    = CobaMultiprocessor(ProcessWorkItems(), mp, mc, True)
 
         try:
             if not restored: sink.write([["T0", {'n_learners':n_given_learners, 'n_environments':n_given_environments, 'description':self._description }]])
-            Pipes.join(workitems, unfinished, process, sink).run()
+            Pipes.join(workitems, unfinished, chunk, max_chunk, process, sink).run()
 
         except KeyboardInterrupt: # pragma: no cover
             CobaContext.logger.log("Experiment execution was manually aborted via Ctrl-C")

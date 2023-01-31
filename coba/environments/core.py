@@ -429,15 +429,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
                 else:
                     raise CobaException("The given save file appears to be corrupted. Please check it and delete if it is unusable.")
 
-        if processes == 1:
-            CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()])
-            Pipes.join(EnvironmentsToObjects(),ObjectsToZipMember(path)).write(self_envs)
-            CobaContext.logger = CobaContext.logger.undecorate()
-        else:
-            CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [NameLog(), StampLog()])
-            Pipes.join(CobaMultiprocessor(EnvironmentsToObjects(),processes),ObjectsToZipMember(path)).write(self_envs)
-            CobaContext.logger = CobaContext.logger.undecorate()
-
+        CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()] if processes ==1 else [NameLog(), StampLog()])
+        Pipes.join(IterableSource(self_envs),CobaMultiprocessor(EnvironmentsToObjects(),processes),ObjectsToZipMember(path)).run()
+        CobaContext.logger = CobaContext.logger.undecorate()
+        
         return Environments.from_save(path)
 
     def cache(self) -> 'Environments':

@@ -1,9 +1,7 @@
 
 import unittest
-import time
 
 import multiprocessing as mp
-
 from typing import Iterable, Any
 
 from coba.exceptions import CobaException

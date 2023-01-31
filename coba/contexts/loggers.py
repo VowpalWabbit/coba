@@ -219,11 +219,11 @@ class DecoratedLogger(Logger):
             post_decorators: A sequence of decorators to be applied after the base logger.
         """
 
-        self._pre_decorator   = Pipes.join(*pre_decorators) if pre_decorators else Identity()
-        self._post_decorators = post_decorators
-        self._logger          = logger
-        self._original_sink   = self._logger.sink
-        self._logger.sink     = Pipes.join(*post_decorators, self._original_sink)
+        self._pre_decorator        = Pipes.join(*pre_decorators) if pre_decorators else Identity()
+        self._post_decorators      = post_decorators
+        self._original_logger      = logger
+        self._original_sink        = self._original_logger.sink
+        self._original_logger.sink = Pipes.join(*post_decorators, self._original_sink)
 
     @property
     def sink(self) -> Sink[str]:
@@ -232,17 +232,17 @@ class DecoratedLogger(Logger):
     @sink.setter
     def sink(self, sink: Sink[str]):
         self._original_sink = sink
-        self._logger.sink   = Pipes.join(*self._post_decorators, sink)
+        self._original_logger.sink   = Pipes.join(*self._post_decorators, sink)
 
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
-        return self._logger.log(self._pre_decorator.filter(message))
+        return self._original_logger.log(self._pre_decorator.filter(message))
 
     def time(self, message: str) -> 'ContextManager[Logger]':
-        return self._logger.time(self._pre_decorator.filter(message))
+        return self._original_logger.time(self._pre_decorator.filter(message))
 
     def undecorate(self) -> Logger:
-        self._logger.sink = self._original_sink
-        return self._logger
+        self._original_logger.sink = self._original_sink
+        return self._original_logger
 
 class NameLog(Filter[str,str]):
     """A log decorator that names the process writing the log."""
