@@ -69,7 +69,7 @@ class EvaluationTask(ABC):
 class SimpleEvaluation(EvaluationTask):
 
     def __init__(self, 
-        record: Sequence[Literal['reward','rank','regret','time','probability','action']] = ['reward'], 
+        record: Sequence[Literal['reward','rank','regret','time','probability','action', 'context']] = ['reward'],
         learn: bool = True,
         predict: bool = True) -> None:
         """
@@ -87,9 +87,10 @@ class SimpleEvaluation(EvaluationTask):
 
         learner = SafeLearner(learner)
 
-        record_prob   = 'probability' in self._record
-        record_time   = 'time'        in self._record
-        record_action = 'action'      in self._record
+        record_prob    = 'probability' in self._record
+        record_time    = 'time'        in self._record
+        record_action  = 'action'      in self._record
+        record_context = 'context'     in self._record
 
         first, interactions = peek_first(interactions)
 
@@ -132,9 +133,9 @@ class SimpleEvaluation(EvaluationTask):
             out     = {}
             context = interaction.pop('context')
             batched = isinstance(context, Batch)
+            if record_context: out['context'] = context
 
             if is_predict:
-
                 actions   = interaction.pop('actions')
                 rewards   = interaction.pop('rewards')
                 feedbacks = interaction.pop('feedbacks',None)
@@ -161,7 +162,6 @@ class SimpleEvaluation(EvaluationTask):
                     if calc_rank   : out['rank'  ] = mean(map(get_rank  ,reward,rewards,len(actions)))
 
             if is_learn:
-
                 if is_off_policy_learn:
                     actions  = interaction.pop('actions',actions if is_predict else None)
                     action   = interaction.pop('action')
