@@ -134,7 +134,16 @@ class VowpalRndLearner_Tests(unittest.TestCase):
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
     def test_defaults(self, mock) -> None:
         VowpalRndLearner()
-        mock.assert_called_once_with("--cb_explore_adf --rnd 3 --epsilon 0.025 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",None)
+        mock.assert_called_once_with(
+            "--cb_explore_adf --rnd 3 --epsilon 0.025 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",
+            None)
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_no_epsilon(self, mock) -> None:
+        VowpalRndLearner(epsilon=None)
+        mock.assert_called_once_with(
+            "--cb_explore_adf --rnd 3 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",
+            None)
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
     def test_specifics(self, mock) -> None:
