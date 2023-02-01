@@ -5,6 +5,7 @@ import pickle
 
 from typing import Sequence, cast
 
+from coba.learners.vowpal import VowpalRndLearner
 from coba.random import CobaRandom
 from coba.exceptions import CobaException
 from coba.primitives import HashableSparse
@@ -127,6 +128,22 @@ class VowpalCoverLearner_Tests(unittest.TestCase):
 
     def test_pickle(self) -> None:
         self.assertIsInstance(pickle.loads(pickle.dumps(VowpalCoverLearner(vw=VowpalMediatorMocked()))), VowpalCoverLearner)
+
+class VowpalRndLearner_Tests(unittest.TestCase):
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_defaults(self, mock) -> None:
+        VowpalRndLearner()
+        mock.assert_called_once_with("--cb_explore_adf --rnd 3 --epsilon 0.025 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet",None)
+
+    @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
+    def test_specifics(self, mock) -> None:
+        VowpalRndLearner(rnd=1, epsilon=0.1, rnd_alpha=0.2, rnd_invlambda=0.3, features = ['a','x','ax'], seed=None)
+        mock.assert_called_once_with("--cb_explore_adf --rnd 1 --epsilon 0.1 --rnd_alpha 0.2 --rnd_invlambda 0.3 "
+                                     "--noconstant --interactions ax --quiet",None)
+
+    def test_pickle(self) -> None:
+        self.assertIsInstance(pickle.loads(pickle.dumps(VowpalRndLearner(vw=VowpalMediatorMocked()))), VowpalRndLearner)
 
 class VowpalRegcbLearner_Tests(unittest.TestCase):
 
