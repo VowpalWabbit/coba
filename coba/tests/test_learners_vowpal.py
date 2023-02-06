@@ -79,7 +79,7 @@ class VowpalEpsilonLearner_Tests(unittest.TestCase):
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
     def test_custom_flag(self, mock) -> None:
-        VowpalEpsilonLearner(epsilon=0.1, features = ['a','x','ax'], seed=None, vw_kwargs={"b": 20})
+        VowpalEpsilonLearner(epsilon=0.1, features = ['a','x','ax'], seed=None, b=20)
         mock.assert_called_once_with("--cb_explore_adf --epsilon 0.1 -b 20 --quiet --noconstant --interactions ax",None)
     
     def test_pickle(self) -> None:
@@ -99,7 +99,7 @@ class VowpalSoftmaxLearner_Tests(unittest.TestCase):
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
     def test_kwargs(self, mock) -> None:
-        VowpalSoftmaxLearner(softmax=5, features=[1, "x", "a", "ax"], seed=None, vw_kwargs={"nn": 2})
+        VowpalSoftmaxLearner(softmax=5, features=[1, "x", "a", "ax"], seed=None, nn=2)
         mock.assert_called_once_with("--cb_explore_adf --softmax --lambda 5 --nn 2 --quiet --interactions ax",None)
 
     def test_pickle(self) -> None:
