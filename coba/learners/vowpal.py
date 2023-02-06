@@ -1,15 +1,13 @@
 import re
-
-from sys import platform
 from itertools import repeat, compress
-from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple, List, Iterable
+from sys import platform
+from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple
+
 from coba.backports import Literal
-
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker
-from coba.primitives import Sparse, Context, Action, Actions
-
 from coba.learners.primitives import Learner, Probs
+from coba.primitives import Sparse, Context, Action, Actions
+from coba.utilities import PackageChecker
 
 Feature       = Union[str,int,float]
 Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]
@@ -196,12 +194,11 @@ class VowpalLearner(Learner):
     __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """
 
-    @classmethod
+    @staticmethod
     def make_args(
-            cls,
             vw_kwargs: Dict[str, Any],
             namespace_interactions: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
-    ) -> Iterable[str]:
+    ) -> Sequence[str]:
         """
         Turn settings into VW command line arguments.
 
