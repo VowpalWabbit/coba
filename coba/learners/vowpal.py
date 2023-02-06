@@ -1,21 +1,21 @@
 import re
-
-from sys import platform
 from itertools import repeat, compress
+from sys import platform
 from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple
+
 from coba.backports import Literal
-
 from coba.exceptions import CobaException
-from coba.utilities import PackageChecker
-from coba.primitives import Sparse, Context, Action, Actions
-
 from coba.learners.primitives import Learner, Probs
+from coba.primitives import Sparse, Context, Action, Actions
+from coba.utilities import PackageChecker
 
 Feature       = Union[str,int,float]
 Features      = Union[Feature, Sequence[Feature], Dict[str,Union[int,float]]]
 Namespaces    = Dict[str,Features]
 VW_Features   = Sequence[Union[str,int,Tuple[Union[str,int],Union[int,float]],Dict[str,Union[int,float]]]]
 VW_Namespaces = Dict[str,VW_Features]
+
+DEFAULT_NAMESPACE_INTERACTIONS = (1, 'a', 'ax', 'axx')
 
 class VowpalMediator:
     """A class to handle all communication between Coba and VW."""
@@ -196,45 +196,39 @@ class VowpalLearner(Learner):
 
     @staticmethod
     def make_args(
-        options: Sequence[str],
-        noconstant: bool,
-        interactions: Sequence[str],
-        ignore_linear:Sequence[str],
-        seed: Optional[int],
-        **kwargs) -> str:
-        """Turn settings into a VW command line string.
-
-        Args:
-            options: A sequence of string values that represent VW CLI options.
-            noconstant: Indicates if constant term should be included in the VW features.
-            interactions: A sequence of namespace interactions to use during learning.
-            ignore_linear: A sequence of linear namespaces to ignore during learning.
-            seed: A random number generator seed to make sure VW behaves consistently.
-            kwargs: Any number of additional options to add to the arg string.
+            vw_kwargs: Dict[str, Any],
+            namespace_interactions: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
+    ) -> Sequence[str]:
         """
+        Turn settings into VW command line arguments.
 
-        options = list(filter(None,options))
+         Args:
+            vw_kwargs: Keyword argument dict that gets translated into VW CLI arguments
+            namespace_interactions: A sequence of namespace interactions to use during learning.
+        """
+        args = []
+        vw_kwargs['quiet'] = vw_kwargs.get('quiet', True)
+
+        for k,v in vw_kwargs.items():
+            if v is not False and v is not None:
+                if not k.startswith("-"):
+                    k = ("-" if len(k)==1 else "--") + k
+                args.append(k if (v is True) else f"{k} {v}")
+
+        noconstant = sum([n for n in namespace_interactions if isinstance(n, (int, float))]) == 0
+        ignore_linear = set(['x', 'a']) - set(namespace_interactions)
+        interactions = [n for n in namespace_interactions if isinstance(n, str) and len(n) > 1]
 
         if noconstant:
-            options.append(f"--noconstant")
+            args.append(f"--noconstant")
 
         for interaction in interactions:
-            options.append(f"--interactions {interaction}")
+            args.append(f"--interactions {interaction}")
 
         for ignore in ignore_linear:
-            options.append(f"--ignore_linear {ignore}")
+            args.append(f"--ignore_linear {ignore}")
 
-        if seed is not None:
-            options.append(f"--random_seed {seed}")
-
-        kwargs['quiet'] = kwargs.get('quiet',True)
-
-        for k,v in kwargs.items():
-            if v is not False:
-                k = ("-" if len(k)==1 else "--") + k
-                options.append(k if (v is None or v is True) else f"{k} {v}")
-
-        return " ".join(options)
+        return args
 
     def __init__(self, args: str = "--cb_explore_adf --epsilon 0.05 --interactions ax --interactions axx --ignore_linear x --random_seed 1 --quiet", vw: VowpalMediator = None) -> None:
         """Instantiate a VowpalLearner.
@@ -372,25 +366,27 @@ class VowpalEpsilonLearner(VowpalLearner):
     """
 
     def __init__(self,
-        epsilon: float = 0.05,
-        features: Sequence[str] = [1,'a','ax','axx'],
-        seed: Optional[int] = 1,
-        **kwargs) -> None:
+                 epsilon: float = 0.05,
+                 features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
+                 seed: Optional[int] = 1,
+                 **kwargs) -> None:
         """Instantiate a VowpalEpsilonLearner.
 
         Args:
             epsilon: The probability that we will explore instead of exploit.
             features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
+            kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
-
-        options       = [ "--cb_explore_adf", f"--epsilon {epsilon}" ]
-        noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
-        ignore_linear = set(['x','a'])-set(features)
-        interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        vw            = kwargs.pop('vw',None)
-
-        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        vw_kwargs = {
+            "cb_explore_adf": True,
+            "epsilon": epsilon,
+            "random_seed": seed
+        }
+        vw = kwargs.pop('vw', None)
+        vw_kwargs.update(kwargs)
+        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        super().__init__(vw_args_string, vw)
 
 class VowpalSoftmaxLearner(VowpalLearner):
     """A wrapper around VowpalLearner that provides more documentation. For more
@@ -400,11 +396,10 @@ class VowpalSoftmaxLearner(VowpalLearner):
     """
 
     def __init__(self,
-        softmax: float=10,
-        features: Sequence[str] = [1,'a','ax','axx'],
-        seed: Optional[int] = 1,
-
-        **kwargs) -> None:
+                 softmax: float=10,
+                 features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
+                 seed: Optional[int] = 1,
+                 **kwargs) -> None:
         """Instantiate a VowpalSoftmaxLearner.
 
         Args:
@@ -412,16 +407,20 @@ class VowpalSoftmaxLearner(VowpalLearner):
                 and infinity indicating that predictions should be greedy. For more information see `lambda`__.
             features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary randomness.
+            kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
         """
-
-        options       = [ "--cb_explore_adf", "--softmax", f"--lambda {softmax}" ]
-        noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
-        ignore_linear = set(['x','a'])-set(features)
-        interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        vw            = kwargs.pop('vw',None)
-        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        vw_kwargs = {
+            "cb_explore_adf": True,
+            "softmax": True,
+            "lambda": softmax,
+            "random_seed": seed
+        }
+        vw = kwargs.pop('vw', None)
+        vw_kwargs.update(kwargs)
+        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        super().__init__(vw_args_string, vw)
 
 class VowpalBagLearner(VowpalLearner):
     """A wrapper around VowpalLearner that provides more documentation. For more
@@ -431,10 +430,10 @@ class VowpalBagLearner(VowpalLearner):
     """
 
     def __init__(self,
-        bag: int = 5,
-        features: Sequence[str] = [1,'a','ax','axx'],
-        seed: Optional[int] = 1,
-        **kwargs) -> None:
+                 bag: int = 5,
+                 features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
+                 seed: Optional[int] = 1,
+                 **kwargs) -> None:
         """Instantiate a VowpalBagLearner.
 
         Args:
@@ -443,14 +442,17 @@ class VowpalBagLearner(VowpalLearner):
                 prediction a random policy will be selected according to a uniform distribution and followed.
             features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
+            kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
-
-        options       = [ "--cb_explore_adf", f"--bag {bag}" ]
-        noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
-        ignore_linear = set(['x','a'])-set(features)
-        interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        vw            = kwargs.pop('vw',None)
-        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        vw_kwargs = {
+            "cb_explore_adf": True,
+            "bag": bag,
+            "random_seed": seed
+        }
+        vw = kwargs.pop('vw', None)
+        vw_kwargs.update(kwargs)
+        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        super().__init__(vw_args_string, vw)
 
 class VowpalCoverLearner(VowpalLearner):
     """A wrapper around VowpalLearner that provides more documentation. For more
@@ -467,36 +469,39 @@ class VowpalCoverLearner(VowpalLearner):
     """
 
     def __init__(self,
-        cover: int = 5,
-        features: Sequence[str] = [1,'a','ax','axx'],
-        seed: Optional[int] = 1,
-        **kwargs) -> None:
+                 cover: int = 5,
+                 features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
+                 seed: Optional[int] = 1,
+                 **kwargs) -> None:
         """Instantiate a VowpalCoverLearner.
 
         Args:
             cover: The number of policies which will be learned (must be greater than 0).
             features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
+            kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
 
-        options       = [ "--cb_explore_adf", f"--cover {cover}" ]
-        noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
-        ignore_linear = set(['x','a'])-set(features)
-        interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        vw            = kwargs.pop('vw',None)
-
-        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        vw_kwargs = {
+            "cb_explore_adf": True,
+            "cover": cover,
+            "random_seed": seed
+        }
+        vw = kwargs.pop('vw', None)
+        vw_kwargs.update(kwargs)
+        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        super().__init__(vw_args_string, vw)
 
 
 class VowpalRndLearner(VowpalLearner):
     def __init__(self,
-        rnd: int = 3,
-        features: Sequence[str] = [1,'a','ax','axx'],
-        epsilon: Optional[float] = 0.025,
-        rnd_alpha: Optional[float] = None,
-        rnd_invlambda: Optional[float] = None,
-        seed: Optional[int] = 1,
-        **kwargs) -> None:
+                 rnd: int = 3,
+                 features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
+                 epsilon: Optional[float] = 0.025,
+                 rnd_alpha: Optional[float] = None,
+                 rnd_invlambda: Optional[float] = None,
+                 seed: Optional[int] = 1,
+                 **kwargs) -> None:
         """
         Inspired by Random Network Distillation, this explorer constructs an auxiliary prediction problem whose
         expected target value is zero and uses the prediction magnitude to construct a confidence interval. In the
@@ -512,19 +517,20 @@ class VowpalRndLearner(VowpalLearner):
             rnd_alpha: Increase for more exploration on a repeated example
             rnd_invlambda: Increase for more exploration on examples with new features/actions
             seed: The seed used by VW to generate any necessary random numbers
+            kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
-
-        options       = ["--cb_explore_adf", f"--rnd {rnd}"]
-        if epsilon is not None: options.append(f"--epsilon {epsilon}")
-        if rnd_alpha is not None: options.append(f"--rnd_alpha {rnd_alpha}")
-        if rnd_invlambda is not None: options.append(f"--rnd_invlambda {rnd_invlambda}")
-
-        noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
-        ignore_linear = set(['x','a'])-set(features)
-        interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        vw            = kwargs.pop('vw',None)
-
-        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        vw_kwargs = {
+            "cb_explore_adf": True,
+            "rnd": rnd,
+            "epsilon": epsilon,
+            "rnd_alpha": rnd_alpha,
+            "rnd_invlambda": rnd_invlambda,
+            "random_seed": seed
+        }
+        vw = kwargs.pop('vw', None)
+        vw_kwargs.update(kwargs)
+        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        super().__init__(vw_args_string, vw)
 
 
 class VowpalRegcbLearner(VowpalLearner):
@@ -540,10 +546,10 @@ class VowpalRegcbLearner(VowpalLearner):
     """
 
     def __init__(self,
-        mode: Literal["optimistic","elimination"] = "elimination",
-        features: Sequence[str] = [1,'a','ax','axx'],
-        seed: Optional[int] = 1,
-        **kwargs) -> None:
+                 mode: Literal["optimistic","elimination"] = "elimination",
+                 features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
+                 seed: Optional[int] = 1,
+                 **kwargs) -> None:
         """Instantiate a VowpalRegcbLearner.
 
         Args:
@@ -552,14 +558,22 @@ class VowpalRegcbLearner(VowpalLearner):
                 and pick randomly from the remaining actions.
             features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
+            kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
 
-        options       = [ "--cb_explore_adf", "--regcb" if mode=="elimination" else "--regcbopt" ]
-        noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
-        ignore_linear = set(['x','a'])-set(features)
-        interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        vw            = kwargs.pop('vw',None)
-        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        vw_kwargs = {
+            "cb_explore_adf": True,
+        }
+        if mode == "elimination":
+            vw_kwargs["regcb"] = True
+        else:
+            vw_kwargs["regcbopt"] = True
+        vw_kwargs["random_seed"] = seed
+
+        vw = kwargs.pop('vw', None)
+        vw_kwargs.update(kwargs)
+        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        super().__init__(vw_args_string, vw)
 
 class VowpalSquarecbLearner(VowpalLearner):
     """A wrapper around VowpalLearner that provides more documentation. For more
@@ -574,11 +588,11 @@ class VowpalSquarecbLearner(VowpalLearner):
     """
 
     def __init__(self,
-        mode: Literal["standard","elimination"] = "standard",
-        gamma_scale: float = 10,
-        features: Sequence[str] = [1,'a','ax','axx'],
-        seed: Optional[int] = 1,
-        **kwargs) -> None:
+                 mode: Literal["standard","elimination"] = "standard",
+                 gamma_scale: float = 10,
+                 features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
+                 seed: Optional[int] = 1,
+                 **kwargs) -> None:
         """Instantiate a VowpalSquarecbLearner.
 
         Args:
@@ -589,20 +603,20 @@ class VowpalSquarecbLearner(VowpalLearner):
                 as gamma in the original paper.
             features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
+            kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
-
-        options = [
-            "--cb_explore_adf",
-            "--squarecb",
-            f"--gamma_scale {gamma_scale}",
-            "" if mode != "elimination" else "--elim"
-        ]
-
-        noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
-        ignore_linear = set(['x','a'])-set(features)
-        interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        vw            = kwargs.pop('vw',None)
-        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        vw_kwargs = {
+            "cb_explore_adf": True,
+            "squarecb": True,
+            "gamma_scale": gamma_scale,
+            "random_seed": seed
+        }
+        if mode == "elimination":
+            vw_kwargs["elim"] = True
+        vw = kwargs.pop('vw', None)
+        vw_kwargs.update(kwargs)
+        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        super().__init__(vw_args_string, vw)
 
 class VowpalOffPolicyLearner(VowpalLearner):
     """A wrapper around VowpalLearner that provides more documentation. For more
@@ -616,19 +630,22 @@ class VowpalOffPolicyLearner(VowpalLearner):
     """
 
     def __init__(self,
-        features: Sequence[str] = [1,'a','ax','axx'],
-        seed: Optional[int] = 1,
-        **kwargs) -> None:
+                 features: Sequence[str] = DEFAULT_NAMESPACE_INTERACTIONS,
+                 seed: Optional[int] = 1,
+                 **kwargs) -> None:
         """Instantiate a VowpalOffPolicyLearner.
 
         Args:
             features: A list of namespaces and interactions to use when learning reward functions.
             seed: The seed used by VW to generate any necessary random numbers.
+            kwargs: Additional key-word args are passed on as VW CLI arguments (unless removed in the function).
         """
 
-        options       = ["--cb_adf"]
-        noconstant    = sum([f for f in features if isinstance(f,(int,float))]) == 0
-        ignore_linear = set(['x','a'])-set(features)
-        interactions  = [f for f in features if isinstance(f,str) and len(f) > 1]
-        vw            = kwargs.pop('vw',None)
-        super().__init__(VowpalLearner.make_args(options, noconstant, interactions, ignore_linear, seed, **kwargs), vw)
+        vw_kwargs = {
+            "cb_adf": True,
+            "random_seed": seed
+        }
+        vw = kwargs.pop('vw', None)
+        vw_kwargs.update(kwargs)
+        vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
+        super().__init__(vw_args_string, vw)
