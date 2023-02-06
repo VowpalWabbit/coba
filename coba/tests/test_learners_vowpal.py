@@ -254,8 +254,8 @@ class VowpalLearner_Tests(unittest.TestCase):
                              "--ignore_linear a", "--ignore_linear x"}, set(args))
 
     def test_inheritance_after_pickle(self):
-            learner = pickle.loads(pickle.dumps(VowpalInherited(vw=VowpalMediatorMocked())))
-            self.assertEqual(learner.params, {"Shadow":True})
+        learner = pickle.loads(pickle.dumps(VowpalInherited(vw=VowpalMediatorMocked())))
+        self.assertEqual(learner.params, {"Shadow":True})
 
     def test_params(self):
         learner = VowpalLearner(vw=VowpalMediatorMocked())
