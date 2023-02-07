@@ -5,7 +5,6 @@ import unittest.mock
 import warnings
 
 import math
-import numpy as np
 
 from coba import VowpalSoftmaxLearner
 from coba.contexts import CobaContext
@@ -698,7 +697,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         # Non-VW learner
         learner              = RecordingLearner()
         task_results = list(task.process(learner, interactions))
-        self.assertTrue(all([np.isnan(result['ope_loss']) for result in task_results]))
+        self.assertTrue(all([math.isnan(result['ope_loss']) for result in task_results]))
 
 
     def test_batched_simulated_interaction(self):
