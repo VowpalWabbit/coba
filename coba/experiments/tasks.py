@@ -8,6 +8,9 @@ from abc import ABC, abstractmethod
 from statistics import mean
 from itertools import combinations
 from typing import Iterable, Any, Sequence, Mapping, Hashable, Union, overload
+
+import numpy as np
+
 from coba.backports import Literal
 
 from coba.statistics import percentile
@@ -69,7 +72,7 @@ class EvaluationTask(ABC):
 class SimpleEvaluation(EvaluationTask):
 
     def __init__(self, 
-        record: Sequence[Literal['reward','rank','regret','time','probability','action', 'context']] = ['reward'],
+        record: Sequence[Literal['reward','rank','regret','time','probability','action', 'context', 'ope_loss']] = ['reward'],
         learn: bool = True,
         predict: bool = True) -> None:
         """
@@ -91,6 +94,8 @@ class SimpleEvaluation(EvaluationTask):
         record_time    = 'time'        in self._record
         record_action  = 'action'      in self._record
         record_context = 'context'     in self._record
+        record_ope_loss = 'ope_loss'     in self._record
+
 
         first, interactions = peek_first(interactions)
 
@@ -175,6 +180,14 @@ class SimpleEvaluation(EvaluationTask):
                 learn_time = time.time() - start_time
 
                 if record_time: out['learn_time'] = learn_time
+                if record_ope_loss:
+                    # OPE loss metric is only available for VW models
+                    # Divide by the number of samples for the average loss metric and see this article for more info
+                    # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
+                    try:
+                        out['ope_loss'] = learner._learner._vw._vw.get_sum_loss()
+                    except AttributeError:
+                        out['ope_loss'] = np.NaN
 
             if interaction:
                 interaction.pop("actions",None)

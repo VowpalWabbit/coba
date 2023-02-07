@@ -5,6 +5,9 @@ import unittest.mock
 import importlib.util
 import warnings
 
+import numpy as np
+
+from coba import VowpalSoftmaxLearner
 from coba.exceptions   import CobaException
 from coba.contexts     import CobaContext
 from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
@@ -678,6 +681,27 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         task_results = list(task.process(learner, interactions))
         result_contexts = [result['context'] for result in task_results]
         self.assertListEqual(result_contexts, [1, 2, 3, 4, 5, 6, None, None, None])
+
+    def test_ope_loss_logging(self):
+        task                 = SimpleEvaluation(['reward','probability', 'ope_loss'])
+        learner              = VowpalSoftmaxLearner()
+
+        interactions         = [
+            LoggedInteraction(1, 0, 0, actions=[0, 1], probability=1.0),
+            LoggedInteraction(2, 0, 1, actions=[0, 1], probability=1.0),
+            LoggedInteraction(3, 0, 0, actions=[0, 1], probability=1.0),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+        ope_losses = [result['ope_loss'] for result in task_results]
+        self.assertListEqual(ope_losses, [0.0, -0.5, -0.5])
+
+        # Non-VW learner
+        learner              = RecordingLearner()
+        task_results = list(task.process(learner, interactions))
+        ope_losses = [result['ope_loss'] for result in task_results]
+        self.assertListEqual(ope_losses, [np.NaN, np.NaN, np.NaN])
+
 
     def test_batched_simulated_interaction(self):
 
