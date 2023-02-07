@@ -84,6 +84,12 @@ class SimpleEvaluation(EvaluationTask):
         self._learn   = learn
         self._predict = predict
 
+        if 'ope_loss' in self._record:
+            # OPE loss metric is only available for VW models
+            # Divide by the number of samples for the average loss metric and see this article for more info
+            # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
+            PackageChecker.vowpalwabbit('SimpleEvaluation.__init__')
+
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
 
         learner = SafeLearner(learner)
@@ -93,7 +99,6 @@ class SimpleEvaluation(EvaluationTask):
         record_action  = 'action'      in self._record
         record_context = 'context'     in self._record
         record_ope_loss = 'ope_loss'     in self._record
-
 
         first, interactions = peek_first(interactions)
 
@@ -180,8 +185,6 @@ class SimpleEvaluation(EvaluationTask):
                 if record_time: out['learn_time'] = learn_time
                 if record_ope_loss:
                     # OPE loss metric is only available for VW models
-                    # Divide by the number of samples for the average loss metric and see this article for more info
-                    # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
                     try:
                         out['ope_loss'] = learner._learner._vw._vw.get_sum_loss()
                     except AttributeError:

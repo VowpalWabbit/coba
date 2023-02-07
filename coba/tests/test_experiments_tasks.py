@@ -680,6 +680,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         result_contexts = [result['context'] for result in task_results]
         self.assertListEqual(result_contexts, [1, 2, 3, 4, 5, 6, None, None, None])
 
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
     def test_ope_loss_logging(self):
         task                 = SimpleEvaluation(['reward','probability', 'ope_loss'])
         learner              = VowpalSoftmaxLearner()
