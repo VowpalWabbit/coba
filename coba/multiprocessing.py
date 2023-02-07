@@ -60,10 +60,10 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
             try:
                 yield from Multiprocessor(filter, self._processes, self._maxtasksperchild, self._chunked).filter(items)    
+                
                 # If the error was due to an uncaught exception in the given filter it could be the case that the user 
                 # is expecting it therefore we don't want to supress it. On the other hand, if the error is due to the
                 # act of multiprocessing then we know the user is not expecting it and we log it in a friendly way.
-
             except MultiException as e: #pragma: no cover
                 err_due_to_multi = [ e for e in e.exceptions if     self._is_err_due_to_multiprocessing(e) ]
                 err_due_to_logic = [ e for e in e.exceptions if not self._is_err_due_to_multiprocessing(e) ]
