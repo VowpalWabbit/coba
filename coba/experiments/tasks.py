@@ -1,26 +1,24 @@
-import time
 import collections
 import collections.abc
-import math
+import time
 import warnings
-
 from abc import ABC, abstractmethod
-from statistics import mean
 from itertools import combinations
-from typing import Iterable, Any, Sequence, Mapping, Hashable, Union, overload
+from statistics import mean
+from typing import Iterable, Any, Sequence, Mapping, Hashable
 
-import numpy as np
+import math
 
 from coba.backports import Literal
-
-from coba.statistics import percentile
+from coba.contexts import CobaContext
+from coba.encodings import InteractionsEncoder
+from coba.environments import Environment, SafeEnvironment, Interaction
 from coba.exceptions import CobaExit
 from coba.learners import Learner, SafeLearner
-from coba.encodings import InteractionsEncoder
-from coba.utilities import PackageChecker, peek_first
-from coba.contexts import CobaContext
 from coba.primitives import Batch
-from coba.environments import Environment, SafeEnvironment, Interaction
+from coba.statistics import percentile
+from coba.utilities import PackageChecker, peek_first
+
 
 class LearnerTask(ABC):
     """A task which describes a Learner."""
@@ -187,7 +185,7 @@ class SimpleEvaluation(EvaluationTask):
                     try:
                         out['ope_loss'] = learner._learner._vw._vw.get_sum_loss()
                     except AttributeError:
-                        out['ope_loss'] = np.NaN
+                        out['ope_loss'] = float("nan")
 
             if interaction:
                 interaction.pop("actions",None)

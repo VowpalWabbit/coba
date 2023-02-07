@@ -1,22 +1,21 @@
+import importlib.util
 import json
 import unittest
-import math
 import unittest.mock
-import importlib.util
 import warnings
 
+import math
 import numpy as np
 
 from coba import VowpalSoftmaxLearner
-from coba.exceptions   import CobaException
-from coba.contexts     import CobaContext
-from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
+from coba.contexts import CobaContext
 from coba.environments import Shuffle, Noise, Batch
-from coba.primitives   import SequenceReward
-from coba.learners     import Learner
-from coba.pipes        import Pipes
-
+from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
 from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo, SimpleEvaluation
+from coba.learners import Learner
+from coba.pipes import Pipes
+from coba.primitives import SequenceReward
+
 
 #for testing purposes
 class FixedActionScoreLearner(Learner):
@@ -699,8 +698,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         # Non-VW learner
         learner              = RecordingLearner()
         task_results = list(task.process(learner, interactions))
-        ope_losses = [result['ope_loss'] for result in task_results]
-        self.assertListEqual(ope_losses, [np.NaN, np.NaN, np.NaN])
+        self.assertTrue(all([np.isnan(result['ope_loss']) for result in task_results]))
 
 
     def test_batched_simulated_interaction(self):
