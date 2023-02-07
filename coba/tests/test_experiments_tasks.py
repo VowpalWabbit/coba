@@ -1,19 +1,20 @@
+import importlib.util
 import json
 import unittest
-import math
 import unittest.mock
-import importlib.util
 import warnings
 
-from coba.exceptions   import CobaException
-from coba.contexts     import CobaContext
-from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
-from coba.environments import Shuffle, Noise, Batch
-from coba.primitives   import SequenceReward
-from coba.learners     import Learner
-from coba.pipes        import Pipes
+import math
 
+from coba import VowpalSoftmaxLearner
+from coba.contexts import CobaContext
+from coba.environments import Shuffle, Noise, Batch
+from coba.environments import SimulatedInteraction, LoggedInteraction, GroundedInteraction, SupervisedSimulation
 from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, SimpleLearnerInfo, SimpleEvaluation
+from coba.learners import Learner
+from coba.pipes import Pipes
+from coba.primitives import SequenceReward
+
 
 #for testing purposes
 class FixedActionScoreLearner(Learner):
@@ -678,6 +679,27 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         task_results = list(task.process(learner, interactions))
         result_contexts = [result['context'] for result in task_results]
         self.assertListEqual(result_contexts, [1, 2, 3, 4, 5, 6, None, None, None])
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
+    def test_ope_loss_logging(self):
+        task                 = SimpleEvaluation(['reward','probability', 'ope_loss'])
+        learner              = VowpalSoftmaxLearner()
+
+        interactions         = [
+            LoggedInteraction(1, 0, 0, actions=[0, 1], probability=1.0),
+            LoggedInteraction(2, 0, 1, actions=[0, 1], probability=1.0),
+            LoggedInteraction(3, 0, 0, actions=[0, 1], probability=1.0),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+        ope_losses = [result['ope_loss'] for result in task_results]
+        self.assertListEqual(ope_losses, [0.0, -0.5, -0.5])
+
+        # Non-VW learner
+        learner              = RecordingLearner()
+        task_results = list(task.process(learner, interactions))
+        self.assertTrue(all([math.isnan(result['ope_loss']) for result in task_results]))
+
 
     def test_batched_simulated_interaction(self):
 
