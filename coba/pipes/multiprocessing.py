@@ -25,6 +25,10 @@ from coba.pipes.sinks import QueueSink
 #   > a class that is defined inside the __name__=='__main__' block is pickled
 # handle Experiment.evaluate not being called inside of __name__=='__main__' (this is handled by a big try/catch)
 
+#There are three potential contexts -- spawn, fork, and forkserver. On windows and mac spawn is the only option.
+#On Linux the default option is fork. Fork creates processes faster and can share memory but also doesn't play
+#well with threads. Therefore, to make behavior consistent across Linux, Windows, and Mac and avoid potential bugs
+#we force our multiprocessors to always use spawn.
 spawn_context = mp.get_context("spawn")
 
 class MultiException(Exception):

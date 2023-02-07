@@ -252,7 +252,9 @@ class ConcurrentCacher(Cacher[_K, _V]):
     def _switch_write_to_read_lock(self, key) -> None:
         index = self._index(key)
         assert self._array[index] == -1, "You don't have write permissions"
+        assert self._locks[(current_thread().ident,key)] == -1, "You don't have write permissions"
         self._array[index] = 1
+        self._locks[(current_thread().ident,key)] = 1
 
     def _has_read_lock(self, key) -> bool:
         return self._locks[(current_thread().ident,key)] > 0

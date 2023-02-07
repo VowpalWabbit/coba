@@ -242,11 +242,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         cacher.get_set(1,1)
 
         def thread_1():
-            curr_cacher.get_set(1,None)
+            with curr_cacher.get_set(1,None): pass
 
         def thread_2():
             wait_cacher.wait()
-            curr_cacher.get_set(1,None)
+            with curr_cacher.get_set(1,None): pass
             wait_cacher.release()
 
         t1 = mt.Thread(None, thread_1)
@@ -261,6 +261,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(2, wait_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(), 1)
 
@@ -273,11 +274,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         cacher.get_set(2,2)
 
         def thread_1():
-            curr_cacher.get_set(1,None)
+            with curr_cacher.get_set(1,None): pass
 
         def thread_2():
             wait_cacher.wait()
-            curr_cacher.get_set(2,None)
+            with curr_cacher.get_set(2,None): pass
             wait_cacher.release()
 
         t1 = mt.Thread(None, thread_1)
@@ -292,6 +293,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(2, wait_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(), 1)
         self.assertEqual(curr_cacher.get_set(2,None).__enter__(), 2)
@@ -324,6 +326,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(1, base_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(),2)
 
@@ -332,11 +335,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         curr_cacher = ConcurrentCacher(base_cacher)
 
         def thread_1():
-            curr_cacher.get_set(1,2)
+            with curr_cacher.get_set(1,2): pass
 
         def thread_2():
             base_cacher.wait()
-            curr_cacher.get_set(2,3)
+            with curr_cacher.get_set(2,3): pass
             base_cacher.release()
 
         t1 = mt.Thread(None, thread_1)
@@ -351,6 +354,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(), 2)
         self.assertEqual(curr_cacher.get_set(2,None).__enter__(), 3)
@@ -360,11 +364,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         curr_cacher = ConcurrentCacher(base_cacher)
 
         def thread_1():
-            curr_cacher.get_set(1,2)
+            with curr_cacher.get_set(1,2): pass
 
         def thread_2():
             base_cacher.wait()
-            curr_cacher.get_set(1,None)
+            with curr_cacher.get_set(1,None): pass
 
         t1 = mt.Thread(None, thread_1)
         t2 = mt.Thread(None, thread_2)
@@ -383,6 +387,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(1, base_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(), 2)
 
@@ -413,6 +418,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(2, wait_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(), 2)
 
@@ -448,6 +454,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(1, wait_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(), 2)
 
@@ -459,11 +466,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         base_cacher.get_set(1,1)
 
         def thread_1():
-            curr_cacher.get_set(1,None)
+            with curr_cacher.get_set(1,None): pass
 
         def thread_2():
             wait_cacher.wait()
-            curr_cacher.get_set(2,2)
+            with curr_cacher.get_set(2,2): pass
             wait_cacher.release()
 
         t1 = mt.Thread(None, thread_1)
@@ -478,6 +485,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(2, wait_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(), 1)
         self.assertEqual(curr_cacher.get_set(2,None).__enter__(), 2)
@@ -487,11 +495,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         curr_cacher = ConcurrentCacher(base_cacher)
 
         def thread_1():
-            curr_cacher.get_set(1,lambda: 1)
+            with curr_cacher.get_set(1,lambda: 1): pass
 
         def thread_2():
             base_cacher.wait()
-            curr_cacher.get_set(1,lambda: 2)
+            with curr_cacher.get_set(1,lambda: 2): pass
 
         t1 = mt.Thread(None, thread_1)
         t2 = mt.Thread(None, thread_2)
@@ -510,6 +518,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(1, base_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(), 1)
 
@@ -518,11 +527,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         curr_cacher = ConcurrentCacher(base_cacher)
 
         def thread_1():
-            curr_cacher.get_set(1,lambda: 1)
+            with curr_cacher.get_set(1,lambda: 1): pass
 
         def thread_2():
             base_cacher.wait()
-            curr_cacher.get_set(2,lambda: 2)
+            with curr_cacher.get_set(2,lambda: 2): pass
             base_cacher.release()
 
         t1 = mt.Thread(None, thread_1)
@@ -537,6 +546,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(), 1)
         self.assertEqual(curr_cacher.get_set(2,None).__enter__(), 2)
@@ -565,6 +575,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(2, base_cacher.max_count)
         self.assertEqual(list(curr_cacher.get_set(1,None).__enter__()), [1])
         self.assertEqual(list(curr_cacher.get_set(2,None).__enter__()), [2])
@@ -577,11 +588,11 @@ class ConcurrentCacher_Test(unittest.TestCase):
         base_cacher.get_set(1,1)
 
         def thread_1():
-            curr_cacher.get_set(1,lambda: 1)
+            with curr_cacher.get_set(1,lambda: 1): pass
 
         def thread_2():
             wait_cacher.wait()
-            curr_cacher.get_set(1,lambda: 2)
+            with curr_cacher.get_set(1,lambda: 2): pass
             wait_cacher.release()
 
         t1 = mt.Thread(None, thread_1)
@@ -596,6 +607,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         t1.join()
         t2.join()
 
+        self.assertSetEqual(set(curr_cacher._locks.values()), {0})
         self.assertEqual(2, wait_cacher.max_count)
         self.assertEqual(curr_cacher.get_set(1,None).__enter__(), 1)
 
@@ -609,6 +621,7 @@ class ConcurrentCacher_Test(unittest.TestCase):
         with self.assertRaises(CobaException) as e:
             curr_cacher.rmv(1)
 
+        self.assertTrue(curr_cacher._has_read_lock(1))
         self.assertEqual("The concurrent cacher was asked to enter an unrecoverable state.", str(e.exception))
 
     def test_put_during_get_set_same_process_causes_exception(self):
