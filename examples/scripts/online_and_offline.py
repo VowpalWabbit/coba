@@ -19,6 +19,7 @@ def main():
     assert env[0].params['openml_data'] == 150
 
     # use explore_eval to evaluate exploration in offline fashion
+    # https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Explore-Eval
     lrn = [cb.learners.VowpalLearner('--cb_explore_adf --explore_eval')]
     cb.experiments.Experiment(env, lrn).run().plot_learners()
 
