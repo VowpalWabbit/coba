@@ -12,11 +12,12 @@ class BanditReplay(Environment):
                  df: DataFrame,
                  take: Optional[int] = None,
                  actions: Optional[List[Any]] = None):
-        self._source = IterableSource((df[:take] if take is not None else df).iterrows())
         self._actions = actions
+        self._df = df[:take] if take is not None else df
 
     def read(self) -> Iterable[LoggedInteraction]:
-        first, rows = peek_first(self._source.read())
+        source = IterableSource(self._df.iterrows())
+        first, rows = peek_first(source.read())
         # TODO index might be iterrows specific
         for _index, row in rows:
             yield LoggedInteraction(
