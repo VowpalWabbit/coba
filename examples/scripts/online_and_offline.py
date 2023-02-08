@@ -7,7 +7,7 @@ def main():
     filename = "cb_oml_150.zip"
 
     # run first time as online
-    env = cb.Environments.from_openml(data_id=150, take=128).logged([cb.VowpalLearner("--cb_explore_adf")]).save(
+    env = cb.Environments.from_openml(data_id=150, take=128).logged(cb.VowpalLearner("--cb_explore_adf")).save(
         filename
     )
 
@@ -17,7 +17,12 @@ def main():
     # use explore_eval to evaluate exploration in offline fashion
     # https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Explore-Eval
     lrn = cb.VowpalLearner('--cb_explore_adf --explore_eval')
+    
+    #offline performance
     cb.Experiment(env, lrn).run().plot_learners()
+
+    #online performance
+    cb.Result.from_logged_envs(env).plot_learners()
 
     return
 
