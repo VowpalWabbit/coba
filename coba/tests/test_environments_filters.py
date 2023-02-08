@@ -1880,6 +1880,17 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(actual[0]['action'], 1)
         self.assertEqual(actual[0]['actions'], [1,2,3])
 
+    def test_logged_tuple_actions_with_action_int(self):
+        interactions = [LoggedInteraction([1,2,3], 1, 1, probability=1, actions=[(1,0,0),(0,1,0),(0,0,1)], rewards=[1,2])]
+
+        actual = list(Finalize().filter(interactions))
+
+        self.assertEqual(len(actual),1)
+        self.assertEqual(actual[0]['context'], [1,2,3])
+        self.assertEqual(actual[0]['action'], 1)
+        self.assertEqual(actual[0]['actions'], [(1,0,0),(0,1,0),(0,0,1)])
+
+
     def test_logged_sparse_actions(self):
         interactions = [LoggedInteraction([1,2,3], {1:2}, 1, probability=1, actions=[{1:2},{3:4}], rewards=[1,2])]
 
