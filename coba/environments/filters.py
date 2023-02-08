@@ -997,6 +997,8 @@ class Finalize(EnvironmentFilter):
                 new['actions'] = list(map(methodcaller('copy'),new['actions']))
 
             if not action_materialized and is_dense_action:
+                #new['action'] = list(new['action'])
+                #TypeError: 'int' object is not iterable
                 new['action'] = list(new['action'])
             elif not action_materialized and is_sparse_action:
                 new['action'] = new['action'].copy()
