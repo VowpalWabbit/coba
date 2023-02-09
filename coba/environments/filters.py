@@ -432,29 +432,36 @@ class Sparse(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
+        first,interactions = peek_first(interactions)
+
+        context_has_headers = 'context' in first and hasattr(first['context']   ,'headers')
+        actions_has_headers = 'actions' in first and hasattr(first['actions'][0],'headers')
+        action_has_headers  = 'action'  in first and hasattr(first['action' ]   ,'headers')
+
         for interaction in interactions:
 
-            new = interaction.copy()            
+            new = interaction.copy()
 
             if self._context:
-                new['context'] = self._make_sparse(new['context'])
+                new['context'] = self._make_sparse(new['context'], context_has_headers, 'context')
 
             if self._action and 'actions' in new:
-                new['actions'] = list(map(self._make_sparse,new['actions']))
+                new['actions'] = list(map(self._make_sparse,new['actions'],repeat(actions_has_headers),repeat('action')))
 
             if self._action and 'action' in new:
-                new['action'] = self._make_sparse(new['action'])
+                new['action'] = self._make_sparse(new['action'],action_has_headers, 'action')
 
             yield new
 
-    def _make_sparse(self, value) -> Optional[dict]:
+    def _make_sparse(self, value, has_headers:bool, default_header:str) -> Optional[dict]:
         if value is None:
             return value
-        if isinstance(value,primitives.Dense):
-            return dict(enumerate(value))
+        if isinstance(value,primitives.Dense): 
+            value_list = list(value)
+            return {k:value_list[i] for k,i in value.headers.items() if i < len(value_list)} if has_headers else dict(enumerate(value))
         if isinstance(value,primitives.Sparse):
             return value
-        return {0:value}
+        return {default_header:value}
 
 class Cycle(EnvironmentFilter):
     """Cycle all rewards associated with actions by one place.

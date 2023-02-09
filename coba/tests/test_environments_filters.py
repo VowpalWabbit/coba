@@ -5,7 +5,7 @@ from collections import Counter
 from math import isnan
 
 from coba              import primitives
-from coba.pipes        import LazyDense, LazySparse
+from coba.pipes        import LazyDense, LazySparse, HeadDense
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
 from coba.primitives   import L1Reward, SequenceFeedback, Categorical
@@ -1244,7 +1244,7 @@ class Sparse_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual(None, sparse_interactions[0]['context'])
-        self.assertEqual([{0:1},{0:2}], sparse_interactions[0]['actions'])
+        self.assertEqual([{'action':1},{'action':2}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
     def test_sparse_simulated_str_context(self):
@@ -1252,7 +1252,7 @@ class Sparse_Tests(unittest.TestCase):
         sparse_interactions = list(Sparse().filter([SimulatedInteraction("a", [{1:2},{3:4}], [0,1]) ]))
 
         self.assertEqual(1, len(sparse_interactions))
-        self.assertEqual({0:"a"}, sparse_interactions[0]['context'])
+        self.assertEqual({'context':"a"}, sparse_interactions[0]['context'])
         self.assertEqual([{1:2},{3:4}], sparse_interactions[0]['actions'])
         self.assertEqual([0,1], sparse_interactions[0]['rewards'])
 
@@ -1289,7 +1289,7 @@ class Sparse_Tests(unittest.TestCase):
 
         self.assertEqual(1, len(sparse_interactions))
         self.assertEqual({0:1,1:2,2:3}, sparse_interactions[0]['context'])
-        self.assertEqual({0:2}, sparse_interactions[0]['action'])
+        self.assertEqual({'action':2}, sparse_interactions[0]['action'])
         self.assertEqual(0, sparse_interactions[0]['reward'])
 
     def test_sparse_logged_tuple_context_and_not_action(self):
@@ -1300,6 +1300,14 @@ class Sparse_Tests(unittest.TestCase):
         self.assertEqual({0:1,1:2,2:3}, sparse_interactions[0]['context'])
         self.assertEqual(2, sparse_interactions[0]['action'])
         self.assertEqual(0, sparse_interactions[0]['reward'])
+
+    def test_sparse_context_with_header(self):
+
+        context = HeadDense([1,2,3],{'a':0,'b':1,'c':2})
+        sparse_interactions = list(Sparse().filter([{'context':context}]))
+
+        self.assertEqual(1, len(sparse_interactions))
+        self.assertEqual({'a':1,'b':2,'c':3}, sparse_interactions[0]['context'])
 
     def test_params(self):
         self.assertEqual({'sparse_C':True, 'sparse_A':False}, Sparse().params)
@@ -1889,7 +1897,6 @@ class Finalize_Tests(unittest.TestCase):
         self.assertEqual(actual[0]['context'], [1,2,3])
         self.assertEqual(actual[0]['action'], 1)
         self.assertEqual(actual[0]['actions'], [(1,0,0),(0,1,0),(0,0,1)])
-
 
     def test_logged_sparse_actions(self):
         interactions = [LoggedInteraction([1,2,3], {1:2}, 1, probability=1, actions=[{1:2},{3:4}], rewards=[1,2])]
