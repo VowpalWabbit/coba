@@ -1,3 +1,4 @@
+import ast
 from typing import Iterable, Optional, List, Any
 
 from pandas import DataFrame
@@ -20,10 +21,16 @@ class BanditReplay(Environment):
         first, rows = peek_first(source.read())
         # TODO index might be iterrows specific
         for _index, row in rows:
+            kwargs = {
+                'context': row['context'],
+                'action': row['action'],
+                'reward': row.get('reward'),
+                'probability': row.get('probability'),
+                'actions': row.get('actions', self._actions),
+            }
+            # TODO more elegant handling of optional rewards arg
+            if 'rewards' in row:
+                kwargs.update({'rewards': ast.literal_eval(row['rewards'])})
             yield LoggedInteraction(
-                context=row['context'],
-                action=row['action'],
-                reward=row.get('reward'),
-                probability=row.get('probability'),
-                actions=row.get('actions', self._actions)
+                **kwargs
             )
