@@ -147,7 +147,7 @@ class Performance_Tests(unittest.TestCase):
         vw.init_learner("--cb_explore_adf --quiet",4)
 
         ns = { 'x': { str(i):i for i in range(500)} }
-        self._assert_call_time(lambda:vw.make_example(ns, None), .025, print_time, number=1000)
+        self._assert_call_time(lambda:vw.make_example(ns, None), .05, print_time, number=1000)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW not installed.")
     def test_vowpal_mediator_make_examples_sequence_int_performance(self):

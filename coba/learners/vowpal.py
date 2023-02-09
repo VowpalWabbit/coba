@@ -153,7 +153,19 @@ class VowpalMediator:
                 elif feats.__class__ is int or feats.__class__ is float:
                     yield (ns, [(self._get_namespace_keys(ns,1)[0], feats)])
                 elif isinstance(feats,Sparse):
-                    yield (ns, feats.copy())
+                    no_str = not any(map(isinstance,feats.values(),repeat(str))) # most-performant (still 2x slower than no check)
+                    #no_str = str not in set(map(attrgetter("__class__"),feats.values()))
+                    #no_str = not any(map(is_,map(attrgetter("__class__"),feats.values()),repeat(str)))
+                    #no_str = True
+                    if no_str:
+                        yield (ns, feats.copy())
+                    else:
+                        new = feats.copy()
+                        for k,v in feats.items():
+                            if isinstance(v,str):
+                                new[f"{k}={v}"] = 1
+                                del new[k]
+                        yield (ns,new)
                 else:
                     d={}
 
