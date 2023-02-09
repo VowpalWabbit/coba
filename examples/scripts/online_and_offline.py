@@ -19,7 +19,8 @@ def main():
     lrn = cb.VowpalLearner('--cb_explore_adf --explore_eval')
     
     #offline performance
-    cb.Experiment(env, lrn).run().plot_learners()
+    cb.Experiment(env, lrn, evaluation_task=cb.SimpleEvaluation(predict=False)).run()
+    lrn.finish()
 
     #online performance
     cb.Result.from_logged_envs(env).plot_learners()
