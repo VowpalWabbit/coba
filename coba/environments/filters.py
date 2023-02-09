@@ -1054,15 +1054,22 @@ class Logged(EnvironmentFilter):
 
         learning_info = CobaContext.learning_info
 
+        def indexify(action,actions,discrete,batched):
+            if not discrete: return action
+            return [ A.index(a) for a,A in zip(action,actions) ] if batched else actions.index(action)
+
         for interaction in interactions:
 
             context = interaction['context']
             actions = interaction['actions']
             rewards = interaction['rewards']
 
+            batched = isinstance(context, Batch)
+            discrete = len(interaction.get('actions',[])) > 0
+
             action,prob,info = predict(context, actions)
 
-            reward = rewards.eval(action)
+            reward = rewards.eval(indexify(action,actions,discrete,batched))
 
             learn(context, actions, action, reward, prob, **info)
 
