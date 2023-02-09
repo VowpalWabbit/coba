@@ -109,7 +109,9 @@ class LoggedInteraction(Interaction):
             **kwargs : Any additional information.
         """
 
-        if 'actions' in kwargs and 'probability' in kwargs and 'rewards' not in kwargs:
+        if kwargs.get('actions') is not None \
+                and kwargs.get('probability') is not None \
+                and kwargs.get('rewards') is None:
             probability       = kwargs['probability']
             actions           = kwargs['actions']
             kwargs['rewards'] = [int(a==action)*reward/probability for a in actions]
@@ -118,10 +120,10 @@ class LoggedInteraction(Interaction):
         self['action']  = action
         self['reward']  = reward
 
-        if 'rewards' in kwargs and isinstance(kwargs['rewards'],(list,tuple)):
+        if kwargs.get('rewards') is not None and isinstance(kwargs['rewards'],(list,tuple)):
             kwargs['rewards'] = SequenceReward(kwargs['rewards'])
 
-        if kwargs: self.update(kwargs)
+        if kwargs: self.update({k:v for k,v in kwargs.items() if v is not None})
 
 class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
     """A filter that can be applied to an Environment."""

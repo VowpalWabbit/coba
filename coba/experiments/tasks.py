@@ -70,7 +70,7 @@ class EvaluationTask(ABC):
 class SimpleEvaluation(EvaluationTask):
 
     def __init__(self, 
-        record: Sequence[Literal['reward','rank','regret','time','probability','action', 'context', 'ope_loss']] = ['reward'],
+        record: Sequence[Literal['reward','rank','regret','time','probability','action', 'context', 'ope_loss', 'rewards']] = ['reward'],
         learn: bool = True,
         predict: bool = True) -> None:
         """
@@ -99,6 +99,7 @@ class SimpleEvaluation(EvaluationTask):
         record_action  = 'action'      in self._record
         record_context = 'context'     in self._record
         record_ope_loss = 'ope_loss'     in self._record
+        record_rewards = 'rewards'     in self._record
 
         first, interactions = peek_first(interactions)
 
@@ -155,10 +156,11 @@ class SimpleEvaluation(EvaluationTask):
                 reward   = rewards.eval(action)
                 feedback = feedbacks.eval(action) if feedbacks else reward
 
-                if record_time  : out['predict_time'] = predict_time
-                if record_prob  : out['probability']  = prob
-                if record_action: out['action']       = action
-                if feedbacks    : out['feedback']     = feedback
+                if record_time   : out['predict_time'] = predict_time
+                if record_prob   : out['probability']  = prob
+                if record_action : out['action']       = action
+                if feedbacks     : out['feedback']     = feedback
+                if record_rewards: out['xxx']     = rewards._values
 
                 if not batched:
                     if calc_reward : out['reward'] = get_reward(reward)
