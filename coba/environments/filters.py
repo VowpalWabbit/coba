@@ -1064,7 +1064,7 @@ class Logged(EnvironmentFilter):
             actions = interaction['actions']
             rewards = interaction['rewards']
 
-            batched = isinstance(context, Batch)
+            batched = isinstance(context, primitives.Batch)
             discrete = len(interaction.get('actions',[])) > 0
 
             action,prob,info = predict(context, actions)
