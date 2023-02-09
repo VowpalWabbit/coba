@@ -6,28 +6,28 @@ from typing import Any, Sequence, Union, Tuple, Callable, Mapping, Optional, Typ
 
 from coba.exceptions import CobaException
 from coba.random import CobaRandom
-from coba.primitives import Context, Action, Actions, AIndex
+from coba.primitives import Context, Action, Actions
 from coba.primitives import Batch, Dense, Sparse, HashableDense, HashableSparse
 
 kwargs = Mapping[str,Any]
 Score  = float
-PMF    = Sequence[float]
-PDF    = Callable[[Union[Action,AIndex]],float]
+PDF    = Callable[[Action],float]
 
-class Probs(list):
+class PMF(list):
     pass
 
 class ActionScore(tuple):
-    def __new__(self, action: Union[Action,AIndex], score: Score):
+    def __new__(self, action: Action, score: Score):
         return tuple.__new__(ActionScore, (action, score))
 
 Prediction = Union[
     PDF,
-    Probs,
+    PMF,
     ActionScore,
-    Tuple[PDF                       , kwargs],
-    Tuple[Union[Action,AIndex],Score, kwargs],
-    Tuple[ActionScore               , kwargs],
+    Tuple[PDF         , kwargs],
+    Tuple[PMF         , kwargs],
+    Tuple[ActionScore , kwargs],
+    Tuple[Action,Score, kwargs],
 ]
 
 class Learner(ABC):
@@ -63,7 +63,7 @@ class Learner(ABC):
     def learn(self,
         context: Context,
         actions: Actions,
-        action: Union[Action,AIndex],
+        action: Action,
         feedback: Union[float,Any],
         score: float,
         **kwargs) -> None:
@@ -125,19 +125,11 @@ class SafeLearner(Learner):
 
         return params
 
-    def predict(self, context: Context, actions: Actions) -> Tuple[Union[AIndex,Action],Score,kwargs]:
+    def predict(self, context: Context, actions: Actions) -> Tuple[Action,Score,kwargs]:
 
         pred      = self._safe_predict(context,actions)
         pred_type = self._pred_type
         batched   = self._batched
-
-        #if not batched everything just works
-
-        #if batched and what we are given are pmfs
-            #we need the prediction orderd by batch first
-
-        #if batched and what we are given are actions cores
-            #we need the prediction ordered by batch second
 
         if pred_type is None and not batched: # first call only
             self._determine_pred_format(pred,actions)
@@ -292,7 +284,7 @@ class SafeLearner(Learner):
     def _is_type_2(self, pred, is_discrete:bool):
         #PMF
 
-        explicit = isinstance(pred,Probs) or isinstance(pred[0],Probs)
+        explicit = isinstance(pred,PMF) or isinstance(pred[0],PMF)
         pmf_sans_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) > 3 or len(pred) == 3 and not isinstance(pred[2],dict)
         pmf_with_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) == 2 and isinstance(pred[0],abc.Sequence)
         
@@ -342,7 +334,7 @@ class SafeLearner(Learner):
     def _get_pmf_action_score(self,rng,pmf,actions):
         assert len(pmf) == len(actions), "The learner returned an invalid number of probabilities for the actions"
         assert isclose(sum(pmf), 1, abs_tol=.001), "The learner returned a pmf which does not sum to one."
-        return rng.choice(list(enumerate(pmf)), pmf)
+        return rng.choice(list(zip(actions,pmf)), pmf)
 
     def __str__(self) -> str:
         return self.full_name

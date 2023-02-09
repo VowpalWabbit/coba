@@ -1,6 +1,6 @@
 """This module contains all public learners and learner interfaces."""
 
-from coba.learners.primitives import Learner, SafeLearner, Probs, ActionScore
+from coba.learners.primitives import Learner, SafeLearner, PMF, ActionScore
 from coba.learners.bandit     import EpsilonBanditLearner, UcbBanditLearner, FixedLearner, RandomLearner
 from coba.learners.corral     import CorralLearner
 from coba.learners.vowpal     import VowpalMediator
@@ -9,7 +9,7 @@ from coba.learners.vowpal     import VowpalCoverLearner, VowpalRegcbLearner, Vow
 from coba.learners.linucb     import LinUCBLearner
 
 __all__ = [
-    'Probs',
+    'PMF',
     'ActionScore',
     'Learner',
     'SafeLearner',

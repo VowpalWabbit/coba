@@ -2,7 +2,7 @@ import unittest
 
 from coba.exceptions import CobaException
 from coba.primitives import Batch
-from coba.learners import SafeLearner, FixedLearner, ActionScore, Probs
+from coba.learners import SafeLearner, FixedLearner, ActionScore, PMF
 
 class ParamsLearner:
     def __init__(self, params):
@@ -146,7 +146,7 @@ class SafeLearner_Tests(unittest.TestCase):
         learner = SafeLearner(UnsafeFixedLearner([1/2,1/2], None))
         predict = learner.predict(None, [1,2])
 
-        self.assertEqual(0  , predict[0])
+        self.assertEqual(1  , predict[0])
         self.assertEqual(1/2, predict[1])
         self.assertEqual({} , predict[2])
 
@@ -155,7 +155,7 @@ class SafeLearner_Tests(unittest.TestCase):
 
         predict = learner.predict(None, [1,2])
 
-        self.assertEqual(0      , predict[0])
+        self.assertEqual(1      , predict[0])
         self.assertEqual(1/2    , predict[1])
         self.assertEqual({'_':1}, predict[2])
 
@@ -186,14 +186,14 @@ class SafeLearner_Tests(unittest.TestCase):
             def predict(self,context,actions):
                 return [0,0,1]
 
-        self.assertEqual(SafeLearner(MyLearner()).predict(None,[1,2,3]), (2,1,{}))
+        self.assertEqual(SafeLearner(MyLearner()).predict(None,[1,2,3]), (3,1,{}))
 
     def test_batched_type2_prediction_sans_info(self):
         class MyLearner:
             def predict(self,context,actions):
                 return [[0,0,1],[0,1,0],[1,0,0]][:len(context)]
 
-        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ([2,1,0],[1,1,1],{}))
+        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ([3,2,1],[1,1,1],{}))
 
     def test_type3_prediction_sans_info(self):
         class MyLearner:
@@ -323,7 +323,7 @@ class SafeLearner_Tests(unittest.TestCase):
         self.assertEqual(learner._determine_pred_type((0,1,0,0,0,0), True),2)
 
         #this is definitely a pmf because it is explicitly typed
-        self.assertEqual(learner._determine_pred_type(Probs([0,1]), True),2)
+        self.assertEqual(learner._determine_pred_type(PMF([0,1]), True),2)
 
         #this is definitely an action-score pair because it is explicitly typed
         self.assertEqual(learner._determine_pred_type(ActionScore(0,1), False),3)
@@ -340,8 +340,8 @@ class ActionScore_Tests(unittest.TestCase):
 class Probs_Tests(unittest.TestCase):
 
     def test_simple(self):
-        self.assertEqual([1/4,1/2,1/4], Probs([1/4,1/2,1/4]))
-        self.assertIsInstance(Probs([1/4,1/2,1/4]), Probs)
+        self.assertEqual([1/4,1/2,1/4], PMF([1/4,1/2,1/4]))
+        self.assertIsInstance(PMF([1/4,1/2,1/4]), PMF)
 
 if __name__ == '__main__':
     unittest.main()

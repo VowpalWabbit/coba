@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, cast, Hashable, Union
 
 from coba.primitives import Context, Action, Actions
 from coba.statistics import OnlineVariance
-from coba.learners.primitives import Learner, Probs, PMF, PDF, requires_hashables
+from coba.learners.primitives import Learner, PMF, PMF, PDF, requires_hashables
 
 @requires_hashables
 class EpsilonBanditLearner(Learner):
@@ -27,7 +27,7 @@ class EpsilonBanditLearner(Learner):
     def params(self) -> Dict[str, Any]:
         return {"family": "epsilon_bandit", "epsilon": self._epsilon }
 
-    def predict(self, context: Context, actions: Actions) -> Probs:
+    def predict(self, context: Context, actions: Actions) -> PMF:
         values      = [ self._Q[action] for action in actions ]
         max_value   = None if set(values) == {None} else max(v for v in values if v is not None)
         max_indexes = [i for i in range(len(values)) if values[i]==max_value]
@@ -35,13 +35,11 @@ class EpsilonBanditLearner(Learner):
         prob_selected_randomly = [1/len(actions) * self._epsilon] * len(actions)
         prob_selected_greedily = [ int(i in max_indexes)/len(max_indexes) * (1-self._epsilon) for i in range(len(actions))]
 
-        return Probs([p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)])
+        return PMF([p1+p2 for p1,p2 in zip(prob_selected_randomly,prob_selected_greedily)])
 
-    def learn(self, context: Context, actions: Actions, index: int, reward: float, prob: float) -> None:
+    def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
 
-        action = actions[index]
         alpha = 1/(self._N[action]+1)
-
         old_Q = cast(float, 0 if self._Q[action] is None else self._Q[action])
 
         self._Q[action] = (1-alpha) * old_Q + alpha * reward
@@ -72,7 +70,7 @@ class UcbBanditLearner(Learner):
 
         return { "family": "UCB_bandit" }
 
-    def predict(self, context: Context, actions: Actions) -> Probs:
+    def predict(self, context: Context, actions: Actions) -> PMF:
 
         self._t += 1
         never_observed_actions = [ a for a in actions if a not in self._m ]
@@ -84,13 +82,11 @@ class UcbBanditLearner(Learner):
             max_value   = max(values)
             max_actions = [ a for a,v in zip(actions,values) if v==max_value ]
 
-        return Probs([int(action in max_actions)/len(max_actions) for action in actions])
+        return PMF([int(action in max_actions)/len(max_actions) for action in actions])
 
-    def learn(self, context: Context, actions: Actions, index: int, reward: float, prob: float) -> None:
+    def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
 
         assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
-
-        action = actions[index]
 
         if action not in self._m:
             self._m[action] = reward
@@ -157,8 +153,8 @@ class FixedLearner(Learner):
     def params(self) -> Dict[str, Any]:
         return {"family":"fixed"}
 
-    def predict(self, context: Context, actions: Actions) -> Probs:
-        return Probs(self._fixed_pmf) if self._fixed_pmf else self._fixed_pdf
+    def predict(self, context: Context, actions: Actions) -> PMF:
+        return PMF(self._fixed_pmf) if self._fixed_pmf else self._fixed_pdf
 
     def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
         pass
@@ -174,8 +170,8 @@ class RandomLearner(Learner):
     def params(self) -> Dict[str, Any]:
         return {"family":"random"}
 
-    def predict(self, context: Context, actions: Actions) -> Probs:
-        return Probs([1/len(actions)]*len(actions))
+    def predict(self, context: Context, actions: Actions) -> PMF:
+        return PMF([1/len(actions)]*len(actions))
 
     def learn(self, context: Context, actions: Actions, action: Action, reward: float, probability: float) -> None:
         pass

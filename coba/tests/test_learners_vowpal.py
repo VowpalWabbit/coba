@@ -64,7 +64,6 @@ class VowpalMediatorMocked:
     def finish(self):
         self._finish_calls+=1
 
-
 class VowpalEpsilonLearner_Tests(unittest.TestCase):
 
     @unittest.mock.patch('coba.learners.vowpal.VowpalLearner.__init__')
@@ -373,7 +372,7 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner("--cb_explore_adf",vw)
 
         learner.predict(None, ['yes','no'])
-        learner.learn(None, ['yes','no'], 0, 1, 0.2)
+        learner.learn(None, ['yes','no'], 'yes', 1, 0.2)
 
         self.assertEqual(2, len(vw._learn_calls[0]))
 
@@ -391,28 +390,11 @@ class VowpalLearner_Tests(unittest.TestCase):
         learner = VowpalLearner("--cb_explore", vw)
 
         learner.predict(None, ['yes','no'])
-        learner.learn(None, ['yes','no'], 1, .5, 0.2)
+        learner.learn(None, ['yes','no'], 'no', .5, 0.2)
 
         self.assertIsInstance(vw._learn_calls[0], VowpalEaxmpleMock)
 
         self.assertEqual({'x':None}, vw._learn_calls[0].ns)
-        self.assertEqual("2:-0.5:0.2", vw._learn_calls[0].label)
-
-    @unittest.skip("This test is no longer relevant now that tuples can be flattened during environment creation.")
-    def test_flatten_tuples(self):
-
-        vw = VowpalMediatorMocked()
-        learner = VowpalLearner("--cb_explore", vw)
-
-        learner.predict([(0,0,1)], ['yes','no'])
-        learner.learn({'l':(0,0,1), 'j':1 }, ['yes','no'], 1, .5, 0.2)
-
-        self.assertIsInstance(vw._learn_calls[0], VowpalEaxmpleMock)
-
-        self.assertEqual({'x':[0,0,1]}, vw._predict_calls[0].ns)
-        self.assertEqual(None, vw._predict_calls[0].label)
-
-        self.assertEqual({'x':{'l_2':1, 'j':1}}, vw._learn_calls[0].ns)
         self.assertEqual("2:-0.5:0.2", vw._learn_calls[0].label)
 
     def test_cb_no_predict_for_inference(self):
@@ -438,11 +420,11 @@ class VowpalLearner_Tests(unittest.TestCase):
 
     def test_cb_learn_before_predict(self):
         learner = VowpalLearner("--cb 3", VowpalMediatorMocked())
-        learner.learn(None,[1,2,3],1,1,1)
+        learner.learn(None,[1,2,3],2,1,1)
 
     def test_cb_adf_learn_before_predict(self):
         learner = VowpalLearner("--cb_adf", VowpalMediatorMocked())
-        learner.learn(None,[1,2,3],1,1,1)
+        learner.learn(None,[1,2,3],2,1,1)
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
     def test_cb_adf_learning(self):
@@ -474,7 +456,7 @@ class VowpalLearner_Tests(unittest.TestCase):
             probs  = learner.predict(context, actions)
             choice = rng.choice(list(range(3)), probs)
 
-            learner.learn(context, actions, choice, rewards[choice], probs[choice])
+            learner.learn(context, actions, actions[choice], rewards[choice], probs[choice])
 
         post_learn_rewards = []
 

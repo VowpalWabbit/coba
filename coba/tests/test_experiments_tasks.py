@@ -308,7 +308,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(None,[1,2,3],0,7,1,{}),(None,[4,5,6],1,5,1,{}),(None,[7,8,9],2,3,1,{})]
+        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
         expected_task_results    = [
             {"reward":7},
             {"reward":5},
@@ -333,7 +333,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(None,[1,2,3],0,7,1,{}),(None,[4,5,6],1,5,1,{}),(None,[7,8,9],2,3,1,{})]
+        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
         expected_task_results    = [
             {"reward":7,'rank':0,'regret':2},
             {"reward":5,'rank':.5,'regret':1},
@@ -359,7 +359,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(None,[1,2,3]),(None,[4,5,6]),(None,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(None,[1,2,3],0,7,1,{}),(None,[4,5,6],1,5,1,{}),(None,[7,8,9],2,3,1,{})]
+        expected_learn_calls     = [(None,[1,2,3],1,7,1,{}),(None,[4,5,6],5,5,1,{}),(None,[7,8,9],9,3,1,{})]
         expected_task_results    = [
             {"reward":7},
             {"reward":5},
@@ -384,7 +384,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [({'c':1},[{'a':1},{'a':2},{'a':2}]),({'c':2},[{'a':4},{'a':5},{'a':2}])]
         expected_predict_returns = [[1,0,0],[0,1,0]]
-        expected_learn_calls     = [({'c':1},[{'a':1},{'a':2},{'a':2}],0,7,1,{}),({'c':2},[{'a':4},{'a':5},{'a':2}],1,5,1,{})]
+        expected_learn_calls     = [({'c':1},[{'a':1},{'a':2},{'a':2}],{'a':1},7,1,{}),({'c':2},[{'a':4},{'a':5},{'a':2}],{'a':5},5,1,{})]
         expected_task_results    = [
             {"reward":7},
             {"reward":5},
@@ -409,7 +409,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
         expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
-        expected_learn_calls     = [(1,[1,2,3],0,7,1,{}),(2,[4,5,6],1,5,1,{}),(3,[7,8,9],2,3,1,{})]
+        expected_learn_calls     = [(1,[1,2,3],1,7,1,{}),(2,[4,5,6],5,5,1,{}),(3,[7,8,9],9,3,1,{})]
         expected_task_results    = [
             {"reward":7},
             {"reward":5},
@@ -453,7 +453,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
         expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
-        expected_learn_calls     = [(1,[1,2,3],0,7,1,{'i':1}),(2,[4,5,6],1,5,1,{'i':2}),(3,[7,8,9],2,3,1,{'i':3})]
+        expected_learn_calls     = [(1,[1,2,3],1,7,1,{'i':1}),(2,[4,5,6],5,5,1,{'i':2}),(3,[7,8,9],9,3,1,{'i':3})]
         expected_task_results    = [
             {"reward":7,'learn':1,'predict':1,'I':1},
             {"reward":5,'learn':2,'predict':2,'I':2},
@@ -479,7 +479,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_calls   = [(1,[1,2,3]),(2,[4,5,6]),(3,[7,8,9])]
         expected_predict_returns = [([1,0,0],{'i':1}),([0,1,0],{'i':2}),([0,0,1],{'i':3})]
-        expected_learn_calls     = [(1,[1,2,3],0,7,1,{'i':1}),(2,[4,5,6],1,5,1,{'i':2}),(3,[7,8,9],2,3,1,{'i':3})]
+        expected_learn_calls     = [(1,[1,2,3],1,7,1,{'i':1}),(2,[4,5,6],5,5,1,{'i':2}),(3,[7,8,9],9,3,1,{'i':3})]
         expected_task_results    = [
             {"reward":7,'learn':1,'predict':1,            },
             {"reward":5,'learn':2,'predict':2,'letter':'d'},
@@ -599,9 +599,9 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             (1,None,2,3,None,{}),
             (2,None,3,4,None,{}),
             (3,None,4,5,None,{}),
-            (None,[1,2,3],0,7,1,{}),
-            (None,[4,5,6],1,5,1,{}),
-            (None,[7,8,9],2,3,1,{})
+            (None,[1,2,3],1,7,1,{}),
+            (None,[4,5,6],5,5,1,{}),
+            (None,[7,8,9],9,3,1,{})
         ]
         expected_task_results = [
             {},
@@ -631,8 +631,8 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         ]
 
         expected_learn_calls = [
-            (0,[1,2,3],0,4,1,{}),
-            (1,[1,2,3],2,9,1,{})
+            (0,[1,2,3],1,4,1,{}),
+            (1,[1,2,3],3,9,1,{})
         ]
 
         expected_results = [
@@ -723,7 +723,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         task_results = list(task.process(learner, Batch(3).filter(interactions)))
 
         expected_predict_call = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]])
-        expected_learn_call   = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]],[0,1,2],[7,5,3],[1,1,1])
+        expected_learn_call   = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]],[1,5,9],[7,5,3],[1,1,1])
         expected_task_results  = [ {"reward":5 } ]
 
         self.assertEqual(expected_predict_call, learner.predict_call[0])

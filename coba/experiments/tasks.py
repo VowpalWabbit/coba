@@ -125,6 +125,10 @@ class SimpleEvaluation(EvaluationTask):
         should_pred  = self._predict
         should_learn = self._learn
 
+        def indexify(action,actions,discrete,batched):
+            if not discrete: return action
+            return [ A.index(a) for a,A in zip(action,actions) ] if batched else actions.index(action)
+
         for interaction in interactions:
 
             interaction = interaction.copy()
@@ -136,11 +140,11 @@ class SimpleEvaluation(EvaluationTask):
             is_predict = should_pred and is_on_policy_eval
             is_learn   = should_learn and (is_off_policy_learn or is_on_policy_learn)
 
-            
-
             out     = {}
             context = interaction.pop('context')
             batched = isinstance(context, Batch)
+            discrete = len(interaction.get('actions',[])) > 0
+
             if record_context: out['context'] = context
 
             if is_predict:
@@ -152,8 +156,9 @@ class SimpleEvaluation(EvaluationTask):
                 action,prob,info = predict(context, actions)
                 predict_time     = time.time()-start_time
 
-                reward   = rewards.eval(action)
-                feedback = feedbacks.eval(action) if feedbacks else reward
+                _action  = indexify(action,actions,discrete,batched)
+                reward   = rewards.eval(_action)
+                feedback = feedbacks.eval(_action) if feedbacks else reward
 
                 if record_time  : out['predict_time'] = predict_time
                 if record_prob  : out['probability']  = prob

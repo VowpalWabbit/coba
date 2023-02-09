@@ -11,7 +11,7 @@ class LinUCBLearner_Tests(unittest.TestCase):
 
         learner = LinUCBLearner()
         learner.predict([1,2,3], [[1,2,3,4],[5,6,7,8]])
-        learner.learn([1,2,3], [[1,2,3,4],[5,6,7,8]], 1, 1, 1)
+        learner.learn([1,2,3], [[1,2,3,4],[5,6,7,8]], [5,6,7,8], 1, 1)
 
     def test_matrix_vector_sizes(self):
 
@@ -47,9 +47,9 @@ class LinUCBLearner_Tests(unittest.TestCase):
         learner = LinUCBLearner(alpha=0.2, features='a')
         
         for _ in range(30):
-            learner.learn([1,2,3], [(1,0,0),(0,1,0),(0,0,1)], 0, 1/4, 1/3)
-            learner.learn([1,2,3], [(1,0,0),(0,1,0),(0,0,1)], 1, 4/4, 1/3)
-            learner.learn([1,2,3], [(1,0,0),(0,1,0),(0,0,1)], 2, 3/4, 1/3)
+            learner.learn([1,2,3], [(1,0,0),(0,1,0),(0,0,1)], (1,0,0), 1/4, 1/3)
+            learner.learn([1,2,3], [(1,0,0),(0,1,0),(0,0,1)], (0,1,0), 4/4, 1/3)
+            learner.learn([1,2,3], [(1,0,0),(0,1,0),(0,0,1)], (0,0,1), 3/4, 1/3)
 
         self.assertEqual(learner._theta.shape, (3,))
         self.assertEqual(learner._A_inv.shape, (3,3))
@@ -65,7 +65,7 @@ class LinUCBLearner_Tests(unittest.TestCase):
             learner.learn({}, [1,1], 1, 1, 1/3)
 
         with self.assertRaises(CobaException):
-            learner.learn(None, [{},{}], 0, 1, 1/3)
+            learner.learn(None, [{},{}], {}, 1, 1/3)
 
         with self.assertRaises(CobaException):
             learner.predict({}, [1,2,3])

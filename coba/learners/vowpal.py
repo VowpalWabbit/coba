@@ -5,7 +5,7 @@ from typing import Any, Dict, Union, Sequence, Mapping, Optional, Tuple
 
 from coba.backports import Literal
 from coba.exceptions import CobaException
-from coba.learners.primitives import Learner, Probs
+from coba.learners.primitives import Learner, PMF
 from coba.primitives import Sparse, Context, Action, Actions
 from coba.utilities import PackageChecker
 
@@ -277,7 +277,7 @@ class VowpalLearner(Learner):
     def params(self) -> Mapping[str, Any]:
         return {"family": "vw", 'args': self._args.replace("--quiet","").strip()}
 
-    def predict(self, context: Context, actions: Sequence[Action]) -> Probs:
+    def predict(self, context: Context, actions: Sequence[Action]) -> PMF:
 
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
@@ -323,9 +323,9 @@ class VowpalLearner(Learner):
             index = self._vw.predict(self._vw.make_example(context, None))
             probs = [ int(i==index) for i in range(1,len(actions)+1) ]
 
-        return Probs(probs)
+        return PMF(probs)
 
-    def learn(self, context: Context, actions:Actions, index: int, reward: float, probability: float) -> None:
+    def learn(self, context: Context, actions:Actions, action: Action, reward: float, probability: float) -> None:
 
         if not self._vw.is_initialized and self._adf:
             self._vw.init_learner(self._args, 4)
@@ -336,6 +336,7 @@ class VowpalLearner(Learner):
         if not self._vw.is_initialized and not self._adf and not self._n_actions:
             raise CobaException("When using `cb` without `adf` predict must be called before learn to initialize the vw learner")
 
+        index   = actions.index(action)
         labels  = self._labels(actions, index, reward, probability)
         label   = labels[index]
 

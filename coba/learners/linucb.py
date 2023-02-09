@@ -5,7 +5,7 @@ from coba.utilities import PackageChecker
 from coba.primitives import Context, Action
 from coba.encodings import InteractionsEncoder
 
-from coba.learners.primitives import Probs, Actions, Learner
+from coba.learners.primitives import PMF, Actions, Learner
 
 class LinUCBLearner(Learner):
     """A contextual bandit learner that represents expected reward as a
@@ -55,7 +55,7 @@ class LinUCBLearner(Learner):
     def params(self) -> Dict[str, Any]:
         return {'family': 'LinUCB', 'alpha': self._alpha, 'features': self._X}
 
-    def predict(self, context: Context, actions: Actions) -> Probs:
+    def predict(self, context: Context, actions: Actions) -> PMF:
 
         import numpy as np #type: ignore
 
@@ -78,13 +78,11 @@ class LinUCBLearner(Learner):
         action_values = point_estimate + self._alpha*np.sqrt(point_bounds)
         max_indexes   = np.where(action_values == np.amax(action_values))[0]
 
-        return Probs([int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))])
+        return PMF([int(ind in max_indexes)/len(max_indexes) for ind in range(len(actions))])
 
     def learn(self, context: Context, actions: Actions, action: Action, reward: float, probability: float) -> None:
 
         import numpy as np
-
-        action = actions[action]
 
         if isinstance(action, dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this algorithm.")

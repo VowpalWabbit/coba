@@ -42,14 +42,13 @@ class CorralLearner_Tests(unittest.TestCase):
         learner      = CorralLearner([base1, base2], eta=0.5, mode="importance")
         predict,info = learner.predict(None, actions)
 
-        action      = actions[0]
         probability = predict[0]
         reward      = 1/2
 
-        learner.learn(None, actions, 0, reward, probability, **info)
+        learner.learn(None, actions, actions[0], reward, probability, **info)
 
-        self.assertEqual((None, actions, 0, 1, 1), base1.received_learn)
-        self.assertEqual((None, actions, 1, 0, 1), base2.received_learn)
+        self.assertEqual((None, actions, actions[0], 1, 1), base1.received_learn)
+        self.assertEqual((None, actions, actions[1], 0, 1), base2.received_learn)
 
     def test_off_policy_predict(self):
 
@@ -78,8 +77,6 @@ class CorralLearner_Tests(unittest.TestCase):
         self.assertEqual((None, actions, action, reward, predict[0]), base2.received_learn)
 
     def test_params(self):
-
-        LinUCBLearner
 
         base1_name = 'A'
         base2_name = 'B'

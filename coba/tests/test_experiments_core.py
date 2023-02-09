@@ -5,7 +5,7 @@ from typing import cast
 
 from coba.environments import Environment, LambdaSimulation, SimulatedInteraction
 from coba.pipes import Source, ListSink
-from coba.learners import Learner, Probs
+from coba.learners import Learner, PMF
 from coba.contexts import CobaContext, IndentLogger, BasicLogger, NullLogger
 from coba.experiments import Experiment, SimpleEvaluation
 from coba.exceptions import CobaException
@@ -31,7 +31,7 @@ class ModuloLearner(Learner):
         return {"family": "Modulo", "p":self._param}
 
     def predict(self, context, actions):
-        return Probs([int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions))])
+        return PMF([int(i == actions.index(actions[context%len(actions)])) for i in range(len(actions))])
 
     def learn(self, context, actions, action, reward, probability):
         self._learn_calls += 1
