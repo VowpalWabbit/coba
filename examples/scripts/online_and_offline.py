@@ -4,10 +4,12 @@ def main():
     cb.CobaContext.experiment.processes = 1
     cb.CobaContext.cacher.cache_directory = "./coba_cache"
 
-    filename = "cb_oml_150.zip"
-
+    oml_id = 150
+    filename = "cb_oml_{oml_id}.zip"
+    
     # run first time as online
-    env = cb.Environments.from_openml(data_id=150, take=128).logged(cb.VowpalLearner("--cb_explore_adf")).save(
+    online_vw_args = "--cb_explore_adf"
+    env = cb.Environments.from_openml(data_id=oml_id, take=128).logged(cb.VowpalLearner(online_vw_args)).save(
         filename
     )
 
@@ -16,9 +18,10 @@ def main():
 
     # use explore_eval to evaluate exploration in offline fashion
     # https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Explore-Eval
-    lrn = cb.VowpalLearner('--cb_explore_adf --explore_eval')
+    offline_vw_args = "--cb_explore_adf --explore_eval"
+    lrn = cb.VowpalLearner(offline_vw_args)
     
-    #offline performance
+    #offline performance, no need to call predict in this scenario
     cb.Experiment(env, lrn, evaluation_task=cb.SimpleEvaluation(predict=False)).run()
     lrn.finish()
 
