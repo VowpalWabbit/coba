@@ -596,7 +596,10 @@ class FilterPlottingData:
 
         learner_count   = len(set([row['learner_id'] for row in rows]))
         environ_counts  = collections.Counter([row['environment_id'] for row in rows])
-        environ_lengths = set([len(row[y]) for row in rows])
+        try:
+            environ_lengths = set([len(row[y]) for row in rows])
+        except:
+            raise CobaException(f"{y} is not available in the environment. Plotting has been stopped.")
         min_env_length  = min(environ_lengths) 
 
         if max(environ_counts.values()) != learner_count:
