@@ -70,7 +70,7 @@ class EvaluationTask(ABC):
 class SimpleEvaluation(EvaluationTask):
 
     def __init__(self, 
-        record: Sequence[Literal['reward','rank','regret','time','probability','action', 'context', 'ope_loss', 'rewards']] = ['reward'],
+        record: Sequence[Literal['reward','rank','regret','time','probability','action','actions','context', 'ope_loss', 'rewards']] = ['reward'],
         learn: bool = True,
         predict: bool = True) -> None:
         """
@@ -94,12 +94,14 @@ class SimpleEvaluation(EvaluationTask):
 
         learner = SafeLearner(learner)
 
-        record_prob    = 'probability' in self._record
-        record_time    = 'time'        in self._record
-        record_action  = 'action'      in self._record
-        record_context = 'context'     in self._record
-        record_ope_loss = 'ope_loss'     in self._record
-        record_rewards = 'rewards'     in self._record
+        record_prob     = 'probability' in self._record
+        record_time     = 'time'        in self._record
+        record_action   = 'action'      in self._record
+        record_context  = 'context'     in self._record
+        record_ope_loss = 'ope_loss'    in self._record
+        record_rewards  = 'rewards'     in self._record
+        record_actions  = 'actions'     in self._record
+
 
         first, interactions = peek_first(interactions)
 
@@ -164,8 +166,9 @@ class SimpleEvaluation(EvaluationTask):
                 if record_time   : out['predict_time'] = predict_time
                 if record_prob   : out['probability']  = prob
                 if record_action : out['action']       = action
+                if record_actions: out['actions']      = actions
                 if feedbacks     : out['feedback']     = feedback
-                if record_rewards: out['xxx']     = rewards._values
+                if record_rewards: out['rewards']      = rewards._values
 
                 if not batched:
                     if calc_reward : out['reward'] = get_reward(reward)

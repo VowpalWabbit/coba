@@ -404,8 +404,6 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
 
             for row in item[2]:
                 for col,val in row.items():
-                    if col == "rewards" : col="reward"
-                    if col == "reveals" : col="reveal"
                     rows_T[col].append(val)
 
             return ["I", item[1], { "_packed": rows_T }]
