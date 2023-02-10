@@ -1228,7 +1228,7 @@ class CustomResult(Result):
         eval_metrics = grouped_by_learner.mean(numeric_only=True)
         row_count = grouped_by_learner.size()[0]
         eval_metrics['learners'] = learners['family'].astype(str) + ": " + learners["args"].fillna("N/A")
-        filtered = eval_metrics.copy()[['learners', 'reward', 'action', 'probability', 'ope_loss']]
+        filtered = eval_metrics.copy()[['learners', 'reward', 'probability', 'ope_loss']] # , 'action'
         filtered['ope_loss'] = (filtered['ope_loss'] / row_count).fillna(0)
 
         variance_of_mean_across_environments = df.groupby(['learner_id', 'environment_id']).mean(numeric_only=True) \

@@ -23,7 +23,7 @@ class BanditReplay(Environment):
         for _index, row in rows:
             kwargs = {
                 'context': row['context'],
-                'action': row['action'],
+                'action': ast.literal_eval(row['action']),
                 'reward': row.get('reward'),
                 'probability': row.get('probability'),
                 'actions': row.get('actions', self._actions),
