@@ -7,7 +7,7 @@ in coba.pipes can help one understand how to best take advantage what Coba has t
 """
 
 from coba.pipes.primitives import Filter, Source, Sink, Foreach, SourceFilters, StopPipe
-from coba.pipes.multiprocessing import Multiprocessor, MultiException
+from coba.pipes.multiprocessing import Multiprocessor
 
 from coba.pipes.filters import Take, Shuffle, Structure, Identity, Flatten, Default, Reservoir
 from coba.pipes.filters import Encode, JsonDecode, JsonEncode, Cache, Slice
@@ -75,6 +75,5 @@ __all__ = [
     "HeadRows",
     "DropRows",
     "EncodeCatRows",
-    "MultiException",
     "StopPipe"
 ]

@@ -31,10 +31,6 @@ from coba.pipes.sinks import QueueSink
 #we force our multiprocessors to always use spawn.
 spawn_context = mp.get_context("spawn")
 
-class MultiException(Exception):
-    def __init__(self, exceptions: Sequence[Exception]):
-        self.exceptions = exceptions
-
 class ProcessLine(spawn_context.Process):
 
     ### We create a lock so that we can safely receive any possible exceptions. Empirical
@@ -56,13 +52,12 @@ class ProcessLine(spawn_context.Process):
         self._callback         = None
         self._recv, self._send = spawn_context.Pipe(False)
         self._lock             = spawn_context.Lock()
-
         super().start()
 
         if callback:
             def join_and_call(self=self):
                 self.join()
-                callback(self._line, self._exception,self._traceback, self._poisoned)
+                callback(self)
             mt.Thread(target=join_and_call,daemon=True).start()
 
     def run(self):#pragma: no cover (coverage can't be tracked for code that runs on background prcesses)
@@ -93,13 +88,25 @@ class ProcessLine(spawn_context.Process):
 
     def join(self) -> None:
         super().join()
-        self._get_ex()
+        self._get_result()
+
+    @property
+    def pipeline(self) -> Line:
+        return self._line
+
+    @property
+    def traceback(self) -> Sequence[str]:
+        return self._traceback
 
     @property
     def exception(self) -> Optional[Exception]:
         return self._exception
 
-    def _get_ex(self):
+    @property
+    def poisoned(self) -> bool:
+        return self._poisoned
+
+    def _get_result(self):
         with self._lock:
             if not self._recv.closed:
                 if self._recv.poll():
@@ -129,7 +136,7 @@ class ThreadLine(mt.Thread):
             #is not called until the thread is no longer alive
             def join_and_call():
                 self.join()
-                self._callback(self._line, self._exception, self._traceback, self._poisoned)
+                self._callback(self)
             mt.Thread(target=join_and_call,daemon=True).start()
 
     def run(self) -> None:
@@ -141,8 +148,20 @@ class ThreadLine(mt.Thread):
         self._poisoned  = hasattr(self._line[0],'_poisoned') and self._line[0]._poisoned
 
     @property
+    def pipeline(self) -> Line:
+        return self._line
+
+    @property
+    def traceback(self) -> Sequence[str]:
+        return self._traceback
+
+    @property
     def exception(self) -> Optional[Exception]:
         return self._exception
+
+    @property
+    def poisoned(self) -> bool:
+        return self._poisoned
 
 class AsyncableLine(SourceSink):
 
@@ -194,6 +213,13 @@ class Unpickler:
     def filter(self, items):
         yield from map(pickle.loads,items)
 
+class EventSetter:
+    def __init__(self, event: mt.Event) -> None:
+        self._event = event
+    def filter(self, items):
+        self._event.set()
+        return items
+
 class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
     """Create multiple processes to filter given items."""
 
@@ -222,16 +248,16 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 
         items = peek_first(items)[1]
-
         if not items: return []
 
         if self._n_processes == 1 and self._maxtasksperchild is None:
             yield from self._filter.filter(Unchunker(self._chunked).filter(items))
-
         else:
             initial_items = list(islice(items,self._n_processes))
             n_procs       = min(len(initial_items), self._n_processes)
             items         = chain(initial_items, items)
+
+            event     = spawn_context.Event()
 
             in_queue  = spawn_context.Queue(maxsize=n_procs)
             out_queue = spawn_context.Queue()
@@ -243,40 +269,49 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
             unpickler = Unpickler() 
             get_max   = Slice(None,self._maxtasksperchild)
             unchunk   = Unchunker(self._chunked)
+            setter    = EventSetter(event)
 
             load_line   = SourceSink(IterableSource(items), pickler, in_put)
-            filter_line = SourceSink(in_get, unpickler, get_max, unchunk, self._filter, out_put)
+            filter_line = SourceSink(in_get, setter, unpickler, get_max, unchunk, self._filter, out_put)
 
-            self._n_running  = n_procs
+            self._n_running  = 0
             self._exceptions = []
             self._poison     = None
 
-            def load_finished_or_failed(line,exception,traceback,poisoned):
-                if exception: self._exceptions.append(exception)
-                in_put.write([self._poison]*self._n_running)
+            def loader_finished_or_failed(worker: Union[ThreadLine,ProcessLine]):
+                if worker.exception: self._exceptions.append(worker.exception)
+                in_put.write([self._poison]*self._n_processes)
 
-            def filt_maxed_poisoned_or_failed(line,exception,traceback,poisoned):
-                if exception: self._exceptions.append(exception)
+            def filter_finished_or_failed(worker: Union[ThreadLine,ProcessLine]):
+                if worker.exception: self._exceptions.append(worker.exception)
 
-                if not poisoned and not self._exceptions:
-                    ProcessLine(line,callback=filt_maxed_poisoned_or_failed).start()
+                #only known cause of exitcode != 0 is a missing `if __name__ == '__main__'``.
+                if not worker.poisoned and not self._exceptions and worker.exitcode == 0:
+                    ProcessLine(worker.pipeline,callback=filter_finished_or_failed).start()
                 else:
                     self._n_running -=1
-                    if self._n_running == 0: 
-                        out_put.write([self._poison])
+                    if self._n_running == 0:
+                        out_put.write([None])
+                    event.set()
 
-            load_thread = ThreadLine(load_line, callback=load_finished_or_failed)
-            filt_procs  = [ProcessLine(filter_line, callback=filt_maxed_poisoned_or_failed) for _ in range(n_procs) ]
-
+            load_thread = ThreadLine(load_line, callback=loader_finished_or_failed)
+            filt_procs  = [ProcessLine(filter_line, callback=filter_finished_or_failed) for _ in range(n_procs)]
+            
             load_thread.start()
-            for p in filt_procs: p.start()
+
+            for p in filt_procs:
+                self._n_running+=1
+                p.start()
+                #by waiting we can avoid throwing multiple exceptions
+                #when there is a problem with starting the process
+                event.wait() 
+                if self._n_running == 0:#pragma: no cover
+                    break
 
             yield from out_get.read()
 
             in_queue.close()
             out_queue.close()
 
-            self._exceptions = [e for e in self._exceptions if not isinstance(e, KeyboardInterrupt)]
-
             if self._exceptions:
-                raise MultiException(self._exceptions) if len(self._exceptions) > 1 else self._exceptions[0]
+                raise self._exceptions[0]

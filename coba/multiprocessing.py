@@ -2,9 +2,9 @@ import multiprocessing as mp
 from ctypes import c_short
 from typing import Iterable, Any, Dict
 
-from coba.utilities import coba_exit
+from coba.utilities import coba_exit, peek_first
 from coba.contexts  import CobaContext, ConcurrentCacher, Logger, Cacher
-from coba.pipes     import Pipes, Filter, Sink, Multiprocessor, Foreach, QueueSink, QueueSource, MultiException
+from coba.pipes     import Pipes, Filter, Sink, Multiprocessor, Foreach, QueueSink, QueueSource
 
 class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
@@ -39,6 +39,9 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
     def filter(self, items: Iterable[Any]) -> Iterable[Any]:
 
+        _, items = peek_first(items)
+        if not items: return []
+
         try:
             if self._maxtasksperchild != 0 or self._processes > 1:
                 
@@ -54,34 +57,38 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 read_stdlog   = QueueSource(stdlog)
                 write_stdlog  = QueueSink(stdlog)
                 
-                Pipes.join(read_stdlog,Foreach(CobaContext.logger.sink)).run_async(mode="thread")
+                stdlog_writer = Pipes.join(read_stdlog,Foreach(CobaContext.logger.sink)).run_async(mode="thread")
                 
                 logger = CobaContext.logger
                 cacher = ConcurrentCacher(CobaContext.cacher,array,lock)
                 store  = { "openml_semaphore": mp.Semaphore(3) }
                 
                 filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, write_stdlog)
+
+                def close_stdlog():
+                    write_stdlog.write(None)
+                    stdlog_writer.join()
             else:
                 filter = self._filter
+                def close_stdlog():
+                    pass
 
             try:
                 yield from Multiprocessor(filter, self._processes, self._maxtasksperchild, self._chunked).filter(items)    
                 
+                close_stdlog()
+
                 # If the error was due to an uncaught exception in the given filter it could be the case that the user 
                 # is expecting it therefore we don't want to supress it. On the other hand, if the error is due to the
                 # act of multiprocessing then we know the user is not expecting it and we log it in a friendly way.
-            except MultiException as e: #pragma: no cover
-                err_due_to_multi = [ e for e in e.exceptions if     self._is_err_due_to_multiprocessing(e) ]
-                err_due_to_logic = [ e for e in e.exceptions if not self._is_err_due_to_multiprocessing(e) ]
-                if err_due_to_multi:
-                    for e in err_due_to_multi: CobaContext.logger.log(e)
-                if err_due_to_logic:
-                    raise MultiException(err_due_to_logic)
             except Exception as e:
                 if self._is_err_due_to_multiprocessing(e):
                     CobaContext.logger.log(e)
                 else:
                     raise
+
+            except KeyboardInterrupt as e:
+                close_stdlog()
 
             if self._maxtasksperchild != 0 or self._processes > 1:
                 write_stdlog.write(None) #attempt to shutdown the logging process gracefully by sending the poison pill

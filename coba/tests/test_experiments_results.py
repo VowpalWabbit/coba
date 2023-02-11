@@ -1165,8 +1165,9 @@ class Result_Tests(unittest.TestCase):
             mock.assert_called_once_with(str(result))
 
     def test_plot_learners_bad_x_index(self):
-        with self.assertRaises(CobaException):
-            Result({}, {}, {}).plot_learners(x=['index','a'])
+        CobaContext.logger.sink = ListSink()
+        Result({}, {}, {}).plot_learners(x=['index','a'])
+        self.assertIn("The x-axis cannot contain", CobaContext.logger.sink.items[0])
 
     def test_plot_learners_one_environment_all_default(self):
 
@@ -1304,7 +1305,7 @@ class Result_Tests(unittest.TestCase):
         result.set_plotter(plotter)
         result.plot_learners()
 
-        expected_log = "This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this warning in the future call <result>.filter_fin() before plotting."
+        expected_log = "Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting."
         expected_lines = [
             ((1,2),(2,5/2),(None,None),(None,None),0,1,'learner_1','-', 1),
             ((1,2),(2,5/2),(None,None),(None,None),1,1,'learner_2','-', 1)
@@ -1617,16 +1618,19 @@ class Result_Tests(unittest.TestCase):
 
         result.set_plotter(plotter)
         
-        with self.assertRaises(CobaException):
-            result.plot_learners()
+        CobaContext.logger.sink = ListSink()
+        result.plot_learners()
+        self.assertIn("This result doesn't",CobaContext.logger.sink.items[0])
 
     def test_plot_contrast_bad_x_index(self):
-        with self.assertRaises(CobaException):
-            Result({}, {}, {}).plot_contrast(0, 1, x=['index','a'])
+        CobaContext.logger.sink = ListSink()
+        Result({}, {}, {}).plot_contrast(0, 1, x=['index','a'])
+        self.assertIn("The x-axis cannot",CobaContext.logger.sink.items[0])
 
     def test_plot_contrast_no_matches(self):
-        with self.assertRaises(CobaException):
-            Result({}, {}, {}).plot_contrast(0, 1, x=['a'])
+        CobaContext.logger.sink = ListSink()
+        Result({}, {}, {}).plot_contrast(0, 1, x=['a'])
+        self.assertIn("This result doesn't",CobaContext.logger.sink.items[0])
 
     def test_plot_contrast_index(self):
         lrns = {1:{'family':'learner_1'}, 2:{'family':'learner_2'} }
@@ -1637,8 +1641,9 @@ class Result_Tests(unittest.TestCase):
             (1,2): {"_packed":{"reward":[0,3,9]}}
         }
 
-        with self.assertRaises(CobaException):
-            Result({}, lrns, ints).plot_contrast(0, 1, x='index')
+        CobaContext.logger.sink = ListSink()
+        Result({}, lrns, ints).plot_contrast(0, 1, x='index')
+        self.assertIn("plot_contrast does not currently", CobaContext.logger.sink.items[0])
 
     def test_plot_contrast_four_environment_all_default(self):
 
@@ -1880,7 +1885,7 @@ class FilterPlottingData_Tests(unittest.TestCase):
         actual_rows = FilterPlottingData().filter(rows, ['index'], "reward", None)
 
         self.assertEqual(expected_rows,actual_rows)
-        self.assertIn("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this warning in the future call <result>.filter_fin() before plotting.", CobaContext.logger.sink.items)
+        self.assertIn("Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting.", CobaContext.logger.sink.items)
         self.assertIn("This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting.", CobaContext.logger.sink.items)
 
     def test_no_env_finished_for_all_learners(self):

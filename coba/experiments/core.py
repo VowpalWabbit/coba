@@ -121,13 +121,15 @@ class Experiment:
         """The maximum number of tasks allowed in a chunk before breaking a chunk into smaller chunks."""
         return self._maxtasksperchunk if self._maxtasksperchunk is not None else CobaContext.experiment.maxtasksperchunk
 
-    def run(self, result_file:str = None, quiet:bool = False) -> Result:
+    def run(self, result_file:str = None, quiet:bool = False, processes:int = None) -> Result:
         """Run the experiment and return the results.
 
         Args:
-            result_file: The file for writing and restoring results .
+            result_file: The file for writing and restoring results.
+            quiet: Indicates that logged output should be turned off.
+            processes: The number of processes to create for evaluating the experiment.
         """
-        mp, mc, mt = self.processes, self.maxchunksperchild, self.maxtasksperchunk
+        mp, mc, mt = (processes or self.processes), self.maxchunksperchild, self.maxtasksperchunk
 
         is_multiproc = mp > 1 or mc != 0
 
@@ -136,7 +138,7 @@ class Experiment:
             CobaContext.logger = NullLogger()
 
         #Add name so that we know which process-id the logs came from in addition to the time of the log
-        CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [StampLog()] if is_multiproc else [NameLog(), StampLog()])
+        CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [NameLog(),StampLog()] if is_multiproc else [StampLog()])
 
         if result_file and Path(result_file).exists():
             CobaContext.logger.log("Restoring existing experiment logs...")
@@ -156,7 +158,7 @@ class Experiment:
         chunk      = ChunkByChunk()
         max_chunk  = MaxChunkSize(mt)
         sink       = TransactionIO(result_file)
-        process    = CobaMultiprocessor(ProcessWorkItems(), mp, mc, True)
+        process    = CobaMultiprocessor(ProcessWorkItems(), mp, mc, False)
 
         try:
             if not restored: sink.write([["T0", {'n_learners':n_given_learners, 'n_environments':n_given_environments, 'description':self._description }]])
