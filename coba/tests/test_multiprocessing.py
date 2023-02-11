@@ -79,11 +79,12 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
 
         self.assertIn("Generator Exception", str(e.exception))
 
-    def test_keyboard_exception(self):
+    def test_keyboard_interrupt(self):
         CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
         CobaContext.cacher = NullCacher()
 
-        list(CobaMultiprocessor(ExceptionFilter(KeyboardInterrupt()), 2, 1).filter([1,2,3]))
+        with self.assertRaises(KeyboardInterrupt):
+            list(CobaMultiprocessor(ExceptionFilter(KeyboardInterrupt()), 2, 1).filter([1,2,3]))
 
     def test_not_picklable_logging(self):
         logger_sink = ListSink()

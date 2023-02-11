@@ -43,59 +43,48 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
         if not items: return []
 
         try:
-            if self._maxtasksperchild != 0 or self._processes > 1:
-                
+            if self._maxtasksperchild == 0 and self._processes == 1:
+                filter = self._filter
+            else:
                 #There are three potential contexts -- spawn, fork, and forkserver. On windows and mac spawn is the only option.
                 #On Linux the default option is fork. Fork creates processes faster and can share memory but also doesn't play
                 #well with threads. Therefore, to make behavior consistent across Linux, Windows, and Mac and avoid potential bugs
                 #we force our multiprocessors to always use spawn.
                 spawn_context = mp.get_context("spawn")
-                
+
                 stdlog        = spawn_context.Queue()
                 array         = spawn_context.RawArray(c_short,[0]*2**16)
                 lock          = spawn_context.Lock()
                 read_stdlog   = QueueSource(stdlog)
                 write_stdlog  = QueueSink(stdlog)
-                
+
                 stdlog_writer = Pipes.join(read_stdlog,Foreach(CobaContext.logger.sink)).run_async(mode="thread")
-                
+
                 logger = CobaContext.logger
                 cacher = ConcurrentCacher(CobaContext.cacher,array,lock)
                 store  = { "openml_semaphore": mp.Semaphore(3) }
-                
+
                 filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, write_stdlog)
 
-                def close_stdlog():
-                    write_stdlog.write(None)
-                    stdlog_writer.join()
-            else:
-                filter = self._filter
-                def close_stdlog():
-                    pass
-
             try:
-                yield from Multiprocessor(filter, self._processes, self._maxtasksperchild, self._chunked).filter(items)    
-                
-                close_stdlog()
+                yield from Multiprocessor(filter, self._processes, self._maxtasksperchild, self._chunked).filter(items)
 
+            except Exception as e:
                 # If the error was due to an uncaught exception in the given filter it could be the case that the user 
                 # is expecting it therefore we don't want to supress it. On the other hand, if the error is due to the
                 # act of multiprocessing then we know the user is not expecting it and we log it in a friendly way.
-            except Exception as e:
-                if self._is_err_due_to_multiprocessing(e):
-                    CobaContext.logger.log(e)
-                else:
-                    raise
+                if self._user_error(e): raise
+                CobaContext.logger.log(e)
 
-            except KeyboardInterrupt as e:
-                close_stdlog()
-
-            if self._maxtasksperchild != 0 or self._processes > 1:
-                write_stdlog.write(None) #attempt to shutdown the logging process gracefully by sending the poison pill
+            finally:
+                 if self._maxtasksperchild != 0 or self._processes > 1:
+                    write_stdlog.write(None) #attempt to shutdown the logging process gracefully by sending the poison pill
+                    stdlog_writer.join()
+                    stdlog.close()
 
         except RuntimeError as e: #pragma: no cover
             #This happens when importing main causes this code to run again
             coba_exit(str(e))
 
-    def _is_err_due_to_multiprocessing(self, exception: Exception) -> bool:
-        return 'pickle' in str(exception) or 'unable to find' in str(exception)
+    def _user_error(self, exception: Exception) -> bool:
+        return 'pickle' not in str(exception) and 'unable to find' not in str(exception)
