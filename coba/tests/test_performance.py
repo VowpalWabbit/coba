@@ -28,9 +28,6 @@ Scalable = Callable[[int],Timeable]
 sensitivity_scaling = 10
 print_time = False
 
-def nothing():
-    return None
-
 class Performance_Tests(unittest.TestCase):
 
     def test_numeric_encode_performance(self):
@@ -404,20 +401,20 @@ class Performance_Tests(unittest.TestCase):
     @unittest.skip("Just for testing. There's not much we can do to speed up process creation.")
     def test_async_pipe(self):
         
-        #this takes about .25
+        #this takes about 2.5 with number=10
         def run_async1(): 
             from multiprocessing import Process
             p = Process(target=coba.pipes.Identity)
             p.start()
             p.join()
 
-        #this takes about .25
+        #this takes about 2.5 with number=10
         pipeline = Pipes.join(coba.pipes.IterableSource([1,2,3]), coba.pipes.Identity(), coba.pipes.ListSink())        
         def run_async2():
             proc = pipeline.run_async(lambda ex: None)
             proc.join()
 
-        self._assert_call_time(run_async2, .25, True, number=1)
+        self._assert_call_time(run_async2, 2.5, True, number=10)
 
     def _assert_call_time(self, timeable: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
         if print_time: print()
