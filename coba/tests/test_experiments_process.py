@@ -282,7 +282,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         item = WorkItem(1, 1, sim1, lrn1, task)
 
-        transactions = list(ProcessWorkItems().filter([item]))
+        transactions = list(ProcessWorkItems().filter([[item]]))
 
         self.assertEqual(len(task.observed[1]), 5)
         self.assertEqual(['T3', (1,1), []], transactions[0])
@@ -304,7 +304,7 @@ class ProcessTasks_Tests(unittest.TestCase):
             WorkItem(0, 1   , sim1, lrn2, task3) 
         ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
@@ -341,7 +341,7 @@ class ProcessTasks_Tests(unittest.TestCase):
             WorkItem(0, 1   , env1, lrn2, task3) 
         ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
@@ -374,7 +374,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(0, 1, sim1, lrn1, task1), WorkItem(1, 1, sim2, lrn1, task2) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
@@ -404,7 +404,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(0, 0, sim1, lrn1, task1), WorkItem(0, 1, sim1, lrn2, task2) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
@@ -435,7 +435,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(0, 0, sim1, lrn1, task1), WorkItem(1, 1, sim2, lrn2, task2) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(len(task1.observed[1]), 1)
         self.assertEqual(len(task2.observed[1]), 1)
@@ -470,7 +470,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(0, 0, sim1, lrn1, task1), WorkItem(1, 1, sim2, lrn2, task2) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(src1.n_reads  , 1)
         self.assertEqual(filt1.n_filter, 1)
@@ -503,7 +503,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(0, 0, env1, lrn1, task1), WorkItem(1, 1, env2, lrn2, task2) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(src1.n_reads  , 2)
         self.assertEqual(filt1.n_filter, 1)
@@ -528,7 +528,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(None, 0, None, lrn1, task1), WorkItem(None, 1, None, lrn2, task2) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertNotEqual(task1.observed[0], (lrn1,))
         self.assertNotEqual(task2.observed[0], (lrn2,))
@@ -555,7 +555,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(0, None, sim1, None, task1), WorkItem(1, None, sim2, None, task2) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(src1.n_reads  , 1)
         self.assertEqual(filter.n_filter,2)
@@ -582,7 +582,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(0, None, src1, None, task1), WorkItem(0, 0, src1, lrn1, task2), WorkItem(1, None, src2, None, task3) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(len(task1.observed), 2)
         self.assertEqual(len(task2.observed), 0)
@@ -596,7 +596,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(0, 0, src1, lrn1, task1) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(len(task1.observed), 0)
         self.assertEqual(len(transactions)  , 0)
@@ -608,7 +608,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(0, None, src1, None, task1) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(len(task1.observed), 0)
         self.assertEqual(len(transactions)  , 0)
@@ -622,7 +622,7 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         items = [ WorkItem(0, None, src1, None, task1), WorkItem(1, None, src1, None, task2) ]
 
-        transactions = list(ProcessWorkItems().filter(items))
+        transactions = list(ProcessWorkItems().filter([items]))
 
         self.assertEqual(len(task2.observed[1]), 1)
 

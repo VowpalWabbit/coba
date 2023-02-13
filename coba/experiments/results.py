@@ -601,7 +601,7 @@ class FilterPlottingData:
         environ_counts  = collections.Counter([row['environment_id'] for row in rows])
         try:
             environ_lengths = set([len(row[y]) for row in rows])
-        except:
+        except: #pragma: no cover
             raise CobaException(f"{y} is not available in the environment. Plotting has been stopped.")
         min_env_length  = min(environ_lengths) 
 
@@ -609,7 +609,7 @@ class FilterPlottingData:
             raise CobaException("This result does not contain an environment which has been finished for every learner. Plotting has been stopped.")
 
         if min(environ_counts.values()) != learner_count:
-            CobaContext.logger.log("This result contains environments not present for all learners. Environments not present for all learners have been excluded. To supress this warning in the future call <result>.filter_fin() before plotting.") 
+            CobaContext.logger.log("Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting.")
 
         if len(environ_lengths) > 1 and x == ['index']:
             CobaContext.logger.log("This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting.")
@@ -922,76 +922,78 @@ class Result:
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
+        try:
+            xlim = xlim or [None,None]
+            ylim = ylim or [None,None]
 
-        xlim = xlim or [None,None]
-        ylim = ylim or [None,None]
+            x = [x] if isinstance(x,str) else list(x)
+            self._validate_parameters(x)
 
-        x = [x] if isinstance(x,str) else list(x)
-        self._validate_parameters(x)
+            if x == ['index']:
+                raise CobaException("plot_contrast does not currently support contrasting by `index`.")
 
-        if x == ['index']:
-            raise CobaException("plot_contrast does not currently support contrasting by `index`.")
+            rows = FilterPlottingData().filter(list(self.interactions), x, y, [learner_id1, learner_id2])
+            rows = SmoothPlottingData().filter(rows, y, span)
+            rows = ContrastPlottingData().filter(rows, y, mode, learner_id1)
 
-        rows = FilterPlottingData().filter(list(self.interactions), x, y, [learner_id1, learner_id2])
-        rows = SmoothPlottingData().filter(rows, y, span)
-        rows = ContrastPlottingData().filter(rows, y, mode, learner_id1)
+            XYE = TransformToXYE().filter(rows, self.environments, x, y, err)
 
-        XYE = TransformToXYE().filter(rows, self.environments, x, y, err)
+            if x != ['index']:
+                XYE = sorted(XYE, key=lambda xye: xye[1], reverse=reverse)
 
-        if x != ['index']:
-            XYE = sorted(XYE, key=lambda xye: xye[1], reverse=reverse)
+            bound = .5 if mode == "prob" else 0
 
-        bound = .5 if mode == "prob" else 0
+            win,tie,loss = [],[],[]
+            for _x,_y,_xe,_ye in XYE:
+                o = 1 if not reverse else -1
 
-        win,tie,loss = [],[],[]
-        for _x,_y,_xe,_ye in XYE:
-            o = 1 if not reverse else -1
+                xl,xu = (0,0) if _xe is None else (_xe,_xe) if isinstance(_xe,Number) else _xe
+                yl,yu = (0,0) if _ye is None else (_ye,_ye) if isinstance(_ye,Number) else _ye
 
-            xl,xu = (0,0) if _xe is None else (_xe,_xe) if isinstance(_xe,Number) else _xe
-            yl,yu = (0,0) if _ye is None else (_ye,_ye) if isinstance(_ye,Number) else _ye
+                if mode != 'scat':
+                    (win if _y-yl > o*bound else loss if _y+yu < o*bound else tie).append((_x,_y,_xe,_ye))
+                else:
+                    (win if _x-xl>o*(_y+yu) else loss if _y-yl> o*(_x+xu) else tie).append((_x,_y,_xe,_ye))
+
+            colors = (colors or []) + [0,1,2]
+            labels = (labels or []) + [self._full_name(learner_id1), self._full_name(learner_id2)]
+
+            fmt = "-" if x == ['index'] else "."
+
+            plots = []
+
+            if not reverse:
+                if loss: plots.append(Points(*zip(*loss), colors[0], 1, labels[1] + " " + f"({len(loss)})", fmt))
+                if tie : plots.append(Points(*zip(*tie) , colors[1], 1, 'Tie'     + " " + f"({len(tie )})", fmt))
+                if win : plots.append(Points(*zip(*win) , colors[2], 1, labels[0] + " " + f"({len(win )})", fmt))
+            else:
+                if win : plots.append(Points(*zip(*win) , colors[2], 1, labels[0] + " " + f"({len(win )})", fmt))
+                if tie : plots.append(Points(*zip(*tie) , colors[1], 1, 'Tie'     + " " + f"({len(tie )})", fmt))
+                if loss: plots.append(Points(*zip(*loss), colors[0], 1, labels[1] + " " + f"({len(loss)})", fmt))
 
             if mode != 'scat':
-                (win if _y-yl > o*bound else loss if _y+yu < o*bound else tie).append((_x,_y,_xe,_ye))
+                leftmost_x  = (loss+tie+win)[ 0][0] if not reverse else (win+tie+loss)[ 0][0]
+                rightmost_x = (loss+tie+win)[-1][0] if not reverse else (win+tie+loss)[-1][0]
+                plots.append(Points((leftmost_x,rightmost_x),(bound,bound), None, None , "#888", 1, None, '-',.5))
             else:
-                (win if _x-xl>o*(_y+yu) else loss if _y-yl> o*(_x+xu) else tie).append((_x,_y,_xe,_ye))
+                m = max([p[0] for p in (loss+tie+win)]+[p[1] for p in (loss+tie+win)]+[1])
+                plots.append(Points((0,m),(0,m), None, None , "#888", 1, None, '-',.5))
 
-        colors = (colors or []) + [0,1,2]
-        labels = (labels or []) + [self._full_name(learner_id1), self._full_name(learner_id2)]
+            xrotation = 90 if x != ['index'] and len(XYE)>5 else 0
+            yrotation = 0
 
-        fmt = "-" if x == ['index'] else "."
+            if mode != "scat":
+                xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
+                ylabel = f"{labels[0]} - {labels[1]}" if mode=="diff" else f"P({labels[0]} > {labels[1]})"
+            else:
+                xlabel = y
+                ylabel = y
 
-        plots = []
+            title = f"{ylabel} ({len(rows) if x==['index'] else len(XYE)} Environments)"
 
-        if not reverse:
-            if loss: plots.append(Points(*zip(*loss), colors[0], 1, labels[1] + " " + f"({len(loss)})", fmt))
-            if tie : plots.append(Points(*zip(*tie) , colors[1], 1, 'Tie'     + " " + f"({len(tie )})", fmt))
-            if win : plots.append(Points(*zip(*win) , colors[2], 1, labels[0] + " " + f"({len(win )})", fmt))
-        else:
-            if win : plots.append(Points(*zip(*win) , colors[2], 1, labels[0] + " " + f"({len(win )})", fmt))
-            if tie : plots.append(Points(*zip(*tie) , colors[1], 1, 'Tie'     + " " + f"({len(tie )})", fmt))
-            if loss: plots.append(Points(*zip(*loss), colors[0], 1, labels[1] + " " + f"({len(loss)})", fmt))
-
-        if mode != 'scat':
-            leftmost_x  = (loss+tie+win)[ 0][0] if not reverse else (win+tie+loss)[ 0][0]
-            rightmost_x = (loss+tie+win)[-1][0] if not reverse else (win+tie+loss)[-1][0]
-            plots.append(Points((leftmost_x,rightmost_x),(bound,bound), None, None , "#888", 1, None, '-',.5))
-        else:
-            m = max([p[0] for p in (loss+tie+win)]+[p[1] for p in (loss+tie+win)]+[1])
-            plots.append(Points((0,m),(0,m), None, None , "#888", 1, None, '-',.5))
-
-        xrotation = 90 if x != ['index'] and len(XYE)>5 else 0
-        yrotation = 0
-
-        if mode != "scat":
-            xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
-            ylabel = f"{labels[0]} - {labels[1]}" if mode=="diff" else f"P({labels[0]} > {labels[1]})"
-        else:
-            xlabel = y
-            ylabel = y
-
-        title = f"{ylabel} ({len(rows) if x==['index'] else len(XYE)} Environments)"
-
-        self._plotter.plot(ax, plots, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+            self._plotter.plot(ax, plots, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+        except CobaException as e:
+            CobaContext.logger.log(str(e)) 
 
     def plot_learners(self,
         ids   : Union[int,Sequence[int]] = None, 
@@ -1031,68 +1033,70 @@ class Result:
             out: Indicate where the plot should be sent to after plotting is finished.
             ax: Provide an optional axes that the plot will be drawn to. If not provided a new figure/axes is created.
         """
+        try:
+            xlim = xlim or [None,None]
+            ylim = ylim or [None,None]
 
-        xlim = xlim or [None,None]
-        ylim = ylim or [None,None]
+            if isinstance(ids,int): ids = [ids]
+            if isinstance(labels,str): labels = [labels]
+            if isinstance(x,str): x = [x]
 
-        if isinstance(ids,int): ids = [ids]
-        if isinstance(labels,str): labels = [labels]
-        if isinstance(x,str): x = [x]
+            self._validate_parameters(x)
 
-        self._validate_parameters(x)
+            interactions = self.interactions if not ids else self.filter_lrn(learner_id=ids).interactions
 
-        interactions = self.interactions if not ids else self.filter_lrn(learner_id=ids).interactions
+            rows = FilterPlottingData().filter(list(interactions), x, y)
+            rows = SmoothPlottingData().filter(rows, y, span)
 
-        rows = FilterPlottingData().filter(list(interactions), x, y)
-        rows = SmoothPlottingData().filter(rows, y, span)
+            env_rows = self.environments
+            get_key  = lambda row: row['learner_id']
+            lines    = []
 
-        env_rows = self.environments
-        get_key  = lambda row: row['learner_id']
-        lines    = []
+            style = "-" if x == ['index'] else "."
 
-        style = "-" if x == ['index'] else "."
+            def get_color(colors:Union[None,Sequence[Union[str,int]]], i:int):
+                try:
+                    return colors[i] if colors else i
+                except IndexError:
+                    return i+max(colors) if isinstance(colors[0],(int,float)) else i
+                except TypeError:
+                    return i+colors
 
-        def get_color(colors:Union[None,Sequence[Union[str,int]]], i:int):
-            try:
-                return colors[i] if colors else i
-            except IndexError:
-                return i+max(colors) if isinstance(colors[0],(int,float)) else i
-            except TypeError:
-                return i+colors
+            def get_label(labels:Sequence[str], i:int, lrn_id:int=None):
+                try:
+                    return labels[i] if labels else self._full_name(lrn_id)
+                except:
+                    return self._full_name(lrn_id)
 
-        def get_label(labels:Sequence[str], i:int, lrn_id:int=None):
-            try:
-                return labels[i] if labels else self._full_name(lrn_id)
-            except:
-                return self._full_name(lrn_id)
+            for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
+                lrn_rows = list(lrn_rows)
+                XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
+                color    = get_color(colors,i)
+                label    = get_label(labels,i,lrn_id)
+                lines.append(Points(*zip(*XYE), color, 1, label, style))
 
-        for i, (lrn_id, lrn_rows) in enumerate(groupby(sorted(rows, key=get_key),key=get_key)):
-            lrn_rows = list(lrn_rows)
-            XYE      = TransformToXYE().filter(lrn_rows, env_rows, x, y, err)
-            color    = get_color(colors,i)
-            label    = get_label(labels,i,lrn_id)
-            lines.append(Points(*zip(*XYE), color, 1, label, style))
+            lines  = sorted(lines, key=lambda line: line[1][-1], reverse=True)
+            labels = [l.label for l in lines]
+            colors = [l.color for l in lines]
+            xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
+            ylabel = y.capitalize().replace("_pct"," Percent")
 
-        lines  = sorted(lines, key=lambda line: line[1][-1], reverse=True)
-        labels = [l.label for l in lines]
-        colors = [l.color for l in lines]
-        xlabel = "Interaction" if x==['index'] else x[0] if len(x) == 1 else x
-        ylabel = y.capitalize().replace("_pct"," Percent")
+            title = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel}"
+            title = title + f" ({len(lrn_rows) if x==['index'] else len(XYE)} Environments)"
 
-        title = ("Instantaneous" if span == 1 else f"Span {span}" if span else "Progressive") + f" {ylabel}"
-        title = title + f" ({len(lrn_rows) if x==['index'] else len(XYE)} Environments)"
+            if x != ['index']: title = f"Final {title}"
 
-        if x != ['index']: title = f"Final {title}"
+            xrotation = 90 if x != ['index'] and len(XYE)>5 else 0
+            yrotation = 0
 
-        xrotation = 90 if x != ['index'] and len(XYE)>5 else 0
-        yrotation = 0
+            if top_n:
+                if abs(top_n) > len(lines): top_n = len(lines)*abs(top_n)/top_n
+                if top_n > 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[:top_n],0    ) ]
+                if top_n < 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[top_n:],top_n) ]
 
-        if top_n:
-            if abs(top_n) > len(lines): top_n = len(lines)*abs(top_n)/top_n
-            if top_n > 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[:top_n],0    ) ]
-            if top_n < 0: lines = [l._replace(color=get_color(colors,i),label=get_label(labels,i)) for i,l in enumerate(lines[top_n:],top_n) ]
-
-        self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+            self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
+        except CobaException as e:
+            CobaContext.logger.log(str(e)) 
 
     def _full_name(self,lrn_id:int) -> str:
         """A user-friendly name created from a learner's params for reporting purposes."""

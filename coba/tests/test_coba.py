@@ -5,7 +5,7 @@ class Coba_Tests(unittest.TestCase):
 
     def test_version(self):
         from coba import __version__
-        self.assertEqual("6.2.8",__version__)
+        self.assertEqual("6.2.10",__version__)
 
 if __name__ == '__main__':
     unittest.main()

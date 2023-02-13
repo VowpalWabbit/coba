@@ -98,7 +98,7 @@ class ChunkByChunk(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
         for lrn_item in workitems_sans_env:
             yield [lrn_item]
 
-        for workitem in chunks.pop(None,[]):
+        for workitem in chunks.pop('not_chunked',[]):
             yield [workitem]
 
         for chunk in sorted(chunks.values(), key=lambda chunk: min([c.env_id for c in chunk])):
@@ -109,7 +109,7 @@ class ChunkByChunk(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
             for pipe in reversed(list(env)):
                 if isinstance(pipe, Chunk):
                     return pipe
-        return None
+        return 'not_chunked'
 
 class MaxChunkSize(Filter[Iterable[Sequence[WorkItem]], Iterable[Sequence[WorkItem]]]):
     def __init__(self, max_tasks) -> None:
@@ -126,55 +126,57 @@ class MaxChunkSize(Filter[Iterable[Sequence[WorkItem]], Iterable[Sequence[WorkIt
 
 class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
 
-    def filter(self, chunk: Iterable[WorkItem]) -> Iterable[Any]:
+    def filter(self, chunks: Iterable[Iterable[WorkItem]]) -> Iterable[Any]:
 
-        chunk = list(chunk)
-        empty_envs = set()
+        for chunk in chunks:
 
-        finalizer = BatchSafe(Finalize())
+            chunk = list(chunk)
+            empty_envs = set()
 
-        if not chunk: return
+            finalizer = BatchSafe(Finalize())
 
-        if len(chunk) > 1:
-            #We sort in case there are multiple chunks in the pipe. Sorting means we can free chunks from memory as we go.
-            chunk = sorted(chunk, key=lambda item: self._env_ids(item)+self._lrn_ids(item))
-            chunk = list(reversed(chunk))
+            if not chunk: return
 
-        learner_eval_counts = Counter([item.lrn_id for item in chunk if item.lrn and item.env])
+            if len(chunk) > 1:
+                #We sort in case there are multiple chunks in the pipe. Sorting means we can free chunks from memory as we go.
+                chunk = sorted(chunk, key=lambda item: self._env_ids(item)+self._lrn_ids(item))
+                chunk = list(reversed(chunk))
 
-        with CobaContext.logger.log(f"Processing chunk..."):
+            learner_eval_counts = Counter([item.lrn_id for item in chunk if item.lrn and item.env])
 
-            while chunk:
-                try:
-                    item = chunk.pop()
+            with CobaContext.logger.log(f"Processing chunk..."):
 
-                    if item.env is None:
-                        with CobaContext.logger.time(f"Recording Learner {item.lrn_id} parameters..."):
-                            row = item.task.process(item.lrn)
-                            yield ["T1", item.lrn_id, row]
+                while chunk:
+                    try:
+                        item = chunk.pop()
 
-                    if item.lrn is None:
-                        with CobaContext.logger.time(f"Recording Environment {item.env_id} statistics..."):
-                            row = item.task.process(item.env,finalizer.filter(item.env.read()))
-                            yield ["T2", item.env_id, row]
+                        if item.env is None:
+                            with CobaContext.logger.time(f"Recording Learner {item.lrn_id} parameters..."):
+                                row = item.task.process(item.lrn)
+                                yield ["T1", item.lrn_id, row]
 
-                    if item.env and item.lrn and item.env_id not in empty_envs:
+                        if item.lrn is None:
+                            with CobaContext.logger.time(f"Recording Environment {item.env_id} statistics..."):
+                                row = item.task.process(item.env,finalizer.filter(item.env.read()))
+                                yield ["T2", item.env_id, row]
 
-                        with CobaContext.logger.time(f"Peeking at Environment {item.env_id}..."):
-                            interactions = peek_first(item.env.read())[1]
+                        if item.env and item.lrn and item.env_id not in empty_envs:
 
-                        if not interactions: 
-                            CobaContext.logger.log(f"Environment {item.env_id} has nothing to evaluate (this is likely due to having too few interactions).")
-                            empty_envs.add(item.env_id)
-                            continue
+                            with CobaContext.logger.time(f"Peeking at Environment {item.env_id}..."):
+                                interactions = peek_first(item.env.read())[1]
 
-                        with CobaContext.logger.time(f"Evaluating Learner {item.lrn_id} on Environment {item.env_id}..."):
-                            lrn = item.lrn if learner_eval_counts[item.lrn_id] == 1 else deepcopy(item.lrn)
-                            row = list(item.task.process(lrn, finalizer.filter(interactions)))
-                            yield ["T3", (item.env_id, item.lrn_id), row]
+                            if not interactions: 
+                                CobaContext.logger.log(f"Environment {item.env_id} has nothing to evaluate (this is likely due to having too few interactions).")
+                                empty_envs.add(item.env_id)
+                                continue
 
-                except Exception as e:
-                    CobaContext.logger.log(e)
+                            with CobaContext.logger.time(f"Evaluating Learner {item.lrn_id} on Environment {item.env_id}..."):
+                                lrn = item.lrn if learner_eval_counts[item.lrn_id] == 1 else deepcopy(item.lrn)
+                                row = list(item.task.process(lrn, finalizer.filter(interactions)))
+                                yield ["T3", (item.env_id, item.lrn_id), row]
+
+                    except Exception as e:
+                        CobaContext.logger.log(e)
 
     # def _cache_ids(self, item: WorkItem) -> Tuple[int,...]:
         #I'm not sure this is necessary and it makes sorting by env-ids difficult which 

@@ -8,7 +8,7 @@ from coba.contexts        import CobaContext, NullLogger
 from coba.contexts        import NullCacher, MemoryCacher
 from coba.contexts        import IndentLogger, BasicLogger, ExceptLog, StampLog, NameLog, DecoratedLogger
 from coba.pipes           import Filter, ListSink, Identity
-from coba.multiprocessing import CobaMultiprocessor, MultiException
+from coba.multiprocessing import CobaMultiprocessor
 
 class NotPicklableFilter(Filter):
     def __init__(self):
@@ -61,12 +61,10 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
         CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
         CobaContext.cacher = NullCacher()
 
-        with self.assertRaises(MultiException) as e:
+        with self.assertRaises(Exception) as e:
             list(CobaMultiprocessor(ExceptionFilter(), 2, 1, False).filter(range(4)))
 
-        self.assertEqual(2, len(e.exception.exceptions))
-        self.assertIn("Exception Filter", str(e.exception.exceptions[0]))
-        self.assertIn("Exception Filter", str(e.exception.exceptions[0]))
+        self.assertIn("Exception Filter", str(e.exception))
 
     def test_read_exception_logging(self):
         CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
@@ -80,6 +78,13 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
             list(CobaMultiprocessor(Identity(), 2, 1).filter(broken_generator()))
 
         self.assertIn("Generator Exception", str(e.exception))
+
+    def test_keyboard_interrupt(self):
+        CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
+        CobaContext.cacher = NullCacher()
+
+        with self.assertRaises(KeyboardInterrupt):
+            list(CobaMultiprocessor(ExceptionFilter(KeyboardInterrupt()), 2, 1).filter([1,2,3]))
 
     def test_not_picklable_logging(self):
         logger_sink = ListSink()
@@ -103,7 +108,7 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
 
         list(CobaMultiprocessor(ProcessNameFilter(), 2, 1).filter([Test()]*2))
 
-        self.assertEqual(2, len(logger_sink.items))
+        self.assertEqual(1, len(logger_sink.items))
         self.assertIn("unable to find", logger_sink.items[0])
 
     def test_double_call(self):
