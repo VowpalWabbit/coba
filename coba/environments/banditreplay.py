@@ -18,11 +18,13 @@ class BanditReplay(Environment):
         source = IterableSource(self._df.iterrows())
         first, rows = peek_first(source.read())
         for _, row in rows:
-            yield {
+            kwargs = {
                 'context'    : row['context'],
                 'action'     : row['action'],
                 'reward'     : row['reward'],
                 'probability': row['probability'],
                 'actions'    : row['actions'],
-                'rewards'    : SequenceReward(row['rewards'])
             }
+            if row.get('rewards') is not None:
+                kwargs.update({'rewards': SequenceReward(row['rewards'])})
+            yield LoggedInteraction(**kwargs)
