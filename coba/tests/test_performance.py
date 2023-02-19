@@ -18,7 +18,7 @@ from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pip
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
-from coba.experiments.results import Result, moving_average
+from coba.experiments.results import Result, moving_average, Table, Table2
 from coba.experiments import SimpleEvaluation
 from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
 
@@ -241,6 +241,23 @@ class Performance_Tests(unittest.TestCase):
         items = [dict(enumerate([1,2,3]+[(0,1)]*5))]*10
         flat  = coba.pipes.Flatten()
         self._assert_scale_time(items, lambda x:list(flat.filter(x)), .04, print_time, number=1000)
+
+    def test_table_filter(self):
+        table = Table('env',['environment_id'],[ { 'environment_id': k } for k in range(1000)])
+        self._assert_call_time(lambda:table.filter(environment_id=1), 1, print_time, number=500)
+
+    @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
+    def test_table_to_pandas(self):
+        table = Table('env',['environment_id'],[ { 'environment_id': k } for k in range(1000)])
+        self._assert_call_time(lambda:table.to_pandas(), .6, print_time, number=100)
+
+    def test_table2_filter_number(self):
+        table = Table2('env',['environment_id'],[ [k] for k in range(1000)])
+        self._assert_call_time(lambda:table.filter(environment_id=1), .07, print_time, number=500)
+
+    def test_table2_to_pandas(self):
+        table = Table2('env',['environment_id'],[ [k] for k in range(1000)])
+        self._assert_call_time(lambda:table.to_pandas(), .4, print_time, number=100)
 
     def test_result_filter_env(self):
         envs = { k:{'mod': k%100} for k in range(5) }

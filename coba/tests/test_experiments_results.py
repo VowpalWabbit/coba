@@ -12,7 +12,7 @@ from coba.exceptions import CobaException, CobaExit
 from coba.statistics import BinomialConfidenceInterval
 
 from coba.experiments.results import TransactionIO, TransactionIO_V3, TransactionIO_V4
-from coba.experiments.results import Result, Table
+from coba.experiments.results import Result, Table, Table2
 from coba.experiments.results import MatplotlibPlotter
 from coba.experiments.results import moving_average, exponential_moving_average
 from coba.experiments.results import FilterPlottingData, SmoothPlottingData, ContrastPlottingData, TransformToXYE
@@ -220,6 +220,118 @@ class Table_Tests(unittest.TestCase):
 
         self.assertNotIn("a", filtered_table)
         self.assertIn("A", filtered_table)
+
+class Table2_Tests(unittest.TestCase):
+
+    def test_table_name(self):
+        self.assertEqual('abc',Table2('abc',[],[]).name)
+
+    def test_table_str(self):
+        self.assertEqual("{'Table': 'abc', 'Columns': ['id', 'col'], 'Rows': 2}",str(Table2('abc',['id','col'],[[1,2],[2,3]])))
+
+    def test_ipython_display(self):
+        with unittest.mock.patch("builtins.print") as mock:
+            table = Table2('abc',['id','col'],[[1,2],[2,3]])
+            table._ipython_display_()
+            mock.assert_called_once_with(str(table))
+
+    def test_insert_item(self):
+        table = Table2("test", ['a','b'], [['a','B'],['A','B']])
+
+        self.assertEqual(list(table), [['a','B'],['A','B']])
+        self.assertEqual(table.columns, ['a','b'])
+        self.assertEqual(2, len(table))
+
+    def test_filter_kwarg_str(self):
+        table = Table2("test", ['a','b'], [['a','b'],['A','B']])
+
+        filtered_table = table.filter(b="B")
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([['a','b'],['A','B']], list(table))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([['A','B']], list(filtered_table))
+
+    def test_filter_kwarg_int_1(self):
+        table = Table2("test", ['a','b'], [['1','b'],['12','B']])
+
+        filtered_table = table.filter(a=1)
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([['1','b'],['12','B']], list(table))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([['1','b']], list(filtered_table))
+
+    def test_filter_kwarg_int_2(self):
+        table = Table2("test", ['a','b'], [[1,'b'],[12,'B']])
+
+        filtered_table = table.filter(a=1)
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([[1,'b'],[12,'B']], list(table))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([[1,'b']], list(filtered_table))
+
+    def test_filter_kwarg_pred(self):
+        table = Table2("test", ['a','b'], [['1','b'],['12','B']])
+
+        filtered_table = table.filter(a= lambda a: a =='1')
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([['1','b'],['12','B']], list(table))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([['1','b']], list(filtered_table))
+
+    def test_filter_kwarg_multi(self):
+        table = Table2("test", ['a','b','c'], [
+            ['1', 'b', 'c'],
+            ['2', 'b', 'C'],
+            ['3', 'B', 'c'],
+            ['4', 'B', 'C']
+        ])
+
+        filtered_table = table.filter(b="b", c="C")
+
+        self.assertEqual(4, len(table))
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([['2','b',"C"]], list(filtered_table))
+
+    def test_filter_pred(self):
+        table = Table2("test", ['a','b'], [['A','B'],['a','b']])
+
+        filtered_table = table.filter(lambda row: row[1]=="B")
+
+        self.assertEqual(2, len(table))
+        self.assertEqual([['A','B'],['a','b']], list(table))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([['A','B']], list(filtered_table))
+
+    def test_filter_sequence_1(self):
+        table = Table2("test", ['a','b'], [['a','b'], ['A','B'], ['1','C']])
+
+        filtered_table = table.filter(a=['a','1'])
+
+        self.assertEqual(3, len(table))
+        self.assertEqual([['a','b'],['A','B'],['1','C']], list(table))
+
+        self.assertEqual(2, len(filtered_table))
+        self.assertEqual([['a','b'],['1','C']], list(filtered_table))
+
+    def test_filter_sequence_2(self):
+        table = Table2("test", ['a','b'], [['1','b'], ['2','B'], ['3','C']])
+
+        filtered_table = table.filter(a=[1,2])
+
+        self.assertEqual(3, len(table))
+        self.assertCountEqual([['1','b'],['2','B'],['3','C']], list(table))
+
+        self.assertEqual(2, len(filtered_table))
+        self.assertCountEqual([['1','b'],['2','B']], list(filtered_table))
 
 @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
 class Table_Pandas_Tests(unittest.TestCase):

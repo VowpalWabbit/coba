@@ -7,7 +7,7 @@ from pathlib import Path
 from numbers import Number
 from operator import truediv, sub, gt, itemgetter
 from abc import abstractmethod
-from itertools import chain, repeat, accumulate, groupby, count
+from itertools import chain, repeat, accumulate, groupby, count, compress
 from typing import Any, Dict, List, Set, Tuple, Optional, Sequence, Hashable, Iterable, Iterator, Union, Type, Callable, NamedTuple
 from coba.backports import Literal
 
@@ -37,6 +37,99 @@ def moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
     window_sizes = chain(range(1,span), repeat(span))
 
     return map(truediv,window_sums,window_sizes)
+
+class Table2:
+    """A container class for storing tabular data."""
+
+    def __init__(self, name:str, columns: Sequence[str], rows: Sequence[Sequence[Any]]):
+        """Instantiate a Table.
+
+        Args:
+            name: The name of the table. Used for display purposes.
+            cols: The names assigned to each item in an element of rows.
+            rows: The actual rows that should be stored in the table.
+        """
+        self._name = name
+        self._cols = columns
+        self._rows = rows
+
+    @property
+    def name(self) -> str:
+        """The name of the table."""
+        return self._name
+
+    @property
+    def columns(self) -> Sequence[str]:
+        """The columns in the table."""
+        return self._cols
+
+    def filter(self, row_pred:Callable[[Sequence[Any]],bool] = None, **kwargs) -> 'Table':
+        """Filter to specific rows.
+
+        Args:
+            pred: A predicate that returns true for row dictionaries that should be kept.
+            kwargs: key value pairs where the key is the column and the value indicates what
+                value a row should have in that column to be kept. Keeping logic depends on
+                the row value type and the kwargs value type. If kwarg value == row value keep
+                the row. If kwarg value is callable pass the row value to the predicate. If
+                kwarg value is a collection keep the row if the row value is in the collection.
+                If kwarg value is a string apply a regular expression match to the row value.
+        """
+
+        all_keep = [[True]*len(self)]
+
+        if row_pred is not None:
+            all_keep.append(list(map(row_pred,self)))
+
+        if kwargs:
+            col_major_order = list(zip(*self._rows))
+
+        for filter_col, filter_val in kwargs.items():
+            values = col_major_order[self._cols.index(filter_col)]
+
+            if callable(filter_val):
+                all_keep.append(list(map(filter_val,values)))
+            else:
+                any_keep = [False]*len(self)
+
+                if not isinstance(filter_val, collections.abc.Sequence) or isinstance(filter_val,str):
+                    filter_vals = [filter_val]
+                else:
+                    filter_vals = filter_val
+
+                for filter_val in filter_vals:
+                    if isinstance(filter_val,Number) and isinstance(values[0],Number):
+                        any_keep = [a or v == filter_val for a,v in zip(any_keep,values)]
+                    elif isinstance(filter_val,Number) and isinstance(values[0],str):
+                        _re = re.compile(f'(\D|^){filter_val}(\D|$)')
+                        any_keep = [a or bool(_re.search(v)) for a,v in zip(any_keep,values)]
+                    elif isinstance(filter_val,str) and isinstance(values[0],str):
+                        _re = re.compile(filter_val)
+                        any_keep = [a or filter_val == v or bool(_re.search(v)) for a,v in zip(any_keep,values)]
+
+                all_keep.append(any_keep)
+
+        return Table2(self._name, self._cols, list(compress(self._rows, map(all,zip(*all_keep)))))
+
+    def to_pandas(self) -> Any:
+        """Turn the Table into a Pandas data frame."""
+
+        PackageChecker.pandas("Table.to_pandas")
+        import pandas as pd #type: ignore
+        return pd.DataFrame(self._rows, columns=self.columns)
+
+    def __iter__(self) -> Iterator[Sequence[Any]]:
+        return iter(self._rows)
+
+    def __str__(self) -> str:
+        return str({"Table": self.name, "Columns": self.columns, "Rows": len(self)})
+
+    def _ipython_display_(self):
+        #pretty print in jupyter notebook (https://ipython.readthedocs.io/en/stable/config/integrating.html)
+        print(str(self))
+
+    def __len__(self) -> int:
+        return len(self._rows)
 
 class Table:
     """A container class for storing tabular data."""
@@ -265,8 +358,74 @@ class Table:
         if key not in self._rows_keys: raise KeyError(key)
         return dict(**self._rows_flat[key], **self._rows_pack[key])
 
-class InteractionsTable(Table):
-    pass
+class TransactionIO_V4(Source['Result'], Sink[Any]):
+
+    def __init__(self, log_file: Optional[str] = None, minify:bool=True) -> None:
+
+        self._log_file = log_file
+        self._minify   = minify
+        self._source   = DiskSource(log_file) if log_file else IterableSource()
+        self._sink     = DiskSink(log_file)   if log_file else ListSink(self._source.iterable)
+
+    def write(self, item: Any) -> None:
+        if isinstance(self._sink, ListSink):
+            self._sink.write(self._encode(item))
+        else:
+            if not Path(self._sink._filename).exists():self._sink.write('["version",4]')
+            self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
+
+    def read(self) -> 'Result':
+
+        exp_dict = {}
+        lrn_rows = {}
+        env_rows = {}
+        int_rows = {}
+
+        if isinstance(self._source, IterableSource):
+            decoded_source = self._source
+        else:
+            decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
+
+        for trx in decoded_source.read():
+
+            if not trx: continue
+
+            if trx[0] == "experiment":
+                exp_dict = trx[1]
+
+            if trx[0] == "E":
+                env_rows[trx[1]] = trx[2]
+
+            if trx[0] == "L":
+                lrn_rows[trx[1]] = trx[2]
+
+            if trx[0] == "I":
+                int_rows[tuple(trx[1])] = trx[2]
+
+        return Result(env_rows, lrn_rows, int_rows, exp_dict)
+
+    def _encode(self,item):
+        if item[0] == "T0":
+            return ['experiment', {"n_learners":item[1], "n_environments":item[2], "description":None} if len(item)==3 else item[1] ]
+
+        if item[0] == "T1":
+            return ["L", item[1], item[2]]
+
+        if item[0] == "T2":
+            return ["E", item[1], item[2]]
+
+        if item[0] == "T3":
+            rows_T = collections.defaultdict(list)
+
+            for row in item[2]:
+                for col,val in row.items():
+                    if col == "rewards" : col="reward"
+                    if col == "reveals" : col="reveal"
+                    rows_T[col].append(val)
+
+            return ["I", item[1], { "_packed": rows_T }]
+
+        return None
 
 class TransactionIO_V3(Source['Result'], Sink[Any]):
 
@@ -324,75 +483,6 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
 
         if item[0] == "T2":
             return ["S", item[1], item[2]]
-
-        if item[0] == "T3":
-            rows_T = collections.defaultdict(list)
-
-            for row in item[2]:
-                for col,val in row.items():
-                    if col == "rewards" : col="reward"
-                    if col == "reveals" : col="reveal"
-                    rows_T[col].append(val)
-
-            return ["I", item[1], { "_packed": rows_T }]
-
-        return None
-
-class TransactionIO_V4(Source['Result'], Sink[Any]):
-
-    def __init__(self, log_file: Optional[str] = None, minify:bool=True) -> None:
-
-        self._log_file = log_file
-        self._minify   = minify
-        self._source   = DiskSource(log_file) if log_file else IterableSource()
-        self._sink     = DiskSink(log_file)   if log_file else ListSink(self._source.iterable)
-
-    def write(self, item: Any) -> None:
-        if isinstance(self._sink, ListSink):
-            self._sink.write(self._encode(item))
-        else:
-            if not Path(self._sink._filename).exists():self._sink.write('["version",4]')
-            self._sink.write(JsonEncode(self._minify).filter(self._encode(item)))
-
-    def read(self) -> 'Result':
-
-        exp_dict = {}
-        lrn_rows = {}
-        env_rows = {}
-        int_rows = {}
-
-        if isinstance(self._source, IterableSource):
-            decoded_source = self._source
-        else:
-            decoded_source = Pipes.join(self._source, Foreach(JsonDecode()))
-
-        for trx in decoded_source.read():
-
-            if not trx: continue
-
-            if trx[0] == "experiment":
-                exp_dict = trx[1]
-
-            if trx[0] == "E":
-                env_rows[trx[1]] = trx[2]
-
-            if trx[0] == "L":
-                lrn_rows[trx[1]] = trx[2]
-
-            if trx[0] == "I":
-                int_rows[tuple(trx[1])] = trx[2]
-
-        return Result(env_rows, lrn_rows, int_rows, exp_dict)
-
-    def _encode(self,item):
-        if item[0] == "T0":
-            return ['experiment', {"n_learners":item[1], "n_environments":item[2], "description":None} if len(item)==3 else item[1] ]
-
-        if item[0] == "T1":
-            return ["L", item[1], item[2]]
-
-        if item[0] == "T2":
-            return ["E", item[1], item[2]]
 
         if item[0] == "T3":
             rows_T = collections.defaultdict(list)
@@ -765,9 +855,9 @@ class Result:
 
         self.experiment = exp_dict
 
-        self._environments = Table            ("Environments", ['environment_id'              ], env_flat, ["source"])
-        self._learners     = Table            ("Learners"    , ['learner_id'                  ], lrn_flat, ["family","shuffle","take"])
-        self._interactions = InteractionsTable("Interactions", ['environment_id', 'learner_id'], int_flat, ["index","reward"])
+        self._environments = Table("Environments", ['environment_id'              ], env_flat, ["source"])
+        self._learners     = Table("Learners"    , ['learner_id'                  ], lrn_flat, ["family","shuffle","take"])
+        self._interactions = Table("Interactions", ['environment_id', 'learner_id'], int_flat, ["index","reward"])
 
         self._plotter = MatplotlibPlotter()
 
@@ -788,7 +878,7 @@ class Result:
         return self._environments
 
     @property
-    def interactions(self) -> InteractionsTable:
+    def interactions(self) -> Table:
         """The collection of interactions that learners chose actions for in the Experiment.
 
         The primary key of this Table is (index, environment_id, learner_id). It should be noted that the InteractionTable
