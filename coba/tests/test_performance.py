@@ -255,6 +255,7 @@ class Performance_Tests(unittest.TestCase):
         table = Table2('env',['environment_id'],[ [k] for k in range(1000)])
         self._assert_call_time(lambda:table.filter(environment_id=1), .07, print_time, number=500)
 
+    @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
     def test_table2_to_pandas(self):
         table = Table2('env',['environment_id'],[ [k] for k in range(1000)])
         self._assert_call_time(lambda:table.to_pandas(), .4, print_time, number=100)
