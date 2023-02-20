@@ -3,7 +3,6 @@ import threading as mt
 import multiprocessing as mp
 
 from queue import Empty
-from itertools import islice, chain
 from traceback import format_tb
 from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Any
 from coba.backports import Literal

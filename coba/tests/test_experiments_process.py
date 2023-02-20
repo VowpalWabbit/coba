@@ -136,7 +136,7 @@ class RemoveFinished_Tests(unittest.TestCase):
 
     def test_three_finished(self):
 
-        restored = Result(lrn_rows={1:{}}, env_rows= {0:{}}, int_rows= {(0,1):{}})
+        restored = Result([['environment_id'],[0]], [['learner_id'],[1]], [['environment_id','learner_id'],[0,1]])
 
         tasks = [
             WorkItem(None, 0, None, None, None),

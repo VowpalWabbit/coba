@@ -67,6 +67,11 @@ class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
 
     def filter(self, tasks: Iterable[WorkItem]) -> Iterable[WorkItem]:
 
+        finished_learners = set(self._restored.learners.col_vals[0]) if self._restored else set()
+        finished_environments = set(self._restored.environments.col_vals[0]) if self._restored else set()
+        finished_evaluations = set(zip(*self._restored.interactions.col_vals[:2])) if self._restored else set()
+
+
         for task in tasks:
 
             is_learner_task = task.env_id is None
@@ -75,11 +80,11 @@ class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
 
             if not self._restored:
                 yield task
-            elif is_learner_task and task.lrn_id not in self._restored.learners:
+            elif is_learner_task and task.lrn_id not in finished_learners:
                 yield task
-            elif is_environ_task and task.env_id not in self._restored.environments:
+            elif is_environ_task and task.env_id not in finished_environments:
                 yield task
-            elif is_eval_task and (task.env_id, task.lrn_id) not in self._restored._interactions:
+            elif is_eval_task and (task.env_id, task.lrn_id) not in finished_evaluations:
                 yield task
 
 class ChunkByChunk(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):

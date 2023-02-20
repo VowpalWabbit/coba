@@ -18,7 +18,7 @@ from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pip
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
-from coba.experiments.results import Result, moving_average, Table, Table2
+from coba.experiments.results import Result, moving_average, Table, Table
 from coba.experiments import SimpleEvaluation
 from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
 
@@ -242,30 +242,23 @@ class Performance_Tests(unittest.TestCase):
         flat  = coba.pipes.Flatten()
         self._assert_scale_time(items, lambda x:list(flat.filter(x)), .04, print_time, number=1000)
 
-    def test_table_filter(self):
-        table = Table('env',['environment_id'],[ { 'environment_id': k } for k in range(1000)])
-        self._assert_call_time(lambda:table.filter(environment_id=1), 1, print_time, number=500)
-
-    @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
-    def test_table_to_pandas(self):
-        table = Table('env',['environment_id'],[ { 'environment_id': k } for k in range(1000)])
-        self._assert_call_time(lambda:table.to_pandas(), .6, print_time, number=100)
-
     def test_table2_filter_number(self):
-        table = Table2('env',['environment_id'],[ [k] for k in range(1000)])
-        self._assert_call_time(lambda:table.filter(environment_id=1), .07, print_time, number=500)
+        table = Table(['environment_id'],[ [k] for k in range(1000)])
+        self._assert_call_time(lambda:table.filter(environment_id=1), .04, print_time, number=500)
 
     @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
     def test_table2_to_pandas(self):
-        table = Table2('env',['environment_id'],[ [k] for k in range(1000)])
+        table = Table(['environment_id'],[ [k] for k in range(1000)])
         self._assert_call_time(lambda:table.to_pandas(), .4, print_time, number=100)
 
     def test_result_filter_env(self):
-        envs = { k:{'mod': k%100} for k in range(5) }
-        lrns = { 1:{}, 2:{}, 3:{}}
-        ints = { (e,l):{} for e in envs.keys() for l in lrns.keys() }
+
+        envs = Table(['environment_id','mod'],[[k,k%100] for k in range(5)])
+        lrns = Table(['learner_id'], [[0],[1],[2]])
+        ints = Table(['environment_id','learner_id'],[[e,l] for e in range(3) for l in range(5)] )
+
         res  = Result(envs, lrns, ints)
-        self._assert_call_time(lambda:res.filter_env(mod=3), .05, print_time, number=1000)
+        self._assert_call_time(lambda:res.filter_env(mod=3), .015, print_time, number=1000)
 
     def test_moving_average_sliding_window(self):
         items = [1,0]*100
