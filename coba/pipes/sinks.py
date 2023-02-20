@@ -97,8 +97,9 @@ class QueueSink(Sink[Any]):
     def write(self, item: Any) -> None:
         try:
             item = (item if self._foreach else [item])
-            for i in item: self._queue.put(i)
-        except (EOFError,BrokenPipeError):
+            for i in item:
+                self._queue.put(i)
+        except (EOFError,BrokenPipeError,AssertionError):
             pass
 
 class LambdaSink(Sink[Any]):
