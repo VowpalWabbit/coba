@@ -1,14 +1,14 @@
 import re
+import copy
 import collections
 import collections.abc
 
-from copy import copy
 from pathlib import Path
 from numbers import Number
-from operator import truediv, sub, gt, itemgetter
+from operator import truediv, sub, itemgetter, eq, contains, ge, lt, le, gt, or_
 from abc import abstractmethod
 from itertools import chain, repeat, accumulate, groupby, count, compress
-from typing import Any, Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, NamedTuple
+from typing import Any, Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, NamedTuple, overload
 from coba.backports import Literal
 
 from coba.environments import Environment
@@ -27,7 +27,7 @@ def exponential_moving_average(values:Sequence[float], span:int=None) -> Iterabl
 
 def moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
 
-    if span == 1: 
+    if span == 1:
         return values
 
     if span is None or span >= len(values):
@@ -43,63 +43,174 @@ def old_to_new(
     lrn_rows: Mapping[int           ,Mapping[str,Any]] = {},
     int_rows: Mapping[Tuple[int,int],Mapping[str,Any]] = {}) -> Tuple[Sequence,Sequence,Sequence]:
 
-    env_cols = set().union(*[v.keys()            for v in env_rows.values()]) | {'environment_id'}
-    lrn_cols = set().union(*[v.keys()            for v in lrn_rows.values()]) | {'learner_id'}
-    int_cols = set().union(*[v['_packed'].keys() for v in int_rows.values()]) | {'environment_id','learner_id','index'}
+    env_hdrs = set().union(*[v.keys()            for v in env_rows.values()]) - {'environment_id'}
+    lrn_hdrs = set().union(*[v.keys()            for v in lrn_rows.values()]) - {'learner_id'}
+    int_hdrs = set().union(*[v['_packed'].keys() for v in int_rows.values()]) - {'environment_id','learner_id','index'}
 
-    pref_env_cols = {'environment_id':'a'                                                }
-    pref_lrn_cols = {                     'learner_id': 'a'                              }
-    pref_int_cols = {'environment_id':'a','learner_id':'aa','index':'aaa','reward':'aaaa'}
+    rwd_col = ['reward'] if 'reward' in int_hdrs else []
 
-    env_cols = sorted(env_cols, key=lambda k: pref_env_cols.get(k,k))
-    lrn_cols = sorted(lrn_cols, key=lambda k: pref_lrn_cols.get(k,k))
-    int_cols = sorted(int_cols, key=lambda k: pref_int_cols.get(k,k))
+    env_hdrs = ['environment_id'                     ] +           sorted(env_hdrs)
+    lrn_hdrs = [                 'learner_id'        ] +           sorted(lrn_hdrs)
+    int_hdrs = ['environment_id','learner_id','index'] + rwd_col + sorted(int_hdrs-{'reward'})
 
-    env_flat = [ { "environment_id":k, **v } for k,v in env_rows.items() ]
-    env_flat = [ [ row.get(k) for k in env_cols] for row in env_flat ]
+    env_table = Table(env_hdrs)
+    lrn_table = Table(lrn_hdrs)
+    int_table = Table(int_hdrs)
 
-    lrn_flat = [ { "learner_id" :k,   **v } for k,v in lrn_rows.items() ]
-    lrn_flat = [ [ row.get(k) for k in lrn_cols] for row in lrn_flat ]
+    env_rows = [ { "environment_id":k, **v } for k,v in env_rows.items() ]
+    env_table.insert(rows=[[row.get(k) for k in env_hdrs] for row in env_rows])
 
-    int_flat = []
+    lrn_rows = [ { "learner_id" :k,   **v } for k,v in lrn_rows.items() ]
+    lrn_table.insert(rows=[[row.get(k) for k in lrn_hdrs] for row in lrn_rows])
+
+    #These are the actual data columns
+    int_hdrs = int_hdrs[3:]
+
     for (env_id, lrn_id), results in int_rows.items():
         names,cols = zip(*results['_packed'].items())
         N          = len(cols[0])
-        names      = ['environment_id','learner_id','index'] + list(names)
-        cols       = [[env_id]*N, [lrn_id]*N, list(range(1,N+1))] + list(cols)
 
-        if set(int_cols) != set(names):
-            new_names = list(set(int_cols)-set(names))
-            names.extend(new_names)
-            cols.extend([[None]*N]*len(new_names))
+        if len(int_hdrs) != len(names):
+            cols  += (Repeat(None,N),)*(len(int_hdrs) - len(names))
+            names += tuple(set(int_hdrs)-set(names))
 
-        col_index_order = sorted(range(len(names)), key=lambda i: int_cols.index(names[i]))
-        cols = [cols[i] for i in col_index_order]
+        index_columns     = (Repeat(env_id,N), Repeat(lrn_id,N), Count(1,N+1))
+        ordered_data_cols = tuple(cols[names.index(col)] for col in int_hdrs)
 
-        int_flat.extend(zip(*cols))
+        int_table.insert(cols=index_columns+ordered_data_cols)
 
-    return [env_cols]+env_flat, [lrn_cols]+lrn_flat, [int_cols]+int_flat
+    return env_table, lrn_table, int_table
+
+class Repeat:
+    __slots__ =('value','times')
+    def __init__(self, value, times):
+        self.value = value
+        self.times = times
+
+    def __iter__(self):
+        return iter(repeat(self.value,self.times))
+
+    def __len__(self) -> int:
+        return self.times
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o,Repeat) and o.value == self.value and o.times == self.times
+
+class Count:
+    __slots__ =('start','end')
+    def __init__(self, start,end):
+        self.start = start
+        self.end   = end
+
+    def __iter__(self):
+        return iter(range(self.start, self.end))
+
+    def __len__(self) -> int:
+        return self.end-self.start
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o,Count) and o.start == self.start and o.end == self.end
+
+class Compress:
+    __slots__ =('_chunk','_keep')
+    def __init__(self,chunk,keep):
+        self._chunk = chunk
+        self._keep = keep
+    
+    def __iter__(self):
+        return iter(compress(self._chunk,self._keep))
+
+    def __len__(self) -> int:
+        return sum(self._keep)
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o,Compress) and self._chunk == o._chunk and self._keep == o._keep
 
 class Table:
     """A container class for storing tabular data."""
+    #Potentially overkill but by having our own "simple" table implementation we can provide
+    #Several useful pieces of functionality out of the box. Additionally, when working with
+    #Very large experiments pandas can become quite slow while our Table will work acceptably.
 
-    def __init__(self, cols: Sequence[str], rows: Sequence[Sequence[Any]]):
+    @overload
+    def __init__(self, table: 'Table', keep:Sequence[bool]=None) -> None:
+        """Copy a Table and optionally indicate which entries to keep.
+
+        Args:
+            table: The table to copy.
+            keep: Which column rows to keep.
+        """
+
+    @overload
+    def __init__(self, columns: Sequence[str]) -> None:
         """Instantiate a Table.
 
         Args:
             cols: The names assigned to each item in an element of rows.
-            rows: The actual rows that should be stored in the table.
         """
-        self._col_names = cols
-        self.row_vals   = rows
-        self.col_vals   = list(zip(*rows)) if rows else [[]]*len(cols)
+
+    def __init__(self, *args):
+
+        if isinstance(args[0], Table):
+            self._col_names  = args[0].col_names
+            self._col_chunks = [list(col) for col in args[0]._col_chunks]
+
+            if len(args) > 1:
+                keep = args[1]
+                assert len(keep) == len(self)
+
+                n_cols   = len(self._col_names)
+                n_chunks = len(self._col_chunks[0]) if n_cols else 0
+
+                empty = tuple()
+                i = 0
+
+                for j in range(n_chunks):
+                    chunk_size = len(self._col_chunks[0][j])
+                    chunk_keep = keep[i:i+chunk_size]
+
+                    if all(chunk_keep):
+                        pass
+                    elif not any(chunk_keep):
+                        for col in self._col_chunks: col[j] = empty
+                    else:
+                        for col in self._col_chunks: col[j] = Compress(col[j], chunk_keep)
+
+                    i+=chunk_size
+        else:
+            self._col_names = args[0]
+            self._col_chunks = [[] for _ in args[0]]
 
     @property
-    def columns(self) -> Sequence[str]:
+    def col_names(self) -> Sequence[str]:
         """The columns in the table."""
         return self._col_names
 
-    def filter(self, row_pred:Callable[[Sequence[Any]],bool] = None, **kwargs) -> 'Table':
+    def col_values(self) -> Sequence[Iterable[Any]]:
+        return [ chain.from_iterable(c) for c in self._col_chunks]
+
+    def row_values(self) -> Iterable[Sequence[Any]]:
+        return zip(*self.col_values())
+
+    def insert(self, *, cols:Sequence[Iterable[Any]]=None, rows:Sequence[Sequence[Any]]=None) -> 'Table':
+
+        if cols:
+            assert len(cols) == len(self._col_names), "A column entry was not provided for every column"
+            assert len(set(map(len,cols))) == 1, "Different sized column entries were provided."
+
+            for col,new in zip(self._col_chunks,cols):
+                col.append(new)
+
+        if rows:
+            assert len(rows[0]) == len(self._col_names), "A column entry was not provided for every column"
+            assert len(set(map(len,rows))) == 1, "Different sized row entries were provided."
+
+            for col,new in zip(self._col_chunks,zip(*rows)):
+                col.append(new)
+
+        return self
+
+    def filter(self, row_pred:Callable[[Sequence[Any]],bool] = None, comparison:Literal['default','=','<=','<','>','>=','match','in']="default", **kwargs) -> 'Table':
         """Filter to specific rows. Applied as an Or. To "And" call filter multiple times.
 
         Args:
@@ -112,51 +223,155 @@ class Table:
                 If kwarg value is a string apply a regular expression match to the row value.
         """
 
-        any_keep = list(map(row_pred,self)) if row_pred else [False]*len(self) if kwargs else [True]*len(self)
+        keep = list(map(row_pred,self)) if row_pred else [False]*len(self) if kwargs else [True]*len(self)
 
-        if kwargs: col_major_order = self.col_vals
+        is_default_comparison = comparison == 'default'
 
         for filter_col, filter_val in kwargs.items():
-            values = col_major_order[self._col_names.index(filter_col)]
+
+            chunks = self._col_chunks[self._col_names.index(filter_col)]
+
+            if is_default_comparison:
+                if isinstance(filter_val,collections.abc.Container) and not isinstance(filter_val,str):
+                    comparison = 'in'
+                else:
+                    comparison = "="
 
             if callable(filter_val):
-                any_keep = [a or filter_val(v) for a,v in zip(any_keep,values)]
+                keep = list(map(or_,keep,map(filter_val,chain.from_iterable(chunks))))
 
-            else:
-                is_sequence = isinstance(filter_val, collections.abc.Sequence) and not isinstance(filter_val,str)
+            elif comparison == "in":
+                try:
+                    filter_val = set(filter_val)
+                except:
+                    pass
+
+                compare = contains
+
+                new_keep = []
+                i = 0
+                
+                for chunk in chunks:
+                    if chunk.__class__ is Repeat:
+                        if compare(filter_val,chunk.value):
+                            new_keep.extend(repeat(True,len(chunk)))
+                        else:
+                            new_keep.extend(keep[i:i+len(chunk)])
+                    else:
+                        new_keep.extend(map(or_,keep[i:i+len(chunk)],map(compare,repeat(filter_val),chunk)))
+
+                    i+=len(chunk)
+
+                keep = new_keep
+
+            elif comparison == "=":
+                compare = eq
+                
+                new_keep = []
+                i = 0
+
+                for chunk in chunks:
+                    if chunk.__class__ is Repeat:
+                        if compare(filter_val,chunk.value):
+                            new_keep.extend(repeat(True,len(chunk)))
+                        else:
+                            new_keep.extend(keep[i:i+len(chunk)])
+                    else:
+                        new_keep.extend(map(or_,keep[i:i+len(chunk)],map(compare,repeat(filter_val),chunk)))
+
+                    i+=len(chunk)
+
+                keep = new_keep
+                
+            elif comparison in ["<","<=",">=",">"]:
+                compare = [lt,le,ge,gt][["<","<=",">=",">"].index(comparison)]
+                
+                new_keep = []
+                i = 0
+
+                for chunk in chunks:
+                    if chunk.__class__ is Count:
+                        pass
+                        lower = compare(chunk.start,filter_val)
+                        equal = compare(filter_val ,filter_val)
+                        upper = compare(chunk.end  ,filter_val)
+                        
+                        if lower==upper:
+                            if lower:
+                                new_keep.extend(repeat(True,len(chunk)))
+                            else:
+                                new_keep.extend(keep[i:i+len(chunk)])
+                        else:
+                            n_lower = filter_val-chunk.start
+                            n_equal = int((chunk.end-filter_val)>0) 
+                            n_upper = chunk.end-filter_val-1
+                            
+                            if lower:
+                                new_keep.extend(repeat(True,n_lower))
+                            else:
+                                new_keep.extend(keep[i:i+n_lower])
+
+                            if n_equal:
+                                new_keep.append(keep[i+n_lower] or equal)
+
+                            if upper:
+                                new_keep.extend(repeat(True,n_upper))
+                            else:
+                                new_keep.extend(keep[i+n_lower+1:i+n_lower+1+n_upper])
+                    elif chunk.__class__ is Repeat:
+                        if compare(chunk.value, filter_val):
+                            new_keep.extend(repeat(True,len(chunk)))
+                        else:
+                            new_keep.extend(keep[i:i+len(chunk)])
+                    else:
+                        new_keep.extend(map(or_,keep[i:i+len(chunk)],map(compare,chunk,repeat(filter_val))))
+
+                    i+=len(chunk)
+                
+                keep = new_keep
+            
+            elif comparison == 'match':
+                
+                is_sequence = isinstance(filter_val,collections.abc.Sequence) and not isinstance(filter_val,str)
                 filter_vals = filter_val if is_sequence else [filter_val]
+                values      = list(chain.from_iterable(chunks))
 
                 for filter_val in filter_vals:
                     if isinstance(filter_val,Number) and isinstance(values[0],Number):
-                        any_keep = [a or v == filter_val for a,v in zip(any_keep,values)]
+                        keep = [a or v == filter_val for a,v in zip(keep,values)]
                     elif isinstance(filter_val,Number) and isinstance(values[0],str):
                         _re = re.compile(f'(\D|^){filter_val}(\D|$)')
-                        any_keep = [a or bool(_re.search(v)) for a,v in zip(any_keep,values)]
+                        keep = [a or bool(_re.search(v)) for a,v in zip(keep,values)]
                     elif isinstance(filter_val,str) and isinstance(values[0],str):
                         _re = re.compile(filter_val)
-                        any_keep = [a or filter_val == v or bool(_re.search(v)) for a,v in zip(any_keep,values)]
+                        keep = [a or filter_val == v or bool(_re.search(v)) for a,v in zip(keep,values)]
 
-        return Table(self._col_names, list(compress(self.row_vals, any_keep)))
+        return Table(self, keep)
 
     def to_pandas(self) -> Any:
         """Turn the Table into a Pandas data frame."""
 
         PackageChecker.pandas("Table.to_pandas")
         import pandas as pd #type: ignore
-        return pd.DataFrame(self.row_vals, columns=self.columns)
+        return pd.DataFrame(self.row_values(), columns=self.col_names)
 
     def to_dicts(self) -> Sequence[Mapping[str,Any]]:
         """Turn the Table into a sequence of tuples."""
-        return [dict(zip(self.columns,row)) for row in self.row_vals]
+        return [dict(zip(self.col_names,row)) for row in self]
 
     def __iter__(self) -> Iterator[Sequence[Any]]:
-        return iter(self.row_vals)
+        return iter(zip(*self.col_values()))
 
     def __str__(self) -> str:
-        return str({"Columns": self.columns, "Rows": len(self)})
+        return str({"Columns": self.col_names, "Rows": len(self)})
 
     def __len__(self) -> int:
-        return len(self.row_vals)
+        if self._col_chunks:
+            return sum(map(len,self._col_chunks[0]))
+        return 0
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o,Table) and o.col_names == self.col_names and all(r1==r2 for r1,r2 in zip(o.row_values(),self.row_values()))
 
     def _ipython_display_(self):
         #pretty print in jupyter notebook (https://ipython.readthedocs.io/en/stable/config/integrating.html)
@@ -205,7 +420,7 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
 
             if trx[0] == "I":
                 int_rows[tuple(trx[1])] = trx[2]
-    
+
         return Result(*old_to_new(env_rows, lrn_rows, int_rows), exp_dict)
 
     def _encode(self,item):
@@ -331,7 +546,7 @@ class TransactionIO(Source['Result'], Sink[Any]):
 
 class Points(NamedTuple):
     X    : Sequence[Any]
-    Y    : Sequence[float] 
+    Y    : Sequence[float]
     XE   : Sequence[float]  = None
     YE   : Sequence[float]  = None
     color: Union[str,int]   = None
@@ -485,11 +700,11 @@ class FilterPlottingData:
     def filter(self, interactions:Table, x:Sequence[str], y:str, learner_ids:Sequence[int] = None) -> Table:
 
         if len(interactions) == 0: raise CobaException("This result doesn't contain any evaluation data to plot.")
-        if y not in interactions.columns: raise CobaException(f"{y} is not available in the environment. Plotting has been stopped.")
-        
-        if learner_ids: interactions = interactions.filter(learner_id = set(learner_ids).__contains__)
+        if y not in interactions.col_names: raise CobaException(f"{y} is not available in the environment. Plotting has been stopped.")
 
-        env_lrn_row_counts = collections.Counter(zip(*interactions.col_vals[:2]))
+        if learner_ids: interactions = interactions.filter(learner_id=learner_ids)
+
+        env_lrn_row_counts = collections.Counter(zip(*interactions.col_values()[:2]))
         env_lrn_counts     = collections.Counter([e for e,_ in env_lrn_row_counts.keys()])
         env_lengths        = env_lrn_row_counts.values()
 
@@ -501,22 +716,21 @@ class FilterPlottingData:
         if min(env_lrn_counts.values()) != n_learners:
             CobaContext.logger.log("Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting.")
             complete_environments = [e for e,v in env_lrn_counts.items() if v == n_learners]
-            interactions = interactions.filter(environment_id=set(complete_environments).__contains__)
+            interactions = interactions.filter(environment_id=complete_environments)
 
         if len(set(env_lengths)) > 1 and x == ['index']:
             CobaContext.logger.log("This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting.")
-            complete_indexes = list(range(1,min(env_lengths)+1))
-            interactions = interactions.filter(index=set(complete_indexes).__contains__)
+            interactions = interactions.filter(index=min(env_lengths),comparison="<=")
 
         return interactions
 
 class SmoothPlottingData:
 
     def filter(self, interactions:Table, y:str, span:Optional[int]) -> Sequence[Mapping[str,Any]]:
-        
-        Y = interactions.col_vals[interactions.columns.index(y)]
-        G = iter(zip(*interactions.col_vals[:2]))
-        
+
+        Y = interactions.col_values()[interactions.col_names.index(y)]
+        G = iter(zip(*interactions.col_values()[:2]))
+
         out = []
 
         for g, _Y in groupby(Y, lambda key, G=G: next(G)):
@@ -532,8 +746,8 @@ class ContrastPlottingData:
         group_key = lambda row: row['environment_id']
 
         if mode == "prob":
-            contraster = lambda Y1,Y2: list(map(int,map(gt,Y1,Y2))) 
-        elif mode == "diff": 
+            contraster = lambda Y1,Y2: list(map(int,map(gt,Y1,Y2)))
+        elif mode == "diff":
             contraster = lambda Y1,Y2: list(map(sub,Y1,Y2))
         elif mode =="scat":
             contraster = lambda Y1,Y2: list(zip(Y1,Y2))
@@ -547,9 +761,9 @@ class ContrastPlottingData:
 class TransformToXYE:
 
     def filter(self,
-        rows: Sequence[Mapping[str,Any]], 
-        envs: Mapping[int,Mapping[str,Any]], 
-        x:Sequence[str], 
+        rows: Sequence[Mapping[str,Any]],
+        envs: Mapping[int,Mapping[str,Any]],
+        x:Sequence[str],
         y:str,
         err:Union[str,None,PointAndInterval]) -> Sequence[Tuple[Any,float,Union[None,float,Tuple[float,float]]]]:
 
@@ -582,7 +796,7 @@ class TransformToXYE:
                 points = [YE(z1)+YE(z2) for _,z in zip(X,Z) for z1,z2 in [tuple(zip(*z))]]
         else:
             XZ = collections.defaultdict(list)
-            
+
             make_x = lambda eid: eid if list(x) == ['environment_id'] else envs[eid].get(x[0]) if len(x) == 1 else tuple(envs[eid].get(k) for k in x)
             for row,I in zip(rows,iters):
                 XZ[str(make_x(row["environment_id"]))].append(list(I)[-1])
@@ -621,7 +835,7 @@ class Result:
         my_mean = lambda x: sum(x)/len(x)
 
         for env in environments:
-            
+
             is_batched = 'batched' in env.params
             env_params  = dict(env.params)
             lrn_params  = env_params.pop('learner')
@@ -650,9 +864,9 @@ class Result:
         return Result(*old_to_new(env_rows,lrn_rows,int_rows))
 
     def __init__(self,
-        env_rows: Union[Sequence,Table] = Table([],[]),
-        lrn_rows: Union[Sequence,Table] = Table([],[]),
-        int_rows: Union[Sequence,Table] = Table([],[]),
+        env_rows: Union[Sequence,Table] = Table([]),
+        lrn_rows: Union[Sequence,Table] = Table([]),
+        int_rows: Union[Sequence,Table] = Table([]),
         exp_dict: Mapping  = {}) -> None:
         """Instantiate a Result class.
 
@@ -661,9 +875,9 @@ class Result:
         """
         self.experiment = exp_dict
 
-        self._environments = env_rows if isinstance(env_rows,Table) else Table(env_rows[0], env_rows[1:])
-        self._learners     = lrn_rows if isinstance(lrn_rows,Table) else Table(lrn_rows[0], lrn_rows[1:])
-        self._interactions = int_rows if isinstance(int_rows,Table) else Table(int_rows[0], int_rows[1:])
+        self._environments = env_rows if isinstance(env_rows,Table) else Table(env_rows[0]).insert(rows=env_rows[1:])
+        self._learners     = lrn_rows if isinstance(lrn_rows,Table) else Table(lrn_rows[0]).insert(rows=lrn_rows[1:])
+        self._interactions = int_rows if isinstance(int_rows,Table) else Table(int_rows[0]).insert(rows=int_rows[1:])
 
         self._plotter = MatplotlibPlotter()
 
@@ -699,14 +913,7 @@ class Result:
 
     def copy(self) -> 'Result':
         """Create a copy of Result."""
-
-        result = Result()
-
-        result._environments = copy(self._environments)
-        result._learners     = copy(self._learners)
-        result._interactions = copy(self._interactions)
-
-        return result
+        return Result(Table(self.environments), Table(self.learners), Table(self.interactions), self.experiment)
 
     def filter_fin(self, n_interactions: int = None) -> 'Result':
         """Filter the result to only contain data about environments with all learners and interactions.
@@ -714,28 +921,34 @@ class Result:
         Args:
             n_interactions: The number of interactions at which an environment is considered complete.
         """
-
-        counts = collections.Counter(zip(*self.interactions.col_vals[:2]))
+        ###WARNING, the top logic determining env_lengths and env_lrn_cnts has been highly optimized
+        env_lengths  = {}
+        env_lrn_cnts = collections.defaultdict(int)
+        for g, i in groupby(zip(*self.interactions.col_values()[:2])):
+            env_lrn_cnts[g[0]]+=1
+            if g[0] not in env_lengths:
+                env_lengths[g[0]] = sum(1 for _ in i)
 
         def has_all(env_id):
-            return all((env_id, lrn_id) in counts for lrn_id in self.learners.col_vals[0])
+            return env_lrn_cnts[env_id] == len(self.learners)
 
         def has_min(env_id):
-            return n_interactions == None or all(counts[(env_id, lrn_id)] >= n_interactions for lrn_id in self.learners.col_vals[0])
+            return n_interactions == None or env_lengths[env_id] >= n_interactions
 
-        complete_ids = [env_id for env_id in self.environments.col_vals[0] if has_all(env_id) and has_min(env_id)]
+        complete_ids = set([env_id for env_id in self.environments.col_values()[0] if has_all(env_id) and has_min(env_id)])
 
         environments = self.environments.filter(environment_id=complete_ids)
         interactions = self.interactions.filter(environment_id=complete_ids)
+        learners     = self.learners
 
         if n_interactions:
-            #in theory this could be a little faster but we'd have to break the API
-            interactions = interactions.filter(index=set(range(1,n_interactions+1)).__contains__)
+            interactions = interactions.filter(index=n_interactions,comparison="<=")
 
         if len(environments) == 0:
+            learners = learners.filter(lambda _:False)
             CobaContext.logger.log(f"There was no environment which was finished for every learner.")
 
-        return Result(environments, self.learners, interactions, self.experiment)
+        return Result(environments, learners, interactions, self.experiment)
 
     def filter_env(self, pred:Callable[[Mapping[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
         """Filter the result to only contain data about specific environments.
@@ -746,13 +959,13 @@ class Result:
         """
 
         environments = self.environments.filter(pred, **kwargs)
-        interactions = self.interactions.filter(environment_id=set(environments.col_vals[0]).__contains__)
-        learners     = self.learners    .filter(learner_id=set(interactions.col_vals[1]).__contains__)
+        interactions = self.interactions.filter(environment_id=set(environments.col_values()[0]))
+        learners     = self.learners    .filter(learner_id=set(interactions.col_values()[1]))
 
         if len(environments) == 0:
             CobaContext.logger.log(f"No environments matched the given filter.")
 
-        return Result(environments,learners,interactions,self.experiment) 
+        return Result(environments,learners,interactions,self.experiment)
 
     def filter_lrn(self, pred:Callable[[Mapping[str,Any]],bool] = None, **kwargs: Any) -> 'Result':
         """Filter the result to only contain data about specific learners.
@@ -762,10 +975,9 @@ class Result:
             **kwargs: key-value pairs to filter on. To see filtering options see Table.filter.
         """
 
-        
         learners     = self.learners.filter(pred, **kwargs)
-        interactions = self.interactions.filter(learner_id=set(learners.col_vals[0]).__contains__)
-        environments = self.environments.filter(environment_id=set(interactions.col_vals[0]).__contains__)
+        interactions = self.interactions.filter(learner_id=set(learners.col_values()[0]))
+        environments = self.environments.filter(environment_id=set(interactions.col_values()[0]))
 
         if len(learners) == 0:
             CobaContext.logger.log(f"No learners matched the given filter.")
@@ -828,7 +1040,7 @@ class Result:
             rows = ContrastPlottingData().filter(rows, y, mode, learner_id1)
 
             envs = self.environments
-            XYE = TransformToXYE().filter(rows, { row[0]:dict(zip(envs.columns,row)) for row in envs }, x, y, err)
+            XYE = TransformToXYE().filter(rows, { row[0]:dict(zip(envs.col_names,row)) for row in envs }, x, y, err)
 
             if x != ['index']:
                 XYE = sorted(XYE, key=lambda xye: xye[1], reverse=reverse)
@@ -885,7 +1097,7 @@ class Result:
 
             self._plotter.plot(ax, plots, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
         except CobaException as e:
-            CobaContext.logger.log(str(e)) 
+            CobaContext.logger.log(str(e))
 
     def plot_learners(self,
         x     : Union[str,Sequence[str]] = "index",
@@ -936,7 +1148,7 @@ class Result:
             rows = SmoothPlottingData().filter(rows, y, span)
 
             envs     = self.environments
-            env_rows = { row[0]:dict(zip(envs.columns,row)) for row in envs }
+            env_rows = { row[0]:dict(zip(envs.col_names,row)) for row in envs }
             get_key  = lambda row: row['learner_id']
             lines    = []
 
@@ -984,13 +1196,13 @@ class Result:
 
             self._plotter.plot(ax, lines, title, xlabel, ylabel, xlim, ylim, xticks, yticks, xrotation, yrotation, out)
         except CobaException as e:
-            CobaContext.logger.log(str(e)) 
+            CobaContext.logger.log(str(e))
 
     def _full_name(self,lrn_id:int) -> str:
         """A user-friendly name created from a learner's params for reporting purposes."""
 
-        cols = self.learners.columns
-        vals = self.learners.row_vals[self.learners.col_vals[0].index(lrn_id)]
+        cols = self.learners.col_names
+        vals = list(self.learners.row_values())[list(self.learners.col_values()[0]).index(lrn_id)]
 
         values = dict((k,v) for k,v in zip(cols,vals) if v is not None)
         family = values.get('family',values['learner_id'])

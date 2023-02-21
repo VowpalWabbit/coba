@@ -1,6 +1,5 @@
 import unittest
 import unittest.mock
-import timeit
 import importlib.util
 
 from math import sqrt
@@ -12,7 +11,7 @@ from coba.exceptions import CobaException, CobaExit
 from coba.statistics import BinomialConfidenceInterval
 
 from coba.experiments.results import TransactionIO, TransactionIO_V3, TransactionIO_V4
-from coba.experiments.results import Result, Table
+from coba.experiments.results import Result, Table, Count, Repeat, Compress
 from coba.experiments.results import MatplotlibPlotter
 from coba.experiments.results import moving_average, exponential_moving_average, old_to_new
 from coba.experiments.results import FilterPlottingData, SmoothPlottingData, ContrastPlottingData, TransformToXYE
@@ -25,90 +24,132 @@ class TestPlotter:
     def plot(self, *args) -> None:
         self.plot_calls.append(args)
 
+class Repeat_Tests(unittest.TestCase):
+
+    def test_iter(self):
+        repeat = Repeat(1,10)
+        self.assertEqual(list(repeat),[1]*10)
+
+    def test_len(self):
+        repeat = Repeat(1,10)
+        self.assertEqual(len(repeat),10)
+
+    def test_eq(self):
+        repeat = Repeat(1,10)
+        self.assertEqual(repeat,Repeat(1,10))
+
+class Count_Tests(unittest.TestCase):
+
+    def test_iter(self):
+        count = Count(1,10)
+        self.assertEqual(list(count),list(range(1,10)))
+
+    def test_len(self):
+        count = Count(1,10)
+        self.assertEqual(len(count),9)
+
+    def test_eq(self):
+        count = Count(1,10)
+        self.assertEqual(count,Count(1,10))
+
+class Compress_Tests(unittest.TestCase):
+
+    def test_iter(self):
+        compress = Compress([1,2,3],[True,False,True])
+        self.assertEqual(list(compress),[1,3])
+
+    def test_len(self):
+        compress = Compress([1,2,3],[True,False,True])
+        self.assertEqual(len(compress),2)
+    
+    def test_eq(self):
+        compress = Compress([1,2,3],[True,False,True])
+        self.assertEqual(compress,Compress([1,2,3],[True,False,True]))
+
 class old_to_new_Tests(unittest.TestCase):
 
     def test_simple(self):
         envs,lrns,ints = old_to_new({}, {}, {(0,1): {"_packed":{"reward":[1,3]}},(0,2):{"_packed":{"reward":[1,4]}}})
-        self.assertEqual(envs,[['environment_id']])
-        self.assertEqual(lrns,[['learner_id']])
-        self.assertEqual(ints,[['environment_id', 'learner_id', 'index', 'reward']]+[(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)])
+        self.assertEqual(envs,Table(['environment_id']))
+        self.assertEqual(lrns,Table(['learner_id']))
+        self.assertEqual(ints,Table(['environment_id', 'learner_id', 'index', 'reward']).insert(rows=[(0,1,1,1),(0,1,2,3),(0,2,1,1),(0,2,2,4)]))
 
     def test_simple2(self):
         envs,lrns,ints = old_to_new({}, {}, {})
-        self.assertEqual(envs,[['environment_id']])
-        self.assertEqual(lrns,[['learner_id']])
-        self.assertEqual(ints,[['environment_id', 'learner_id', 'index']])
+        self.assertEqual(envs,Table(['environment_id']))
+        self.assertEqual(lrns,Table(['learner_id']))
+        self.assertEqual(ints,Table(['environment_id', 'learner_id', 'index']))
 
     def test_simple3(self):
         envs,lrns,ints = old_to_new({}, {}, {(0,1): {"_packed":{"reward":[1,3]}},(0,2):{"_packed":{"z":[1,4]}}})
-        self.assertEqual(envs,[['environment_id']])
-        self.assertEqual(lrns,[['learner_id']])
-        self.assertEqual(ints,[['environment_id', 'learner_id', 'index', 'reward','z']]+[(0,1,1,1,None),(0,1,2,3,None),(0,2,1,None,1),(0,2,2,None,4)])
+        self.assertEqual(envs,Table(['environment_id']))
+        self.assertEqual(lrns,Table(['learner_id']))
+        self.assertEqual(ints,Table(['environment_id', 'learner_id', 'index', 'reward','z']).insert(rows=[(0,1,1,1,None),(0,1,2,3,None),(0,2,1,None,1),(0,2,2,None,4)]))
 
 class Table_Tests(unittest.TestCase):
 
     def test_table_str(self):
-        self.assertEqual("{'Columns': ['id', 'col'], 'Rows': 2}",str(Table(['id','col'],[[1,2],[2,3]])))
+        self.assertEqual("{'Columns': ['id', 'col'], 'Rows': 2}",str(Table(['id','col']).insert(rows=[[1,2],[2,3]])))
 
     def test_ipython_display(self):
         with unittest.mock.patch("builtins.print") as mock:
-            table = Table(['id','col'],[[1,2],[2,3]])
+            table = Table(['id','col']).insert(rows=[[1,2],[2,3]])
             table._ipython_display_()
             mock.assert_called_once_with(str(table))
 
     def test_insert_item(self):
-        table = Table(['a','b'], [['a','B'],['A','B']])
+        table = Table(['a','b']).insert(rows=[['a','B'],['A','B']])
 
-        self.assertEqual(list(table), [['a','B'],['A','B']])
-        self.assertEqual(table.columns, ['a','b'])
+        self.assertEqual(list(table), [('a','B'),('A','B')])
+        self.assertEqual(table.col_names, ['a','b'])
         self.assertEqual(2, len(table))
 
     def test_filter_kwarg_str(self):
-        table = Table(['a','b'], [['a','b'],['A','B']])
+        table = Table(['a','b']).insert(rows=[['a','b'],['A','B']])
 
         filtered_table = table.filter(b="B")
 
         self.assertEqual(2, len(table))
-        self.assertEqual([['a','b'],['A','B']], list(table))
+        self.assertEqual([('a','b'),('A','B')],list(table))
 
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([['A','B']], list(filtered_table))
+        self.assertEqual([('A','B')], list(filtered_table))
 
     def test_filter_kwarg_int_1(self):
-        table = Table(['a','b'], [['1','b'],['12','B']])
+        table = Table(['a','b']).insert(rows=[['1','b'],['12','B']])
 
-        filtered_table = table.filter(a=1)
+        filtered_table = table.filter(a=1,comparison='match')
 
         self.assertEqual(2, len(table))
-        self.assertEqual([['1','b'],['12','B']], list(table))
+        self.assertEqual([('1','b'),('12','B')], list(table))
 
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([['1','b']], list(filtered_table))
+        self.assertEqual([('1','b')], list(filtered_table))
 
     def test_filter_kwarg_int_2(self):
-        table = Table(['a','b'], [[1,'b'],[12,'B']])
+        table = Table(['a','b']).insert(rows=[[1,'b'],[12,'B']])
 
         filtered_table = table.filter(a=1)
 
         self.assertEqual(2, len(table))
-        self.assertEqual([[1,'b'],[12,'B']], list(table))
+        self.assertEqual([(1,'b'),(12,'B')], list(table))
 
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([[1,'b']], list(filtered_table))
+        self.assertEqual([(1,'b')], list(filtered_table))
 
     def test_filter_kwarg_pred(self):
-        table = Table(['a','b'], [['1','b'],['12','B']])
+        table = Table(['a','b']).insert(rows=[['1','b'],['12','B']])
 
         filtered_table = table.filter(a= lambda a: a =='1')
 
         self.assertEqual(2, len(table))
-        self.assertEqual([['1','b'],['12','B']], list(table))
+        self.assertEqual([('1','b'),('12','B')], list(table))
 
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([['1','b']], list(filtered_table))
+        self.assertEqual([('1','b')], list(filtered_table))
 
     def test_filter_kwarg_multi(self):
-        table = Table(['a','b','c'], [
+        table = Table(['a','b','c']).insert(rows=[
             ['1', 'b', 'c'],
             ['2', 'b', 'C'],
             ['3', 'B', 'c'],
@@ -119,10 +160,10 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(4, len(table))
         self.assertEqual(3, len(filtered_table))
-        self.assertEqual([['1','b','c'],['2','b','C'],['4','B','C']], list(filtered_table))
+        self.assertEqual([('1','b','c'),('2','b','C'),('4','B','C')], list(filtered_table))
 
     def test_filter_without_any(self):
-        table = Table(['a','b','c'], [
+        table = Table(['a','b','c']).insert(rows=[
             ['1', 'b', 'c'],
             ['2', 'b', 'C'],
         ])
@@ -131,41 +172,158 @@ class Table_Tests(unittest.TestCase):
 
         self.assertEqual(2, len(table))
         self.assertEqual(2, len(filtered_table))
-        self.assertEqual([['1','b','c'],['2','b','C']], list(filtered_table))
-
+        self.assertEqual([('1','b','c'),('2','b','C')], list(filtered_table))
 
     def test_filter_pred(self):
-        table = Table(['a','b'], [['A','B'],['a','b']])
+        table = Table(['a','b']).insert(rows=[['A','B'],['a','b']])
 
         filtered_table = table.filter(lambda row: row[1]=="B")
 
         self.assertEqual(2, len(table))
-        self.assertEqual([['A','B'],['a','b']], list(table))
+        self.assertEqual([('A','B'),('a','b')], list(table))
 
         self.assertEqual(1, len(filtered_table))
-        self.assertEqual([['A','B']], list(filtered_table))
+        self.assertEqual([('A','B')], list(filtered_table))
 
     def test_filter_sequence_1(self):
-        table = Table(['a','b'], [['a','b'], ['A','B'], ['1','C']])
+        table = Table(['a','b']).insert(rows=[['a','b'], ['A','B'], ['1','C']])
 
         filtered_table = table.filter(a=['a','1'])
 
         self.assertEqual(3, len(table))
-        self.assertEqual([['a','b'],['A','B'],['1','C']], list(table))
+        self.assertEqual([('a','b'),('A','B'),('1','C')], list(table))
 
         self.assertEqual(2, len(filtered_table))
-        self.assertEqual([['a','b'],['1','C']], list(filtered_table))
+        self.assertEqual([('a','b'),('1','C')], list(filtered_table))
 
     def test_filter_sequence_2(self):
-        table = Table(['a','b'], [['1','b'], ['2','B'], ['3','C']])
+        table = Table(['a','b']).insert(rows=[['1','b'], ['2','B'], ['3','C']])
 
-        filtered_table = table.filter(a=[1,2])
+        filtered_table = table.filter(a=[1,2],comparison='match')
 
         self.assertEqual(3, len(table))
-        self.assertCountEqual([['1','b'],['2','B'],['3','C']], list(table))
+        self.assertEqual([('1','b'),('2','B'),('3','C')], list(table))
 
         self.assertEqual(2, len(filtered_table))
-        self.assertCountEqual([['1','b'],['2','B']], list(filtered_table))
+        self.assertEqual([('1','b'),('2','B')], list(filtered_table))
+
+    def test_filter_sequence_3(self):
+        table = Table(['a']).insert(rows=[[ ['1']], [ ['2']], [ ['3']]])
+
+        filtered_table = table.filter(a=[['1']],comparison='in')
+
+        self.assertEqual(3, len(table))
+        self.assertEqual([(['1'],),(['2'],),(['3'],)], list(table))
+
+        self.assertEqual(1, len(filtered_table))
+        self.assertEqual([(['1'],)], list(filtered_table))
+
+    def test_filter_repeat_less(self):
+        table = Table(['a']).insert(cols=[Repeat(1,10)])
+        table = table.insert(cols=[Repeat(2,10)])
+
+        filtered_table = table.filter(a=1,comparison='<=')
+
+        self.assertEqual(20, len(table))
+
+        self.assertEqual(10, len(filtered_table))
+
+    def test_filter_repeat_more(self):
+        table = Table(['a']).insert(cols=[Repeat(1,10)])
+        table = table.insert(cols=[Repeat(2,10)])
+
+        filtered_table = table.filter(a=1,comparison='>')
+
+        self.assertEqual(20, len(table))
+
+        self.assertEqual(10, len(filtered_table))
+
+    def test_filter_count_less(self):
+        table = Table(['a','b']).insert(cols=[Count(1,11),Count(1,11)])
+        table = table.insert(cols=[Count(1,11),Count(1,11)])
+
+        filtered_table = table.filter(a=5,comparison='<=')
+
+        self.assertEqual(20, len(table))
+
+        self.assertEqual(10, len(filtered_table))
+
+    def test_filter_count_more(self):
+        table = Table(['a','b']).insert(cols=[Count(1,11),Count(1,11)])
+        table = table.insert(cols=[Count(1,11),Count(1,11)])
+
+        filtered_table = table.filter(a=5,comparison='>')
+
+        self.assertEqual(20, len(table))
+
+        self.assertEqual(10, len(filtered_table))
+
+    def test_filter_count_much_less(self):
+        table = Table(['a','b']).insert(cols=[Count(1,11),Count(1,11)])
+        table = table.insert(cols=[Count(1,11),Count(1,11)])
+
+        filtered_table = table.filter(a=600,comparison='<=')
+
+        self.assertEqual(20, len(table))
+
+        self.assertEqual(20, len(filtered_table))
+
+    def test_filter_count_much_more_true(self):
+        table = Table(['a','b']).insert(cols=[Count(1,11),Count(1,11)])
+        table = table.insert(cols=[Count(1,11),Count(1,11)])
+
+        filtered_table = table.filter(a=-600,comparison='>=')
+
+        self.assertEqual(20, len(table))
+
+        self.assertEqual(20, len(filtered_table))
+
+    def test_filter_count_much_more_false(self):
+        table = Table(['a','b']).insert(cols=[Count(1,11),Count(1,11)])
+        table = table.insert(cols=[Count(1,11),Count(1,11)])
+
+        filtered_table = table.filter(a=600,comparison='>=')
+
+        self.assertEqual(20, len(table))
+
+        self.assertEqual(0, len(filtered_table))
+
+    def test_filter_repeat_equals(self):
+        table = Table(['a']).insert(cols=[Repeat(1,2)]).insert(cols=[Repeat(2,2)])
+
+        filtered_table = table.filter(a=1,comparison='=')
+
+        self.assertEqual(4, len(table))
+
+        self.assertEqual(2, len(filtered_table))
+
+    def test_filter_match_number_number(self):
+        table = Table(['a']).insert(cols=[Repeat(1,2)]).insert(cols=[Repeat(2,2)])
+
+        filtered_table = table.filter(a=1,comparison='match')
+
+        self.assertEqual(4, len(table))
+
+        self.assertEqual(2, len(filtered_table))
+
+    def test_filter_match_number_str(self):
+        table = Table(['a']).insert(cols=[Repeat('1',2)]).insert(cols=[Repeat('2',2)])
+
+        filtered_table = table.filter(a=1,comparison='match')
+
+        self.assertEqual(4, len(table))
+
+        self.assertEqual(2, len(filtered_table))
+
+    def test_filter_match_str_str(self):
+        table = Table(['a']).insert(cols=[Repeat('1',2)]).insert(cols=[Repeat('2',2)])
+
+        filtered_table = table.filter(a='1',comparison='match')
+
+        self.assertEqual(4, len(table))
+
+        self.assertEqual(2, len(filtered_table))
+
 
 @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
 class Table_Pandas_Tests(unittest.TestCase):
@@ -175,7 +333,7 @@ class Table_Pandas_Tests(unittest.TestCase):
         import pandas as pd #type: ignore
         import pandas.testing #type: ignore
 
-        table = Table(['a','b','c','d','e'], [['A','B',1,'d',None],['B',None,None,None,'E']])
+        table = Table(['a','b','c','d','e']).insert(rows=[['A','B',1,'d',None],['B',None,None,None,'E']])
 
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c=1,d='d'),
@@ -190,7 +348,7 @@ class Table_Pandas_Tests(unittest.TestCase):
         import pandas as pd   #type: ignore
         import pandas.testing #type: ignore
 
-        table = Table(['a','b','c','d','e'], [['A','B',[1,2],'d',None],['B',None,None,None,'E']])
+        table = Table(['a','b','c','d','e']).insert(rows=[['A','B',[1,2],'d',None],['B',None,None,None,'E']])
 
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c=[1,2],d='d'),
@@ -205,7 +363,7 @@ class Table_Pandas_Tests(unittest.TestCase):
         import pandas as pd   #type: ignore
         import pandas.testing #type: ignore
 
-        table = Table(['a','b','c','d','e'], [['A','B',{'z':10},'d',None],['B',None,None,None,'E']])
+        table = Table(['a','b','c','d','e']).insert(rows=[['A','B',{'z':10},'d',None],['B',None,None,None,'E']])
 
         expected_df = pd.DataFrame([
             dict(a='A',b='B',c={'z':10},d='d'),
@@ -925,7 +1083,7 @@ class Result_Tests(unittest.TestCase):
         self.assertEqual(2, len(original_result.interactions))
 
         self.assertEqual(0, len(filtered_result.environments))
-        self.assertEqual(2, len(filtered_result.learners))
+        self.assertEqual(0, len(filtered_result.learners))
         self.assertEqual(0, len(filtered_result.interactions))
         self.assertEqual(["There was no environment which was finished for every learner."], CobaContext.logger.sink.items)
 
@@ -1692,7 +1850,7 @@ class FilterPlottingData_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        table = Table(['environment_id','learner_id','index','reward'],[[0,0,1,1],[0,1,1,1]])
+        table = Table(['environment_id','learner_id','index','reward']).insert(rows=[[0,0,1,1],[0,1,1,1]])
 
         expected_rows = table
         actual_rows = FilterPlottingData().filter(table, ['index'], "reward", None)
@@ -1705,9 +1863,9 @@ class FilterPlottingData_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        table = Table(['environment_id','learner_id','index','reward'],[[0,0,1,1],[0,1,1,1],[0,2,1,1]])
+        table = Table(['environment_id','learner_id','index','reward']).insert(rows=[[0,0,1,1],[0,1,1,1],[0,2,1,1]])
 
-        expected_rows = [[0,0,1,1],[0,1,1,1]]
+        expected_rows = [(0,0,1,1),(0,1,1,1)]
 
         actual_rows = FilterPlottingData().filter(table, ['index'], "reward", [0,1])
 
@@ -1719,7 +1877,7 @@ class FilterPlottingData_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        table = Table(['environment_id','learner_id','index','reward'],[[0,0,1,1],[0,1,1,1]])
+        table = Table(['environment_id','learner_id','index','reward']).insert(rows=[[0,0,1,1],[0,1,1,1]])
 
         expected_rows = table
         actual_rows = FilterPlottingData().filter(table, ['index'], "reward", None)
@@ -1732,14 +1890,14 @@ class FilterPlottingData_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        table = Table(['environment_id','learner_id','index','reward'],[
+        table = Table(['environment_id','learner_id','index','reward']).insert(rows=[
             [0,0,1,1],
             [0,1,1,1],
             [1,0,1,1],[1,0,2,1],
             [1,1,1,1],[1,1,2,1],
         ])
 
-        expected_rows = [ [0,0,1,1], [0,1,1,1], [1,0,1,1], [1,1,1,1] ]
+        expected_rows = [(0,0,1,1),(0,1,1,1),(1,0,1,1),(1,1,1,1)]
         actual_rows = FilterPlottingData().filter(table, ['index'], "reward", None)
 
         self.assertEqual(expected_rows,list(actual_rows))
@@ -1750,13 +1908,13 @@ class FilterPlottingData_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        table = Table(['environment_id','learner_id','index','reward'],[
+        table = Table(['environment_id','learner_id','index','reward']).insert(rows=[
             [0,0,1,1],
             [1,0,1,1],[1,0,2,1],
             [1,1,1,1],[1,1,2,1],
         ])
 
-        expected_rows = [[1,0,1,1], [1,1,1,1]]
+        expected_rows = [(1,0,1,1),(1,1,1,1)]
         actual_rows = FilterPlottingData().filter(table, ['index'], "reward", None)
 
         self.assertEqual(expected_rows,list(actual_rows))
@@ -1768,7 +1926,7 @@ class FilterPlottingData_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        table = Table(['environment_id','learner_id','index','reward'],[
+        table = Table(['environment_id','learner_id','index','reward']).insert(rows=[
             [0,0,1,1],
             [1,1,1,1],[1,1,2,1],
         ])
@@ -1795,7 +1953,7 @@ class FilterPlottingData_Tests(unittest.TestCase):
         CobaContext.logger = IndentLogger()
         CobaContext.logger.sink = ListSink()
 
-        table = Table(['environment_id','learner_id','index','reward'],[
+        table = Table(['environment_id','learner_id','index','reward']).insert(rows=[
             [0,0,1,1],
             [0,1,1,1],
             [1,0,1,1],[1,0,2,1],
@@ -1803,10 +1961,10 @@ class FilterPlottingData_Tests(unittest.TestCase):
         ])
 
         expected_rows = [
-           [0,0,1,1],
-           [0,1,1,1],
-           [1,0,1,1],[1,0,2,1],
-           [1,1,1,1],[1,1,2,1]
+           (0,0,1,1),
+           (0,1,1,1),
+           (1,0,1,1),(1,0,2,1),
+           (1,1,1,1),(1,1,2,1)
         ]
 
         actual_rows = FilterPlottingData().filter(table, ['openml_task'], "reward", None)
@@ -1816,7 +1974,7 @@ class SmoothPlottingData_Tests(unittest.TestCase):
 
     def test_full_span(self):
 
-        rows = Table(['environment_id','learner_id','index','reward'],[
+        rows = Table(['environment_id','learner_id','index','reward']).insert(rows=[
             [0,0,1,0],[0,0,2,2],[0,0,3,4],
             [0,1,1,0],[0,1,2,4],[0,1,3,8],
         ])
@@ -1834,7 +1992,7 @@ class SmoothPlottingData_Tests(unittest.TestCase):
 
     def test_part_span(self):
 
-        rows = Table(['environment_id','learner_id','index','reward'],[
+        rows = Table(['environment_id','learner_id','index','reward']).insert(rows=[
             [0,0,1,0],[0,0,2,2],[0,0,3,2],
             [0,1,1,0],[0,1,2,4],[0,1,3,4],
         ])
@@ -1852,7 +2010,7 @@ class SmoothPlottingData_Tests(unittest.TestCase):
 
     def test_no_span(self):
 
-        rows = Table(['environment_id','learner_id','index','reward'],[
+        rows = Table(['environment_id','learner_id','index','reward']).insert(rows=[
             [0,0,1,0],[0,0,2,2],[0,0,3,4],
             [0,1,1,0],[0,1,2,4],[0,1,3,8],
         ])

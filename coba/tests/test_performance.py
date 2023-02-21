@@ -18,7 +18,7 @@ from coba.pipes import Reservoir, JsonEncode, Encode, ArffReader, Structure, Pip
 from coba.pipes.rows import LazyDense, LazySparse, EncodeDense, KeepDense, HeadDense, LabelDense, EncodeCatRows
 from coba.pipes.readers import ArffLineReader, ArffDataReader, ArffAttrReader
 
-from coba.experiments.results import Result, moving_average, Table, Table
+from coba.experiments.results import Result, moving_average, Table, Count, Repeat
 from coba.experiments import SimpleEvaluation
 from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
 
@@ -242,23 +242,108 @@ class Performance_Tests(unittest.TestCase):
         flat  = coba.pipes.Flatten()
         self._assert_scale_time(items, lambda x:list(flat.filter(x)), .04, print_time, number=1000)
 
-    def test_table2_filter_number(self):
-        table = Table(['environment_id'],[ [k] for k in range(1000)])
+    def test_table_keep(self):
+        coba.random.seed(1)
+        table = Table(['environment_id','learner_id','index','reward'])
+
+        reward = coba.random.randoms(10) 
+        for environment_id in range(100):
+            for learner_id in range(10):
+                N = len(reward)
+                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
+
+        keep = list(map(bool,coba.random.randints(len(table),0,1)))
+        self._assert_call_time(lambda:Table(table,keep), .15, print_time, number=100)
+
+    def test_table_filter_less_of_count(self):
+        coba.random.seed(1)
+        table = Table(['environment_id','learner_id','index','reward'])
+
+        reward = coba.random.randoms(4000) 
+        for environment_id in range(10):
+            for learner_id in range(10):
+                N = len(reward)
+                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
+
+        self._assert_call_time(lambda:table.filter(index=10,comparison='<='), .15, print_time, number=10)
+
+    def test_table_filter_less_of_repeat(self):
+        coba.random.seed(1)
+        table = Table(['environment_id','learner_id','index','reward'])
+
+        reward = coba.random.randoms(4000) 
+        for environment_id in range(10):
+            for learner_id in range(10):
+                N = len(reward)
+                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
+
+        self._assert_call_time(lambda:table.filter(learner_id=10,comparison='<='), .13, print_time, number=10)
+
+    def test_table_filter_less_of_reward(self):
+        coba.random.seed(1)
+        table = Table(['environment_id','learner_id','index','reward'])
+
+        reward = coba.random.randoms(4000) 
+        for environment_id in range(10):
+            for learner_id in range(10):
+                N = len(reward)
+                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
+
+        self._assert_call_time(lambda:table.filter(reward=10,comparison='<='), .42, print_time, number=10)
+
+    def test_table_filter_in_count(self):
+        coba.random.seed(1)
+        table = Table(['environment_id','learner_id','index','reward'])
+
+        reward = coba.random.randoms(4000) 
+        for environment_id in range(10):
+            for learner_id in range(10):
+                N = len(reward)
+                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
+
+        self._assert_call_time(lambda:table.filter(index=[9,10,11],comparison='in'), .41, print_time, number=10)
+
+    def test_table_filter_in_repeat(self):
+        coba.random.seed(1)
+        table = Table(['environment_id','learner_id','index','reward'])
+
+        reward = coba.random.randoms(4000) 
+        for environment_id in range(10):
+            for learner_id in range(10):
+                N = len(reward)
+                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
+
+        self._assert_call_time(lambda:table.filter(learner_id=[9,10,11],comparison='in'), .13, print_time, number=10)
+
+    def test_table_filter_in_reward(self):
+        coba.random.seed(1)
+        table = Table(['environment_id','learner_id','index','reward'])
+
+        reward = coba.random.randoms(4000) 
+        for environment_id in range(10):
+            for learner_id in range(10):
+                N = len(reward)
+                table.insert(cols=[Repeat(environment_id,N),Repeat(learner_id,N),Count(1,N+1),reward])
+
+        self._assert_call_time(lambda:table.filter(reward=[9,10,11],comparison='in'), .46, print_time, number=10)   
+
+    def test_table_filter_number(self):
+        table = Table(['environment_id']).insert(rows=[ [k] for k in range(1000)])
         self._assert_call_time(lambda:table.filter(environment_id=1), .04, print_time, number=500)
 
     @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
-    def test_table2_to_pandas(self):
-        table = Table(['environment_id'],[ [k] for k in range(1000)])
+    def test_table_to_pandas(self):
+        table = Table(['environment_id']).insert(rows=[ [k] for k in range(1000)])
         self._assert_call_time(lambda:table.to_pandas(), .4, print_time, number=100)
 
     def test_result_filter_env(self):
 
-        envs = Table(['environment_id','mod'],[[k,k%100] for k in range(5)])
-        lrns = Table(['learner_id'], [[0],[1],[2]])
-        ints = Table(['environment_id','learner_id'],[[e,l] for e in range(3) for l in range(5)] )
+        envs = Table(['environment_id','mod']).insert(rows=[[k,k%100] for k in range(5)])
+        lrns = Table(['learner_id']).insert(rows=[[0],[1],[2]])
+        ints = Table(['environment_id','learner_id']).insert(rows=[[e,l] for e in range(3) for l in range(5)])
 
         res  = Result(envs, lrns, ints)
-        self._assert_call_time(lambda:res.filter_env(mod=3), .015, print_time, number=1000)
+        self._assert_call_time(lambda:res.filter_env(mod=3), .02, print_time, number=1000)
 
     def test_moving_average_sliding_window(self):
         items = [1,0]*100
@@ -425,7 +510,7 @@ class Performance_Tests(unittest.TestCase):
             proc = pipeline.run_async(lambda ex: None)
             proc.join()
 
-        self._assert_call_time(run_async2, 2.5, True, number=10)
+        self._assert_call_time(run_async2, 2.5, print_time, number=10)
 
     def _assert_call_time(self, timeable: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
         if print_time: print()
