@@ -1,5 +1,4 @@
 import re
-import copy
 import collections
 import collections.abc
 
@@ -80,6 +79,17 @@ def old_to_new(
         int_table.insert(cols=index_columns+ordered_data_cols)
 
     return env_table, lrn_table, int_table
+
+def env_len_lrn_counts(interactions: 'Table') -> Tuple[Mapping[int,int],Mapping[int,int]]:
+    ###WARNING, this logic has been highly optimized
+    env_lengths  = {}
+    env_lrn_cnts = collections.defaultdict(int)
+    for g, i in groupby(zip(*interactions.col_values()[:2])):
+        env_lrn_cnts[g[0]]+=1
+        if g[0] not in env_lengths:
+            env_lengths[g[0]] = sum(1 for _ in i)
+
+    return env_lengths, env_lrn_cnts
 
 class Repeat:
     __slots__ =('value','times')
@@ -697,46 +707,48 @@ class MatplotlibPlotter(Plotter):
 
 class FilterPlottingData:
 
-    def filter(self, interactions:Table, x:Sequence[str], y:str, learner_ids:Sequence[int] = None) -> Table:
+    def filter(self, unfinished:'Result', x:Sequence[str], y:str) -> Table:
+        
+        if len(unfinished.interactions) == 0: raise CobaException("This result doesn't contain any evaluation data to plot.")
+        if y not in unfinished.interactions.col_names: raise CobaException(f"{y} is not available in the environment. Plotting has been stopped.")
+        
+        finished = unfinished.filter_fin('min' if x == ['index'] else None)
 
-        if len(interactions) == 0: raise CobaException("This result doesn't contain any evaluation data to plot.")
-        if y not in interactions.col_names: raise CobaException(f"{y} is not available in the environment. Plotting has been stopped.")
-
-        if learner_ids: interactions = interactions.filter(learner_id=learner_ids)
-
-        env_lrn_row_counts = collections.Counter(zip(*interactions.col_values()[:2]))
-        env_lrn_counts     = collections.Counter([e for e,_ in env_lrn_row_counts.keys()])
-        env_lengths        = env_lrn_row_counts.values()
-
-        n_learners = len(set(l for _,l in env_lrn_row_counts.keys()))
-
-        if max(env_lrn_counts.values()) != n_learners:
+        if len(finished.learners) == 0:
             raise CobaException("This result does not contain an environment which has been finished for every learner. Plotting has been stopped.")
 
-        if min(env_lrn_counts.values()) != n_learners:
+        if len(finished.environments) != len(unfinished.environments):
             CobaContext.logger.log("Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting.")
-            complete_environments = [e for e,v in env_lrn_counts.items() if v == n_learners]
-            interactions = interactions.filter(environment_id=complete_environments)
 
-        if len(set(env_lengths)) > 1 and x == ['index']:
+        #this kind of strange check 
+        if max(map(len, finished.interactions._col_chunks[2])) != max(map(len, unfinished.interactions._col_chunks[2])) > 1 and x == ['index']:
             CobaContext.logger.log("This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting.")
-            interactions = interactions.filter(index=min(env_lengths),comparison="<=")
 
-        return interactions
+        return finished.interactions
 
 class SmoothPlottingData:
 
     def filter(self, interactions:Table, y:str, span:Optional[int]) -> Sequence[Mapping[str,Any]]:
 
-        Y = interactions.col_values()[interactions.col_names.index(y)]
-        G = iter(zip(*interactions.col_values()[:2]))
+        try:#pragma: no cover
+            #I'm not crazy about this because it depends on some implementation details but it is too fast not too
+            y_index = interactions.col_names.index(y)
+            out     = []
+            
+            for eid, lid, Y in zip(*interactions._col_chunks[:2], interactions._col_chunks[y_index]):
+                out.append({"environment_id":eid.value, "learner_id":lid.value, y:moving_average(Y,span)})
 
-        out = []
+            return out
+        except:
+            Y = interactions.col_values()[interactions.col_names.index(y)]
+            G = iter(zip(*interactions.col_values()[:2]))
 
-        for g, _Y in groupby(Y, lambda key, G=G: next(G)):
-            out.append({"environment_id":g[0], "learner_id":g[1], y:moving_average(list(_Y),span)})
+            out = []
 
-        return out
+            for g, _Y in groupby(Y, lambda key, G=G: next(G)):
+                out.append({"environment_id":g[0], "learner_id":g[1], y:moving_average(list(_Y),span)})
+
+            return out
 
 class ContrastPlottingData:
 
@@ -915,33 +927,32 @@ class Result:
         """Create a copy of Result."""
         return Result(Table(self.environments), Table(self.learners), Table(self.interactions), self.experiment)
 
-    def filter_fin(self, n_interactions: int = None) -> 'Result':
+    def filter_fin(self, n_interactions: Union[int,Literal['min']] = None) -> 'Result':
         """Filter the result to only contain data about environments with all learners and interactions.
 
         Args:
             n_interactions: The number of interactions at which an environment is considered complete.
         """
-        ###WARNING, the top logic determining env_lengths and env_lrn_cnts has been highly optimized
-        env_lengths  = {}
-        env_lrn_cnts = collections.defaultdict(int)
-        for g, i in groupby(zip(*self.interactions.col_values()[:2])):
-            env_lrn_cnts[g[0]]+=1
-            if g[0] not in env_lengths:
-                env_lengths[g[0]] = sum(1 for _ in i)
+        interactions = self.interactions
+        learners     = self.learners
+        environments = self.environments
+
+        env_lengths, env_lrn_cnts = env_len_lrn_counts(interactions)
+        if n_interactions == 'min': n_interactions = min(env_lengths.values())
 
         def has_all(env_id):
-            return env_lrn_cnts[env_id] == len(self.learners)
+            return env_lrn_cnts[env_id] == len(learners)
 
         def has_min(env_id):
             return n_interactions == None or env_lengths[env_id] >= n_interactions
 
-        complete_ids = set([env_id for env_id in self.environments.col_values()[0] if has_all(env_id) and has_min(env_id)])
+        complete_ids = set([env_id for env_id in environments.col_values()[0] if has_all(env_id) and has_min(env_id)])
 
-        environments = self.environments.filter(environment_id=complete_ids)
-        interactions = self.interactions.filter(environment_id=complete_ids)
-        learners     = self.learners
+        if complete_ids != set(env_lengths.keys()):
+            environments = environments.filter(environment_id=complete_ids)
+            interactions = interactions.filter(environment_id=complete_ids)
 
-        if n_interactions:
+        if n_interactions and {n_interactions} != set(env_lengths.values()):
             interactions = interactions.filter(index=n_interactions,comparison="<=")
 
         if len(environments) == 0:
@@ -958,9 +969,15 @@ class Result:
             **kwargs: key-value pairs to filter on. To see filtering options see Table.filter.
         """
 
+        if len(self.environments) == 0: return self
+
         environments = self.environments.filter(pred, **kwargs)
-        interactions = self.interactions.filter(environment_id=set(environments.col_values()[0]))
-        learners     = self.learners    .filter(learner_id=set(interactions.col_values()[1]))
+        learners     = self.learners
+        interactions = self.interactions
+
+        if len(environments) != len(self.environments):
+            interactions = interactions.filter(environment_id=set(environments.col_values()[0]))
+            learners     = learners    .filter(learner_id    =set(interactions.col_values()[1]))
 
         if len(environments) == 0:
             CobaContext.logger.log(f"No environments matched the given filter.")
@@ -974,10 +991,15 @@ class Result:
             pred: A predicate that returns true for learner dictionaries that should be kept.
             **kwargs: key-value pairs to filter on. To see filtering options see Table.filter.
         """
+        if len(self.learners) == 0: return self
 
+        environments = self.environments
         learners     = self.learners.filter(pred, **kwargs)
-        interactions = self.interactions.filter(learner_id=set(learners.col_values()[0]))
-        environments = self.environments.filter(environment_id=set(interactions.col_values()[0]))
+        interactions = self.interactions
+
+        if len(learners) != len(self.learners):
+            interactions = self.interactions.filter(learner_id    =set(learners.col_values()[0]))
+            environments = self.environments.filter(environment_id=set(interactions.col_values()[0]))
 
         if len(learners) == 0:
             CobaContext.logger.log(f"No learners matched the given filter.")
@@ -1035,7 +1057,7 @@ class Result:
             if x == ['index']:
                 raise CobaException("plot_contrast does not currently support contrasting by `index`.")
 
-            rows = FilterPlottingData().filter(self.interactions, x, y, [learner_id1, learner_id2])
+            rows = FilterPlottingData().filter(self.filter_lrn(learner_id=[learner_id1, learner_id2]), x, y)
             rows = SmoothPlottingData().filter(rows, y, span)
             rows = ContrastPlottingData().filter(rows, y, mode, learner_id1)
 
@@ -1144,7 +1166,7 @@ class Result:
 
             self._validate_parameters(x)
 
-            rows = FilterPlottingData().filter(self.interactions, x, y)
+            rows = FilterPlottingData().filter(self, x, y)
             rows = SmoothPlottingData().filter(rows, y, span)
 
             envs     = self.environments
