@@ -155,7 +155,7 @@ class Experiment:
 
         workitems  = CreateWorkItems(self._pairs, self._learner_task, self._environment_task, self._evaluation_task)
         unfinished = RemoveFinished(restored)
-        chunk      = ChunkByChunk()
+        chunk      = ChunkByChunk(mp)
         max_chunk  = MaxChunkSize(mt)
         sink       = TransactionIO(result_file)
         process    = CobaMultiprocessor(ProcessWorkItems(), mp, mc, False)

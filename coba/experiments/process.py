@@ -98,8 +98,16 @@ class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
 
 class ChunkByChunk(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
 
-    def filter(self, items: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
+    def __init__(self, n_processes: int) -> None:
+        self._n_processes = n_processes
 
+    def filter(self, items: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
+        if self._n_processes ==1:
+            return [sum(self._chunks(items),[])]
+        else:
+            return self._chunks(items)
+
+    def _chunks(self, items: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
         items  = list(items)
         chunks = defaultdict(list)
 

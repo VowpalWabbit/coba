@@ -674,6 +674,8 @@ class MatplotlibPlotter(Plotter):
 
             ax.set_xlim(*xlim)
             ax.set_ylim(*ylim)
+            
+            ax.autoscale(axis='both')
 
             ax.set_title(title, loc='left', pad=15)
             ax.set_ylabel(ylabel)
