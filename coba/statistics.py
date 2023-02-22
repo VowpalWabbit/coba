@@ -57,8 +57,8 @@ def var(sample: Sequence[float]) -> float:
         #this provides a fast/safe way to calculate the sum of squares
         #and so we revert to the one-pass method and trust in hypot
         E_s2 = hypot(*sample)**2
-        E_s = sum(sample)/n
-        return (E_s2-E_s*E_s)/(n-1)
+        E_s = sum(sample)
+        return (E_s2-E_s*E_s/n)/(n-1)
     else:
         #using the corrected two pass algo as recommended by
         #https://cpsc.yale.edu/sites/default/files/files/tr222.pdf
