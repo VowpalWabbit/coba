@@ -66,17 +66,18 @@ def old_to_new(
     int_hdrs = int_hdrs[3:]
 
     for (env_id, lrn_id), results in int_rows.items():
-        names,cols = zip(*results['_packed'].items())
-        N          = len(cols[0])
+        if results.get('_packed'):
+            names,cols = zip(*results['_packed'].items())
+            N          = len(cols[0])
 
-        if len(int_hdrs) != len(names):
-            cols  += (Repeat(None,N),)*(len(int_hdrs) - len(names))
-            names += tuple(set(int_hdrs)-set(names))
+            if len(int_hdrs) != len(names):
+                cols  += (Repeat(None,N),)*(len(int_hdrs) - len(names))
+                names += tuple(set(int_hdrs)-set(names))
 
-        index_columns     = (Repeat(env_id,N), Repeat(lrn_id,N), Count(1,N+1))
-        ordered_data_cols = tuple(cols[names.index(col)] for col in int_hdrs)
+            index_columns     = (Repeat(env_id,N), Repeat(lrn_id,N), Count(1,N+1))
+            ordered_data_cols = tuple(cols[names.index(col)] for col in int_hdrs)
 
-        int_table.insert(cols=index_columns+ordered_data_cols)
+            int_table.insert(cols=index_columns+ordered_data_cols)
 
     return env_table, lrn_table, int_table
 

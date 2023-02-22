@@ -104,7 +104,7 @@ class CreateWorkItems_Tests(unittest.TestCase):
         self.assertEqual(1, len([t for t in works if t.env is env2 and not t.lrn]))
 
         for l,e in pairs:
-            self.assertEqual(1, len([t for t in works if t.env is e and t.lrn is l]))
+            self.assertEqual(0, len([t for t in works if t.env is e and t.lrn is l]))
 
     def test_uneven_pairs(self):
         env1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -129,8 +129,9 @@ class CreateWorkItems_Tests(unittest.TestCase):
         self.assertEqual(1, len([t for t in works if t.env is env1 and not t.lrn]))
         self.assertEqual(1, len([t for t in works if t.env is env2 and not t.lrn]))
 
-        for l,e in pairs:
-            self.assertEqual(1, len([t for t in works if t.env is e and t.lrn is l]))
+        self.assertEqual(0, len([t for t in works if t.env is env1 and t.lrn is lrn1]))
+        self.assertEqual(0, len([t for t in works if t.env is env2 and t.lrn is lrn1]))
+        self.assertEqual(1, len([t for t in works if t.env is env1 and t.lrn is lrn2]))
 
 class RemoveFinished_Tests(unittest.TestCase):
 
@@ -174,7 +175,7 @@ class RemoveFinished_Tests(unittest.TestCase):
 
 class ChunkByChunk_Tests(unittest.TestCase):
 
-    def test_no_chunks(self):
+    def test_no_chunks_single(self):
         src1 = Environments.from_linear_synthetic(10)
         src2 = Environments.from_linear_synthetic(10)
 
@@ -191,7 +192,29 @@ class ChunkByChunk_Tests(unittest.TestCase):
             WorkItem(0, 1, envs[1], None, None),
         ]
 
-        groups = list(ChunkByChunk().filter(tasks))
+        groups = list(ChunkByChunk(1).filter(tasks))
+
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0], tasks)
+
+    def test_no_chunks_multi(self):
+        src1 = Environments.from_linear_synthetic(10)
+        src2 = Environments.from_linear_synthetic(10)
+
+        envs = (src1+src2)
+
+        tasks = [
+            WorkItem(None, 0, None, None, None),
+            WorkItem(None, 1, None, None, None),
+            WorkItem(1, None, envs[0], None, None),
+            WorkItem(0, None, envs[1], None, None),
+            WorkItem(1, 1, envs[0], None, None),
+            WorkItem(0, 0, envs[1], None, None),
+            WorkItem(2, 0, envs[1], None, None),
+            WorkItem(0, 1, envs[1], None, None),
+        ]
+
+        groups = list(ChunkByChunk(2).filter(tasks))
 
         self.assertEqual(len(groups), 8)
         self.assertEqual(groups[0], tasks[0:1])
@@ -203,7 +226,7 @@ class ChunkByChunk_Tests(unittest.TestCase):
         self.assertEqual(groups[6], tasks[6:7])
         self.assertEqual(groups[7], tasks[7:8])
 
-    def test_two_chunks(self):
+    def test_two_chunks_multi(self):
         src1 = Environments.from_linear_synthetic(10)
         src2 = Environments.from_linear_synthetic(10)
 
@@ -220,7 +243,7 @@ class ChunkByChunk_Tests(unittest.TestCase):
             WorkItem(0, 1, envs[1], None, None),
         ]
 
-        groups = list(ChunkByChunk().filter(tasks))
+        groups = list(ChunkByChunk(2).filter(tasks))
 
         self.assertEqual(len(groups), 4)
         self.assertEqual(groups[0], tasks[0:1])
@@ -228,7 +251,7 @@ class ChunkByChunk_Tests(unittest.TestCase):
         self.assertEqual(groups[2], [tasks[3],tasks[5],tasks[7],tasks[6]])
         self.assertCountEqual(groups[3], [tasks[2],tasks[4]])
 
-    def test_two_chunks_two_shuffles(self):
+    def test_two_chunks_two_shuffles_multi(self):
         src1 = Environments.from_linear_synthetic(10)
         src2 = Environments.from_linear_synthetic(10)
         envs = (src1+src2).chunk().shuffle(n=2)
@@ -244,7 +267,7 @@ class ChunkByChunk_Tests(unittest.TestCase):
             WorkItem(0, 1, envs[3], None, None),
         ]
 
-        groups = list(ChunkByChunk().filter(tasks))
+        groups = list(ChunkByChunk(2).filter(tasks))
 
         self.assertEqual(len(groups), 4)
         self.assertEqual(groups[0], tasks[0:1])
@@ -359,36 +382,6 @@ class ProcessTasks_Tests(unittest.TestCase):
 
         self.assertEqual(lrn1.n_learns, 1)
         self.assertEqual(lrn2.n_learns, 1)
-
-    def test_one_learner_evaluated_twice_is_deep_copied(self):
-
-        #make sure the learner is deepcopied
-
-        sim1 = CountReadSimulation()
-        sim2 = CountReadSimulation()
-
-        lrn1 = ModuloLearner("1")
-
-        task1 = ObserveTask()
-        task2 = ObserveTask()
-
-        items = [ WorkItem(0, 1, sim1, lrn1, task1), WorkItem(1, 1, sim2, lrn1, task2) ]
-
-        transactions = list(ProcessWorkItems().filter([items]))
-
-        self.assertEqual(len(task1.observed[1]), 1)
-        self.assertEqual(len(task2.observed[1]), 1)
-
-        self.assertEqual(task1.observed[1][0]['context'], 0)
-        self.assertEqual(task2.observed[1][0]['context'], 0)
-
-        self.assertIn(['T3', (0,1), []], transactions)
-        self.assertIn(['T3', (1,1), []], transactions)
-
-        self.assertEqual(sim1.n_reads, 1)
-        self.assertEqual(sim2.n_reads, 1)
-
-        self.assertEqual(lrn1.n_learns, 0)
 
     def test_two_learners_evaluated_once_are_not_deep_copied(self):
 

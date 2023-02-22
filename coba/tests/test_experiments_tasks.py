@@ -505,7 +505,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         expected_predict_calls   = []
         expected_predict_returns = []
         expected_learn_calls     = [(1,None,2,3,None,{}),(2,None,3,4,None,{}),(3,None,4,5,None,{})]
-        expected_task_results    = [{},{},{}]
+        expected_task_results    = []
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
@@ -526,7 +526,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         expected_predict_calls   = []
         expected_predict_returns = []
         expected_learn_calls     = [(1,[2,5,8],2,3,None,{}),(2,[3,6,9],3,4,None,{}),(3,[4,7,0],4,5,None,{})]
-        expected_task_results    = [{},{},{}]
+        expected_task_results    = []
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
@@ -604,9 +604,6 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             (None,[7,8,9],9,3,1,{})
         ]
         expected_task_results = [
-            {},
-            {},
-            {},
             {"reward":7,"probability":1},
             {"reward":5,"probability":1},
             {"reward":3,"probability":1}
