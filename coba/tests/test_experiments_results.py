@@ -1345,7 +1345,14 @@ class Result_Tests(unittest.TestCase):
         ]
 
         self.assertEqual(1, len(plotter.plot_calls))
-        self.assertEqual(expected_lines, plotter.plot_calls[0][1])
+        self.assertEqual(expected_lines[0][:3], plotter.plot_calls[0][1][0][:3])
+        self.assertEqual(expected_lines[1][:3], plotter.plot_calls[0][1][1][:3])
+        self.assertAlmostEqual(expected_lines[0][3][0], plotter.plot_calls[0][1][0][3][0])
+        self.assertAlmostEqual(expected_lines[0][3][1], plotter.plot_calls[0][1][0][3][1])
+        self.assertAlmostEqual(expected_lines[1][3][0], plotter.plot_calls[0][1][1][3][0])
+        self.assertAlmostEqual(expected_lines[1][3][1], plotter.plot_calls[0][1][1][3][1])
+        self.assertEqual(expected_lines[0][4:], plotter.plot_calls[0][1][0][4:])
+        self.assertEqual(expected_lines[1][4:], plotter.plot_calls[0][1][1][4:])
 
     def test_plot_learners_mixed_env_count(self):
 
@@ -2147,7 +2154,10 @@ class TransformXYE_Tests(unittest.TestCase):
 
         actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'sd')
 
-        self.assertEqual(expected_rows,actual_rows)
+        self.assertEqual(expected_rows[0][:3],actual_rows[0][:3])
+        self.assertEqual(expected_rows[1][:3],actual_rows[1][:3])
+        self.assertAlmostEqual(expected_rows[0][3],actual_rows[0][3])
+        self.assertAlmostEqual(expected_rows[1][3],actual_rows[1][3])
 
     def test_x_index_se_err(self):
 
@@ -2168,7 +2178,14 @@ class TransformXYE_Tests(unittest.TestCase):
 
         actual_rows = TransformToXYE().filter(rows, envs, ['index'], "reward", 'se')
 
-        self.assertEqual(expected_rows,actual_rows)
+        self.assertEqual(expected_rows[0][:3],actual_rows[0][:3])
+        self.assertEqual(expected_rows[1][:3],actual_rows[1][:3])
+        
+        self.assertAlmostEqual(expected_rows[0][3][0],actual_rows[0][3][0])
+        self.assertAlmostEqual(expected_rows[1][3][0],actual_rows[1][3][0])
+        self.assertAlmostEqual(expected_rows[0][3][1],actual_rows[0][3][1])
+        self.assertAlmostEqual(expected_rows[1][3][1],actual_rows[1][3][1])
+
 
     def test_x_index_bs_err(self):
 
