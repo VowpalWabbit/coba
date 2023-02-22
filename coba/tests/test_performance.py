@@ -8,6 +8,7 @@ from typing import Callable, Any
 import coba.pipes
 import coba.random
 
+from coba.statistics import mean,var,stdev
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk, Impute
@@ -351,7 +352,15 @@ class Performance_Tests(unittest.TestCase):
 
     def test_moving_average_rolling_window(self):
         items = [1,0]*300
-        self._assert_scale_time(items, lambda x:list(moving_average(x)), .07, print_time, number=1000)
+        self._assert_scale_time(items, lambda x:list(moving_average(x)), .05, print_time, number=1000)
+
+    def test_mean(self):
+        items = [1,0]*3000
+        self._assert_scale_time(items, lambda x:mean(x), .037, print_time, number=1000)
+
+    def test_var(self):
+        items = [1,0]*300
+        self._assert_scale_time(items, lambda x:var(x), .075, print_time, number=1000)
 
     def test_lazy_dense_init_get(self):
         I = ['1']*100

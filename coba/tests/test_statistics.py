@@ -33,7 +33,7 @@ class StandardDeviation_Tests(unittest.TestCase):
         self.assertAlmostEqual(1.4142,stdev([1,3]),4)
 
     def test_length_1(self):
-        self.assertAlmostEqual(0,stdev([1]),4)
+        self.assertTrue(isnan(stdev([1])))
 
 class StandardErrorOfMean_Tests(unittest.TestCase):
     def test(self):

@@ -30,7 +30,7 @@ def moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
         return values
 
     if span is None or span >= len(values):
-        return (a/n for n,a in enumerate(accumulate(values),1))
+        return tuple(map(truediv, accumulate(values),count(1)))
 
     window_sums  = accumulate(map(sub, values, chain(repeat(0,span),values)))
     window_sizes = chain(range(1,span), repeat(span))
@@ -731,7 +731,7 @@ class SmoothPlottingData:
     def filter(self, interactions:Table, y:str, span:Optional[int]) -> Sequence[Mapping[str,Any]]:
 
         try:#pragma: no cover
-            #I'm not crazy about this because it depends on some implementation details but it is too fast not too
+            #I'm not crazy about this because it depends on some implementation details but it is too fast not to
             y_index = interactions.col_names.index(y)
             out     = []
             
