@@ -1,5 +1,7 @@
-import math
-
+from math import hypot, isnan, erf, sqrt
+from sys import version_info
+from operator import mul, sub
+from itertools import repeat
 from abc import abstractmethod, ABC
 from typing import Sequence, Tuple, Union, Callable
 from coba.backports import Literal
@@ -39,27 +41,30 @@ def percentile(values: Sequence[float], percentiles: Union[float,Sequence[float]
 
 def phi(x: float) -> float:
     'Cumulative distribution function for the standard normal distribution'
-    return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
+    return (1.0 + erf(x / sqrt(2.0))) / 2.0
 
 def mean(sample: Sequence[float]) -> float:
     #If precision is needed use a true statistics package  
     return sum(sample)/len(sample)
 
 def var(sample: Sequence[float]) -> float:
-    #we are using the identity Var[Y] = E[Y^2]-E[Y]^2
-    #directly calculating is much faster than the
-    #statistics module because `statistics` uses
-    #integer ratios to ensure precision. If precision
-    #is needed use the statistics module
-    n    = len(sample)
-    E_s  = sum(sample)/n
-    E_s2 = sum([s*s for s in sample])/n
-    var  = E_s2 - E_s*E_s
+    n = len(sample)
 
-    if n > 1: #Bessel's correction
-        var = var*n/(n-1) 
+    if n == 1: return float('nan')
 
-    return var
+    if version_info >= (3,8): #pragma: no cover
+        #In Python 3.8 hypot was extended to support any number of items
+        #this provides a fast/safe way to calculate the sum of squares
+        #and so we revert to the one-pass method and trust in hypot
+        E_s2 = hypot(*sample)**2
+        E_s = sum(sample)
+        return (E_s2-E_s*E_s/n)/(n-1)
+    else:
+        #using the corrected two pass algo as recommended by
+        #https://cpsc.yale.edu/sites/default/files/files/tr222.pdf
+        #I've optimized this as much as I think is possible in python
+        diffs = tuple(map(sub,sample,repeat(sum(sample)/n)))
+        return sum(map(mul,diffs,diffs))/(n-1)
 
 def stdev(sample: Sequence[float]) -> float:
     return var(sample)**(1/2)
@@ -134,8 +139,8 @@ class BinomialConfidenceInterval(PointAndInterval):
             hi = beta.ppf(1-.05/2, sum(sample) + 1, len(sample) - sum(sample))
             p_hat = sum(sample)/len(sample)
 
-            lo = 0.0 if math.isnan(lo) else lo
-            hi = 1.0 if math.isnan(hi) else hi
+            lo = 0.0 if isnan(lo) else lo
+            hi = 1.0 if isnan(hi) else hi
 
             return (p_hat, (p_hat-lo,hi-p_hat))
 

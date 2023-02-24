@@ -3,7 +3,6 @@ import threading as mt
 import multiprocessing as mp
 
 from queue import Empty
-from itertools import islice, chain
 from traceback import format_tb
 from typing import Iterable, Mapping, Callable, Optional, Union, Sequence, Any
 from coba.backports import Literal
@@ -335,14 +334,17 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
                 #stop loading into the input queue
                 self._load_stopper.stop()
-                
+
                 #empty the input queue and then close it
                 #if we don't empty first then we can easily
                 #lock during a keyboard interrupt
                 try:
                     while True: in_queue.get_nowait()
                 except Empty:
-                    in_queue.close()
+                    pass
+                    #closing can cause exceptions 
+                    #and doesn't seem to help anything
+                    #in_queue.close()
 
                 #empty the input queue and then close it
                 #if we don't empty first then we can easily
@@ -350,7 +352,10 @@ class Multiprocessor(Filter[Iterable[Any], Iterable[Any]]):
                 try:
                     while True: out_queue.get_nowait()
                 except Empty:
-                    out_queue.close()
+                    pass
+                    #closing can cause exceptions
+                    #and doesn't seem to help anything
+                    #out_queue.close()
 
             if self._exceptions:
                 raise self._exceptions[0]

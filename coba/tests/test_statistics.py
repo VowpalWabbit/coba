@@ -33,14 +33,14 @@ class StandardDeviation_Tests(unittest.TestCase):
         self.assertAlmostEqual(1.4142,stdev([1,3]),4)
 
     def test_length_1(self):
-        self.assertAlmostEqual(0,stdev([1]),4)
+        self.assertTrue(isnan(stdev([1])))
 
 class StandardErrorOfMean_Tests(unittest.TestCase):
     def test(self):
         mu,(lo,hi) = StandardErrorOfMean().calculate([1,3])
         self.assertEqual(2,mu)
-        self.assertEqual(1.96,lo)
-        self.assertEqual(1.96,hi)
+        self.assertAlmostEqual(1.96,lo)
+        self.assertAlmostEqual(1.96,hi)
 
 class BootstrapConfidenceInterval_Tests(unittest.TestCase):
     
@@ -102,7 +102,7 @@ class OnlineVariance_Tests(unittest.TestCase):
             for number in test_set:
                 online.update(number)
 
-            self.assertEqual(online.variance, var(test_set))
+            self.assertAlmostEqual(online.variance, var(test_set))
 
     def test_three_update_variance(self):
 
@@ -125,7 +125,7 @@ class OnlineVariance_Tests(unittest.TestCase):
         for number in test_set:
             online.update(number)
 
-        self.assertEqual(online.variance, var(test_set))
+        self.assertAlmostEqual(online.variance, var(test_set))
 
     def test_100_floats_update_variance(self):
 

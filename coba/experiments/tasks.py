@@ -212,7 +212,7 @@ class SimpleEvaluation(EvaluationTask):
                 out.update(learning_info)
                 learning_info.clear()
 
-            yield out
+            if out: yield out
 
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""

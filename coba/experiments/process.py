@@ -46,8 +46,14 @@ class CreateWorkItems(Source[Iterable[WorkItem]]):
         #is always in the exact same order we should be fine. In the future we may want to consider.
         #adding a better check for environments other than assigning an index based on their order.
 
+        #we rely on ids to make sure we don't do duplicate work. So long as self.evaluation_pairs
+        #is always in the exact same order we should be fine. In the future we may want to consider.
+        #adding a better check for environments other than assigning an index based on their order.
+
         lrns = dict()
         envs = dict()
+
+        learner_counts = Counter([l for l,e in self._evaluation_pairs])
 
         for lrn,env in self._evaluation_pairs:
 
@@ -59,13 +65,21 @@ class CreateWorkItems(Source[Iterable[WorkItem]]):
                 envs[env] = len(envs)
                 yield WorkItem(envs[env], None, env, None, self._environment_task)
 
-            yield WorkItem(envs[env], lrns[lrn], env, lrn, self._evaluation_task) 
+            if learner_counts[lrn] > 1:
+                yield WorkItem(envs[env], lrns[lrn], env, deepcopy(lrn), self._evaluation_task)
+            else:
+                yield WorkItem(envs[env], lrns[lrn], env, lrn, self._evaluation_task)
 
 class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
     def __init__(self, restored: Optional[Result]) -> None:
         self._restored = restored
 
     def filter(self, tasks: Iterable[WorkItem]) -> Iterable[WorkItem]:
+
+        finished_learners = set(self._restored.learners.col_values()[0]) if self._restored else set()
+        finished_environments = set(self._restored.environments.col_values()[0]) if self._restored else set()
+        finished_evaluations = set(zip(*self._restored.interactions.col_values()[:2])) if self._restored else set()
+
 
         for task in tasks:
 
@@ -75,17 +89,25 @@ class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
 
             if not self._restored:
                 yield task
-            elif is_learner_task and task.lrn_id not in self._restored.learners:
+            elif is_learner_task and task.lrn_id not in finished_learners:
                 yield task
-            elif is_environ_task and task.env_id not in self._restored.environments:
+            elif is_environ_task and task.env_id not in finished_environments:
                 yield task
-            elif is_eval_task and (task.env_id, task.lrn_id) not in self._restored._interactions:
+            elif is_eval_task and (task.env_id, task.lrn_id) not in finished_evaluations:
                 yield task
 
 class ChunkByChunk(Filter[Iterable[WorkItem], Iterable[Sequence[WorkItem]]]):
 
-    def filter(self, items: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
+    def __init__(self, n_processes: int) -> None:
+        self._n_processes = n_processes
 
+    def filter(self, items: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
+        if self._n_processes ==1:
+            return [sum(self._chunks(items),[])]
+        else:
+            return self._chunks(items)
+
+    def _chunks(self, items: Iterable[WorkItem]) -> Iterable[Sequence[WorkItem]]:
         items  = list(items)
         chunks = defaultdict(list)
 
@@ -142,8 +164,6 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                 chunk = sorted(chunk, key=lambda item: self._env_ids(item)+self._lrn_ids(item))
                 chunk = list(reversed(chunk))
 
-            learner_eval_counts = Counter([item.lrn_id for item in chunk if item.lrn and item.env])
-
             with CobaContext.logger.log(f"Processing chunk..."):
 
                 while chunk:
@@ -171,8 +191,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                                 continue
 
                             with CobaContext.logger.time(f"Evaluating Learner {item.lrn_id} on Environment {item.env_id}..."):
-                                lrn = item.lrn if learner_eval_counts[item.lrn_id] == 1 else deepcopy(item.lrn)
-                                row = list(item.task.process(lrn, finalizer.filter(interactions)))
+                                row = list(item.task.process(item.lrn, finalizer.filter(interactions)))
                                 yield ["T3", (item.env_id, item.lrn_id), row]
 
                     except Exception as e:
