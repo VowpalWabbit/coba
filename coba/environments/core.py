@@ -7,22 +7,22 @@ from coba.backports import Literal
 
 from coba                 import pipes
 from coba.contexts        import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
-from coba.pipes.filters   import DataFrameToInteraction
 from coba.pipes.sources   import DataFrameSource
 from coba.primitives      import Context, Action
 from coba.random          import CobaRandom
-from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode
+from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode, Foreach
 from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 from coba.learners        import Learner
 
-from coba.environments.primitives import Environment
+from coba.environments.primitives import Environment, Interaction
 
 from coba.environments.templates  import EnvironmentsTemplateV1, EnvironmentsTemplateV2
 from coba.environments.openml     import OpenmlSimulation
 from coba.environments.synthetics import LinearSyntheticSimulation, NeighborsSyntheticSimulation
 from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
 from coba.environments.supervised import SupervisedSimulation
+from coba.environments.simple     import SimpleEnvironment
 
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Unbatch, Slice
@@ -242,8 +242,8 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         return Environments(LambdaSimulation(*args,**kwargs))
 
     @staticmethod
-    def from_dataframe(df: 'DataFrame') -> 'Environments':
-        return Environments(Pipes.join(DataFrameSource(df), DataFrameToInteraction()))
+    def from_dataframe(df: 'pandas.DataFrame') -> 'Environments':
+        return Environments(Pipes.join(DataFrameSource(df), SimpleEnvironment()))
 
     def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
         """Instantiate an Environments class.

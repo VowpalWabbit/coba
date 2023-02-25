@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, overload, Type, Dict
+from typing import Any, Union, Iterable, Sequence, Mapping, overload, Type
 
 from coba.primitives import Context, Action, Actions
 from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback
@@ -16,7 +16,7 @@ class Interaction(dict):
         return { k:self[k] for k in self.keys()-self.keywords}
 
     @staticmethod
-    def from_dict(kwargs_dict: Dict[str, Any]) -> Type['Interaction']:
+    def from_dict(kwargs_dict: Mapping[str, Any]) -> Type['Interaction']:
         if 'feedbacks' in kwargs_dict:
             sub_class =  GroundedInteraction
         elif 'rewards' in kwargs_dict:
@@ -26,10 +26,8 @@ class Interaction(dict):
 
         return sub_class(**kwargs_dict)
 
-
-
 class SimulatedInteraction(Interaction):
-    """Simulated data that provides labels for every possible action."""
+    """Simulated data that provides rewards for every possible action."""
     __slots__=()
     keywords = {'type', 'context', 'actions', 'rewards'}
     
@@ -59,7 +57,7 @@ class SimulatedInteraction(Interaction):
         if kwargs: self.update(kwargs)
 
 class GroundedInteraction(Interaction):
-    """Logged data providing a label for one action."""
+    """A grounded interaction based on Interaction Grounded Learning which feedbacks instead of rewards."""
     __slots__=()
     keywords = {'type', 'context', 'actions', 'rewards', 'feedbacks'}
 
@@ -87,7 +85,7 @@ class GroundedInteraction(Interaction):
         if kwargs: self.update(kwargs)
 
 class LoggedInteraction(Interaction):
-    """Logged data that describes an interaction where the choice was already made."""
+    """A logged interaction with an action, reward and optional probability."""
     __slots__ = ()
     keywords = {'type', 'context', 'action', 'reward', 'probability', 'actions', 'rewards'}
 
