@@ -2,7 +2,7 @@ import requests
 import gzip
 
 from queue import Queue
-from typing import Callable, Iterable, Any, Union, Mapping, Hashable
+from typing import Callable, Iterable, Any, Union, Mapping, Hashable, Tuple
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
@@ -182,6 +182,6 @@ class DataFrameSource(Source[Iterable[Any]]):
     def __init__(self, df) -> None:
         self._df = df
 
-    def read(self) -> Iterable[tuple[Hashable, 'Series']]:
+    def read(self) -> Iterable[Tuple[Hashable, 'Series']]:
         "Iterate over DataFrame rows as (index, Series) pairs."
         return self._df.iterrows()

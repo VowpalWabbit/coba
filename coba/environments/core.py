@@ -7,8 +7,8 @@ from coba.backports import Literal
 
 from coba                 import pipes
 from coba.contexts        import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
-from coba.pipes.filters import DataFrameToInteraction
-from coba.pipes.sources import DataFrameSource
+from coba.pipes.filters   import DataFrameToInteraction
+from coba.pipes.sources   import DataFrameSource
 from coba.primitives      import Context, Action
 from coba.random          import CobaRandom
 from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode
