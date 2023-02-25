@@ -2,7 +2,7 @@ import requests
 import gzip
 
 from queue import Queue
-from typing import Callable, Iterable, Any, Union, Mapping
+from typing import Callable, Iterable, Any, Union, Mapping, Hashable
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
@@ -176,3 +176,12 @@ class UrlSource(Source[Iterable[str]]):
 
     def read(self) -> Iterable[str]:
         return self._source.read()
+
+
+class DataFrameSource(Source[Iterable[Any]]):
+    def __init__(self, df) -> None:
+        self._df = df
+
+    def read(self) -> Iterable[tuple[Hashable, 'Series']]:
+        "Iterate over DataFrame rows as (index, Series) pairs."
+        return self._df.iterrows()

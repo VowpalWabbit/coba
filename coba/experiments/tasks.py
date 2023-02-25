@@ -70,7 +70,7 @@ class EvaluationTask(ABC):
 class SimpleEvaluation(EvaluationTask):
 
     def __init__(self, 
-        record: Sequence[Literal['reward','rank','regret','time','probability','action','actions','context', 'ope_loss', 'rewards']] = ['reward'],
+        record: Sequence[Literal['reward','rank','regret','time','probability','action','actions', 'context', 'ope_loss', 'rewards']] = ['reward'],
         learn: bool = True,
         predict: bool = True) -> None:
         """

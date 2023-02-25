@@ -7,6 +7,8 @@ from coba.backports import Literal
 
 from coba                 import pipes
 from coba.contexts        import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
+from coba.pipes.filters import DataFrameToInteraction
+from coba.pipes.sources import DataFrameSource
 from coba.primitives      import Context, Action
 from coba.random          import CobaRandom
 from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode
@@ -238,6 +240,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def from_lambda(*args,**kwargs) -> 'Environments':
         """Create a SimulatedEnvironment from lambda functions."""
         return Environments(LambdaSimulation(*args,**kwargs))
+
+    @staticmethod
+    def from_dataframe(df: 'DataFrame') -> 'Environments':
+        return Environments(Pipes.join(DataFrameSource(df), DataFrameToInteraction()))
 
     def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
         """Instantiate an Environments class.

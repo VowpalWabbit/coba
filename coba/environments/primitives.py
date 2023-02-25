@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, overload
+from typing import Any, Union, Iterable, Sequence, Mapping, overload, Type, Dict
 
 from coba.primitives import Context, Action, Actions
 from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback
@@ -14,6 +14,19 @@ class Interaction(dict):
     @property
     def extra(self) -> Mapping[str,Any]:
         return { k:self[k] for k in self.keys()-self.keywords}
+
+    @staticmethod
+    def from_dict(kwargs_dict: Dict[str, Any]) -> Type['Interaction']:
+        if 'feedbacks' in kwargs_dict:
+            sub_class =  GroundedInteraction
+        elif 'rewards' in kwargs_dict:
+            sub_class = SimulatedInteraction
+        else:
+            sub_class =  LoggedInteraction
+
+        return sub_class(**kwargs_dict)
+
+
 
 class SimulatedInteraction(Interaction):
     """Simulated data that provides labels for every possible action."""

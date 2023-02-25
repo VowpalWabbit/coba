@@ -8,12 +8,8 @@ from numbers import Number
 from operator import truediv, sub, itemgetter, eq, contains, ge, lt, le, gt, or_
 from abc import abstractmethod
 from itertools import chain, repeat, accumulate, groupby, count, compress
-from typing import Any, Dict, List, Set, Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, NamedTuple, overload
+from typing import Any, Mapping, Tuple, Optional, Sequence, Iterable, Iterator, Union, Callable, NamedTuple, overload
 from coba.backports import Literal
-
-
-import pandas as pd
-from matplotlib import lines, pyplot as plt
 
 from coba.environments import Environment
 from coba.statistics import mean, stdev, StandardErrorOfMean, BootstrapConfidenceInterval, BinomialConfidenceInterval, PointAndInterval
@@ -454,8 +450,6 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
 
             for row in item[2]:
                 for col,val in row.items():
-                    if col == "rewards" : col="reward"
-                    if col == "reveals" : col="reveal"
                     rows_T[col].append(val)
 
             return ["I", item[1], { "_packed": rows_T }]
