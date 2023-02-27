@@ -94,15 +94,6 @@ class SimpleEvaluation(EvaluationTask):
 
         learner = SafeLearner(learner)
 
-        record_prob     = 'probability' in self._record
-        record_time     = 'time'        in self._record
-        record_action   = 'action'      in self._record
-        record_context  = 'context'     in self._record
-        record_ope_loss = 'ope_loss'    in self._record
-        record_rewards  = 'rewards'     in self._record
-        record_actions  = 'actions'     in self._record
-
-
         first, interactions = peek_first(interactions)
 
         predict  = learner.predict
@@ -116,6 +107,14 @@ class SimpleEvaluation(EvaluationTask):
                 warnings.warn(f"The {metric} metric can only be calculated for discrete environments")
 
         learning_info = CobaContext.learning_info
+
+        record_prob     = 'probability' in self._record
+        record_time     = 'time'        in self._record
+        record_action   = 'action'      in self._record
+        record_context  = 'context'     in self._record
+        record_ope_loss = 'ope_loss'    in self._record
+        record_rewards  = 'rewards'     in self._record and discrete
+        record_actions  = 'actions'     in self._record
 
         calc_rank   = 'rank'   in self._record and discrete
         calc_reward = 'reward' in self._record
