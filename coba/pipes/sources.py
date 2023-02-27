@@ -153,8 +153,9 @@ class LambdaSource(Source[Any]):
 class UrlSource(Source[Iterable[str]]):
     """A source which reads from a url.
 
-    If the given url uses a file scheme or is a local path then a DiskSource is used internally.
-    If the given url uses an http or https scheme then an HttpSource is used internally.
+    If the given url uses a file scheme or is a local path then 
+    a DiskSource is used internally.If the given url uses an http 
+    or https scheme then an HttpSource is used internally.
     """
 
     def __init__(self, url:str) -> None:
@@ -176,3 +177,12 @@ class UrlSource(Source[Iterable[str]]):
 
     def read(self) -> Iterable[str]:
         return self._source.read()
+
+class DataFrameSource(Source[Iterable[Mapping[str,Any]]]):
+
+    def __init__(self, df) -> None:
+        self._df = df
+
+    def read(self) -> Iterable[Mapping[str,Any]]:
+        "Iterate over DataFrame rows as dictionaries."
+        yield from self._df.to_dict(orient='records')

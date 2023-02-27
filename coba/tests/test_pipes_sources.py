@@ -1,6 +1,7 @@
 import unittest
 import unittest.mock
 import requests.exceptions
+import importlib.util
 import pickle
 import gzip
 
@@ -11,7 +12,7 @@ from coba.exceptions import CobaException
 from coba.contexts import NullLogger, CobaContext
 
 from coba.pipes.sources import IdentitySource, DiskSource, QueueSource, NullSource, UrlSource
-from coba.pipes.sources import HttpSource, LambdaSource, IterableSource
+from coba.pipes.sources import HttpSource, LambdaSource, IterableSource, DataFrameSource
 
 CobaContext.logger = NullLogger()
 
@@ -144,6 +145,15 @@ class UrlSource_Tests(unittest.TestCase):
     def test_unknown_scheme(self):
         with self.assertRaises(CobaException):
             UrlSource("irc://fail")
+
+@unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
+class DataFrameSource_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        import pandas as pd
+        source = DataFrameSource(pd.DataFrame({'a':[1,2],'b':[3,4]}))
+        expected = [{'a':1,'b':3},{'a':2,'b':4}]
+        self.assertEqual(list(source.read()),expected)
 
 if __name__ == '__main__':
     unittest.main()

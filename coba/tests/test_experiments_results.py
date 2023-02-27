@@ -2186,7 +2186,6 @@ class TransformXYE_Tests(unittest.TestCase):
         self.assertAlmostEqual(expected_rows[0][3][1],actual_rows[0][3][1])
         self.assertAlmostEqual(expected_rows[1][3][1],actual_rows[1][3][1])
 
-
     def test_x_index_bs_err(self):
 
         rows = [

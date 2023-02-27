@@ -58,6 +58,7 @@ class Experiment:
     def __init__(self, *args, **kwargs) -> None:
         """Instantiate an Experiment."""
 
+        # TODO kwargs from other constructors aren't properly processed
         if len(args) == 2:
             envs = [args[0]] if hasattr(args[0],'read') else args[0]
             lrns = [args[1]] if hasattr(args[1],'predict') else args[1]

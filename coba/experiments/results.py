@@ -1,3 +1,4 @@
+import datetime
 import re
 import collections
 import collections.abc
@@ -127,7 +128,7 @@ class Compress:
     def __init__(self,chunk,keep):
         self._chunk = chunk
         self._keep = keep
-    
+
     def __iter__(self):
         return iter(compress(self._chunk,self._keep))
 
@@ -261,7 +262,7 @@ class Table:
 
                 new_keep = []
                 i = 0
-                
+
                 for chunk in chunks:
                     if chunk.__class__ is Repeat:
                         if compare(filter_val,chunk.value):
@@ -277,7 +278,7 @@ class Table:
 
             elif comparison == "=":
                 compare = eq
-                
+
                 new_keep = []
                 i = 0
 
@@ -293,10 +294,10 @@ class Table:
                     i+=len(chunk)
 
                 keep = new_keep
-                
+
             elif comparison in ["<","<=",">=",">"]:
                 compare = [lt,le,ge,gt][["<","<=",">=",">"].index(comparison)]
-                
+
                 new_keep = []
                 i = 0
 
@@ -306,7 +307,7 @@ class Table:
                         lower = compare(chunk.start,filter_val)
                         equal = compare(filter_val ,filter_val)
                         upper = compare(chunk.end  ,filter_val)
-                        
+
                         if lower==upper:
                             if lower:
                                 new_keep.extend(repeat(True,len(chunk)))
@@ -314,9 +315,9 @@ class Table:
                                 new_keep.extend(keep[i:i+len(chunk)])
                         else:
                             n_lower = filter_val-chunk.start
-                            n_equal = int((chunk.end-filter_val)>0) 
+                            n_equal = int((chunk.end-filter_val)>0)
                             n_upper = chunk.end-filter_val-1
-                            
+
                             if lower:
                                 new_keep.extend(repeat(True,n_lower))
                             else:
@@ -338,11 +339,11 @@ class Table:
                         new_keep.extend(map(or_,keep[i:i+len(chunk)],map(compare,chunk,repeat(filter_val))))
 
                     i+=len(chunk)
-                
+
                 keep = new_keep
-            
+
             elif comparison == 'match':
-                
+
                 is_sequence = isinstance(filter_val,collections.abc.Sequence) and not isinstance(filter_val,str)
                 filter_vals = filter_val if is_sequence else [filter_val]
                 values      = list(chain.from_iterable(chunks))
@@ -449,8 +450,6 @@ class TransactionIO_V4(Source['Result'], Sink[Any]):
 
             for row in item[2]:
                 for col,val in row.items():
-                    if col == "rewards" : col="reward"
-                    if col == "reveals" : col="reveal"
                     rows_T[col].append(val)
 
             return ["I", item[1], { "_packed": rows_T }]
@@ -519,8 +518,6 @@ class TransactionIO_V3(Source['Result'], Sink[Any]):
 
             for row in item[2]:
                 for col,val in row.items():
-                    if col == "rewards" : col="reward"
-                    if col == "reveals" : col="reveal"
                     rows_T[col].append(val)
 
             return ["I", item[1], { "_packed": rows_T }]
@@ -675,7 +672,7 @@ class MatplotlibPlotter(Plotter):
 
             ax.set_xlim(*xlim)
             ax.set_ylim(*ylim)
-            
+
             ax.autoscale(axis='both')
 
             ax.set_title(title, loc='left', pad=15)
@@ -711,10 +708,10 @@ class MatplotlibPlotter(Plotter):
 class FilterPlottingData:
 
     def filter(self, unfinished:'Result', x:Sequence[str], y:str) -> Table:
-        
+
         if len(unfinished.interactions) == 0: raise CobaException("This result doesn't contain any evaluation data to plot.")
         if y not in unfinished.interactions.col_names: raise CobaException(f"{y} is not available in the environment. Plotting has been stopped.")
-        
+
         finished = unfinished.filter_fin('min' if x == ['index'] else None)
 
         if len(finished.learners) == 0:
@@ -723,7 +720,6 @@ class FilterPlottingData:
         if len(finished.environments) != len(unfinished.environments):
             CobaContext.logger.log("Environments not present for all learners have been excluded. To supress this call filter_fin() before plotting.")
 
-        #this kind of strange check 
         if max(map(len, finished.interactions._col_chunks[2])) != max(map(len, unfinished.interactions._col_chunks[2])) > 1 and x == ['index']:
             CobaContext.logger.log("This result contains environments of different lengths. The plot only includes interactions up to the shortest environment. To supress this warning in the future call <result>.filter_fin(n_interactions) before plotting.")
 
@@ -737,7 +733,7 @@ class SmoothPlottingData:
             #I'm not crazy about this because it depends on some implementation details but it is too fast not to
             y_index = interactions.col_names.index(y)
             out     = []
-            
+
             for eid, lid, Y in zip(*interactions._col_chunks[:2], interactions._col_chunks[y_index]):
                 out.append({"environment_id":eid.value, "learner_id":lid.value, y:moving_average(Y,span)})
 

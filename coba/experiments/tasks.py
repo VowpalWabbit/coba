@@ -70,7 +70,7 @@ class EvaluationTask(ABC):
 class SimpleEvaluation(EvaluationTask):
 
     def __init__(self, 
-        record: Sequence[Literal['reward','rank','regret','time','probability','action', 'context', 'ope_loss']] = ['reward'],
+        record: Sequence[Literal['reward','rank','regret','time','probability','action','actions', 'context', 'ope_loss', 'rewards']] = ['reward'],
         learn: bool = True,
         predict: bool = True) -> None:
         """
@@ -94,12 +94,6 @@ class SimpleEvaluation(EvaluationTask):
 
         learner = SafeLearner(learner)
 
-        record_prob    = 'probability' in self._record
-        record_time    = 'time'        in self._record
-        record_action  = 'action'      in self._record
-        record_context = 'context'     in self._record
-        record_ope_loss = 'ope_loss'     in self._record
-
         first, interactions = peek_first(interactions)
 
         predict  = learner.predict
@@ -107,10 +101,20 @@ class SimpleEvaluation(EvaluationTask):
 
         discrete = first and len(first.get('actions',[])) > 0
 
+        if not discrete:
+            DISCRETE_ONLY_METRICS = {'rank', 'rewards'}
+            for metric in set(self._record).intersection(DISCRETE_ONLY_METRICS):
+                warnings.warn(f"The {metric} metric can only be calculated for discrete environments")
+
         learning_info = CobaContext.learning_info
 
-        if 'rank' in self._record and not discrete:
-            warnings.warn(f"The rank metric can only be calculated for discrete environments")
+        record_prob     = 'probability' in self._record
+        record_time     = 'time'        in self._record
+        record_action   = 'action'      in self._record
+        record_context  = 'context'     in self._record
+        record_ope_loss = 'ope_loss'    in self._record
+        record_rewards  = 'rewards'     in self._record and discrete
+        record_actions  = 'actions'     in self._record
 
         calc_rank   = 'rank'   in self._record and discrete
         calc_reward = 'reward' in self._record
@@ -160,10 +164,12 @@ class SimpleEvaluation(EvaluationTask):
                 reward   = rewards.eval(_action)
                 feedback = feedbacks.eval(_action) if feedbacks else reward
 
-                if record_time  : out['predict_time'] = predict_time
-                if record_prob  : out['probability']  = prob
-                if record_action: out['action']       = action
-                if feedbacks    : out['feedback']     = feedback
+                if record_time   : out['predict_time'] = predict_time
+                if record_prob   : out['probability']  = prob
+                if record_action : out['action']       = action
+                if record_actions: out['actions']      = actions
+                if feedbacks     : out['feedback']     = feedback
+                if record_rewards: out['rewards']      = list(map(rewards.eval, actions))
 
                 if not batched:
                     if calc_reward : out['reward'] = get_reward(reward)

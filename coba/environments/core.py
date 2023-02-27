@@ -7,9 +7,10 @@ from coba.backports import Literal
 
 from coba                 import pipes
 from coba.contexts        import CobaContext, DiskCacher, DecoratedLogger, ExceptLog, NameLog, StampLog
+from coba.pipes.sources   import DataFrameSource
 from coba.primitives      import Context, Action
 from coba.random          import CobaRandom
-from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode
+from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode, Foreach
 from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 from coba.learners        import Learner
@@ -22,9 +23,11 @@ from coba.environments.synthetics import LinearSyntheticSimulation, NeighborsSyn
 from coba.environments.synthetics import KernelSyntheticSimulation, MLPSyntheticSimulation, LambdaSimulation
 from coba.environments.supervised import SupervisedSimulation
 
+
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Unbatch, Slice
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
+from coba.environments.filters   import MappingToInteraction
 
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
 
@@ -238,6 +241,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
     def from_lambda(*args,**kwargs) -> 'Environments':
         """Create a SimulatedEnvironment from lambda functions."""
         return Environments(LambdaSimulation(*args,**kwargs))
+
+    @staticmethod
+    def from_dataframe(df: 'pandas.DataFrame') -> 'Environments':
+        return Environments(Pipes.join(DataFrameSource(df), MappingToInteraction()))
 
     def __init__(self, *environments: Union[Environment, Sequence[Environment]]):
         """Instantiate an Environments class.

@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, overload
+from typing import Any, Union, Iterable, Sequence, Mapping, overload, Type
 
 from coba.primitives import Context, Action, Actions
 from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback
@@ -15,8 +15,19 @@ class Interaction(dict):
     def extra(self) -> Mapping[str,Any]:
         return { k:self[k] for k in self.keys()-self.keywords}
 
+    @staticmethod
+    def from_dict(kwargs_dict: Mapping[str, Any]) -> Type['Interaction']:
+        if 'feedbacks' in kwargs_dict:
+            sub_class =  GroundedInteraction
+        elif 'rewards' in kwargs_dict:
+            sub_class = SimulatedInteraction
+        else:
+            sub_class =  LoggedInteraction
+
+        return sub_class(**kwargs_dict)
+
 class SimulatedInteraction(Interaction):
-    """Simulated data that provides labels for every possible action."""
+    """Simulated data that provides rewards for every possible action."""
     __slots__=()
     keywords = {'type', 'context', 'actions', 'rewards'}
     
@@ -46,7 +57,7 @@ class SimulatedInteraction(Interaction):
         if kwargs: self.update(kwargs)
 
 class GroundedInteraction(Interaction):
-    """Logged data providing a label for one action."""
+    """A grounded interaction based on Interaction Grounded Learning which feedbacks instead of rewards."""
     __slots__=()
     keywords = {'type', 'context', 'actions', 'rewards', 'feedbacks'}
 
@@ -74,7 +85,7 @@ class GroundedInteraction(Interaction):
         if kwargs: self.update(kwargs)
 
 class LoggedInteraction(Interaction):
-    """Logged data that describes an interaction where the choice was already made."""
+    """A logged interaction with an action, reward and optional probability."""
     __slots__ = ()
     keywords = {'type', 'context', 'action', 'reward', 'probability', 'actions', 'rewards'}
 
@@ -109,7 +120,9 @@ class LoggedInteraction(Interaction):
             **kwargs : Any additional information.
         """
 
-        if 'actions' in kwargs and 'probability' in kwargs and 'rewards' not in kwargs:
+        if kwargs.get('actions') is not None \
+                and kwargs.get('probability') is not None \
+                and kwargs.get('rewards') is None:
             probability       = kwargs['probability']
             actions           = kwargs['actions']
             kwargs['rewards'] = [int(a==action)*reward/probability for a in actions]
@@ -118,10 +131,10 @@ class LoggedInteraction(Interaction):
         self['action']  = action
         self['reward']  = reward
 
-        if 'rewards' in kwargs and isinstance(kwargs['rewards'],(list,tuple)):
+        if kwargs.get('rewards') is not None and isinstance(kwargs['rewards'],(list,tuple)):
             kwargs['rewards'] = SequenceReward(kwargs['rewards'])
 
-        if kwargs: self.update(kwargs)
+        if kwargs: self.update({k:v for k,v in kwargs.items() if v is not None})
 
 class EnvironmentFilter(Filter[Iterable[Interaction],Iterable[Interaction]], ABC):
     """A filter that can be applied to an Environment."""
