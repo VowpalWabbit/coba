@@ -16,7 +16,7 @@ class Interaction(dict):
         return { k:self[k] for k in self.keys()-self.keywords}
 
     @staticmethod
-    def from_dict(kwargs_dict: Mapping[str, Any]) -> Type['Interaction']:
+    def from_dict(kwargs_dict: Mapping[str, Any]) -> 'Interaction':
         if 'feedbacks' in kwargs_dict:
             sub_class =  GroundedInteraction
         elif 'rewards' in kwargs_dict:
