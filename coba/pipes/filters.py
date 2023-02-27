@@ -4,7 +4,7 @@ import copy
 
 from collections import defaultdict, abc
 from itertools import islice, chain
-from typing import Iterable, Any, Sequence, Mapping, Optional, Union, Tuple, Hashable
+from typing import Iterable, Any, Sequence, Mapping, Optional, Union
 
 from coba.random import CobaRandom
 from coba.encodings import Encoder, CobaJsonEncoder, CobaJsonDecoder
@@ -417,12 +417,3 @@ class Cache(Filter[Iterable[Any], Iterable[Any]]):
                 yield from current
                 current = list(islice(items,n_slice))
             self._cache = temp_cache
-
-class DataFrameToInteraction(Filter[Iterable[Any], Iterable[Any]]):
-    def filter(self, rows: Iterable[Tuple[Hashable, 'Series']]) -> Iterable['Interaction']:
-        from coba.environments import Interaction  # break cyclic dependency
-        for _index, row in rows:
-            yield Interaction.from_dict(row)
-
-
-

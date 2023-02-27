@@ -1,7 +1,7 @@
 import unittest
 
 from coba.environments import SafeEnvironment, Environment
-from coba.environments import SimulatedInteraction, LoggedInteraction
+from coba.environments import Interaction, SimulatedInteraction, LoggedInteraction
 from coba.exceptions import CobaException
 from coba.pipes import Pipes, Shuffle
 
@@ -35,7 +35,6 @@ class Environment_Tests(unittest.TestCase):
 
         self.assertEqual("TestEnvironment", str(TestEnvironment()))
 
-
 class SafeEnvironment_Tests(unittest.TestCase):
 
     def test_params(self):
@@ -53,6 +52,21 @@ class SafeEnvironment_Tests(unittest.TestCase):
 
     def test_with_pipes(self):
         self.assertEqual({'type': 'DummyEnvironment', "shuffle":1}, SafeEnvironment(Pipes.join(DummyEnvironment(), Shuffle(1))) .params)
+
+class Interaction_Tests(unittest.TestCase):
+    def test_simulated_dict(self):
+        mapping = {'context':1,'actions':[1,2],'rewards':[3,4]}
+        self.assertEqual(Interaction.from_dict(mapping),mapping)
+
+    def test_logged_dict(self):
+        given    = {'context':1,'actions':[1,2],'action':1,'reward':4,'probability':.1}
+        expected = {'context':1,'actions':[1,2],'action':1,'reward':4,'probability':.1,'rewards':[40,0]}
+        self.assertEqual(Interaction.from_dict(given),expected)
+
+    def test_grounded_dict(self):
+        given    = {'context':1,'actions':[1,2],'action':1,'rewards':[3,4],'feedbacks':[5,6]}
+        expected = given
+        self.assertEqual(Interaction.from_dict(given),expected)
 
 class LoggedInteraction_Tests(unittest.TestCase):
     def test_IPS_sequence(self):

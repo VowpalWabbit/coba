@@ -1,6 +1,7 @@
 import unittest
 import unittest.mock
 import requests
+import importlib.util
 
 from pathlib import Path
 
@@ -358,6 +359,18 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1, len(list(env.read())))
         self.assertEqual([0.11, 0.8, 0.44, 0.17, 0.42], list(env.read())[0]['context'])
         self.assertEqual(3, len(list(env.read())[0]['actions']))
+    
+    @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
+    def test_from_dataframe(self):
+        import pandas as pd
+        
+        df = pd.DataFrame({'context':[1,2],'actions':[[0,1]]*2,'rewards':[[2,3]]*2})
+        expected = [{'context':1,'actions':[0,1],'rewards':[2,3]},{'context':2,'actions':[0,1],'rewards':[2,3]}]
+        
+        env = Environments.from_dataframe(df)
+
+        self.assertEqual(len(env),1)
+        self.assertEqual(list(env[0].read()),expected)
 
     def test_init_args(self):
         env = Environments(TestEnvironment1('A'), TestEnvironment1('B'))

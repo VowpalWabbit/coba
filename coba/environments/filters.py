@@ -21,6 +21,7 @@ from coba.utilities  import peek_first
 from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
+from coba.pipes      import Filter
 
 from coba.environments.primitives import EnvironmentFilter, Interaction
 
@@ -1119,3 +1120,7 @@ class Mutable(EnvironmentFilter):
         elif first_is_value:
             for interaction in interactions:
                 yield interaction.copy()
+
+class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
+    def filter(self, items: Iterable[Mapping]) -> Iterable[Interaction]:
+        yield from map(Interaction.from_dict,items)
