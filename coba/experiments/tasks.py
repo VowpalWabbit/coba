@@ -110,10 +110,12 @@ class SimpleEvaluation(EvaluationTask):
 
         discrete = first and len(first.get('actions',[])) > 0
 
-        learning_info = CobaContext.learning_info
+        if not discrete:
+            DISCRETE_ONLY_METRICS = {'rank', 'rewards'}
+            for metric in set(self._record).intersection(DISCRETE_ONLY_METRICS):
+                warnings.warn(f"The {metric} metric can only be calculated for discrete environments")
 
-        if 'rank' in self._record and not discrete:
-            warnings.warn(f"The rank metric can only be calculated for discrete environments")
+        learning_info = CobaContext.learning_info
 
         calc_rank   = 'rank'   in self._record and discrete
         calc_reward = 'reward' in self._record
@@ -168,7 +170,7 @@ class SimpleEvaluation(EvaluationTask):
                 if record_action : out['action']       = action
                 if record_actions: out['actions']      = actions
                 if feedbacks     : out['feedback']     = feedback
-                if record_rewards: out['rewards']      = rewards._values
+                if record_rewards: out['rewards']      = list(map(rewards.eval, actions))
 
                 if not batched:
                     if calc_reward : out['reward'] = get_reward(reward)

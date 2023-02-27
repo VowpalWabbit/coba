@@ -1,10 +1,9 @@
 import importlib.util
 import json
+import math
 import unittest
 import unittest.mock
 import warnings
-
-import math
 
 from coba import VowpalSoftmaxLearner
 from coba.contexts import CobaContext
@@ -438,6 +437,36 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         expected_task_results = [{"reward":7},{"reward":5},{"reward":3}]
 
         self.assertEqual(expected_task_results, task_results)
+
+        # test warning about rewards metric
+        task         = SimpleEvaluation(["reward","rewards"])
+        learner      = FixedActionScoreLearner([0,1,2])
+        with self.assertWarns(UserWarning) as w:
+            list(task.process(learner, interactions))
+        self.assertEqual("The rewards metric can only be calculated for discrete environments", str(w.warning))
+
+        # test warnings for both rank and rewards
+        task         = SimpleEvaluation(["reward","rewards", "rank"])
+        learner      = FixedActionScoreLearner([0,1,2])
+        with self.assertWarns(UserWarning) as w:
+            list(task.process(learner, interactions))
+
+        self.assertEqual(2, len(w.warnings))
+        self.assertTrue(all([str(warning.message).endswith("can only be calculated for discrete environments")
+                             for warning in w.warnings]))
+
+        # test for neither
+        task         = SimpleEvaluation(["reward","actions", "context"])
+        learner      = FixedActionScoreLearner([0,1,2])
+        with self.assertWarns(UserWarning) as w:
+            # Adding a dummy warning log to test the absence of any actual warning
+            # Should use assertNoLogs when switching to Python 3.10+"
+            warnings.warn("Dummy warning")
+            list(task.process(learner, interactions))
+        self.assertEqual(1, len(w.warnings))
+        self.assertEqual("Dummy warning", str(w.warning))
+
+
 
     def test_simulated_interaction_info_logs_kwargs(self):
 
