@@ -169,17 +169,20 @@ class SimpleEvaluation(EvaluationTask):
                 if record_action : out['action']       = action
                 if record_actions: out['actions']      = actions
                 if feedbacks     : out['feedback']     = feedback
-                if record_rewards: out['rewards']      = list(map(rewards.eval, range(len(actions))))
 
+                if not batched:
+                    if record_rewards: out['rewards'] = list(map(rewards.eval, range(len(actions))))
+                else:
+                    if record_rewards: out['rewards'] = list(zip(*[rewards.eval([a]*len(context)) for a in range(len(actions[0]))]))
 
                 if not batched:
                     if calc_reward : out['reward'] = get_reward(reward)
                     if calc_regret : out['regret'] = get_regret(reward, rewards)
                     if calc_rank   : out['rank'  ] = get_rank  (reward, rewards, len(actions))
                 elif batched:
-                    if calc_reward : out['reward'] = mean(map(get_reward,reward))
-                    if calc_regret : out['regret'] = mean(map(get_regret,reward,rewards))
-                    if calc_rank   : out['rank'  ] = mean(map(get_rank  ,reward,rewards,len(actions)))
+                    if calc_reward : out['reward'] = list(map(get_reward,reward))
+                    if calc_regret : out['regret'] = list(map(get_regret,reward,rewards))
+                    if calc_rank   : out['rank'  ] = list(map(get_rank  ,reward,rewards,len(actions)))
 
             if is_learn:
                 if is_off_policy_learn:
@@ -214,7 +217,11 @@ class SimpleEvaluation(EvaluationTask):
                 out.update(learning_info)
                 learning_info.clear()
 
-            if out: yield out
+            if out:
+                if batched:
+                    yield from ({k:v[i] for k,v in out.items()} for i in range(len(context)))
+                else:
+                    yield out
 
 class SimpleLearnerInfo(LearnerTask):
     """Describe a Learner using its name and hyperparameters."""

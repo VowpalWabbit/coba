@@ -14,8 +14,18 @@ from coba.learners import Learner
 from coba.pipes import Pipes
 from coba.primitives import SequenceReward
 
-
 #for testing purposes
+class BatchFixedActionScoreLearner(Learner):
+    @property
+    def params(self):
+        return {"family": "Recording"}
+
+    def predict(self, context, actions):
+        return [[1,0,0],[0,0,1]]
+
+    def learn(self, context, actions, action, reward, probability, **kwargs):
+        pass
+
 class FixedActionScoreLearner(Learner):
     def __init__(self, actions):
         self._actions = actions
@@ -706,7 +716,6 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         result_contexts = [result['context'] for result in task_results]
         self.assertListEqual(result_contexts, [1, 2, 3, 4, 5, 6, None, None, None])
 
-
     def test_rewards_logging(self):
         task                 = SimpleEvaluation(['reward','rewards'])
         learner              = RecordingLearner()
@@ -719,6 +728,22 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         task_results = list(task.process(learner, interactions))
         self.assertListEqual([[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 3.0]],
                              [result['rewards'] for result in task_results])
+
+    def test_rewards_logging_batched(self):
+        task                 = SimpleEvaluation(['reward','rewards'])
+        learner              = BatchFixedActionScoreLearner()
+        interactions         = [
+            LoggedInteraction(1, "action_1", 1, probability=1.0, actions=["action_1", "action_2", "action_3"]),
+            LoggedInteraction(2, "action_2", 2, probability=1.0, actions=["action_1", "action_2", "action_3"])
+        ]
+        
+        task_results = list(task.process(learner, Batch(2).filter(interactions)))
+        
+        self.assertEqual(2, len(task_results))
+        self.assertEqual(1,task_results[0]['reward'])
+        self.assertEqual(0,task_results[1]['reward'])
+        self.assertEqual((1, 0, 0),task_results[0]['rewards'])
+        self.assertEqual((0, 2, 0),task_results[1]['rewards'])
 
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
     def test_ope_loss_logging(self):
@@ -739,7 +764,6 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         learner              = RecordingLearner()
         task_results = list(task.process(learner, interactions))
         self.assertTrue(all([math.isnan(result['ope_loss']) for result in task_results]))
-
 
     def test_batched_simulated_interaction(self):
 
@@ -764,7 +788,7 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         expected_predict_call = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]])
         expected_learn_call   = ([1,2,3],[[1,2,3],[4,5,6],[7,8,9]],[1,5,9],[7,5,3],[1,1,1])
-        expected_task_results  = [ {"reward":5 } ]
+        expected_task_results  = [ {"reward":7},{"reward":5},{"reward":3} ]
 
         self.assertEqual(expected_predict_call, learner.predict_call[0])
         self.assertEqual(expected_learn_call, learner.learn_call)
