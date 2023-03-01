@@ -706,6 +706,20 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         result_contexts = [result['context'] for result in task_results]
         self.assertListEqual(result_contexts, [1, 2, 3, 4, 5, 6, None, None, None])
 
+
+    def test_rewards_logging(self):
+        task                 = SimpleEvaluation(['reward','rewards'])
+        learner              = RecordingLearner()
+        interactions         = [
+            LoggedInteraction(1, "action_1", 1, probability=1.0, actions=["action_1", "action_2", "action_3"]),
+            LoggedInteraction(2, "action_2", 2, probability=1.0, actions=["action_1", "action_2", "action_3"]),
+            LoggedInteraction(3, "action_3", 3, probability=1.0, actions=["action_1", "action_2", "action_3"]),
+        ]
+
+        task_results = list(task.process(learner, interactions))
+        self.assertListEqual([[1.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 3.0]],
+                             [result['rewards'] for result in task_results])
+
     @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed")
     def test_ope_loss_logging(self):
         task                 = SimpleEvaluation(['reward','probability', 'ope_loss'])
