@@ -169,7 +169,8 @@ class SimpleEvaluation(EvaluationTask):
                 if record_action : out['action']       = action
                 if record_actions: out['actions']      = actions
                 if feedbacks     : out['feedback']     = feedback
-                if record_rewards: out['rewards']      = list(map(rewards.eval, actions))
+                if record_rewards: out['rewards']      = list(map(rewards.eval, range(len(actions))))
+
 
                 if not batched:
                     if calc_reward : out['reward'] = get_reward(reward)
