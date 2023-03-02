@@ -288,7 +288,7 @@ class SafeLearner(Learner):
         pmf_sans_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) > 3 or len(pred) == 3 and not isinstance(pred[2],dict)
         pmf_with_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) == 2 and isinstance(pred[0],abc.Sequence)
         
-        return explicit or pmf_sans_info or pmf_with_info
+        return (explicit or pmf_sans_info or pmf_with_info) and not (isinstance(pred,ActionScore) or isinstance(pred[0],ActionScore))
 
     def _is_type_3(self, pred, is_discrete:bool):
         #Action Score

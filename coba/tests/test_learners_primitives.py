@@ -195,6 +195,13 @@ class SafeLearner_Tests(unittest.TestCase):
 
         self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ([3,2,1],[1,1,1],{}))
 
+    def test_batched_type2_prediction_sans_info(self):
+        class MyLearner:
+            def predict(self,context,actions):
+                return [[0,0,1],[0,1,0],[1,0,0]][:len(context)]
+
+        self.assertEqual(SafeLearner(MyLearner()).predict(Batch([None]*3), Batch([[1,2,3]]*3)), ([3,2,1],[1,1,1],{}))
+
     def test_type3_prediction_sans_info(self):
         class MyLearner:
             def predict(self,context,actions):
@@ -327,6 +334,9 @@ class SafeLearner_Tests(unittest.TestCase):
 
         #this is definitely an action-score pair because it is explicitly typed
         self.assertEqual(learner._determine_pred_type(ActionScore(0,1), False),3)
+
+        #this is definitely an action-score pair because it is explicitly typed
+        self.assertEqual(learner._determine_pred_type(ActionScore((1,0,0),1), True),3)
 
         #this can't be determined
         self.assertEqual(learner._determine_pred_type((0,1), True),None)
