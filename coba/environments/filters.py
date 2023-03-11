@@ -13,7 +13,7 @@ from itertools import islice, chain, tee, compress, repeat
 from typing import Optional, Sequence, Union, Iterable, Any, Tuple, Callable, Mapping
 from coba.backports import Literal
 
-from coba            import pipes, primitives, CobaContext
+from coba            import pipes, primitives
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
@@ -923,7 +923,7 @@ class Unbatch(EnvironmentFilter):
 
         first, interactions = peek_first(interactions)
         if not interactions: return []
-        
+
         batched_keys = [k for k,v in first.items() if isinstance(v,primitives.Batch) ]
 
         if not batched_keys:
@@ -1034,64 +1034,23 @@ class Logged(EnvironmentFilter):
         if 'context' not in first or 'actions' not in first or 'rewards' not in first:
             raise CobaException("We were unable to create a logged representation of the interaction.")
 
-        learner = SafeLearner(copy.deepcopy(self._learner))
+        #Avoid circular dependency
+        from coba.experiments.tasks import SimpleEvaluation
 
-        #In theory all of the code below could be replaced by:
-
-            # I1,I2 = tee(interactions,2)
-            # for interaction, log in zip(I1, SimpleEvaluation(record=['action','reward','probability']).filter(I2)):
-            #     out = interaction.copy()
-
-            #     out['action']      = log['action']
-            #     out['reward']      = log['reward']
-            #     out['probability'] = log['probability']
-
-            #     yield out
-
-        #The reason it hasn't is because referencing SimpleEvalution creates a recursive dependency 
-
-        predict = learner.predict
-        learn   = learner.learn
-
-        learning_info = CobaContext.learning_info
-
-        def indexify(action,actions,discrete,batched):
-            if not discrete: return action
-            return [ A.index(a) for a,A in zip(action,actions) ] if batched else actions.index(action)
-
-        for interaction in interactions:
-
-            context = interaction['context']
-            actions = interaction['actions']
-            rewards = interaction['rewards']
-
-            batched = isinstance(context, primitives.Batch)
-            discrete = len(interaction.get('actions',[])) > 0
-
-            action,prob,info = predict(context, actions)
-
-            reward = rewards.eval(indexify(action,actions,discrete,batched))
-
-            learn(context, actions, action, reward, prob, **info)
-
-            new = interaction.copy()
-
-            new['action']      = action
-            new['probability'] = prob
-            new['reward']      = reward
-
-            if learning_info:
-                new.update(learning_info)
-                learning_info.clear()
-
-            yield new
+        I1,I2 = tee(interactions,2)
+        flat_int = Unbatch().filter(I1)
+        eval_log = SimpleEvaluation(record=['action','reward','probability']).process(copy.deepcopy(self._learner),I2)
+        for interaction, log in zip(flat_int,eval_log):
+            out = interaction.copy()
+            out.update(log)
+            yield out
 
 class Mutable(EnvironmentFilter):
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
-        
+
         first, interactions = peek_first(interactions)
-        
+
         if not interactions: return []
 
         first_is_dense   = isinstance(first['context'], primitives.Dense)
@@ -1104,13 +1063,13 @@ class Mutable(EnvironmentFilter):
                 new = interaction.copy()
                 new['context'] = new['context'].copy()
                 yield new
-                            
+
         elif first_is_dense:
             for interaction in interactions:
                 new = interaction.copy()
                 new['context'] = list(new['context'])
                 yield new
-        
+
         elif first_is_sparse:
             for interaction in interactions:
                 new = interaction.copy()

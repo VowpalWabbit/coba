@@ -218,6 +218,14 @@ class SimpleEvaluation(EvaluationTask):
                 learning_info.clear()
 
             if out:
+
+                # for off-policy evaluation purposes we need to log each reward even when batching.
+                # Therefore, we have two options:
+                #   (1) store a batched version of reward and keep out batched. With this option we
+                #       also need to modify Results so that it can plut batched versions of "reward".
+                #   (2) we flatten out and store a normal version of reward. We lose some information
+                #       downstream this way but we gain "reward" now playing nicely with all plots.
+                # Here we went with option (2). If changing to (1) be sure to update Result.
                 if batched:
                     yield from ({k:v[i] for k,v in out.items()} for i in range(len(context)))
                 else:

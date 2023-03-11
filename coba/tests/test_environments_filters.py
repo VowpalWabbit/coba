@@ -2101,9 +2101,8 @@ class Logged_Tests(unittest.TestCase):
             def learn(self,*args):
                 pass
 
-        initial_input = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
-        expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}
-        expected_output = list(Batch(2).filter([expected_output]*2))
+        initial_input   = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        expected_output = [{'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)}]*2
 
         output = list(Logged(TestLearner()).filter(Batch(2).filter([initial_input]*2)))
 
