@@ -2,7 +2,7 @@ from coba.primitives.semantic import Context, Action, Actions, AIndex, Batch
 from coba.primitives.types import Categorical
 from coba.primitives.rows import Dense, Sparse, HashableDense, HashableSparse
 from coba.primitives.feedbacks import Feedback, SequenceFeedback, BatchFeedback
-from coba.primitives.rewards import Reward, L1Reward, HammingReward, BinaryReward, ScaleReward, SequenceReward, MulticlassReward, BatchReward
+from coba.primitives.rewards import Reward, L1Reward, HammingReward, BinaryReward, ScaleReward, SequenceReward, MulticlassReward, BatchReward, IPSReward
 
 __all__ = [
     'Reward',
@@ -10,6 +10,7 @@ __all__ = [
     'HammingReward',
     'BinaryReward',
     'ScaleReward',
+    'IPSReward',
     'SequenceReward',
     'MulticlassReward',
     'Feedback',

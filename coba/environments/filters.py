@@ -18,7 +18,7 @@ from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
 from coba.utilities  import peek_first
-from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward
+from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward, IPSReward
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
 from coba.pipes      import Filter
@@ -1018,12 +1018,13 @@ class Chunk(EnvironmentFilter):
 
 class Logged(EnvironmentFilter):
 
-    def __init__(self, learner: Learner) -> None:
+    def __init__(self, learner: Learner, rewards:Literal["DIR","IPS"] = "DIR") -> None:
         self._learner = learner
+        self._rewards = rewards
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"learner": SafeLearner(self._learner).params, "logged":True}
+        return {"learner": SafeLearner(self._learner).params, "logged":True, "rewards": self._rewards}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
@@ -1043,6 +1044,10 @@ class Logged(EnvironmentFilter):
         for interaction, log in zip(flat_int,eval_log):
             out = interaction.copy()
             out.update(log)
+
+            if self._rewards == "IPS":
+                out['rewards'] = IPSReward(log['reward'],log['action'],log['probability'])
+
             yield out
 
 class Mutable(EnvironmentFilter):

@@ -1,8 +1,8 @@
 from abc import abstractmethod, ABC
-from typing import Any, Union, Iterable, Sequence, Mapping, overload, Type
+from typing import Any, Union, Iterable, Sequence, Mapping, overload
 
 from coba.primitives import Context, Action, Actions
-from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback
+from coba.primitives import Reward, SequenceReward, Feedback, SequenceFeedback, IPSReward
 from coba.pipes import Source, SourceFilters, Filter
 from coba.exceptions import CobaException
 
@@ -120,19 +120,15 @@ class LoggedInteraction(Interaction):
             **kwargs : Any additional information.
         """
 
-        if kwargs.get('actions') is not None \
-                and kwargs.get('probability') is not None \
-                and kwargs.get('rewards') is None:
-            probability       = kwargs['probability']
-            actions           = kwargs['actions']
-            kwargs['rewards'] = [int(a==action)*reward/probability for a in actions]
+        if isinstance(kwargs.get('rewards'),(list,tuple)):
+            self['rewards'] = SequenceReward(kwargs.pop('rewards'))
+        elif kwargs.get('rewards') is None and kwargs.get('actions') is not None:
+            ips_action = kwargs['actions'].index(action) if isinstance(kwargs['actions'],(list,tuple)) else action
+            self['rewards'] = IPSReward(reward,ips_action,kwargs.get('probability'))
 
         self['context'] = context
         self['action']  = action
         self['reward']  = reward
-
-        if kwargs.get('rewards') is not None and isinstance(kwargs['rewards'],(list,tuple)):
-            kwargs['rewards'] = SequenceReward(kwargs['rewards'])
 
         if kwargs: self.update({k:v for k,v in kwargs.items() if v is not None})
 

@@ -2,7 +2,7 @@ from operator import eq
 from abc import ABC, abstractmethod
 from collections import abc
 from itertools import repeat
-from typing import Union, Sequence, Iterator, Any
+from typing import Union, Sequence, Iterator, Optional, Any
 from coba.backports import Literal
 
 from coba.exceptions import CobaException
@@ -21,6 +21,29 @@ class Reward(ABC):
     
     def max(self) -> float:
         return self.eval(self.argmax())
+
+class IPSReward(Reward):
+    __slots__ = ('_reward','_action')
+
+    def __init__(self, reward: float, action: Union[Action,AIndex], probability: Optional[float]) -> None:
+        self._reward = reward/(probability or 1)
+        self._action = action
+
+    def eval(self, arg: Union[Action,AIndex]) -> float:
+        return (arg == self._action)*self._reward
+
+    def argmax(self) -> Union[Action,AIndex]:
+        return self._action
+    
+    def max(self) -> float:
+        return self.eval(self.argmax())
+
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o,IPSReward) and o._reward == self._reward and o._action == self._action
+
+    def __reduce__(self):
+        #this makes the pickle smaller
+        return IPSReward, (self._reward, self._action, 1)
 
 class L1Reward(Reward):
     __slots__ = ('_label',)

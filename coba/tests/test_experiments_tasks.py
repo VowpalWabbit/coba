@@ -562,10 +562,10 @@ class SimpleEvaluation_Tests(unittest.TestCase):
 
         task_results = list(task.process(learner, interactions))
 
-        expected_predict_calls   = []
-        expected_predict_returns = []
+        expected_predict_calls   = [(1,[2,5,8]),(2,[3,6,9]),(3,[4,7,0])]
+        expected_predict_returns = [[1,0,0],[0,1,0],[0,0,1]]
         expected_learn_calls     = [(1,[2,5,8],2,3,None,{}),(2,[3,6,9],3,4,None,{}),(3,[4,7,0],4,5,None,{})]
-        expected_task_results    = []
+        expected_task_results    = [{'reward': 3.0}, {'reward': 0.0}, {'reward': 0.0}]
 
         self.assertEqual(expected_predict_calls, learner.predict_calls)
         self.assertEqual(expected_predict_returns, learner.predict_returns)
@@ -700,9 +700,9 @@ class SimpleEvaluation_Tests(unittest.TestCase):
             LoggedInteraction(1, 0, 0),
             LoggedInteraction(2, 0, 0),
             LoggedInteraction(3, 0, 0),
-            LoggedInteraction(4, 0, 0, actions=[2, 5, 8], probability=.2),
-            LoggedInteraction(5, 0, 0, actions=[2, 5, 8], probability=.2),
-            LoggedInteraction(6, 0, 0, actions=[2, 5, 8], probability=.2),
+            LoggedInteraction(4, 2, 0, actions=[2, 5, 8], probability=.2),
+            LoggedInteraction(5, 2, 0, actions=[2, 5, 8], probability=.2),
+            LoggedInteraction(6, 2, 0, actions=[2, 5, 8], probability=.2),
             SimulatedInteraction(None,[1,2,3],[7,8,9]),
             SimulatedInteraction(None,[4,5,6],[4,5,6]),
             SimulatedInteraction(None,[7,8,9],[1,2,3]),

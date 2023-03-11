@@ -8,7 +8,7 @@ from coba              import primitives
 from coba.pipes        import LazyDense, LazySparse, HeadDense
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.primitives   import L1Reward, SequenceFeedback, Categorical
+from coba.primitives   import L1Reward, IPSReward, SequenceFeedback, Categorical
 from coba.learners     import FixedLearner
 from coba.utilities    import peek_first
 
@@ -2108,6 +2108,14 @@ class Logged_Tests(unittest.TestCase):
 
         self.assertEqual(output, expected_output)
 
+    def test_ips(self):
+        initial_input = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
+        expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":IPSReward(-1,0,1)}
+
+        output = list(Logged(FixedLearner([1,0,0]),rewards="IPS").filter([initial_input]*2))
+
+        self.assertEqual(output, [expected_output]*2)
+
     def test_learning_info(self):
 
         class TestLearner:
@@ -2135,8 +2143,8 @@ class Logged_Tests(unittest.TestCase):
     def test_params(self):
         learner = FixedLearner([1,0,0])
         logged  = Logged(learner)
-        
-        self.assertEqual(logged.params,{"learner":learner.params,"logged":True})
+
+        self.assertEqual(logged.params,{"learner":learner.params,"logged":True,"rewards":"DIR"})
 
 class Mutable_Tests(unittest.TestCase):
 

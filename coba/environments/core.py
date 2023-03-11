@@ -393,10 +393,10 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         envs = Environments([Pipes.join(env, Chunk()) for env in self])
         return envs.cache() if cache else envs
 
-    def logged(self, learners: Union[Learner,Sequence[Learner]]) -> 'Environments':
+    def logged(self, learners: Union[Learner,Sequence[Learner]], rewards:Literal["DIR","IPS"] = "DIR") -> 'Environments':
         """Create a logged environment using the given learner for the logging policy."""
         if not isinstance(learners, collections.abc.Sequence): learners = [learners]
-        return self.filter(BatchSafe(Finalize())).filter(list(map(Logged,learners)))
+        return self.filter(BatchSafe(Finalize())).filter([Logged(learner, rewards) for learner in learners ])
 
     def unbatch(self):
         """Unbatch interactions in the environments."""
