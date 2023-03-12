@@ -30,7 +30,7 @@ class SimulatedInteraction(Interaction):
     """Simulated data that provides rewards for every possible action."""
     __slots__=()
     keywords = {'type', 'context', 'actions', 'rewards'}
-    
+
     def __init__(self,
         context : Context,
         actions : Actions,

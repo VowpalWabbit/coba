@@ -13,6 +13,7 @@ from coba.experiments import ClassEnvironmentInfo, SimpleEnvironmentInfo, Simple
 from coba.learners import Learner
 from coba.pipes import Pipes
 from coba.primitives import SequenceReward
+from coba.experiments.tasks import SeededEvaluation
 
 #for testing purposes
 class BatchFixedActionScoreLearner(Learner):
@@ -793,6 +794,32 @@ class SimpleEvaluation_Tests(unittest.TestCase):
         self.assertEqual(expected_predict_call, learner.predict_call[0])
         self.assertEqual(expected_learn_call, learner.learn_call)
         self.assertEqual(expected_task_results, task_results)
+
+class SeededEvaluation_Tests(unittest.TestCase):
+
+    def test_no_seed(self):
+        class Evaluation:
+            def process(self,learner,interactions):
+                return learner,interactions
+
+        self.assertEqual((1,2),SeededEvaluation(Evaluation(),1).process(1,2))
+
+    def test_seed(self):
+        class Evaluation:
+            def process(self,learner,interactions,seed):
+                return learner,interactions,seed
+
+        self.assertEqual((1,2,1),SeededEvaluation(Evaluation(),1).process(1,2))
+
+    def test_exception(self):
+        class Evaluation:
+            def process(self,learner,interactions,seed):
+                raise Exception("ERROR")
+
+        with self.assertRaises(Exception) as e:
+            SeededEvaluation(Evaluation(),1).process(1,2)
+
+        self.assertEqual("ERROR", str(e.exception))
 
 if __name__ == '__main__':
     unittest.main()

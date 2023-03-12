@@ -39,7 +39,26 @@ class Slice(pipes.Slice, EnvironmentFilter):
 
 class Shuffle(pipes.Shuffle, EnvironmentFilter):
     """Shuffle a sequence of Interactions in an Environment."""
-    pass
+    
+    def filter(self, interactions: Iterable[Interaction]) -> Sequence[Any]:
+        first, interactions = peek_first(interactions)
+
+        if 'action' in first and 'reward' in first:
+            #this is here because otherwise offpolicy evaluation can give a
+            #very biased estimate when seeds are the same. To see this run.
+                # import numpy as np
+                # from coba import CobaRandom
+
+                # N    = 1_000_000
+                # seed = 9
+
+                # R1 = CobaRandom(seed).randoms(N)
+                # R2 = CobaRandom(seed).shuffle(R1)
+
+                # np.corrcoef(R1,R2)
+            yield from CobaRandom("AB").shuffle(list(super().filter(interactions)))
+        else:
+            yield from super().filter(interactions)
 
 class Reservoir(pipes.Reservoir, EnvironmentFilter):
     """Take a fixed number of random Interactions from an Environment."""
@@ -1018,13 +1037,14 @@ class Chunk(EnvironmentFilter):
 
 class Logged(EnvironmentFilter):
 
-    def __init__(self, learner: Learner, rewards:Literal["DIR","IPS"] = "DIR") -> None:
+    def __init__(self, learner: Learner, rewards:Literal["DM","IPS"] = "DM", seed:float = 1.23) -> None:
         self._learner = learner
         self._rewards = rewards
+        self._seed    = seed
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"learner": SafeLearner(self._learner).params, "logged":True, "rewards": self._rewards}
+        return {"learner": SafeLearner(self._learner).params, "logged":True, "rewards": self._rewards, "log_seed":self._seed}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
@@ -1040,13 +1060,15 @@ class Logged(EnvironmentFilter):
 
         I1,I2 = tee(interactions,2)
         flat_int = Unbatch().filter(I1)
-        eval_log = SimpleEvaluation(record=['action','reward','probability']).process(copy.deepcopy(self._learner),I2)
+        eval_log = SimpleEvaluation(record=['action','reward','probability']).process(copy.deepcopy(self._learner),I2,self._seed)
         for interaction, log in zip(flat_int,eval_log):
             out = interaction.copy()
             out.update(log)
 
             if self._rewards == "IPS":
-                out['rewards'] = IPSReward(log['reward'],log['action'],log['probability'])
+                actions = interaction.get('actions',[])
+                action  = actions.index(log['action']) if len(actions) > 0 else log['action']
+                out['rewards'] = IPSReward(log['reward'],action,log['probability'])
 
             yield out
 

@@ -50,6 +50,15 @@ class Shuffle_Tests(unittest.TestCase):
     def test_str(self):
         self.assertEqual("{'shuffle': 1}", str(Shuffle(1)))
 
+    def test_logged(self):
+        logged_interactions = [{'context':0,'action':1, 'reward':2},{'context':1,'action':1, 'reward':2},{'context':2,'action':1, 'reward':2}]
+        normal_interactions = [{'context':0},{'context':1},{'context':2}]
+
+        logged_order = [i['context'] for i in Shuffle(1).filter(logged_interactions)]
+        normal_order = [i['context'] for i in Shuffle(1).filter(normal_interactions)]
+
+        self.assertNotEqual(logged_order,normal_order)
+
 class Sort_Tests(unittest.TestCase):
 
     def test_sort1_logged(self):
@@ -2109,8 +2118,8 @@ class Logged_Tests(unittest.TestCase):
         self.assertEqual(output, expected_output)
 
     def test_ips(self):
-        initial_input = {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
-        expected_output = {'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":IPSReward(-1,0,1)}
+        initial_input = {'context':None, 'actions':[1,2,3], "rewards":L1Reward(1)}
+        expected_output = {'context':None, 'action':1, "reward":-1, 'probability':1, 'actions':[1,2,3], "rewards":IPSReward(-1,0,1)}
 
         output = list(Logged(FixedLearner([1,0,0]),rewards="IPS").filter([initial_input]*2))
 
@@ -2143,8 +2152,7 @@ class Logged_Tests(unittest.TestCase):
     def test_params(self):
         learner = FixedLearner([1,0,0])
         logged  = Logged(learner)
-
-        self.assertEqual(logged.params,{"learner":learner.params,"logged":True,"rewards":"DIR"})
+        self.assertEqual(logged.params,{"learner":learner.params,"logged":True,"rewards":"DM","log_seed":1.23})
 
 class Mutable_Tests(unittest.TestCase):
 

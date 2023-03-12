@@ -19,7 +19,6 @@ from coba.primitives import Batch
 from coba.statistics import percentile
 from coba.utilities import PackageChecker, peek_first
 
-
 class LearnerTask(ABC):
     """A task which describes a Learner."""
 
@@ -55,17 +54,31 @@ class EvaluationTask(ABC):
     """A task which evaluates a Learner on an Environment."""
 
     @abstractmethod
-    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
+    def process(self, learner: Learner, interactions: Iterable[Interaction], seed:float = None) -> Iterable[Mapping[Any,Any]]:
         """Process the EvaluationTask.
 
         Args:
             learner: The Learner that we wish to evaluate.
             interactions: The Interactions which we wish to evaluate on.
+            seed: An optional argument to seed randomness during evaluation.
 
         Returns:
-            An iterable of evaluation statistics (for online evaluation there should be one dict per interaction).
+            An iterable of evaluation results (e.g., for online evaluation there should be one dict per interaction).
         """
         ...
+
+class SeededEvaluation(EvaluationTask):
+
+    def __init__(self, evaluator: EvaluationTask, seed:float = None):
+        self._evaluator = evaluator
+        self._seed      = seed
+
+    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any, Any]]:
+        try:
+            return self._evaluator.process(learner, interactions, self._seed)
+        except TypeError as ex:
+            if str(ex) != "process() takes 3 positional arguments but 4 were given": raise
+            return self._evaluator.process(learner, interactions)
 
 class SimpleEvaluation(EvaluationTask):
 
@@ -90,9 +103,9 @@ class SimpleEvaluation(EvaluationTask):
             # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
             PackageChecker.vowpalwabbit('SimpleEvaluation.__init__')
 
-    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
-
-        learner = SafeLearner(learner)
+    def process(self, learner: Learner, interactions: Iterable[Interaction], seed: float = 1) -> Iterable[Mapping[Any,Any]]:
+        
+        learner = SafeLearner(learner, seed)
 
         first, interactions = peek_first(interactions)
 

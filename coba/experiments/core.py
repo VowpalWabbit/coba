@@ -10,7 +10,7 @@ from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLo
 from coba.exceptions import CobaException
 
 from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByChunk, MaxChunkSize, ProcessWorkItems
-from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
+from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask, SeededEvaluation
 from coba.experiments.tasks   import SimpleLearnerInfo, SimpleEnvironmentInfo, SimpleEvaluation
 from coba.experiments.results import Result, TransactionIO
 
@@ -122,13 +122,14 @@ class Experiment:
         """The maximum number of tasks allowed in a chunk before breaking a chunk into smaller chunks."""
         return self._maxtasksperchunk if self._maxtasksperchunk is not None else CobaContext.experiment.maxtasksperchunk
 
-    def run(self, result_file:str = None, quiet:bool = False, processes:int = None) -> Result:
+    def run(self, result_file:str = None, quiet:bool = False, processes:int = None, seed: int = 1) -> Result:
         """Run the experiment and return the results.
 
         Args:
             result_file: The file for writing and restoring results.
             quiet: Indicates that logged output should be turned off.
             processes: The number of processes to create for evaluating the experiment.
+            seed: The seed that will determine all randomness within the experiment.
         """
         mp, mc, mt = (processes or self.processes), self.maxchunksperchild, self.maxtasksperchunk
 
@@ -154,7 +155,7 @@ class Experiment:
             assert n_given_learners     == restored.experiment.get('n_learners',n_given_learners)        , "The current experiment doesn't match the given transaction log."
             assert n_given_environments == restored.experiment.get('n_environments',n_given_environments), "The current experiment doesn't match the given transaction log."
 
-        workitems  = CreateWorkItems(self._pairs, self._learner_task, self._environment_task, self._evaluation_task)
+        workitems  = CreateWorkItems(self._pairs, self._learner_task, self._environment_task, SeededEvaluation(self._evaluation_task,seed))
         unfinished = RemoveFinished(restored)
         chunk      = ChunkByChunk(mp)
         max_chunk  = MaxChunkSize(mt)
