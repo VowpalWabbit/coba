@@ -77,7 +77,7 @@ class SeededEvaluation(EvaluationTask):
         try:
             return self._evaluator.process(learner, interactions, self._seed)
         except TypeError as ex:
-            if str(ex) != "process() takes 3 positional arguments but 4 were given": raise
+            if 'process()' not in str(ex) or '3' not in str(ex) or '4' not in str(ex): raise
             return self._evaluator.process(learner, interactions)
 
 class SimpleEvaluation(EvaluationTask):
