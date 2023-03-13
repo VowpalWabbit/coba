@@ -219,19 +219,21 @@ class SimpleEvaluation(EvaluationTask):
                         out['ope_loss'] = float("nan")
 
             if interaction:
-                interaction.pop("actions",None)
-                interaction.pop("rewards",None)
-                interaction.pop("action",None)
-                interaction.pop("reward",None)
-                interaction.pop("probability",None)
-                out.update(interaction)
+                METRICS_EXCLUDED_FROM_OUT_UPDATE = {
+                    "actions",
+                    "rewards",
+                    "action",
+                    "reward",
+                    "probability",
+                    "ope_loss"
+                }
+                out.update({k: v for k, v in interaction.items() if k not in METRICS_EXCLUDED_FROM_OUT_UPDATE})
 
             if learning_info:
                 out.update(learning_info)
                 learning_info.clear()
 
             if out:
-
                 # for off-policy evaluation purposes we need to log each reward even when batching.
                 # Therefore, we have two options:
                 #   (1) store a batched version of reward and keep out batched. With this option we
