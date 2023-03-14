@@ -8,7 +8,7 @@ from typing import Callable, Any
 import coba.pipes
 import coba.random
 
-from coba.statistics import mean,var,stdev
+from coba.statistics import mean,var
 from coba.learners import VowpalMediator, SafeLearner
 from coba.environments import SimulatedInteraction, LinearSyntheticSimulation
 from coba.environments import Scale, Flatten, Grounded, Chunk, Impute
@@ -24,10 +24,17 @@ from coba.experiments import SimpleEvaluation
 from coba.primitives import Categorical, HashableSparse, ScaleReward, L1Reward
 
 Timeable = Callable[[],Any]
-Scalable = Callable[[int],Timeable]
+Scalable = Callable[[list],Timeable]
 
-sensitivity_scaling = 10
-print_time = False
+sensitivity_scaling = 10 # when deploying to Github workflows we reduce our timing sensitivity by a factor of 10
+print_time = False # a global variable that determines whether the below tests print or assert
+
+#################################################
+# This file has all of the runtime based unittests.
+# All of the benchmark times below were done on Mark Rucker's laptop. They may not be the same for you.
+# For individual tests of interest turn the specific test's print_time to True to get the correct baseline.
+# Look at the doc args below for _assert_call_time, _assert_scale_time and _z_assert_less for more information.
+#################################################
 
 class Performance_Tests(unittest.TestCase):
 
@@ -458,15 +465,7 @@ class Performance_Tests(unittest.TestCase):
 
     def test_simulated_interaction_get_context(self):
         si1 = SimulatedInteraction(1,[1,2],[3,4])
-        self._assert_call_time(lambda: si1['actions'], .0022, print_time, number=10000)
-        #si2 = Interaction2(1,[1,2],[3,4])
-        #self._assert_call_time(lambda: si2.actions, .0022, print_time, number=1000000)
-
-    def test_simulated_interaction_get_context(self):
-        si1 = SimulatedInteraction(1,[1,2],[3,4])
-        self._assert_call_time(lambda: si1['actions'], .0022, print_time, number=10000)
-        #si2 = Interaction2(1,[1,2],[3,4])
-        #self._assert_call_time(lambda: si2.actions, .0022, print_time, number=1000000)
+        self._assert_call_time(lambda: si1['context'], .0022, print_time, number=10000)
 
     @unittest.skip("An interesting and revealing test but not good to run regularly")
     def test_integration_performance(self):
@@ -521,12 +520,31 @@ class Performance_Tests(unittest.TestCase):
 
         self._assert_call_time(run_async2, 2.5, print_time, number=10)
 
-    def _assert_call_time(self, timeable: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
+    def _assert_call_time(self, func: Timeable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
+        """ Test that the given func scales linearly with the number of items.
+
+            Args:
+                func: The function we want to test its run time
+                expected: The expected runtime in seconds
+                print_time: whether to print the run time or assert the run time (if true the run time will be written)
+                number: the number of times to pass items to func for timing
+                setup: passed through to timeit.repeat.
+        """
         if print_time: print()
-        self._z_assert_less(timeit.repeat(timeable, setup=setup, number=1, repeat=number), expected, print_time)
+        self._z_assert_less(timeit.repeat(func, setup=setup, number=1, repeat=number), expected, print_time)
         if print_time: print()
 
-    def _assert_scale_time(self, items: list, func, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
+    def _assert_scale_time(self, items: list, func: Scalable, expected:float, print_time:bool, *, number:int=1000, setup="pass") -> None:
+        """ Test that the given func scales linearly with the number of items.
+
+            Args:
+                items: The items to pass to func
+                func: The function we want to test its run time
+                expected: The expected runtime in seconds
+                print_time: whether to print the run time or assert the run time (if true the run time will be written)
+                number: the number of times to pass items to func for timing
+                setup: passed through to timeit.repeat.
+        """
         if print_time: print()
         items_1 = items*1
         items_2 = items*2
@@ -535,6 +553,7 @@ class Performance_Tests(unittest.TestCase):
         if print_time: print()
 
     def _z_assert_less(self, samples, expected, print_it):
+        """Perform a Z-Test and only report that a test has failed with greater than 95% CI."""
         from statistics import stdev
         from math import sqrt
 
