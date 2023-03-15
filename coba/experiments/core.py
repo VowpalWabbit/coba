@@ -10,7 +10,7 @@ from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLo
 from coba.exceptions import CobaException
 
 from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByChunk, MaxChunkSize, ProcessWorkItems
-from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask, SeededEvaluation
+from coba.experiments.tasks   import EnvironmentTask, EvaluationTask, LearnerTask
 from coba.experiments.tasks   import SimpleLearnerInfo, SimpleEnvironmentInfo, SimpleEvaluation
 from coba.experiments.results import Result, TransactionIO
 
@@ -133,6 +133,7 @@ class Experiment:
         """
         mp, mc, mt = (processes or self.processes), self.maxchunksperchild, self.maxtasksperchunk
 
+        CobaContext.store['experiment_seed'] = seed
         is_multiproc = mp > 1 or mc != 0
 
         if quiet: 
@@ -155,7 +156,7 @@ class Experiment:
             assert n_given_learners     == restored.experiment.get('n_learners',n_given_learners)        , "The current experiment doesn't match the given transaction log."
             assert n_given_environments == restored.experiment.get('n_environments',n_given_environments), "The current experiment doesn't match the given transaction log."
 
-        workitems  = CreateWorkItems(self._pairs, self._learner_task, self._environment_task, SeededEvaluation(self._evaluation_task,seed))
+        workitems  = CreateWorkItems(self._pairs, self._learner_task, self._environment_task, self._evaluation_task)
         unfinished = RemoveFinished(restored)
         chunk      = ChunkByChunk(mp)
         max_chunk  = MaxChunkSize(mt)
@@ -163,7 +164,7 @@ class Experiment:
         process    = CobaMultiprocessor(ProcessWorkItems(), mp, mc, False)
 
         try:
-            if not restored: sink.write([["T0", {'n_learners':n_given_learners, 'n_environments':n_given_environments, 'description':self._description }]])
+            if not restored: sink.write([["T0", {'n_learners':n_given_learners, 'n_environments':n_given_environments, 'description':self._description, 'seed':seed }]])
             Pipes.join(workitems, unfinished, chunk, max_chunk, process, sink).run()
 
         except KeyboardInterrupt: # pragma: no cover
@@ -176,6 +177,7 @@ class Experiment:
             CobaContext.logger = CobaContext.logger.undecorate()
 
         if quiet: CobaContext.logger = old_logger
+        del CobaContext.store['experiment_seed']
 
         return sink.read()
 

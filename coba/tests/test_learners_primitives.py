@@ -303,13 +303,6 @@ class SafeLearner_Tests(unittest.TestCase):
 
         self.assertEqual(str(e.exception),"1")
 
-    @unittest.skip("Skipped because it is a rare use case and we don't want to support it for now. Can be added later.")
-    def test_pdf_prediction(self):
-        with self.assertRaises(CobaException) as e:
-            action,score,kwargs = SafeLearner(FixedLearner(lambda a: 1 if a == 0 else 0)).predict(None,[0,1])
-        
-        self.assertEqual(str(e.exception), "PDFs predictions are currently not supported.")
-
     def test_infer_types(self):
         learner = SafeLearner(None)
 

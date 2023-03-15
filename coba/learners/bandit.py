@@ -1,11 +1,11 @@
 import math
 
 from collections import defaultdict
-from typing import Any, Dict, Optional, cast, Hashable, Union
+from typing import Any, Dict, Optional, cast, Hashable
 
 from coba.primitives import Context, Action, Actions
 from coba.statistics import OnlineVariance
-from coba.learners.primitives import Learner, PMF, PMF, PDF, requires_hashables
+from coba.learners.primitives import Learner, PMF, PMF, requires_hashables
 
 @requires_hashables
 class EpsilonBanditLearner(Learner):
@@ -133,28 +133,23 @@ class UcbBanditLearner(Learner):
 class FixedLearner(Learner):
     """A learner that selects actions according to a fixed distribution."""
 
-    def __init__(self, fixed_pmf_pdf: Union[PMF,PDF]) -> None:
+    def __init__(self, pmf: PMF) -> None:
         """Instantiate a FixedLearner.
 
         Args:
-            fixed_pmf_pdf: A PMF or PDF whose values are the probability of taking each action.
+            pmf: A PMF whose values are the probability of taking each action.
         """
 
-        if callable(fixed_pmf_pdf):
-            self._fixed_pmf = None
-            self._fixed_pdf = fixed_pmf_pdf
-        else:
-            assert round(sum(fixed_pmf_pdf),3) == 1, "The given pmf must sum to one to be a valid pmf."
-            assert all([p >= 0 for p in fixed_pmf_pdf]), "All given probabilities of the pmf must be greater than or equal to 0."
-            self._fixed_pmf = fixed_pmf_pdf
-            self._fixed_pdf = None
+        assert round(sum(pmf),3) == 1, "The given pmf must sum to one to be a valid pmf."
+        assert all([p >= 0 for p in pmf]), "All given probabilities of the pmf must be greater than or equal to 0."
+        self._pmf = pmf
 
     @property
     def params(self) -> Dict[str, Any]:
         return {"family":"fixed"}
 
     def predict(self, context: Context, actions: Actions) -> PMF:
-        return PMF(self._fixed_pmf) if self._fixed_pmf else self._fixed_pdf
+        return PMF(self._pmf)
 
     def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
         pass

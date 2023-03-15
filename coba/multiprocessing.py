@@ -62,7 +62,7 @@ class CobaMultiprocessor(Filter[Iterable[Any], Iterable[Any]]):
 
                 logger = CobaContext.logger
                 cacher = ConcurrentCacher(CobaContext.cacher,array,lock)
-                store  = { "openml_semaphore": mp.Semaphore(3) }
+                store  = { "openml_semaphore": mp.Semaphore(3), **CobaContext.store }
 
                 filter = CobaMultiprocessor.ProcessFilter(self._filter, logger, cacher, store, write_stdlog)
 

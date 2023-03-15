@@ -17,6 +17,7 @@ from coba            import pipes, primitives
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
+from coba.contexts   import CobaContext
 from coba.utilities  import peek_first
 from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward, IPSReward
 from coba.primitives import Feedback, BatchFeedback
@@ -1058,9 +1059,11 @@ class Logged(EnvironmentFilter):
         #Avoid circular dependency
         from coba.experiments.tasks import SimpleEvaluation
 
+        CobaContext.store['experiment_seed'] = self._seed
+
         I1,I2 = tee(interactions,2)
         flat_int = Unbatch().filter(I1)
-        eval_log = SimpleEvaluation(record=['action','reward','probability']).process(copy.deepcopy(self._learner),I2,self._seed)
+        eval_log = SimpleEvaluation(record=['action','reward','probability']).process(copy.deepcopy(self._learner),I2)
         for interaction, log in zip(flat_int,eval_log):
             out = interaction.copy()
             out.update(log)

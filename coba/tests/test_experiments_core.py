@@ -166,7 +166,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         ]
 
         self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
-        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, 'seed':1}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -200,7 +200,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         ]
 
         self.assertTrue(not any([ "Restoring existing experiment logs..." in i for i in CobaContext.logger.sink.items]))
-        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -236,7 +236,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":1, "learner_id":0, "index":3, "reward":5}
         ]
 
-        self.assertDictEqual({"description":"abc", "n_learners":1, "n_environments":2}, result.experiment)
+        self.assertDictEqual({"description":"abc", "n_learners":1, "n_environments":2, "seed":1}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -265,7 +265,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":2, "reward":1},
         ]
 
-        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -295,7 +295,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_environments = result._environments.to_dicts()
         actual_interactions = result.interactions.to_dicts()
 
-        self.assertDictEqual({"description":None, "n_learners":2, "n_environments":1}, result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":2, "n_environments":1, "seed":1}, result.experiment)
         self.assertEqual(actual_learners, expected_learners)
         self.assertEqual(actual_environments, expected_environments)
         self.assertEqual(actual_interactions, expected_interactions)
@@ -321,7 +321,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":2, "reward":1, "Modulo":"0"},
         ]
 
-        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, actual_result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, actual_result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -348,7 +348,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":2, "reward":1},
         ]
 
-        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, actual_result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, actual_result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -387,9 +387,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         ]
 
         self.assertIsInstance(CobaContext.logger, IndentLogger)
-        #self.assertTrue("Restoring existing experiment logs..." in CobaContext.logger.sink.items[-1])
 
-        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, second_result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, second_result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -415,7 +414,7 @@ class Experiment_Single_Tests(unittest.TestCase):
             {"environment_id":0, "learner_id":0, "index":2, "reward":1},
         ]
 
-        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1}, result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":1, "n_environments":1, "seed":1}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)
@@ -434,8 +433,8 @@ class Experiment_Single_Tests(unittest.TestCase):
         actual_interactions = result.interactions.to_dicts()
 
         expected_learners     = [
-            {"learner_id":0, "family":"Modulo", "p":'0'},
-            {"learner_id":1, "family":"Broken", "p":None    }
+            {"learner_id":0, "family":"Modulo", "p":'0' },
+            {"learner_id":1, "family":"Broken", "p":None}
         ]
         expected_environments = [
             {"environment_id":0, "type":'LambdaSimulation'},
@@ -452,7 +451,7 @@ class Experiment_Single_Tests(unittest.TestCase):
         self.assertIsInstance(CobaContext.logger, IndentLogger)
         self.assertEqual(2, sum([int("Unexpected exception:" in item) for item in CobaContext.logger.sink.items]))
 
-        self.assertDictEqual({"description":None, "n_learners":2, "n_environments":2}, result.experiment)
+        self.assertDictEqual({"description":None, "n_learners":2, "n_environments":2, "seed":1}, result.experiment)
         self.assertCountEqual(actual_learners, expected_learners)
         self.assertCountEqual(actual_environments, expected_environments)
         self.assertCountEqual(actual_interactions, expected_interactions)

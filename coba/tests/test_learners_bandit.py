@@ -140,7 +140,6 @@ class UcbBanditLearner_Tests(unittest.TestCase):
 class FixedLearner_Tests(unittest.TestCase):
 
     def test_params(self):
-
         self.assertEqual({"family":"fixed"}, FixedLearner([1/2,1/2]).params)
 
     def test_create_errors(self):
@@ -153,13 +152,6 @@ class FixedLearner_Tests(unittest.TestCase):
     def test_predict(self):
         learner = FixedLearner([1/3,1/3,1/3])
         self.assertEqual([1/3,1/3,1/3], learner.predict(None, [1,2,3]))
-
-    def test_pdf(self):
-        learner = FixedLearner(lambda a: 1 if a==0 else 0)
-        pdf = learner.predict(None, [1,2,3])
-        self.assertEqual(1,pdf(0))
-        self.assertEqual(0,pdf(1))
-
 
     def test_learn(self):
         FixedLearner([1/3,1/3,1/3]).learn(None, 1, 1, .5, None)

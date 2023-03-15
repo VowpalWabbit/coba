@@ -67,19 +67,6 @@ class EvaluationTask(ABC):
         """
         ...
 
-class SeededEvaluation(EvaluationTask):
-
-    def __init__(self, evaluator: EvaluationTask, seed:float = None):
-        self._evaluator = evaluator
-        self._seed      = seed
-
-    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any, Any]]:
-        try:
-            return self._evaluator.process(learner, interactions, self._seed)
-        except TypeError as ex:
-            if 'process()' not in str(ex) or '3' not in str(ex) or '4' not in str(ex): raise
-            return self._evaluator.process(learner, interactions)
-
 class SimpleEvaluation(EvaluationTask):
 
     def __init__(self, 
@@ -103,9 +90,9 @@ class SimpleEvaluation(EvaluationTask):
             # https://vowpalwabbit.org/docs/vowpal_wabbit/python/latest/tutorials/off_policy_evaluation.html
             PackageChecker.vowpalwabbit('SimpleEvaluation.__init__')
 
-    def process(self, learner: Learner, interactions: Iterable[Interaction], seed: float = 1) -> Iterable[Mapping[Any,Any]]:
-        
-        learner = SafeLearner(learner, seed)
+    def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
+
+        learner = SafeLearner(learner, CobaContext.store.get("experiment_seed"))
 
         first, interactions = peek_first(interactions)
 
@@ -276,7 +263,7 @@ class ClassEnvironmentInfo(EnvironmentTask):
         #[3] found that information theoretic measures and landmarking measures are most important
 
         interactions = peek_first(interactions)[1]
-        
+
         if not interactions: return {}
 
         contexts, _ ,rewards = zip(*[ (i['context'], i['actions'], i['rewards']) for i in interactions ])
