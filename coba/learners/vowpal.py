@@ -505,7 +505,6 @@ class VowpalCoverLearner(VowpalLearner):
         vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
 
-
 class VowpalRndLearner(VowpalLearner):
     def __init__(self,
                  rnd: int = 3,
@@ -544,7 +543,6 @@ class VowpalRndLearner(VowpalLearner):
         vw_kwargs.update(kwargs)
         vw_args_string = " ".join(self.make_args(namespace_interactions=features, vw_kwargs=vw_kwargs))
         super().__init__(vw_args_string, vw)
-
 
 class VowpalRegcbLearner(VowpalLearner):
     """A wrapper around VowpalLearner that provides more documentation. For more
@@ -635,9 +633,9 @@ class VowpalOffPolicyLearner(VowpalLearner):
     """A wrapper around VowpalLearner that provides more documentation. For more
         information on the types of exploration algorithms availabe in VW see `here`__.
 
-        This wrapper in particular performs policy learning without any exploration. This is
-        only correct when training examples come from a logging policy so that any exploration
-        on our part would be irrelevant.
+        This wrapper performs policy learning without any exploration. This is only correct 
+        when training examples come from a logging policy so that any exploration on our 
+        part would be irrelevant.
 
         __ https://github.com/VowpalWabbit/vowpal_wabbit/wiki/Contextual-Bandit-algorithms
     """

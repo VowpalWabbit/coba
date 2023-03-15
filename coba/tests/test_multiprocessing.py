@@ -61,7 +61,6 @@ class CobaMultiprocessor_Tests(unittest.TestCase):
     def test_filter_exception_logging(self):
         CobaContext.logger = DecoratedLogger([ExceptLog()],BasicLogger(ListSink()),[])
         CobaContext.cacher = NullCacher()
-        
 
         with self.assertRaises(Exception) as e:
             list(CobaMultiprocessor(ExceptionFilter(), 2, 1, False).filter(range(4)))
