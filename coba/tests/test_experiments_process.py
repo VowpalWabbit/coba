@@ -104,7 +104,7 @@ class CreateWorkItems_Tests(unittest.TestCase):
         self.assertEqual(1, len([t for t in works if t.env is env2 and not t.lrn]))
 
         for l,e in pairs:
-            self.assertEqual(0, len([t for t in works if t.env is e and t.lrn is l]))
+            self.assertEqual(1, len([t for t in works if t.env is e and t.lrn is l and t.copy==True]))
 
     def test_uneven_pairs(self):
         env1 = LambdaSimulation(5, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
@@ -129,9 +129,9 @@ class CreateWorkItems_Tests(unittest.TestCase):
         self.assertEqual(1, len([t for t in works if t.env is env1 and not t.lrn]))
         self.assertEqual(1, len([t for t in works if t.env is env2 and not t.lrn]))
 
-        self.assertEqual(0, len([t for t in works if t.env is env1 and t.lrn is lrn1]))
-        self.assertEqual(0, len([t for t in works if t.env is env2 and t.lrn is lrn1]))
-        self.assertEqual(1, len([t for t in works if t.env is env1 and t.lrn is lrn2]))
+        self.assertEqual(1, len([t for t in works if t.env is env1 and t.lrn is lrn1 and t.copy == True]))
+        self.assertEqual(1, len([t for t in works if t.env is env2 and t.lrn is lrn1 and t.copy == True]))
+        self.assertEqual(1, len([t for t in works if t.env is env1 and t.lrn is lrn2 and t.copy == False]))
 
 class RemoveFinished_Tests(unittest.TestCase):
 
@@ -511,6 +511,42 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(['T3', (0,0), []], transactions[0])
         self.assertEqual(['T3', (1,1), []], transactions[1])
 
+    def test_duplicate_learn_eval_tasks_copy_true(self):
+
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
+
+        sim1 = CountReadSimulation()
+        sim2 = CountReadSimulation()
+
+        task1 = ObserveTask()
+        task2 = ObserveTask()
+
+        items = [ WorkItem(0, 0, sim1, lrn1, task1, True), WorkItem(1, 0, sim2, lrn1, task2, True) ]
+
+        list(ProcessWorkItems().filter([items]))
+
+        self.assertIsNot(task1.observed[0], lrn1)
+        self.assertIsNot(task2.observed[0], lrn1)
+
+    def test_duplicate_learn_eval_tasks_copy_false(self):
+
+        lrn1 = ModuloLearner("1")
+        lrn2 = ModuloLearner("2")
+
+        sim1 = CountReadSimulation()
+        sim2 = CountReadSimulation()
+
+        task1 = ObserveTask()
+        task2 = ObserveTask()
+
+        items = [ WorkItem(0, 0, sim1, lrn1, task1, False), WorkItem(1, 0, sim2, lrn1, task2, False) ]
+
+        list(ProcessWorkItems().filter([items]))
+
+        self.assertIs(task1.observed[0], lrn1)
+        self.assertIs(task2.observed[0], lrn1)
+
     def test_two_learn_tasks(self):
 
         lrn1 = ModuloLearner("1")
@@ -571,7 +607,6 @@ class ProcessTasks_Tests(unittest.TestCase):
         task1 = ObserveTask()
         task2 = ObserveTask()
         task3 = ObserveTask()
-
 
         items = [ WorkItem(0, None, src1, None, task1), WorkItem(0, 0, src1, lrn1, task2), WorkItem(1, None, src2, None, task3) ]
 

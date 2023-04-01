@@ -19,13 +19,15 @@ class WorkItem:
         lrn_id: Optional[int],
         env   : Optional[Environment],
         lrn   : Optional[Learner],
-        task  : Union[LearnerTask, EnvironmentTask, EvaluationTask]) -> None:
+        task  : Union[LearnerTask, EnvironmentTask, EvaluationTask],
+        copy  : bool = False) -> None:
 
         self.env_id = env_id
         self.lrn_id = lrn_id
         self.env    = env
         self.lrn    = lrn
         self.task   = task
+        self.copy   = copy
 
 class CreateWorkItems(Source[Iterable[WorkItem]]):
 
@@ -66,7 +68,7 @@ class CreateWorkItems(Source[Iterable[WorkItem]]):
                 yield WorkItem(envs[env], None, env, None, self._environment_task)
 
             if learner_counts[lrn] > 1:
-                yield WorkItem(envs[env], lrns[lrn], env, deepcopy(lrn), self._evaluation_task)
+                yield WorkItem(envs[env], lrns[lrn], env, lrn, self._evaluation_task,copy=True)
             else:
                 yield WorkItem(envs[env], lrns[lrn], env, lrn, self._evaluation_task)
 
@@ -79,7 +81,6 @@ class RemoveFinished(Filter[Iterable[WorkItem], Iterable[WorkItem]]):
         finished_learners = set(self._restored.learners.col_values()[0]) if self._restored else set()
         finished_environments = set(self._restored.environments.col_values()[0]) if self._restored else set()
         finished_evaluations = set(zip(*self._restored.interactions.col_values()[:2])) if self._restored else set()
-
 
         for task in tasks:
 
@@ -191,7 +192,8 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                                 continue
 
                             with CobaContext.logger.time(f"Evaluating Learner {item.lrn_id} on Environment {item.env_id}..."):
-                                row = list(item.task.process(item.lrn, finalizer.filter(interactions)))
+                                lrn = item.lrn if not item.copy else deepcopy(item.lrn)
+                                row = list(item.task.process(lrn, finalizer.filter(interactions)))
                                 yield ["T3", (item.env_id, item.lrn_id), row]
 
                     except Exception as e:
