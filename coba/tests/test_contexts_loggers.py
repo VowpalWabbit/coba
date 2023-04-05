@@ -7,7 +7,7 @@ import datetime
 
 from coba.exceptions import CobaException
 from coba.pipes      import ListSink, NullSink
-from coba.contexts   import IndentLogger, BasicLogger, NullLogger, DecoratedLogger, ExceptLog, NameLog, StampLog
+from coba.contexts   import IndentLogger, BasicLogger, NullLogger, ExceptionLogger, DecoratedLogger, ExceptLog, NameLog, StampLog
 
 class LogDecorator:
 
@@ -19,10 +19,20 @@ class LogDecorator:
 
 class NullLogger_Tests(unittest.TestCase):
     def test_log_does_nothing(self):
-        NullLogger().log("abc")
+        logger = NullLogger(ListSink())
+        logger.log("abc")
+        self.assertEqual([],logger.sink.items)
+
+    def test_with_log_does_nothing(self):
+        logger = NullLogger(ListSink())
+        with logger.log("abc") as lg:
+            self.assertIs(lg,logger)
+        self.assertEqual([],logger.sink.items)
 
     def test_time_does_nothing(self):
-        NullLogger().time("abc")
+        logger = NullLogger(ListSink())
+        logger.time("abc")
+        self.assertEqual([],logger.sink.items)
 
     def test_sink_is_set(self):
         logger = NullLogger()
@@ -438,6 +448,29 @@ class IndentLogger_Tests(unittest.TestCase):
         logger.sink = NullSink()
         self.assertIsInstance(logger.sink, NullSink)
 
+class ExceptionLogger_Tests(unittest.TestCase):
+    def test_log_str_nothing(self):
+        logger = ExceptionLogger(ListSink())
+        logger.log("abc")
+        self.assertEqual([],logger.sink.items)
+
+    def test_exception_logged(self):
+        logger = ExceptionLogger(ListSink())
+        exception = Exception("Test Exception")
+        logger.log(exception)
+        self.assertEqual([ExceptLog().filter(exception)],logger.sink.items)
+
+    def test_time_does_nothing(self):
+        logger = ExceptionLogger(ListSink())
+        logger.time("abc")
+        self.assertEqual([],logger.sink.items)
+
+    def test_sink_is_set(self):
+        logger = ExceptionLogger(ListSink())
+        self.assertIsInstance(logger.sink, ListSink)
+        logger.sink = None
+        self.assertIsNone(logger.sink)
+
 class DecoratedLogger_Tests(unittest.TestCase):
 
     def test_no_decorators(self):
@@ -576,7 +609,6 @@ class ExceptLog_Tests(unittest.TestCase):
         expected_log = f"Unexpected exception:\n\n{tb}\n  {msg}"
 
         self.assertEqual(log, expected_log)
-
 
     def test_filter_exception_raise(self):
 

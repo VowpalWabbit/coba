@@ -3,7 +3,7 @@ import traceback
 
 from abc import abstractmethod, ABC
 from multiprocessing import current_process
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from typing import ContextManager, Iterator, Sequence, Union
 
@@ -51,12 +51,13 @@ class Logger(ABC):
 class NullLogger(Logger):
     """A logger which writes nothing."""
 
-    def __init__(self) -> None:
-        self._sink = NullSink()
+    def __init__(self, sink: Sink[str] = NullSink()) -> None:
+        """Instantiate a NullLogger.
 
-    @contextmanager
-    def _context(self) -> 'Iterator[Logger]':
-        yield self
+        Args:
+            sink: The sink to write to (by default null).
+        """
+        self._sink = sink
 
     @property
     def sink(self) -> Sink[str]:
@@ -67,10 +68,10 @@ class NullLogger(Logger):
         self._sink = sink
 
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
-        return self._context()
+        return nullcontext(self)
 
     def time(self, message: str) -> 'ContextManager[Logger]':
-        return self._context()
+        return nullcontext(self)
 
 class BasicLogger(Logger):
     """A Logger with flat hierarchy and separate begin/end messages."""
@@ -207,6 +208,34 @@ class IndentLogger(Logger):
     def time(self, message: str) -> 'ContextManager[Logger]':
         return self._time_context(message)
 
+class ExceptionLogger(Logger):
+    """A Logger that only logs exceptions."""
+
+    def __init__(self, sink: Sink[str] = ConsoleSink()):
+        """Instantiate an ExceptionLogger.
+
+        Args:
+            sink: The sink to write the logs to (by default console).
+        """
+        self._sink = sink
+        self._filter = ExceptLog()
+
+    @property
+    def sink(self) -> Sink[str]:
+        return self._sink
+
+    @sink.setter
+    def sink(self, sink: Sink[str]):
+        self._sink = sink
+
+    def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
+        if isinstance(message,Exception):
+            self._sink.write(self._filter.filter(message))
+        return nullcontext(self)
+
+    def time(self, message: str) -> 'ContextManager[Logger]':
+        return nullcontext(self)
+
 class DecoratedLogger(Logger):
     """A Logger which decorates a base logger."""
 
@@ -231,8 +260,8 @@ class DecoratedLogger(Logger):
 
     @sink.setter
     def sink(self, sink: Sink[str]):
-        self._original_sink = sink
-        self._original_logger.sink   = Pipes.join(*self._post_decorators, sink)
+        self._original_sink        = sink
+        self._original_logger.sink = Pipes.join(*self._post_decorators, sink)
 
     def log(self, message: Union[str,Exception]) -> 'ContextManager[Logger]':
         return self._original_logger.log(self._pre_decorator.filter(message))
