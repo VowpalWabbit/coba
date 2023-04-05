@@ -330,8 +330,8 @@ class Table_Pandas_Tests(unittest.TestCase):
 
     def test_pandas(self):
 
-        import pandas as pd #type: ignore
-        import pandas.testing #type: ignore
+        import pandas as pd
+        import pandas.testing
 
         table = Table(['a','b','c','d','e']).insert(rows=[['A','B',1,'d',None],['B',None,None,None,'E']])
 
@@ -345,8 +345,8 @@ class Table_Pandas_Tests(unittest.TestCase):
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
     def test_pandas_with_array_column(self):
-        import pandas as pd   #type: ignore
-        import pandas.testing #type: ignore
+        import pandas as pd
+        import pandas.testing
 
         table = Table(['a','b','c','d','e']).insert(rows=[['A','B',[1,2],'d',None],['B',None,None,None,'E']])
 
@@ -360,8 +360,8 @@ class Table_Pandas_Tests(unittest.TestCase):
         pandas.testing.assert_frame_equal(expected_df,actual_df)
 
     def test_pandas_with_dict_column(self):
-        import pandas as pd   #type: ignore
-        import pandas.testing #type: ignore
+        import pandas as pd
+        import pandas.testing
 
         table = Table(['a','b','c','d','e']).insert(rows=[['A','B',{'z':10},'d',None],['B',None,None,None,'E']])
 

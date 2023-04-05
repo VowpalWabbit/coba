@@ -57,7 +57,7 @@ class LinUCBLearner(Learner):
 
     def predict(self, context: Context, actions: Actions) -> PMF:
 
-        import numpy as np #type: ignore
+        import numpy as np
 
         if isinstance(actions[0], dict) or isinstance(context, dict):
             raise CobaException("Sparse data cannot be handled by this implementation at this time.")

@@ -19,7 +19,7 @@ class NotPicklableFilter(Filter):
 
 class SleepingFilter(Filter):
     def filter(self, seconds: Iterable[float]) -> Any:
-        second = next(iter(seconds)) #type: ignore
+        second = next(iter(seconds))
         time.sleep(second)
         yield second
 

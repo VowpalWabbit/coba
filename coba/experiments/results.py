@@ -22,7 +22,7 @@ def exponential_moving_average(values:Sequence[float], span:int=None) -> Iterabl
     #exponential moving average identical to Pandas df.ewm(span=span).mean()
     alpha = 2/(1+span)
     cumwindow  = list(accumulate(values          , lambda a,v: v + (1-alpha)*a))
-    cumdivisor = list(accumulate([1.]*len(values), lambda a,v: v + (1-alpha)*a)) #type: ignore
+    cumdivisor = list(accumulate([1.]*len(values), lambda a,v: v + (1-alpha)*a))
     return map(truediv, cumwindow, cumdivisor)
 
 def moving_average(values:Sequence[float], span:int=None) -> Iterable[float]:
@@ -364,7 +364,7 @@ class Table:
         """Turn the Table into a Pandas data frame."""
 
         PackageChecker.pandas("Table.to_pandas")
-        import pandas as pd #type: ignore
+        import pandas as pd
         return pd.DataFrame(self.row_values(), columns=self.col_names)
 
     def to_dicts(self) -> Sequence[Mapping[str,Any]]:
@@ -601,7 +601,7 @@ class MatplotlibPlotter(Plotter):
         ylim = ylim or [None,None]
 
         PackageChecker.matplotlib('Result.plot_learners')
-        import matplotlib.pyplot as plt #type: ignore
+        import matplotlib.pyplot as plt
 
         color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -687,7 +687,7 @@ class MatplotlibPlotter(Plotter):
                 ax.get_legend().remove()
 
             if any_label:
-                ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium') #type: ignore
+                ax.legend(*ax.get_legend_handles_labels(), loc='upper left', bbox_to_anchor=(-.01, -.25), ncol=1, fontsize='medium')
 
             if not xticks:
                 plt.xticks([])
