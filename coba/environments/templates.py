@@ -105,6 +105,9 @@ class EnvironmentsTemplateV2(Source[Sequence[Environment]]):
         environments = []
         for recipe in recipes:
             environments.extend(self._make(recipe))
+        
+        environments = sorted(environments, key= lambda env: env.params.get("shuffle",0))
+
         return environments
     
     def _make(self, item:Union[str,list,dict] ) -> Sequence[Any]:

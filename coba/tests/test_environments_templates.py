@@ -263,6 +263,22 @@ class EnvironmentsTemplateV2_Tests(unittest.TestCase):
         self.assertDictEqual({**environments[2].params, 'openml_data':151, "take":10}, environments[2].params)
         self.assertDictEqual({**environments[3].params, 'openml_data':151, "take":20}, environments[3].params)
 
+    def test_two_environments_shuffle_order(self):
+        
+        json_txt = """{
+            "environments" : [
+                [ [{"OpenmlSimulation":150},{"OpenmlSimulation":151}], {"Shuffle":"$", "for":[0,1]} ]
+            ]
+        }"""
+
+        environments = EnvironmentsTemplateV2(IterableSource([json_txt])).read()
+
+        self.assertEqual(4, len(environments))
+        self.assertDictEqual({**environments[0].params, 'openml_data':150, "shuffle":0}, environments[0].params)
+        self.assertDictEqual({**environments[1].params, 'openml_data':151, "shuffle":0}, environments[1].params)
+        self.assertDictEqual({**environments[2].params, 'openml_data':150, "shuffle":1}, environments[2].params)
+        self.assertDictEqual({**environments[3].params, 'openml_data':151, "shuffle":1}, environments[3].params)
+
     def test_one_for_environment(self):
 
         json_txt = """{
