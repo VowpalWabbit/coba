@@ -17,6 +17,9 @@ from coba.experiments.process import (
 
 #for testing purposes
 class ModuloLearner(Learner):
+
+    n_finish = 0
+
     def __init__(self, param:str="0"):
         self._param = param
         self.n_learns = 0
@@ -30,6 +33,9 @@ class ModuloLearner(Learner):
 
     def learn(self, key, context, action, reward, probability):
         self.n_learns += 1
+
+    def finish(self):
+        ModuloLearner.n_finish += 1
 
 class ObserveTask:
     def __init__(self):
@@ -292,10 +298,11 @@ class MaxChunkSize_Tests(unittest.TestCase):
         expected = [[1,2],[3],[4,5],[6]] 
         self.assertEqual(expected, actual)
 
-class ProcessTasks_Tests(unittest.TestCase):
+class ProcessWorkItems_Tests(unittest.TestCase):
 
     def setUp(self) -> None:
         CobaContext.logger = BasicLogger(ListSink())
+        ModuloLearner.n_finish = 0
 
     def test_simple(self):
 
@@ -511,10 +518,11 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertEqual(['T3', (0,0), []], transactions[0])
         self.assertEqual(['T3', (1,1), []], transactions[1])
 
+        self.assertEqual(0,ModuloLearner.n_finish)
+
     def test_duplicate_learn_eval_tasks_copy_true(self):
 
         lrn1 = ModuloLearner("1")
-        lrn2 = ModuloLearner("2")
 
         sim1 = CountReadSimulation()
         sim2 = CountReadSimulation()
@@ -529,10 +537,11 @@ class ProcessTasks_Tests(unittest.TestCase):
         self.assertIsNot(task1.observed[0], lrn1)
         self.assertIsNot(task2.observed[0], lrn1)
 
+        self.assertEqual(2,ModuloLearner.n_finish)
+
     def test_duplicate_learn_eval_tasks_copy_false(self):
 
         lrn1 = ModuloLearner("1")
-        lrn2 = ModuloLearner("2")
 
         sim1 = CountReadSimulation()
         sim2 = CountReadSimulation()

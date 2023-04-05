@@ -195,6 +195,7 @@ class ProcessWorkItems(Filter[Iterable[WorkItem], Iterable[Any]]):
                                 lrn = item.lrn if not item.copy else deepcopy(item.lrn)
                                 row = list(item.task.process(lrn, finalizer.filter(interactions)))
                                 yield ["T3", (item.env_id, item.lrn_id), row]
+                                if hasattr(lrn,'finish') and item.copy: lrn.finish()
 
                     except Exception as e:
                         CobaContext.logger.log(e)
