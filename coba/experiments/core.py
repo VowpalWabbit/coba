@@ -6,7 +6,7 @@ from coba.pipes import Pipes
 from coba.learners import Learner
 from coba.environments import Environment
 from coba.multiprocessing import CobaMultiprocessor
-from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, NullLogger
+from coba.contexts import CobaContext, ExceptLog, StampLog, NameLog, DecoratedLogger, ExceptionLogger
 from coba.exceptions import CobaException
 
 from coba.experiments.process import CreateWorkItems,  RemoveFinished, ChunkByChunk, MaxChunkSize, ProcessWorkItems
@@ -136,12 +136,12 @@ class Experiment:
         CobaContext.store['experiment_seed'] = seed
         is_multiproc = mp > 1 or mc != 0
 
-        if quiet: 
-            old_logger = CobaContext.logger
-            CobaContext.logger = NullLogger()
+        old_logger = CobaContext.logger
 
-        #Add name so that we know which process-id the logs came from in addition to the time of the log
-        CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [NameLog(),StampLog()] if is_multiproc else [StampLog()])
+        if quiet:
+            CobaContext.logger = DecoratedLogger([], ExceptionLogger(CobaContext.logger.sink), [NameLog(),StampLog()] if is_multiproc else [StampLog()])
+        else:
+            CobaContext.logger = DecoratedLogger([ExceptLog()], CobaContext.logger, [NameLog(),StampLog()] if is_multiproc else [StampLog()])
 
         if result_file and Path(result_file).exists():
             CobaContext.logger.log("Restoring existing experiment logs...")
@@ -173,10 +173,7 @@ class Experiment:
         except Exception as ex: # pragma: no cover
             CobaContext.logger.log(ex)
 
-        if isinstance(CobaContext.logger, DecoratedLogger):
-            CobaContext.logger = CobaContext.logger.undecorate()
-
-        if quiet: CobaContext.logger = old_logger
+        CobaContext.logger = old_logger
         del CobaContext.store['experiment_seed']
 
         return sink.read()

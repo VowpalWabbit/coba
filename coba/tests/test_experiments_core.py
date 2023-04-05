@@ -128,7 +128,7 @@ class ExceptionEnvironment(Environment):
     def read(self):
         raise self._exc
 
-class CategoricalActionEnv:
+class CategoricalActionEnv(Environment):
     def read(self):
         actions = [Categorical("a",["a","b"]),Categorical("b",["a","b"])]
         yield SimulatedInteraction(1, actions, MulticlassReward(actions,0))
@@ -272,8 +272,8 @@ class Experiment_Single_Tests(unittest.TestCase):
 
     def test_learners(self):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        learner1   = ModuloLearner("0") #type: ignore
-        learner2   = ModuloLearner("1") #type: ignore
+        learner1   = ModuloLearner("0")
+        learner2   = ModuloLearner("1")
         experiment = Experiment([env], [learner1, learner2])
 
         expected_learners     = [
@@ -302,7 +302,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
     def test_learner_info(self):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        learner1   = LearnInfoLearner("0") #type: ignore
+        learner1   = LearnInfoLearner("0")
         experiment = Experiment([env],[learner1])
 
         actual_result       = experiment.evaluate()
@@ -328,7 +328,7 @@ class Experiment_Single_Tests(unittest.TestCase):
 
     def test_predict_info(self):
         env        = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        learner1   = PredictInfoLearner("0") #type: ignore
+        learner1   = PredictInfoLearner("0")
         experiment = Experiment([env],[learner1],evaluation_task=SimpleEvaluation())
 
         actual_result       = experiment.evaluate()
@@ -511,7 +511,7 @@ class Experiment_Single_Tests(unittest.TestCase):
     def test_quiet(self):
 
         env      = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
-        learner1 = PredictInfoLearner("0") #type: ignore
+        learner1 = PredictInfoLearner("0")
         logger   = BasicLogger(ListSink())
 
         CobaContext.logger = logger
@@ -519,6 +519,19 @@ class Experiment_Single_Tests(unittest.TestCase):
 
         self.assertIs(CobaContext.logger, logger)
         self.assertEqual([],logger.sink.items)
+
+    def test_quiet_exception(self):
+
+        env      = LambdaSimulation(2, lambda i: i, lambda i,c: [0,1,2], lambda i,c,a: cast(float,a))
+        learner1 = BrokenLearner()
+        logger   = BasicLogger(ListSink())
+
+        CobaContext.logger = logger
+        Experiment(env,learner1).run(quiet=True)
+
+        self.assertIs(CobaContext.logger, logger)
+        self.assertIn('Broken Learner',logger.sink.items[0])
+        self.assertTrue(len(logger.sink.items),1)
 
 class Experiment_Multi_Tests(Experiment_Single_Tests):
 
