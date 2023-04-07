@@ -72,17 +72,20 @@ class SimpleEvaluation(EvaluationTask):
     def __init__(self, 
         record: Sequence[Literal['reward','rank','regret','time','probability','action','actions', 'context', 'ope_loss', 'rewards']] = ['reward'],
         learn: bool = True,
-        predict: bool = True) -> None:
+        predict: bool = True,
+        seed: float = None) -> None:
         """
         Args:
             record: The datapoints to record for each interaction.
             learn: Indicates if learning should occur during the evaluation process.
             predict: Indicates if predictions should occur during the evaluation process.
+            seed: Provide an explicit seed to use during evaluation. If not provided a default is used.
         """
 
         self._record  = [record] if isinstance(record,str) else record
         self._learn   = learn
         self._predict = predict
+        self._seed    = seed
 
         if 'ope_loss' in self._record:
             # OPE loss metric is only available for VW models
@@ -92,7 +95,7 @@ class SimpleEvaluation(EvaluationTask):
 
     def process(self, learner: Learner, interactions: Iterable[Interaction]) -> Iterable[Mapping[Any,Any]]:
 
-        learner = SafeLearner(learner, CobaContext.store.get("experiment_seed"))
+        learner = SafeLearner(learner, self._seed if self._seed is not None else CobaContext.store.get("experiment_seed"))
 
         first, interactions = peek_first(interactions)
 

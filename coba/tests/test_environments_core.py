@@ -359,14 +359,14 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1, len(list(env.read())))
         self.assertEqual([0.11, 0.8, 0.44, 0.17, 0.42], list(env.read())[0]['context'])
         self.assertEqual(3, len(list(env.read())[0]['actions']))
-    
+
     @unittest.skipUnless(importlib.util.find_spec("pandas"), "pandas is not installed so we must skip pandas tests")
     def test_from_dataframe(self):
         import pandas as pd
-        
+
         df = pd.DataFrame({'context':[1,2],'actions':[[0,1]]*2,'rewards':[[2,3]]*2})
         expected = [{'context':1,'actions':[0,1],'rewards':[2,3]},{'context':2,'actions':[0,1],'rewards':[2,3]}]
-        
+
         env = Environments.from_dataframe(df)
 
         self.assertEqual(len(env),1)
@@ -715,10 +715,10 @@ class Environments_Tests(unittest.TestCase):
                 yield {'context':None, 'actions':[0,1,2], "rewards":L1Reward(1)}
 
         envs = Environments(TestEnvironment()).logged(FixedLearner([1,0,0]))
-        
+
         self.assertEqual(len(envs),1)
         self.assertEqual(next(envs[0].read()),{'context':None, 'action':0, "reward":-1, 'probability':1, 'actions':[0,1,2], "rewards":L1Reward(1)})
-    
+
     def test_logged_two(self):
         class TestEnvironment:
             def read(self):
@@ -752,6 +752,11 @@ class Environments_Tests(unittest.TestCase):
         self.assertEqual(1  , len(envs2))
         self.assertEqual({'id':'A'}, envs1[0].params)
         self.assertEqual({'id':'A','a':123}, envs2[0].params)
+
+    def test_rewards(self):
+        envs = Environments(TestEnvironment1('A')).rewards("IPS")
+        self.assertEqual(1  , len(envs))
+        self.assertEqual('IPS', envs[0].params['rewards_type'])
 
     def test_ipython_display(self):
         with unittest.mock.patch("builtins.print") as mock:

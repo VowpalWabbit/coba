@@ -10,7 +10,7 @@ from coba.contexts        import CobaContext, DiskCacher, DecoratedLogger, Excep
 from coba.pipes.sources   import DataFrameSource
 from coba.primitives      import Context, Action
 from coba.random          import CobaRandom
-from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode, Foreach
+from coba.pipes           import Pipes, Source, HttpSource, IterableSource, JsonDecode
 from coba.exceptions      import CobaException
 from coba.multiprocessing import CobaMultiprocessor
 from coba.learners        import Learner
@@ -27,7 +27,7 @@ from coba.environments.supervised import SupervisedSimulation
 from coba.environments.filters   import EnvironmentFilter, Repr, Batch, Chunk, Logged, Finalize, BatchSafe
 from coba.environments.filters   import Binary, Shuffle, Take, Sparse, Reservoir, Cycle, Scale, Unbatch, Slice
 from coba.environments.filters   import Impute, Where, Noise, Riffle, Sort, Flatten, Cache, Params, Grounded
-from coba.environments.filters   import MappingToInteraction
+from coba.environments.filters   import MappingToInteraction, Rewards
 
 from coba.environments.serialized import EnvironmentFromObjects, EnvironmentsToObjects, ZipMemberToObjects, ObjectsToZipMember
 
@@ -393,14 +393,18 @@ class Environments(collections.abc.Sequence, Sequence[Environment]):
         envs = Environments([Pipes.join(env, Chunk()) for env in self])
         return envs.cache() if cache else envs
 
-    def logged(self, learners: Union[Learner,Sequence[Learner]], rewards:Literal["DM","IPS"] = "DM", seed:float = 1.23) -> 'Environments':
+    def logged(self, learners: Union[Learner,Sequence[Learner]], seed:float = 1.23) -> 'Environments':
         """Create a logged environment using the given learner for the logging policy."""
         if not isinstance(learners, collections.abc.Sequence): learners = [learners]
-        return self.filter(BatchSafe(Finalize())).filter([Logged(learner, rewards, seed) for learner in learners ])
+        return self.filter(BatchSafe(Finalize())).filter([Logged(learner, seed) for learner in learners ])
 
     def unbatch(self):
         """Unbatch interactions in the environments."""
         return self.filter(Unbatch())
+    
+    def rewards(self, rewards_type:Literal['IPS','DM','DR'] = None):
+        """Estimate rewards for off-policy evaluation."""
+        return self.filter(Rewards(rewards_type))
 
     def save(self, path: str, processes:int=1, overwrite:bool=False) -> 'Environments':
 

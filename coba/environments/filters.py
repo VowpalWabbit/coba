@@ -17,8 +17,7 @@ from coba            import pipes, primitives
 from coba.random     import CobaRandom
 from coba.exceptions import CobaException
 from coba.statistics import iqr
-from coba.contexts   import CobaContext
-from coba.utilities  import peek_first
+from coba.utilities  import peek_first, PackageChecker
 from coba.primitives import ScaleReward, BinaryReward, SequenceReward, BatchReward, IPSReward
 from coba.primitives import Feedback, BatchFeedback
 from coba.learners   import Learner, SafeLearner
@@ -1038,14 +1037,13 @@ class Chunk(EnvironmentFilter):
 
 class Logged(EnvironmentFilter):
 
-    def __init__(self, learner: Learner, rewards:Literal["DM","IPS"] = "DM", seed:float = 1.23) -> None:
+    def __init__(self, learner: Learner, seed: float = 1.23) -> None:
         self._learner = learner
-        self._rewards = rewards
         self._seed    = seed
 
     @property
     def params(self) -> Mapping[str, Any]:
-        return {"learner": SafeLearner(self._learner).params, "logged":True, "rewards": self._rewards, "log_seed":self._seed}
+        return {"learner": SafeLearner(self._learner).params, "logged":True, "log_seed":self._seed}
 
     def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
 
@@ -1059,20 +1057,14 @@ class Logged(EnvironmentFilter):
         #Avoid circular dependency
         from coba.experiments.tasks import SimpleEvaluation
 
-        CobaContext.store['experiment_seed'] = self._seed
+        seed = self._seed if self._seed is not None else CobaRandom().random()
 
         I1,I2 = tee(interactions,2)
         flat_int = Unbatch().filter(I1)
-        eval_log = SimpleEvaluation(record=['action','reward','probability']).process(copy.deepcopy(self._learner),I2)
+        eval_log = SimpleEvaluation(record=['action','reward','probability'],seed=seed).process(copy.deepcopy(self._learner),I2)
         for interaction, log in zip(flat_int,eval_log):
             out = interaction.copy()
             out.update(log)
-
-            if self._rewards == "IPS":
-                actions = interaction.get('actions',[])
-                action  = actions.index(log['action']) if len(actions) > 0 else log['action']
-                out['rewards'] = IPSReward(log['reward'],action,log['probability'])
-
             yield out
 
 class Mutable(EnvironmentFilter):
@@ -1113,3 +1105,53 @@ class Mutable(EnvironmentFilter):
 class MappingToInteraction(Filter[Iterable[Mapping], Iterable[Interaction]]):
     def filter(self, items: Iterable[Mapping]) -> Iterable[Interaction]:
         yield from map(Interaction.from_dict,items)
+
+class Rewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
+    
+    def __init__(self, rwds_type:Literal['IPS','DM','DR']=None):
+        if rwds_type in ['DM','DR']:
+            PackageChecker.vowpalwabbit("Rewards.__init__")
+        self._rwds_type = rwds_type
+
+    @property
+    def params(self) -> Mapping[str, Any]:
+        return {'rewards_type': self._rwds_type} if self._rwds_type else {}
+
+    def filter(self, interactions: Iterable[Interaction]) -> Iterable[Interaction]:
+        if self._rwds_type is None:
+            yield from interactions
+
+        elif self._rwds_type == "IPS":
+            for log in interactions:
+                log_actions    = log.get('actions',[])
+                log_action     = log_actions.index(log['action']) if len(log_actions) > 0 else log['action']
+                log['rewards'] = IPSReward(log['reward'], log_action, log['probability'])
+                yield log
+        
+        elif self._rwds_type in ["DM","DR"]:
+            from coba.learners.vowpal import VowpalMediator
+
+            args = [
+                "--interactions xa",
+                "--interactions xxa",
+                "--quiet"
+            ]
+
+            vw = VowpalMediator()
+            vw.init_learner(" ".join(args), label_type=1)
+
+            for log in interactions:
+                log_context = log['context']
+                log_action  = log['action']
+                log_reward  = log['reward']
+                log_prob    = log['probability']
+
+                rewards = []
+                for a in log['actions']:
+                    estimate   = vw.predict(vw.make_example({"x":log_context,"a":a}, None))
+                    correction = (log_reward-estimate)/log_prob if a == log_action and self._rwds_type=="DR" else 0
+                    rewards.append(estimate+correction)
+
+                log['rewards'] = SequenceReward(rewards)
+                vw.learn(vw.make_example({"x":log_context,"a":log_action}, f"{log_reward} {log_prob}"))
+                yield log

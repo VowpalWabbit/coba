@@ -1,5 +1,6 @@
 import pickle
 import unittest
+import importlib.util
 
 from collections import Counter
 from math import isnan
@@ -8,14 +9,14 @@ from coba              import primitives
 from coba.pipes        import LazyDense, LazySparse, HeadDense
 from coba.contexts     import CobaContext, NullLogger
 from coba.exceptions   import CobaException
-from coba.primitives   import L1Reward, IPSReward, SequenceFeedback, Categorical
+from coba.primitives   import L1Reward, SequenceFeedback, Categorical
 from coba.learners     import FixedLearner
 from coba.utilities    import peek_first
 
 from coba.environments.primitives import LoggedInteraction, SimulatedInteraction, GroundedInteraction
 from coba.environments.filters    import Sparse, Sort, Scale, Cycle, Impute, Binary, Flatten, Params, Batch
 from coba.environments.filters    import Shuffle, Take, Reservoir, Where, Noise, Riffle, Grounded, Slice
-from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch, Mutable
+from coba.environments.filters    import Finalize, Repr, BatchSafe, Cache, Logged, Unbatch, Mutable, Rewards
 
 class TestEnvironment:
 
@@ -2117,14 +2118,6 @@ class Logged_Tests(unittest.TestCase):
 
         self.assertEqual(output, expected_output)
 
-    def test_ips(self):
-        initial_input = {'context':None, 'actions':[1,2,3], "rewards":L1Reward(1)}
-        expected_output = {'context':None, 'action':1, "reward":-1, 'probability':1, 'actions':[1,2,3], "rewards":IPSReward(-1,0,1)}
-
-        output = list(Logged(FixedLearner([1,0,0]),rewards="IPS").filter([initial_input]*2))
-
-        self.assertEqual(output, [expected_output]*2)
-
     def test_learning_info(self):
 
         class TestLearner:
@@ -2142,7 +2135,6 @@ class Logged_Tests(unittest.TestCase):
 
         self.assertEqual(output, [expected_output])
 
-
     def test_bad_type(self):
         initial_input = {'context':None, "rewards":L1Reward(1)}
 
@@ -2152,7 +2144,7 @@ class Logged_Tests(unittest.TestCase):
     def test_params(self):
         learner = FixedLearner([1,0,0])
         logged  = Logged(learner)
-        self.assertEqual(logged.params,{"learner":learner.params,"logged":True,"rewards":"DM","log_seed":1.23})
+        self.assertEqual(logged.params,{"learner":learner.params,"logged":True,"log_seed":1.23})
 
 class Mutable_Tests(unittest.TestCase):
 
@@ -2273,6 +2265,61 @@ class Slice_Tests(unittest.TestCase):
         self.assertEqual(Slice(None,None).params, {"slice_start":None, "slice_stop":None})
         self.assertEqual(Slice(1,2).params, {"slice_start":1, "slice_stop":2})
         self.assertEqual(Slice(1,2,2).params, {"slice_start":1, "slice_stop":2, "slice_step":2})
+
+class Rewards_Tests(unittest.TestCase):
+
+    def test_simple(self):
+        interactions = [{'a':1},{'b':2}]
+        self.assertEqual(interactions,list(Rewards().filter(interactions)))
+
+    def test_IPS(self):
+        interactions = [
+            {'action':1,'actions':[1,2],'reward':1  ,'probability':.5 },
+            {'action':2,'actions':[1,2],'reward':.25,'probability':.25},
+        ]
+
+        new_interactions = list(Rewards("IPS").filter(interactions))
+
+        self.assertEqual(new_interactions[0]['rewards'].eval(0),2)
+        self.assertEqual(new_interactions[0]['rewards'].eval(1),0)
+
+        self.assertEqual(new_interactions[1]['rewards'].eval(0),0)
+        self.assertEqual(new_interactions[1]['rewards'].eval(1),1)
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
+    def test_DM(self):
+        interactions = [
+            {'action':1,'context':'a','actions':['c','d'],'reward':1  ,'probability':.5 },
+            {'action':2,'context':'b','actions':['e','f'],'reward':.25,'probability':.25},
+        ]
+
+        new_interactions = list(Rewards("DM").filter(interactions))
+        
+        self.assertEqual(new_interactions[0]['rewards'].eval(0),0)
+        self.assertEqual(new_interactions[0]['rewards'].eval(1),0)
+
+        #this is the constant value...
+        self.assertEqual(new_interactions[1]['rewards'].eval(0),new_interactions[1]['rewards'].eval(1))
+
+    @unittest.skipUnless(importlib.util.find_spec("vowpalwabbit"), "VW is not installed.")
+    def test_DR(self):
+        interactions = [
+            {'action':'c','context':'a','actions':['c','d'],'reward':1  ,'probability':.5 },
+            {'action':'f','context':'b','actions':['e','f'],'reward':.25,'probability':.25},
+        ]
+
+        new_interactions = list(Rewards("DR").filter(interactions))
+        
+        r0 = new_interactions[1]['rewards'].eval(0)
+
+        self.assertEqual(new_interactions[0]['rewards'].eval(0),2)
+        self.assertEqual(new_interactions[0]['rewards'].eval(1),0)
+        #this works because VW uses the constant value for both values
+        self.assertEqual(new_interactions[1]['rewards'].eval(1),(.25-r0)/.25 + r0)
+
+    def test_params(self):
+        self.assertEqual(Rewards().params,{})
+        self.assertEqual(Rewards("DR").params,{"rewards_type":"DR"})
 
 if __name__ == '__main__':
     unittest.main()
