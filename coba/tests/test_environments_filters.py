@@ -2319,7 +2319,7 @@ class Rewards_Tests(unittest.TestCase):
 
     def test_params(self):
         self.assertEqual(Rewards().params,{})
-        self.assertEqual(Rewards("DR").params,{"rewards_type":"DR"})
+        self.assertEqual(Rewards("IPS").params,{"rewards_type":"IPS"})
 
 if __name__ == '__main__':
     unittest.main()
