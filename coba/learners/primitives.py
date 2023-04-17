@@ -10,24 +10,22 @@ from coba.primitives import Context, Action, Actions
 from coba.primitives import Batch, Dense, Sparse, HashableDense, HashableSparse
 
 kwargs = Mapping[str,Any]
-Score  = float
+Prob   = float
 PDF    = Callable[[Action],float]
 
 class PMF(list):
     pass
 
-class ActionScore(tuple):
-    def __new__(self, action: Action, score: Score):
-        return tuple.__new__(ActionScore, (action, score))
+class ActionProb(tuple):
+    def __new__(self, action: Action, score: Prob):
+        return tuple.__new__(ActionProb, (action, score))
 
 Prediction = Union[
-    PDF,
     PMF,
-    ActionScore,
-    Tuple[PDF         , kwargs],
-    Tuple[PMF         , kwargs],
-    Tuple[ActionScore , kwargs],
-    Tuple[Action,Score, kwargs],
+    ActionProb,
+    Tuple[PMF        , kwargs],
+    Tuple[ActionProb , kwargs],
+    Tuple[Action,Prob, kwargs],
 ]
 
 class Learner(ABC):
@@ -42,7 +40,25 @@ class Learner(ABC):
         """
         return {}
 
-    @abstractmethod
+    def request(self, context: Context, actions: Sequence[Action], request: Union[Action,Sequence[Action]]) -> Union[Prob,Sequence[Prob]]:
+        """Request the probabilities for specific actions in the given context
+
+        Args:
+            context: The current context. It will either be None (multi-armed bandit),
+                a value (a single feature) a hashable tuple (dense context), or a
+                hashable dictionary (sparse context).
+            actions: The current set of actions that can be chosen in the given context.
+                Each action will either be a value (a single feature), a hashable tuple
+                (dense context), or a hashable dictionary (sparse context).
+            request: The requested action or set of action probabilities.
+
+        Returns:
+            The requested action probabilities (or densities if actions is continuous).
+        """
+        raise CobaException((
+            "The `request` interface has not been implemented for this learner."
+        ))
+
     def predict(self, context: Context, actions: Sequence[Action]) -> Prediction:
         """Predict which action to take in the context.
 
@@ -57,7 +73,9 @@ class Learner(ABC):
         Returns:
             A Prediction. Several prediction formats are supported. See the type-hint for these.
         """
-        ...
+        raise CobaException((
+            "The `predict` interface has not been implemented for this learner."
+        ))
 
     @abstractmethod
     def learn(self,
@@ -125,7 +143,16 @@ class SafeLearner(Learner):
 
         return params
 
-    def predict(self, context: Context, actions: Actions) -> Tuple[Action,Score,kwargs]:
+    def request(self, context: Context, actions: Sequence[Action], request: Union[Action,Sequence[Action]]) -> Union[Prob,Sequence[Prob]]:
+        try:
+            return self._learner.request(context,actions,request)
+        except AttributeError as ex:
+            if "'request'" not in str(ex): raise
+            raise CobaException((
+                "The `request` interface has not been implemented for this learner."
+            ))
+
+    def predict(self, context: Context, actions: Actions) -> Tuple[Action,Prob,kwargs]:
 
         pred      = self._safe_predict(context,actions)
         pred_type = self._pred_type
@@ -288,11 +315,11 @@ class SafeLearner(Learner):
         pmf_sans_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) > 3 or len(pred) == 3 and not isinstance(pred[2],dict)
         pmf_with_info = is_discrete and isinstance(pred,abc.Sequence) and len(pred) == 2 and isinstance(pred[0],abc.Sequence)
         
-        return (explicit or pmf_sans_info or pmf_with_info) and not (isinstance(pred,ActionScore) or isinstance(pred[0],ActionScore))
+        return (explicit or pmf_sans_info or pmf_with_info) and not (isinstance(pred,ActionProb) or isinstance(pred[0],ActionProb))
 
     def _is_type_3(self, pred, is_discrete:bool):
         #Action Score
-        explicit = isinstance(pred,ActionScore) or isinstance(pred[0],ActionScore)
+        explicit = isinstance(pred,ActionProb) or isinstance(pred[0],ActionProb)
         with_info = is_discrete and len(pred) == 3 and not isinstance(pred[2],(float,int))
         return explicit or with_info or not is_discrete
 

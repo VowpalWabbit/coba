@@ -2,7 +2,7 @@ import unittest
 
 from coba.exceptions import CobaException
 from coba.primitives import Batch
-from coba.learners import SafeLearner, FixedLearner, ActionScore, PMF
+from coba.learners import Learner, SafeLearner, FixedLearner, ActionProb, PMF
 
 class ParamsLearner:
     def __init__(self, params):
@@ -84,6 +84,28 @@ class AmbiguousPredictionLearner:
 
     def learn(self, context, actions, action, reward, probability) -> None:
         pass
+
+class Learner_Tests(unittest.TestCase):
+
+    def test_request_not_implemented(self):
+        class MyLearner(Learner):
+            def learn(self, *args, **kwargs) -> None:
+                pass
+
+        with self.assertRaises(CobaException) as ex:
+            MyLearner().request(None,[],[])
+
+        self.assertIn("`request`", str(ex.exception))
+
+    def test_predict_not_implemented(self):
+        class MyLearner(Learner):
+            def learn(self, *args, **kwargs) -> None:
+                pass
+
+        with self.assertRaises(CobaException) as ex:
+            MyLearner().predict(None,[])
+
+        self.assertIn("`predict`", str(ex.exception))
 
 class SafeLearner_Tests(unittest.TestCase):
 
@@ -326,19 +348,46 @@ class SafeLearner_Tests(unittest.TestCase):
         self.assertEqual(learner._determine_pred_type(PMF([0,1]), True),2)
 
         #this is definitely an action-score pair because it is explicitly typed
-        self.assertEqual(learner._determine_pred_type(ActionScore(0,1), False),3)
+        self.assertEqual(learner._determine_pred_type(ActionProb(0,1), False),3)
 
         #this is definitely an action-score pair because it is explicitly typed
-        self.assertEqual(learner._determine_pred_type(ActionScore((1,0,0),1), True),3)
+        self.assertEqual(learner._determine_pred_type(ActionProb((1,0,0),1), True),3)
 
         #this can't be determined
         self.assertEqual(learner._determine_pred_type((0,1), True),None)
 
-class ActionScore_Tests(unittest.TestCase):
+    def test_request_not_implemented(self):
+        class MyLearner:
+            pass
+        
+        with self.assertRaises(CobaException) as ex:
+            SafeLearner(MyLearner()).request(None,[],[])
+
+        self.assertIn("`request`", str(ex.exception))
+
+    def test_request_exception(self):
+        class MyLearner:
+            def request(self,context,actions,request):
+                raise CobaException("TEST")
+
+        with self.assertRaises(CobaException) as ex:
+            SafeLearner(MyLearner()).request(None,[],[])
+
+        self.assertIn("TEST", str(ex.exception))
+
+    def test_request_return(self):
+        class MyLearner:
+            def request(self,context,actions,request):
+                if context is None and actions == [1,2] and request == 2:
+                    return 1
+
+        self.assertEqual(SafeLearner(MyLearner()).request(None,[1,2],2), 1)
+
+class ActionProb_Tests(unittest.TestCase):
 
     def test_simple(self):
-        self.assertEqual((1,.5), ActionScore(1,.5))
-        self.assertIsInstance(ActionScore(1,2), ActionScore)
+        self.assertEqual((1,.5), ActionProb(1,.5))
+        self.assertIsInstance(ActionProb(1,2), ActionProb)
 
 class Probs_Tests(unittest.TestCase):
 

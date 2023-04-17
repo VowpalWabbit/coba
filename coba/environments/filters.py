@@ -1153,5 +1153,7 @@ class Rewards(Filter[Iterable[Interaction], Iterable[Interaction]]):
                     rewards.append(estimate+correction)
 
                 log['rewards'] = SequenceReward(rewards)
+                
                 vw.learn(vw.make_example({"x":log_context,"a":log_action}, f"{log_reward} {log_prob}"))
+                
                 yield log
