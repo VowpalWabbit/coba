@@ -15,7 +15,7 @@ Namespaces    = Dict[str,Features]
 VW_Features   = Sequence[Union[str,int,Tuple[Union[str,int],Union[int,float]],Dict[str,Union[int,float]]]]
 VW_Namespaces = Dict[str,VW_Features]
 
-DEFAULT_NAMESPACE_INTERACTIONS = (1, 'a', 'ax', 'axx')
+DEFAULT_NAMESPACE_INTERACTIONS = (1, 'x', 'a', 'ax', 'axx')
 
 class VowpalMediator:
     """A class to handle all communication between Coba and VW."""
