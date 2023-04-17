@@ -40,7 +40,7 @@ class Learner(ABC):
         """
         return {}
 
-    def request(self, context: Context, actions: Sequence[Action], request: Union[Action,Sequence[Action]]) -> Union[Prob,Sequence[Prob]]:
+    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
         """Request the probabilities for specific actions in the given context
 
         Args:
@@ -143,7 +143,7 @@ class SafeLearner(Learner):
 
         return params
 
-    def request(self, context: Context, actions: Sequence[Action], request: Union[Action,Sequence[Action]]) -> Union[Prob,Sequence[Prob]]:
+    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
         try:
             return self._learner.request(context,actions,request)
         except AttributeError as ex:

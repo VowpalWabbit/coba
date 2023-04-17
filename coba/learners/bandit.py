@@ -1,11 +1,11 @@
 import math
 
 from collections import defaultdict
-from typing import Any, Dict, Optional, cast, Hashable
+from typing import Any, Mapping, Sequence, Optional, Hashable
 
 from coba.primitives import Context, Action, Actions
 from coba.statistics import OnlineVariance
-from coba.learners.primitives import Learner, PMF, PMF, requires_hashables
+from coba.learners.primitives import Learner, PMF, PMF, Prob, requires_hashables
 
 @requires_hashables
 class EpsilonBanditLearner(Learner):
@@ -20,12 +20,22 @@ class EpsilonBanditLearner(Learner):
 
         self._epsilon = epsilon
 
-        self._N: Dict[Hashable, int            ] = defaultdict(int)
-        self._Q: Dict[Hashable, Optional[float]] = defaultdict(int)
+        self._N: Mapping[Hashable, int            ] = defaultdict(int)
+        self._Q: Mapping[Hashable, Optional[float]] = defaultdict(int)
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return {"family": "epsilon_bandit", "epsilon": self._epsilon }
+
+    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+        values    = [ self._Q[action] for action in actions ]
+        max_value = None if set(values) == {None} else max(v for v in values if v is not None)
+        max_count = sum(v==max_value for v in values)
+
+        prob_selected_randomly = 1/len(actions) * self._epsilon
+        prob_selected_greedily = 1/max_count * (1-self._epsilon)
+
+        return [ prob_selected_randomly + int(self._Q[action]==max_value)*prob_selected_greedily for action in request ]
 
     def predict(self, context: Context, actions: Actions) -> PMF:
         values      = [ self._Q[action] for action in actions ]
@@ -40,7 +50,7 @@ class EpsilonBanditLearner(Learner):
     def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
 
         alpha = 1/(self._N[action]+1)
-        old_Q = cast(float, 0 if self._Q[action] is None else self._Q[action])
+        old_Q = self._Q[action] or 0.0
 
         self._Q[action] = (1-alpha) * old_Q + alpha * reward
         self._N[action] = self._N[action] + 1
@@ -61,19 +71,30 @@ class UcbBanditLearner(Learner):
         """Instantiate a UcbBanditLearner."""
         #these variable names were selected for easier comparison with the original paper
         self._t     : int = 0
-        self._m     : Dict[Action, float         ] = {}
-        self._s     : Dict[Action, int           ] = {}
-        self._v     : Dict[Action, OnlineVariance] = {}
+        self._m     : Mapping[Action, float         ] = {}
+        self._s     : Mapping[Action, int           ] = {}
+        self._v     : Mapping[Action, OnlineVariance] = {}
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
 
         return { "family": "UCB_bandit" }
 
+    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+        never_observed_actions = set(actions) - self._m.keys()
+
+        if never_observed_actions:
+            max_actions = never_observed_actions
+        else:
+            values      = [ self._m[a] + self._Avg_R_UCB(a) for a in actions ]
+            max_value   = max(values)
+            max_actions = [ a for a,v in zip(actions,values) if v==max_value ]
+
+        return [int(action in max_actions)/len(max_actions) for action in request]
+
     def predict(self, context: Context, actions: Actions) -> PMF:
 
-        self._t += 1
-        never_observed_actions = [ a for a in actions if a not in self._m ]
+        never_observed_actions = set(actions) - self._m.keys()
 
         if never_observed_actions:
             max_actions = never_observed_actions
@@ -85,6 +106,8 @@ class UcbBanditLearner(Learner):
         return PMF([int(action in max_actions)/len(max_actions) for action in actions])
 
     def learn(self, context: Context, actions: Actions, action: Action, reward: float, prob: float) -> None:
+        
+        self._t += 1
 
         assert 0 <= reward and reward <= 1, "This algorithm assumes that reward has support in [0,1]."
 
@@ -145,8 +168,12 @@ class FixedLearner(Learner):
         self._pmf = pmf
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return {"family":"fixed"}
+    
+    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+        request = set(request)
+        return [ p for a,p in zip(actions,self._pmf) if a in request ]
 
     def predict(self, context: Context, actions: Actions) -> PMF:
         return PMF(self._pmf)
@@ -162,8 +189,11 @@ class RandomLearner(Learner):
         pass
 
     @property
-    def params(self) -> Dict[str, Any]:
+    def params(self) -> Mapping[str, Any]:
         return {"family":"random"}
+    
+    def request(self, context: Context, actions: Actions, request: Actions) -> Sequence[Prob]:
+        return [1/len(actions)]*len(request)
 
     def predict(self, context: Context, actions: Actions) -> PMF:
         return PMF([1/len(actions)]*len(actions))

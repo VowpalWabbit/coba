@@ -2,7 +2,7 @@ import unittest
 
 from coba.exceptions import CobaException
 from coba.primitives import Batch
-from coba.learners import Learner, SafeLearner, FixedLearner, ActionProb, PMF
+from coba.learners import Learner, SafeLearner, ActionProb, PMF
 
 class ParamsLearner:
     def __init__(self, params):
